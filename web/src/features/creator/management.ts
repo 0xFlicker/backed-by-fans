@@ -2,6 +2,7 @@ import { isAddress, type Address } from "viem";
 
 import type { TierManagementSnapshot } from "@/contracts/types";
 import { uint64Max } from "@/features/creator/config";
+import { isSameAddress } from "@/lib/address";
 
 const uint256Max = (1n << 256n) - 1n;
 
@@ -53,9 +54,10 @@ export function managementPermissions(
   snapshot: TierManagementSnapshot,
   wallet?: Address,
 ) {
-  const normalized = wallet?.toLowerCase();
-  const isOwner = normalized === snapshot.creator.toLowerCase();
-  const isPendingOwner = normalized === snapshot.pendingOwner.toLowerCase();
+  const isOwner = wallet ? isSameAddress(wallet, snapshot.creator) : false;
+  const isPendingOwner = wallet
+    ? isSameAddress(wallet, snapshot.pendingOwner)
+    : false;
   return {
     isOwner,
     isPendingOwner,

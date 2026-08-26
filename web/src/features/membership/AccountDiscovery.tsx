@@ -141,7 +141,6 @@ function HydratedDiscovery({
   }, [cacheKey, currentCache, discovery.data]);
 
   function keepCurrentPage() {
-    saveAccountCache(window.localStorage, cacheKey, currentCache);
     setSavedCache(currentCache);
   }
 
