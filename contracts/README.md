@@ -1,66 +1,39 @@
-## Foundry
+# Backed By Fans contracts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Immutable creator-membership contracts for Robinhood Chain. This directory is
+the complete Foundry project; run contract commands here rather than at the
+monorepo root.
 
-Foundry consists of:
+Read the repository [clean-room policy](../CLEAN_ROOM.md) before changing
+protocol source or tests.
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## Pinned toolchain
 
-## Documentation
+- Foundry `v1.7.1`
+- Solidity `0.8.36`
+- EVM target `cancun`
+- OpenZeppelin Contracts `v5.7.0`
+- forge-std `v1.16.2`
 
-https://book.getfoundry.sh/
+Install and select the exact Foundry release with `foundryup --install v1.7.1`
+and `foundryup --use v1.7.1`. Git submodule links pin dependencies to the exact
+commits listed in [DEPENDENCIES.md](DEPENDENCIES.md).
 
-## Usage
+## Setup
 
-### Build
-
-```shell
-$ forge build
+```sh
+git submodule update --init --recursive
+forge --version
 ```
 
-### Test
+The reported Forge version must be `1.7.1`. No deployer key belongs in a dotenv
+file; use Foundry's encrypted keystore as described in `.env.example`.
 
-```shell
-$ forge test
-```
+## Checks
 
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+```sh
+./scripts/check-clean-room.sh
+forge fmt --check
+forge build --sizes
+forge test -vvv
 ```

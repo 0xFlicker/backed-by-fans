@@ -1,1 +1,8 @@
 .DS_Store
+.idea/
+.vscode/
+
+# Local environment files are never committed.
+.env
+.env.*
+!.env.example

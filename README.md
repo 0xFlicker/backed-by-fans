@@ -1,26 +1,36 @@
-# BackedByFans
+# Backed By Fans
 
-Initial monorepo scaffold for the BackedByFans creator-membership protocol.
+Backed By Fans is a creator-owned membership protocol for Robinhood Chain. The
+protocol uses USDG for membership payments and keeps correctness-critical reads
+and transactions directly onchain.
+
+The product name and visual direction are provisional until the documented
+launch-readiness gates, including professional name clearance, are complete.
 
 ## Projects
 
-- `web/` — Next.js App Router starter, managed with Bun.
-- `contracts/` — Foundry starter with the default Counter example and tests.
+- `web/` — Next.js App Router application managed with Bun.
+- `contracts/` — immutable protocol contracts, tests, and deployment tooling.
 
-No protocol features, deployment configuration, or secrets have been added yet.
+See [CLEAN_ROOM.md](CLEAN_ROOM.md) before contributing contract code.
 
 ## Local checks
 
 ```sh
 cd web
-bun run dev
+bun install --frozen-lockfile
+bun run build
 ```
 
 ```sh
 cd contracts
+forge fmt --check
+forge build
 forge test
 ```
 
 ## License
 
-BackedByFans is available under the [MIT License](LICENSE).
+Original Backed By Fans source is available under the [MIT License](LICENSE).
+Third-party dependencies retain their own licenses as documented in
+[`contracts/DEPENDENCIES.md`](contracts/DEPENDENCIES.md).
