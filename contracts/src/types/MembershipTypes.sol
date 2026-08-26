@@ -3,6 +3,12 @@ pragma solidity =0.8.36;
 
 /// @notice Shared constructor and rendering value types for the membership protocol.
 library MembershipTypes {
+    enum ReferralStatus {
+        Unset,
+        LockedNone,
+        LockedAddress
+    }
+
     /// @notice Bounded creator-controlled presentation fields.
     struct TierMetadata {
         string description;
@@ -30,6 +36,12 @@ library MembershipTypes {
         uint64 paidSeconds;
         uint64 grantSeconds;
         bool occupied;
+    }
+
+    /// @notice Permanent referral selection attached to one membership credential.
+    struct ReferralState {
+        ReferralStatus status;
+        address referrer;
     }
 
     /// @notice One-way presentation data passed from a tier to the stateless renderer.

@@ -138,7 +138,7 @@ contract MetadataAndStandardsTest is Test {
         assertEq(_countLogs(syncLogs, keccak256("MetadataUpdate(uint256)")), 1);
     }
 
-    function test_standardAdaptersExposeStructuralSurfaceWithoutInventingU4Economics() public {
+    function test_standardAdaptersExposeRenewalEconomicsAndDeferredCancellation() public {
         uint256 tokenId = tier.grantTime(member, 1);
         uint64 expiration = tier.expiresAt(tokenId);
 
@@ -149,9 +149,11 @@ contract MetadataAndStandardsTest is Test {
         assertTrue(tier.locked(tokenId));
         assertTrue(tier.isRenewable(tokenId));
 
-        vm.expectRevert(MembershipTier.LifecycleUnavailable.selector);
+        vm.prank(member);
+        vm.expectRevert(MembershipTier.ReferralChoiceRequired.selector);
         tier.renewSubscription(tokenId, _PERIOD);
 
+        vm.prank(member);
         vm.expectRevert(MembershipTier.LifecycleUnavailable.selector);
         tier.cancelSubscription(tokenId);
 

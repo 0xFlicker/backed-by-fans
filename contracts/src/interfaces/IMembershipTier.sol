@@ -21,6 +21,32 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     event SupplyCapUpdated(uint64 previousCap, uint64 newCap);
     event MaxPrepaidPeriodsUpdated(uint64 previousMaximum, uint64 newMaximum);
     event TierMetadataUpdated(string description, string imageURI, string externalURI);
+    event PaymentProcessed(
+        address indexed payer,
+        address indexed recipient,
+        uint256 indexed tokenId,
+        uint256 gross,
+        uint64 periods
+    );
+    event PaymentAllocated(
+        uint256 indexed tokenId,
+        uint256 protocolFee,
+        uint256 reward,
+        uint256 referral,
+        uint256 creator
+    );
+    event ReferralLocked(
+        uint256 indexed tokenId, MembershipTypes.ReferralStatus status, address indexed referrer
+    );
+    event SharesIssued(
+        uint256 indexed tokenId, uint256 amount, uint256 tokenShares, uint256 aggregateShares
+    );
+    event RewardPerShareUpdated(
+        uint256 indexed tokenId, uint256 reward, uint256 rewardPerShare, uint256 directRemainder
+    );
+    event CreatorProceedsWithdrawn(address indexed owner, uint256 amount);
+    event RewardClaimed(uint256 indexed tokenId, address indexed owner, uint256 amount);
+    event ReferralClaimed(address indexed referrer, uint256 amount);
 
     function factory() external view returns (address);
 
@@ -68,6 +94,41 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
         returns (uint64 paidSeconds, uint64 grantSeconds, uint64 effectiveCheckpoint);
 
     function isOccupied(uint256 tokenId) external view returns (bool);
+
+    function purchase(uint64 periods, address referralChoice) external returns (uint256 tokenId);
+
+    function gift(address recipient, uint64 periods) external returns (uint256 tokenId);
+
+    function contribute(uint256 gross, address referralChoice) external returns (uint256 tokenId);
+
+    function referralOf(uint256 tokenId)
+        external
+        view
+        returns (MembershipTypes.ReferralStatus status, address referrer);
+
+    function sharesOf(uint256 tokenId) external view returns (uint256);
+
+    function totalShares() external view returns (uint256);
+
+    function rewardPerShare() external view returns (uint256);
+
+    function creatorProceeds() external view returns (uint256);
+
+    function rewardReserve() external view returns (uint256);
+
+    function claimableReferral(address referrer) external view returns (uint256);
+
+    function totalReferralLiability() external view returns (uint256);
+
+    function totalProtectedLiability() external view returns (uint256);
+
+    function claimableReward(uint256 tokenId) external view returns (uint256);
+
+    function withdrawCreatorProceeds() external returns (uint256 amount);
+
+    function claimReward(uint256 tokenId) external returns (uint256 amount);
+
+    function claimReferral() external returns (uint256 amount);
 
     function grantTime(address recipient, uint64 periods) external returns (uint256 tokenId);
 
