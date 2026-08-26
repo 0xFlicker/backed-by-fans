@@ -18,7 +18,26 @@ must not be interpreted as clearance.
 
 See [CLEAN_ROOM.md](CLEAN_ROOM.md) before contributing contract code.
 
+Protocol integrators should start with the [integration guide](docs/protocol/integration.md)
+and [accounting reference](docs/protocol/accounting.md). Deployment does not
+become authorized because local checks pass: the current
+[mainnet go/no-go](docs/runbooks/mainnet-readiness.md) is explicitly blocked.
+
 ## Local checks
+
+The repository-level verification command runs the documentation/manifest,
+clean-room, complete contract, static-analysis, web, and browser gates with no
+network secrets:
+
+```sh
+./scripts/verify-local.sh
+```
+
+It requires the pinned local Foundry, Slither 0.11.6, Bun, and Playwright browser
+dependencies. Its output is local development evidence, not a public pilot,
+audit, independent review, deployment, or brand clearance.
+
+Individual project checks are also available:
 
 ```sh
 cd web
@@ -37,6 +56,14 @@ forge fmt --check
 forge build
 forge test
 ```
+
+Operator procedures are indexed by the
+[deployment](docs/runbooks/deployment.md),
+[independent verification](docs/runbooks/verification.md),
+[monitoring](docs/runbooks/monitoring.md),
+[incident response](docs/runbooks/incident-response.md),
+[ownership](docs/runbooks/ownership.md), and
+[Safe](docs/runbooks/safe.md) runbooks.
 
 ## License
 

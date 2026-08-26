@@ -4,6 +4,14 @@ This runbook prepares a reproducible Backed By Fans protocol deployment and an
 independent, captured-block verification. It does not authorize a mainnet
 deployment.
 
+Before any public execution, review the separate
+[mainnet go/no-go](mainnet-readiness.md), [Safe configuration](safe.md),
+[ownership](ownership.md), [independent verification](verification.md),
+[monitoring](monitoring.md), and [incident response](incident-response.md)
+procedures. A deployment manifest records observed chain state; the signed
+readiness record binds it to freeze, review, reproduction, operations, and human
+authorization evidence.
+
 ## Current testnet blocker
 
 Robinhood's official documentation currently publishes chain IDs `4663` and
@@ -137,6 +145,11 @@ network/address verification URLs.
 
 Review and sign the resulting diff. The manifest is evidence, not canonical
 state; deployed contracts remain the source of truth.
+
+Do not edit an accepted manifest after signing. A different candidate receives
+a new immutable manifest and readiness record with an explicit supersession
+link; chain state is never rolled back. See the signing and no-rollback rules in
+[verification.md](verification.md).
 
 ## 6. Verify independently through a second RPC
 

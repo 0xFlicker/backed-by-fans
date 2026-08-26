@@ -1,0 +1,174 @@
+{
+  "$schema": "./readiness-schema-v1.json",
+  "schemaVersion": 1,
+  "candidateId": "TEST-FIXTURE-NOT-EVIDENCE",
+  "status": "ready",
+  "network": "robinhood-testnet",
+  "chainId": 46630,
+  "deploymentManifest": "./fixture-deployment.json",
+  "deploymentManifestSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "sourceCommit": "0000000000000000000000000000000000000000",
+  "sourceTreeSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "dependencyLockSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "standardJsonInputSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "standardJsonOutputSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "contractArtifactsSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "webArtifactSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "observedDeployment": {
+    "capturedBlockNumber": 1,
+    "capturedBlockHash": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "transactionHashes": [
+      "0x0000000000000000000000000000000000000000000000000000000000000002",
+      "0x0000000000000000000000000000000000000000000000000000000000000003"
+    ],
+    "constructorInputs": {
+      "renderer": { "arguments": [] },
+      "factory": {
+        "paymentToken": "0x0000000000000000000000000000000000000001",
+        "renderer": "0x0000000000000000000000000000000000000002",
+        "initialOwner": "0x000000000000000000000000000000000000000d",
+        "initialFeeRecipient": "0x000000000000000000000000000000000000000a"
+      },
+      "deployer": {
+        "factory": "0x0000000000000000000000000000000000000003",
+        "renderer": "0x0000000000000000000000000000000000000002"
+      },
+      "launchTier": {
+        "factory": "0x0000000000000000000000000000000000000003",
+        "paymentToken": "0x0000000000000000000000000000000000000001",
+        "renderer": "0x0000000000000000000000000000000000000002",
+        "creator": "0x0000000000000000000000000000000000000008",
+        "name": "Fixture Tier",
+        "symbol": "FIX",
+        "pricePerPeriod": 10000000,
+        "periodDuration": 2592000,
+        "rewardBps": 500,
+        "referralBps": 100,
+        "supplyCap": 100,
+        "maxPrepaidPeriods": 12,
+        "description": "Fixture only",
+        "imageURI": "https://example.invalid/image",
+        "externalURI": "https://example.invalid/tier"
+      }
+    },
+    "constructorInputsSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "creationCodeHashes": {
+      "renderer": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "factory": "0x0000000000000000000000000000000000000000000000000000000000000002",
+      "tier": "0x0000000000000000000000000000000000000000000000000000000000000003"
+    },
+    "runtimeCodeHashes": {
+      "paymentToken": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "renderer": "0x0000000000000000000000000000000000000000000000000000000000000002",
+      "factory": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "deployer": "0x0000000000000000000000000000000000000000000000000000000000000004",
+      "creationCodeStoreA": "0x0000000000000000000000000000000000000000000000000000000000000005",
+      "creationCodeStoreB": "0x0000000000000000000000000000000000000000000000000000000000000006",
+      "launchTier": "0x0000000000000000000000000000000000000000000000000000000000000007"
+    },
+    "factoryRegistration": {
+      "factory": "0x0000000000000000000000000000000000000003",
+      "tier": "0x0000000000000000000000000000000000000007",
+      "tierIndex": 0,
+      "registered": true,
+      "observedAtBlock": 1
+    },
+    "usdG": {
+      "proxy": "0x0000000000000000000000000000000000000001",
+      "implementation": "0x000000000000000000000000000000000000000b",
+      "authority": "0x000000000000000000000000000000000000000c",
+      "decimals": 6,
+      "paused": false,
+      "proxyCodeHash": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "implementationCodeHash": "0x000000000000000000000000000000000000000000000000000000000000000b",
+      "observedAtBlock": 1,
+      "observedBlockHash": "0x0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    "protocolControl": {
+      "owner": "0x000000000000000000000000000000000000000d",
+      "pendingOwner": "0x0000000000000000000000000000000000000000",
+      "feeRecipient": "0x000000000000000000000000000000000000000a"
+    },
+    "multisig": {
+      "address": "0x000000000000000000000000000000000000000d",
+      "runtimeCodeHash": "0x000000000000000000000000000000000000000000000000000000000000000d",
+      "owners": [
+        "0x000000000000000000000000000000000000000e",
+        "0x000000000000000000000000000000000000000f"
+      ],
+      "threshold": 2,
+      "modules": [],
+      "guard": "0x0000000000000000000000000000000000000000",
+      "fallbackHandler": "0x0000000000000000000000000000000000000000"
+    },
+    "accountingReview": {
+      "reportSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "scope": "Synthetic fixture scope",
+      "artifactSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "finalDisposition": "Synthetic fixture disposition"
+    },
+    "securityAudit": {
+      "reportSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "scope": "Synthetic fixture scope",
+      "artifactSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "finalDisposition": "Synthetic fixture disposition"
+    },
+    "sourceVerificationUrls": [
+      "https://example.invalid/address/1",
+      "https://example.invalid/address/2",
+      "https://example.invalid/address/3",
+      "https://example.invalid/address/4",
+      "https://example.invalid/address/5",
+      "https://example.invalid/address/6",
+      "https://example.invalid/address/7"
+    ],
+    "postDeploySmokeEvidence": ["fixture:post-deploy-smoke"]
+  },
+  "operations": {
+    "incidentContacts": ["fixture-primary", "fixture-secondary"],
+    "confirmationPolicy": "Synthetic two-provider confirmation policy",
+    "productionRpcProviders": ["fixture-rpc-a", "fixture-rpc-b"],
+    "vercelProject": "fixture-project",
+    "productionHost": "example.invalid",
+    "launchCreator": "fixture-creator",
+    "publicSupersessionWording": "Synthetic supersession wording"
+  },
+  "foundryVersion": "1.7.1",
+  "solcVersion": "0.8.36",
+  "evmVersion": "cancun",
+  "optimizerEnabled": true,
+  "optimizerRuns": 200,
+  "bytecodeHash": "ipfs",
+  "frozenAtUtc": "2026-08-26T00:00:00Z",
+  "gates": {
+    "canonicalToken": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "publicPilot": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "brandClearance": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "artifactFreeze": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "accountingReview": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "securityAudit": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "reproducibleBuild": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "safeReadiness": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "deploymentVerification": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "monitoringReadiness": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
+    "humanAuthorization": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" }
+  },
+  "signatures": [
+    {
+      "role": "fixture-operator",
+      "signer": "fixture-signer-a",
+      "scheme": "fixture",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "signature": "fixture-signature-a",
+      "signedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    {
+      "role": "fixture-reviewer",
+      "signer": "fixture-signer-b",
+      "scheme": "fixture",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "signature": "fixture-signature-b",
+      "signedAtUtc": "2026-08-26T00:00:00Z"
+    }
+  ]
+}

@@ -36,6 +36,12 @@ current testnet USDG blocker are documented in the
 No testnet deployment is recorded until an approved official source publishes
 the canonical token address; mainnet remains outside the U7 runbook.
 
+The [local lifecycle evidence](../docs/release/local-evidence.md) exercises the
+complete creator/supporter and custody path deterministically. It is deliberately
+not described as a public pilot or independent review. Release operators must use
+the blocked [mainnet readiness checklist](../docs/runbooks/mainnet-readiness.md)
+and independent [verification runbook](../docs/runbooks/verification.md).
+
 ## Checks
 
 ```sh
@@ -44,6 +50,7 @@ forge fmt --check
 forge build --sizes
 forge test -vvv
 forge test --match-path "test/deployment/*.t.sol" -vvv
+forge test --match-path "test/e2e/LocalLifecycleEvidence.t.sol" -vvv
 slither . --config-file slither.config.json --fail-high
 ```
 
