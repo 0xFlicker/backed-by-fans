@@ -43,6 +43,28 @@ if [[ "${manifest_status}" != "deployed" ]]; then
   exit 2
 fi
 
+max_safe_block_number="9223372036854775807"
+validate_block_number() {
+  local value="$1"
+  local label="$2"
+  local value_length="${#value}"
+  local max_length="${#max_safe_block_number}"
+
+  if [[ ! "${value}" =~ ^[1-9][0-9]*$ ]] \
+    || (( value_length > max_length )) \
+    || { (( value_length == max_length )) \
+      && [[ "${value}" > "${max_safe_block_number}" ]]; }; then
+    echo "deployment check: ${label} must be a positive decimal no greater than ${max_safe_block_number}" >&2
+    exit 2
+  fi
+}
+
+validate_block_number "${captured_block}" "captured block number"
+validate_block_number "${renderer_creation_block}" "renderer creation block number"
+validate_block_number "${factory_creation_block}" "factory creation block number"
+validate_block_number \
+  "${validation_tier_creation_block}" "validation tier creation block number"
+
 manifest_hash="$(tr '[:upper:]' '[:lower:]' <<<"${manifest_hash}")"
 factory_deployment_tx="$(tr '[:upper:]' '[:lower:]' <<<"${factory_deployment_tx}")"
 validation_tier_creation_tx="$(tr '[:upper:]' '[:lower:]' <<<"${validation_tier_creation_tx}")"

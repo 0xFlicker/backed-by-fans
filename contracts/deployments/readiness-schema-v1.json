@@ -113,6 +113,12 @@
           "frozenAtUtc"
         ],
         "properties": {
+          "network": {
+            "const": "robinhood-mainnet"
+          },
+          "chainId": {
+            "const": 4663
+          },
           "gates": {
             "properties": {
               "canonicalToken": { "$ref": "#/$defs/readyGate" },

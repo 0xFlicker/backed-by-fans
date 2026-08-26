@@ -75,7 +75,7 @@ invalid_ready_filters=(
   'del(.operations.confirmationPolicy)'
   'del(.operations.publicSupersessionWording)'
   '.signatures[1].role = .signatures[0].role'
-  '.chainId = 4663'
+  '.chainId = 46630'
 )
 for invalid_filter in "${invalid_ready_filters[@]}"; do
   if "$repo_root/scripts/check-readiness-record.sh" \
@@ -84,6 +84,16 @@ for invalid_filter in "${invalid_ready_filters[@]}"; do
     exit 1
   fi
 done
+
+if "$repo_root/scripts/check-readiness-record.sh" \
+  <(jq '
+    .network = "robinhood-testnet" |
+    .chainId = 46630 |
+    .observedDeployment.webPublicConfig.chainId = 46630
+  ' "$valid_ready") >/dev/null 2>&1; then
+  echo "a ready testnet record was incorrectly accepted without canonical testnet USDG" >&2
+  exit 1
+fi
 
 if rg -n -i \
   'brand (status|clearance): (cleared|pass)|audit status: (complete|pass)|mainnet status: (deployed|live|pass)|public testnet pilot status: (complete|pass)' \

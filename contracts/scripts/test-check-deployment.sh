@@ -128,4 +128,20 @@ if PATH="${test_dir}/bin:${PATH}" \
   exit 1
 fi
 
-echo "Deployment transaction provenance wrapper tests passed."
+injection_marker="${test_dir}/renderer-block-injection-ran"
+write_manifest "${factory_input_hash}"
+jq --arg malicious_block "x[\$(touch ${injection_marker})0]" \
+  '.rendererCreationBlockNumber = $malicious_block' \
+  "${test_dir}/manifest.json" >"${test_dir}/malicious-manifest.json"
+if PATH="${test_dir}/bin:${PATH}" \
+  "${script_dir}/check-deployment.sh" "${test_dir}/malicious-manifest.json" "fixture-rpc" \
+  >/dev/null 2>&1; then
+  echo "deployment wrapper accepted a non-decimal renderer creation block" >&2
+  exit 1
+fi
+if [[ -e "${injection_marker}" ]]; then
+  echo "deployment wrapper executed a renderer creation block payload" >&2
+  exit 1
+fi
+
+echo "Deployment wrapper policy tests passed."

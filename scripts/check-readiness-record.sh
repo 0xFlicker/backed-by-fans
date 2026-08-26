@@ -39,6 +39,10 @@ case "$status" in
     jq -e '.supersededBy | type == "string" and length > 0' "$record" >/dev/null
     ;;
   ready)
+    if [[ "$(jq -r '.network' "$record")" == "robinhood-testnet" ]]; then
+      echo "ready testnet records are disabled until canonical testnet USDG is pinned" >&2
+      exit 1
+    fi
     jq -e '
       def exactkeys($expected): (keys | sort) == ($expected | sort);
       def digest: type == "string" and test("^sha256:[0-9a-f]{64}$");

@@ -3,9 +3,9 @@
   "schemaVersion": 1,
   "candidateId": "TEST-FIXTURE-NOT-EVIDENCE",
   "status": "ready",
-  "network": "robinhood-testnet",
-  "chainId": 46630,
-  "deploymentManifest": "./fixture-deployment.json",
+  "network": "robinhood-mainnet",
+  "chainId": 4663,
+  "deploymentManifest": "./fixture-mainnet-deployment.json",
   "deploymentManifestSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
   "sourceCommit": "0000000000000000000000000000000000000000",
   "sourceTreeSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -29,7 +29,7 @@
       "verifiedAtBlock": 1
     },
     "webPublicConfig": {
-      "chainId": 46630,
+      "chainId": 4663,
       "factoryAddress": "0x0000000000000000000000000000000000000003",
       "factoryRuntimeCodeHash": "0x0000000000000000000000000000000000000000000000000000000000000003",
       "rendererRuntimeCodeHash": "0x0000000000000000000000000000000000000000000000000000000000000002",
@@ -39,7 +39,7 @@
     "constructorInputs": {
       "renderer": { "arguments": [] },
       "factory": {
-        "paymentToken": "0x0000000000000000000000000000000000000001",
+        "paymentToken": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
         "renderer": "0x0000000000000000000000000000000000000002",
         "initialOwner": "0x000000000000000000000000000000000000000d",
         "initialFeeRecipient": "0x000000000000000000000000000000000000000a"
@@ -50,7 +50,7 @@
       },
       "launchTier": {
         "factory": "0x0000000000000000000000000000000000000003",
-        "paymentToken": "0x0000000000000000000000000000000000000001",
+        "paymentToken": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
         "renderer": "0x0000000000000000000000000000000000000002",
         "creator": "0x0000000000000000000000000000000000000008",
         "name": "Fixture Tier",
@@ -89,7 +89,7 @@
       "observedAtBlock": 1
     },
     "usdG": {
-      "proxy": "0x0000000000000000000000000000000000000001",
+      "proxy": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
       "implementation": "0x000000000000000000000000000000000000000b",
       "authority": "0x000000000000000000000000000000000000000c",
       "decimals": 6,
@@ -129,13 +129,13 @@
       "finalDisposition": "Synthetic fixture disposition"
     },
     "sourceVerificationUrls": [
-      "https://example.invalid/address/1",
-      "https://example.invalid/address/2",
-      "https://example.invalid/address/3",
-      "https://example.invalid/address/4",
-      "https://example.invalid/address/5",
-      "https://example.invalid/address/6",
-      "https://example.invalid/address/7"
+      "https://robinhoodchain.blockscout.com/address/0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "https://robinhoodchain.blockscout.com/address/0x0000000000000000000000000000000000000002",
+      "https://robinhoodchain.blockscout.com/address/0x0000000000000000000000000000000000000003",
+      "https://robinhoodchain.blockscout.com/address/0x0000000000000000000000000000000000000004",
+      "https://robinhoodchain.blockscout.com/address/0x0000000000000000000000000000000000000005",
+      "https://robinhoodchain.blockscout.com/address/0x0000000000000000000000000000000000000006",
+      "https://robinhoodchain.blockscout.com/address/0x0000000000000000000000000000000000000007"
     ],
     "postDeploySmokeEvidence": ["fixture:post-deploy-smoke"]
   },
