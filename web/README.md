@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Backed By Fans web
 
-## Getting Started
+The Backed By Fans web application is a Next.js 16 App Router interface for
+creator-owned memberships on Robinhood Chain. Contract reads and writes go
+directly to the configured chain; this project has no application database,
+required indexer, or correctness-critical API route.
 
-First, run the development server:
+The public name and visual system are still working directions. Do not describe
+the brand as cleared until every item in
+[`docs/brand/backed-by-fans-launch-readiness.md`](../docs/brand/backed-by-fans-launch-readiness.md)
+has evidence and approval.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Requirements
+
+- Bun `1.3.14`
+- A browser wallet exposing EIP-1193, or a public WalletConnect project ID
+- A checked deployment manifest before setting a factory address
+
+## Public configuration
+
+Copy `.env.example` to `.env.local` for local development. Every supported
+variable starts with `NEXT_PUBLIC_`, is intentionally public, and is frozen into
+the browser bundle during `next build`. Never place a secret, private RPC
+credential, wallet key, or server token in these variables.
+
+The factory and testnet USDG values deliberately have no default. When they are
+absent, the app renders a distinct not-deployed or token-unconfirmed state and
+never substitutes a fake address. The official mainnet USDG address is checked
+in code, but mainnet use remains outside U8.
+
+## Commands
+
+```sh
+bun install --frozen-lockfile
+bun run format
+bun run lint
+bun run typecheck
+bun run test
+bun run test:e2e
+bun run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Hosting
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+For a Vercel project, set **Root Directory** to `web`. This is an external
+dashboard setting; its presence in this document does not claim that it has
+been applied to any project.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The application does not require a Vercel Function for protocol correctness.
+Static pages provide the shell, while wallet and onchain state remain isolated
+in client components.
 
-## Learn More
+## Fonts and asset status
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Instrument Serif is loaded from `@fontsource/instrument-serif`; Geist Sans and
+Geist Mono are loaded from the local `geist` package. Browsers make no runtime
+font request to Google or another font service. The Backing Stack mark and
+fallback creator frame are original working assets under `public/brand`; they
+remain provisional until the launch-readiness asset gates are complete.

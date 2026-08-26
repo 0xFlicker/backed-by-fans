@@ -1,69 +1,116 @@
-import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+import { BackingStackMark } from "@/components/BackingStackMark";
+import { CatalogExplorer } from "@/components/CatalogExplorer";
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <>
+      <section className="hero">
+        <div className="hero-copy settle-in">
+          <p className="eyebrow">Creator-owned memberships</p>
+          <h1 className="font-display">Your people make your work possible.</h1>
+          <p className="hero-lede">
+            Create a membership your fans can join directly, with terms you
+            control and a membership record they keep.
           </p>
+          <div className="hero-actions">
+            <Link className="button button-applause" href="/create">
+              Create a membership
+            </Link>
+            <Link className="button button-outline" href="/memberships">
+              Explore memberships
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="hero-art settle-stack" aria-label="The Backing Stack">
+          <div className="stack-card stack-card-fans">
+            <span>Backed by</span>
+            <strong>the people in the room</strong>
+          </div>
+          <div className="stack-card stack-card-story">
+            <span>Membership no. 014</span>
+            <strong>Stay part of the story.</strong>
+          </div>
+          <div className="stack-card stack-card-creator">
+            <div className="creator-frame" aria-hidden="true">
+              <BackingStackMark className="creator-frame-mark" />
+            </div>
+            <span>Creator-owned</span>
+            <strong>One clear membership, visibly backed.</strong>
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="how-section" id="how-it-works">
+        <div className="section-heading">
+          <p className="eyebrow">How it works</p>
+          <h2 className="font-display">
+            Direct support, with the terms in view.
+          </h2>
+        </div>
+        <ol className="how-list">
+          <li>
+            <span className="font-mono">01</span>
+            <div>
+              <h3>Creators set the membership</h3>
+              <p>
+                Price, timing, rewards, and referrals are visible before anyone
+                joins.
+              </p>
+            </div>
+          </li>
+          <li>
+            <span className="font-mono">02</span>
+            <div>
+              <h3>Fans join directly</h3>
+              <p>
+                Wallet readiness appears where it matters: network, ETH for gas,
+                USDG, and estimated cost.
+              </p>
+            </div>
+          </li>
+          <li>
+            <span className="font-mono">03</span>
+            <div>
+              <h3>The record stays with them</h3>
+              <p>
+                Active time changes. The historical membership credential stays
+                in the supporter’s wallet.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section className="catalog-section" aria-labelledby="catalog-title">
+        <div className="section-heading catalog-heading">
+          <div>
+            <p className="eyebrow">Memberships in the room</p>
+            <h2 className="font-display" id="catalog-title">
+              Read directly from the registry.
+            </h2>
+          </div>
+          <Link className="text-link" href="/memberships">
+            Open the full catalog <span aria-hidden="true">↗</span>
+          </Link>
+        </div>
+        <CatalogExplorer />
+      </section>
+
+      <section className="closing-section">
+        <BackingStackMark className="closing-mark" />
+        <div>
+          <p className="eyebrow">Show up. Stay part of the story.</p>
+          <h2 className="font-display">
+            Membership starts with a relationship.
+          </h2>
+        </div>
+        <Link className="button button-applause" href="/memberships">
+          Find a membership
+        </Link>
+      </section>
+    </>
   );
 }

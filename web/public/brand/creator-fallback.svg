@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900">
+  <title>Backed By Fans working creator artwork fallback</title>
+  <rect width="1200" height="900" fill="#F7F2E8"/>
+  <path d="M0 630 430 210l290 280 210-180 270 260v330H0Z" fill="#625BFF"/>
+  <circle cx="830" cy="225" r="145" fill="#FF6A4D"/>
+  <path d="M112 770c180-210 390-220 562-22 115-100 245-118 414-30v182H112Z" fill="#D9F99D" stroke="#11131A" stroke-width="20"/>
+  <path d="M146 130h340" stroke="#11131A" stroke-linecap="round" stroke-width="22"/>
+  <path d="M146 180h218" stroke="#11131A" stroke-linecap="round" stroke-width="22"/>
+</svg>
