@@ -138,6 +138,21 @@ contract CapacityAndPauseTest is Test {
         assertEq(tier.expiresAt(tokenId), _START + _PERIOD);
     }
 
+    function test_twoStepOwnershipTransferCompletesWhilePaused() public {
+        address nextOwner = makeAddr("pausedNextOwner");
+        tier.setPaused(true);
+
+        tier.transferOwnership(nextOwner);
+        vm.prank(nextOwner);
+        tier.acceptOwnership();
+
+        assertEq(tier.owner(), nextOwner);
+        assertTrue(tier.paused());
+        vm.prank(nextOwner);
+        tier.setPaused(false);
+        assertFalse(tier.paused());
+    }
+
     function _deployTier(uint64 supplyCap) private returns (MembershipTierHarness deployedTier) {
         MockUSDG token = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();

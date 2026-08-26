@@ -286,6 +286,45 @@ contract AdversarialPaymentsAndExitsTest is Test {
         assertEq(paymentToken.balanceOf(address(tier)), tierBalance);
     }
 
+    function test_failedRewardAndReferralClaimsDoNotAffectAnotherClaimant() public {
+        address secondMember = makeAddr("secondMember");
+        address secondReferrer = makeAddr("secondReferrer");
+        paymentToken.mint(secondMember, 10_000_000);
+        vm.prank(secondMember);
+        paymentToken.approve(address(tier), type(uint256).max);
+
+        vm.prank(member);
+        uint256 firstTokenId = tier.purchase(1, referrer);
+        vm.prank(secondMember);
+        uint256 secondTokenId = tier.purchase(1, secondReferrer);
+
+        uint256 firstReward = tier.claimableReward(firstTokenId);
+        uint256 secondReward = tier.claimableReward(secondTokenId);
+        paymentToken.setFrozen(member, true);
+        vm.prank(member);
+        vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
+        tier.claimReward(firstTokenId);
+        assertEq(tier.claimableReward(firstTokenId), firstReward);
+        assertEq(tier.claimableReward(secondTokenId), secondReward);
+
+        vm.prank(secondMember);
+        assertEq(tier.claimReward(secondTokenId), secondReward);
+        assertEq(tier.claimableReward(firstTokenId), firstReward);
+
+        uint256 firstReferral = tier.claimableReferral(referrer);
+        uint256 secondReferral = tier.claimableReferral(secondReferrer);
+        paymentToken.setFrozen(referrer, true);
+        vm.prank(referrer);
+        vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
+        tier.claimReferral();
+        assertEq(tier.claimableReferral(referrer), firstReferral);
+        assertEq(tier.claimableReferral(secondReferrer), secondReferral);
+
+        vm.prank(secondReferrer);
+        assertEq(tier.claimReferral(), secondReferral);
+        assertEq(tier.claimableReferral(referrer), firstReferral);
+    }
+
     function test_outgoingCallbackCannotRecursivelyClaimAndOuterClaimPaysOnce() public {
         ReentrantRewardClaimant claimant = new ReentrantRewardClaimant(paymentToken, tier);
         paymentToken.mint(address(claimant), 10_000_000);

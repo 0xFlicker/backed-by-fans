@@ -10,8 +10,11 @@ import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {AdversarialERC20} from "../mocks/AdversarialERC20.sol";
+import {MembershipModel} from "../models/MembershipModel.sol";
 
 contract MembershipHandler is Test {
+    using MembershipModel for MembershipModel.Lifecycle;
+
     uint256 private constant _MAX_GROSS = 100_000_000;
 
     AdversarialERC20 public immutable paymentToken;
@@ -24,6 +27,7 @@ contract MembershipHandler is Test {
     mapping(uint256 tokenId => uint256 minimumShares) public ghostShareFloor;
     mapping(uint256 tokenId => MembershipTypes.ReferralStatus status) public ghostReferralStatus;
     mapping(uint256 tokenId => address referrer) public ghostReferrer;
+    mapping(uint256 tokenId => MembershipModel.Lifecycle state) private _modelLifecycle;
 
     constructor(
         AdversarialERC20 paymentToken_,
@@ -56,6 +60,7 @@ contract MembershipHandler is Test {
         address choice = _referralChoice(actor, referralSeed);
         vm.prank(actor);
         uint256 tokenId = tier.contribute(gross, choice);
+        _modelLifecycle[tokenId].addPaidTime(_timestamp(), tier.periodDuration());
         _recordMonotonicState(tokenId);
     }
 
@@ -68,6 +73,9 @@ contract MembershipHandler is Test {
         if (periodSeed % 2 != 0) periods = 2;
         vm.prank(creator);
         uint256 tokenId = tier.grantTime(actor, periods);
+        _modelLifecycle[tokenId].addGrantTime(
+            _timestamp(), uint64(uint256(periods) * tier.periodDuration())
+        );
         _recordMonotonicState(tokenId);
     }
 
@@ -79,6 +87,7 @@ contract MembershipHandler is Test {
 
         vm.prank(creator);
         tier.revokeGrantTime(tokenId);
+        _modelLifecycle[tokenId].revokeGrantTime(_timestamp());
         _recordMonotonicState(tokenId);
     }
 
@@ -89,6 +98,7 @@ contract MembershipHandler is Test {
 
         vm.prank(creator);
         tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        _modelLifecycle[tokenId].refundTime(_timestamp());
         assertEq(_grossRefund(tokenId), 0);
         _recordMonotonicState(tokenId);
     }
@@ -103,6 +113,7 @@ contract MembershipHandler is Test {
 
         vm.prank(creator);
         tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        _modelLifecycle[tokenId].refundTime(_timestamp());
         assertEq(_grossRefund(tokenId), 0);
 
         uint256 newGross = grossSeed % (_MAX_GROSS + 1);
@@ -110,6 +121,7 @@ contract MembershipHandler is Test {
         address referralChoice = _referralChoice(actor, grossSeed >> 1);
         vm.prank(actor);
         tier.contribute(newGross, referralChoice);
+        _modelLifecycle[tokenId].addPaidTime(_timestamp(), tier.periodDuration());
         assertEq(_grossRefund(tokenId), newGross);
         _recordMonotonicState(tokenId);
     }
@@ -117,8 +129,10 @@ contract MembershipHandler is Test {
     function synchronizeTwice(uint256 actorSeed) external {
         uint256 tokenId = tier.tokenOf(_actor(actorSeed));
         if (tokenId == 0) return;
-        tier.synchronize(tokenId);
+        bool released = tier.synchronize(tokenId);
+        assertEq(released, _modelLifecycle[tokenId].synchronize(_timestamp()));
         assertFalse(tier.synchronize(tokenId));
+        assertFalse(_modelLifecycle[tokenId].synchronize(_timestamp()));
         _recordMonotonicState(tokenId);
     }
 
@@ -182,6 +196,27 @@ contract MembershipHandler is Test {
         paymentToken.setFrozen(address(tier), false);
         paymentToken.setFrozen(address(factory), false);
         assertEq(_stateFingerprint(actor), beforeState);
+    }
+
+    function modelState(uint256 tokenId)
+        external
+        view
+        returns (
+            uint64 paidSeconds,
+            uint64 grantSeconds,
+            uint64 checkpoint,
+            uint64 expiration,
+            bool active,
+            bool occupied,
+            bool initialized
+        )
+    {
+        MembershipModel.Lifecycle storage state = _modelLifecycle[tokenId];
+        (paidSeconds, grantSeconds, checkpoint) = state.projected(_timestamp());
+        expiration = state.expiration();
+        active = state.active(_timestamp());
+        occupied = state.occupied;
+        initialized = state.initialized;
     }
 
     function _fundTopUp(uint256 tokenId) private {
@@ -284,6 +319,10 @@ contract MembershipHandler is Test {
         if (status == MembershipTypes.ReferralStatus.LockedNone) return address(0);
         return seed % 2 == 0 ? address(0) : _actor(seed >> 1);
     }
+
+    function _timestamp() private view returns (uint64) {
+        return uint64(block.timestamp);
+    }
 }
 
 contract MembershipInvariantTest is StdInvariant, Test {
@@ -339,6 +378,8 @@ contract MembershipInvariantTest is StdInvariant, Test {
             assertGe(_tier.sharesOf(tokenId), _handler.ghostShareFloor(tokenId));
             if (_tier.isOccupied(tokenId)) ++countedOccupancy;
 
+            _assertLifecycleMatchesModel(tokenId, recipient);
+
             MembershipTypes.ReferralStatus ghostStatus = _handler.ghostReferralStatus(tokenId);
             if (ghostStatus != MembershipTypes.ReferralStatus.Unset) {
                 (MembershipTypes.ReferralStatus status, address referrer) =
@@ -350,6 +391,27 @@ contract MembershipInvariantTest is StdInvariant, Test {
 
         assertEq(countedOccupancy, _tier.occupiedSupply());
         assertLe(countedOccupancy, _tier.supplyCap());
+    }
+
+    function _assertLifecycleMatchesModel(uint256 tokenId, address recipient) private view {
+        (
+            uint64 modelPaid,
+            uint64 modelGrant,
+            uint64 modelCheckpoint,
+            uint64 modelExpiration,
+            bool modelActive,
+            bool modelOccupied,
+            bool modelInitialized
+        ) = _handler.modelState(tokenId);
+        (uint64 paidSeconds, uint64 grantSeconds, uint64 checkpoint) = _tier.timeBalances(tokenId);
+        assertTrue(modelInitialized);
+        assertEq(paidSeconds, modelPaid);
+        assertEq(grantSeconds, modelGrant);
+        assertEq(checkpoint, modelCheckpoint);
+        assertEq(_tier.expiresAt(tokenId), modelExpiration);
+        assertEq(_tier.isActiveToken(tokenId), modelActive);
+        assertEq(_tier.isActive(recipient), modelActive);
+        assertEq(_tier.isOccupied(tokenId), modelOccupied);
     }
 }
 
