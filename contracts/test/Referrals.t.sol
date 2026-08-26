@@ -103,7 +103,7 @@ contract ReferralsTest is Test {
 
     function test_giftsNeverLockButUseAnExistingRecipientChoice() public {
         vm.prank(payer);
-        uint256 tokenId = tier.gift(member, 1);
+        uint256 tokenId = tier.gift(member, 1, MembershipTypes.ReferralStatus.Unset, address(0));
 
         (MembershipTypes.ReferralStatus status,) = tier.referralOf(tokenId);
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.Unset));
@@ -115,7 +115,7 @@ contract ReferralsTest is Test {
         vm.prank(member);
         tier.purchase(1, referrer);
         vm.prank(payer);
-        tier.gift(member, 1);
+        tier.gift(member, 1, MembershipTypes.ReferralStatus.LockedAddress, referrer);
 
         assertEq(tier.claimableReferral(referrer), 200_000);
         assertEq(tier.creatorProceeds(), 28_000_000);
@@ -123,10 +123,30 @@ contract ReferralsTest is Test {
         assertEq(tier.expiresAt(tokenId), _START + 3 * _PERIOD);
     }
 
+    function test_giftRejectsReferralStateChangedAfterPreviewWithoutChargingPayer() public {
+        uint256 payerBalance = paymentToken.balanceOf(payer);
+
+        vm.prank(member);
+        uint256 tokenId = tier.purchase(1, referrer);
+        uint64 expiration = tier.expiresAt(tokenId);
+
+        vm.prank(payer);
+        vm.expectRevert(MembershipTier.ReferralStateMismatch.selector);
+        tier.gift(member, 1, MembershipTypes.ReferralStatus.Unset, address(0));
+
+        assertEq(paymentToken.balanceOf(payer), payerBalance);
+        assertEq(tier.expiresAt(tokenId), expiration);
+        assertEq(tier.claimableReferral(referrer), 100_000);
+
+        vm.prank(payer);
+        tier.gift(member, 1, MembershipTypes.ReferralStatus.LockedAddress, referrer);
+        assertEq(tier.claimableReferral(referrer), 200_000);
+    }
+
     function test_selfGiftCannotBypassSelfPaymentAttribution() public {
         vm.prank(member);
         vm.expectRevert(MembershipTier.SelfGiftNotAllowed.selector);
-        tier.gift(member, 1);
+        tier.gift(member, 1, MembershipTypes.ReferralStatus.Unset, address(0));
 
         assertEq(tier.tokenOf(member), 0);
         assertEq(paymentToken.balanceOf(address(tier)), 0);

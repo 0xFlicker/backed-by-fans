@@ -104,7 +104,12 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function purchase(uint64 periods, address referralChoice) external returns (uint256 tokenId);
 
-    function gift(address recipient, uint64 periods) external returns (uint256 tokenId);
+    function gift(
+        address recipient,
+        uint64 periods,
+        MembershipTypes.ReferralStatus expectedReferralStatus,
+        address expectedReferrer
+    ) external returns (uint256 tokenId);
 
     function contribute(uint256 gross, address referralChoice) external returns (uint256 tokenId);
 
@@ -142,7 +147,9 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
         view
         returns (uint256 grossRefund, uint256 ownerTopUp);
 
-    function refund(uint256 tokenId) external returns (uint256 grossRefund, uint256 ownerTopUp);
+    function refund(uint256 tokenId, uint256 maxOwnerTopUp)
+        external
+        returns (uint256 grossRefund, uint256 ownerTopUp);
 
     function grantTime(address recipient, uint64 periods) external returns (uint256 tokenId);
 

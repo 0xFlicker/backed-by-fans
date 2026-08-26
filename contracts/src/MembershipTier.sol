@@ -80,10 +80,12 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error NativeValueRejected();
     error NoGrantTime();
     error OwnershipRenunciationDisabled();
+    error OwnerTopUpLimitExceeded(uint256 required, uint256 maximum);
     error PaymentOverflow();
     error PrepaymentLimitExceeded();
     error ReferralChoiceMismatch();
     error ReferralChoiceRequired();
+    error ReferralStateMismatch();
     error SelfGiftNotAllowed();
     error Soulbound();
     error SupplyCapBelowOccupancy();
@@ -156,6 +158,9 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     /// @inheritdoc IERC5643
+    /// @dev ERC-5643 cannot carry an owner-top-up ceiling. This compatibility adapter therefore
+    ///      authorizes any top-up required at execution; operators should use `refund` when they
+    ///      need slippage protection.
     function cancelSubscription(uint256 tokenId) external payable override {
         if (msg.value != 0) revert NativeValueRejected();
         _cancelSubscription(tokenId);
@@ -163,7 +168,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     function _cancelSubscription(uint256 tokenId) private nonReentrant {
         _checkOwner();
-        _refund(tokenId);
+        _refund(tokenId, type(uint256).max);
     }
 
     /// @inheritdoc IERC5643
@@ -249,13 +254,14 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     /// @inheritdoc IMembershipTier
-    function gift(address recipient, uint64 periods)
-        external
-        override
-        nonReentrant
-        returns (uint256 tokenId)
-    {
+    function gift(
+        address recipient,
+        uint64 periods,
+        MembershipTypes.ReferralStatus expectedReferralStatus,
+        address expectedReferrer
+    ) external override nonReentrant returns (uint256 tokenId) {
         if (recipient == msg.sender) revert SelfGiftNotAllowed();
+        _validateExpectedReferralState(tokenOf[recipient], expectedReferralStatus, expectedReferrer);
         tokenId = _purchaseFixed(msg.sender, recipient, periods, false, address(0));
     }
 
@@ -362,14 +368,14 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     /// @inheritdoc IMembershipTier
-    function refund(uint256 tokenId)
+    function refund(uint256 tokenId, uint256 maxOwnerTopUp)
         external
         override
         onlyOwner
         nonReentrant
         returns (uint256 grossRefund, uint256 ownerTopUp)
     {
-        return _refund(tokenId);
+        return _refund(tokenId, maxOwnerTopUp);
     }
 
     /// @inheritdoc IMembershipTier
@@ -512,7 +518,10 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         _applyPayment(tokenId, payer, recipient, periods, gross);
     }
 
-    function _refund(uint256 tokenId) internal returns (uint256 grossRefund, uint256 ownerTopUp) {
+    function _refund(uint256 tokenId, uint256 maxOwnerTopUp)
+        internal
+        returns (uint256 grossRefund, uint256 ownerTopUp)
+    {
         address recipient = _requireOwned(tokenId);
         address tierOwner = owner();
         _checkpointTime(tokenId);
@@ -530,8 +539,11 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         }
         uint256 creatorContribution = creatorProceeds;
         if (creatorContribution > grossRefund) creatorContribution = grossRefund;
-        creatorProceeds -= creatorContribution;
         ownerTopUp = grossRefund - creatorContribution;
+        if (ownerTopUp > maxOwnerTopUp) {
+            revert OwnerTopUpLimitExceeded(ownerTopUp, maxOwnerTopUp);
+        }
+        creatorProceeds -= creatorContribution;
 
         state.paidSeconds = 0;
         state.grantSeconds = 0;
@@ -686,6 +698,17 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
                 ? referralChoice != address(0)
                 : referralChoice != state.referrer) {
             revert ReferralChoiceMismatch();
+        }
+    }
+
+    function _validateExpectedReferralState(
+        uint256 tokenId,
+        MembershipTypes.ReferralStatus expectedStatus,
+        address expectedReferrer
+    ) internal view {
+        MembershipTypes.ReferralState storage state = _referralStates[tokenId];
+        if (state.status != expectedStatus || state.referrer != expectedReferrer) {
+            revert ReferralStateMismatch();
         }
     }
 

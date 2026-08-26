@@ -199,7 +199,7 @@ contract PaymentsAndTimeTest is Test {
 
         vm.prank(makeAddr("thirdParty"));
         vm.expectRevert(MembershipTier.IncorrectPricingMode.selector);
-        zeroTier.gift(member, 1);
+        zeroTier.gift(member, 1, MembershipTypes.ReferralStatus.LockedNone, address(0));
     }
 
     function test_pauseBlocksCanonicalPurchasesGiftsAndStandardRenewal() public {
@@ -213,7 +213,7 @@ contract PaymentsAndTimeTest is Test {
         address payer = makeAddr("payer");
         vm.prank(payer);
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.gift(member, 1);
+        tier.gift(member, 1, MembershipTypes.ReferralStatus.LockedNone, address(0));
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);

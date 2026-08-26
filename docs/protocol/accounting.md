@@ -72,11 +72,18 @@ a later rejoin starts after that tail, so refunded prefixes can never reappear.
 ownerTopUp = max(grossRefund - creatorProceeds, 0)
 ```
 
-The current tier owner supplies only that exact shortfall, then the entire gross
-goes to the credential owner. The transaction clears paid and grant time and
+The owner submits that preview as `refund(tokenId, maxOwnerTopUp)`. If another
+withdrawal or refund increases the required top-up before execution, the call
+reverts without changing membership or accounting state. A lower top-up is
+accepted. The current tier owner supplies only the exact shortfall, then the
+entire gross goes to the credential owner. The transaction clears paid and grant time and
 reduces creator proceeds before interaction. Failure of the top-up or outbound
 delivery restores all state. Identity, shares, referral lock, and occupied slot
 remain until normal synchronization.
+
+The ERC-5643 `cancelSubscription(tokenId)` adapter cannot express a ceiling and
+therefore authorizes the full execution-time top-up. It exists for standards
+compatibility; operational interfaces should prefer the bounded canonical path.
 
 ## Custody buckets
 

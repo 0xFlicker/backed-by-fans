@@ -439,6 +439,8 @@ export const tierAbi = [
     inputs: [
       { name: "recipient", type: "address" },
       { name: "periods", type: "uint64" },
+      { name: "expectedReferralStatus", type: "uint8" },
+      { name: "expectedReferrer", type: "address" },
     ],
     outputs: [{ name: "tokenId", type: "uint256" }],
   },
@@ -532,7 +534,10 @@ export const tierAbi = [
     type: "function",
     name: "refund",
     stateMutability: "nonpayable",
-    inputs: [{ name: "tokenId", type: "uint256" }],
+    inputs: [
+      { name: "tokenId", type: "uint256" },
+      { name: "maxOwnerTopUp", type: "uint256" },
+    ],
     outputs: [
       { name: "grossRefund", type: "uint256" },
       { name: "ownerTopUp", type: "uint256" },

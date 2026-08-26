@@ -81,7 +81,8 @@ contract RewardsTest is Test {
 
     function test_giftAssignsSharesAndRewardToRecipientCredential() public {
         vm.prank(payer);
-        uint256 tokenId = tier.gift(firstMember, 2);
+        uint256 tokenId =
+            tier.gift(firstMember, 2, MembershipTypes.ReferralStatus.Unset, address(0));
 
         assertEq(tier.ownerOf(tokenId), firstMember);
         assertEq(tier.sharesOf(tokenId), 20_000_000);

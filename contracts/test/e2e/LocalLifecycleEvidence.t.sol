@@ -69,7 +69,8 @@ contract LocalLifecycleEvidenceTest is Test {
         vm.prank(member);
         uint256 memberToken = tier.purchase(1, referrer);
         vm.prank(giftPayer);
-        uint256 giftToken = tier.gift(giftRecipient, 1);
+        uint256 giftToken =
+            tier.gift(giftRecipient, 1, MembershipTypes.ReferralStatus.Unset, address(0));
         vm.prank(member);
         assertEq(tier.purchase(1, referrer), memberToken);
 
@@ -117,7 +118,7 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(refundPreview, 15_000_000);
         assertEq(topUpPreview, 0);
         vm.prank(nextCreator);
-        (uint256 refundPaid, uint256 topUpPaid) = tier.refund(memberToken);
+        (uint256 refundPaid, uint256 topUpPaid) = tier.refund(memberToken, topUpPreview);
         assertEq(refundPaid, refundPreview);
         assertEq(topUpPaid, topUpPreview);
         assertFalse(tier.isActive(member));

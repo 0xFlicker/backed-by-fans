@@ -39,8 +39,11 @@ still lose a capacity race between simulation and confirmation.
 ## Payments and attribution
 
 Fixed-price tiers use `purchase(periods, referralChoice)` for self-purchases and
-`gift(recipient, periods)` for gifts. Zero-price tiers use
-`contribute(gross, referralChoice)` and always add exactly one period. A zero
+`gift(recipient, periods, expectedReferralStatus, expectedReferrer)` for gifts.
+Read the recipient's current referral tuple while previewing and pass that exact
+tuple to the gift. If the recipient locks a choice before mining, the gift
+reverts before payment instead of silently changing the split. Zero-price tiers
+use `contribute(gross, referralChoice)` and always add exactly one period. A zero
 contribution creates no shares, fees, rewards, or referral lock. Positive
 contributions use the normal accounting path. Zero-price third-party actions
 are unsupported.
@@ -65,7 +68,7 @@ Payout destinations cannot be redirected by a caller:
 - creator proceeds go to the current tier owner;
 - protocol fees go to the factory's current fee recipient; and
 - refunds go to the credential owner, while the current tier owner authorizes
-  the refund and supplies any displayed top-up.
+  `refund(tokenId, maxOwnerTopUp)` and supplies no more than that ceiling.
 
 Frozen or otherwise incompatible destinations make the exact transfer revert
 atomically. The liability remains claimable; there is no administrator redirect.
@@ -98,4 +101,6 @@ metadata update events, and the supported ERC-5643 subscription adapter. ERC-564
 renewal accepts exact whole-period durations only. It cannot silently choose
 `LockedNone`: a positive fixed-price credential with `Unset` attribution must use
 the canonical purchase path first. ERC-5643 cancellation is the creator-owned
-full-refund adapter, not a supporter-controlled cancellation right.
+full-refund adapter, not a supporter-controlled cancellation right. Because the
+standard signature has no top-up ceiling, it deliberately permits any required
+owner top-up; operator interfaces should use the canonical bounded refund.
