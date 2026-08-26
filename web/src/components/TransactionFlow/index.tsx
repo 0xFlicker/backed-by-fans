@@ -17,12 +17,14 @@ const phases: { phase: TransactionPhase; label: string }[] = [
 export function TransactionFlow({
   state,
   onRetry,
+  onReconcile,
 }: {
   state: TransactionState;
   onRetry?: () => void;
+  onReconcile?: () => void;
 }) {
   const activeIndex = phases.findIndex(({ phase }) => phase === state.phase);
-  const retryable = ["dropped", "reverted", "retry"].includes(state.phase);
+  const retryable = ["cancelled", "reverted", "retry"].includes(state.phase);
 
   return (
     <section className="transaction-flow" aria-labelledby="transaction-title">
@@ -70,6 +72,21 @@ export function TransactionFlow({
         <button className="button button-dark" onClick={onRetry} type="button">
           Retry from simulation
         </button>
+      )}
+      {state.phase === "uncertain" && onReconcile && (
+        <button
+          className="button button-dark"
+          onClick={onReconcile}
+          type="button"
+        >
+          Recheck onchain outcome
+        </button>
+      )}
+      {state.phase === "uncertain" && (
+        <p className="small-copy">
+          Keep this page open and recheck the exact postcondition. Never resend
+          this action only because a receipt or read timed out.
+        </p>
       )}
       {state.phase === "replacement" && (
         <p className="small-copy">

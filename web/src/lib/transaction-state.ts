@@ -10,7 +10,8 @@ export type TransactionPhase =
   | "reconciliation"
   | "confirmed"
   | "replacement"
-  | "dropped"
+  | "uncertain"
+  | "cancelled"
   | "reverted"
   | "retry";
 
@@ -32,8 +33,13 @@ export type TransactionEvent =
   | { type: "CONFIRM" }
   | { type: "RECONCILE" }
   | { type: "RECONCILED" }
-  | { type: "REPLACED"; replacementHash: Hash }
-  | { type: "DROPPED"; error: string }
+  | {
+      type: "REPLACED";
+      replacementHash: Hash;
+      reason: "repriced" | "replaced" | "cancelled";
+    }
+  | { type: "UNCERTAIN"; error: string }
+  | { type: "CANCELLED"; error: string }
   | { type: "REVERTED"; error: string }
   | { type: "FAILED"; error: string }
   | { type: "RETRY" };
@@ -52,6 +58,7 @@ export function isTransactionInFlight(phase: TransactionPhase) {
     "confirmation",
     "reconciliation",
     "replacement",
+    "uncertain",
   ].includes(phase);
 }
 
@@ -94,20 +101,31 @@ export function transactionReducer(
         ...state,
         phase: "confirmed",
         message: "Complete and reconciled onchain.",
+        error: undefined,
       };
     case "REPLACED":
       return {
         ...state,
         phase: "replacement",
         message:
-          "Your wallet replaced this transaction. Tracking the new hash.",
+          event.reason === "cancelled"
+            ? "Your wallet submitted a cancellation. Waiting for its receipt."
+            : "Your wallet replaced this transaction. Tracking the new hash.",
         replacementHash: event.replacementHash,
       };
-    case "DROPPED":
+    case "UNCERTAIN":
       return {
         ...state,
-        phase: "dropped",
-        message: "The transaction was dropped before confirmation.",
+        phase: "uncertain",
+        message:
+          "A transaction was submitted, but its outcome is not yet proven. Do not submit the action again.",
+        error: event.error,
+      };
+    case "CANCELLED":
+      return {
+        ...state,
+        phase: "cancelled",
+        message: "The replacement cancelled this action onchain.",
         error: event.error,
       };
     case "REVERTED":

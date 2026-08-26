@@ -1,4 +1,4 @@
-import { getAddress, isAddress, type Address } from "viem";
+import { getAddress, isAddress, type Address, type Hex } from "viem";
 import { robinhood, robinhoodTestnet } from "viem/chains";
 
 import {
@@ -15,19 +15,38 @@ export type PublicEnvironment = {
   chainId?: string;
   factoryAddress?: string;
   usdgAddress?: string;
+  factoryRuntimeCodeHash?: string;
+  rendererRuntimeCodeHash?: string;
+  deployerRuntimeCodeHash?: string;
+  usdgRuntimeCodeHash?: string;
   mainnetRpcUrl?: string;
   testnetRpcUrl?: string;
   walletConnectProjectId?: string;
   siteUrl?: string;
 };
 
+type DeploymentCommitments = {
+  factoryRuntimeCodeHash: Hex;
+  rendererRuntimeCodeHash: Hex;
+  deployerRuntimeCodeHash: Hex;
+  usdgRuntimeCodeHash: Hex;
+};
+
+export type ReadyDeployment = DeploymentCommitments & {
+  status: "ready";
+  chainId: SupportedChainId;
+  factoryAddress: Address;
+  usdgAddress: Address;
+};
+
 export type DeploymentAvailability =
-  | { status: "ready"; factoryAddress: Address; usdgAddress: Address }
+  | ReadyDeployment
   | {
       status: "unavailable";
       reason:
         | "factory-not-deployed"
         | "payment-token-unconfirmed"
+        | "deployment-commitments-missing"
         | "invalid-public-config";
       detail: string;
     };
@@ -62,6 +81,13 @@ function parseAddress(value: string | undefined): Address | undefined {
   return getAddress(candidate);
 }
 
+function parseHash(value: string | undefined): Hex | undefined {
+  const candidate = value?.trim();
+  return candidate && /^0x[0-9a-fA-F]{64}$/.test(candidate)
+    ? (candidate.toLowerCase() as Hex)
+    : undefined;
+}
+
 export function buildPublicConfig(
   environment: PublicEnvironment,
 ): PublicConfig {
@@ -81,6 +107,12 @@ export function buildPublicConfig(
   const siteUrl = parsePublicUrl(environment.siteUrl, "http://localhost:3000");
   const factoryAddress = parseAddress(environment.factoryAddress);
   const configuredUsdg = parseAddress(environment.usdgAddress);
+  const commitments = {
+    factoryRuntimeCodeHash: parseHash(environment.factoryRuntimeCodeHash),
+    rendererRuntimeCodeHash: parseHash(environment.rendererRuntimeCodeHash),
+    deployerRuntimeCodeHash: parseHash(environment.deployerRuntimeCodeHash),
+    usdgRuntimeCodeHash: parseHash(environment.usdgRuntimeCodeHash),
+  };
   const walletConnectProjectId =
     environment.walletConnectProjectId?.trim() || undefined;
 
@@ -98,12 +130,12 @@ export function buildPublicConfig(
       reason: "factory-not-deployed",
       detail: "No independently checked factory is configured for this chain.",
     };
-  } else if (chainId === robinhoodTestnet.id && !configuredUsdg) {
+  } else if (chainId === robinhoodTestnet.id) {
     deployment = {
       status: "unavailable",
       reason: "payment-token-unconfirmed",
       detail:
-        "No approved official source currently publishes canonical testnet USDG.",
+        "No approved official source currently publishes canonical testnet USDG; arbitrary token addresses cannot enable deployment.",
     };
   } else if (
     chainId === robinhood.id &&
@@ -115,14 +147,20 @@ export function buildPublicConfig(
       reason: "invalid-public-config",
       detail: "The configured mainnet token is not the official USDG proxy.",
     };
+  } else if (Object.values(commitments).some((value) => !value)) {
+    deployment = {
+      status: "unavailable",
+      reason: "deployment-commitments-missing",
+      detail:
+        "The checked deployment manifest's complete runtime-code commitments are required before writes can be enabled.",
+    };
   } else {
     deployment = {
       status: "ready",
+      chainId,
       factoryAddress,
-      usdgAddress:
-        chainId === robinhood.id
-          ? officialMainnetUsdg
-          : (configuredUsdg as Address),
+      usdgAddress: officialMainnetUsdg,
+      ...(commitments as DeploymentCommitments),
     };
   }
 
@@ -142,6 +180,10 @@ export const publicConfig = buildPublicConfig({
   chainId: process.env.NEXT_PUBLIC_ROBINHOOD_CHAIN_ID,
   factoryAddress: process.env.NEXT_PUBLIC_FACTORY_ADDRESS,
   usdgAddress: process.env.NEXT_PUBLIC_USDG_ADDRESS,
+  factoryRuntimeCodeHash: process.env.NEXT_PUBLIC_FACTORY_RUNTIME_CODE_HASH,
+  rendererRuntimeCodeHash: process.env.NEXT_PUBLIC_RENDERER_RUNTIME_CODE_HASH,
+  deployerRuntimeCodeHash: process.env.NEXT_PUBLIC_DEPLOYER_RUNTIME_CODE_HASH,
+  usdgRuntimeCodeHash: process.env.NEXT_PUBLIC_USDG_RUNTIME_CODE_HASH,
   mainnetRpcUrl: process.env.NEXT_PUBLIC_ROBINHOOD_MAINNET_RPC_URL,
   testnetRpcUrl: process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_RPC_URL,
   walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,

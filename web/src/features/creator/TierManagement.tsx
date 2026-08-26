@@ -6,6 +6,7 @@ import {
   formatUnits,
   getAddress,
   isAddress,
+  zeroAddress,
   type Address,
   type Hash,
 } from "viem";
@@ -25,8 +26,14 @@ import {
   validateSupplyCap,
 } from "@/features/creator/management";
 import { readTierManagementState } from "@/features/creator/management-read";
-import { executeTransaction } from "@/features/protocol/write-transaction";
+import {
+  executeTransaction,
+  waitForWriteReceipt,
+  type Replacement,
+} from "@/features/protocol/write-transaction";
+import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
+import { isSameAddress } from "@/lib/address";
 import { publicConfig } from "@/lib/config";
 import { createDirectReadClient } from "@/lib/direct-read";
 import {
@@ -80,6 +87,7 @@ function ManagementControls({
   const [imageURI, setImageURI] = useState(snapshot.imageURI);
   const [externalURI, setExternalURI] = useState(snapshot.externalURI);
   const [newOwner, setNewOwner] = useState("");
+  const recovery = useTransactionReconciliation(dispatch);
   const permissions = managementPermissions(snapshot, account.address);
   const authenticity: AuthenticityResult = {
     status: "verified",
@@ -101,21 +109,22 @@ function ManagementControls({
     !isTransactionInFlight(transaction.phase);
   const canOwnerWrite = writesVerified && permissions.canOperate;
 
-  async function waitForReceipt(hash: Hash, onReplaced: (hash: Hash) => void) {
-    const receipt = await client.waitForTransactionReceipt({
-      hash,
-      onReplaced: (replacement) => onReplaced(replacement.transaction.hash),
-    });
-    return { status: receipt.status } as const;
+  async function waitForReceipt(
+    hash: Hash,
+    onReplaced: (value: Replacement) => void,
+  ) {
+    return waitForWriteReceipt(client, hash, onReplaced);
   }
 
   async function perform(
     label: string,
     simulate: () => Promise<SendWrite>,
+    reconcile: () => Promise<unknown | undefined>,
     approval?: () => Promise<SendWrite>,
   ) {
     setActiveAction(label);
-    return executeTransaction({
+    const tracked = recovery.track(reconcile);
+    const result = await executeTransaction({
       dispatch,
       simulate,
       submit: (send) => send(),
@@ -127,14 +136,91 @@ function ManagementControls({
             wait: waitForReceipt,
           }
         : undefined,
-      reconcile: async () => {
-        const refreshed = await onRefresh();
-        if (refreshed?.status !== "valid") {
-          throw new Error("Fresh tier state was unavailable.");
-        }
-        return refreshed.data;
-      },
+      reconcile: tracked,
     });
+    if (result !== undefined) recovery.clear();
+    return result;
+  }
+
+  async function reconcileSnapshot(
+    provesAction: (next: TierManagementSnapshot) => boolean,
+  ) {
+    const refreshed = await onRefresh();
+    if (refreshed?.status !== "valid") {
+      throw new Error("Fresh tier state was unavailable.");
+    }
+    return provesAction(refreshed.data) ? refreshed.data : undefined;
+  }
+
+  async function readRecipientTime(recipient: Address) {
+    const blockNumber = await client.getBlockNumber();
+    const [block, tokenId] = await Promise.all([
+      client.getBlock({ blockNumber }),
+      client.readContract({
+        address: snapshot.address,
+        abi: tierAbi,
+        functionName: "tokenOf",
+        args: [recipient],
+        blockNumber,
+      }),
+    ]);
+    if (tokenId === 0n) {
+      return {
+        tokenId,
+        timestamp: block.timestamp,
+        expiration: 0n,
+        paidSeconds: 0n,
+        grantSeconds: 0n,
+      };
+    }
+    const [expiration, balances] = await Promise.all([
+      client.readContract({
+        address: snapshot.address,
+        abi: tierAbi,
+        functionName: "expiresAt",
+        args: [tokenId],
+        blockNumber,
+      }),
+      client.readContract({
+        address: snapshot.address,
+        abi: tierAbi,
+        functionName: "timeBalances",
+        args: [tokenId],
+        blockNumber,
+      }),
+    ]);
+    return {
+      tokenId,
+      timestamp: block.timestamp,
+      expiration,
+      paidSeconds: balances[0],
+      grantSeconds: balances[1],
+    };
+  }
+
+  async function readTokenTime(tokenId: bigint) {
+    const blockNumber = await client.getBlockNumber();
+    const [balances, refund] = await Promise.all([
+      client.readContract({
+        address: snapshot.address,
+        abi: tierAbi,
+        functionName: "timeBalances",
+        args: [tokenId],
+        blockNumber,
+      }),
+      client.readContract({
+        address: snapshot.address,
+        abi: tierAbi,
+        functionName: "previewRefund",
+        args: [tokenId],
+        blockNumber,
+      }),
+    ]);
+    return {
+      paidSeconds: balances[0],
+      grantSeconds: balances[1],
+      refundableGross: refund[0],
+    };
   }
 
   function tierWrite<
@@ -208,12 +294,60 @@ function ManagementControls({
       }
       await perform(
         `Refund membership #${refundPreview.tokenId}`,
-        tierWrite("refund", [refundPreview.tokenId]),
+        tierWrite("refund", [refundPreview.tokenId, refundPreview.topUp]),
+        async () => {
+          const current = await readTokenTime(refundPreview.tokenId);
+          return current.paidSeconds === 0n &&
+            current.grantSeconds === 0n &&
+            current.refundableGross === 0n
+            ? current
+            : undefined;
+        },
         approval,
       );
     } catch (error) {
       dispatch({ type: "FAILED", error: decodeTransactionError(error) });
     }
+  }
+
+  async function grant() {
+    if (grantPeriodsValue === undefined || !isAddress(grantRecipient.trim())) {
+      return;
+    }
+    try {
+      const recipient = getAddress(grantRecipient.trim());
+      const before = await readRecipientTime(recipient);
+      const expectedExpiration =
+        (before.expiration > before.timestamp
+          ? before.expiration
+          : before.timestamp) +
+        grantPeriodsValue * snapshot.periodDuration;
+      await perform(
+        "Grant complimentary time",
+        tierWrite("grantTime", [recipient, grantPeriodsValue]),
+        async () => {
+          const current = await readRecipientTime(recipient);
+          return current.tokenId !== 0n &&
+            current.expiration >= expectedExpiration
+            ? current
+            : undefined;
+        },
+      );
+    } catch (error) {
+      dispatch({ type: "FAILED", error: decodeTransactionError(error) });
+    }
+  }
+
+  async function revokeGrant() {
+    if (revokeTokenValue === undefined) return;
+    await perform(
+      "Revoke remaining grant time",
+      tierWrite("revokeGrantTime", [revokeTokenValue]),
+      async () => {
+        const current = await readTokenTime(revokeTokenValue);
+        return current.grantSeconds === 0n ? current : undefined;
+      },
+    );
   }
 
   const capError = validateSupplyCap(supplyCap, snapshot.occupiedSupply);
@@ -314,6 +448,10 @@ function ManagementControls({
                 void perform(
                   snapshot.paused ? "Unpause tier" : "Pause tier",
                   tierWrite("setPaused", [!snapshot.paused]),
+                  () =>
+                    reconcileSnapshot(
+                      (next) => next.paused === !snapshot.paused,
+                    ),
                 )
               }
               type="button"
@@ -349,6 +487,10 @@ function ManagementControls({
                     void perform(
                       "Update supply cap",
                       tierWrite("setSupplyCap", [BigInt(supplyCap)]),
+                      () =>
+                        reconcileSnapshot(
+                          (next) => next.supplyCap === BigInt(supplyCap),
+                        ),
                     )
                   }
                   type="button"
@@ -370,6 +512,10 @@ function ManagementControls({
                     void perform(
                       "Update prepayment limit",
                       tierWrite("setMaxPrepaidPeriods", [prepaymentValue!]),
+                      () =>
+                        reconcileSnapshot(
+                          (next) => next.maxPrepaidPeriods === prepaymentValue,
+                        ),
                     )
                   }
                   type="button"
@@ -412,15 +558,7 @@ function ManagementControls({
                     !isAddress(grantRecipient.trim()) ||
                     grantPeriodsValue === undefined
                   }
-                  onClick={() =>
-                    void perform(
-                      "Grant complimentary time",
-                      tierWrite("grantTime", [
-                        getAddress(grantRecipient.trim()),
-                        grantPeriodsValue!,
-                      ]),
-                    )
-                  }
+                  onClick={() => void grant()}
                   type="button"
                 >
                   {snapshot.paused
@@ -438,12 +576,7 @@ function ManagementControls({
                 <button
                   className="button button-outline"
                   disabled={!canOwnerWrite || revokeTokenValue === undefined}
-                  onClick={() =>
-                    void perform(
-                      "Revoke remaining grant time",
-                      tierWrite("revokeGrantTime", [revokeTokenValue!]),
-                    )
-                  }
+                  onClick={() => void revokeGrant()}
                   type="button"
                 >
                   Revoke grant time
@@ -522,6 +655,8 @@ function ManagementControls({
                 void perform(
                   "Withdraw creator proceeds",
                   tierWrite("withdrawCreatorProceeds"),
+                  () =>
+                    reconcileSnapshot((next) => next.creatorProceeds === 0n),
                 )
               }
               type="button"
@@ -563,6 +698,13 @@ function ManagementControls({
                   tierWrite("setTierMetadata", [
                     { description, imageURI, externalURI },
                   ]),
+                  () =>
+                    reconcileSnapshot(
+                      (next) =>
+                        next.description === description &&
+                        next.imageURI === imageURI &&
+                        next.externalURI === externalURI,
+                    ),
                 )
               }
               type="button"
@@ -599,6 +741,13 @@ function ManagementControls({
                     tierWrite("transferOwnership", [
                       getAddress(newOwner.trim()),
                     ]),
+                    () =>
+                      reconcileSnapshot((next) =>
+                        isSameAddress(
+                          next.pendingOwner,
+                          getAddress(newOwner.trim()),
+                        ),
+                      ),
                   )
                 }
                 type="button"
@@ -612,6 +761,13 @@ function ManagementControls({
                   void perform(
                     "Accept tier ownership",
                     tierWrite("acceptOwnership"),
+                    () =>
+                      reconcileSnapshot(
+                        (next) =>
+                          account.address !== undefined &&
+                          isSameAddress(next.creator, account.address) &&
+                          isSameAddress(next.pendingOwner, zeroAddress),
+                      ),
                   )
                 }
                 type="button"
@@ -631,7 +787,10 @@ function ManagementControls({
         </p>
       )}
       <p className="eyebrow">Prepared action · {activeAction}</p>
-      <TransactionFlow state={transaction} />
+      <TransactionFlow
+        onReconcile={() => void recovery.recheck()}
+        state={transaction}
+      />
     </div>
   );
 }
@@ -646,8 +805,7 @@ export function TierManagement({ tierAddress }: { tierAddress: Address }) {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
       return readTierManagementState(client, {
         tier: tierAddress,
-        factory: deployment.factoryAddress,
-        paymentToken: deployment.usdgAddress,
+        deployment,
       });
     },
   });

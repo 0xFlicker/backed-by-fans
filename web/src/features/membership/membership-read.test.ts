@@ -12,6 +12,16 @@ const tier = getAddress("0x1111111111111111111111111111111111111111");
 const factory = getAddress("0x2222222222222222222222222222222222222222");
 const token = getAddress("0x3333333333333333333333333333333333333333");
 const creator = getAddress("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+const deployment = {
+  status: "ready" as const,
+  chainId: 46630 as const,
+  factoryAddress: factory,
+  usdgAddress: token,
+  factoryRuntimeCodeHash: `0x${"01".repeat(32)}` as const,
+  rendererRuntimeCodeHash: `0x${"02".repeat(32)}` as const,
+  deployerRuntimeCodeHash: `0x${"03".repeat(32)}` as const,
+  usdgRuntimeCodeHash: `0x${"04".repeat(32)}` as const,
+};
 
 describe("supporter direct reads", () => {
   it("reads creator proceeds for the same address regardless of checksum casing", async () => {
@@ -56,8 +66,7 @@ describe("supporter direct reads", () => {
 
     const state = await readTierSupporterState(client, {
       tier,
-      factory,
-      paymentToken: token,
+      deployment,
       wallet: creator.toLowerCase() as `0x${string}`,
     });
 

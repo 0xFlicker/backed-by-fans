@@ -11,7 +11,11 @@ import {
 import { factoryAbi, tierAbi } from "@/contracts/abis";
 import type { CatalogPage, TierSnapshot, TierSummary } from "@/contracts/types";
 import { verifyTierAuthenticity } from "@/lib/authenticity";
-import { publicConfig, type PublicConfig } from "@/lib/config";
+import {
+  publicConfig,
+  type PublicConfig,
+  type ReadyDeployment,
+} from "@/lib/config";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
 export const catalogPageLimit = 24;
@@ -241,14 +245,12 @@ export async function readTierSnapshotState(
   client: PublicClient,
   input: {
     tier: Address;
-    factory: Address;
-    paymentToken: Address;
+    deployment: ReadyDeployment;
   },
 ): Promise<ReadState<TierSnapshot>> {
   const authenticity = await verifyTierAuthenticity(client, {
-    factory: input.factory,
+    deployment: input.deployment,
     tier: input.tier,
-    expectedPaymentToken: input.paymentToken,
   });
 
   if (authenticity.status === "rate-limited") return authenticity;

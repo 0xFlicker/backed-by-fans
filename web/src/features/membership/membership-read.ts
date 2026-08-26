@@ -7,6 +7,7 @@ import type {
   TierSupporterSnapshot,
 } from "@/contracts/types";
 import { isSameAddress } from "@/lib/address";
+import type { ReadyDeployment } from "@/lib/config";
 import { readTierSnapshotState } from "@/lib/direct-read";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
@@ -198,8 +199,7 @@ export async function readTierSupporterState(
   client: PublicClient,
   input: {
     tier: Address;
-    factory: Address;
-    paymentToken: Address;
+    deployment: ReadyDeployment;
     wallet?: Address;
   },
 ): Promise<ReadState<TierSupporterSnapshot>> {
@@ -208,8 +208,9 @@ export async function readTierSupporterState(
 
   try {
     const blockNumber = tier.capturedBlock;
-    const block = await client.getBlock({ blockNumber });
+    const blockPromise = client.getBlock({ blockNumber });
     if (!input.wallet) {
+      const block = await blockPromise;
       return {
         ...tier,
         data: { ...tier.data, capturedTimestamp: block.timestamp },
@@ -217,8 +218,12 @@ export async function readTierSupporterState(
     }
 
     const wallet = input.wallet;
-    const [tokenId, usdgBalance, ethBalance, allowance, referralClaim] =
-      await Promise.all([
+    const [
+      block,
+      [tokenId, usdgBalance, ethBalance, allowance, referralClaim],
+    ] = await Promise.all([
+      blockPromise,
+      Promise.all([
         client.readContract({
           address: input.tier,
           abi: tierAbi,
@@ -227,7 +232,7 @@ export async function readTierSupporterState(
           blockNumber,
         }),
         client.readContract({
-          address: input.paymentToken,
+          address: input.deployment.usdgAddress,
           abi: tokenAbi,
           functionName: "balanceOf",
           args: [wallet],
@@ -235,7 +240,7 @@ export async function readTierSupporterState(
         }),
         client.getBalance({ address: wallet, blockNumber }),
         client.readContract({
-          address: input.paymentToken,
+          address: input.deployment.usdgAddress,
           abi: tokenAbi,
           functionName: "allowance",
           args: [wallet, input.tier],
@@ -248,19 +253,21 @@ export async function readTierSupporterState(
           args: [wallet],
           blockNumber,
         }),
-      ]);
-    const credential =
+      ]),
+    ]);
+    const [credential, creatorProceeds] = await Promise.all([
       tokenId === 0n
         ? undefined
-        : await readCredential(client, input.tier, tokenId, blockNumber);
-    const creatorProceeds = isSameAddress(wallet, tier.data.creator)
-      ? await client.readContract({
-          address: input.tier,
-          abi: tierAbi,
-          functionName: "creatorProceeds",
-          blockNumber,
-        })
-      : undefined;
+        : readCredential(client, input.tier, tokenId, blockNumber),
+      isSameAddress(wallet, tier.data.creator)
+        ? client.readContract({
+            address: input.tier,
+            abi: tierAbi,
+            functionName: "creatorProceeds",
+            blockNumber,
+          })
+        : undefined,
+    ]);
 
     return {
       ...tier,

@@ -1,11 +1,36 @@
+import type { PublicClient } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
-import { executeTransaction } from "@/features/protocol/write-transaction";
+import {
+  executeTransaction,
+  waitForWriteReceipt,
+} from "@/features/protocol/write-transaction";
 import type { TransactionEvent } from "@/lib/transaction-state";
 
 const hash = `0x${"1".repeat(64)}` as const;
 
 describe("shared protocol write execution", () => {
+  it("keeps cancellation sticky across subsequent replacement notifications", async () => {
+    const replacement = `0x${"2".repeat(64)}` as const;
+    const client = {
+      waitForTransactionReceipt: vi.fn(async ({ onReplaced }) => {
+        onReplaced({
+          reason: "cancelled",
+          transaction: { hash: replacement },
+        });
+        onReplaced({
+          reason: "repriced",
+          transaction: { hash: `0x${"3".repeat(64)}` },
+        });
+        return { status: "success" };
+      }),
+    } as unknown as PublicClient;
+
+    await expect(waitForWriteReceipt(client, hash, vi.fn())).resolves.toEqual({
+      status: "cancelled",
+    });
+  });
+
   it("simulates, signs, confirms, and reconciles in order", async () => {
     const events: TransactionEvent[] = [];
     const result = await executeTransaction({
@@ -36,7 +61,10 @@ describe("shared protocol write execution", () => {
       simulate: async () => ({}),
       submit: async () => hash,
       wait: async (_hash, onReplaced) => {
-        onReplaced(`0x${"2".repeat(64)}`);
+        onReplaced({
+          hash: `0x${"2".repeat(64)}`,
+          reason: "repriced",
+        });
         return { status: "reverted" };
       },
       reconcile,
@@ -106,7 +134,59 @@ describe("shared protocol write execution", () => {
     expect(reconcile).not.toHaveBeenCalled();
   });
 
-  it("marks a post-submission transport failure as uncertain and dropped", async () => {
+  it("does not imply the protected write was submitted when approval confirmation is unavailable", async () => {
+    const events: TransactionEvent[] = [];
+    const submit = vi.fn();
+    const reconcile = vi.fn();
+    await executeTransaction({
+      approval: {
+        simulate: async () => "approval request",
+        submit: async () => hash,
+        wait: async () => {
+          throw new Error("approval receipt unavailable");
+        },
+      },
+      simulate: async () => "protected request",
+      submit,
+      wait: async () => ({ status: "success" }),
+      reconcile,
+      dispatch: (event) => events.push(event),
+    });
+
+    expect(events.at(-1)).toEqual({
+      type: "FAILED",
+      error:
+        "approval receipt unavailable No protected action was submitted; recheck the USDG allowance before continuing.",
+    });
+    expect(submit).not.toHaveBeenCalled();
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+
+  it("treats a cancellation replacement as a safe cancellation, never action success", async () => {
+    const events: TransactionEvent[] = [];
+    const reconcile = vi.fn();
+    await executeTransaction({
+      simulate: async () => ({}),
+      submit: async () => hash,
+      wait: async (_hash, onReplaced) => {
+        onReplaced({
+          hash: `0x${"3".repeat(64)}`,
+          reason: "cancelled",
+        });
+        return { status: "cancelled" };
+      },
+      reconcile,
+      dispatch: (event) => events.push(event),
+    });
+
+    expect(events.at(-1)).toEqual({
+      type: "CANCELLED",
+      error: "The wallet cancelled the action replacement.",
+    });
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+
+  it("keeps a post-submission transport failure non-retryable when state is unproven", async () => {
     const dispatch = vi.fn();
     await executeTransaction({
       simulate: async () => ({}),
@@ -119,8 +199,25 @@ describe("shared protocol write execution", () => {
     });
 
     expect(dispatch).toHaveBeenLastCalledWith({
-      type: "DROPPED",
+      type: "UNCERTAIN",
       error: "receipt unavailable",
     });
+  });
+
+  it("recovers a submitted write from its proven postcondition", async () => {
+    const dispatch = vi.fn();
+    await expect(
+      executeTransaction({
+        simulate: async () => ({}),
+        submit: async () => hash,
+        wait: async () => {
+          throw new Error("receipt unavailable");
+        },
+        reconcile: async () => "proven state",
+        dispatch,
+      }),
+    ).resolves.toBe("proven state");
+
+    expect(dispatch).toHaveBeenLastCalledWith({ type: "RECONCILED" });
   });
 });

@@ -1,10 +1,22 @@
-import type { Address, PublicClient } from "viem";
+import { getAddress, isAddress, type Address, type PublicClient } from "viem";
 
-import { tierAbi } from "@/contracts/abis";
+import { factoryAbi, membershipInterfaceIds, tierAbi } from "@/contracts/abis";
 import type { AccountTierResult } from "@/features/membership/account-cache";
-import { verifyTierAuthenticity } from "@/lib/authenticity";
+import {
+  verifyFactoryAuthenticity,
+  type FactoryAuthenticity,
+} from "@/features/protocol/factory-authenticity";
+import {
+  tierBindingFailures,
+  verifyTierAuthenticity,
+} from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
-import { readCatalogPage } from "@/lib/direct-read";
+import type { ReadyDeployment } from "@/lib/config";
+import {
+  multicall3Address,
+  readCatalogPage,
+  verifyMulticall3,
+} from "@/lib/direct-read";
 
 export const accountDiscoveryPageLimit = 12;
 
@@ -22,17 +34,17 @@ async function inspectTier(
   client: PublicClient,
   input: {
     tier: Address;
-    factory: Address;
-    paymentToken: Address;
+    deployment: ReadyDeployment;
+    verifiedFactory: Extract<FactoryAuthenticity, { status: "verified" }>;
     wallet: Address;
     blockNumber: bigint;
   },
 ): Promise<{ result?: AccountTierResult; skipped?: string }> {
   const authenticity = await verifyTierAuthenticity(client, {
-    factory: input.factory,
+    deployment: input.deployment,
     tier: input.tier,
-    expectedPaymentToken: input.paymentToken,
     blockNumber: input.blockNumber,
+    verifiedFactory: input.verifiedFactory,
   });
   if (authenticity.status !== "verified") {
     return { skipped: `${input.tier}: ${authenticity.label}` };
@@ -118,35 +130,292 @@ async function inspectTier(
   }
 }
 
+type BatchCandidate = {
+  tier: Address;
+  name: string;
+  tokenId: bigint;
+  claimableReferral: bigint;
+  owner: Address;
+};
+
+type MulticallResult =
+  { status: "success"; result: unknown } | { status: "failure" };
+
+async function inspectTiersWithMulticall(
+  client: PublicClient,
+  input: {
+    tiers: Address[];
+    deployment: ReadyDeployment;
+    wallet: Address;
+    blockNumber: bigint;
+  },
+) {
+  const interfaceIds = Object.values(membershipInterfaceIds);
+  const contracts = input.tiers.flatMap((tier) => [
+    {
+      address: input.deployment.factoryAddress,
+      abi: factoryAbi,
+      functionName: "isRegisteredTier" as const,
+      args: [tier] as const,
+    },
+    {
+      address: tier,
+      abi: tierAbi,
+      functionName: "factory" as const,
+    },
+    {
+      address: tier,
+      abi: tierAbi,
+      functionName: "paymentToken" as const,
+    },
+    ...interfaceIds.map((interfaceId) => ({
+      address: tier,
+      abi: tierAbi,
+      functionName: "supportsInterface" as const,
+      args: [interfaceId] as const,
+    })),
+    { address: tier, abi: tierAbi, functionName: "name" as const },
+    {
+      address: tier,
+      abi: tierAbi,
+      functionName: "tokenOf" as const,
+      args: [input.wallet] as const,
+    },
+    {
+      address: tier,
+      abi: tierAbi,
+      functionName: "claimableReferral" as const,
+      args: [input.wallet] as const,
+    },
+    { address: tier, abi: tierAbi, functionName: "owner" as const },
+  ]);
+  const [codeReads, reads] = await Promise.all([
+    Promise.allSettled(
+      input.tiers.map((tier) =>
+        client.getBytecode({ address: tier, blockNumber: input.blockNumber }),
+      ),
+    ),
+    client.multicall({
+      contracts,
+      allowFailure: true,
+      blockNumber: input.blockNumber,
+      multicallAddress: multicall3Address,
+    }) as Promise<MulticallResult[]>,
+  ]);
+  const groupSize = 7 + interfaceIds.length;
+  const candidates: BatchCandidate[] = [];
+  const skipped: string[] = [];
+
+  input.tiers.forEach((tier, index) => {
+    const code = codeReads[index];
+    const group = reads.slice(index * groupSize, (index + 1) * groupSize);
+    if (
+      code.status !== "fulfilled" ||
+      !code.value ||
+      code.value === "0x" ||
+      group.length !== groupSize ||
+      group.some((result) => result.status !== "success")
+    ) {
+      skipped.push(`${tier}: contract code or batched reads unavailable`);
+      return;
+    }
+    const values = group.map((result) =>
+      result.status === "success" ? result.result : undefined,
+    );
+    const registered = values[0];
+    const tierFactory = values[1];
+    const tierToken = values[2];
+    const supported = values.slice(3, 3 + interfaceIds.length);
+    const [name, tokenId, claimableReferral, owner] = values.slice(
+      3 + interfaceIds.length,
+    );
+    const bindingFailures = tierBindingFailures({
+      registered,
+      tierFactory,
+      tierToken,
+      supportedInterfaces: supported,
+      factory: input.deployment.factoryAddress,
+      paymentToken: input.deployment.usdgAddress,
+    });
+    if (
+      bindingFailures.length > 0 ||
+      typeof name !== "string" ||
+      typeof tokenId !== "bigint" ||
+      typeof claimableReferral !== "bigint" ||
+      !isAddress(owner as string)
+    ) {
+      skipped.push(`${tier}: registration, bindings, or interfaces mismatch`);
+      return;
+    }
+    candidates.push({
+      tier,
+      name,
+      tokenId,
+      claimableReferral,
+      owner: getAddress(owner as string),
+    });
+  });
+
+  const claims = new Map<
+    Address,
+    { active: boolean; claimableReward: bigint; creatorProceeds: bigint }
+  >();
+  const claimRequests: {
+    tier: Address;
+    field: "active" | "claimableReward" | "creatorProceeds";
+    contract: Record<string, unknown>;
+  }[] = [];
+  for (const candidate of candidates) {
+    claims.set(candidate.tier, {
+      active: false,
+      claimableReward: 0n,
+      creatorProceeds: 0n,
+    });
+    if (candidate.tokenId !== 0n) {
+      claimRequests.push(
+        {
+          tier: candidate.tier,
+          field: "active",
+          contract: {
+            address: candidate.tier,
+            abi: tierAbi,
+            functionName: "isActiveToken",
+            args: [candidate.tokenId],
+          },
+        },
+        {
+          tier: candidate.tier,
+          field: "claimableReward",
+          contract: {
+            address: candidate.tier,
+            abi: tierAbi,
+            functionName: "claimableReward",
+            args: [candidate.tokenId],
+          },
+        },
+      );
+    }
+    if (isSameAddress(candidate.owner, input.wallet)) {
+      claimRequests.push({
+        tier: candidate.tier,
+        field: "creatorProceeds",
+        contract: {
+          address: candidate.tier,
+          abi: tierAbi,
+          functionName: "creatorProceeds",
+        },
+      });
+    }
+  }
+
+  const failedClaims = new Set<Address>();
+  if (claimRequests.length > 0) {
+    const claimReads = (await client.multicall({
+      contracts: claimRequests.map(({ contract }) => contract) as never,
+      allowFailure: true,
+      blockNumber: input.blockNumber,
+      multicallAddress: multicall3Address,
+    })) as MulticallResult[];
+    claimRequests.forEach((request, index) => {
+      const result = claimReads[index];
+      const current = claims.get(request.tier)!;
+      if (result?.status !== "success") {
+        failedClaims.add(request.tier);
+      } else if (
+        request.field === "active" &&
+        typeof result.result === "boolean"
+      ) {
+        current.active = result.result;
+      } else if (
+        request.field !== "active" &&
+        typeof result.result === "bigint"
+      ) {
+        current[request.field] = result.result;
+      } else {
+        failedClaims.add(request.tier);
+      }
+    });
+  }
+
+  const results: AccountTierResult[] = [];
+  for (const candidate of candidates) {
+    if (failedClaims.has(candidate.tier)) {
+      skipped.push(`${candidate.tier}: batched claim reads unavailable`);
+      continue;
+    }
+    const claim = claims.get(candidate.tier)!;
+    if (
+      candidate.tokenId === 0n &&
+      candidate.claimableReferral === 0n &&
+      claim.creatorProceeds === 0n
+    ) {
+      continue;
+    }
+    results.push({
+      tier: candidate.tier,
+      name: candidate.name,
+      tokenId: candidate.tokenId,
+      active: claim.active,
+      claimableReward: claim.claimableReward,
+      claimableReferral: candidate.claimableReferral,
+      creatorProceeds: claim.creatorProceeds,
+    });
+  }
+  return { results, skipped };
+}
+
 export async function discoverAccountPage(
   client: PublicClient,
   input: {
-    factory: Address;
-    paymentToken: Address;
+    deployment: ReadyDeployment;
     wallet: Address;
     offset: bigint;
   },
 ): Promise<AccountDiscoveryPage> {
-  const page = await readCatalogPage(client, input.factory, {
-    offset: input.offset,
-    limit: accountDiscoveryPageLimit,
-  });
-  const inspected = await Promise.all(
-    page.addresses.map((tier) =>
-      inspectTier(client, {
-        ...input,
-        tier,
-        blockNumber: page.capturedBlock,
-      }),
-    ),
-  );
+  const capturedBlock = await client.getBlockNumber();
+  const [page, verifiedFactory, multicallStatus] = await Promise.all([
+    readCatalogPage(client, input.deployment.factoryAddress, {
+      offset: input.offset,
+      limit: accountDiscoveryPageLimit,
+      blockNumber: capturedBlock,
+    }),
+    verifyFactoryAuthenticity(client, input.deployment, capturedBlock),
+    verifyMulticall3(client, capturedBlock),
+  ]);
+  if (verifiedFactory.status !== "verified") {
+    throw new Error(verifiedFactory.label);
+  }
+  const batch =
+    multicallStatus === "verified"
+      ? await inspectTiersWithMulticall(client, {
+          ...input,
+          tiers: page.addresses,
+          blockNumber: page.capturedBlock,
+        })
+      : undefined;
+  const inspected = batch
+    ? undefined
+    : await Promise.all(
+        page.addresses.map((tier) =>
+          inspectTier(client, {
+            ...input,
+            tier,
+            blockNumber: page.capturedBlock,
+            verifiedFactory,
+          }),
+        ),
+      );
   return {
     capturedBlock: page.capturedBlock,
     total: page.total,
     offset: page.offset,
     scannedTo: page.offset + BigInt(page.addresses.length),
     nextOffset: page.nextOffset,
-    results: inspected.flatMap(({ result }) => (result ? [result] : [])),
-    skipped: inspected.flatMap(({ skipped }) => (skipped ? [skipped] : [])),
+    results:
+      batch?.results ??
+      inspected!.flatMap(({ result }) => (result ? [result] : [])),
+    skipped:
+      batch?.skipped ??
+      inspected!.flatMap(({ skipped }) => (skipped ? [skipped] : [])),
   };
 }

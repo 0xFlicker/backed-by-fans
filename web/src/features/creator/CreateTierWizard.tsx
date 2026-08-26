@@ -29,7 +29,11 @@ import {
   verifyFactoryAuthenticity,
 } from "@/features/protocol/factory-authenticity";
 import { recoverCreatedTier } from "@/features/protocol/registry-recovery";
-import { executeTransaction } from "@/features/protocol/write-transaction";
+import {
+  executeTransaction,
+  waitForWriteReceipt,
+} from "@/features/protocol/write-transaction";
+import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
 import { publicConfig } from "@/lib/config";
 import { createDirectReadClient } from "@/lib/direct-read";
 import {
@@ -96,6 +100,7 @@ export function CreateTierWizard() {
   );
   const baselineCount = useRef<bigint | undefined>(undefined);
   const lastConfig = useRef<TierConfig | undefined>(undefined);
+  const recovery = useTransactionReconciliation(dispatch);
   const account = useAccount();
   const chainId = useChainId();
   const switchChain = useSwitchChain();
@@ -150,7 +155,7 @@ export function CreateTierWizard() {
     if (recovered.status === "found") {
       setCreatedTier(recovered.tier);
       setRecoveryNote(
-        "The factory registry confirms this tier with the reviewed immutable terms.",
+        "The factory registry confirms this tier with the complete reviewed launch terms.",
       );
       return recovered.tier;
     }
@@ -178,10 +183,11 @@ export function CreateTierWizard() {
     const factory = publicConfig.deployment.factoryAddress;
 
     if (baselineCount.current !== undefined && lastConfig.current) {
+      const priorCount = baselineCount.current;
       try {
         const recovered = await recoverCreatedTier(client, {
           factory,
-          fromIndex: baselineCount.current,
+          fromIndex: priorCount,
           config: lastConfig.current,
         });
         if (recovered.status === "found") {
@@ -190,13 +196,19 @@ export function CreateTierWizard() {
             "A fresh registry read found the prior deployment, so no duplicate transaction was prepared.",
           );
           dispatch({ type: "RECONCILED" });
+          recovery.clear();
           return;
         }
-        if (recovered.status === "ambiguous") {
+        if (
+          recovered.status === "ambiguous" ||
+          recovered.currentCount > priorCount
+        ) {
           dispatch({
-            type: "FAILED",
+            type: "UNCERTAIN",
             error:
-              "Multiple matching tiers were found. Review the registry before retrying.",
+              recovered.status === "ambiguous"
+                ? "Multiple exact matching tiers were found. Review the registry before sending anything else."
+                : "The registry advanced without an exact full-config match. Review the new tiers before sending anything else.",
           });
           return;
         }
@@ -227,6 +239,9 @@ export function CreateTierWizard() {
     lastConfig.current = config;
     setRecoveryNote(undefined);
 
+    const reconcile = recovery.track(() =>
+      reconcileDeployment(config, fromIndex),
+    );
     const deployed = await executeTransaction({
       dispatch,
       simulate: async () => {
@@ -241,27 +256,11 @@ export function CreateTierWizard() {
       },
       submit: (request) => wallet.data.writeContract(request),
       wait: async (hash, onReplaced) => {
-        const receipt = await client.waitForTransactionReceipt({
-          hash,
-          onReplaced: (replacement) => onReplaced(replacement.transaction.hash),
-        });
-        return { status: receipt.status };
+        return waitForWriteReceipt(client, hash, onReplaced);
       },
-      reconcile: () => reconcileDeployment(config, fromIndex),
+      reconcile,
     });
-
-    if (!deployed) {
-      try {
-        await reconcileDeployment(config, fromIndex);
-        dispatch({ type: "RECONCILED" });
-      } catch (error) {
-        setRecoveryNote(
-          error instanceof Error
-            ? error.message
-            : "The factory registry could not confirm the deployment.",
-        );
-      }
-    }
+    if (deployed) recovery.clear();
   }
 
   if (createdTier) {
@@ -716,6 +715,7 @@ export function CreateTierWizard() {
               Simulate and deploy membership
             </button>
             <TransactionFlow
+              onReconcile={() => void recovery.recheck()}
               onRetry={() => void deploy()}
               state={transaction}
             />

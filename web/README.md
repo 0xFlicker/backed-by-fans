@@ -23,12 +23,20 @@ variable starts with `NEXT_PUBLIC_`, is intentionally public, and is frozen into
 the browser bundle during `next build`. Never place a secret, private RPC
 credential, wallet key, or server token in these variables.
 
-The factory and testnet USDG values deliberately have no default. When they are
-absent, the app renders a distinct not-deployed or token-unconfirmed state and
-never substitutes a fake address. The complete creator form remains available
-as a read-only preview, but no simulation, approval, or write becomes enabled.
-The official mainnet USDG address is checked in code; mainnet authorization and
-promotion remain outside the web implementation units.
+The factory and testnet USDG values deliberately have no default. Testnet stays
+hard-disabled even if an arbitrary token address is supplied; only an official
+published canonical USDG proxy can change that release decision. Mainnet pins
+the official USDG address and also requires the factory, renderer, deployer,
+and USDG runtime-code hashes from an independently checked signed
+deployment manifest. The browser verifies those hashes and the RPC chain ID
+before exposing writes. Missing commitments render a distinct unavailable
+state; they never fall back to same-shaped contract interfaces. Mainnet
+authorization and promotion remain outside the web implementation units.
+
+Individual tier runtime hashes vary because constructor values are immutable
+in bytecode. Tier trust therefore comes from registration by the exact checked
+factory, the exact checked bound deployer, and verified tier factory/token and
+interface bindings—not from reusing one validation-tier hash for every tier.
 
 ## Direct creator and protocol operations
 
@@ -43,11 +51,14 @@ promotion remain outside the web implementation units.
   controls.
 
 All writes simulate first, use the connected wallet for signatures, wait for a
-receipt, and reconcile with fresh direct reads. A dropped, replaced, or
-otherwise uncertain deployment checks the append-only factory registry before
-another deployment can be prepared. Creator proceeds, protocol fees, and
-refunds keep their contract-defined fixed destinations; the application never
-offers a redirect field.
+receipt, and prove the action's specific postcondition with fresh direct reads.
+After any submitted transaction becomes uncertain, resubmission stays disabled
+and the interface offers only an onchain outcome recheck. A replaced or
+otherwise uncertain tier deployment checks the complete reviewed launch terms
+against the append-only factory registry before another deployment can be
+prepared. Creator proceeds, protocol fees, and refunds keep their
+contract-defined fixed destinations; the application never offers a redirect
+field.
 
 ## Supporter memberships and account discovery
 

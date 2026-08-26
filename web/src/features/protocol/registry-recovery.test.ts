@@ -12,7 +12,16 @@ const factory = getAddress("0x2222222222222222222222222222222222222222");
 const tier = getAddress("0x3333333333333333333333333333333333333333");
 const config = evaluateCreatorForm(defaultCreatorForm, creator).config!;
 
-function recoveryClient(tiers: readonly string[]) {
+function recoveryClient(
+  tiers: readonly string[],
+  overrides: Partial<{
+    supplyCap: bigint;
+    maxPrepaidPeriods: bigint;
+    description: string;
+    imageURI: string;
+    externalURI: string;
+  }> = {},
+) {
   return {
     getBlockNumber: vi.fn(async () => 50n),
     readContract: vi.fn(
@@ -35,6 +44,12 @@ function recoveryClient(tiers: readonly string[]) {
           periodDuration: config.periodDuration,
           rewardBps: config.rewardBps,
           referralBps: config.referralBps,
+          supplyCap: config.supplyCap,
+          maxPrepaidPeriods: config.maxPrepaidPeriods,
+          description: config.metadata.description,
+          imageURI: config.metadata.imageURI,
+          externalURI: config.metadata.externalURI,
+          ...overrides,
         };
         return fields[functionName as keyof typeof fields];
       },
@@ -61,6 +76,15 @@ describe("uncertain deployment registry recovery", () => {
     });
 
     expect(result).toEqual({ status: "not-found", currentCount: 0n });
+  });
+
+  it("does not claim a concurrent tier with different mutable launch terms", async () => {
+    const result = await recoverCreatedTier(
+      recoveryClient([tier], { supplyCap: config.supplyCap + 1n }),
+      { factory, fromIndex: 0n, config },
+    );
+
+    expect(result).toEqual({ status: "not-found", currentCount: 1n });
   });
 
   it("fails closed when duplicate matching tiers make recovery ambiguous", async () => {

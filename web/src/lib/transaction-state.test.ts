@@ -16,6 +16,7 @@ describe("transaction state machine", () => {
     expect(isTransactionInFlight("approval")).toBe(true);
     expect(isTransactionInFlight("replacement")).toBe(true);
     expect(isTransactionInFlight("reconciliation")).toBe(true);
+    expect(isTransactionInFlight("uncertain")).toBe(true);
     expect(isTransactionInFlight("idle")).toBe(false);
     expect(isTransactionInFlight("retry")).toBe(false);
   });
@@ -47,6 +48,7 @@ describe("transaction state machine", () => {
     const replaced = transactionReducer(submitted, {
       type: "REPLACED",
       replacementHash,
+      reason: "repriced",
     });
 
     expect(replaced).toMatchObject({
@@ -56,20 +58,33 @@ describe("transaction state machine", () => {
     });
   });
 
-  it.each(["DROPPED", "REVERTED", "FAILED"] as const)(
+  it.each(["CANCELLED", "REVERTED", "FAILED"] as const)(
     "makes %s failures retryable",
     (type) => {
       const failed = transactionReducer(initialTransactionState, {
         type,
         error: "wallet reason",
       });
-      expect(["dropped", "reverted", "retry"]).toContain(failed.phase);
+      expect(["cancelled", "reverted", "retry"]).toContain(failed.phase);
       expect(failed.error).toBe("wallet reason");
       expect(transactionReducer(failed, { type: "RETRY" }).phase).toBe(
         "simulation",
       );
     },
   );
+
+  it("keeps uncertain outcomes in flight until their state is proven", () => {
+    const uncertain = transactionReducer(initialTransactionState, {
+      type: "UNCERTAIN",
+      error: "receipt unavailable",
+    });
+    expect(uncertain.phase).toBe("uncertain");
+    expect(isTransactionInFlight(uncertain.phase)).toBe(true);
+
+    const reconciled = transactionReducer(uncertain, { type: "RECONCILED" });
+    expect(reconciled).toMatchObject({ phase: "confirmed" });
+    expect(reconciled.error).toBeUndefined();
+  });
 
   it("preserves a readable non-viem error", () => {
     expect(decodeTransactionError(new Error("User rejected signature"))).toBe(

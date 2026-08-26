@@ -105,4 +105,30 @@ describe("foundation status components", () => {
     await userEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
+
+  it("offers only an onchain recheck for an uncertain submitted action", async () => {
+    const onReconcile = vi.fn();
+    const onRetry = vi.fn();
+    render(
+      <TransactionFlow
+        onReconcile={onReconcile}
+        onRetry={onRetry}
+        state={{
+          phase: "uncertain",
+          message: "The outcome is not proven.",
+          error: "receipt unavailable",
+          hash: `0x${"ab".repeat(32)}`,
+        }}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /retry from simulation/i }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: /recheck onchain outcome/i }),
+    );
+    expect(onReconcile).toHaveBeenCalledOnce();
+    expect(onRetry).not.toHaveBeenCalled();
+  });
 });

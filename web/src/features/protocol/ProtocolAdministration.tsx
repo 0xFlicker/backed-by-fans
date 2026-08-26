@@ -2,7 +2,13 @@
 
 import { useMemo, useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatUnits, getAddress, isAddress, type Hash } from "viem";
+import {
+  formatUnits,
+  getAddress,
+  isAddress,
+  zeroAddress,
+  type Hash,
+} from "viem";
 import { useAccount, useChainId, useWalletClient } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
@@ -14,9 +20,14 @@ import {
   readProtocolState,
   type ProtocolSnapshot,
 } from "@/features/protocol/protocol-read";
-import { executeTransaction } from "@/features/protocol/write-transaction";
+import {
+  executeTransaction,
+  waitForWriteReceipt,
+} from "@/features/protocol/write-transaction";
+import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
 import { factoryWriteGuard } from "@/features/protocol/factory-authenticity";
 import { publicConfig } from "@/lib/config";
+import { isSameAddress } from "@/lib/address";
 import { createDirectReadClient } from "@/lib/direct-read";
 import {
   classifyReadError,
@@ -49,6 +60,7 @@ function ProtocolControls({
     transactionReducer,
     initialTransactionState,
   );
+  const recovery = useTransactionReconciliation(dispatch);
   const permissions = protocolPermissions(snapshot, account.address);
   const guard = factoryWriteGuard({
     deployment: publicConfig.deployment,
@@ -84,27 +96,30 @@ function ProtocolControls({
     };
   }
 
-  async function perform(label: string, simulate: () => Promise<SendWrite>) {
+  async function perform(
+    label: string,
+    simulate: () => Promise<SendWrite>,
+    provesAction: (next: ProtocolSnapshot) => boolean,
+  ) {
     setAction(label);
-    await executeTransaction({
+    const reconcile = async () => {
+      const refreshed = await onRefresh();
+      if (refreshed?.status !== "valid") {
+        throw new Error("Fresh protocol state was unavailable.");
+      }
+      return provesAction(refreshed.data) ? refreshed.data : undefined;
+    };
+    const tracked = recovery.track(reconcile);
+    const result = await executeTransaction({
       dispatch,
       simulate,
       submit: (send) => send(),
       wait: async (hash, onReplaced) => {
-        const receipt = await client.waitForTransactionReceipt({
-          hash,
-          onReplaced: (replacement) => onReplaced(replacement.transaction.hash),
-        });
-        return { status: receipt.status };
+        return waitForWriteReceipt(client, hash, onReplaced);
       },
-      reconcile: async () => {
-        const refreshed = await onRefresh();
-        if (refreshed?.status !== "valid") {
-          throw new Error("Fresh protocol state was unavailable.");
-        }
-        return refreshed.data;
-      },
+      reconcile: tracked,
     });
+    if (result !== undefined) recovery.clear();
   }
 
   return (
@@ -182,6 +197,11 @@ function ProtocolControls({
                 factoryWrite("setFeeRecipient", [
                   getAddress(feeRecipient.trim()),
                 ]),
+                (next) =>
+                  isSameAddress(
+                    next.feeRecipient,
+                    getAddress(feeRecipient.trim()),
+                  ),
               )
             }
             type="button"
@@ -206,6 +226,7 @@ function ProtocolControls({
               void perform(
                 "Withdraw protocol fees",
                 factoryWrite("withdrawProtocolFees"),
+                (next) => next.protocolBalance === 0n,
               )
             }
             type="button"
@@ -245,6 +266,11 @@ function ProtocolControls({
                   factoryWrite("transferOwnership", [
                     getAddress(newOwner.trim()),
                   ]),
+                  (next) =>
+                    isSameAddress(
+                      next.pendingOwner,
+                      getAddress(newOwner.trim()),
+                    ),
                 )
               }
               type="button"
@@ -258,6 +284,10 @@ function ProtocolControls({
                 void perform(
                   "Accept protocol ownership",
                   factoryWrite("acceptOwnership"),
+                  (next) =>
+                    account.address !== undefined &&
+                    isSameAddress(next.owner, account.address) &&
+                    isSameAddress(next.pendingOwner, zeroAddress),
                 )
               }
               type="button"
@@ -275,7 +305,10 @@ function ProtocolControls({
         </p>
       )}
       <p className="eyebrow">Prepared action · {action}</p>
-      <TransactionFlow state={transaction} />
+      <TransactionFlow
+        onReconcile={() => void recovery.recheck()}
+        state={transaction}
+      />
     </div>
   );
 }

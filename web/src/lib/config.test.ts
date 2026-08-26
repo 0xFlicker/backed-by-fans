@@ -6,6 +6,13 @@ import { buildPublicConfig, officialMainnetUsdg } from "@/lib/config";
 
 const factory = "0x1111111111111111111111111111111111111111";
 const testnetUsdg = "0x2222222222222222222222222222222222222222";
+const codeHash = `0x${"ab".repeat(32)}`;
+const commitments = {
+  factoryRuntimeCodeHash: codeHash,
+  rendererRuntimeCodeHash: codeHash,
+  deployerRuntimeCodeHash: codeHash,
+  usdgRuntimeCodeHash: codeHash,
+};
 
 describe("buildPublicConfig", () => {
   it("keeps an absent factory distinct from zero onchain state", () => {
@@ -30,18 +37,18 @@ describe("buildPublicConfig", () => {
     });
   });
 
-  it("accepts an explicitly configured testnet deployment", () => {
+  it("does not let an arbitrary testnet token enable deployment", () => {
     const config = buildPublicConfig({
       chainId: String(robinhoodTestnet.id),
       factoryAddress: factory,
       usdgAddress: testnetUsdg,
+      ...commitments,
       walletConnectProjectId: " project-id ",
     });
 
-    expect(config.deployment).toEqual({
-      status: "ready",
-      factoryAddress: getAddress(factory),
-      usdgAddress: getAddress(testnetUsdg),
+    expect(config.deployment).toMatchObject({
+      status: "unavailable",
+      reason: "payment-token-unconfirmed",
     });
     expect(config.walletConnectProjectId).toBe("project-id");
   });
@@ -50,12 +57,27 @@ describe("buildPublicConfig", () => {
     const config = buildPublicConfig({
       chainId: String(robinhood.id),
       factoryAddress: factory,
+      ...commitments,
     });
 
     expect(config.deployment).toEqual({
       status: "ready",
+      chainId: robinhood.id,
       factoryAddress: getAddress(factory),
       usdgAddress: officialMainnetUsdg,
+      ...commitments,
+    });
+  });
+
+  it("requires every signed runtime-code commitment", () => {
+    const config = buildPublicConfig({
+      chainId: String(robinhood.id),
+      factoryAddress: factory,
+    });
+
+    expect(config.deployment).toMatchObject({
+      status: "unavailable",
+      reason: "deployment-commitments-missing",
     });
   });
 

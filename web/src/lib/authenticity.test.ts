@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getAddress, type PublicClient } from "viem";
+import { getAddress, keccak256, type PublicClient } from "viem";
 
 import {
   getWriteGuard,
@@ -12,21 +12,33 @@ const factory = getAddress("0x1111111111111111111111111111111111111111");
 const tier = getAddress("0x2222222222222222222222222222222222222222");
 const token = getAddress("0x3333333333333333333333333333333333333333");
 const renderer = getAddress("0x4444444444444444444444444444444444444444");
+const deployer = getAddress("0x5555555555555555555555555555555555555555");
+const runtimeCode = "0x6000";
+const runtimeHash = keccak256(runtimeCode);
 const deployment: DeploymentAvailability = {
   status: "ready",
+  chainId: 46630,
   factoryAddress: factory,
   usdgAddress: token,
+  factoryRuntimeCodeHash: runtimeHash,
+  rendererRuntimeCodeHash: runtimeHash,
+  deployerRuntimeCodeHash: runtimeHash,
+  usdgRuntimeCodeHash: runtimeHash,
 };
 
 function authenticityClient(registered: boolean) {
   return {
     getBlockNumber: vi.fn().mockResolvedValue(90n),
-    getBytecode: vi.fn().mockResolvedValue("0x6000"),
+    getChainId: vi.fn().mockResolvedValue(46630),
+    getBytecode: vi.fn().mockResolvedValue(runtimeCode),
     readContract: vi.fn(({ functionName }: { functionName: string }) => {
       const values: Record<string, unknown> = {
         isRegisteredTier: registered,
         paymentToken: token,
         renderer,
+        deployer,
+        protocolFeeBps: 100,
+        maxPageSize: 100n,
         tierCount: 1n,
         factory,
         name: "Global Dollar",
@@ -42,9 +54,8 @@ function authenticityClient(registered: boolean) {
 describe("tier authenticity and write guard", () => {
   it("prevents an unregistered contract from reaching approval", async () => {
     const result = await verifyTierAuthenticity(authenticityClient(false), {
-      factory,
+      deployment,
       tier,
-      expectedPaymentToken: token,
     });
 
     expect(result).toMatchObject({
@@ -63,9 +74,8 @@ describe("tier authenticity and write guard", () => {
 
   it("enables a write only after registration, bindings, and interfaces verify", async () => {
     const result = await verifyTierAuthenticity(authenticityClient(true), {
-      factory,
+      deployment,
       tier,
-      expectedPaymentToken: token,
     });
 
     expect(result).toMatchObject({ status: "verified", capturedBlock: 90n });
@@ -106,6 +116,27 @@ describe("tier authenticity and write guard", () => {
     });
   });
 
+  it("keeps a verified stale deployment identity disabled", () => {
+    const verified: AuthenticityResult = {
+      status: "verified",
+      capturedBlock: 9n,
+      factory: getAddress("0x9999999999999999999999999999999999999999"),
+      tier,
+      paymentToken: token,
+    };
+    expect(
+      getWriteGuard({
+        deployment,
+        walletChainId: 46630,
+        expectedChainId: 46630,
+        authenticity: verified,
+      }),
+    ).toMatchObject({
+      enabled: false,
+      reason: expect.stringContaining("do not match"),
+    });
+  });
+
   it("classifies a missing standard function as an interface mismatch", async () => {
     const client = authenticityClient(true);
     vi.mocked(client.readContract).mockImplementation(
@@ -119,6 +150,9 @@ describe("tier authenticity and write guard", () => {
           isRegisteredTier: true,
           paymentToken: token,
           renderer,
+          deployer,
+          protocolFeeBps: 100,
+          maxPageSize: 100n,
           tierCount: 1n,
           factory,
           name: "Global Dollar",
@@ -131,9 +165,8 @@ describe("tier authenticity and write guard", () => {
 
     await expect(
       verifyTierAuthenticity(client, {
-        factory,
+        deployment,
         tier,
-        expectedPaymentToken: token,
       }),
     ).resolves.toMatchObject({
       status: "interface-mismatch",

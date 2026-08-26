@@ -9,57 +9,99 @@ export type RegistryRecovery =
   | { status: "found"; currentCount: bigint; tier: Address }
   | { status: "ambiguous"; currentCount: bigint; tiers: Address[] };
 
-async function matchesImmutableTerms(
+async function matchesLaunchTerms(
   client: PublicClient,
   tier: Address,
   config: TierConfig,
   blockNumber: bigint,
 ) {
-  const [owner, name, symbol, price, duration, rewardBps, referralBps] =
-    await Promise.all([
-      client.readContract({
-        address: tier,
-        abi: tierAbi,
-        functionName: "owner",
-        blockNumber,
-      }),
-      client.readContract({
-        address: tier,
-        abi: tierAbi,
-        functionName: "name",
-        blockNumber,
-      }),
-      client.readContract({
-        address: tier,
-        abi: tierAbi,
-        functionName: "symbol",
-        blockNumber,
-      }),
-      client.readContract({
-        address: tier,
-        abi: tierAbi,
-        functionName: "pricePerPeriod",
-        blockNumber,
-      }),
-      client.readContract({
-        address: tier,
-        abi: tierAbi,
-        functionName: "periodDuration",
-        blockNumber,
-      }),
-      client.readContract({
-        address: tier,
-        abi: tierAbi,
-        functionName: "rewardBps",
-        blockNumber,
-      }),
-      client.readContract({
-        address: tier,
-        abi: tierAbi,
-        functionName: "referralBps",
-        blockNumber,
-      }),
-    ]);
+  const [
+    owner,
+    name,
+    symbol,
+    price,
+    duration,
+    rewardBps,
+    referralBps,
+    supplyCap,
+    maxPrepaidPeriods,
+    description,
+    imageURI,
+    externalURI,
+  ] = await Promise.all([
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "owner",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "name",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "symbol",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "pricePerPeriod",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "periodDuration",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "rewardBps",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "referralBps",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "supplyCap",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "maxPrepaidPeriods",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "description",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "imageURI",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: tierAbi,
+      functionName: "externalURI",
+      blockNumber,
+    }),
+  ]);
 
   return (
     isSameAddress(getAddress(owner), config.creator) &&
@@ -68,7 +110,12 @@ async function matchesImmutableTerms(
     price === config.pricePerPeriod &&
     duration === config.periodDuration &&
     rewardBps === config.rewardBps &&
-    referralBps === config.referralBps
+    referralBps === config.referralBps &&
+    supplyCap === config.supplyCap &&
+    maxPrepaidPeriods === config.maxPrepaidPeriods &&
+    description === config.metadata.description &&
+    imageURI === config.metadata.imageURI &&
+    externalURI === config.metadata.externalURI
   );
 }
 
@@ -106,7 +153,7 @@ export async function recoverCreatedTier(
   });
   const matches: Address[] = [];
   for (const tier of candidates) {
-    if (await matchesImmutableTerms(client, tier, input.config, blockNumber)) {
+    if (await matchesLaunchTerms(client, tier, input.config, blockNumber)) {
       matches.push(getAddress(tier));
     }
   }

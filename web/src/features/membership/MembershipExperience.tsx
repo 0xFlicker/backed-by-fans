@@ -20,13 +20,19 @@ import { tierAbi, tokenAbi } from "@/contracts/abis";
 import type { TierSupporterSnapshot } from "@/contracts/types";
 import { parseUint64Input } from "@/features/creator/management";
 import { readGiftRecipientState } from "@/features/membership/membership-read";
+import { formatMembershipDate } from "@/features/membership/date";
 import {
   buildPaymentPreview,
   classifyMembershipState,
   parseUsdg,
   validateGift,
 } from "@/features/membership/state";
-import { executeTransaction } from "@/features/protocol/write-transaction";
+import {
+  executeTransaction,
+  waitForWriteReceipt,
+  type Replacement,
+} from "@/features/protocol/write-transaction";
+import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
 import { publicConfig } from "@/lib/config";
@@ -44,14 +50,6 @@ type ReferralChoice = "unselected" | "none" | "address";
 function formatPeriod(seconds: bigint) {
   const days = seconds / 86_400n;
   return days > 0n ? `${days} days` : `${seconds} seconds`;
-}
-
-function date(timestamp: bigint) {
-  if (timestamp === 0n) return "Not yet created";
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(Number(timestamp) * 1_000));
 }
 
 function referralAddress(
@@ -127,6 +125,7 @@ export function MembershipExperience({
   const [giftRecipient, setGiftRecipient] = useState("");
   const [giftPeriods, setGiftPeriods] = useState("1");
   const [preparedAction, setPreparedAction] = useState("No action prepared");
+  const recovery = useTransactionReconciliation(dispatch);
   const authenticity: AuthenticityResult = {
     status: "verified",
     capturedBlock,
@@ -247,12 +246,8 @@ export function MembershipExperience({
     giftState.data.paidSeconds + giftPreview.duration >
       snapshot.maxPrepaidPeriods * snapshot.periodDuration;
 
-  async function wait(hash: Hash, onReplaced: (hash: Hash) => void) {
-    const receipt = await client.waitForTransactionReceipt({
-      hash,
-      onReplaced: (replacement) => onReplaced(replacement.transaction.hash),
-    });
-    return { status: receipt.status } as const;
+  async function wait(hash: Hash, onReplaced: (value: Replacement) => void) {
+    return waitForWriteReceipt(client, hash, onReplaced);
   }
 
   function tierWrite(
@@ -299,10 +294,12 @@ export function MembershipExperience({
   async function perform(
     label: string,
     simulate: () => Promise<SendWrite>,
+    reconcile: () => Promise<unknown | undefined>,
     approve?: () => Promise<SendWrite>,
   ) {
     setPreparedAction(label);
-    return executeTransaction({
+    const tracked = recovery.track(reconcile);
+    const result = await executeTransaction({
       dispatch,
       simulate,
       submit: (send) => send(),
@@ -310,15 +307,30 @@ export function MembershipExperience({
       approval: approve
         ? { simulate: approve, submit: (send) => send(), wait }
         : undefined,
-      reconcile: async () => {
-        const state = await onRefresh();
-        if (state?.status !== "valid")
-          throw new Error(
-            "Fresh membership state was unavailable after confirmation.",
-          );
-        return state.data;
-      },
+      reconcile: tracked,
     });
+    if (result !== undefined) recovery.clear();
+    return result;
+  }
+
+  async function reconcileSnapshot(
+    provesAction: (next: TierSupporterSnapshot) => boolean,
+  ) {
+    const state = await onRefresh();
+    if (state?.status !== "valid") {
+      throw new Error(
+        "Fresh membership state was unavailable after confirmation.",
+      );
+    }
+    return provesAction(state.data) ? state.data : undefined;
+  }
+
+  function reconcileWalletIncrease(amount: bigint) {
+    const priorBalance = snapshot.walletUsdgBalance ?? 0n;
+    return () =>
+      reconcileSnapshot(
+        (next) => (next.walletUsdgBalance ?? 0n) >= priorBalance + amount,
+      );
   }
 
   async function buyForSelf() {
@@ -343,20 +355,66 @@ export function MembershipExperience({
             choiceAddress ?? zeroAddress,
           ])
         : tierWrite("purchase", [periodValue, choiceAddress ?? zeroAddress]);
-    await perform(primaryTitle, simulate, approval(selfPreview.exactApproval));
+    const priorShares = snapshot.credential?.shares ?? 0n;
+    const expectedReferral =
+      snapshot.credential?.referralStatus !== undefined &&
+      snapshot.credential.referralStatus !== "unset"
+        ? snapshot.credential.referralStatus
+        : selfPreview.gross === 0n
+          ? "unset"
+          : choiceAddress === zeroAddress
+            ? "locked-none"
+            : "locked-address";
+    await perform(
+      primaryTitle,
+      simulate,
+      () =>
+        reconcileSnapshot((next) => {
+          const credential = next.credential;
+          return Boolean(
+            credential &&
+            credential.expiration >= selfPreview.resultingExpiration &&
+            credential.shares >= priorShares + selfPreview.sharesAdded &&
+            credential.referralStatus === expectedReferral,
+          );
+        }),
+      approval(selfPreview.exactApproval),
+    );
   }
 
   async function sendGift() {
     if (
       !normalizedGift ||
       !giftPreview ||
+      !giftState.data ||
       giftPeriodValue === undefined ||
       giftError
     )
       return;
     await perform(
       `Gift ${giftPeriodValue} period${giftPeriodValue === 1n ? "" : "s"}`,
-      tierWrite("gift", [normalizedGift, giftPeriodValue]),
+      tierWrite("gift", [
+        normalizedGift,
+        giftPeriodValue,
+        giftState.data.referralStatus === "unset"
+          ? 0
+          : giftState.data.referralStatus === "locked-none"
+            ? 1
+            : 2,
+        giftState.data.referrer,
+      ]),
+      async () => {
+        const blockNumber = await client.getBlockNumber();
+        const recipient = await readGiftRecipientState(client, {
+          tier: snapshot.address,
+          recipient: normalizedGift,
+          blockNumber,
+        });
+        return recipient.expiration >= giftPreview.resultingExpiration &&
+          recipient.occupied
+          ? recipient
+          : undefined;
+      },
       approval(giftPreview.exactApproval),
     );
   }
@@ -412,7 +470,7 @@ export function MembershipExperience({
             </div>
             <div>
               <dt>Expiration</dt>
-              <dd>{date(snapshot.credential.expiration)}</dd>
+              <dd>{formatMembershipDate(snapshot.credential.expiration)}</dd>
             </div>
             <div>
               <dt>Capacity</dt>
@@ -522,7 +580,9 @@ export function MembershipExperience({
                 </div>
                 <div>
                   <dt>Resulting expiration</dt>
-                  <dd>{date(selfPreview.resultingExpiration)}</dd>
+                  <dd>
+                    {formatMembershipDate(selfPreview.resultingExpiration)}
+                  </dd>
                 </div>
                 <div>
                   <dt>Permanent shares added</dt>
@@ -653,7 +713,11 @@ export function MembershipExperience({
                       </div>
                       <div>
                         <dt>Resulting expiration</dt>
-                        <dd>{date(giftPreview.resultingExpiration)}</dd>
+                        <dd>
+                          {formatMembershipDate(
+                            giftPreview.resultingExpiration,
+                          )}
+                        </dd>
                       </div>
                       <div>
                         <dt>Permanent shares</dt>
@@ -732,6 +796,9 @@ export function MembershipExperience({
                     void perform(
                       "Claim membership rewards",
                       tierWrite("claimReward", [snapshot.credential!.tokenId]),
+                      reconcileWalletIncrease(
+                        snapshot.credential!.claimableReward,
+                      ),
                     )
                   }
                   type="button"
@@ -757,6 +824,7 @@ export function MembershipExperience({
                   void perform(
                     "Claim referral proceeds",
                     tierWrite("claimReferral"),
+                    reconcileWalletIncrease(snapshot.claimableReferral ?? 0n),
                   )
                 }
                 type="button"
@@ -780,6 +848,7 @@ export function MembershipExperience({
                     void perform(
                       "Withdraw creator proceeds",
                       tierWrite("withdrawCreatorProceeds"),
+                      reconcileWalletIncrease(snapshot.creatorProceeds!),
                     )
                   }
                   type="button"
@@ -814,6 +883,12 @@ export function MembershipExperience({
                     void perform(
                       "Synchronize inactive capacity",
                       tierWrite("synchronize", [snapshot.credential!.tokenId]),
+                      () =>
+                        reconcileSnapshot(
+                          (next) =>
+                            next.credential?.occupied === false ||
+                            next.credential?.active === true,
+                        ),
                     )
                   }
                   type="button"
@@ -877,7 +952,10 @@ export function MembershipExperience({
         </p>
       )}
       <p className="eyebrow">Prepared action · {preparedAction}</p>
-      <TransactionFlow state={transaction} />
+      <TransactionFlow
+        onReconcile={() => void recovery.recheck()}
+        state={transaction}
+      />
     </div>
   );
 }

@@ -1,13 +1,12 @@
 import { getAddress, isAddress, type Address, type PublicClient } from "viem";
 
+import { factoryAbi, membershipInterfaceIds, tierAbi } from "@/contracts/abis";
 import {
-  factoryAbi,
-  membershipInterfaceIds,
-  tierAbi,
-  tokenAbi,
-} from "@/contracts/abis";
+  verifyFactoryAuthenticity,
+  type FactoryAuthenticity,
+} from "@/features/protocol/factory-authenticity";
 import { isSameAddress } from "@/lib/address";
-import type { DeploymentAvailability } from "@/lib/config";
+import type { DeploymentAvailability, ReadyDeployment } from "@/lib/config";
 import { classifyReadError } from "@/lib/read-state";
 
 export type AuthenticityResult =
@@ -38,20 +37,46 @@ export type WriteGuard =
     }
   | { enabled: false; reason: string };
 
+export function tierBindingFailures(input: {
+  registered: unknown;
+  tierFactory: unknown;
+  tierToken: unknown;
+  supportedInterfaces: unknown[];
+  factory: Address;
+  paymentToken: Address;
+}) {
+  const failedChecks: string[] = [];
+  if (input.registered !== true) failedChecks.push("factory registration");
+  if (
+    !isAddress(input.tierFactory as string) ||
+    !isSameAddress(input.tierFactory as Address, input.factory)
+  ) {
+    failedChecks.push("tier factory binding");
+  }
+  if (
+    !isAddress(input.tierToken as string) ||
+    !isSameAddress(input.tierToken as Address, input.paymentToken)
+  ) {
+    failedChecks.push("tier USDG binding");
+  }
+  Object.keys(membershipInterfaceIds).forEach((name, index) => {
+    if (input.supportedInterfaces[index] !== true) {
+      failedChecks.push(`${name} interface`);
+    }
+  });
+  return failedChecks;
+}
+
 export async function verifyTierAuthenticity(
   client: PublicClient,
   input: {
-    factory: string;
     tier: string;
-    expectedPaymentToken: string;
+    deployment: ReadyDeployment;
     blockNumber?: bigint;
+    verifiedFactory?: Extract<FactoryAuthenticity, { status: "verified" }>;
   },
 ): Promise<AuthenticityResult> {
-  if (
-    !isAddress(input.factory) ||
-    !isAddress(input.tier) ||
-    !isAddress(input.expectedPaymentToken)
-  ) {
+  if (!isAddress(input.tier)) {
     return {
       status: "interface-mismatch",
       address: input.tier,
@@ -61,23 +86,55 @@ export async function verifyTierAuthenticity(
     };
   }
 
-  const factory = getAddress(input.factory);
+  const factory = input.deployment.factoryAddress;
   const tier = getAddress(input.tier);
-  const paymentToken = getAddress(input.expectedPaymentToken);
+  const paymentToken = input.deployment.usdgAddress;
 
   try {
-    const capturedBlock = input.blockNumber ?? (await client.getBlockNumber());
-    const [factoryCode, tierCode, tokenCode] = await Promise.all([
-      client.getBytecode({ address: factory, blockNumber: capturedBlock }),
-      client.getBytecode({ address: tier, blockNumber: capturedBlock }),
-      client.getBytecode({ address: paymentToken, blockNumber: capturedBlock }),
-    ]);
+    if (
+      input.verifiedFactory &&
+      (!isSameAddress(input.verifiedFactory.factory, factory) ||
+        !isSameAddress(input.verifiedFactory.paymentToken, paymentToken) ||
+        (input.blockNumber !== undefined &&
+          input.verifiedFactory.capturedBlock !== input.blockNumber))
+    ) {
+      return {
+        status: "interface-mismatch",
+        address: tier,
+        failedChecks: ["verified factory context"],
+        label: "The reused factory verification does not match this request.",
+      };
+    }
+    const factoryAuthenticity =
+      input.verifiedFactory ??
+      (await verifyFactoryAuthenticity(
+        client,
+        input.deployment,
+        input.blockNumber,
+      ));
+    if (factoryAuthenticity.status === "rate-limited") {
+      return factoryAuthenticity;
+    }
+    if (factoryAuthenticity.status === "unavailable") {
+      return factoryAuthenticity;
+    }
+    if (factoryAuthenticity.status === "interface-mismatch") {
+      return {
+        status: "interface-mismatch",
+        address: tier,
+        failedChecks: factoryAuthenticity.failedChecks,
+        label: factoryAuthenticity.label,
+      };
+    }
+
+    const capturedBlock = factoryAuthenticity.capturedBlock;
+    const tierCode = await client.getBytecode({
+      address: tier,
+      blockNumber: capturedBlock,
+    });
     const failedChecks: string[] = [];
 
-    if (!factoryCode || factoryCode === "0x") failedChecks.push("factory code");
     if (!tierCode || tierCode === "0x") failedChecks.push("tier code");
-    if (!tokenCode || tokenCode === "0x") failedChecks.push("USDG code");
-
     if (failedChecks.length > 0) {
       return {
         status: "interface-mismatch",
@@ -92,14 +149,8 @@ export async function verifyTierAuthenticity(
     const interfaceNames = Object.keys(membershipInterfaceIds);
     const readLabels = [
       "factory registration",
-      "factory USDG binding",
-      "factory renderer binding",
-      "factory registry surface",
       "tier factory binding",
       "tier USDG binding",
-      "USDG name",
-      "USDG symbol",
-      "USDG decimals",
       ...interfaceNames.map((name) => `${name} interface`),
     ];
     const reads = await Promise.allSettled([
@@ -108,24 +159,6 @@ export async function verifyTierAuthenticity(
         abi: factoryAbi,
         functionName: "isRegisteredTier",
         args: [tier],
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: factory,
-        abi: factoryAbi,
-        functionName: "paymentToken",
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: factory,
-        abi: factoryAbi,
-        functionName: "renderer",
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: factory,
-        abi: factoryAbi,
-        functionName: "tierCount",
         blockNumber: capturedBlock,
       }),
       client.readContract({
@@ -138,24 +171,6 @@ export async function verifyTierAuthenticity(
         address: tier,
         abi: tierAbi,
         functionName: "paymentToken",
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: paymentToken,
-        abi: tokenAbi,
-        functionName: "name",
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: paymentToken,
-        abi: tokenAbi,
-        functionName: "symbol",
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: paymentToken,
-        abi: tokenAbi,
-        functionName: "decimals",
         blockNumber: capturedBlock,
       }),
       ...Object.values(membershipInterfaceIds).map((interfaceId) =>
@@ -195,35 +210,20 @@ export async function verifyTierAuthenticity(
       result.status === "fulfilled" ? result.value : undefined,
     );
     const registered = values[0] as boolean;
-    const factoryToken = values[1] as Address;
-    const renderer = values[2] as Address;
-    const tierCount = values[3] as bigint;
-    const tierFactory = values[4] as Address;
-    const tierToken = values[5] as Address;
-    const tokenName = values[6] as string;
-    const tokenSymbol = values[7] as string;
-    const tokenDecimals = values[8] as number;
-    const supportedInterfaces = values.slice(9) as boolean[];
+    const tierFactory = values[1] as Address;
+    const tierToken = values[2] as Address;
+    const supportedInterfaces = values.slice(3) as boolean[];
 
-    if (!registered) failedChecks.push("factory registration");
-    if (!isSameAddress(factoryToken, paymentToken)) {
-      failedChecks.push("factory USDG binding");
-    }
-    if (renderer === "0x0000000000000000000000000000000000000000") {
-      failedChecks.push("factory renderer binding");
-    }
-    if (tierCount < 1n) failedChecks.push("factory registry surface");
-    if (!isSameAddress(tierFactory, factory))
-      failedChecks.push("tier factory binding");
-    if (!isSameAddress(tierToken, paymentToken))
-      failedChecks.push("tier USDG binding");
-    if (!tokenName.trim() || tokenSymbol !== "USDG" || tokenDecimals !== 6) {
-      failedChecks.push("USDG metadata interface");
-    }
-
-    interfaceNames.forEach((name, index) => {
-      if (!supportedInterfaces[index]) failedChecks.push(`${name} interface`);
-    });
+    failedChecks.push(
+      ...tierBindingFailures({
+        registered,
+        tierFactory,
+        tierToken,
+        supportedInterfaces,
+        factory,
+        paymentToken,
+      }),
+    );
 
     if (failedChecks.length > 0) {
       return {

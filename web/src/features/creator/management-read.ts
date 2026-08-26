@@ -2,12 +2,13 @@ import type { Address, PublicClient } from "viem";
 
 import { tierAbi } from "@/contracts/abis";
 import type { TierManagementSnapshot } from "@/contracts/types";
+import type { ReadyDeployment } from "@/lib/config";
 import { readTierSnapshotState } from "@/lib/direct-read";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
 export async function readTierManagementState(
   client: PublicClient,
-  input: { tier: Address; factory: Address; paymentToken: Address },
+  input: { tier: Address; deployment: ReadyDeployment },
 ): Promise<ReadState<TierManagementSnapshot>> {
   const tier = await readTierSnapshotState(client, input);
   if (tier.status !== "valid" && tier.status !== "stale") return tier;

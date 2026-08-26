@@ -26,8 +26,7 @@ export function TierReadPanel({ tierAddress }: { tierAddress: Address }) {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
       return readTierSupporterState(client, {
         tier: tierAddress,
-        factory: deployment.factoryAddress,
-        paymentToken: deployment.usdgAddress,
+        deployment,
         wallet: account.address,
       });
     },

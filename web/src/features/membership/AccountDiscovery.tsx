@@ -17,6 +17,7 @@ import {
 } from "@/features/membership/account-cache";
 import { discoverAccountPage } from "@/features/membership/account-discovery";
 import { publicConfig } from "@/lib/config";
+import type { ReadyDeployment } from "@/lib/config";
 import { createDirectReadClient } from "@/lib/direct-read";
 import {
   classifyReadError,
@@ -70,8 +71,7 @@ function DirectTierAccess() {
 
 type ConnectedDiscoveryProps = {
   cacheKey: string;
-  factory: Address;
-  paymentToken: Address;
+  deployment: ReadyDeployment;
   wallet: Address;
 };
 
@@ -100,8 +100,7 @@ function ConnectedDiscovery(props: ConnectedDiscoveryProps) {
 
 function HydratedDiscovery({
   cacheKey,
-  factory,
-  paymentToken,
+  deployment,
   wallet,
 }: ConnectedDiscoveryProps) {
   const client = useMemo(() => createDirectReadClient(), []);
@@ -114,8 +113,7 @@ function HydratedDiscovery({
     queryKey: ["account-discovery", cacheKey, offset.toString(), request],
     queryFn: () =>
       discoverAccountPage(client, {
-        factory,
-        paymentToken,
+        deployment,
         wallet,
         offset,
       }),
@@ -347,9 +345,8 @@ export function AccountDiscovery() {
       ) : (
         <ConnectedDiscovery
           cacheKey={key as string}
-          factory={deployment.factoryAddress}
+          deployment={deployment}
           key={key}
-          paymentToken={deployment.usdgAddress}
           wallet={account.address}
         />
       )}
