@@ -49,6 +49,26 @@ another deployment can be prepared. Creator proceeds, protocol fees, and
 refunds keep their contract-defined fixed destinations; the application never
 offers a redirect field.
 
+## Supporter memberships and account discovery
+
+- `/tiers/[tierAddress]` reads the connected wallet's permanent credential,
+  current access, held capacity, referral lock, shares, refund preview, and
+  fixed-destination claims at one captured block. The primary action changes
+  between joining, active renewal, held-place renewal, and synchronized rejoin.
+- Fixed-price tiers support deliberate gifts. Zero-price tiers remain self-only:
+  zero contribution adds exactly one period without economics, while a positive
+  contribution uses the normal split, permanent shares, and referral lock.
+- `/account` scans at most 12 factory entries per request. It stores only a
+  resumable cursor and previously verified display results in `localStorage`.
+  The cache is optional, erasable, scoped to the exact chain/factory/wallet,
+  and never authorizes a write. A tier address can always be opened directly.
+
+Purchases approve only the exact additional USDG amount shown by the preview.
+Approval success is not reported as membership success: purchase simulation,
+receipt confirmation, and a fresh read must still complete. Claims and refunds
+retain their contract-defined destinations; a frozen recipient sees the exact
+remaining claim and recovery guidance, never a redirect control.
+
 ## Commands
 
 ```sh

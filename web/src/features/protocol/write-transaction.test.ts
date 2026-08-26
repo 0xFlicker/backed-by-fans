@@ -78,6 +78,34 @@ describe("shared protocol write execution", () => {
     expect(events.map(({ type }) => type)).toContain("APPROVED");
   });
 
+  it("keeps approval success separate when the purchase then loses capacity", async () => {
+    const events: TransactionEvent[] = [];
+    const reconcile = vi.fn();
+    await executeTransaction({
+      approval: {
+        simulate: async () => "approval request",
+        submit: async () => hash,
+        wait: async () => ({ status: "success" }),
+      },
+      simulate: async () => {
+        throw new Error(
+          "CapacityReached: another supporter took the final place.",
+        );
+      },
+      submit: async () => `0x${"2".repeat(64)}`,
+      wait: async () => ({ status: "success" }),
+      reconcile,
+      dispatch: (event) => events.push(event),
+    });
+
+    expect(events.map(({ type }) => type)).toContain("APPROVED");
+    expect(events.at(-1)).toEqual({
+      type: "FAILED",
+      error: "CapacityReached: another supporter took the final place.",
+    });
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+
   it("marks a post-submission transport failure as uncertain and dropped", async () => {
     const dispatch = vi.fn();
     await executeTransaction({

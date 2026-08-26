@@ -59,7 +59,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Link>
             <nav aria-label="Primary navigation" className="primary-nav">
               <Link href="/memberships">Explore</Link>
-              <Link href="/#how-it-works">How it works</Link>
+              <Link href="/account">My account</Link>
               <Link href="/create">For creators</Link>
             </nav>
             <WalletControl />

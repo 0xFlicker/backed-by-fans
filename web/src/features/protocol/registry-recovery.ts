@@ -2,15 +2,12 @@ import { getAddress, type Address, type PublicClient } from "viem";
 
 import { factoryAbi, tierAbi } from "@/contracts/abis";
 import type { TierConfig } from "@/features/creator/config";
+import { isSameAddress } from "@/lib/address";
 
 export type RegistryRecovery =
   | { status: "not-found"; currentCount: bigint }
   | { status: "found"; currentCount: bigint; tier: Address }
   | { status: "ambiguous"; currentCount: bigint; tiers: Address[] };
-
-function sameAddress(left: Address, right: Address) {
-  return left.toLowerCase() === right.toLowerCase();
-}
 
 async function matchesImmutableTerms(
   client: PublicClient,
@@ -65,7 +62,7 @@ async function matchesImmutableTerms(
     ]);
 
   return (
-    sameAddress(getAddress(owner), config.creator) &&
+    isSameAddress(getAddress(owner), config.creator) &&
     name === config.name &&
     symbol === config.symbol &&
     price === config.pricePerPeriod &&

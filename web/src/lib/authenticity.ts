@@ -6,6 +6,7 @@ import {
   tierAbi,
   tokenAbi,
 } from "@/contracts/abis";
+import { isSameAddress } from "@/lib/address";
 import type { DeploymentAvailability } from "@/lib/config";
 import { classifyReadError } from "@/lib/read-state";
 
@@ -36,10 +37,6 @@ export type WriteGuard =
       capturedBlock: bigint;
     }
   | { enabled: false; reason: string };
-
-function sameAddress(left: Address, right: Address) {
-  return left.toLowerCase() === right.toLowerCase();
-}
 
 export async function verifyTierAuthenticity(
   client: PublicClient,
@@ -209,16 +206,16 @@ export async function verifyTierAuthenticity(
     const supportedInterfaces = values.slice(9) as boolean[];
 
     if (!registered) failedChecks.push("factory registration");
-    if (!sameAddress(factoryToken, paymentToken)) {
+    if (!isSameAddress(factoryToken, paymentToken)) {
       failedChecks.push("factory USDG binding");
     }
     if (renderer === "0x0000000000000000000000000000000000000000") {
       failedChecks.push("factory renderer binding");
     }
     if (tierCount < 1n) failedChecks.push("factory registry surface");
-    if (!sameAddress(tierFactory, factory))
+    if (!isSameAddress(tierFactory, factory))
       failedChecks.push("tier factory binding");
-    if (!sameAddress(tierToken, paymentToken))
+    if (!isSameAddress(tierToken, paymentToken))
       failedChecks.push("tier USDG binding");
     if (!tokenName.trim() || tokenSymbol !== "USDG" || tokenDecimals !== 6) {
       failedChecks.push("USDG metadata interface");
@@ -274,8 +271,14 @@ export function getWriteGuard(input: {
     };
   }
   if (
-    !sameAddress(input.authenticity.factory, input.deployment.factoryAddress) ||
-    !sameAddress(input.authenticity.paymentToken, input.deployment.usdgAddress)
+    !isSameAddress(
+      input.authenticity.factory,
+      input.deployment.factoryAddress,
+    ) ||
+    !isSameAddress(
+      input.authenticity.paymentToken,
+      input.deployment.usdgAddress,
+    )
   ) {
     return {
       enabled: false,
