@@ -15,6 +15,8 @@ eip1967_implementation_slot="0x360894a13ba1a3210667c828492db98dca3e2076cc3735a92
 canonical_usdg_storage_word="0x0000000000000000000000005fc5360D0400a0Fd4f2af552ADD042D716F1d168"
 creator="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 member="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+gift_recipient="0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+new_owner="0x90F79bf6EB2c4f870365E785982E1f101E93b906"
 temp_dir="$(mktemp -d)"
 anvil_pid=""
 web_pid=""
@@ -116,6 +118,10 @@ cast send "$canonical_usdg" 'mint(address,uint256)' "$member" 1000000000 \
   --rpc-url "$rpc_url" \
   --unlocked \
   --from "$creator" >/dev/null
+cast send "$canonical_usdg" 'mint(address,uint256)' "$creator" 1000000000 \
+  --rpc-url "$rpc_url" \
+  --unlocked \
+  --from "$creator" >/dev/null
 
 runtime_hash() {
   cast codehash "$1" --rpc-url "$rpc_url"
@@ -133,8 +139,11 @@ export NEXT_PUBLIC_USDG_IMPLEMENTATION_RUNTIME_CODE_HASH="$(runtime_hash "$canon
 export NEXT_PUBLIC_ROBINHOOD_MAINNET_RPC_URL="$rpc_url"
 export NEXT_PUBLIC_SITE_URL="$web_url"
 export BBF_ANVIL_RPC_URL="$rpc_url"
+export BBF_ANVIL_CREATOR_ADDRESS="$creator"
 export BBF_ANVIL_TIER_ADDRESS="$tier"
 export BBF_ANVIL_MEMBER_ADDRESS="$member"
+export BBF_ANVIL_GIFT_RECIPIENT_ADDRESS="$gift_recipient"
+export BBF_ANVIL_NEW_OWNER_ADDRESS="$new_owner"
 
 cd "$web_dir"
 bun run build
@@ -161,7 +170,14 @@ if ! kill -0 "$web_pid" 2>/dev/null \
 fi
 
 if ! PLAYWRIGHT_BASE_URL="$web_url" bunx playwright test \
-  tests/e2e/anvil-membership.spec.ts; then
+  tests/e2e/anvil-membership.spec.ts \
+  tests/e2e/create-tier.spec.ts \
+  tests/e2e/creator-operations.spec.ts \
+  tests/e2e/join-renew-gift.spec.ts \
+  tests/e2e/claims-refunds.spec.ts \
+  tests/e2e/rpc-recovery.spec.ts \
+  --grep '@anvil' \
+  --workers=1; then
   token_id="$(cast call "$tier" 'tokenOf(address)(uint256)' "$member" --rpc-url "$rpc_url")"
   echo "Configured browser evidence failed; local member token id: $token_id" >&2
   if [[ "$token_id" != "0" ]]; then

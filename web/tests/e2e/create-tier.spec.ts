@@ -1,5 +1,67 @@
 import { expect, test } from "@playwright/test";
 
+import { factoryAbi } from "../../src/contracts/abis";
+import {
+  anvilEnabled,
+  anvilPublicClient,
+  connectAnvilWallet,
+  installAnvilWallet,
+  requiredAnvilAddress,
+  revertAnvil,
+  snapshotAnvil,
+} from "./helpers/anvil";
+
+test("@anvil deploys and shares a creator-owned tier through the production UI", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
+  test.skip(testInfo.project.name !== "desktop", "One mutation is sufficient.");
+  const snapshot = await snapshotAnvil();
+  const creator = requiredAnvilAddress("creator");
+  const factory = requiredAnvilAddress("factory");
+  const client = anvilPublicClient();
+
+  try {
+    await installAnvilWallet(page, creator);
+    await page.goto("/create");
+    await connectAnvilWallet(page, creator);
+    await page.getByLabel("Membership name").fill("Anvil listening room");
+    await page.getByRole("button", { name: /^risks$/i }).click();
+    await page.getByRole("checkbox").nth(0).check();
+    await page.getByRole("checkbox").nth(1).check();
+    await page.getByRole("button", { name: /^review$/i }).click();
+
+    const deploy = page.getByRole("button", {
+      name: "Simulate and deploy membership",
+    });
+    await expect(deploy).toBeEnabled();
+    await deploy.click();
+    await expect(
+      page.getByRole("heading", { name: "Your membership is ready to share." }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    const deployedTier = (await page
+      .locator(".creator-success code")
+      .first()
+      .innerText()) as `0x${string}`;
+    await expect(
+      client.readContract({
+        address: factory,
+        abi: factoryAbi,
+        functionName: "isRegisteredTier",
+        args: [deployedTier],
+      }),
+    ).resolves.toBe(true);
+    await page.getByRole("link", { name: "Open membership page" }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Anvil listening room" }),
+    ).toBeVisible();
+  } finally {
+    await revertAnvil(snapshot);
+  }
+});
+
 test("walks through defaults, arbitrary splits, risks, and immutable review", async ({
   page,
 }) => {

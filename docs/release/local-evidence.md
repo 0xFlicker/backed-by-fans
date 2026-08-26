@@ -23,11 +23,24 @@ refunds, and failed fixed-destination exits.
 
 The same repository-wide command starts a disposable Anvil chain and a
 production Next.js server, configures exact runtime-code commitments, and runs
-`web/tests/e2e/anvil-membership.spec.ts`. That browser gate verifies a direct
-factory-registered tier at all supported viewports, an actual RPC outage, and
-an unlocked local-wallet exact-approval purchase through confirmed onchain
-reconciliation. It also runs axe before and after the supporter purchase. Run
-the browser evidence alone from the repository root:
+the configured tests in `web/tests/e2e/anvil-membership.spec.ts`,
+`create-tier.spec.ts`, `creator-operations.spec.ts`,
+`join-renew-gift.spec.ts`, `claims-refunds.spec.ts`, and
+`rpc-recovery.spec.ts`. The browser gate verifies:
+
+- direct factory-registered reads and explicit RPC-unavailable state at all
+  supported viewports;
+- creator deployment, mutable administration, pause behavior, grant/revoke,
+  withdrawal, exact refund preview/execution, and two-step ownership;
+- supporter join, active renewal, gift, reward, and referral flows using exact
+  approvals and confirmed onchain reconciliation;
+- a blocked fixed destination retaining its exact onchain claim with no
+  redirect control and safe retry guidance; and
+- a post-broadcast wallet-response loss reconciling from fresh state without a
+  duplicate submission.
+
+The flow also runs axe on configured supporter states. Run the browser evidence
+alone from the repository root:
 
 ```sh
 ./scripts/test-web-anvil.sh
@@ -36,8 +49,10 @@ the browser evidence alone from the repository root:
 The harness installs a test-only mock token runtime at the official mainnet USDG
 address inside the disposable chain and points its test-only EIP-1967
 implementation commitment at that same mock runtime solely to exercise the web
-authenticity guard. It never asserts that the mock is USDG, never produces a
-deployment manifest, and never authorizes a public deployment.
+authenticity guard. The mock can reject a selected recipient solely to prove
+the fixed-destination failure experience. It never asserts that the mock is
+USDG, never produces a deployment manifest, and never authorizes a public
+deployment.
 
 Local deterministic evidence is not a public testnet pilot, audit, independent
 accounting review, production rehearsal, or mainnet authorization.

@@ -39,8 +39,10 @@ audit, independent review, deployment, or brand clearance.
 
 The gate includes randomized independent contract models and a disposable
 Anvil-backed production browser flow. The latter verifies configured reads,
-actual RPC-loss handling, exact USDG approval, purchase reconciliation, and
-supporter accessibility without a wallet secret:
+creator deployment and administration, join/renew/gift payments, fixed-wallet
+claims, exact refunds, two-step ownership, blocked-destination preservation,
+actual RPC-loss handling, and uncertain-transaction reconciliation without a
+wallet secret:
 
 ```sh
 ./scripts/test-web-anvil.sh
