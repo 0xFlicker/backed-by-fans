@@ -77,7 +77,14 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["role", "signer", "scheme", "digest", "signature", "signedAtUtc"],
+        "required": [
+          "role",
+          "signer",
+          "scheme",
+          "digest",
+          "signature",
+          "signedAtUtc"
+        ],
         "properties": {
           "role": { "type": "string", "minLength": 1 },
           "signer": { "type": "string", "minLength": 1 },
@@ -152,7 +159,10 @@
       "required": ["status", "evidence"],
       "properties": {
         "status": { "enum": ["OPEN", "BLOCKED", "PASS"] },
-        "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
         "owner": { "type": "string", "minLength": 1 },
         "reviewedAtUtc": { "type": "string", "format": "date-time" },
         "blocker": { "type": "string", "minLength": 1 }
@@ -215,7 +225,9 @@
           "properties": {
             "factoryDeploymentTransactionHash": { "$ref": "#/$defs/chainHash" },
             "factoryDeploymentInputHash": { "$ref": "#/$defs/chainHash" },
-            "validationTierCreationTransactionHash": { "$ref": "#/$defs/chainHash" },
+            "validationTierCreationTransactionHash": {
+              "$ref": "#/$defs/chainHash"
+            },
             "validationTierCreationInputHash": { "$ref": "#/$defs/chainHash" },
             "verifiedAtBlock": { "type": "integer", "minimum": 1 }
           }
@@ -229,7 +241,9 @@
             "factoryRuntimeCodeHash",
             "rendererRuntimeCodeHash",
             "deployerRuntimeCodeHash",
-            "usdGRuntimeCodeHash"
+            "usdGRuntimeCodeHash",
+            "usdGImplementationAddress",
+            "usdGImplementationRuntimeCodeHash"
           ],
           "properties": {
             "chainId": { "enum": [46630, 4663] },
@@ -237,7 +251,9 @@
             "factoryRuntimeCodeHash": { "$ref": "#/$defs/chainHash" },
             "rendererRuntimeCodeHash": { "$ref": "#/$defs/chainHash" },
             "deployerRuntimeCodeHash": { "$ref": "#/$defs/chainHash" },
-            "usdGRuntimeCodeHash": { "$ref": "#/$defs/chainHash" }
+            "usdGRuntimeCodeHash": { "$ref": "#/$defs/chainHash" },
+            "usdGImplementationAddress": { "$ref": "#/$defs/address" },
+            "usdGImplementationRuntimeCodeHash": { "$ref": "#/$defs/chainHash" }
           }
         },
         "constructorInputs": { "$ref": "#/$defs/constructorInputs" },
@@ -263,7 +279,13 @@
         "factoryRegistration": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["factory", "tier", "tierIndex", "registered", "observedAtBlock"],
+          "required": [
+            "factory",
+            "tier",
+            "tierIndex",
+            "registered",
+            "observedAtBlock"
+          ],
           "properties": {
             "factory": { "$ref": "#/$defs/address" },
             "tier": { "$ref": "#/$defs/address" },
@@ -357,7 +379,12 @@
     "review": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["reportSha256", "scope", "artifactSha256", "finalDisposition"],
+      "required": [
+        "reportSha256",
+        "scope",
+        "artifactSha256",
+        "finalDisposition"
+      ],
       "properties": {
         "reportSha256": { "$ref": "#/$defs/sha256" },
         "scope": { "type": "string", "minLength": 1 },
@@ -379,7 +406,12 @@
         "factory": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["paymentToken", "renderer", "initialOwner", "initialFeeRecipient"],
+          "required": [
+            "paymentToken",
+            "renderer",
+            "initialOwner",
+            "initialFeeRecipient"
+          ],
           "properties": {
             "paymentToken": { "$ref": "#/$defs/address" },
             "renderer": { "$ref": "#/$defs/address" },

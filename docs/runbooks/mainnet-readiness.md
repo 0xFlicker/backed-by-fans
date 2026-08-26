@@ -11,7 +11,7 @@ from a green local test.
 
 | Gate | Status | Required evidence |
 | --- | --- | --- |
-| Canonical public testnet USDG | BLOCKED | Approved official source publishes proxy address and token behavior is verified. |
+| Canonical public testnet USDG | PASS | Paxos source, exact proxy pin, and live read-only observation recorded in [testnet USDG evidence](../release/testnet-usdg-evidence.md), reviewed 2026-08-26. |
 | Public testnet deployment and source verification | BLOCKED | Captured-block deployment manifest, exact source pages, second-RPC verification. |
 | Public testnet lifecycle | BLOCKED | Factory deployment, creator tier, payment, allocation, claim, refund, natural expiry, sync, creator ownership transfer, child verification, and production web build. |
 | Unassisted public testnet creator/supporter pilot | BLOCKED | Completed [pilot record](../pilots/testnet-pilot.md), participant consent, issues/disposition. |
@@ -31,10 +31,12 @@ from a green local test.
 
 Robinhood Chain mainnet is chain ID `4663`; testnet is `46630`. The official
 mainnet USDG address currently recorded by Robinhood is
-`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`. No approved official testnet USDG
-address is currently published. Revalidate all values from the linked official
-sources in [deployment.md](deployment.md) on execution day. A local mock is test
-evidence only and must never appear in a public deployment manifest.
+`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`. Paxos publishes the official
+Robinhood testnet USDG proxy as
+`0x7E955252E15c84f5768B83c41a71F9eba181802F`. Revalidate both values and the
+deployment-day authority inventory from the linked official sources in
+[deployment.md](deployment.md) on execution day. A local mock is test evidence
+only and must never appear in a public deployment manifest.
 
 ## Final decision
 

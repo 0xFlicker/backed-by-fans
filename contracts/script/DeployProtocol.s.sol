@@ -11,16 +11,27 @@ import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 
+interface IUSDGDeploymentTarget is IERC20Metadata {
+    function paused() external view returns (bool);
+}
+
 /// @notice Shared Robinhood chain and canonical-token validation for deployment tooling.
 abstract contract RobinhoodDeploymentGuard is Script {
     uint256 public constant ROBINHOOD_MAINNET_CHAIN_ID = 4663;
     uint256 public constant ROBINHOOD_TESTNET_CHAIN_ID = 46_630;
     address public constant ROBINHOOD_MAINNET_USDG = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168;
-    address public constant ROBINHOOD_TESTNET_USDG = address(0);
+    address public constant ROBINHOOD_TESTNET_USDG = 0x7E955252E15c84f5768B83c41a71F9eba181802F;
+    address public constant ROBINHOOD_TESTNET_USDG_IMPLEMENTATION =
+        0xF0863D7A29a55d0c4263c11bFac754312ff078DF;
+    bytes32 public constant ROBINHOOD_TESTNET_USDG_PROXY_RUNTIME_CODE_HASH =
+        0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6;
+    bytes32 public constant ROBINHOOD_TESTNET_USDG_IMPLEMENTATION_RUNTIME_CODE_HASH =
+        0x72f197ff5ab8dcedf1244113dd91f245af65ae2c3354456d8bbfb6a3939ecd18;
+    bytes32 public constant EIP1967_IMPLEMENTATION_SLOT =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
     error InvalidOperationalAddress();
     error InvalidUSDGContract();
-    error MissingCanonicalTestnetUSDG();
     error UnexpectedChain(uint256 actual, uint256 expected);
     error UnexpectedUSDG(address actual, address expected);
     error UnsupportedRobinhoodChain(uint256 chainId);
@@ -44,18 +55,11 @@ abstract contract RobinhoodDeploymentGuard is Script {
             revert InvalidOperationalAddress();
         }
 
-        if (expectedChainId == ROBINHOOD_MAINNET_CHAIN_ID) {
-            if (paymentToken != ROBINHOOD_MAINNET_USDG) {
-                revert UnexpectedUSDG(paymentToken, ROBINHOOD_MAINNET_USDG);
-            }
-        } else {
-            // No canonical testnet USDG is currently published by an approved source. Testnet is
-            // intentionally blocked for every caller-supplied token until one exact address is
-            // pinned here from official documentation.
-            if (ROBINHOOD_TESTNET_USDG == address(0)) revert MissingCanonicalTestnetUSDG();
-            if (paymentToken != ROBINHOOD_TESTNET_USDG) {
-                revert UnexpectedUSDG(paymentToken, ROBINHOOD_TESTNET_USDG);
-            }
+        address expectedPaymentToken = expectedChainId == ROBINHOOD_MAINNET_CHAIN_ID
+            ? ROBINHOOD_MAINNET_USDG
+            : ROBINHOOD_TESTNET_USDG;
+        if (paymentToken != expectedPaymentToken) {
+            revert UnexpectedUSDG(paymentToken, expectedPaymentToken);
         }
 
         if (paymentToken.code.length == 0) revert InvalidUSDGContract();
@@ -71,6 +75,32 @@ abstract contract RobinhoodDeploymentGuard is Script {
         }
         try IERC20Metadata(paymentToken).name() returns (string memory name) {
             if (bytes(name).length == 0) revert InvalidUSDGContract();
+        } catch {
+            revert InvalidUSDGContract();
+        }
+
+        if (expectedChainId == ROBINHOOD_TESTNET_CHAIN_ID) {
+            _validateTestnetUSDGState(paymentToken);
+        }
+    }
+
+    function _validateTestnetUSDGState(address paymentToken) private view {
+        if (paymentToken.codehash != ROBINHOOD_TESTNET_USDG_PROXY_RUNTIME_CODE_HASH) {
+            revert InvalidUSDGContract();
+        }
+
+        address implementation =
+            address(uint160(uint256(vm.load(paymentToken, EIP1967_IMPLEMENTATION_SLOT))));
+        if (
+            implementation != ROBINHOOD_TESTNET_USDG_IMPLEMENTATION
+                || implementation.codehash
+                    != ROBINHOOD_TESTNET_USDG_IMPLEMENTATION_RUNTIME_CODE_HASH
+        ) {
+            revert InvalidUSDGContract();
+        }
+
+        try IUSDGDeploymentTarget(paymentToken).paused() returns (bool isPaused) {
+            if (isPaused) revert InvalidUSDGContract();
         } catch {
             revert InvalidUSDGContract();
         }

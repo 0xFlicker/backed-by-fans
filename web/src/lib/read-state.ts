@@ -31,7 +31,7 @@ export type ReadState<T> =
     }
   | {
       status: "unavailable";
-      reason: "not-deployed" | "rpc-unavailable" | "token-unconfirmed";
+      reason: "not-deployed" | "rpc-unavailable";
       label: string;
     }
   | { status: "rate-limited"; label: string; retryAfter?: number }
@@ -80,10 +80,7 @@ export function unavailableDeploymentState(
 ): ReadState<never> {
   return {
     status: "unavailable",
-    reason:
-      deployment.reason === "payment-token-unconfirmed"
-        ? "token-unconfirmed"
-        : "not-deployed",
+    reason: "not-deployed",
     label: deployment.detail,
   };
 }

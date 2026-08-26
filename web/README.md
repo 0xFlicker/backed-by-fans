@@ -23,15 +23,16 @@ variable starts with `NEXT_PUBLIC_`, is intentionally public, and is frozen into
 the browser bundle during `next build`. Never place a secret, private RPC
 credential, wallet key, or server token in these variables.
 
-The factory and testnet USDG values deliberately have no default. Testnet stays
-hard-disabled even if an arbitrary token address is supplied; only an official
-published canonical USDG proxy can change that release decision. Mainnet pins
-the official USDG address and also requires the factory, renderer, deployer,
-and USDG runtime-code hashes from an independently checked signed
-deployment manifest. The browser verifies those hashes and the RPC chain ID
-before exposing writes. Missing commitments render a distinct unavailable
-state; they never fall back to same-shaped contract interfaces. Mainnet
-authorization and promotion remain outside the web implementation units.
+The factory deliberately has no default. The application pins the official USDG
+proxy independently for testnet and mainnet and rejects any supplied token that
+differs from the selected chain's pin. Both networks also require the factory,
+renderer, deployer, and USDG runtime-code hashes from an independently checked
+signed deployment record, including the USDG EIP-1967 implementation address
+and runtime-code hash. The browser verifies the proxy slot, implementation
+bytecode, contract hashes, and RPC chain ID at the same captured block before
+exposing writes. Missing commitments render a distinct unavailable state; they
+never fall back to same-shaped contract interfaces. Mainnet authorization and
+promotion remain outside the web implementation units.
 
 Individual tier runtime hashes vary because constructor values are immutable
 in bytecode. Tier trust therefore comes from registration by the exact checked

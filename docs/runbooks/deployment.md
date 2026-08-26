@@ -12,21 +12,20 @@ procedures. A deployment manifest records observed chain state; the signed
 readiness record binds it to freeze, review, reproduction, operations, and human
 authorization evidence.
 
-## Current testnet blocker
+## Current testnet status
 
-Robinhood's official documentation currently publishes chain IDs `4663` and
-`46630`, but its token-contract page publishes USDG only for mainnet. There is
-no approved canonical Robinhood testnet USDG proxy address. Consequently,
-[`contracts/deployments/robinhood-testnet.json`](../../contracts/deployments/robinhood-testnet.json) is a
-schema-valid blocked record and `DeployProtocol` rejects every testnet token
-input. Name, symbol, and decimals are not sufficient to authenticate a proxy.
-Never substitute a guessed address or relabel a mock as the canonical token.
+Paxos's official USDG testnet documentation publishes the Robinhood Testnet
+proxy as `0x7E955252E15c84f5768B83c41a71F9eba181802F`. That exact address is pinned
+in `RobinhoodDeploymentGuard`; arbitrary tokens remain rejected even when their
+name, symbol, and decimals match. The source and read-only live-chain observation
+are recorded in [testnet USDG evidence](../release/testnet-usdg-evidence.md).
 
-Once an approved official source publishes the address, record that source in
-the release evidence, pin the exact proxy in `RobinhoodDeploymentGuard`, and
-review that source change before executing any later section. Replace the
-blocked record only after completing every step below. The official public
-endpoints are:
+[`contracts/deployments/robinhood-testnet.json`](../../contracts/deployments/robinhood-testnet.json)
+remains a schema-valid blocked record because no public protocol deployment has
+been executed. Operational identities, a funded encrypted deployer keystore,
+source verification, and captured-block evidence are still unavailable. Replace
+the blocked record only after completing every applicable step below. The
+official public endpoints are:
 
 - Testnet RPC: `https://rpc.testnet.chain.robinhood.com`
 - Testnet explorer: `https://explorer.testnet.chain.robinhood.com`
@@ -35,8 +34,9 @@ endpoints are:
 - Mainnet explorer: `https://robinhoodchain.blockscout.com`
 
 Recheck the official [connection details](https://docs.robinhood.com/chain/connecting/),
-[token contracts](https://docs.robinhood.com/chain/contracts/), and
-[deployment guidance](https://docs.robinhood.com/chain/deploy-smart-contracts/)
+[token contracts](https://docs.robinhood.com/chain/contracts/),
+[Paxos testnet USDG deployment](https://docs.paxos.com/guides/stablecoin/usdg/testnet),
+and [deployment guidance](https://docs.robinhood.com/chain/deploy-smart-contracts/)
 on deployment day rather than treating this runbook as a live registry. These
 official pages and endpoint values were last checked on 2026-08-26.
 
@@ -66,11 +66,14 @@ cast wallet import backed-by-fans-testnet --interactive
 
 ## 2. Set and independently review operational inputs
 
-This section is not executable while the testnet guard remains blocked. After
-the reviewed source pin, copy `.env.example` to an ignored `.env` and fill the
-testnet chain, canonical USDG proxy, protocol owner, and fixed fee recipient.
-Confirm all four values out of band. `DeployProtocol` then enforces the exact
-pinned proxy as well as token code and metadata. The reusable mainnet guard
+Copy `.env.example` to an ignored `.env` and fill the testnet chain, canonical
+USDG proxy, protocol owner, and fixed fee recipient. Confirm all four values out
+of band. `DeployProtocol` enforces the exact pinned proxy as well as token code
+and metadata. On testnet it also enforces the reviewed proxy runtime hash,
+EIP-1967 implementation address/runtime hash, and `paused == false`; an upgrade
+requires a new reviewed source pin before deployment can proceed. Do not infer
+the owner, fee recipient, validation-tier owner, or deployer alias from a local wallet list; those are explicit operational choices.
+The reusable mainnet guard
 accepts only the official mainnet USDG proxy
 `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, but mainnet execution remains
 outside this runbook and requires the U11 audit and authorization gate.
@@ -153,11 +156,13 @@ Review and sign the resulting diff. The manifest is evidence, not canonical
 state; deployed contracts remain the source of truth.
 
 For a ready production web build, copy `NEXT_PUBLIC_FACTORY_ADDRESS`, the exact
-chain ID, and the factory, renderer, deployer, and USDG runtime hashes only from
-the independently checked manifest into `observedDeployment.webPublicConfig` in
-the readiness record. The readiness checker binds those public values to the
-same observed addresses and runtime hashes. Do not derive them from an explorer
-label or an unreviewed environment. Individual membership tiers are authenticated
+chain ID, the factory, renderer, deployer, and USDG proxy runtime hashes, plus
+the USDG implementation address and runtime hash only from the independently
+checked manifest and USDG observation into `observedDeployment.webPublicConfig`
+in the readiness record. The readiness checker binds those public values to the
+same observed addresses and runtime hashes. The browser verifies the EIP-1967
+implementation slot at the same captured block before exposing writes. Do not
+derive commitments from an explorer label or unreviewed environment. Individual membership tiers are authenticated
 through the exact factory registry and immutable bindings, not one global tier
 runtime hash because tier immutables make instance bytecode differ.
 
@@ -190,18 +195,18 @@ valid.
 
 ## 7. Live USDG fork gate
 
-The fork test is opt-in so local and CI checks remain deterministic while the
-canonical testnet address is unavailable. Once the official address is known,
-run:
+The fork test is opt-in so local and CI checks remain deterministic. It always
+uses the source-pinned official testnet proxy; supply only the RPC URL:
 
 ```sh
-RUN_ROBINHOOD_FORK_TESTS=true \
-ROBINHOOD_USDG_ADDRESS="$ROBINHOOD_USDG_ADDRESS" \
-ROBINHOOD_TESTNET_RPC_URL="$ROBINHOOD_TESTNET_RPC_URL" \
-forge test --match-path "test/fork/RobinhoodUSDG.t.sol" -vvv
+./scripts/check-testnet-usdg.sh "$ROBINHOOD_TESTNET_RPC_URL"
 ```
 
-With opt-in enabled, missing RPC or token inputs fail rather than skip. The test
-checks chain ID, proxy code, name, `USDG` symbol, six decimals, total supply, and
-balance reads. Token pause, freeze, and incompatible-transfer behavior remain
-covered by the deterministic adversarial contract suites.
+Run this wrapper from the repository root. A missing RPC input or mismatched
+recorded evidence block hash fails before Foundry starts. The official public RPC
+is not assumed to retain archival state: the wrapper captures a fresh block and
+hash, pins the fork to that exact block, and verifies the proxy, EIP-1967
+implementation, both runtime hashes, metadata, supply read, pause state, and full
+protocol instantiation. Implementation-only drift or a pause therefore fails
+before broadcast. Token freeze and incompatible-transfer behavior remain covered
+by the deterministic adversarial contract suites.

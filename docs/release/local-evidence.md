@@ -34,8 +34,10 @@ the browser evidence alone from the repository root:
 ```
 
 The harness installs a test-only mock token runtime at the official mainnet USDG
-address inside the disposable chain. It never asserts that the mock is USDG,
-never produces a deployment manifest, and never authorizes a public deployment.
+address inside the disposable chain and points its test-only EIP-1967
+implementation commitment at that same mock runtime solely to exercise the web
+authenticity guard. It never asserts that the mock is USDG, never produces a
+deployment manifest, and never authorizes a public deployment.
 
 Local deterministic evidence is not a public testnet pilot, audit, independent
 accounting review, production rehearsal, or mainnet authorization.

@@ -34,7 +34,9 @@
       "factoryRuntimeCodeHash": "0x0000000000000000000000000000000000000000000000000000000000000003",
       "rendererRuntimeCodeHash": "0x0000000000000000000000000000000000000000000000000000000000000002",
       "deployerRuntimeCodeHash": "0x0000000000000000000000000000000000000000000000000000000000000004",
-      "usdGRuntimeCodeHash": "0x0000000000000000000000000000000000000000000000000000000000000001"
+      "usdGRuntimeCodeHash": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "usdGImplementationAddress": "0x000000000000000000000000000000000000000b",
+      "usdGImplementationRuntimeCodeHash": "0x000000000000000000000000000000000000000000000000000000000000000b"
     },
     "constructorInputs": {
       "renderer": { "arguments": [] },
@@ -156,17 +158,72 @@
   "bytecodeHash": "ipfs",
   "frozenAtUtc": "2026-08-26T00:00:00Z",
   "gates": {
-    "canonicalToken": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "publicPilot": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "brandClearance": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "artifactFreeze": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "accountingReview": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "securityAudit": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "reproducibleBuild": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "safeReadiness": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "deploymentVerification": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "monitoringReadiness": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" },
-    "humanAuthorization": { "status": "PASS", "evidence": ["fixture:evidence"], "owner": "fixture-reviewer", "reviewedAtUtc": "2026-08-26T00:00:00Z" }
+    "canonicalToken": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "publicPilot": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "brandClearance": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "artifactFreeze": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "accountingReview": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "securityAudit": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "reproducibleBuild": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "safeReadiness": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "deploymentVerification": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "monitoringReadiness": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    },
+    "humanAuthorization": {
+      "status": "PASS",
+      "evidence": ["fixture:evidence"],
+      "owner": "fixture-reviewer",
+      "reviewedAtUtc": "2026-08-26T00:00:00Z"
+    }
   },
   "signatures": [
     {

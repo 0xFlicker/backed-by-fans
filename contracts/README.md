@@ -31,12 +31,13 @@ The reported Forge version must be `1.7.1`. No deployer key belongs in a dotenv
 file; use Foundry's encrypted keystore as described in `.env.example`.
 
 The repeatable broadcast, exact-block manifest, independent RPC check, and
-current testnet USDG blocker are documented in the
+official testnet USDG evidence are documented in the
 [deployment runbook](../docs/runbooks/deployment.md).
-No testnet deployment is recorded until an approved official source publishes
-the canonical token address and the exact proxy is pinned in the deployment
-guard. The guard currently rejects every testnet token input rather than trusting
-metadata supplied by an arbitrary contract; mainnet remains outside the U7 runbook.
+The exact official testnet proxy is pinned in the deployment guard and verified
+against live chain state. No public testnet protocol deployment is recorded
+until operational identities, an encrypted funded deployer, source verification,
+and captured-block evidence are available. The guard rejects arbitrary
+metadata-compatible tokens; mainnet remains outside the U7 runbook.
 
 The deployment manifest commits to the factory creation transaction and the
 validation-tier `createTier` transaction. Independent verification fetches both
@@ -61,6 +62,9 @@ forge test --match-path "test/deployment/*.t.sol" -vvv
 forge test --match-path "test/e2e/LocalLifecycleEvidence.t.sol" -vvv
 slither . --config-file slither.config.json --fail-high
 ```
+
+From the repository root, replay the exact public testnet USDG evidence and
+check current proxy state with `./scripts/check-testnet-usdg.sh RPC_URL`.
 
 `FactoryAndFees.t.sol` guards every deployable runtime and initcode against the
 network limits and caps tier creation below 6.5 million gas. The guard is

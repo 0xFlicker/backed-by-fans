@@ -33,6 +33,9 @@ const deployment = {
   rendererRuntimeCodeHash: `0x${"02".repeat(32)}` as const,
   deployerRuntimeCodeHash: `0x${"03".repeat(32)}` as const,
   usdgRuntimeCodeHash: `0x${"04".repeat(32)}` as const,
+  usdgImplementationAddress:
+    "0x5555555555555555555555555555555555555555" as const,
+  usdgImplementationRuntimeCodeHash: `0x${"05".repeat(32)}` as const,
 };
 
 function client(value: Partial<PublicClient>) {

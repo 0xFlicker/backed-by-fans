@@ -2,16 +2,23 @@ import { describe, expect, it } from "vitest";
 import { getAddress } from "viem";
 import { robinhood, robinhoodTestnet } from "viem/chains";
 
-import { buildPublicConfig, officialMainnetUsdg } from "@/lib/config";
+import {
+  buildPublicConfig,
+  officialMainnetUsdg,
+  officialTestnetUsdg,
+} from "@/lib/config";
 
 const factory = "0x1111111111111111111111111111111111111111";
 const testnetUsdg = "0x2222222222222222222222222222222222222222";
+const usdgImplementation = "0x3333333333333333333333333333333333333333";
 const codeHash = `0x${"ab".repeat(32)}`;
 const commitments = {
   factoryRuntimeCodeHash: codeHash,
   rendererRuntimeCodeHash: codeHash,
   deployerRuntimeCodeHash: codeHash,
   usdgRuntimeCodeHash: codeHash,
+  usdgImplementationAddress: usdgImplementation,
+  usdgImplementationRuntimeCodeHash: codeHash,
 };
 
 describe("buildPublicConfig", () => {
@@ -25,15 +32,19 @@ describe("buildPublicConfig", () => {
     });
   });
 
-  it("fails closed when testnet has no confirmed USDG", () => {
+  it("pins testnet to the officially published USDG proxy", () => {
     const config = buildPublicConfig({
       chainId: String(robinhoodTestnet.id),
       factoryAddress: factory,
+      ...commitments,
     });
 
-    expect(config.deployment).toMatchObject({
-      status: "unavailable",
-      reason: "payment-token-unconfirmed",
+    expect(config.deployment).toEqual({
+      status: "ready",
+      chainId: robinhoodTestnet.id,
+      factoryAddress: getAddress(factory),
+      usdgAddress: officialTestnetUsdg,
+      ...commitments,
     });
   });
 
@@ -48,9 +59,35 @@ describe("buildPublicConfig", () => {
 
     expect(config.deployment).toMatchObject({
       status: "unavailable",
-      reason: "payment-token-unconfirmed",
+      reason: "invalid-public-config",
     });
     expect(config.walletConnectProjectId).toBe("project-id");
+  });
+
+  it("accepts the explicitly supplied official testnet proxy", () => {
+    const config = buildPublicConfig({
+      factoryAddress: factory,
+      usdgAddress: officialTestnetUsdg,
+      ...commitments,
+    });
+
+    expect(config.deployment).toMatchObject({
+      status: "ready",
+      usdgAddress: officialTestnetUsdg,
+    });
+  });
+
+  it("rejects a malformed configured payment token", () => {
+    const config = buildPublicConfig({
+      factoryAddress: factory,
+      usdgAddress: "not-an-address",
+      ...commitments,
+    });
+
+    expect(config.deployment).toMatchObject({
+      status: "unavailable",
+      reason: "invalid-public-config",
+    });
   });
 
   it("pins mainnet to the officially published USDG proxy", () => {

@@ -8,9 +8,13 @@
   "deploymentManifest": "./robinhood-testnet.json",
   "gates": {
     "canonicalToken": {
-      "status": "BLOCKED",
-      "evidence": [],
-      "blocker": "No approved official source currently publishes canonical Robinhood testnet USDG."
+      "status": "PASS",
+      "evidence": [
+        "https://docs.paxos.com/guides/stablecoin/usdg/testnet",
+        "../../docs/release/testnet-usdg-evidence.md"
+      ],
+      "owner": "Backed By Fans implementation review",
+      "reviewedAtUtc": "2026-08-26T13:56:57Z"
     },
     "publicPilot": {
       "status": "BLOCKED",

@@ -10,6 +10,17 @@ import { factoryAbi } from "@/contracts/abis";
 import type { DeploymentAvailability } from "@/lib/config";
 import { classifyReadError } from "@/lib/read-state";
 
+export const eip1967ImplementationSlot =
+  "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as const;
+
+function addressFromStorageWord(word: Hex | undefined): Address | undefined {
+  if (!word || word.length !== 66) return undefined;
+  const address = getAddress(`0x${word.slice(-40)}`);
+  return address === "0x0000000000000000000000000000000000000000"
+    ? undefined
+    : address;
+}
+
 export type FactoryAuthenticity =
   | {
       status: "verified";
@@ -40,42 +51,51 @@ export async function verifyFactoryAuthenticity(
         : Promise.resolve(blockNumber),
       client.getChainId(),
     ]);
-    const [factoryCode, tokenCode, values] = await Promise.all([
-      client.getBytecode({ address: factory, blockNumber: capturedBlock }),
-      client.getBytecode({ address: paymentToken, blockNumber: capturedBlock }),
-      Promise.all([
-        client.readContract({
-          address: factory,
-          abi: factoryAbi,
-          functionName: "paymentToken",
+    const [factoryCode, tokenCode, tokenImplementationWord, values] =
+      await Promise.all([
+        client.getBytecode({ address: factory, blockNumber: capturedBlock }),
+        client.getBytecode({
+          address: paymentToken,
           blockNumber: capturedBlock,
         }),
-        client.readContract({
-          address: factory,
-          abi: factoryAbi,
-          functionName: "renderer",
+        client.getStorageAt({
+          address: paymentToken,
+          slot: eip1967ImplementationSlot,
           blockNumber: capturedBlock,
         }),
-        client.readContract({
-          address: factory,
-          abi: factoryAbi,
-          functionName: "deployer",
-          blockNumber: capturedBlock,
-        }),
-        client.readContract({
-          address: factory,
-          abi: factoryAbi,
-          functionName: "protocolFeeBps",
-          blockNumber: capturedBlock,
-        }),
-        client.readContract({
-          address: factory,
-          abi: factoryAbi,
-          functionName: "maxPageSize",
-          blockNumber: capturedBlock,
-        }),
-      ]),
-    ]);
+        Promise.all([
+          client.readContract({
+            address: factory,
+            abi: factoryAbi,
+            functionName: "paymentToken",
+            blockNumber: capturedBlock,
+          }),
+          client.readContract({
+            address: factory,
+            abi: factoryAbi,
+            functionName: "renderer",
+            blockNumber: capturedBlock,
+          }),
+          client.readContract({
+            address: factory,
+            abi: factoryAbi,
+            functionName: "deployer",
+            blockNumber: capturedBlock,
+          }),
+          client.readContract({
+            address: factory,
+            abi: factoryAbi,
+            functionName: "protocolFeeBps",
+            blockNumber: capturedBlock,
+          }),
+          client.readContract({
+            address: factory,
+            abi: factoryAbi,
+            functionName: "maxPageSize",
+            blockNumber: capturedBlock,
+          }),
+        ]),
+      ]);
     const [boundToken, renderer, deployer, feeBps, maxPageSize] = values;
     const failedChecks: string[] = [];
 
@@ -86,6 +106,12 @@ export async function verifyFactoryAuthenticity(
     if (!matchesRuntimeHash(tokenCode, deployment.usdgRuntimeCodeHash)) {
       failedChecks.push("USDG runtime code");
     }
+    const observedImplementation = addressFromStorageWord(
+      tokenImplementationWord,
+    );
+    if (observedImplementation !== deployment.usdgImplementationAddress) {
+      failedChecks.push("USDG implementation binding");
+    }
     if (getAddress(boundToken) !== paymentToken) {
       failedChecks.push("factory USDG binding");
     }
@@ -93,21 +119,34 @@ export async function verifyFactoryAuthenticity(
       failedChecks.push("factory constants");
     }
 
-    const [rendererCode, deployerCode] = await Promise.all([
-      client.getBytecode({
-        address: getAddress(renderer),
-        blockNumber: capturedBlock,
-      }),
-      client.getBytecode({
-        address: getAddress(deployer),
-        blockNumber: capturedBlock,
-      }),
-    ]);
+    const [rendererCode, deployerCode, tokenImplementationCode] =
+      await Promise.all([
+        client.getBytecode({
+          address: getAddress(renderer),
+          blockNumber: capturedBlock,
+        }),
+        client.getBytecode({
+          address: getAddress(deployer),
+          blockNumber: capturedBlock,
+        }),
+        client.getBytecode({
+          address: deployment.usdgImplementationAddress,
+          blockNumber: capturedBlock,
+        }),
+      ]);
     if (!matchesRuntimeHash(rendererCode, deployment.rendererRuntimeCodeHash)) {
       failedChecks.push("renderer runtime code");
     }
     if (!matchesRuntimeHash(deployerCode, deployment.deployerRuntimeCodeHash)) {
       failedChecks.push("deployer runtime code");
+    }
+    if (
+      !matchesRuntimeHash(
+        tokenImplementationCode,
+        deployment.usdgImplementationRuntimeCodeHash,
+      )
+    ) {
+      failedChecks.push("USDG implementation runtime code");
     }
 
     return failedChecks.length > 0

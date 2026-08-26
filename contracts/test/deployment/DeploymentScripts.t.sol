@@ -43,13 +43,8 @@ contract DeploymentScriptsTest is Test {
         _tierOwner = makeAddr("deploymentTierOwner");
         _deployerScript = new DeployProtocol();
         _checker = new CheckDeployment();
-        MockUSDG paymentTokenImplementation = new MockUSDG();
         address canonicalUSDG = _deployerScript.ROBINHOOD_MAINNET_USDG();
-        vm.etch(canonicalUSDG, address(paymentTokenImplementation).code);
-        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("name()"), abi.encode("Global Dollar"));
-        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("symbol()"), abi.encode("USDG"));
-        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("decimals()"), abi.encode(uint8(6)));
-        _paymentToken = MockUSDG(canonicalUSDG);
+        _paymentToken = _installCanonicalUSDG(canonicalUSDG);
 
         (OnchainMetadataRenderer renderer, MembershipFactory factory) = _deployerScript.deploy(
             _MAINNET_CHAIN_ID, address(_paymentToken), _protocolOwner, _feeRecipient
@@ -86,10 +81,23 @@ contract DeploymentScriptsTest is Test {
         _deployerScript.validateInputs(1, address(_paymentToken), _protocolOwner, _feeRecipient);
     }
 
-    function test_testnetIsHardBlockedAndMainnetRequiresExactOfficialProxy() public {
+    function test_eachChainRequiresItsExactOfficialProxyAndTestnetStateCommitments() public {
         vm.chainId(_TESTNET_CHAIN_ID);
-        assertEq(_deployerScript.ROBINHOOD_TESTNET_USDG(), address(0));
-        vm.expectRevert(RobinhoodDeploymentGuard.MissingCanonicalTestnetUSDG.selector);
+        address canonicalTestnetUSDG = _deployerScript.ROBINHOOD_TESTNET_USDG();
+        _installCanonicalUSDG(canonicalTestnetUSDG);
+
+        vm.expectRevert(RobinhoodDeploymentGuard.InvalidUSDGContract.selector);
+        _deployerScript.validateInputs(
+            _TESTNET_CHAIN_ID, canonicalTestnetUSDG, _protocolOwner, _feeRecipient
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RobinhoodDeploymentGuard.UnexpectedUSDG.selector,
+                address(_paymentToken),
+                canonicalTestnetUSDG
+            )
+        );
         _deployerScript.validateInputs(
             _TESTNET_CHAIN_ID, address(_paymentToken), _protocolOwner, _feeRecipient
         );
@@ -313,6 +321,9 @@ contract DeploymentScriptsTest is Test {
         string memory json = vm.readFile("deployments/robinhood-testnet.json");
         assertEq(vm.parseJsonString(json, ".status"), "blocked");
         assertEq(vm.parseJsonUint(json, ".chainId"), _TESTNET_CHAIN_ID);
+        assertEq(
+            vm.parseJsonAddress(json, ".paymentToken"), _deployerScript.ROBINHOOD_TESTNET_USDG()
+        );
         assertTrue(bytes(vm.parseJsonString(json, ".blocker")).length != 0);
 
         vm.expectRevert(CheckDeployment.ManifestNotDeployed.selector);
@@ -376,5 +387,14 @@ contract DeploymentScriptsTest is Test {
             ? "https://robinhoodchain.blockscout.com/address/"
             : "https://explorer.testnet.chain.robinhood.com/address/";
         return string.concat(base, uint256(uint160(target)).toHexString(20), "?tab=contract");
+    }
+
+    function _installCanonicalUSDG(address proxy) private returns (MockUSDG token) {
+        MockUSDG implementation = new MockUSDG();
+        vm.etch(proxy, address(implementation).code);
+        vm.mockCall(proxy, abi.encodeWithSignature("name()"), abi.encode("Global Dollar"));
+        vm.mockCall(proxy, abi.encodeWithSignature("symbol()"), abi.encode("USDG"));
+        vm.mockCall(proxy, abi.encodeWithSignature("decimals()"), abi.encode(uint8(6)));
+        token = MockUSDG(proxy);
     }
 }

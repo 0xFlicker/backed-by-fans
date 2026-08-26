@@ -7,6 +7,10 @@ jq empty "$record"
 test "$(jq -r '."$schema"' "$record")" = "./readiness-schema-v1.json"
 test "$(jq -r '.schemaVersion' "$record")" = "1"
 jq -e '
+  def knownGateKeys:
+    has("status") and has("evidence") and
+    ((keys - ["status", "evidence", "owner", "reviewedAtUtc", "blocker"]) | length == 0);
+  def nonempty: type == "string" and length > 0;
   (.candidateId | type == "string" and length > 0) and
   (.deploymentManifest | type == "string" and length > 0) and
   (
@@ -27,6 +31,21 @@ jq -e '
       "monitoringReadiness",
       "humanAuthorization"
     ] | sort)
+  ) and
+  all(.gates[];
+    knownGateKeys and
+    (.status == "OPEN" or .status == "BLOCKED" or .status == "PASS") and
+    (.evidence | type == "array" and all(.[]; nonempty)) and
+    (if has("owner") then (.owner | nonempty) else true end) and
+    (if has("reviewedAtUtc") then (.reviewedAtUtc | nonempty) else true end) and
+    (if has("blocker") then (.blocker | nonempty) else true end) and
+    (if .status == "PASS" then
+      (.evidence | length > 0) and (.owner | nonempty) and (.reviewedAtUtc | nonempty)
+    elif .status == "BLOCKED" then
+      (.blocker | nonempty)
+    else
+      true
+    end)
   )
 ' "$record" >/dev/null
 
@@ -40,7 +59,7 @@ case "$status" in
     ;;
   ready)
     if [[ "$(jq -r '.network' "$record")" == "robinhood-testnet" ]]; then
-      echo "ready testnet records are disabled until canonical testnet USDG is pinned" >&2
+      echo "ready signed release records are mainnet-only" >&2
       exit 1
     fi
     jq -e '
@@ -114,14 +133,17 @@ case "$status" in
         exactkeys([
           "chainId", "factoryAddress", "factoryRuntimeCodeHash",
           "rendererRuntimeCodeHash", "deployerRuntimeCodeHash",
-          "usdGRuntimeCodeHash"
+          "usdGRuntimeCodeHash", "usdGImplementationAddress",
+          "usdGImplementationRuntimeCodeHash"
         ]) and
         (.chainId == 46630 or .chainId == 4663) and
         (.factoryAddress | address) and
         (.factoryRuntimeCodeHash | chainhash) and
         (.rendererRuntimeCodeHash | chainhash) and
         (.deployerRuntimeCodeHash | chainhash) and
-        (.usdGRuntimeCodeHash | chainhash)) and
+        (.usdGRuntimeCodeHash | chainhash) and
+        (.usdGImplementationAddress | address) and
+        (.usdGImplementationRuntimeCodeHash | chainhash)) and
       (.observedDeployment.constructorInputs |
         exactkeys(["renderer", "factory", "deployer", "launchTier"])) and
       (.observedDeployment.constructorInputs.renderer |
@@ -217,6 +239,10 @@ case "$status" in
         == .observedDeployment.runtimeCodeHashes.deployer) and
       (.observedDeployment.webPublicConfig.usdGRuntimeCodeHash
         == .observedDeployment.runtimeCodeHashes.paymentToken) and
+      (.observedDeployment.webPublicConfig.usdGImplementationAddress
+        == .observedDeployment.usdG.implementation) and
+      (.observedDeployment.webPublicConfig.usdGImplementationRuntimeCodeHash
+        == .observedDeployment.usdG.implementationCodeHash) and
       (
         .network != "robinhood-mainnet" or
         (.observedDeployment.usdG.proxy | ascii_downcase)

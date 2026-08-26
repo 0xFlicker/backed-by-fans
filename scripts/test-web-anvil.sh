@@ -11,6 +11,8 @@ web_port="${BBF_ANVIL_WEB_PORT:-3110}"
 rpc_url="http://$anvil_host:$anvil_port"
 web_url="http://$web_host:$web_port"
 canonical_usdg="0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+eip1967_implementation_slot="0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+canonical_usdg_storage_word="0x0000000000000000000000005fc5360D0400a0Fd4f2af552ADD042D716F1d168"
 creator="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 member="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 temp_dir="$(mktemp -d)"
@@ -77,6 +79,9 @@ cd "$contracts_dir"
 local_token_code="$(forge inspect LocalWebUSDG deployedBytecode)"
 cast rpc anvil_setCode "$canonical_usdg" "$local_token_code" \
   --rpc-url "$rpc_url" >/dev/null
+cast rpc anvil_setStorageAt \
+  "$canonical_usdg" "$eip1967_implementation_slot" "$canonical_usdg_storage_word" \
+  --rpc-url "$rpc_url" >/dev/null
 
 renderer="$({
   forge create src/OnchainMetadataRenderer.sol:OnchainMetadataRenderer \
@@ -123,6 +128,8 @@ export NEXT_PUBLIC_FACTORY_RUNTIME_CODE_HASH="$(runtime_hash "$factory")"
 export NEXT_PUBLIC_RENDERER_RUNTIME_CODE_HASH="$(runtime_hash "$renderer")"
 export NEXT_PUBLIC_DEPLOYER_RUNTIME_CODE_HASH="$(runtime_hash "$deployer")"
 export NEXT_PUBLIC_USDG_RUNTIME_CODE_HASH="$(runtime_hash "$canonical_usdg")"
+export NEXT_PUBLIC_USDG_IMPLEMENTATION_ADDRESS="$canonical_usdg"
+export NEXT_PUBLIC_USDG_IMPLEMENTATION_RUNTIME_CODE_HASH="$(runtime_hash "$canonical_usdg")"
 export NEXT_PUBLIC_ROBINHOOD_MAINNET_RPC_URL="$rpc_url"
 export NEXT_PUBLIC_SITE_URL="$web_url"
 export BBF_ANVIL_RPC_URL="$rpc_url"
