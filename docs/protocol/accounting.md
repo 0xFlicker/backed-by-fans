@@ -72,7 +72,8 @@ a later rejoin starts after that tail, so refunded prefixes can never reappear.
 ownerTopUp = max(grossRefund - creatorProceeds, 0)
 ```
 
-The owner submits that preview as `refund(tokenId, maxOwnerTopUp)`. If another
+The owner submits that preview as
+`refund(tokenId, maxGrossRefund, maxOwnerTopUp)`. If another
 withdrawal or refund increases the required top-up before execution, the call
 reverts without changing membership or accounting state. A lower top-up is
 accepted. The current tier owner supplies only the exact shortfall, then the

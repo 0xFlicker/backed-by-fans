@@ -147,7 +147,7 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
         view
         returns (uint256 grossRefund, uint256 ownerTopUp);
 
-    function refund(uint256 tokenId, uint256 maxOwnerTopUp)
+    function refund(uint256 tokenId, uint256 maxGrossRefund, uint256 maxOwnerTopUp)
         external
         returns (uint256 grossRefund, uint256 ownerTopUp);
 

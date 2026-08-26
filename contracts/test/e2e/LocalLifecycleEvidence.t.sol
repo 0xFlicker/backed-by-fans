@@ -118,7 +118,8 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(refundPreview, 15_000_000);
         assertEq(topUpPreview, 0);
         vm.prank(nextCreator);
-        (uint256 refundPaid, uint256 topUpPaid) = tier.refund(memberToken, topUpPreview);
+        (uint256 refundPaid, uint256 topUpPaid) =
+            tier.refund(memberToken, refundPreview, topUpPreview);
         assertEq(refundPaid, refundPreview);
         assertEq(topUpPaid, topUpPreview);
         assertFalse(tier.isActive(member));

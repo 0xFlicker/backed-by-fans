@@ -79,6 +79,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error IncorrectPricingMode();
     error NativeValueRejected();
     error NoGrantTime();
+    error GrossRefundLimitExceeded(uint256 required, uint256 maximum);
     error OwnershipRenunciationDisabled();
     error OwnerTopUpLimitExceeded(uint256 required, uint256 maximum);
     error PaymentOverflow();
@@ -158,9 +159,9 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     /// @inheritdoc IERC5643
-    /// @dev ERC-5643 cannot carry an owner-top-up ceiling. This compatibility adapter therefore
-    ///      authorizes any top-up required at execution; operators should use `refund` when they
-    ///      need slippage protection.
+    /// @dev ERC-5643 cannot carry refund ceilings. This compatibility adapter therefore
+    ///      authorizes any gross refund and owner top-up required at execution; operators should
+    ///      use `refund` when they need slippage protection.
     function cancelSubscription(uint256 tokenId) external payable override {
         if (msg.value != 0) revert NativeValueRejected();
         _cancelSubscription(tokenId);
@@ -168,7 +169,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     function _cancelSubscription(uint256 tokenId) private nonReentrant {
         _checkOwner();
-        _refund(tokenId, type(uint256).max);
+        _refund(tokenId, type(uint256).max, type(uint256).max);
     }
 
     /// @inheritdoc IERC5643
@@ -368,14 +369,14 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     /// @inheritdoc IMembershipTier
-    function refund(uint256 tokenId, uint256 maxOwnerTopUp)
+    function refund(uint256 tokenId, uint256 maxGrossRefund, uint256 maxOwnerTopUp)
         external
         override
         onlyOwner
         nonReentrant
         returns (uint256 grossRefund, uint256 ownerTopUp)
     {
-        return _refund(tokenId, maxOwnerTopUp);
+        return _refund(tokenId, maxGrossRefund, maxOwnerTopUp);
     }
 
     /// @inheritdoc IMembershipTier
@@ -518,31 +519,28 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         _applyPayment(tokenId, payer, recipient, periods, gross);
     }
 
-    function _refund(uint256 tokenId, uint256 maxOwnerTopUp)
+    function _refund(uint256 tokenId, uint256 maxGrossRefund, uint256 maxOwnerTopUp)
         internal
         returns (uint256 grossRefund, uint256 ownerTopUp)
     {
         address recipient = _requireOwned(tokenId);
         address tierOwner = owner();
-        _checkpointTime(tokenId);
-
-        MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
-        if (pricePerPeriod == 0) {
-            grossRefund = _zeroTierRefundAt(
-                tokenId, _refundCursors[tokenId].lot, _refundCursors[tokenId].consumedSeconds
-            );
-            MembershipTypes.RefundCursor storage cursor = _refundCursors[tokenId];
-            cursor.lot = _zeroGrossPrefixes[tokenId].length;
-            cursor.consumedSeconds = 0;
-        } else {
-            grossRefund = _fixedPriceRefund(state.paidSeconds);
+        (grossRefund, ownerTopUp) = previewRefund(tokenId);
+        if (grossRefund > maxGrossRefund) {
+            revert GrossRefundLimitExceeded(grossRefund, maxGrossRefund);
         }
-        uint256 creatorContribution = creatorProceeds;
-        if (creatorContribution > grossRefund) creatorContribution = grossRefund;
-        ownerTopUp = grossRefund - creatorContribution;
         if (ownerTopUp > maxOwnerTopUp) {
             revert OwnerTopUpLimitExceeded(ownerTopUp, maxOwnerTopUp);
         }
+
+        _checkpointTime(tokenId);
+        MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
+        if (pricePerPeriod == 0) {
+            MembershipTypes.RefundCursor storage cursor = _refundCursors[tokenId];
+            cursor.lot = _zeroGrossPrefixes[tokenId].length;
+            cursor.consumedSeconds = 0;
+        }
+        uint256 creatorContribution = grossRefund - ownerTopUp;
         creatorProceeds -= creatorContribution;
 
         state.paidSeconds = 0;

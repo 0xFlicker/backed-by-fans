@@ -103,7 +103,7 @@ contract AccountingHandler is Test {
         if (expectedTopUp != 0) paymentToken.mint(creator, expectedTopUp);
 
         vm.prank(creator);
-        (uint256 refunded, uint256 ownerTopUp) = tier.refund(tokenId, expectedTopUp);
+        (uint256 refunded, uint256 ownerTopUp) = tier.refund(tokenId, expectedRefund, expectedTopUp);
         assertEq(refunded, expectedRefund);
         assertEq(ownerTopUp, expectedTopUp);
         ghostOwnerTopUps += ownerTopUp;

@@ -68,7 +68,8 @@ Payout destinations cannot be redirected by a caller:
 - creator proceeds go to the current tier owner;
 - protocol fees go to the factory's current fee recipient; and
 - refunds go to the credential owner, while the current tier owner authorizes
-  `refund(tokenId, maxOwnerTopUp)` and supplies no more than that ceiling.
+  `refund(tokenId, maxGrossRefund, maxOwnerTopUp)` and supplies no more than
+  those ceilings.
 
 Frozen or otherwise incompatible destinations make the exact transfer revert
 atomically. The liability remains claimable; there is no administrator redirect.

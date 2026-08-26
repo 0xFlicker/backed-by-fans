@@ -88,7 +88,7 @@ contract MembershipHandler is Test {
         _fundTopUp(tokenId);
 
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max, type(uint256).max);
         assertEq(_grossRefund(tokenId), 0);
         _recordMonotonicState(tokenId);
     }
@@ -102,7 +102,7 @@ contract MembershipHandler is Test {
         _fundTopUp(tokenId);
 
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max, type(uint256).max);
         assertEq(_grossRefund(tokenId), 0);
 
         uint256 newGross = grossSeed % (_MAX_GROSS + 1);
@@ -432,7 +432,7 @@ contract FrozenGiftLifecycleTest is Test {
         uint256 creatorProceeds = tier.creatorProceeds();
         uint256 rewardReserve = tier.rewardReserve();
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
-        tier.refund(tokenId, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max, type(uint256).max);
 
         (uint256 refundAfterFailure, uint256 topUpAfterFailure) = tier.previewRefund(tokenId);
         assertEq(refundAfterFailure, grossRefund);

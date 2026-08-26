@@ -11,6 +11,15 @@ export const factoryAbi = [
       { name: "symbol", type: "string", indexed: false },
     ],
   },
+  {
+    type: "event",
+    name: "ProtocolFeesWithdrawn",
+    anonymous: false,
+    inputs: [
+      { name: "recipient", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
   { type: "error", name: "CreatorMustBeCaller", inputs: [] },
   { type: "error", name: "InvalidAddress", inputs: [] },
   { type: "error", name: "InvalidMetadata", inputs: [] },
@@ -160,6 +169,15 @@ export const factoryAbi = [
 
 export const tierAbi = [
   {
+    type: "event",
+    name: "CreatorProceedsWithdrawn",
+    anonymous: false,
+    inputs: [
+      { name: "owner", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
+  {
     type: "error",
     name: "OwnableUnauthorizedAccount",
     inputs: [{ name: "account", type: "address" }],
@@ -174,6 +192,22 @@ export const tierAbi = [
   { type: "error", name: "InexactTokenTransfer", inputs: [] },
   { type: "error", name: "NoGrantTime", inputs: [] },
   { type: "error", name: "NativeValueRejected", inputs: [] },
+  {
+    type: "error",
+    name: "GrossRefundLimitExceeded",
+    inputs: [
+      { name: "required", type: "uint256" },
+      { name: "maximum", type: "uint256" },
+    ],
+  },
+  {
+    type: "error",
+    name: "OwnerTopUpLimitExceeded",
+    inputs: [
+      { name: "required", type: "uint256" },
+      { name: "maximum", type: "uint256" },
+    ],
+  },
   { type: "error", name: "PrepaymentLimitExceeded", inputs: [] },
   { type: "error", name: "ReferralChoiceMismatch", inputs: [] },
   { type: "error", name: "ReferralChoiceRequired", inputs: [] },
@@ -536,6 +570,7 @@ export const tierAbi = [
     stateMutability: "nonpayable",
     inputs: [
       { name: "tokenId", type: "uint256" },
+      { name: "maxGrossRefund", type: "uint256" },
       { name: "maxOwnerTopUp", type: "uint256" },
     ],
     outputs: [
