@@ -25,8 +25,29 @@ credential, wallet key, or server token in these variables.
 
 The factory and testnet USDG values deliberately have no default. When they are
 absent, the app renders a distinct not-deployed or token-unconfirmed state and
-never substitutes a fake address. The official mainnet USDG address is checked
-in code, but mainnet use remains outside U8.
+never substitutes a fake address. The complete creator form remains available
+as a read-only preview, but no simulation, approval, or write becomes enabled.
+The official mainnet USDG address is checked in code; mainnet authorization and
+promotion remain outside the web implementation units.
+
+## Direct creator and protocol operations
+
+- `/create` guides a creator through metadata, immutable economics, mutable
+  limits, material risks, acknowledgements, factory deployment, registry
+  reconciliation, and the share-success state.
+- `/tiers/[tierAddress]/manage` verifies factory registration and expected
+  interfaces before exposing tier-owner pause, limits, grants, revocation,
+  refund, withdrawal, metadata, and two-step ownership controls.
+- `/protocol` verifies the configured factory, deployer, renderer, and USDG
+  binding before exposing the separate protocol-owner and fixed fee-recipient
+  controls.
+
+All writes simulate first, use the connected wallet for signatures, wait for a
+receipt, and reconcile with fresh direct reads. A dropped, replaced, or
+otherwise uncertain deployment checks the append-only factory registry before
+another deployment can be prepared. Creator proceeds, protocol fees, and
+refunds keep their contract-defined fixed destinations; the application never
+offers a redirect field.
 
 ## Commands
 

@@ -1,0 +1,50 @@
+import type { Address, PublicClient } from "viem";
+
+import { tierAbi } from "@/contracts/abis";
+import type { TierManagementSnapshot } from "@/contracts/types";
+import { readTierSnapshotState } from "@/lib/direct-read";
+import { classifyReadError, type ReadState } from "@/lib/read-state";
+
+export async function readTierManagementState(
+  client: PublicClient,
+  input: { tier: Address; factory: Address; paymentToken: Address },
+): Promise<ReadState<TierManagementSnapshot>> {
+  const tier = await readTierSnapshotState(client, input);
+  if (tier.status !== "valid" && tier.status !== "stale") return tier;
+
+  try {
+    const [pendingOwner, creatorProceeds, totalMinted] = await Promise.all([
+      client.readContract({
+        address: input.tier,
+        abi: tierAbi,
+        functionName: "pendingOwner",
+        blockNumber: tier.capturedBlock,
+      }),
+      client.readContract({
+        address: input.tier,
+        abi: tierAbi,
+        functionName: "creatorProceeds",
+        blockNumber: tier.capturedBlock,
+      }),
+      client.readContract({
+        address: input.tier,
+        abi: tierAbi,
+        functionName: "totalMinted",
+        blockNumber: tier.capturedBlock,
+      }),
+    ]);
+    return {
+      ...tier,
+      data: { ...tier.data, pendingOwner, creatorProceeds, totalMinted },
+    };
+  } catch (error) {
+    const classified = classifyReadError(error);
+    return classified.status === "rate-limited"
+      ? classified
+      : {
+          status: "unavailable",
+          reason: "rpc-unavailable",
+          label: classified.label,
+        };
+  }
+}

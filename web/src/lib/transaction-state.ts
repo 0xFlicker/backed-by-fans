@@ -43,6 +43,18 @@ export const initialTransactionState: TransactionState = {
   message: "Ready when you are.",
 };
 
+export function isTransactionInFlight(phase: TransactionPhase) {
+  return [
+    "simulation",
+    "approval",
+    "signature",
+    "submission",
+    "confirmation",
+    "reconciliation",
+    "replacement",
+  ].includes(phase);
+}
+
 export function transactionReducer(
   state: TransactionState,
   event: TransactionEvent,

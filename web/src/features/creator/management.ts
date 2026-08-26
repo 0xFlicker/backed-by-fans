@@ -1,0 +1,70 @@
+import { isAddress, type Address } from "viem";
+
+import type { TierManagementSnapshot } from "@/contracts/types";
+import { uint64Max } from "@/features/creator/config";
+
+const uint256Max = (1n << 256n) - 1n;
+
+export function parseUint64Input(
+  value: string,
+  options: { allowZero: boolean },
+): bigint | undefined {
+  if (!/^\d+$/.test(value.trim())) return undefined;
+  const parsed = BigInt(value.trim());
+  if (parsed > uint64Max || (!options.allowZero && parsed === 0n)) {
+    return undefined;
+  }
+  return parsed;
+}
+
+export function parseTokenId(value: string): bigint | undefined {
+  if (!/^\d+$/.test(value.trim())) return undefined;
+  const parsed = BigInt(value.trim());
+  return parsed > 0n && parsed <= uint256Max ? parsed : undefined;
+}
+
+export function validateSupplyCap(value: string, occupiedSupply: bigint) {
+  const parsed = parseUint64Input(value, { allowZero: true });
+  if (parsed === undefined)
+    return "Enter a whole-number capacity within uint64.";
+  if (parsed !== 0n && parsed < occupiedSupply) {
+    return `Capacity cannot be lower than the ${occupiedSupply} places currently held.`;
+  }
+  return undefined;
+}
+
+export function validateMutableMetadata(input: {
+  description: string;
+  imageURI: string;
+  externalURI: string;
+}) {
+  const bytes = (value: string) => new TextEncoder().encode(value).length;
+  if (bytes(input.description) > 500)
+    return "Description exceeds 500 UTF-8 bytes.";
+  if (bytes(input.imageURI) > 2_048)
+    return "Image URI exceeds 2,048 UTF-8 bytes.";
+  if (bytes(input.externalURI) > 2_048) {
+    return "Website URI exceeds 2,048 UTF-8 bytes.";
+  }
+  return undefined;
+}
+
+export function managementPermissions(
+  snapshot: TierManagementSnapshot,
+  wallet?: Address,
+) {
+  const normalized = wallet?.toLowerCase();
+  const isOwner = normalized === snapshot.creator.toLowerCase();
+  const isPendingOwner = normalized === snapshot.pendingOwner.toLowerCase();
+  return {
+    isOwner,
+    isPendingOwner,
+    canGrant: isOwner && !snapshot.paused,
+    canOperate: isOwner,
+    canAcceptOwnership: isPendingOwner,
+  };
+}
+
+export function validateAddressInput(value: string) {
+  return isAddress(value.trim()) ? undefined : "Enter a valid EVM address.";
+}

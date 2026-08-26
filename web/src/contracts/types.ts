@@ -13,6 +13,7 @@ export type TierSummary = {
 export type TierSnapshot = TierSummary & {
   description: string;
   imageURI: string;
+  externalURI: string;
   rewardBps: number;
   referralBps: number;
   supplyCap: bigint;
@@ -20,6 +21,12 @@ export type TierSnapshot = TierSummary & {
   maxPrepaidPeriods: bigint;
   paymentToken: Address;
   factory: Address;
+};
+
+export type TierManagementSnapshot = TierSnapshot & {
+  pendingOwner: Address;
+  creatorProceeds: bigint;
+  totalMinted: bigint;
 };
 
 export type CatalogPage = {

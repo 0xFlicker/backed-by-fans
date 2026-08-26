@@ -36,7 +36,7 @@ test("serves the provisional app icon and favicon routes", async ({
   expect((await favicon.body()).byteLength).toBeGreaterThan(1_000);
 });
 
-test("keeps creator setup explicitly non-transactional in the foundation", async ({
+test("renders complete creator setup while unavailable writes fail closed", async ({
   page,
 }) => {
   await page.goto("/create");
@@ -46,10 +46,21 @@ test("keeps creator setup explicitly non-transactional in the foundation", async
       name: "Your work. Your membership. Your people.",
     }),
   ).toBeVisible();
+  await expect(page.getByLabel("Membership name")).toHaveValue(
+    "Creator membership",
+  );
+  await page.getByRole("button", { name: /^review$/i }).click();
   await expect(
-    page.getByText(/no independently checked factory/i),
+    page
+      .getByText(
+        "No independently checked factory is configured for this chain.",
+        {
+          exact: true,
+        },
+      )
+      .first(),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /deploy|create/i }),
-  ).toHaveCount(0);
+    page.getByRole("button", { name: /simulate and deploy/i }),
+  ).toBeDisabled();
 });

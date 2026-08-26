@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   decodeTransactionError,
   initialTransactionState,
+  isTransactionInFlight,
   transactionReducer,
 } from "@/lib/transaction-state";
 
@@ -10,6 +11,15 @@ const hash = `0x${"ab".repeat(32)}` as const;
 const replacementHash = `0x${"cd".repeat(32)}` as const;
 
 describe("transaction state machine", () => {
+  it("keeps every wallet and chain wait phase single-flight", () => {
+    expect(isTransactionInFlight("simulation")).toBe(true);
+    expect(isTransactionInFlight("approval")).toBe(true);
+    expect(isTransactionInFlight("replacement")).toBe(true);
+    expect(isTransactionInFlight("reconciliation")).toBe(true);
+    expect(isTransactionInFlight("idle")).toBe(false);
+    expect(isTransactionInFlight("retry")).toBe(false);
+  });
+
   it("tracks simulation through reconciled confirmation", () => {
     let state = transactionReducer(initialTransactionState, {
       type: "SIMULATE",

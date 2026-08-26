@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
-import { ReadStateView } from "@/components/ReadState";
-import { publicConfig } from "@/lib/config";
+import { CreateTierWizard } from "@/features/creator/CreateTierWizard";
 
 export const metadata: Metadata = {
   title: "Create a membership",
@@ -9,31 +8,19 @@ export const metadata: Metadata = {
 };
 
 export default function CreatePage() {
-  const detail =
-    publicConfig.deployment.status === "ready"
-      ? "Creator setup is not available in this foundation release. No contract action has been prepared."
-      : publicConfig.deployment.detail;
-
   return (
-    <section className="page-shell narrow-page">
+    <section className="page-shell create-page">
       <div className="page-intro">
         <p className="eyebrow">For creators</p>
         <h1 className="font-display">
           Your work. Your membership. Your people.
         </h1>
         <p>
-          Membership economics become permanent when a tier is deployed. The
-          complete setup and review flow will make those terms explicit before
-          any wallet signature.
+          Build the terms in plain language, see how support is split, and know
+          exactly which choices become permanent before your wallet signs.
         </p>
       </div>
-      <ReadStateView
-        state={{
-          status: "unavailable",
-          reason: "not-deployed",
-          label: detail,
-        }}
-      />
+      <CreateTierWizard />
     </section>
   );
 }

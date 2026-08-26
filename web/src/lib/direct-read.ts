@@ -11,7 +11,6 @@ import {
 import { factoryAbi, tierAbi } from "@/contracts/abis";
 import type { CatalogPage, TierSnapshot, TierSummary } from "@/contracts/types";
 import { verifyTierAuthenticity } from "@/lib/authenticity";
-import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { publicConfig, type PublicConfig } from "@/lib/config";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
@@ -84,30 +83,6 @@ export async function readCatalogPage(
     addresses: [...addresses],
     nextOffset,
   };
-}
-
-export async function readCatalogPageState(
-  client: PublicClient,
-  factory: Address,
-  input: { offset?: bigint; limit?: number; blockNumber?: bigint } = {},
-): Promise<ReadState<CatalogPage>> {
-  try {
-    const page = await readCatalogPage(client, factory, input);
-    return {
-      status: "valid",
-      data: page,
-      capturedBlock: page.capturedBlock,
-    };
-  } catch (error) {
-    const classified = classifyReadError(error);
-    return classified.status === "rate-limited"
-      ? classified
-      : {
-          status: "unavailable",
-          reason: "rpc-unavailable",
-          label: classified.label,
-        };
-  }
 }
 
 export async function verifyMulticall3(
@@ -303,6 +278,7 @@ export async function readTierSnapshotState(
     "paused",
     "description",
     "imageURI",
+    "externalURI",
     "rewardBps",
     "referralBps",
     "supplyCap",
@@ -351,13 +327,14 @@ export async function readTierSnapshotState(
       paused: values[5] as boolean,
       description: values[6] as string,
       imageURI: values[7] as string,
-      rewardBps: Number(values[8]),
-      referralBps: Number(values[9]),
-      supplyCap: values[10] as bigint,
-      occupiedSupply: values[11] as bigint,
-      maxPrepaidPeriods: values[12] as bigint,
-      paymentToken: values[13] as Address,
-      factory: values[14] as Address,
+      externalURI: values[8] as string,
+      rewardBps: Number(values[9]),
+      referralBps: Number(values[10]),
+      supplyCap: values[11] as bigint,
+      occupiedSupply: values[12] as bigint,
+      maxPrepaidPeriods: values[13] as bigint,
+      paymentToken: values[14] as Address,
+      factory: values[15] as Address,
     };
     const latestBlock = await client.getBlockNumber();
     if (latestBlock - blockNumber > staleBlockDistance) {
@@ -382,14 +359,4 @@ export async function readTierSnapshotState(
           label: classified.label,
         };
   }
-}
-
-export function publicClientForChain(
-  chainId: SupportedChainId,
-  rpcUrl: string,
-) {
-  return createPublicClient({
-    chain: getSupportedChain(chainId),
-    transport: http(rpcUrl),
-  });
 }
