@@ -11,6 +11,7 @@ import {MembershipTier} from "../src/MembershipTier.sol";
 import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
+import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {AdversarialFeeToken} from "./mocks/AdversarialFeeToken.sol";
 import {MockUSDG} from "./mocks/MockUSDG.sol";
 import {ReentrantFeeRecipient} from "./mocks/ReentrantFeeRecipient.sol";
@@ -75,7 +76,7 @@ contract FactoryAndFeesTest is Test {
         assertEq(firstTier.referralBps(), 100);
         assertEq(firstTier.protocolFeeBps(), 100);
         assertEq(firstTier.supplyCap(), 0);
-        assertEq(firstTier.paidPrepaymentLimit(), 365 days);
+        assertEq(firstTier.maxPrepaidPeriods(), 12);
         assertEq(secondTier.pricePerPeriod(), 25_000_000);
         assertEq(secondTier.supplyCap(), 250);
     }
@@ -343,16 +344,6 @@ contract FactoryAndFeesTest is Test {
         pure
         returns (MembershipTypes.TierConfig memory config)
     {
-        config = MembershipTypes.TierConfig({
-            creator: tierCreator,
-            name: "Creator Backers",
-            symbol: "BACK",
-            pricePerPeriod: 10_000_000,
-            periodDuration: 30 days,
-            rewardBps: 500,
-            referralBps: 100,
-            supplyCap: 0,
-            paidPrepaymentLimit: 365 days
-        });
+        config = MembershipTestConfig.defaultConfig(tierCreator);
     }
 }

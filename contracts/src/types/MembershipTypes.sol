@@ -3,6 +3,13 @@ pragma solidity =0.8.36;
 
 /// @notice Shared constructor and rendering value types for the membership protocol.
 library MembershipTypes {
+    /// @notice Bounded creator-controlled presentation fields.
+    struct TierMetadata {
+        string description;
+        string imageURI;
+        string externalURI;
+    }
+
     /// @notice Creator-selected values supplied when a tier is deployed.
     struct TierConfig {
         address creator;
@@ -13,7 +20,16 @@ library MembershipTypes {
         uint16 rewardBps;
         uint16 referralBps;
         uint64 supplyCap;
-        uint64 paidPrepaymentLimit;
+        uint64 maxPrepaidPeriods;
+        TierMetadata metadata;
+    }
+
+    /// @notice Lazy paid-first time checkpoint and separately cached occupancy.
+    struct MembershipState {
+        uint64 checkpoint;
+        uint64 paidSeconds;
+        uint64 grantSeconds;
+        bool occupied;
     }
 
     /// @notice One-way presentation data passed from a tier to the stateless renderer.

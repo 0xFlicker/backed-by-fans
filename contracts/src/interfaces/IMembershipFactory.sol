@@ -12,13 +12,19 @@ interface IMembershipFactory {
         address indexed creator,
         uint256 indexed tierIndex,
         string name,
-        string symbol,
+        string symbol
+    );
+    event TierTermsConfigured(
+        address indexed tier,
         uint256 pricePerPeriod,
         uint64 periodDuration,
         uint16 rewardBps,
         uint16 referralBps,
         uint64 supplyCap,
-        uint64 paidPrepaymentLimit
+        uint64 maxPrepaidPeriods
+    );
+    event TierMetadataConfigured(
+        address indexed tier, string description, string imageURI, string externalURI
     );
     event FeeRecipientUpdated(address indexed previousRecipient, address indexed newRecipient);
     event ProtocolFeesWithdrawn(address indexed recipient, uint256 amount);

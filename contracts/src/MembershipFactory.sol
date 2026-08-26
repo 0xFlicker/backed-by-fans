@@ -81,18 +81,18 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         _tiers.push(tier);
         isRegisteredTier[tier] = true;
 
-        emit TierCreated(
+        emit TierCreated(tier, config.creator, tierIndex, config.name, config.symbol);
+        emit TierTermsConfigured(
             tier,
-            config.creator,
-            tierIndex,
-            config.name,
-            config.symbol,
             config.pricePerPeriod,
             config.periodDuration,
             config.rewardBps,
             config.referralBps,
             config.supplyCap,
-            config.paidPrepaymentLimit
+            config.maxPrepaidPeriods
+        );
+        emit TierMetadataConfigured(
+            tier, config.metadata.description, config.metadata.imageURI, config.metadata.externalURI
         );
     }
 
