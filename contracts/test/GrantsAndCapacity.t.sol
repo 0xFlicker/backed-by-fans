@@ -8,11 +8,11 @@ import {MembershipTier} from "../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
-import {MembershipTierHarness} from "./mocks/MembershipTierHarness.sol";
 import {MockUSDG} from "./mocks/MockUSDG.sol";
 
 contract GrantsAndCapacityTest is Test {
-    MembershipTierHarness private tier;
+    MembershipTier private tier;
+    MockUSDG private paymentToken;
     address private member;
     address private stranger;
 
@@ -24,9 +24,12 @@ contract GrantsAndCapacityTest is Test {
         member = makeAddr("member");
         stranger = makeAddr("stranger");
 
-        MockUSDG token = new MockUSDG();
+        paymentToken = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTierHarness(address(this), token, address(renderer), _config());
+        tier = new MembershipTier(address(this), paymentToken, address(renderer), _config());
+        paymentToken.mint(member, 100_000_000);
+        vm.prank(member);
+        paymentToken.approve(address(tier), type(uint256).max);
     }
 
     function test_onlyCreatorCanGrantOrRevokeWholePeriods() public {
@@ -50,7 +53,7 @@ contract GrantsAndCapacityTest is Test {
     }
 
     function test_revokeRemovesOnlyRemainingGrantTimeAndPreservesPaidTime() public {
-        uint256 tokenId = tier.addPaidPeriods(member, 1);
+        uint256 tokenId = _purchase();
         tier.grantTime(member, 2);
         vm.warp(_START + 15 days);
 
@@ -92,7 +95,7 @@ contract GrantsAndCapacityTest is Test {
 
     function test_grantsDoNotCountAgainstPaidPrepaymentLimit() public {
         tier.setMaxPrepaidPeriods(1);
-        uint256 tokenId = tier.addPaidPeriods(member, 1);
+        uint256 tokenId = _purchase();
 
         tier.grantTime(member, 20);
 
@@ -101,7 +104,7 @@ contract GrantsAndCapacityTest is Test {
         assertEq(grantSeconds, 20 * _PERIOD);
 
         vm.expectRevert(MembershipTier.PrepaymentLimitExceeded.selector);
-        tier.addPaidPeriods(member, 1);
+        _purchase();
     }
 
     function test_pauseStillAllowsGrantRevocationAndSynchronization() public {
@@ -115,7 +118,7 @@ contract GrantsAndCapacityTest is Test {
     }
 
     function test_revokeWithoutRemainingGrantRevertsWithoutTouchingPaidTime() public {
-        uint256 tokenId = tier.addPaidPeriods(member, 1);
+        uint256 tokenId = _purchase();
         uint64 expiration = tier.expiresAt(tokenId);
 
         vm.expectRevert(MembershipTier.NoGrantTime.selector);
@@ -129,5 +132,10 @@ contract GrantsAndCapacityTest is Test {
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
         config.supplyCap = 1;
         return config;
+    }
+
+    function _purchase() private returns (uint256 tokenId) {
+        vm.prank(member);
+        tokenId = tier.purchase(1, address(0));
     }
 }

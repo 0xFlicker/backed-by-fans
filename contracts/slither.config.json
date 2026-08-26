@@ -1,0 +1,5 @@
+{
+  "detectors_to_exclude": "weak-prng",
+  "exclude_dependencies": true,
+  "filter_paths": "lib/|test/|script/"
+}

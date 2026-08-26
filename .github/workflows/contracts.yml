@@ -39,5 +39,17 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
-      - name: Run Forge tests
-        run: forge test -vvv
+      - name: Run unit and fuzz tests
+        run: forge test --no-match-path "test/invariants/*.t.sol" -vvv
+
+      - name: Run stateful invariants
+        run: forge test --match-path "test/invariants/*.t.sol" -vvv
+
+      - name: Install Slither
+        run: pipx install slither-analyzer==0.11.6
+
+      - name: Show Slither version
+        run: slither --version
+
+      - name: Run Slither high-severity gate
+        run: slither . --config-file slither.config.json --fail-high

@@ -766,12 +766,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         }
     }
 
-    /// @notice Adds paid time without implementing collection or allocation.
-    /// @dev Called only after exact payment receipt, or by the zero-contribution path.
-    function _addPaidTime(address recipient, uint64 duration) internal returns (uint256 tokenId) {
-        tokenId = _addPaidTime(recipient, duration, true);
-    }
-
     function _addPaidTime(address recipient, uint64 duration, bool checkpointRequired)
         private
         returns (uint256 tokenId)
@@ -791,10 +785,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         _ensureExpirationCapacity(state, duration);
         state.paidSeconds += duration;
         _emitTimeUpdate(tokenId, state);
-    }
-
-    function _addPaidPeriods(address recipient, uint64 periods) internal returns (uint256 tokenId) {
-        tokenId = _addPaidTime(recipient, _durationForPeriods(periods));
     }
 
     function _checkpointTime(uint256 tokenId) internal {

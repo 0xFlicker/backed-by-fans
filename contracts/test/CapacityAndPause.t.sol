@@ -120,7 +120,8 @@ contract CapacityAndPauseTest is Test {
         tier.grantTime(member, 1);
 
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.addPaidPeriods(member, 1);
+        vm.prank(member);
+        tier.purchase(1, address(0));
 
         assertEq(tier.expiresAt(tokenId), expiration);
         vm.warp(expiration);
@@ -131,7 +132,7 @@ contract CapacityAndPauseTest is Test {
         tier.setPaused(true);
         tier.setPaused(false);
 
-        uint256 tokenId = tier.addPaidPeriods(member, 1);
+        uint256 tokenId = _purchase(tier, member);
 
         assertTrue(tier.isActive(member));
         assertEq(tier.expiresAt(tokenId), _START + _PERIOD);
@@ -143,6 +144,20 @@ contract CapacityAndPauseTest is Test {
         MembershipTypes.TierConfig memory config = _config();
         config.supplyCap = supplyCap;
         deployedTier = new MembershipTierHarness(address(this), token, address(renderer), config);
+        _fundAndApprove(deployedTier, member);
+        _fundAndApprove(deployedTier, competitor);
+    }
+
+    function _purchase(MembershipTier target, address buyer) private returns (uint256 tokenId) {
+        vm.prank(buyer);
+        tokenId = target.purchase(1, address(0));
+    }
+
+    function _fundAndApprove(MembershipTier target, address buyer) private {
+        MockUSDG token = MockUSDG(address(target.paymentToken()));
+        token.mint(buyer, 100_000_000);
+        vm.prank(buyer);
+        token.approve(address(target), type(uint256).max);
     }
 
     function _config() private view returns (MembershipTypes.TierConfig memory) {
