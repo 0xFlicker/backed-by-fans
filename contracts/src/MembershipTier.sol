@@ -34,6 +34,7 @@ contract MembershipTier is ERC721, Ownable2Step, IMembershipTier {
     error InvalidPeriodDuration();
     error InvalidRateTotal();
     error LifecycleUnavailable();
+    error OwnershipRenunciationDisabled();
     error Soulbound();
 
     constructor(
@@ -121,5 +122,16 @@ contract MembershipTier is ERC721, Ownable2Step, IMembershipTier {
 
     function setApprovalForAll(address, bool) public pure override(ERC721, IERC721) {
         revert Soulbound();
+    }
+
+    /// @notice Starts a two-step transfer and rejects zero-address cancellation.
+    function transferOwnership(address newOwner) public override onlyOwner {
+        if (newOwner == address(0)) revert InvalidAddress();
+        super.transferOwnership(newOwner);
+    }
+
+    /// @notice Tier ownership cannot be discarded because creator controls must remain operable.
+    function renounceOwnership() public pure override {
+        revert OwnershipRenunciationDisabled();
     }
 }

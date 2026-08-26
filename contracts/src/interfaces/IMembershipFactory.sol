@@ -7,7 +7,21 @@ import {MembershipTypes} from "../types/MembershipTypes.sol";
 
 /// @notice Direct-read registry and deployment surface for official membership tiers.
 interface IMembershipFactory {
-    event TierCreated(address indexed tier, address indexed creator, uint256 indexed tierIndex);
+    event TierCreated(
+        address indexed tier,
+        address indexed creator,
+        uint256 indexed tierIndex,
+        string name,
+        string symbol,
+        uint256 pricePerPeriod,
+        uint64 periodDuration,
+        uint16 rewardBps,
+        uint16 referralBps,
+        uint64 supplyCap,
+        uint64 paidPrepaymentLimit
+    );
+    event FeeRecipientUpdated(address indexed previousRecipient, address indexed newRecipient);
+    event ProtocolFeesWithdrawn(address indexed recipient, uint256 amount);
 
     function paymentToken() external view returns (IERC20);
 
@@ -19,6 +33,8 @@ interface IMembershipFactory {
 
     function protocolFeeBps() external pure returns (uint16);
 
+    function maxPageSize() external pure returns (uint256);
+
     function createTier(MembershipTypes.TierConfig calldata config) external returns (address tier);
 
     function isRegisteredTier(address tier) external view returns (bool);
@@ -26,4 +42,8 @@ interface IMembershipFactory {
     function tierCount() external view returns (uint256);
 
     function tiers(uint256 offset, uint256 limit) external view returns (address[] memory page);
+
+    function setFeeRecipient(address newRecipient) external;
+
+    function withdrawProtocolFees() external returns (uint256 amount);
 }
