@@ -7,6 +7,7 @@ import { formatUnits } from "viem";
 
 import type { TierSummary } from "@/contracts/types";
 import { ReadStateView } from "@/components/ReadState";
+import { verifyFactoryAuthenticity } from "@/features/protocol/factory-authenticity";
 import { publicConfig } from "@/lib/config";
 import {
   catalogPageLimit,
@@ -44,17 +45,23 @@ export function CatalogExplorer() {
     enabled: deployment.status === "ready",
     queryFn: async () => {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
+      const authenticity = await verifyFactoryAuthenticity(
+        client,
+        deployment,
+        pageRequest.capturedBlock,
+      );
+      if (authenticity.status !== "verified") return { authenticity };
       const page = await readCatalogPage(client, deployment.factoryAddress, {
         offset: pageRequest.offset,
         limit: catalogPageLimit,
-        blockNumber: pageRequest.capturedBlock,
+        blockNumber: authenticity.capturedBlock,
       });
       const summaries = await readTierSummaries(
         client,
         page.addresses,
         page.capturedBlock,
       );
-      return { page, summaries };
+      return { authenticity, page, summaries };
     },
   });
 
@@ -92,6 +99,38 @@ export function CatalogExplorer() {
   }
 
   if (!catalog.data) return null;
+  if (catalog.data.authenticity.status === "rate-limited") {
+    return <ReadStateView state={catalog.data.authenticity} />;
+  }
+  if (catalog.data.authenticity.status === "unavailable") {
+    return (
+      <ReadStateView
+        state={{
+          status: "unavailable",
+          reason: "rpc-unavailable",
+          label: catalog.data.authenticity.label,
+        }}
+      />
+    );
+  }
+  if (catalog.data.authenticity.status === "interface-mismatch") {
+    return (
+      <ReadStateView
+        state={{
+          status: "interface-mismatch",
+          address: deployment.factoryAddress,
+          failedChecks: catalog.data.authenticity.failedChecks,
+          label: catalog.data.authenticity.label,
+        }}
+      />
+    );
+  }
+  if (
+    !("page" in catalog.data) ||
+    !catalog.data.page ||
+    !catalog.data.summaries
+  )
+    return null;
   const { page, summaries: summaryState } = catalog.data;
   const summaries = summariesFromState(summaryState);
 

@@ -1,8 +1,8 @@
-import { isAddress, type Address } from "viem";
+import type { Address } from "viem";
 
 import type { TierManagementSnapshot } from "@/contracts/types";
 import { uint64Max } from "@/features/creator/config";
-import { isSameAddress } from "@/lib/address";
+import { isNonZeroAddress, isSameAddress } from "@/lib/address";
 
 const uint256Max = (1n << 256n) - 1n;
 
@@ -68,5 +68,7 @@ export function managementPermissions(
 }
 
 export function validateAddressInput(value: string) {
-  return isAddress(value.trim()) ? undefined : "Enter a valid EVM address.";
+  return isNonZeroAddress(value.trim())
+    ? undefined
+    : "Enter a nonzero EVM address.";
 }

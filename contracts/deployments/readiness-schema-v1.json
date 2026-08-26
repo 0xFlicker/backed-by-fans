@@ -313,7 +313,7 @@
             "implementation": { "$ref": "#/$defs/address" },
             "authority": { "$ref": "#/$defs/address" },
             "decimals": { "const": 6 },
-            "paused": { "type": "boolean" },
+            "paused": { "const": false },
             "proxyCodeHash": { "$ref": "#/$defs/chainHash" },
             "implementationCodeHash": { "$ref": "#/$defs/chainHash" },
             "observedAtBlock": { "type": "integer", "minimum": 1 },

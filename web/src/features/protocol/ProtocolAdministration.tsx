@@ -2,13 +2,7 @@
 
 import { useMemo, useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  formatUnits,
-  getAddress,
-  isAddress,
-  zeroAddress,
-  type Hash,
-} from "viem";
+import { formatUnits, getAddress, zeroAddress, type Hash } from "viem";
 import { useAccount, useChainId, useWalletClient } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
@@ -28,8 +22,9 @@ import {
 import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
 import { receiptProvesProtocolWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import { factoryWriteGuard } from "@/features/protocol/factory-authenticity";
+import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import { publicConfig } from "@/lib/config";
-import { isSameAddress } from "@/lib/address";
+import { isNonZeroAddress, isSameAddress } from "@/lib/address";
 import { createDirectReadClient } from "@/lib/direct-read";
 import {
   classifyReadError,
@@ -55,6 +50,11 @@ function ProtocolControls({
   const chainId = useChainId();
   const wallet = useWalletClient({ chainId: publicConfig.chainId });
   const client = useMemo(() => createDirectReadClient(), []);
+  const gas = useQuery({
+    queryKey: ["protocol-gas-balance", snapshot.factory, account.address],
+    enabled: Boolean(account.address && chainId === publicConfig.chainId),
+    queryFn: () => client.getBalance({ address: account.address! }),
+  });
   const [feeRecipient, setFeeRecipient] = useState("");
   const [newOwner, setNewOwner] = useState("");
   const [action, setAction] = useState("No action prepared");
@@ -62,7 +62,10 @@ function ProtocolControls({
     transactionReducer,
     initialTransactionState,
   );
-  const recovery = useTransactionReconciliation(dispatch);
+  const recovery = useTransactionReconciliation(
+    dispatch,
+    `${chainId}:${account.address ?? "disconnected"}:${snapshot.factory}`,
+  );
   const permissions = protocolPermissions(snapshot, account.address);
   const guard = factoryWriteGuard({
     deployment: publicConfig.deployment,
@@ -73,6 +76,7 @@ function ProtocolControls({
   const writesVerified =
     guard.enabled &&
     Boolean(wallet.data) &&
+    (gas.data ?? 0n) > 0n &&
     !isTransactionInFlight(transaction.phase);
 
   function factoryWrite(
@@ -94,6 +98,7 @@ function ProtocolControls({
         functionName,
         args,
       } as never);
+      await assertSufficientGas(client, account.address, request);
       return () => wallet.data!.writeContract(request);
     };
   }
@@ -194,7 +199,7 @@ function ProtocolControls({
             disabled={
               !writesVerified ||
               !permissions.isOwner ||
-              !isAddress(feeRecipient.trim())
+              !isNonZeroAddress(feeRecipient.trim())
             }
             onClick={() =>
               void perform(
@@ -268,7 +273,7 @@ function ProtocolControls({
               disabled={
                 !writesVerified ||
                 !permissions.isOwner ||
-                !isAddress(newOwner.trim())
+                !isNonZeroAddress(newOwner.trim())
               }
               onClick={() =>
                 void perform(

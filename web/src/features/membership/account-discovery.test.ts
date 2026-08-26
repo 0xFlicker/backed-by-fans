@@ -103,6 +103,7 @@ describe("bounded account discovery", () => {
       offset: 0n,
       scannedTo: 2n,
       nextOffset: 2n,
+      scannedTiers: [tierA, tierB],
       results: [{ tier: tierA, claimableReward: 2n }],
       skipped: [expect.stringContaining(tierB)],
     });

@@ -107,7 +107,9 @@ function HydratedDiscovery({
   const [savedCache, setSavedCache] = useState<AccountCache>(() =>
     loadAccountCache(window.localStorage, cacheKey),
   );
-  const [offset, setOffset] = useState(() => BigInt(savedCache.cursor));
+  const [offset, setOffset] = useState(() =>
+    savedCache.complete ? 0n : BigInt(savedCache.cursor),
+  );
   const [request, setRequest] = useState(0);
   const discovery = useQuery({
     queryKey: ["account-discovery", cacheKey, offset.toString(), request],
@@ -128,6 +130,7 @@ function HydratedDiscovery({
         : discovery.data.scannedTo,
       complete: discovery.data.nextOffset === null && !hasSkipped,
       capturedBlock: discovery.data.capturedBlock,
+      scannedTiers: discovery.data.scannedTiers,
       results: discovery.data.results,
     });
   }, [discovery.data, savedCache]);
@@ -166,7 +169,8 @@ function HydratedDiscovery({
           <h2 className="font-display">Memberships and claims</h2>
           <p>
             Discovery scans at most 12 registered tiers per request. Saved
-            progress is convenience only; every result is reread from chain.
+            results show the block where each tier was last verified, and a
+            completed scan refreshes from the start on the next visit.
           </p>
         </div>
         <button className="text-button" onClick={eraseCache} type="button">
@@ -232,6 +236,9 @@ function HydratedDiscovery({
                           ? `Active credential #${tier.tokenId}`
                           : `Historical credential #${tier.tokenId}`}
                     </span>
+                    <span className="font-mono">
+                      Verified at block {tier.capturedBlock}
+                    </span>
                   </div>
                   <dl>
                     <div>
@@ -289,12 +296,12 @@ function HydratedDiscovery({
                 className="button button-light"
                 onClick={() => {
                   keepCurrentPage();
-                  setOffset(page.scannedTo);
+                  setOffset(0n);
                   setRequest((value) => value + 1);
                 }}
                 type="button"
               >
-                Check newly registered tiers
+                Refresh saved results
               </button>
             )}
           </div>

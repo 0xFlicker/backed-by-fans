@@ -28,6 +28,7 @@ import {
   factoryWriteGuard,
   verifyFactoryAuthenticity,
 } from "@/features/protocol/factory-authenticity";
+import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import { recoverCreatedTier } from "@/features/protocol/registry-recovery";
 import {
   executeTransaction,
@@ -100,12 +101,25 @@ export function CreateTierWizard() {
   );
   const baselineCount = useRef<bigint | undefined>(undefined);
   const lastConfig = useRef<TierConfig | undefined>(undefined);
-  const recovery = useTransactionReconciliation(dispatch);
+  const deployInFlight = useRef(false);
   const account = useAccount();
   const chainId = useChainId();
+  const client = useMemo(() => createDirectReadClient(), []);
+  const gas = useQuery({
+    queryKey: ["creator-gas-balance", publicConfig.chainId, account.address],
+    enabled: Boolean(
+      publicConfig.deployment.status === "ready" &&
+      account.address &&
+      chainId === publicConfig.chainId,
+    ),
+    queryFn: () => client.getBalance({ address: account.address! }),
+  });
+  const recovery = useTransactionReconciliation(
+    dispatch,
+    `${chainId}:${account.address ?? "disconnected"}:factory`,
+  );
   const switchChain = useSwitchChain();
   const wallet = useWalletClient({ chainId: publicConfig.chainId });
-  const client = useMemo(() => createDirectReadClient(), []);
   const result = useMemo(
     () => evaluateCreatorForm(form, account.address),
     [account.address, form],
@@ -128,6 +142,7 @@ export function CreateTierWizard() {
     acknowledged &&
     guard.enabled &&
     Boolean(wallet.data) &&
+    (gas.data ?? 0n) > 0n &&
     !isTransactionInFlight(transaction.phase);
 
   function update(key: keyof CreatorForm) {
@@ -176,6 +191,16 @@ export function CreateTierWizard() {
   }
 
   async function deploy() {
+    if (deployInFlight.current) return;
+    deployInFlight.current = true;
+    try {
+      await deployOnce();
+    } finally {
+      deployInFlight.current = false;
+    }
+  }
+
+  async function deployOnce() {
     if (
       !deployEnabled ||
       !result.config ||
@@ -185,6 +210,7 @@ export function CreateTierWizard() {
     ) {
       return;
     }
+    const creator = account.address;
     const config = result.config;
     const factory = publicConfig.deployment.factoryAddress;
 
@@ -252,12 +278,13 @@ export function CreateTierWizard() {
       dispatch,
       simulate: async () => {
         const { request } = await client.simulateContract({
-          account: account.address,
+          account: creator,
           address: factory,
           abi: factoryAbi,
           functionName: "createTier",
           args: [config],
         });
+        await assertSufficientGas(client, creator, request);
         return request;
       },
       submit: (request) => wallet.data.writeContract(request),

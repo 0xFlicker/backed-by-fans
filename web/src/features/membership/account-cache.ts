@@ -14,6 +14,7 @@ type CachedAccountTier = Omit<
   AccountTierResult,
   "tokenId" | "claimableReward" | "claimableReferral" | "creatorProceeds"
 > & {
+  capturedBlock: string;
   tokenId: string;
   claimableReward: string;
   claimableReferral: string;
@@ -21,15 +22,14 @@ type CachedAccountTier = Omit<
 };
 
 export type AccountCache = {
-  version: 1;
+  version: 2;
   cursor: string;
-  capturedBlock?: string;
   complete: boolean;
   results: CachedAccountTier[];
 };
 
 export function emptyAccountCache(): AccountCache {
-  return { version: 1, cursor: "0", complete: false, results: [] };
+  return { version: 2, cursor: "0", complete: false, results: [] };
 }
 
 export function accountCacheKey(
@@ -37,12 +37,16 @@ export function accountCacheKey(
   factory: Address,
   wallet: Address,
 ) {
-  return `backed-by-fans:account:v1:${chainId}:${factory.toLowerCase()}:${wallet.toLowerCase()}`;
+  return `backed-by-fans:account:v2:${chainId}:${factory.toLowerCase()}:${wallet.toLowerCase()}`;
 }
 
-function cachedResult(result: AccountTierResult): CachedAccountTier {
+function cachedResult(
+  result: AccountTierResult,
+  capturedBlock: bigint,
+): CachedAccountTier {
   return {
     ...result,
+    capturedBlock: capturedBlock.toString(),
     tokenId: result.tokenId.toString(),
     claimableReward: result.claimableReward.toString(),
     claimableReferral: result.claimableReferral.toString(),
@@ -56,19 +60,23 @@ export function mergeAccountPage(
     resumeOffset: bigint;
     complete: boolean;
     capturedBlock: bigint;
+    scannedTiers: Address[];
     results: AccountTierResult[];
   },
 ): AccountCache {
   const results = new Map(
     cache.results.map((result) => [result.tier.toLowerCase(), result]),
   );
+  page.scannedTiers.forEach((tier) => results.delete(tier.toLowerCase()));
   page.results.forEach((result) =>
-    results.set(result.tier.toLowerCase(), cachedResult(result)),
+    results.set(
+      result.tier.toLowerCase(),
+      cachedResult(result, page.capturedBlock),
+    ),
   );
   return {
-    version: 1,
+    version: 2,
     cursor: page.resumeOffset.toString(),
-    capturedBlock: page.capturedBlock.toString(),
     complete: page.complete,
     results: [...results.values()],
   };
@@ -78,10 +86,8 @@ function validCache(value: unknown): value is AccountCache {
   if (!value || typeof value !== "object") return false;
   const cache = value as Partial<AccountCache>;
   if (
-    cache.version !== 1 ||
+    cache.version !== 2 ||
     typeof cache.cursor !== "string" ||
-    (cache.capturedBlock !== undefined &&
-      typeof cache.capturedBlock !== "string") ||
     typeof cache.complete !== "boolean" ||
     !Array.isArray(cache.results)
   ) {
@@ -89,7 +95,6 @@ function validCache(value: unknown): value is AccountCache {
   }
   try {
     BigInt(cache.cursor);
-    if (cache.capturedBlock) BigInt(cache.capturedBlock);
     return cache.results.every((result) => {
       if (
         !isAddress(result.tier) ||
@@ -97,6 +102,7 @@ function validCache(value: unknown): value is AccountCache {
         typeof result.active !== "boolean"
       )
         return false;
+      BigInt(result.capturedBlock);
       BigInt(result.tokenId);
       BigInt(result.claimableReward);
       BigInt(result.claimableReferral);

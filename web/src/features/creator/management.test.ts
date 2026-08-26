@@ -5,6 +5,7 @@ import type { TierManagementSnapshot } from "@/contracts/types";
 import {
   managementPermissions,
   parseTokenId,
+  validateAddressInput,
   validateSupplyCap,
 } from "@/features/creator/management";
 
@@ -51,5 +52,10 @@ describe("creator management constraints", () => {
     expect(parseTokenId(maximum.toString())).toBe(maximum);
     expect(parseTokenId("0")).toBeUndefined();
     expect(parseTokenId((maximum + 1n).toString())).toBeUndefined();
+  });
+
+  it("rejects the zero address before an admin write is enabled", () => {
+    expect(validateAddressInput(zeroAddress)).toMatch(/nonzero/i);
+    expect(validateAddressInput(owner)).toBeUndefined();
   });
 });

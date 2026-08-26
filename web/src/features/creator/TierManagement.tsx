@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useReducer, useState } from "react";
+import { useMemo, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   formatUnits,
   getAddress,
-  isAddress,
   zeroAddress,
   type Address,
   type Hash,
@@ -33,9 +32,11 @@ import {
   type WriteReceipt,
 } from "@/features/protocol/write-transaction";
 import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
+import { receiptProvesMembershipRefund } from "@/features/protocol/payout-reconciliation";
+import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
-import { isSameAddress } from "@/lib/address";
+import { isNonZeroAddress, isSameAddress } from "@/lib/address";
 import { publicConfig } from "@/lib/config";
 import { createDirectReadClient } from "@/lib/direct-read";
 import {
@@ -67,6 +68,11 @@ function ManagementControls({
   const chainId = useChainId();
   const wallet = useWalletClient({ chainId: publicConfig.chainId });
   const client = useMemo(() => createDirectReadClient(), []);
+  const gas = useQuery({
+    queryKey: ["management-gas-balance", snapshot.address, account.address],
+    enabled: Boolean(account.address && chainId === publicConfig.chainId),
+    queryFn: () => client.getBalance({ address: account.address! }),
+  });
   const [transaction, dispatch] = useReducer(
     transactionReducer,
     initialTransactionState,
@@ -82,14 +88,20 @@ function ManagementControls({
   const [refundToken, setRefundToken] = useState("");
   const [refundPreview, setRefundPreview] = useState<{
     tokenId: bigint;
+    recipient: Address;
     gross: bigint;
     topUp: bigint;
   }>();
+  const refundPreviewVersion = useRef(0);
+  const operationInFlight = useRef(false);
   const [description, setDescription] = useState(snapshot.description);
   const [imageURI, setImageURI] = useState(snapshot.imageURI);
   const [externalURI, setExternalURI] = useState(snapshot.externalURI);
   const [newOwner, setNewOwner] = useState("");
-  const recovery = useTransactionReconciliation(dispatch);
+  const recovery = useTransactionReconciliation(
+    dispatch,
+    `${chainId}:${account.address ?? "disconnected"}:${snapshot.address}`,
+  );
   const permissions = managementPermissions(snapshot, account.address);
   const authenticity: AuthenticityResult = {
     status: "verified",
@@ -108,6 +120,7 @@ function ManagementControls({
     fresh &&
     guard.enabled &&
     Boolean(wallet.data) &&
+    (gas.data ?? 0n) > 0n &&
     !isTransactionInFlight(transaction.phase);
   const canOwnerWrite = writesVerified && permissions.canOperate;
 
@@ -118,7 +131,17 @@ function ManagementControls({
     return waitForWriteReceipt(client, hash, onReplaced);
   }
 
-  async function perform(
+  async function runExclusive<Result>(task: () => Promise<Result>) {
+    if (operationInFlight.current) return undefined;
+    operationInFlight.current = true;
+    try {
+      return await task();
+    } finally {
+      operationInFlight.current = false;
+    }
+  }
+
+  async function performUnlocked(
     label: string,
     simulate: () => Promise<SendWrite>,
     reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
@@ -146,6 +169,17 @@ function ManagementControls({
     });
     if (outcome.status !== "uncertain") recovery.clear();
     return outcome.status === "reconciled" ? outcome.result : undefined;
+  }
+
+  function perform(
+    label: string,
+    simulate: () => Promise<SendWrite>,
+    reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
+    approval?: () => Promise<SendWrite>,
+  ) {
+    return runExclusive(() =>
+      performUnlocked(label, simulate, reconcile, approval),
+    );
   }
 
   async function reconcileSnapshot(
@@ -253,6 +287,7 @@ function ManagementControls({
         functionName,
         args,
       } as never);
+      await assertSufficientGas(client, account.address, request);
       return () => wallet.data!.writeContract(request);
     };
   }
@@ -260,92 +295,134 @@ function ManagementControls({
   async function previewRefund() {
     const tokenId = parseTokenId(refundToken);
     if (tokenId === undefined) return;
+    const version = ++refundPreviewVersion.current;
     try {
-      const [gross, topUp] = await client.readContract({
-        address: snapshot.address,
-        abi: tierAbi,
-        functionName: "previewRefund",
-        args: [tokenId],
+      const [refund, recipient] = await Promise.all([
+        client.readContract({
+          address: snapshot.address,
+          abi: tierAbi,
+          functionName: "previewRefund",
+          args: [tokenId],
+        }),
+        client.readContract({
+          address: snapshot.address,
+          abi: tierAbi,
+          functionName: "ownerOf",
+          args: [tokenId],
+        }),
+      ]);
+      if (version !== refundPreviewVersion.current) return;
+      setRefundPreview({
+        tokenId,
+        recipient,
+        gross: refund[0],
+        topUp: refund[1],
       });
-      setRefundPreview({ tokenId, gross, topUp });
     } catch (error) {
+      if (version !== refundPreviewVersion.current) return;
       dispatch({ type: "FAILED", error: classifyReadError(error).label });
     }
   }
 
   async function refund() {
-    if (!refundPreview || !account.address || !wallet.data) return;
-    dispatch({ type: "SIMULATE" });
-    try {
-      let approval: (() => Promise<SendWrite>) | undefined;
-      if (refundPreview.topUp > 0n) {
-        const allowance = await client.readContract({
-          address: snapshot.paymentToken,
-          abi: tokenAbi,
-          functionName: "allowance",
-          args: [account.address, snapshot.address],
-        });
-        if (allowance < refundPreview.topUp) {
-          approval = async () => {
-            const { request } = await client.simulateContract({
-              account: account.address,
-              address: snapshot.paymentToken,
-              abi: tokenAbi,
-              functionName: "approve",
-              args: [snapshot.address, refundPreview.topUp],
-            });
-            return () => wallet.data!.writeContract(request);
-          };
+    const tokenId = parseTokenId(refundToken);
+    if (
+      !refundPreview ||
+      refundPreview.tokenId !== tokenId ||
+      !account.address ||
+      !wallet.data
+    )
+      return;
+    const owner = account.address;
+    const connectedWallet = wallet.data;
+    await runExclusive(async () => {
+      try {
+        let approval: (() => Promise<SendWrite>) | undefined;
+        if (refundPreview.topUp > 0n) {
+          const allowance = await client.readContract({
+            address: snapshot.paymentToken,
+            abi: tokenAbi,
+            functionName: "allowance",
+            args: [owner, snapshot.address],
+          });
+          if (allowance < refundPreview.topUp) {
+            approval = async () => {
+              const { request } = await client.simulateContract({
+                account: owner,
+                address: snapshot.paymentToken,
+                abi: tokenAbi,
+                functionName: "approve",
+                args: [snapshot.address, refundPreview.topUp],
+              });
+              await assertSufficientGas(client, owner, request);
+              return () => connectedWallet.writeContract(request);
+            };
+          }
         }
+        await performUnlocked(
+          `Refund membership #${refundPreview.tokenId}`,
+          tierWrite("refund", [
+            refundPreview.tokenId,
+            refundPreview.gross,
+            refundPreview.topUp,
+          ]),
+          async (receipt) => {
+            if (
+              !receiptProvesMembershipRefund(receipt, {
+                tier: snapshot.address,
+                tokenId: refundPreview.tokenId,
+                recipient: refundPreview.recipient,
+                tierOwner: snapshot.creator,
+              })
+            ) {
+              return undefined;
+            }
+            const current = await readTokenTime(refundPreview.tokenId);
+            return current.paidSeconds === 0n &&
+              current.grantSeconds === 0n &&
+              current.refundableGross === 0n
+              ? current
+              : undefined;
+          },
+          approval,
+        );
+      } catch (error) {
+        dispatch({ type: "FAILED", error: decodeTransactionError(error) });
       }
-      await perform(
-        `Refund membership #${refundPreview.tokenId}`,
-        tierWrite("refund", [
-          refundPreview.tokenId,
-          refundPreview.gross,
-          refundPreview.topUp,
-        ]),
-        async () => {
-          const current = await readTokenTime(refundPreview.tokenId);
-          return current.paidSeconds === 0n &&
-            current.grantSeconds === 0n &&
-            current.refundableGross === 0n
-            ? current
-            : undefined;
-        },
-        approval,
-      );
-    } catch (error) {
-      dispatch({ type: "FAILED", error: decodeTransactionError(error) });
-    }
+    });
   }
 
   async function grant() {
-    if (grantPeriodsValue === undefined || !isAddress(grantRecipient.trim())) {
+    if (
+      grantPeriodsValue === undefined ||
+      !isNonZeroAddress(grantRecipient.trim())
+    ) {
       return;
     }
-    try {
-      const recipient = getAddress(grantRecipient.trim());
-      const before = await readRecipientTime(recipient);
-      const expectedExpiration =
-        (before.expiration > before.timestamp
-          ? before.expiration
-          : before.timestamp) +
-        grantPeriodsValue * snapshot.periodDuration;
-      await perform(
-        "Grant complimentary time",
-        tierWrite("grantTime", [recipient, grantPeriodsValue]),
-        async () => {
-          const current = await readRecipientTime(recipient);
-          return current.tokenId !== 0n &&
-            current.expiration >= expectedExpiration
-            ? current
-            : undefined;
-        },
-      );
-    } catch (error) {
-      dispatch({ type: "FAILED", error: decodeTransactionError(error) });
-    }
+    await runExclusive(async () => {
+      try {
+        const recipient = getAddress(grantRecipient.trim());
+        const before = await readRecipientTime(recipient);
+        const expectedExpiration =
+          (before.expiration > before.timestamp
+            ? before.expiration
+            : before.timestamp) +
+          grantPeriodsValue * snapshot.periodDuration;
+        await performUnlocked(
+          "Grant complimentary time",
+          tierWrite("grantTime", [recipient, grantPeriodsValue]),
+          async () => {
+            const current = await readRecipientTime(recipient);
+            return current.tokenId !== 0n &&
+              current.expiration >= expectedExpiration
+              ? current
+              : undefined;
+          },
+        );
+      } catch (error) {
+        dispatch({ type: "FAILED", error: decodeTransactionError(error) });
+      }
+    });
   }
 
   async function revokeGrant() {
@@ -366,6 +443,7 @@ function ManagementControls({
     allowZero: false,
   });
   const revokeTokenValue = parseTokenId(revokeToken);
+  const refundTokenValue = parseTokenId(refundToken);
   const metadataError = validateMutableMetadata({
     description,
     imageURI,
@@ -565,7 +643,7 @@ function ManagementControls({
                   disabled={
                     !writesVerified ||
                     !permissions.canGrant ||
-                    !isAddress(grantRecipient.trim()) ||
+                    !isNonZeroAddress(grantRecipient.trim()) ||
                     grantPeriodsValue === undefined
                   }
                   onClick={() => void grant()}
@@ -609,6 +687,7 @@ function ManagementControls({
               <input
                 inputMode="numeric"
                 onChange={(event) => {
+                  refundPreviewVersion.current += 1;
                   setRefundToken(event.target.value);
                   setRefundPreview(undefined);
                 }}
@@ -620,7 +699,7 @@ function ManagementControls({
               disabled={
                 !writesVerified ||
                 !permissions.canOperate ||
-                parseTokenId(refundToken) === undefined
+                refundTokenValue === undefined
               }
               onClick={() => void previewRefund()}
               type="button"
@@ -641,7 +720,11 @@ function ManagementControls({
             )}
             <button
               className="button button-warning"
-              disabled={!canOwnerWrite || !refundPreview}
+              disabled={
+                !canOwnerWrite ||
+                !refundPreview ||
+                refundPreview.tokenId !== refundTokenValue
+              }
               onClick={() => void refund()}
               type="button"
             >
@@ -751,7 +834,7 @@ function ManagementControls({
             <div className="creator-actions">
               <button
                 className="button button-outline"
-                disabled={!canOwnerWrite || !isAddress(newOwner.trim())}
+                disabled={!canOwnerWrite || !isNonZeroAddress(newOwner.trim())}
                 onClick={() =>
                   void perform(
                     "Start ownership transfer",

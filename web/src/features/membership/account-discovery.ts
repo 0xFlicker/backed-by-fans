@@ -26,6 +26,7 @@ export type AccountDiscoveryPage = {
   offset: bigint;
   scannedTo: bigint;
   nextOffset: bigint | null;
+  scannedTiers: Address[];
   results: AccountTierResult[];
   skipped: string[];
 };
@@ -401,6 +402,7 @@ export async function discoverAccountPage(
     offset: page.offset,
     scannedTo: page.offset + BigInt(page.addresses.length),
     nextOffset: page.nextOffset,
+    scannedTiers: page.addresses,
     results:
       batch?.results ??
       inspected.flatMap(({ result }) => (result ? [result] : [])),

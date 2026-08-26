@@ -134,96 +134,12 @@ async function readCredential(
   tokenId: bigint,
   blockNumber: bigint,
 ): Promise<SupporterCredential> {
-  const [
-    owner,
-    active,
-    occupied,
-    expiration,
-    time,
-    referral,
-    shares,
-    claimableReward,
-    refund,
-  ] = await Promise.all([
-    client.readContract({
-      address: tier,
-      abi: tierAbi,
-      functionName: "ownerOf",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: tierAbi,
-      functionName: "isActiveToken",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: tierAbi,
-      functionName: "isOccupied",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: tierAbi,
-      functionName: "expiresAt",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: tierAbi,
-      functionName: "timeBalances",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: tierAbi,
-      functionName: "referralOf",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: tierAbi,
-      functionName: "sharesOf",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: tierAbi,
-      functionName: "claimableReward",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: tierAbi,
-      functionName: "previewRefund",
-      args: [tokenId],
-      blockNumber,
-    }),
-  ]);
-
-  return {
-    tokenId,
-    owner,
-    active,
-    occupied,
-    expiration,
-    paidSeconds: time[0],
-    grantSeconds: time[1],
-    shares,
-    claimableReward,
-    refundableGross: refund[0],
-    referralStatus: referralStatus(referral[0]),
-    referrer: referral[1],
-  };
+  const values = await Promise.all(
+    credentialContracts(tier, tokenId).map((contract) =>
+      client.readContract({ ...contract, blockNumber } as never),
+    ),
+  );
+  return credentialFromValues(tokenId, values);
 }
 
 function credentialFromValues(tokenId: bigint, values: unknown[]) {

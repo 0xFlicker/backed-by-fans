@@ -105,6 +105,7 @@ invalid_ready_filters=(
   'del(.observedDeployment.creationCodeHashes)'
   'del(.observedDeployment.runtimeCodeHashes)'
   'del(.observedDeployment.usdG)'
+  '.observedDeployment.usdG.paused = true'
   'del(.observedDeployment.protocolControl)'
   'del(.observedDeployment.multisig)'
   'del(.operations.confirmationPolicy)'

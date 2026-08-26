@@ -34,6 +34,11 @@ import {
   type WriteReceipt,
 } from "@/features/protocol/write-transaction";
 import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
+import {
+  receiptProvesReferralClaim,
+  receiptProvesRewardClaim,
+} from "@/features/protocol/payout-reconciliation";
+import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
@@ -127,7 +132,10 @@ export function MembershipExperience({
   const [giftRecipient, setGiftRecipient] = useState("");
   const [giftPeriods, setGiftPeriods] = useState("1");
   const [preparedAction, setPreparedAction] = useState("No action prepared");
-  const recovery = useTransactionReconciliation(dispatch);
+  const recovery = useTransactionReconciliation(
+    dispatch,
+    `${chainId}:${account.address ?? "disconnected"}:${snapshot.address}`,
+  );
   const authenticity: AuthenticityResult = {
     status: "verified",
     capturedBlock,
@@ -157,6 +165,7 @@ export function MembershipExperience({
     fresh &&
     guard.enabled &&
     Boolean(wallet.data) &&
+    (snapshot.walletEthBalance ?? 0n) > 0n &&
     !isTransactionInFlight(transaction.phase);
   const periodValue = parseUint64Input(periods, { allowZero: false });
   const contributionValue = parseUsdg(contribution);
@@ -273,6 +282,7 @@ export function MembershipExperience({
         functionName,
         args,
       } as never);
+      await assertSufficientGas(client, account.address, request);
       return () => wallet.data!.writeContract(request);
     };
   }
@@ -289,6 +299,7 @@ export function MembershipExperience({
         functionName: "approve",
         args: [snapshot.address, amount],
       });
+      await assertSufficientGas(client, account.address, request);
       return () => wallet.data!.writeContract(request);
     };
   }
@@ -329,14 +340,6 @@ export function MembershipExperience({
       );
     }
     return provesAction(state.data) ? state.data : undefined;
-  }
-
-  function reconcileWalletIncrease(amount: bigint) {
-    const priorBalance = snapshot.walletUsdgBalance ?? 0n;
-    return () =>
-      reconcileSnapshot(
-        (next) => (next.walletUsdgBalance ?? 0n) >= priorBalance + amount,
-      );
   }
 
   async function buyForSelf() {
@@ -808,9 +811,16 @@ export function MembershipExperience({
                     void perform(
                       "Claim membership rewards",
                       tierWrite("claimReward", [snapshot.credential!.tokenId]),
-                      reconcileWalletIncrease(
-                        snapshot.credential!.claimableReward,
-                      ),
+                      (receipt) =>
+                        reconcileSnapshot(
+                          (next) =>
+                            receiptProvesRewardClaim(receipt, {
+                              tier: snapshot.address,
+                              tokenId: snapshot.credential!.tokenId,
+                              owner: snapshot.credential!.owner,
+                              amount: snapshot.credential!.claimableReward,
+                            }) || next.credential?.claimableReward === 0n,
+                        ),
                     )
                   }
                   type="button"
@@ -836,7 +846,18 @@ export function MembershipExperience({
                   void perform(
                     "Claim referral proceeds",
                     tierWrite("claimReferral"),
-                    reconcileWalletIncrease(snapshot.claimableReferral ?? 0n),
+                    (receipt) =>
+                      reconcileSnapshot(
+                        (next) =>
+                          Boolean(
+                            snapshot.wallet &&
+                            receiptProvesReferralClaim(receipt, {
+                              tier: snapshot.address,
+                              referrer: snapshot.wallet,
+                              amount: snapshot.claimableReferral ?? 0n,
+                            }),
+                          ) || (next.claimableReferral ?? 0n) === 0n,
+                      ),
                   )
                 }
                 type="button"
@@ -867,10 +888,7 @@ export function MembershipExperience({
                               tier: snapshot.address,
                               owner: snapshot.creator,
                               amount: snapshot.creatorProceeds!,
-                            }) ||
-                            (next.walletUsdgBalance ?? 0n) >=
-                              (snapshot.walletUsdgBalance ?? 0n) +
-                                snapshot.creatorProceeds!,
+                            }) || next.creatorProceeds === 0n,
                         ),
                     )
                   }

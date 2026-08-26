@@ -39,6 +39,7 @@ describe("account discovery cache", () => {
       resumeOffset: 24n,
       complete: false,
       capturedBlock: 90n,
+      scannedTiers: [tier],
       results: [
         {
           tier,
@@ -55,8 +56,7 @@ describe("account discovery cache", () => {
 
     expect(loadAccountCache(local, key)).toMatchObject({
       cursor: "24",
-      capturedBlock: "90",
-      results: [{ tier, claimableReward: "2000000" }],
+      results: [{ tier, capturedBlock: "90", claimableReward: "2000000" }],
     });
   });
 
@@ -65,6 +65,7 @@ describe("account discovery cache", () => {
       resumeOffset: 1n,
       complete: false,
       capturedBlock: 10n,
+      scannedTiers: [tier],
       results: [
         {
           tier,
@@ -81,6 +82,7 @@ describe("account discovery cache", () => {
       resumeOffset: 1n,
       complete: true,
       capturedBlock: 12n,
+      scannedTiers: [tier],
       results: [
         {
           tier,
@@ -109,6 +111,7 @@ describe("account discovery cache", () => {
       resumeOffset: 0n,
       complete: false,
       capturedBlock: 25n,
+      scannedTiers: [tier],
       results: [
         {
           tier,
@@ -141,6 +144,7 @@ describe("account discovery cache", () => {
         resumeOffset: 24n,
         complete: false,
         capturedBlock: 90n,
+        scannedTiers: [tier],
         results: [
           {
             tier,
@@ -161,5 +165,35 @@ describe("account discovery cache", () => {
     expect(
       loadAccountCache(local, accountCacheKey(46_630, nextFactory, wallet)),
     ).toEqual(emptyAccountCache());
+  });
+
+  it("removes a cached claim when its rescanned tier has no current result", () => {
+    const populated = mergeAccountPage(emptyAccountCache(), {
+      resumeOffset: 1n,
+      complete: true,
+      capturedBlock: 10n,
+      scannedTiers: [tier],
+      results: [
+        {
+          tier,
+          name: "Room",
+          tokenId: 1n,
+          active: true,
+          claimableReward: 5n,
+          claimableReferral: 0n,
+          creatorProceeds: 0n,
+        },
+      ],
+    });
+
+    const refreshed = mergeAccountPage(populated, {
+      resumeOffset: 1n,
+      complete: true,
+      capturedBlock: 11n,
+      scannedTiers: [tier],
+      results: [],
+    });
+
+    expect(refreshed.results).toEqual([]);
   });
 });

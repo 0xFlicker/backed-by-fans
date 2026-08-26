@@ -190,7 +190,7 @@ case "$status" in
           "observedBlockHash"
         ]) and
         (.proxy | address) and (.implementation | address) and (.authority | address) and
-        (.decimals == 6) and (.paused | type == "boolean") and
+        (.decimals == 6) and (.paused == false) and
         (.proxyCodeHash | chainhash) and (.implementationCodeHash | chainhash) and
         (.observedAtBlock | integer and . > 0) and (.observedBlockHash | chainhash)) and
       (.observedDeployment.protocolControl |
