@@ -19,6 +19,7 @@ import {ReentrantFeeRecipient} from "./mocks/ReentrantFeeRecipient.sol";
 contract FactoryAndFeesTest is Test {
     uint256 private constant _RUNTIME_LIMIT = 24_576;
     uint256 private constant _INITCODE_LIMIT = 49_152;
+    uint256 private constant _MAX_TIER_DEPLOY_GAS = 6_500_000;
 
     MockUSDG private paymentToken;
     OnchainMetadataRenderer private renderer;
@@ -50,6 +51,41 @@ contract FactoryAndFeesTest is Test {
         assertEq(factory.feeRecipient(), feeRecipient);
         assertEq(tierDeployer.factory(), address(factory));
         assertEq(tierDeployer.renderer(), address(renderer));
+    }
+
+    function test_deployerStoresExactStopPrefixedTierCreationCode() public view {
+        MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
+        bytes memory expected = type(MembershipTier).creationCode;
+        bytes memory first = tierDeployer.creationCodeStoreA().code;
+        bytes memory second = tierDeployer.creationCodeStoreB().code;
+
+        assertEq(uint8(first[0]), 0);
+        assertEq(uint8(second[0]), 0);
+        assertEq(first.length + second.length - 2, expected.length);
+
+        bytes memory reconstructed = new bytes(expected.length);
+        uint256 firstPayloadLength = first.length - 1;
+        for (uint256 i; i < firstPayloadLength; ++i) {
+            reconstructed[i] = first[i + 1];
+        }
+        for (uint256 i; i < second.length - 1; ++i) {
+            reconstructed[firstPayloadLength + i] = second[i + 1];
+        }
+
+        assertEq(tierDeployer.tierCreationCodeLength(), expected.length);
+        assertEq(tierDeployer.tierCreationCodeHash(), keccak256(expected));
+        assertEq(keccak256(reconstructed), keccak256(expected));
+    }
+
+    function test_factoryAndDeployerRuntimeDoNotEmbedTierCreationCode() public view {
+        bytes memory prefix = new bytes(32);
+        bytes memory creationCode = type(MembershipTier).creationCode;
+        for (uint256 i; i < prefix.length; ++i) {
+            prefix[i] = creationCode[i];
+        }
+
+        assertFalse(_contains(address(factory).code, prefix));
+        assertFalse(_contains(factory.deployer().code, prefix));
     }
 
     function test_anyCreatorCanDeployMultipleIndependentFullTiers() public {
@@ -309,16 +345,22 @@ contract FactoryAndFeesTest is Test {
     }
 
     function test_runtimeAndInitcodeRemainBelowNetworkLimits() public {
+        uint256 gasBefore = gasleft();
         address tier = _createTier(factory, creator, _defaultConfig(creator));
+        uint256 deployGas = gasBefore - gasleft();
+        MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
 
         assertLt(address(factory).code.length, _RUNTIME_LIMIT);
         assertLt(type(MembershipFactory).creationCode.length, _INITCODE_LIMIT);
         assertLt(factory.deployer().code.length, _RUNTIME_LIMIT);
         assertLt(type(MembershipTierDeployer).creationCode.length, _INITCODE_LIMIT);
+        assertLt(tierDeployer.creationCodeStoreA().code.length, _RUNTIME_LIMIT);
+        assertLt(tierDeployer.creationCodeStoreB().code.length, _RUNTIME_LIMIT);
         assertLt(tier.code.length, _RUNTIME_LIMIT);
         assertLt(type(MembershipTier).creationCode.length, _INITCODE_LIMIT);
         assertLt(address(renderer).code.length, _RUNTIME_LIMIT);
         assertLt(type(OnchainMetadataRenderer).creationCode.length, _INITCODE_LIMIT);
+        assertLt(deployGas, _MAX_TIER_DEPLOY_GAS);
     }
 
     function _hostileFactory()
@@ -345,5 +387,20 @@ contract FactoryAndFeesTest is Test {
         returns (MembershipTypes.TierConfig memory config)
     {
         config = MembershipTestConfig.defaultConfig(tierCreator);
+    }
+
+    function _contains(bytes memory haystack, bytes memory needle) private pure returns (bool) {
+        if (needle.length == 0 || needle.length > haystack.length) return false;
+        for (uint256 i; i <= haystack.length - needle.length; ++i) {
+            bool matched = true;
+            for (uint256 j; j < needle.length; ++j) {
+                if (haystack[i + j] != needle[j]) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) return true;
+        }
+        return false;
     }
 }

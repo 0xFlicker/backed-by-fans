@@ -57,6 +57,8 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     mapping(uint256 tokenId => uint256 index) private _tokenRewardIndex;
     mapping(uint256 tokenId => uint256 credit) private _rewardCredit;
     mapping(uint256 tokenId => uint256 scaledRemainder) private _rewardRemainder;
+    mapping(uint256 tokenId => uint256[] cumulativeGross) private _zeroGrossPrefixes;
+    mapping(uint256 tokenId => MembershipTypes.RefundCursor cursor) private _refundCursors;
     mapping(address referrer => uint256 amount) public override claimableReferral;
 
     uint256 public override totalShares;
@@ -75,7 +77,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error InvalidRateTotal();
     error InexactTokenTransfer();
     error IncorrectPricingMode();
-    error LifecycleUnavailable();
     error NativeValueRejected();
     error NoGrantTime();
     error OwnershipRenunciationDisabled();
@@ -129,13 +130,12 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     /// @inheritdoc IERC5643
-    function renewSubscription(uint256 tokenId, uint64 duration)
-        external
-        payable
-        override
-        nonReentrant
-    {
+    function renewSubscription(uint256 tokenId, uint64 duration) external payable override {
         if (msg.value != 0) revert NativeValueRejected();
+        _renewSubscription(tokenId, duration);
+    }
+
+    function _renewSubscription(uint256 tokenId, uint64 duration) private nonReentrant {
         address recipient = _requireOwned(tokenId);
         if (recipient != msg.sender) revert TokenOwnerOnly();
         if (duration == 0 || duration % periodDuration != 0) revert InvalidPaidDuration();
@@ -156,10 +156,14 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     /// @inheritdoc IERC5643
-    /// @dev Gross-refund cancellation is implemented in U5.
-    function cancelSubscription(uint256) external payable override {
+    function cancelSubscription(uint256 tokenId) external payable override {
         if (msg.value != 0) revert NativeValueRejected();
-        revert LifecycleUnavailable();
+        _cancelSubscription(tokenId);
+    }
+
+    function _cancelSubscription(uint256 tokenId) private nonReentrant {
+        _checkOwner();
+        _refund(tokenId);
     }
 
     /// @inheritdoc IERC5643
@@ -340,10 +344,40 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     /// @inheritdoc IMembershipTier
+    function previewRefund(uint256 tokenId)
+        public
+        view
+        override
+        returns (uint256 grossRefund, uint256 ownerTopUp)
+    {
+        _requireOwned(tokenId);
+        MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
+        (uint64 paidSeconds,,) = _timeBalancesAt(state, _currentTimestamp());
+        if (pricePerPeriod == 0) {
+            grossRefund = _previewZeroTierRefund(tokenId, state.paidSeconds - paidSeconds);
+        } else {
+            grossRefund = _fixedPriceRefund(paidSeconds);
+        }
+        if (grossRefund > creatorProceeds) ownerTopUp = grossRefund - creatorProceeds;
+    }
+
+    /// @inheritdoc IMembershipTier
+    function refund(uint256 tokenId)
+        external
+        override
+        onlyOwner
+        nonReentrant
+        returns (uint256 grossRefund, uint256 ownerTopUp)
+    {
+        return _refund(tokenId);
+    }
+
+    /// @inheritdoc IMembershipTier
     function grantTime(address recipient, uint64 periods)
         external
         override
         onlyOwner
+        nonReentrant
         returns (uint256 tokenId)
     {
         _requireNotPaused();
@@ -478,6 +512,36 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         _applyPayment(tokenId, payer, recipient, periods, gross);
     }
 
+    function _refund(uint256 tokenId) internal returns (uint256 grossRefund, uint256 ownerTopUp) {
+        address recipient = _requireOwned(tokenId);
+        address tierOwner = owner();
+        _checkpointTime(tokenId);
+
+        MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
+        if (pricePerPeriod == 0) {
+            grossRefund = _zeroTierRefundAt(
+                tokenId, _refundCursors[tokenId].lot, _refundCursors[tokenId].consumedSeconds
+            );
+            MembershipTypes.RefundCursor storage cursor = _refundCursors[tokenId];
+            cursor.lot = _zeroGrossPrefixes[tokenId].length;
+            cursor.consumedSeconds = 0;
+        } else {
+            grossRefund = _fixedPriceRefund(state.paidSeconds);
+        }
+        uint256 creatorContribution = creatorProceeds;
+        if (creatorContribution > grossRefund) creatorContribution = grossRefund;
+        creatorProceeds -= creatorContribution;
+        ownerTopUp = grossRefund - creatorContribution;
+
+        state.paidSeconds = 0;
+        state.grantSeconds = 0;
+        _emitTimeUpdate(tokenId, state);
+
+        if (ownerTopUp != 0) _pullExact(tierOwner, ownerTopUp);
+        if (grossRefund != 0) _pushExact(recipient, grossRefund);
+        emit MembershipRefunded(tokenId, recipient, tierOwner, grossRefund, ownerTopUp);
+    }
+
     function _contribute(address payer, uint256 gross, address referralChoice)
         internal
         returns (uint256 tokenId)
@@ -491,6 +555,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         }
 
         tokenId = _addPaidTime(payer, periodDuration, false);
+        _appendZeroRefundLot(tokenId, gross);
         if (gross != 0) {
             _lockReferralChoice(tokenId, referralChoice);
             _applyPayment(tokenId, payer, payer, 1, gross);
@@ -556,6 +621,61 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
             _rewardRemainder[tokenId] = scaledRemainder % _REWARD_SCALE;
             _tokenRewardIndex[tokenId] = currentIndex;
         }
+    }
+
+    function _appendZeroRefundLot(uint256 tokenId, uint256 gross) internal {
+        uint256[] storage prefixes = _zeroGrossPrefixes[tokenId];
+        MembershipTypes.RefundCursor storage cursor = _refundCursors[tokenId];
+        if (prefixes.length != 0 && cursor.lot == prefixes.length && cursor.consumedSeconds == 0) {
+            delete _zeroGrossPrefixes[tokenId];
+            cursor.lot = 0;
+            prefixes = _zeroGrossPrefixes[tokenId];
+        }
+
+        uint256 cumulativeGross = gross;
+        if (prefixes.length != 0) cumulativeGross += prefixes[prefixes.length - 1];
+        prefixes.push(cumulativeGross);
+    }
+
+    function _fixedPriceRefund(uint64 paidSeconds) internal view returns (uint256) {
+        return Math.mulDiv(paidSeconds, pricePerPeriod, periodDuration);
+    }
+
+    function _previewZeroTierRefund(uint256 tokenId, uint64 newlyConsumed)
+        internal
+        view
+        returns (uint256)
+    {
+        MembershipTypes.RefundCursor storage cursor = _refundCursors[tokenId];
+        uint256 totalConsumed = uint256(cursor.consumedSeconds) + newlyConsumed;
+        return _zeroTierRefundAt(
+            tokenId,
+            cursor.lot + totalConsumed / periodDuration,
+            (totalConsumed % periodDuration).toUint64()
+        );
+    }
+
+    function _zeroTierRefundAt(uint256 tokenId, uint256 lot, uint64 consumedSeconds)
+        internal
+        view
+        returns (uint256 grossRefund)
+    {
+        uint256[] storage prefixes = _zeroGrossPrefixes[tokenId];
+        uint256 tail = prefixes.length;
+        if (lot >= tail) return 0;
+
+        uint256 priorGross = lot == 0 ? 0 : prefixes[lot - 1];
+        uint256 currentGross = prefixes[lot] - priorGross;
+        uint256 laterGross = prefixes[tail - 1] - prefixes[lot];
+        grossRefund = Math.mulDiv(currentGross, periodDuration - consumedSeconds, periodDuration)
+            + laterGross;
+    }
+
+    function _advanceZeroRefundCursor(uint256 tokenId, uint64 consumedSeconds) internal {
+        MembershipTypes.RefundCursor storage cursor = _refundCursors[tokenId];
+        uint256 totalConsumed = uint256(cursor.consumedSeconds) + consumedSeconds;
+        cursor.lot += totalConsumed / periodDuration;
+        cursor.consumedSeconds = (totalConsumed % periodDuration).toUint64();
     }
 
     function _validateReferralChoice(uint256 tokenId, address referralChoice) internal view {
@@ -679,10 +799,14 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     function _checkpointTime(uint256 tokenId) internal {
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
+        uint64 previousPaidSeconds = state.paidSeconds;
         uint64 timestamp = _currentTimestamp();
         (uint64 paidSeconds, uint64 grantSeconds, bool changed) = _timeBalancesAt(state, timestamp);
         if (!changed) return;
 
+        if (pricePerPeriod == 0 && paidSeconds < previousPaidSeconds) {
+            _advanceZeroRefundCursor(tokenId, previousPaidSeconds - paidSeconds);
+        }
         uint64 priorExpiration = _storedExpiration(state);
         state.paidSeconds = paidSeconds;
         state.grantSeconds = grantSeconds;

@@ -44,6 +44,12 @@ library MembershipTypes {
         address referrer;
     }
 
+    /// @notice Current refundable variable-price lot and consumed seconds within it.
+    struct RefundCursor {
+        uint256 lot;
+        uint64 consumedSeconds;
+    }
+
     /// @notice One-way presentation data passed from a tier to the stateless renderer.
     struct TokenRenderData {
         string tierName;

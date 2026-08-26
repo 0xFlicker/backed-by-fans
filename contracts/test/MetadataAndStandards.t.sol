@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Test} from "forge-std/Test.sol";
@@ -138,7 +139,7 @@ contract MetadataAndStandardsTest is Test {
         assertEq(_countLogs(syncLogs, keccak256("MetadataUpdate(uint256)")), 1);
     }
 
-    function test_standardAdaptersExposeRenewalEconomicsAndDeferredCancellation() public {
+    function test_standardAdaptersExposeRenewalAndCreatorOnlyCancellation() public {
         uint256 tokenId = tier.grantTime(member, 1);
         uint64 expiration = tier.expiresAt(tokenId);
 
@@ -154,7 +155,7 @@ contract MetadataAndStandardsTest is Test {
         tier.renewSubscription(tokenId, _PERIOD);
 
         vm.prank(member);
-        vm.expectRevert(MembershipTier.LifecycleUnavailable.selector);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, member));
         tier.cancelSubscription(tokenId);
 
         assertEq(tier.expiresAt(tokenId), expiration);

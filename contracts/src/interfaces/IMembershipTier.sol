@@ -47,6 +47,13 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     event CreatorProceedsWithdrawn(address indexed owner, uint256 amount);
     event RewardClaimed(uint256 indexed tokenId, address indexed owner, uint256 amount);
     event ReferralClaimed(address indexed referrer, uint256 amount);
+    event MembershipRefunded(
+        uint256 indexed tokenId,
+        address indexed recipient,
+        address indexed tierOwner,
+        uint256 grossRefund,
+        uint256 ownerTopUp
+    );
 
     function factory() external view returns (address);
 
@@ -129,6 +136,13 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     function claimReward(uint256 tokenId) external returns (uint256 amount);
 
     function claimReferral() external returns (uint256 amount);
+
+    function previewRefund(uint256 tokenId)
+        external
+        view
+        returns (uint256 grossRefund, uint256 ownerTopUp);
+
+    function refund(uint256 tokenId) external returns (uint256 grossRefund, uint256 ownerTopUp);
 
     function grantTime(address recipient, uint64 periods) external returns (uint256 tokenId);
 
