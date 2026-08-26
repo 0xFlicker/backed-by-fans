@@ -8,32 +8,15 @@ import {
   mergeAccountPage,
   saveAccountCache,
 } from "@/features/membership/account-cache";
+import { createMemoryStorage } from "@/test/memory-storage";
 
 const wallet = getAddress("0x1111111111111111111111111111111111111111");
 const factory = getAddress("0x2222222222222222222222222222222222222222");
 const tier = getAddress("0x3333333333333333333333333333333333333333");
 
-function storage() {
-  const values = new Map<string, string>();
-  return {
-    get length() {
-      return values.size;
-    },
-    clear: () => values.clear(),
-    getItem: (key: string) => values.get(key) ?? null,
-    key: (index: number) => [...values.keys()][index] ?? null,
-    removeItem: (key: string) => {
-      values.delete(key);
-    },
-    setItem: (key: string, value: string) => {
-      values.set(key, value);
-    },
-  } satisfies Storage;
-}
-
 describe("account discovery cache", () => {
   it("resumes one wallet/factory cursor without becoming canonical state", () => {
-    const local = storage();
+    const local = createMemoryStorage();
     const key = accountCacheKey(46_630, factory, wallet);
     const cache = mergeAccountPage(emptyAccountCache(), {
       resumeOffset: 24n,
@@ -101,7 +84,7 @@ describe("account discovery cache", () => {
       claimableReward: "5",
     });
 
-    const local = storage();
+    const local = createMemoryStorage();
     local.setItem("broken", "not-json");
     expect(loadAccountCache(local, "broken")).toEqual(emptyAccountCache());
   });
@@ -131,7 +114,7 @@ describe("account discovery cache", () => {
   });
 
   it("isolates cursors and results when the wallet or factory changes", () => {
-    const local = storage();
+    const local = createMemoryStorage();
     const firstKey = accountCacheKey(46_630, factory, wallet);
     const nextWallet = getAddress("0x4444444444444444444444444444444444444444");
     const nextFactory = getAddress(

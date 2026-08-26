@@ -16,6 +16,12 @@ export type Replacement = {
   reason: "repriced" | "replaced" | "cancelled";
 };
 
+export type TransactionLifecycle = {
+  onBeforeSubmit: () => Promise<void>;
+  onSubmitted: (hash: Hash) => void;
+  onReplaced: (replacement: Replacement) => void;
+};
+
 export type WriteReceipt = {
   status: "success" | "reverted" | "cancelled";
   blockNumber?: bigint;
@@ -93,6 +99,7 @@ export async function executeTransaction<
   ) => Promise<WriteReceipt>;
   reconcile: (receipt?: WriteReceipt) => Promise<Result | undefined>;
   dispatch: (event: TransactionEvent) => void;
+  lifecycle: TransactionLifecycle;
   approval?: {
     simulate: () => Promise<ApprovalRequest>;
     submit: (request: ApprovalRequest) => Promise<Hash>;
@@ -147,18 +154,21 @@ export async function executeTransaction<
       input.dispatch({ type: "SIMULATED", approvalRequired: false });
     }
     input.dispatch({ type: "SIGN" });
+    await input.lifecycle.onBeforeSubmit();
     stage = "submitting";
     const hash = await input.submit(request);
+    input.lifecycle.onSubmitted(hash);
     stage = "submitted";
     input.dispatch({ type: "SIGNED" });
     input.dispatch({ type: "SUBMITTED", hash });
-    const receipt = await input.wait(hash, (replacement) =>
+    const receipt = await input.wait(hash, (replacement) => {
+      input.lifecycle.onReplaced(replacement);
       input.dispatch({
         type: "REPLACED",
         replacementHash: replacement.hash,
         reason: replacement.reason,
-      }),
-    );
+      });
+    });
     if (receipt.status === "cancelled") {
       input.dispatch({
         type: "CANCELLED",

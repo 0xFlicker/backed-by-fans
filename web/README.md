@@ -51,15 +51,23 @@ interface bindings—not from reusing one validation-tier hash for every tier.
   binding before exposing the separate protocol-owner and fixed fee-recipient
   controls.
 
-All writes simulate first, use the connected wallet for signatures, wait for a
-receipt, and prove the action's specific postcondition with fresh direct reads.
+All writes simulate first, durably record their exact intent before opening the
+wallet, use the connected wallet for signatures, wait for a receipt, and prove
+the action-specific event and direct-state postconditions that remain valid
+after later onchain changes. The browser record is serialized in `localStorage`
+and guarded by the Web Locks API so tabs cannot overwrite one another's
+in-flight action. Missing, unreadable, or unavailable recovery storage blocks
+signing rather than allowing an uncertain duplicate.
+
 After any submitted transaction becomes uncertain, resubmission stays disabled
-and the interface offers only an onchain outcome recheck. A replaced or
-otherwise uncertain tier deployment checks the complete reviewed launch terms
-against the append-only factory registry before another deployment can be
-prepared. Creator proceeds, protocol fees, and refunds keep their
-contract-defined fixed destinations; the application never offers a redirect
-field.
+and the interface offers only an onchain outcome recheck, including after a
+full reload. Original and replacement hashes are retained together; a confirmed
+same-nonce replacement that did not apply the exact protected intent becomes a
+definitive cancellation. An uncertain tier deployment checks the complete
+reviewed launch terms against the append-only factory registry before another
+deployment can be prepared. Creator proceeds, protocol fees, and refunds keep
+their contract-defined fixed destinations; the application never offers a
+redirect field.
 
 ## Supporter memberships and account discovery
 

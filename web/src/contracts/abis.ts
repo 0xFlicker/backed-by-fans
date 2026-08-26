@@ -13,6 +13,33 @@ export const factoryAbi = [
   },
   {
     type: "event",
+    name: "FeeRecipientUpdated",
+    anonymous: false,
+    inputs: [
+      { name: "previousRecipient", type: "address", indexed: true },
+      { name: "newRecipient", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "OwnershipTransferStarted",
+    anonymous: false,
+    inputs: [
+      { name: "previousOwner", type: "address", indexed: true },
+      { name: "newOwner", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "OwnershipTransferred",
+    anonymous: false,
+    inputs: [
+      { name: "previousOwner", type: "address", indexed: true },
+      { name: "newOwner", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
     name: "ProtocolFeesWithdrawn",
     anonymous: false,
     inputs: [
@@ -174,6 +201,90 @@ export const factoryAbi = [
 ] as const;
 
 export const tierAbi = [
+  {
+    type: "event",
+    name: "PauseUpdated",
+    anonymous: false,
+    inputs: [{ name: "paused", type: "bool", indexed: false }],
+  },
+  {
+    type: "event",
+    name: "SupplyCapUpdated",
+    anonymous: false,
+    inputs: [
+      { name: "previousCap", type: "uint64", indexed: false },
+      { name: "newCap", type: "uint64", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "MaxPrepaidPeriodsUpdated",
+    anonymous: false,
+    inputs: [
+      { name: "previousMaximum", type: "uint64", indexed: false },
+      { name: "newMaximum", type: "uint64", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "TierMetadataUpdated",
+    anonymous: false,
+    inputs: [
+      { name: "description", type: "string", indexed: false },
+      { name: "imageURI", type: "string", indexed: false },
+      { name: "externalURI", type: "string", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "MembershipSynchronized",
+    anonymous: false,
+    inputs: [
+      { name: "tokenId", type: "uint256", indexed: true },
+      { name: "recipient", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "OwnershipTransferStarted",
+    anonymous: false,
+    inputs: [
+      { name: "previousOwner", type: "address", indexed: true },
+      { name: "newOwner", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "OwnershipTransferred",
+    anonymous: false,
+    inputs: [
+      { name: "previousOwner", type: "address", indexed: true },
+      { name: "newOwner", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event",
+    name: "MembershipTimeUpdated",
+    anonymous: false,
+    inputs: [
+      { name: "tokenId", type: "uint256", indexed: true },
+      { name: "paidSeconds", type: "uint64", indexed: false },
+      { name: "grantSeconds", type: "uint64", indexed: false },
+      { name: "expiration", type: "uint64", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "PaymentProcessed",
+    anonymous: false,
+    inputs: [
+      { name: "payer", type: "address", indexed: true },
+      { name: "recipient", type: "address", indexed: true },
+      { name: "tokenId", type: "uint256", indexed: true },
+      { name: "gross", type: "uint256", indexed: false },
+      { name: "periods", type: "uint64", indexed: false },
+    ],
+  },
   {
     type: "event",
     name: "CreatorProceedsWithdrawn",

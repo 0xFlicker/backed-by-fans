@@ -3,11 +3,17 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   executeTransaction,
+  type TransactionLifecycle,
   waitForWriteReceipt,
 } from "@/features/protocol/write-transaction";
 import type { TransactionEvent } from "@/lib/transaction-state";
 
 const hash = `0x${"1".repeat(64)}` as const;
+const lifecycle = {
+  onBeforeSubmit: async () => {},
+  onSubmitted: () => {},
+  onReplaced: () => {},
+} satisfies TransactionLifecycle;
 
 describe("shared protocol write execution", () => {
   it("keeps cancellation sticky across subsequent replacement notifications", async () => {
@@ -39,6 +45,7 @@ describe("shared protocol write execution", () => {
       wait: async () => ({ status: "success" }),
       reconcile: async () => "fresh state",
       dispatch: (event) => events.push(event),
+      lifecycle,
     });
 
     expect(result).toEqual({ status: "reconciled", result: "fresh state" });
@@ -69,6 +76,7 @@ describe("shared protocol write execution", () => {
       },
       reconcile,
       dispatch,
+      lifecycle,
     });
 
     expect(dispatch).toHaveBeenCalledWith(
@@ -78,6 +86,38 @@ describe("shared protocol write execution", () => {
       expect.objectContaining({ type: "REVERTED" }),
     );
     expect(reconcile).not.toHaveBeenCalled();
+  });
+
+  it("arms durable recovery before wallet submission and records hash changes", async () => {
+    const lifecycle: string[] = [];
+    const replacement = `0x${"2".repeat(64)}` as const;
+    await executeTransaction({
+      simulate: async () => ({}),
+      submit: async () => {
+        lifecycle.push("wallet-submit");
+        return hash;
+      },
+      wait: async (_hash, onReplaced) => {
+        onReplaced({ hash: replacement, reason: "repriced" });
+        return { status: "success" };
+      },
+      reconcile: async () => "fresh state",
+      dispatch: vi.fn(),
+      lifecycle: {
+        onBeforeSubmit: async () => {
+          lifecycle.push("armed");
+        },
+        onSubmitted: (submitted) => lifecycle.push(`submitted:${submitted}`),
+        onReplaced: (value) => lifecycle.push(`replaced:${value.hash}`),
+      },
+    });
+
+    expect(lifecycle).toEqual([
+      "armed",
+      "wallet-submit",
+      `submitted:${hash}`,
+      `replaced:${replacement}`,
+    ]);
   });
 
   it("confirms an exact approval before simulating the protected write", async () => {
@@ -100,6 +140,7 @@ describe("shared protocol write execution", () => {
       wait: async () => ({ status: "success" }),
       reconcile: async () => undefined,
       dispatch: (event) => events.push(event),
+      lifecycle,
     });
 
     expect(order).toEqual(["approval simulation", "write simulation"]);
@@ -124,6 +165,7 @@ describe("shared protocol write execution", () => {
       wait: async () => ({ status: "success" }),
       reconcile,
       dispatch: (event) => events.push(event),
+      lifecycle,
     });
 
     expect(events.map(({ type }) => type)).toContain("APPROVED");
@@ -151,6 +193,7 @@ describe("shared protocol write execution", () => {
       wait: async () => ({ status: "success" }),
       reconcile,
       dispatch: (event) => events.push(event),
+      lifecycle,
     });
 
     expect(events.at(-1)).toEqual({
@@ -177,6 +220,7 @@ describe("shared protocol write execution", () => {
       },
       reconcile,
       dispatch: (event) => events.push(event),
+      lifecycle,
     });
 
     expect(events.at(-1)).toEqual({
@@ -196,6 +240,7 @@ describe("shared protocol write execution", () => {
       },
       reconcile: async () => undefined,
       dispatch,
+      lifecycle,
     });
 
     expect(dispatch).toHaveBeenLastCalledWith({
@@ -216,6 +261,7 @@ describe("shared protocol write execution", () => {
       wait: async () => ({ status: "success" }),
       reconcile: async () => (broadcast ? "proven state" : undefined),
       dispatch: (event) => events.push(event),
+      lifecycle,
     });
 
     expect(outcome).toEqual({
@@ -237,6 +283,7 @@ describe("shared protocol write execution", () => {
       wait: async () => ({ status: "success" }),
       reconcile,
       dispatch: (event) => events.push(event),
+      lifecycle,
     });
 
     expect(outcome).toEqual({ status: "definitive-failure" });
@@ -258,6 +305,7 @@ describe("shared protocol write execution", () => {
         },
         reconcile: async () => "proven state",
         dispatch,
+        lifecycle,
       }),
     ).resolves.toEqual({ status: "reconciled", result: "proven state" });
 

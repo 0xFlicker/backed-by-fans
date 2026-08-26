@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatUnits, type Address } from "viem";
+import { formatUnits, isAddress, type Address } from "viem";
 import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
 
 import { TransactionFlow } from "@/components/TransactionFlow";
@@ -30,6 +30,7 @@ import {
 } from "@/features/protocol/factory-authenticity";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import { recoverCreatedTier } from "@/features/protocol/registry-recovery";
+import { recoverPendingWrite } from "@/features/protocol/pending-write-recovery";
 import {
   executeTransaction,
   waitForWriteReceipt,
@@ -99,8 +100,6 @@ export function CreateTierWizard() {
     transactionReducer,
     initialTransactionState,
   );
-  const baselineCount = useRef<bigint | undefined>(undefined);
-  const lastConfig = useRef<TierConfig | undefined>(undefined);
   const deployInFlight = useRef(false);
   const account = useAccount();
   const chainId = useChainId();
@@ -116,7 +115,26 @@ export function CreateTierWizard() {
   });
   const recovery = useTransactionReconciliation(
     dispatch,
-    `${chainId}:${account.address ?? "disconnected"}:factory`,
+    `${chainId}:${account.address ?? "disconnected"}:${
+      publicConfig.deployment.status === "ready"
+        ? publicConfig.deployment.factoryAddress
+        : "factory-unavailable"
+    }`,
+    {
+      recover: (pending) => recoverPendingWrite(client, pending),
+      onRecovered: (resolution, pending) => {
+        if (
+          pending.intent.kind === "create-tier" &&
+          typeof resolution.result === "string" &&
+          isAddress(resolution.result)
+        ) {
+          setCreatedTier(resolution.result);
+          setRecoveryNote(
+            "A durable registry recheck confirmed this exact tier after the page was reopened.",
+          );
+        }
+      },
+    },
   );
   const switchChain = useSwitchChain();
   const wallet = useWalletClient({ chainId: publicConfig.chainId });
@@ -158,12 +176,6 @@ export function CreateTierWizard() {
     const next =
       steps[Math.max(0, Math.min(steps.length - 1, index + direction))];
     setStep(next.id);
-  }
-
-  function clearDeploymentRecovery() {
-    baselineCount.current = undefined;
-    lastConfig.current = undefined;
-    recovery.clear();
   }
 
   async function reconcileDeployment(config: TierConfig, fromIndex: bigint) {
@@ -214,48 +226,6 @@ export function CreateTierWizard() {
     const config = result.config;
     const factory = publicConfig.deployment.factoryAddress;
 
-    if (baselineCount.current !== undefined && lastConfig.current) {
-      const priorCount = baselineCount.current;
-      try {
-        const recovered = await recoverCreatedTier(client, {
-          factory,
-          fromIndex: priorCount,
-          config: lastConfig.current,
-        });
-        if (recovered.status === "found") {
-          setCreatedTier(recovered.tier);
-          setRecoveryNote(
-            "A fresh registry read found the prior deployment, so no duplicate transaction was prepared.",
-          );
-          dispatch({ type: "RECONCILED" });
-          clearDeploymentRecovery();
-          return;
-        }
-        if (
-          recovered.status === "ambiguous" ||
-          recovered.currentCount > priorCount
-        ) {
-          dispatch({
-            type: "UNCERTAIN",
-            error:
-              recovered.status === "ambiguous"
-                ? "Multiple exact matching tiers were found. Review the registry before sending anything else."
-                : "The registry advanced without an exact full-config match. Review the new tiers before sending anything else.",
-          });
-          return;
-        }
-      } catch (error) {
-        dispatch({
-          type: "FAILED",
-          error:
-            error instanceof Error
-              ? error.message
-              : "The factory registry could not be checked before retry.",
-        });
-        return;
-      }
-    }
-
     let fromIndex: bigint;
     try {
       fromIndex = await client.readContract({
@@ -267,13 +237,13 @@ export function CreateTierWizard() {
       dispatch({ type: "FAILED", error: decodeTransactionError(error) });
       return;
     }
-    baselineCount.current = fromIndex;
-    lastConfig.current = config;
     setRecoveryNote(undefined);
 
-    const reconcile = recovery.track(() =>
-      reconcileDeployment(config, fromIndex),
-    );
+    const tracked = recovery.track({
+      label: "Deploy membership",
+      intent: { kind: "create-tier", factory, fromIndex, config },
+      reconcile: () => reconcileDeployment(config, fromIndex),
+    });
     const outcome = await executeTransaction({
       dispatch,
       simulate: async () => {
@@ -291,9 +261,10 @@ export function CreateTierWizard() {
       wait: async (hash, onReplaced) => {
         return waitForWriteReceipt(client, hash, onReplaced);
       },
-      reconcile,
+      reconcile: tracked.reconcile,
+      lifecycle: tracked.lifecycle,
     });
-    if (outcome.status !== "uncertain") clearDeploymentRecovery();
+    if (outcome.status !== "uncertain") tracked.clear();
   }
 
   if (createdTier) {

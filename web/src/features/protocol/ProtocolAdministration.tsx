@@ -10,6 +10,8 @@ import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
 import { factoryAbi } from "@/contracts/abis";
 import { protocolPermissions } from "@/features/protocol/authority";
+import type { WriteIntent } from "@/features/protocol/pending-write";
+import { recoverPendingWrite } from "@/features/protocol/pending-write-recovery";
 import {
   readProtocolState,
   type ProtocolSnapshot,
@@ -65,6 +67,13 @@ function ProtocolControls({
   const recovery = useTransactionReconciliation(
     dispatch,
     `${chainId}:${account.address ?? "disconnected"}:${snapshot.factory}`,
+    {
+      recover: (pending) => recoverPendingWrite(client, pending),
+      onRecovered: (_resolution, pending) => {
+        setAction(pending.label);
+        void onRefresh();
+      },
+    },
   );
   const permissions = protocolPermissions(snapshot, account.address);
   const guard = factoryWriteGuard({
@@ -105,20 +114,23 @@ function ProtocolControls({
 
   async function perform(
     label: string,
+    intent: WriteIntent,
     simulate: () => Promise<SendWrite>,
     provesAction: (next: ProtocolSnapshot, receipt?: WriteReceipt) => boolean,
   ) {
     setAction(label);
-    let confirmedReceipt: WriteReceipt | undefined;
-    const reconcile = recovery.track(async (receipt?: WriteReceipt) => {
-      confirmedReceipt ??= receipt;
-      const refreshed = await onRefresh();
-      if (refreshed?.status !== "valid") {
-        throw new Error("Fresh protocol state was unavailable.");
-      }
-      return provesAction(refreshed.data, confirmedReceipt)
-        ? refreshed.data
-        : undefined;
+    const tracked = recovery.track({
+      label,
+      intent,
+      reconcile: async (receipt?: WriteReceipt) => {
+        const refreshed = await onRefresh();
+        if (refreshed?.status !== "valid") {
+          throw new Error("Fresh protocol state was unavailable.");
+        }
+        return provesAction(refreshed.data, receipt)
+          ? refreshed.data
+          : undefined;
+      },
     });
     const outcome = await executeTransaction({
       dispatch,
@@ -127,9 +139,10 @@ function ProtocolControls({
       wait: async (hash, onReplaced) => {
         return waitForWriteReceipt(client, hash, onReplaced);
       },
-      reconcile,
+      reconcile: tracked.reconcile,
+      lifecycle: tracked.lifecycle,
     });
-    if (outcome.status !== "uncertain") recovery.clear();
+    if (outcome.status !== "uncertain") tracked.clear();
   }
 
   return (
@@ -199,11 +212,22 @@ function ProtocolControls({
             disabled={
               !writesVerified ||
               !permissions.isOwner ||
-              !isNonZeroAddress(feeRecipient.trim())
+              !isNonZeroAddress(feeRecipient.trim()) ||
+              isSameAddress(
+                getAddress(feeRecipient.trim()),
+                snapshot.feeRecipient,
+              )
             }
             onClick={() =>
               void perform(
                 "Change protocol fee recipient",
+                {
+                  kind: "protocol-fee-recipient",
+                  factory: snapshot.factory,
+                  previous: snapshot.feeRecipient,
+                  expected: getAddress(feeRecipient.trim()),
+                  fromBlock: snapshot.authenticity.capturedBlock + 1n,
+                },
                 factoryWrite("setFeeRecipient", [
                   getAddress(feeRecipient.trim()),
                 ]),
@@ -231,10 +255,22 @@ function ProtocolControls({
           </div>
           <button
             className="button button-applause"
-            disabled={!writesVerified || !permissions.isFeeRecipient}
+            disabled={
+              !writesVerified ||
+              !permissions.isFeeRecipient ||
+              snapshot.protocolBalance === 0n
+            }
             onClick={() =>
               void perform(
                 "Withdraw protocol fees",
+                {
+                  kind: "protocol-withdrawal",
+                  factory: snapshot.factory,
+                  paymentToken: snapshot.paymentToken,
+                  recipient: snapshot.feeRecipient,
+                  amount: snapshot.protocolBalance,
+                  fromBlock: snapshot.authenticity.capturedBlock + 1n,
+                },
                 factoryWrite("withdrawProtocolFees"),
                 (next, receipt) =>
                   receiptProvesProtocolWithdrawal(receipt, {
@@ -273,11 +309,22 @@ function ProtocolControls({
               disabled={
                 !writesVerified ||
                 !permissions.isOwner ||
-                !isNonZeroAddress(newOwner.trim())
+                !isNonZeroAddress(newOwner.trim()) ||
+                isSameAddress(
+                  getAddress(newOwner.trim()),
+                  snapshot.pendingOwner,
+                )
               }
               onClick={() =>
                 void perform(
                   "Start protocol ownership transfer",
+                  {
+                    kind: "protocol-pending-owner",
+                    factory: snapshot.factory,
+                    previous: snapshot.pendingOwner,
+                    expected: getAddress(newOwner.trim()),
+                    fromBlock: snapshot.authenticity.capturedBlock + 1n,
+                  },
                   factoryWrite("transferOwnership", [
                     getAddress(newOwner.trim()),
                   ]),
@@ -298,6 +345,13 @@ function ProtocolControls({
               onClick={() =>
                 void perform(
                   "Accept protocol ownership",
+                  {
+                    kind: "protocol-accept-owner",
+                    factory: snapshot.factory,
+                    previousOwner: snapshot.owner,
+                    expected: account.address!,
+                    fromBlock: snapshot.authenticity.capturedBlock + 1n,
+                  },
                   factoryWrite("acceptOwnership"),
                   (next) =>
                     account.address !== undefined &&

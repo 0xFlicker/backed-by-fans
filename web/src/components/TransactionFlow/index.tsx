@@ -84,8 +84,9 @@ export function TransactionFlow({
       )}
       {state.phase === "uncertain" && (
         <p className="small-copy">
-          Keep this page open and recheck the exact postcondition. Never resend
-          this action only because a receipt or read timed out.
+          This exact action stays in this browser across a reload. Reopen its
+          wallet, chain, and contract context to recheck it. Do not clear site
+          data or resend only because a receipt or read timed out.
         </p>
       )}
       {state.phase === "replacement" && (

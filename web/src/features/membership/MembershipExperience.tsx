@@ -34,6 +34,8 @@ import {
   type WriteReceipt,
 } from "@/features/protocol/write-transaction";
 import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
+import type { WriteIntent } from "@/features/protocol/pending-write";
+import { recoverPendingWrite } from "@/features/protocol/pending-write-recovery";
 import {
   receiptProvesReferralClaim,
   receiptProvesRewardClaim,
@@ -135,6 +137,13 @@ export function MembershipExperience({
   const recovery = useTransactionReconciliation(
     dispatch,
     `${chainId}:${account.address ?? "disconnected"}:${snapshot.address}`,
+    {
+      recover: (pending) => recoverPendingWrite(client, pending),
+      onRecovered: (_resolution, pending) => {
+        setPreparedAction(pending.label);
+        void onRefresh();
+      },
+    },
   );
   const authenticity: AuthenticityResult = {
     status: "verified",
@@ -306,15 +315,16 @@ export function MembershipExperience({
 
   async function perform(
     label: string,
+    intent: WriteIntent,
     simulate: () => Promise<SendWrite>,
     reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
     approve?: () => Promise<SendWrite>,
   ) {
     setPreparedAction(label);
-    let confirmedReceipt: WriteReceipt | undefined;
-    const tracked = recovery.track((receipt?: WriteReceipt) => {
-      confirmedReceipt ??= receipt;
-      return reconcile(confirmedReceipt);
+    const tracked = recovery.track({
+      label,
+      intent,
+      reconcile,
     });
     const outcome = await executeTransaction({
       dispatch,
@@ -324,9 +334,10 @@ export function MembershipExperience({
       approval: approve
         ? { simulate: approve, submit: (send) => send(), wait }
         : undefined,
-      reconcile: tracked,
+      reconcile: tracked.reconcile,
+      lifecycle: tracked.lifecycle,
     });
-    if (outcome.status !== "uncertain") recovery.clear();
+    if (outcome.status !== "uncertain") tracked.clear();
     return outcome.status === "reconciled" ? outcome.result : undefined;
   }
 
@@ -346,7 +357,8 @@ export function MembershipExperience({
     if (
       !selfPreview ||
       periodValue === undefined ||
-      contributionValue === undefined
+      contributionValue === undefined ||
+      !account.address
     )
       return;
     if (needsChoice && choiceAddress === undefined) {
@@ -376,6 +388,23 @@ export function MembershipExperience({
             : "locked-address";
     await perform(
       primaryTitle,
+      {
+        kind: "membership-payment",
+        tier: snapshot.address,
+        payer: account.address,
+        recipient: account.address,
+        gross: selfPreview.gross,
+        periods: snapshot.pricePerPeriod === 0n ? 1n : periodValue,
+        fromBlock: capturedBlock + 1n,
+        minimumExpiration: selfPreview.resultingExpiration,
+        minimumShares: priorShares + selfPreview.sharesAdded,
+        referralStatus:
+          expectedReferral === "locked-none"
+            ? 1
+            : expectedReferral === "locked-address"
+              ? 2
+              : 0,
+      },
       simulate,
       () =>
         reconcileSnapshot((next) => {
@@ -402,6 +431,16 @@ export function MembershipExperience({
       return;
     await perform(
       `Gift ${giftPeriodValue} period${giftPeriodValue === 1n ? "" : "s"}`,
+      {
+        kind: "membership-gift",
+        tier: snapshot.address,
+        payer: account.address!,
+        recipient: normalizedGift,
+        gross: giftPreview.gross,
+        periods: giftPeriodValue,
+        fromBlock: capturedBlock + 1n,
+        minimumExpiration: giftPreview.resultingExpiration,
+      },
       tierWrite("gift", [
         normalizedGift,
         giftPeriodValue,
@@ -810,6 +849,14 @@ export function MembershipExperience({
                   onClick={() =>
                     void perform(
                       "Claim membership rewards",
+                      {
+                        kind: "reward-claim",
+                        tier: snapshot.address,
+                        tokenId: snapshot.credential!.tokenId,
+                        owner: snapshot.credential!.owner,
+                        amount: snapshot.credential!.claimableReward,
+                        fromBlock: capturedBlock + 1n,
+                      },
                       tierWrite("claimReward", [snapshot.credential!.tokenId]),
                       (receipt) =>
                         reconcileSnapshot(
@@ -845,6 +892,13 @@ export function MembershipExperience({
                 onClick={() =>
                   void perform(
                     "Claim referral proceeds",
+                    {
+                      kind: "referral-claim",
+                      tier: snapshot.address,
+                      referrer: snapshot.wallet!,
+                      amount: snapshot.claimableReferral ?? 0n,
+                      fromBlock: capturedBlock + 1n,
+                    },
                     tierWrite("claimReferral"),
                     (receipt) =>
                       reconcileSnapshot(
@@ -880,6 +934,13 @@ export function MembershipExperience({
                   onClick={() =>
                     void perform(
                       "Withdraw creator proceeds",
+                      {
+                        kind: "tier-withdrawal",
+                        tier: snapshot.address,
+                        owner: snapshot.creator,
+                        amount: snapshot.creatorProceeds!,
+                        fromBlock: capturedBlock + 1n,
+                      },
                       tierWrite("withdrawCreatorProceeds"),
                       (receipt) =>
                         reconcileSnapshot(
@@ -923,6 +984,14 @@ export function MembershipExperience({
                   onClick={() =>
                     void perform(
                       "Synchronize inactive capacity",
+                      {
+                        kind: "synchronize",
+                        tier: snapshot.address,
+                        tokenId: snapshot.credential!.tokenId,
+                        previousOccupied: snapshot.credential!.occupied,
+                        previousActive: snapshot.credential!.active,
+                        fromBlock: capturedBlock + 1n,
+                      },
                       tierWrite("synchronize", [snapshot.credential!.tokenId]),
                       () =>
                         reconcileSnapshot(

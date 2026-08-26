@@ -4,6 +4,32 @@ import { tierAbi } from "@/contracts/abis";
 import type { WriteReceipt } from "@/features/protocol/write-transaction";
 import { isSameAddress } from "@/lib/address";
 
+export function receiptProvesPayment(
+  receipt: WriteReceipt | undefined,
+  input: {
+    tier: Address;
+    payer: Address;
+    recipient: Address;
+    gross: bigint;
+    periods: bigint;
+  },
+) {
+  if (!receipt?.logs || input.periods === 0n) return false;
+  return parseEventLogs({
+    abi: tierAbi,
+    eventName: "PaymentProcessed",
+    logs: receipt.logs,
+    strict: true,
+  }).some(
+    (event) =>
+      isSameAddress(event.address, input.tier) &&
+      isSameAddress(event.args.payer, input.payer) &&
+      isSameAddress(event.args.recipient, input.recipient) &&
+      event.args.gross === input.gross &&
+      event.args.periods === input.periods,
+  );
+}
+
 export function receiptProvesRewardClaim(
   receipt: WriteReceipt | undefined,
   input: { tier: Address; tokenId: bigint; owner: Address; amount: bigint },

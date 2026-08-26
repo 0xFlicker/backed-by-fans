@@ -92,8 +92,12 @@ the confirmed block. Important protocol events include:
   `OwnershipTransferred` for both factory and tier.
 
 An event index is optional convenience infrastructure, never a source of truth.
-After a replaced, dropped, reverted, or uncertain transaction, locate the final
-receipt if possible and reread the direct contract state before showing success.
+Before submission, persist the exact action intent and its captured block. After
+a replaced, dropped, reverted, or uncertain transaction, locate the final
+receipt if possible; otherwise query canonical logs from that captured block.
+Require the exact event fields for the intended action and any direct-state
+postconditions that cannot be established from the event alone. A current
+mutable value by itself is not proof that the pending action produced it.
 
 ## Standards
 

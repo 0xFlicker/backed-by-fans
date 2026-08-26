@@ -33,6 +33,11 @@ import {
 } from "@/features/protocol/write-transaction";
 import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
 import { receiptProvesMembershipRefund } from "@/features/protocol/payout-reconciliation";
+import type { WriteIntent } from "@/features/protocol/pending-write";
+import {
+  recoverPendingWrite,
+  recoverTierGrant,
+} from "@/features/protocol/pending-write-recovery";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
@@ -101,6 +106,13 @@ function ManagementControls({
   const recovery = useTransactionReconciliation(
     dispatch,
     `${chainId}:${account.address ?? "disconnected"}:${snapshot.address}`,
+    {
+      recover: (pending) => recoverPendingWrite(client, pending),
+      onRecovered: (_resolution, pending) => {
+        setActiveAction(pending.label);
+        void onRefresh();
+      },
+    },
   );
   const permissions = managementPermissions(snapshot, account.address);
   const authenticity: AuthenticityResult = {
@@ -143,15 +155,16 @@ function ManagementControls({
 
   async function performUnlocked(
     label: string,
+    intent: WriteIntent,
     simulate: () => Promise<SendWrite>,
     reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
     approval?: () => Promise<SendWrite>,
   ) {
     setActiveAction(label);
-    let confirmedReceipt: WriteReceipt | undefined;
-    const tracked = recovery.track((receipt?: WriteReceipt) => {
-      confirmedReceipt ??= receipt;
-      return reconcile(confirmedReceipt);
+    const tracked = recovery.track({
+      label,
+      intent,
+      reconcile,
     });
     const outcome = await executeTransaction({
       dispatch,
@@ -165,20 +178,22 @@ function ManagementControls({
             wait: waitForReceipt,
           }
         : undefined,
-      reconcile: tracked,
+      reconcile: tracked.reconcile,
+      lifecycle: tracked.lifecycle,
     });
-    if (outcome.status !== "uncertain") recovery.clear();
+    if (outcome.status !== "uncertain") tracked.clear();
     return outcome.status === "reconciled" ? outcome.result : undefined;
   }
 
   function perform(
     label: string,
+    intent: WriteIntent,
     simulate: () => Promise<SendWrite>,
     reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
     approval?: () => Promise<SendWrite>,
   ) {
     return runExclusive(() =>
-      performUnlocked(label, simulate, reconcile, approval),
+      performUnlocked(label, intent, simulate, reconcile, approval),
     );
   }
 
@@ -207,6 +222,7 @@ function ManagementControls({
     if (tokenId === 0n) {
       return {
         tokenId,
+        blockNumber,
         timestamp: block.timestamp,
         expiration: 0n,
         paidSeconds: 0n,
@@ -231,6 +247,7 @@ function ManagementControls({
     ]);
     return {
       tokenId,
+      blockNumber,
       timestamp: block.timestamp,
       expiration,
       paidSeconds: balances[0],
@@ -257,6 +274,7 @@ function ManagementControls({
       }),
     ]);
     return {
+      blockNumber,
       paidSeconds: balances[0],
       grantSeconds: balances[1],
       refundableGross: refund[0],
@@ -361,6 +379,14 @@ function ManagementControls({
         }
         await performUnlocked(
           `Refund membership #${refundPreview.tokenId}`,
+          {
+            kind: "tier-refund",
+            tier: snapshot.address,
+            tokenId: refundPreview.tokenId,
+            recipient: refundPreview.recipient,
+            tierOwner: snapshot.creator,
+            fromBlock: capturedBlock + 1n,
+          },
           tierWrite("refund", [
             refundPreview.tokenId,
             refundPreview.gross,
@@ -403,19 +429,26 @@ function ManagementControls({
       try {
         const recipient = getAddress(grantRecipient.trim());
         const before = await readRecipientTime(recipient);
-        const expectedExpiration =
-          (before.expiration > before.timestamp
-            ? before.expiration
-            : before.timestamp) +
-          grantPeriodsValue * snapshot.periodDuration;
+        const grantedSeconds = grantPeriodsValue * snapshot.periodDuration;
+        const intent = {
+          kind: "tier-grant",
+          tier: snapshot.address,
+          recipient,
+          tokenId: before.tokenId,
+          baselineTimestamp: before.timestamp,
+          baselinePaidSeconds: before.paidSeconds,
+          baselineGrantSeconds: before.grantSeconds,
+          grantedSeconds,
+          fromBlock: before.blockNumber + 1n,
+        } satisfies WriteIntent;
         await performUnlocked(
           "Grant complimentary time",
+          intent,
           tierWrite("grantTime", [recipient, grantPeriodsValue]),
-          async () => {
-            const current = await readRecipientTime(recipient);
-            return current.tokenId !== 0n &&
-              current.expiration >= expectedExpiration
-              ? current
+          async (receipt) => {
+            const recovered = await recoverTierGrant(client, intent, receipt);
+            return recovered.status === "reconciled"
+              ? recovered.result
               : undefined;
           },
         );
@@ -427,17 +460,39 @@ function ManagementControls({
 
   async function revokeGrant() {
     if (revokeTokenValue === undefined) return;
-    await perform(
-      "Revoke remaining grant time",
-      tierWrite("revokeGrantTime", [revokeTokenValue]),
-      async () => {
-        const current = await readTokenTime(revokeTokenValue);
-        return current.grantSeconds === 0n ? current : undefined;
-      },
-    );
+    await runExclusive(async () => {
+      try {
+        const before = await readTokenTime(revokeTokenValue);
+        if (before.grantSeconds === 0n) {
+          dispatch({
+            type: "FAILED",
+            error: "This membership has no remaining grant time to revoke.",
+          });
+          return;
+        }
+        await performUnlocked(
+          "Revoke remaining grant time",
+          {
+            kind: "tier-revoke-grant",
+            tier: snapshot.address,
+            tokenId: revokeTokenValue,
+            previousGrantSeconds: before.grantSeconds,
+            fromBlock: before.blockNumber + 1n,
+          },
+          tierWrite("revokeGrantTime", [revokeTokenValue]),
+          async () => {
+            const current = await readTokenTime(revokeTokenValue);
+            return current.grantSeconds === 0n ? current : undefined;
+          },
+        );
+      } catch (error) {
+        dispatch({ type: "FAILED", error: decodeTransactionError(error) });
+      }
+    });
   }
 
   const capError = validateSupplyCap(supplyCap, snapshot.occupiedSupply);
+  const supplyCapValue = parseUint64Input(supplyCap, { allowZero: true });
   const prepaymentValue = parseUint64Input(prepayment, { allowZero: true });
   const grantPeriodsValue = parseUint64Input(grantPeriods, {
     allowZero: false,
@@ -535,6 +590,13 @@ function ManagementControls({
               onClick={() =>
                 void perform(
                   snapshot.paused ? "Unpause tier" : "Pause tier",
+                  {
+                    kind: "tier-paused",
+                    tier: snapshot.address,
+                    previous: snapshot.paused,
+                    expected: !snapshot.paused,
+                    fromBlock: capturedBlock + 1n,
+                  },
                   tierWrite("setPaused", [!snapshot.paused]),
                   () =>
                     reconcileSnapshot(
@@ -570,14 +632,26 @@ function ManagementControls({
                 {capError && <small role="alert">{capError}</small>}
                 <button
                   className="button button-outline"
-                  disabled={!canOwnerWrite || Boolean(capError)}
+                  disabled={
+                    !canOwnerWrite ||
+                    Boolean(capError) ||
+                    supplyCapValue === undefined ||
+                    supplyCapValue === snapshot.supplyCap
+                  }
                   onClick={() =>
                     void perform(
                       "Update supply cap",
-                      tierWrite("setSupplyCap", [BigInt(supplyCap)]),
+                      {
+                        kind: "tier-supply-cap",
+                        tier: snapshot.address,
+                        previous: snapshot.supplyCap,
+                        expected: supplyCapValue!,
+                        fromBlock: capturedBlock + 1n,
+                      },
+                      tierWrite("setSupplyCap", [supplyCapValue!]),
                       () =>
                         reconcileSnapshot(
-                          (next) => next.supplyCap === BigInt(supplyCap),
+                          (next) => next.supplyCap === supplyCapValue,
                         ),
                     )
                   }
@@ -595,10 +669,21 @@ function ManagementControls({
                 />
                 <button
                   className="button button-outline"
-                  disabled={!canOwnerWrite || prepaymentValue === undefined}
+                  disabled={
+                    !canOwnerWrite ||
+                    prepaymentValue === undefined ||
+                    prepaymentValue === snapshot.maxPrepaidPeriods
+                  }
                   onClick={() =>
                     void perform(
                       "Update prepayment limit",
+                      {
+                        kind: "tier-prepayment",
+                        tier: snapshot.address,
+                        previous: snapshot.maxPrepaidPeriods,
+                        expected: prepaymentValue!,
+                        fromBlock: capturedBlock + 1n,
+                      },
                       tierWrite("setMaxPrepaidPeriods", [prepaymentValue!]),
                       () =>
                         reconcileSnapshot(
@@ -743,10 +828,17 @@ function ManagementControls({
             </div>
             <button
               className="button button-applause"
-              disabled={!canOwnerWrite}
+              disabled={!canOwnerWrite || snapshot.creatorProceeds === 0n}
               onClick={() =>
                 void perform(
                   "Withdraw creator proceeds",
+                  {
+                    kind: "tier-withdrawal",
+                    tier: snapshot.address,
+                    owner: snapshot.creator,
+                    amount: snapshot.creatorProceeds,
+                    fromBlock: capturedBlock + 1n,
+                  },
                   tierWrite("withdrawCreatorProceeds"),
                   (receipt) =>
                     reconcileSnapshot(
@@ -791,10 +883,27 @@ function ManagementControls({
             </label>
             <button
               className="button button-outline"
-              disabled={!canOwnerWrite || Boolean(metadataError)}
+              disabled={
+                !canOwnerWrite ||
+                Boolean(metadataError) ||
+                (description === snapshot.description &&
+                  imageURI === snapshot.imageURI &&
+                  externalURI === snapshot.externalURI)
+              }
               onClick={() =>
                 void perform(
                   "Update tier presentation",
+                  {
+                    kind: "tier-metadata",
+                    tier: snapshot.address,
+                    description,
+                    imageURI,
+                    externalURI,
+                    previousDescription: snapshot.description,
+                    previousImageURI: snapshot.imageURI,
+                    previousExternalURI: snapshot.externalURI,
+                    fromBlock: capturedBlock + 1n,
+                  },
                   tierWrite("setTierMetadata", [
                     { description, imageURI, externalURI },
                   ]),
@@ -834,10 +943,24 @@ function ManagementControls({
             <div className="creator-actions">
               <button
                 className="button button-outline"
-                disabled={!canOwnerWrite || !isNonZeroAddress(newOwner.trim())}
+                disabled={
+                  !canOwnerWrite ||
+                  !isNonZeroAddress(newOwner.trim()) ||
+                  isSameAddress(
+                    getAddress(newOwner.trim()),
+                    snapshot.pendingOwner,
+                  )
+                }
                 onClick={() =>
                   void perform(
                     "Start ownership transfer",
+                    {
+                      kind: "tier-pending-owner",
+                      tier: snapshot.address,
+                      previous: snapshot.pendingOwner,
+                      expected: getAddress(newOwner.trim()),
+                      fromBlock: capturedBlock + 1n,
+                    },
                     tierWrite("transferOwnership", [
                       getAddress(newOwner.trim()),
                     ]),
@@ -860,6 +983,13 @@ function ManagementControls({
                 onClick={() =>
                   void perform(
                     "Accept tier ownership",
+                    {
+                      kind: "tier-accept-owner",
+                      tier: snapshot.address,
+                      previousOwner: snapshot.creator,
+                      expected: account.address!,
+                      fromBlock: capturedBlock + 1n,
+                    },
                     tierWrite("acceptOwnership"),
                     () =>
                       reconcileSnapshot(

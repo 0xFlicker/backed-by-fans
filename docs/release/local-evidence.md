@@ -36,8 +36,9 @@ the configured tests in `web/tests/e2e/anvil-membership.spec.ts`,
   approvals and confirmed onchain reconciliation;
 - a blocked fixed destination retaining its exact onchain claim with no
   redirect control and safe retry guidance; and
-- a post-broadcast wallet-response loss reconciling from fresh state without a
-  duplicate submission.
+- a post-broadcast wallet-response loss surviving a full page reload,
+  reconciling from the durable exact intent, and proving exactly one protected
+  submission.
 
 The flow also runs axe on configured supporter states. Run the browser evidence
 alone from the repository root:

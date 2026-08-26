@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { tierAbi } from "@/contracts/abis";
 import {
   receiptProvesMembershipRefund,
+  receiptProvesPayment,
   receiptProvesReferralClaim,
   receiptProvesRewardClaim,
 } from "@/features/protocol/payout-reconciliation";
@@ -16,8 +17,53 @@ import {
 const tier = getAddress("0x1111111111111111111111111111111111111111");
 const owner = getAddress("0x2222222222222222222222222222222222222222");
 const creator = getAddress("0x3333333333333333333333333333333333333333");
+const other = getAddress("0x4444444444444444444444444444444444444444");
 
 describe("payout receipt reconciliation", () => {
+  it("proves the exact payer, recipient, gross, and period count", () => {
+    const payment = {
+      address: tier,
+      data: encodeAbiParameters(
+        [{ type: "uint256" }, { type: "uint64" }],
+        [10_000_000n, 2n],
+      ),
+      topics: encodeEventTopics({
+        abi: tierAbi,
+        eventName: "PaymentProcessed",
+        args: { payer: owner, recipient: creator, tokenId: 4n },
+      }),
+    } as Log;
+    const receipt = { status: "success" as const, logs: [payment] };
+
+    expect(
+      receiptProvesPayment(receipt, {
+        tier,
+        payer: owner,
+        recipient: creator,
+        gross: 10_000_000n,
+        periods: 2n,
+      }),
+    ).toBe(true);
+    for (const mismatch of [
+      { tier: other },
+      { payer: other },
+      { recipient: other },
+      { gross: 10_000_001n },
+      { periods: 3n },
+    ]) {
+      expect(
+        receiptProvesPayment(receipt, {
+          tier,
+          payer: owner,
+          recipient: creator,
+          gross: 10_000_000n,
+          periods: 2n,
+          ...mismatch,
+        }),
+      ).toBe(false);
+    }
+  });
+
   it("proves fixed-destination reward and referral claims", () => {
     const reward = {
       address: tier,
