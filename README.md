@@ -37,6 +37,15 @@ It requires the pinned local Foundry, Slither 0.11.6, Bun, and Playwright browse
 dependencies. Its output is local development evidence, not a public pilot,
 audit, independent review, deployment, or brand clearance.
 
+The gate includes randomized independent contract models and a disposable
+Anvil-backed production browser flow. The latter verifies configured reads,
+actual RPC-loss handling, exact USDG approval, purchase reconciliation, and
+supporter accessibility without a wallet secret:
+
+```sh
+./scripts/test-web-anvil.sh
+```
+
 Individual project checks are also available:
 
 ```sh

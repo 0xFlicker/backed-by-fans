@@ -12,6 +12,44 @@ import {
   type ReadState,
 } from "@/lib/read-state";
 
+type VerifiedBalances = {
+  eth: bigint;
+  usdg: bigint;
+};
+
+function WalletBalanceGrid({
+  balances,
+  estimatedCost,
+}: {
+  balances: VerifiedBalances;
+  estimatedCost?: bigint;
+}) {
+  return (
+    <dl className="readiness-grid">
+      <div>
+        <dt>Network</dt>
+        <dd>{publicConfig.chain.name}</dd>
+      </div>
+      <div>
+        <dt>ETH for gas</dt>
+        <dd>{Number(formatEther(balances.eth)).toFixed(5)}</dd>
+      </div>
+      <div>
+        <dt>USDG balance</dt>
+        <dd>{formatUnits(balances.usdg, 6)}</dd>
+      </div>
+      <div>
+        <dt>Estimated membership cost</dt>
+        <dd>
+          {estimatedCost === undefined
+            ? "Choose an action to estimate"
+            : `${formatUnits(estimatedCost, 6)} USDG`}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 function ConnectedWalletReadiness({
   account,
   paymentToken,
@@ -52,37 +90,21 @@ function ConnectedWalletReadiness({
     return <ReadStateView state={state} />;
   }
 
-  return (
-    <dl className="readiness-grid">
-      <div>
-        <dt>Network</dt>
-        <dd>{publicConfig.chain.name}</dd>
-      </div>
-      <div>
-        <dt>ETH for gas</dt>
-        <dd>
-          {gas.data !== undefined
-            ? Number(formatEther(gas.data.value)).toFixed(5)
-            : "—"}
-        </dd>
-      </div>
-      <div>
-        <dt>USDG balance</dt>
-        <dd>{usdg.data !== undefined ? formatUnits(usdg.data, 6) : "—"}</dd>
-      </div>
-      <div>
-        <dt>Estimated membership cost</dt>
-        <dd>
-          {estimatedCost === undefined
-            ? "Choose an action to estimate"
-            : `${formatUnits(estimatedCost, 6)} USDG`}
-        </dd>
-      </div>
-    </dl>
-  );
+  return gas.data !== undefined && usdg.data !== undefined ? (
+    <WalletBalanceGrid
+      balances={{ eth: gas.data.value, usdg: usdg.data }}
+      estimatedCost={estimatedCost}
+    />
+  ) : null;
 }
 
-export function WalletReadiness({ estimatedCost }: { estimatedCost?: bigint }) {
+export function WalletReadiness({
+  estimatedCost,
+  verifiedBalances,
+}: {
+  estimatedCost?: bigint;
+  verifiedBalances?: VerifiedBalances;
+}) {
   const account = useAccount();
   const chainId = useChainId();
 
@@ -122,11 +144,18 @@ export function WalletReadiness({ estimatedCost }: { estimatedCost?: bigint }) {
 
   return (
     <>
-      <ConnectedWalletReadiness
-        account={account.address}
-        estimatedCost={estimatedCost}
-        paymentToken={publicConfig.deployment.usdgAddress}
-      />
+      {verifiedBalances ? (
+        <WalletBalanceGrid
+          balances={verifiedBalances}
+          estimatedCost={estimatedCost}
+        />
+      ) : (
+        <ConnectedWalletReadiness
+          account={account.address}
+          estimatedCost={estimatedCost}
+          paymentToken={publicConfig.deployment.usdgAddress}
+        />
+      )}
       <p className="readiness-guidance">
         Need funds? Transfer USDG to this wallet on {publicConfig.chain.name}{" "}
         and keep a small ETH balance for gas. Backed By Fans does not provide a

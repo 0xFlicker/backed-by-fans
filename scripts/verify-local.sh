@@ -37,6 +37,7 @@ bun run test
 bun run build
 bun run typecheck
 bun run test:e2e
+"$repo_root/scripts/test-web-anvil.sh"
 
 if rg -n 'Create Next App|next\.svg|vercel\.svg' src public .next/static; then
   echo "starter identity detected in web output" >&2

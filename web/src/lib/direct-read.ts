@@ -41,6 +41,9 @@ const summaryFields = [
 
 export function createDirectReadClient(config: PublicConfig = publicConfig) {
   return createPublicClient({
+    // Reconciliation refetches immediately after a receipt. A cached block
+    // number can otherwise make a successful write look uncertain.
+    cacheTime: 0,
     chain: config.chain,
     transport: http(config.rpcUrl),
   });

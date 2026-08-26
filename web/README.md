@@ -92,6 +92,12 @@ bun run test:e2e
 bun run build
 ```
 
+From the repository root, `./scripts/test-web-anvil.sh` adds configured local
+evidence against a disposable Anvil chain: verified direct reads, RPC failure,
+an exact-approval membership purchase, post-receipt reconciliation, and axe at
+each supported viewport. The harness uses unlocked local Anvil accounts only;
+it is not deployment or public-network evidence.
+
 ## Hosting
 
 For a Vercel project, set **Root Directory** to `web`. This is an external

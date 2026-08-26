@@ -453,7 +453,7 @@ export function MembershipExperience({
 
       <section
         className={`membership-status status-${actionState}`}
-        aria-labelledby="membership-status-title"
+        aria-label="Current membership status"
       >
         <div>
           <p className="eyebrow">Your membership</p>
@@ -492,11 +492,8 @@ export function MembershipExperience({
       </section>
 
       <div className="supporter-columns">
-        <main className="supporter-primary">
-          <section
-            className="supporter-action"
-            aria-labelledby="primary-action-title"
-          >
+        <div className="supporter-primary">
+          <section className="supporter-action" aria-label="Membership action">
             <p className="eyebrow">Primary action</p>
             <h2 id="primary-action-title">{primaryTitle}</h2>
             {snapshot.pricePerPeriod === 0n ? (
@@ -765,7 +762,7 @@ export function MembershipExperience({
               )}
             </section>
           )}
-        </main>
+        </div>
 
         <aside className="supporter-secondary">
           <section
@@ -778,6 +775,15 @@ export function MembershipExperience({
             </div>
             <WalletReadiness
               estimatedCost={selfPreview?.gross ?? snapshot.pricePerPeriod}
+              verifiedBalances={
+                snapshot.walletEthBalance !== undefined &&
+                snapshot.walletUsdgBalance !== undefined
+                  ? {
+                      eth: snapshot.walletEthBalance,
+                      usdg: snapshot.walletUsdgBalance,
+                    }
+                  : undefined
+              }
             />
           </section>
           <section className="claim-groups" aria-labelledby="claims-title">
