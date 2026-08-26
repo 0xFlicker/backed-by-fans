@@ -39,8 +39,22 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
+      - name: Validate deployment tooling and checked-in manifest state
+        run: |
+          jq empty deployments/*.json
+          bash -n scripts/check-deployment.sh
+          forge test --match-path "test/deployment/*.t.sol" -vvv
+
+      - name: Run canonical Robinhood testnet USDG fork checks
+        if: ${{ vars.ROBINHOOD_TESTNET_USDG_ADDRESS != '' }}
+        env:
+          RUN_ROBINHOOD_FORK_TESTS: "true"
+          ROBINHOOD_TESTNET_RPC_URL: https://rpc.testnet.chain.robinhood.com
+          ROBINHOOD_USDG_ADDRESS: ${{ vars.ROBINHOOD_TESTNET_USDG_ADDRESS }}
+        run: forge test --match-path "test/fork/RobinhoodUSDG.t.sol" -vvv
+
       - name: Run unit and fuzz tests
-        run: forge test --no-match-path "test/invariants/*.t.sol" -vvv
+        run: forge test --no-match-path "test/{invariants,deployment,fork}/*.t.sol" -vvv
 
       - name: Run stateful invariants
         run: forge test --match-path "test/invariants/*.t.sol" -vvv

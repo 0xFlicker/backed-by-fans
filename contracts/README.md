@@ -30,6 +30,12 @@ forge --version
 The reported Forge version must be `1.7.1`. No deployer key belongs in a dotenv
 file; use Foundry's encrypted keystore as described in `.env.example`.
 
+The repeatable broadcast, exact-block manifest, independent RPC check, and
+current testnet USDG blocker are documented in the
+[deployment runbook](../docs/runbooks/deployment.md).
+No testnet deployment is recorded until an approved official source publishes
+the canonical token address; mainnet remains outside the U7 runbook.
+
 ## Checks
 
 ```sh
@@ -37,6 +43,7 @@ file; use Foundry's encrypted keystore as described in `.env.example`.
 forge fmt --check
 forge build --sizes
 forge test -vvv
+forge test --match-path "test/deployment/*.t.sol" -vvv
 slither . --config-file slither.config.json --fail-high
 ```
 
