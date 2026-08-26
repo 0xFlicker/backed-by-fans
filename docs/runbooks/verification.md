@@ -12,7 +12,9 @@ a second RPC provider that is operationally independent from the broadcast RPC.
 1. Fetch the manifest's captured block through the second RPC and compare its
    hash exactly.
 2. Run `contracts/scripts/check-deployment.sh` against that RPC. It proves the
-   network/token, creation blocks, factory/deployer/store/tier bindings, code
+   network/token, manifest-pinned factory creation and validation-tier call
+   transactions, their exact audited inputs and receipts, creation blocks,
+   factory/deployer/store/tier bindings, code
    hashes, pristine validation tier, registration, standards, ownership, empty
    proxy slots, compiler settings, and exact verification URL network/address.
 3. Reconstruct `type(MembershipTier).creationCode` independently from the two
@@ -25,6 +27,9 @@ a second RPC provider that is operationally independent from the broadcast RPC.
 6. On deployment day, separately record USDG proxy, current implementation and
    authority, proxy and implementation code hashes, decimals, pause state, and
    one observation block/hash. Do not infer these facts solely from a symbol.
+7. Confirm the readiness record's web public chain, factory address, and four
+   runtime hashes exactly equal the checked deployment observations before
+   building the public web artifact.
 
 ```sh
 cd contracts

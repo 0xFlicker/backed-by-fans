@@ -16,6 +16,7 @@ abstract contract RobinhoodDeploymentGuard is Script {
     uint256 public constant ROBINHOOD_MAINNET_CHAIN_ID = 4663;
     uint256 public constant ROBINHOOD_TESTNET_CHAIN_ID = 46_630;
     address public constant ROBINHOOD_MAINNET_USDG = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168;
+    address public constant ROBINHOOD_TESTNET_USDG = address(0);
 
     error InvalidOperationalAddress();
     error InvalidUSDGContract();
@@ -47,9 +48,14 @@ abstract contract RobinhoodDeploymentGuard is Script {
             if (paymentToken != ROBINHOOD_MAINNET_USDG) {
                 revert UnexpectedUSDG(paymentToken, ROBINHOOD_MAINNET_USDG);
             }
-        } else if (paymentToken == address(0)) {
-            // No canonical testnet USDG is currently published by an approved source.
-            revert MissingCanonicalTestnetUSDG();
+        } else {
+            // No canonical testnet USDG is currently published by an approved source. Testnet is
+            // intentionally blocked for every caller-supplied token until one exact address is
+            // pinned here from official documentation.
+            if (ROBINHOOD_TESTNET_USDG == address(0)) revert MissingCanonicalTestnetUSDG();
+            if (paymentToken != ROBINHOOD_TESTNET_USDG) {
+                revert UnexpectedUSDG(paymentToken, ROBINHOOD_TESTNET_USDG);
+            }
         }
 
         if (paymentToken.code.length == 0) revert InvalidUSDGContract();

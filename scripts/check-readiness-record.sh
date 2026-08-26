@@ -78,6 +78,7 @@ case "$status" in
       (.webArtifactSha256 | digest) and
       (.observedDeployment | exactkeys([
         "capturedBlockNumber", "capturedBlockHash", "transactionHashes",
+        "deploymentProvenance", "webPublicConfig",
         "constructorInputs", "constructorInputsSha256", "creationCodeHashes",
         "runtimeCodeHashes", "factoryRegistration", "usdG", "protocolControl",
         "multisig", "accountingReview", "securityAudit", "sourceVerificationUrls",
@@ -88,6 +89,35 @@ case "$status" in
       (.observedDeployment.transactionHashes |
         type == "array" and length >= 2 and
         all(.[]; chainhash) and (unique | length) == length) and
+      (.observedDeployment.deploymentProvenance |
+        exactkeys([
+          "factoryDeploymentTransactionHash", "factoryDeploymentInputHash",
+          "validationTierCreationTransactionHash", "validationTierCreationInputHash",
+          "verifiedAtBlock"
+        ]) and
+        (.factoryDeploymentTransactionHash | chainhash) and
+        (.factoryDeploymentInputHash | chainhash) and
+        (.validationTierCreationTransactionHash | chainhash) and
+        (.validationTierCreationInputHash | chainhash) and
+        (.verifiedAtBlock | integer and . > 0)) and
+      (.observedDeployment.deploymentProvenance.factoryDeploymentTransactionHash as $factoryTx |
+        .observedDeployment.transactionHashes | index($factoryTx) != null) and
+      (.observedDeployment.deploymentProvenance.validationTierCreationTransactionHash as $tierTx |
+        .observedDeployment.transactionHashes | index($tierTx) != null) and
+      (.observedDeployment.deploymentProvenance.verifiedAtBlock
+        == .observedDeployment.capturedBlockNumber) and
+      (.observedDeployment.webPublicConfig |
+        exactkeys([
+          "chainId", "factoryAddress", "factoryRuntimeCodeHash",
+          "rendererRuntimeCodeHash", "deployerRuntimeCodeHash",
+          "usdGRuntimeCodeHash"
+        ]) and
+        (.chainId == 46630 or .chainId == 4663) and
+        (.factoryAddress | address) and
+        (.factoryRuntimeCodeHash | chainhash) and
+        (.rendererRuntimeCodeHash | chainhash) and
+        (.deployerRuntimeCodeHash | chainhash) and
+        (.usdGRuntimeCodeHash | chainhash)) and
       (.observedDeployment.constructorInputs |
         exactkeys(["renderer", "factory", "deployer", "launchTier"])) and
       (.observedDeployment.constructorInputs.renderer |
@@ -172,6 +202,17 @@ case "$status" in
       (.observedDeployment.constructorInputs.factory.paymentToken
         == .observedDeployment.usdG.proxy) and
       (.observedDeployment.protocolControl.owner == .observedDeployment.multisig.address) and
+      (.observedDeployment.webPublicConfig.chainId == .chainId) and
+      (.observedDeployment.webPublicConfig.factoryAddress
+        == .observedDeployment.factoryRegistration.factory) and
+      (.observedDeployment.webPublicConfig.factoryRuntimeCodeHash
+        == .observedDeployment.runtimeCodeHashes.factory) and
+      (.observedDeployment.webPublicConfig.rendererRuntimeCodeHash
+        == .observedDeployment.runtimeCodeHashes.renderer) and
+      (.observedDeployment.webPublicConfig.deployerRuntimeCodeHash
+        == .observedDeployment.runtimeCodeHashes.deployer) and
+      (.observedDeployment.webPublicConfig.usdGRuntimeCodeHash
+        == .observedDeployment.runtimeCodeHashes.paymentToken) and
       (
         .network != "robinhood-mainnet" or
         (.observedDeployment.usdG.proxy | ascii_downcase)

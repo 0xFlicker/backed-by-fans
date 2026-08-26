@@ -18,13 +18,15 @@ Robinhood's official documentation currently publishes chain IDs `4663` and
 `46630`, but its token-contract page publishes USDG only for mainnet. There is
 no approved canonical Robinhood testnet USDG proxy address. Consequently,
 [`contracts/deployments/robinhood-testnet.json`](../../contracts/deployments/robinhood-testnet.json) is a
-schema-valid blocked record and `DeployProtocol` fails if the testnet token
-input is absent. Never substitute a guessed address or relabel a mock as the
-canonical token.
+schema-valid blocked record and `DeployProtocol` rejects every testnet token
+input. Name, symbol, and decimals are not sufficient to authenticate a proxy.
+Never substitute a guessed address or relabel a mock as the canonical token.
 
 Once an approved official source publishes the address, record that source in
-the release evidence and replace the blocked record only after completing every
-step below. The official public endpoints are:
+the release evidence, pin the exact proxy in `RobinhoodDeploymentGuard`, and
+review that source change before executing any later section. Replace the
+blocked record only after completing every step below. The official public
+endpoints are:
 
 - Testnet RPC: `https://rpc.testnet.chain.robinhood.com`
 - Testnet explorer: `https://explorer.testnet.chain.robinhood.com`
@@ -64,11 +66,12 @@ cast wallet import backed-by-fans-testnet --interactive
 
 ## 2. Set and independently review operational inputs
 
-Copy `.env.example` to an ignored `.env` and fill the testnet chain, canonical
-USDG proxy, protocol owner, and fixed fee recipient. Confirm all four values
-out of band. `DeployProtocol` enforces chain `46630`, token code, nonempty USDG
-name, symbol `USDG`, and six decimals. The reusable mainnet guard accepts only
-the official mainnet USDG proxy
+This section is not executable while the testnet guard remains blocked. After
+the reviewed source pin, copy `.env.example` to an ignored `.env` and fill the
+testnet chain, canonical USDG proxy, protocol owner, and fixed fee recipient.
+Confirm all four values out of band. `DeployProtocol` then enforces the exact
+pinned proxy as well as token code and metadata. The reusable mainnet guard
+accepts only the official mainnet USDG proxy
 `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, but mainnet execution remains
 outside this runbook and requires the U11 audit and authorization gate.
 
@@ -106,8 +109,9 @@ forge script script/DeployProtocol.s.sol:DeployProtocol \
   --broadcast -vvvv
 ```
 
-Record its address and creation block. This registered child exists only to
-reconstruct the full factory-created path. Do not purchase, grant, pause, edit,
+Record the factory deployment transaction hash, validation-tier creation
+transaction hash, validation-tier address, and their exact creation blocks. This
+registered child exists only to reconstruct the full factory-created path. Do not purchase, grant, pause, edit,
 transfer ownership, change caps or metadata, or otherwise mutate it before or
 after capture. The checker requires it to remain pristine.
 
@@ -134,17 +138,28 @@ forge script script/CheckDeployment.s.sol:CheckDeployment \
   --fork-block-number "$CAPTURED_BLOCK_NUMBER" -vvvv
 ```
 
-Set `RENDERER_CREATION_BLOCK`, `FACTORY_CREATION_BLOCK`, and
-`VALIDATION_TIER_CREATION_BLOCK` from the broadcast receipts. The writer checks
-every generated field before replacing the blocked manifest:
+Set `RENDERER_CREATION_BLOCK`, `FACTORY_CREATION_BLOCK`,
+`VALIDATION_TIER_CREATION_BLOCK`, `FACTORY_DEPLOYMENT_TRANSACTION_HASH`, and
+`VALIDATION_TIER_CREATION_TRANSACTION_HASH` from the broadcast receipts. The
+writer checks every generated field before replacing the blocked manifest:
 chain and token, block context, operational identities, factory/deployer/tier
 bindings, registered tier index, pristine child state, standards interfaces,
 compiler settings, creation-code hashes, instance-aware runtime hashes, empty
-EIP-1967 proxy slots, explicit validation-tier constructor terms, and exact
-network/address verification URLs.
+EIP-1967 proxy slots, explicit validation-tier constructor terms, expected
+factory initcode and full `createTier` call hashes, and exact network/address
+verification URLs.
 
 Review and sign the resulting diff. The manifest is evidence, not canonical
 state; deployed contracts remain the source of truth.
+
+For a ready production web build, copy `NEXT_PUBLIC_FACTORY_ADDRESS`, the exact
+chain ID, and the factory, renderer, deployer, and USDG runtime hashes only from
+the independently checked manifest into `observedDeployment.webPublicConfig` in
+the readiness record. The readiness checker binds those public values to the
+same observed addresses and runtime hashes. Do not derive them from an explorer
+label or an unreviewed environment. Individual membership tiers are authenticated
+through the exact factory registry and immutable bindings, not one global tier
+runtime hash because tier immutables make instance bytecode differ.
 
 Do not edit an accepted manifest after signing. A different candidate receives
 a new immutable manifest and readiness record with an explicit supersession
@@ -163,9 +178,12 @@ a second RPC URL:
 ```
 
 The wrapper fetches `capturedBlockNumber` through that RPC, compares its hash to
-the manifest, proves each renderer, factory, deployer, code-store, and validation
-tier creation block by comparing code at that block and its predecessor, then
-runs `CheckDeployment` on a fork pinned to the exact captured block. A missing
+the manifest, fetches both manifest-pinned transactions and successful receipts,
+and verifies the factory creation destination/address/input/block plus the
+validation-tier caller/factory destination/full call input/block. It then proves
+each renderer, factory, deployer, code-store, and validation tier creation block
+by comparing code at that block and its predecessor, before running
+`CheckDeployment` on a fork pinned to the exact captured block. A missing
 RPC exits separately from a hash or contract mismatch. Any mismatch supersedes
 the deployment record; never edit a manifest to make a failed deployment appear
 valid.

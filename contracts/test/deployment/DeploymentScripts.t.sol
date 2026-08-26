@@ -22,6 +22,7 @@ contract WrongDecimalsUSDG is ERC20 {
 contract DeploymentScriptsTest is Test {
     using Strings for uint256;
 
+    uint256 private constant _MAINNET_CHAIN_ID = 4663;
     uint256 private constant _TESTNET_CHAIN_ID = 46_630;
     bytes32 private constant _CAPTURED_BLOCK_HASH = keccak256("captured block");
 
@@ -35,17 +36,23 @@ contract DeploymentScriptsTest is Test {
     address private _tierOwner;
 
     function setUp() public {
-        vm.chainId(_TESTNET_CHAIN_ID);
+        vm.chainId(_MAINNET_CHAIN_ID);
         vm.roll(500);
         _protocolOwner = makeAddr("deploymentProtocolOwner");
         _feeRecipient = makeAddr("deploymentFeeRecipient");
         _tierOwner = makeAddr("deploymentTierOwner");
-        _paymentToken = new MockUSDG();
         _deployerScript = new DeployProtocol();
         _checker = new CheckDeployment();
+        MockUSDG paymentTokenImplementation = new MockUSDG();
+        address canonicalUSDG = _deployerScript.ROBINHOOD_MAINNET_USDG();
+        vm.etch(canonicalUSDG, address(paymentTokenImplementation).code);
+        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("name()"), abi.encode("Global Dollar"));
+        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("symbol()"), abi.encode("USDG"));
+        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("decimals()"), abi.encode(uint8(6)));
+        _paymentToken = MockUSDG(canonicalUSDG);
 
         (OnchainMetadataRenderer renderer, MembershipFactory factory) = _deployerScript.deploy(
-            _TESTNET_CHAIN_ID, address(_paymentToken), _protocolOwner, _feeRecipient
+            _MAINNET_CHAIN_ID, address(_paymentToken), _protocolOwner, _feeRecipient
         );
         _factory = factory;
         assertEq(factory.renderer(), address(renderer));
@@ -67,10 +74,10 @@ contract DeploymentScriptsTest is Test {
     function test_wrongChainAndUnsupportedChainAbortBeforeDeployment() public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                RobinhoodDeploymentGuard.UnexpectedChain.selector, _TESTNET_CHAIN_ID, uint256(4663)
+                RobinhoodDeploymentGuard.UnexpectedChain.selector, _MAINNET_CHAIN_ID, uint256(1)
             )
         );
-        _deployerScript.validateInputs(4663, address(_paymentToken), _protocolOwner, _feeRecipient);
+        _deployerScript.validateInputs(1, address(_paymentToken), _protocolOwner, _feeRecipient);
 
         vm.chainId(1);
         vm.expectRevert(
@@ -79,31 +86,45 @@ contract DeploymentScriptsTest is Test {
         _deployerScript.validateInputs(1, address(_paymentToken), _protocolOwner, _feeRecipient);
     }
 
-    function test_testnetRequiresExplicitUSDGAndMainnetRequiresExactOfficialProxy() public {
+    function test_testnetIsHardBlockedAndMainnetRequiresExactOfficialProxy() public {
+        vm.chainId(_TESTNET_CHAIN_ID);
+        assertEq(_deployerScript.ROBINHOOD_TESTNET_USDG(), address(0));
         vm.expectRevert(RobinhoodDeploymentGuard.MissingCanonicalTestnetUSDG.selector);
-        _deployerScript.validateInputs(_TESTNET_CHAIN_ID, address(0), _protocolOwner, _feeRecipient);
+        _deployerScript.validateInputs(
+            _TESTNET_CHAIN_ID, address(_paymentToken), _protocolOwner, _feeRecipient
+        );
 
-        vm.chainId(4663);
+        vm.chainId(_MAINNET_CHAIN_ID);
+        address noncanonicalToken = address(new MockUSDG());
         vm.expectRevert(
             abi.encodeWithSelector(
                 RobinhoodDeploymentGuard.UnexpectedUSDG.selector,
-                address(_paymentToken),
+                noncanonicalToken,
                 _deployerScript.ROBINHOOD_MAINNET_USDG()
             )
         );
-        _deployerScript.validateInputs(4663, address(_paymentToken), _protocolOwner, _feeRecipient);
+        _deployerScript.validateInputs(
+            _MAINNET_CHAIN_ID, noncanonicalToken, _protocolOwner, _feeRecipient
+        );
     }
 
     function test_tokenMustHaveCodeAndExactUSDGMetadataSurface() public {
+        address canonicalUSDG = _deployerScript.ROBINHOOD_MAINNET_USDG();
+        vm.etch(canonicalUSDG, "");
         vm.expectRevert(RobinhoodDeploymentGuard.InvalidUSDGContract.selector);
         _deployerScript.validateInputs(
-            _TESTNET_CHAIN_ID, makeAddr("notAContract"), _protocolOwner, _feeRecipient
+            _MAINNET_CHAIN_ID, canonicalUSDG, _protocolOwner, _feeRecipient
         );
 
         WrongDecimalsUSDG wrongDecimals = new WrongDecimalsUSDG();
+        vm.etch(canonicalUSDG, address(wrongDecimals).code);
+        vm.clearMockedCalls();
+        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("name()"), abi.encode("Wrong USDG"));
+        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("symbol()"), abi.encode("USDG"));
+        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("decimals()"), abi.encode(uint8(18)));
         vm.expectRevert(RobinhoodDeploymentGuard.InvalidUSDGContract.selector);
         _deployerScript.validateInputs(
-            _TESTNET_CHAIN_ID, address(wrongDecimals), _protocolOwner, _feeRecipient
+            _MAINNET_CHAIN_ID, canonicalUSDG, _protocolOwner, _feeRecipient
         );
     }
 
@@ -120,6 +141,10 @@ contract DeploymentScriptsTest is Test {
         assertEq(parsed.solcVersion, "0.8.36");
         assertEq(parsed.optimizerRuns, 200);
         assertEq(parsed.validationTier, address(_validationTier));
+        assertEq(parsed.factoryDeploymentTransactionHash, keccak256("factory transaction"));
+        assertEq(
+            parsed.validationTierCreationTransactionHash, keccak256("validation tier transaction")
+        );
     }
 
     function test_manifestRejectsWrongBlockHashRuntimeHashAndCompilerSettings() public {
@@ -151,6 +176,35 @@ contract DeploymentScriptsTest is Test {
 
         vm.roll(501);
         vm.expectRevert(CheckDeployment.CapturedBlockUnavailable.selector);
+        _checker.check(manifest, _CAPTURED_BLOCK_HASH);
+    }
+
+    function test_manifestRejectsMissingTransactionsAndInputsNotBoundToCurrentArtifacts() public {
+        CheckDeployment.Manifest memory manifest = _capture();
+        manifest.factoryDeploymentTransactionHash = bytes32(0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CheckDeployment.DeploymentCheckFailed.selector, "deploymentTransactionHashes"
+            )
+        );
+        _checker.check(manifest, _CAPTURED_BLOCK_HASH);
+
+        manifest = _capture();
+        manifest.factoryDeploymentInputHash = keccak256("counterfeit factory input");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CheckDeployment.DeploymentCheckFailed.selector, "factoryDeploymentInputHash"
+            )
+        );
+        _checker.check(manifest, _CAPTURED_BLOCK_HASH);
+
+        manifest = _capture();
+        manifest.validationTierCreationInputHash = keccak256("wrong createTier call");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CheckDeployment.DeploymentCheckFailed.selector, "validationTierCreationInputHash"
+            )
+        );
         _checker.check(manifest, _CAPTURED_BLOCK_HASH);
     }
 
@@ -218,24 +272,17 @@ contract DeploymentScriptsTest is Test {
         _checker.check(manifest, _CAPTURED_BLOCK_HASH);
     }
 
-    function test_mainnetManifestRequiresOfficialBlockscoutHost() public {
-        vm.chainId(4663);
-        address canonicalUSDG = _deployerScript.ROBINHOOD_MAINNET_USDG();
-        vm.etch(canonicalUSDG, hex"00");
-        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("name()"), abi.encode("Global Dollar"));
-        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("symbol()"), abi.encode("USDG"));
-        vm.mockCall(canonicalUSDG, abi.encodeWithSignature("decimals()"), abi.encode(uint8(6)));
-
-        (, MembershipFactory factory) =
-            _deployerScript.deploy(4663, canonicalUSDG, _protocolOwner, _feeRecipient);
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(_tierOwner);
-        vm.prank(_tierOwner);
-        MembershipTier tier = MembershipTier(factory.createTier(config));
+    function test_mainnetManifestRequiresOfficialBlockscoutHost() public view {
         CheckDeployment.VerificationUrls memory urls =
-            _verificationUrls(factory, address(tier), true);
+            _verificationUrls(_factory, address(_validationTier), true);
 
         CheckDeployment.Manifest memory manifest = _checker.capture(
-            _creationBlocks(), _CAPTURED_BLOCK_HASH, address(factory), address(tier), urls
+            _creationBlocks(),
+            _transactionHashes(),
+            _CAPTURED_BLOCK_HASH,
+            address(_factory),
+            address(_validationTier),
+            urls
         );
         _checker.check(manifest, _CAPTURED_BLOCK_HASH);
     }
@@ -245,7 +292,7 @@ contract DeploymentScriptsTest is Test {
         _validationTier.grantTime(makeAddr("grantRecipient"), 1);
 
         CheckDeployment.VerificationUrls memory urls =
-            _verificationUrls(_factory, address(_validationTier), false);
+            _verificationUrls(_factory, address(_validationTier), true);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -254,6 +301,7 @@ contract DeploymentScriptsTest is Test {
         );
         _checker.capture(
             _creationBlocks(),
+            _transactionHashes(),
             _CAPTURED_BLOCK_HASH,
             address(_factory),
             address(_validationTier),
@@ -273,9 +321,10 @@ contract DeploymentScriptsTest is Test {
 
     function _capture() private view returns (CheckDeployment.Manifest memory manifest) {
         CheckDeployment.VerificationUrls memory urls =
-            _verificationUrls(_factory, address(_validationTier), false);
+            _verificationUrls(_factory, address(_validationTier), true);
         manifest = _checker.capture(
             _creationBlocks(),
+            _transactionHashes(),
             _CAPTURED_BLOCK_HASH,
             address(_factory),
             address(_validationTier),
@@ -289,6 +338,17 @@ contract DeploymentScriptsTest is Test {
         returns (CheckDeployment.CreationBlocks memory blocks_)
     {
         blocks_ = CheckDeployment.CreationBlocks({renderer: 450, factory: 460, validationTier: 475});
+    }
+
+    function _transactionHashes()
+        private
+        pure
+        returns (CheckDeployment.TransactionHashes memory transactionHashes)
+    {
+        transactionHashes = CheckDeployment.TransactionHashes({
+            factoryDeployment: keccak256("factory transaction"),
+            validationTierCreation: keccak256("validation tier transaction")
+        });
     }
 
     function _verificationUrls(MembershipFactory factory, address tier, bool mainnet)

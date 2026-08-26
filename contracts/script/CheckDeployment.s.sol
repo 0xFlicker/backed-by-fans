@@ -13,6 +13,7 @@ import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {IERC5192} from "../src/interfaces/IERC5192.sol";
 import {IERC5643} from "../src/interfaces/IERC5643.sol";
+import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {RobinhoodDeploymentGuard} from "./DeployProtocol.s.sol";
 
 /// @notice Generates and independently checks one captured deployment manifest.
@@ -49,6 +50,10 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         uint256 paymentTokenDecimals;
         uint256 optimizerRuns;
         bytes32 capturedBlockHash;
+        bytes32 factoryDeploymentTransactionHash;
+        bytes32 validationTierCreationTransactionHash;
+        bytes32 factoryDeploymentInputHash;
+        bytes32 validationTierCreationInputHash;
         address paymentToken;
         address protocolOwner;
         address pendingProtocolOwner;
@@ -109,6 +114,11 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         uint256 validationTier;
     }
 
+    struct TransactionHashes {
+        bytes32 factoryDeployment;
+        bytes32 validationTierCreation;
+    }
+
     error CapturedBlockUnavailable();
     error DeploymentCheckFailed(string field);
     error ManifestNotDeployed();
@@ -133,8 +143,13 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
             factory: vm.envUint("FACTORY_CREATION_BLOCK"),
             validationTier: vm.envUint("VALIDATION_TIER_CREATION_BLOCK")
         });
+        TransactionHashes memory transactionHashes = TransactionHashes({
+            factoryDeployment: vm.envBytes32("FACTORY_DEPLOYMENT_TRANSACTION_HASH"),
+            validationTierCreation: vm.envBytes32("VALIDATION_TIER_CREATION_TRANSACTION_HASH")
+        });
         Manifest memory manifest = capture(
             creationBlocks,
+            transactionHashes,
             vm.envBytes32("OBSERVED_BLOCK_HASH"),
             vm.envAddress("DEPLOYED_FACTORY"),
             vm.envAddress("VALIDATION_TIER_ADDRESS"),
@@ -146,6 +161,7 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
 
     function capture(
         CreationBlocks memory creationBlocks,
+        TransactionHashes memory transactionHashes,
         bytes32 observedBlockHash,
         address factoryAddress,
         address validationTierAddress,
@@ -168,6 +184,8 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         manifest.validationTierCreationBlockNumber = creationBlocks.validationTier;
         manifest.capturedBlockNumber = block.number;
         manifest.capturedBlockHash = observedBlockHash;
+        manifest.factoryDeploymentTransactionHash = transactionHashes.factoryDeployment;
+        manifest.validationTierCreationTransactionHash = transactionHashes.validationTierCreation;
         manifest.paymentToken = paymentToken;
         manifest.protocolOwner = factory.owner();
         manifest.pendingProtocolOwner = factory.pendingOwner();
@@ -209,6 +227,9 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         manifest.validationTierReferralBps = tier.referralBps();
         manifest.validationTierSupplyCap = tier.supplyCap();
         manifest.validationTierMaxPrepaidPeriods = tier.maxPrepaidPeriods();
+        manifest.factoryDeploymentInputHash = _expectedFactoryDeploymentInputHash(manifest);
+        manifest.validationTierCreationInputHash =
+            _expectedValidationTierCreationInputHash(manifest);
         manifest.foundryVersion = _FOUNDRY_VERSION;
         manifest.solcVersion = _SOLC_VERSION;
         manifest.evmVersion = _EVM_VERSION;
@@ -247,6 +268,18 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         );
         vm.serializeUint(key, "capturedBlockNumber", manifest.capturedBlockNumber);
         vm.serializeBytes32(key, "capturedBlockHash", manifest.capturedBlockHash);
+        vm.serializeBytes32(
+            key, "factoryDeploymentTransactionHash", manifest.factoryDeploymentTransactionHash
+        );
+        vm.serializeBytes32(
+            key,
+            "validationTierCreationTransactionHash",
+            manifest.validationTierCreationTransactionHash
+        );
+        vm.serializeBytes32(key, "factoryDeploymentInputHash", manifest.factoryDeploymentInputHash);
+        vm.serializeBytes32(
+            key, "validationTierCreationInputHash", manifest.validationTierCreationInputHash
+        );
         vm.serializeAddress(key, "paymentToken", manifest.paymentToken);
         vm.serializeString(key, "paymentTokenName", manifest.paymentTokenName);
         vm.serializeString(key, "paymentTokenSymbol", manifest.paymentTokenSymbol);
@@ -339,6 +372,12 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         if (observedBlockHash != manifest.capturedBlockHash) {
             revert DeploymentCheckFailed("capturedBlockHash");
         }
+        if (
+            manifest.factoryDeploymentTransactionHash == bytes32(0)
+                || manifest.validationTierCreationTransactionHash == bytes32(0)
+        ) {
+            revert DeploymentCheckFailed("deploymentTransactionHashes");
+        }
 
         _validateDeploymentInputs(
             manifest.chainId, manifest.paymentToken, manifest.protocolOwner, manifest.feeRecipient
@@ -427,6 +466,7 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         }
 
         _checkHashes(manifest, deployer, tier);
+        _checkTransactionInputHashes(manifest);
         _checkNoProxySlots(manifest.factory);
         _checkNoProxySlots(manifest.deployer);
         _checkNoProxySlots(manifest.renderer);
@@ -489,6 +529,60 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         ) {
             revert DeploymentCheckFailed("sourceArtifacts");
         }
+    }
+
+    function _checkTransactionInputHashes(Manifest memory manifest) private pure {
+        if (manifest.factoryDeploymentInputHash != _expectedFactoryDeploymentInputHash(manifest)) {
+            revert DeploymentCheckFailed("factoryDeploymentInputHash");
+        }
+        if (
+            manifest.validationTierCreationInputHash
+                != _expectedValidationTierCreationInputHash(manifest)
+        ) {
+            revert DeploymentCheckFailed("validationTierCreationInputHash");
+        }
+    }
+
+    function _expectedFactoryDeploymentInputHash(Manifest memory manifest)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encodePacked(
+                type(MembershipFactory).creationCode,
+                abi.encode(
+                    IERC20Metadata(manifest.paymentToken),
+                    manifest.renderer,
+                    manifest.protocolOwner,
+                    manifest.feeRecipient
+                )
+            )
+        );
+    }
+
+    function _expectedValidationTierCreationInputHash(Manifest memory manifest)
+        private
+        pure
+        returns (bytes32)
+    {
+        MembershipTypes.TierConfig memory config = MembershipTypes.TierConfig({
+            creator: manifest.validationTierOwner,
+            name: manifest.validationTierName,
+            symbol: manifest.validationTierSymbol,
+            pricePerPeriod: manifest.validationTierPricePerPeriod,
+            periodDuration: uint64(manifest.validationTierPeriodDuration),
+            rewardBps: uint16(manifest.validationTierRewardBps),
+            referralBps: uint16(manifest.validationTierReferralBps),
+            supplyCap: uint64(manifest.validationTierSupplyCap),
+            maxPrepaidPeriods: uint64(manifest.validationTierMaxPrepaidPeriods),
+            metadata: MembershipTypes.TierMetadata({
+                description: manifest.validationTierDescription,
+                imageURI: manifest.validationTierImageURI,
+                externalURI: manifest.validationTierExternalURI
+            })
+        });
+        return keccak256(abi.encodeCall(MembershipFactory.createTier, (config)));
     }
 
     function _reconstructedTierCreationCodeHash(MembershipTierDeployer deployer)
@@ -601,6 +695,13 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
             json.readUint(".validationTierCreationBlockNumber");
         manifest.capturedBlockNumber = json.readUint(".capturedBlockNumber");
         manifest.capturedBlockHash = json.readBytes32(".capturedBlockHash");
+        manifest.factoryDeploymentTransactionHash =
+            json.readBytes32(".factoryDeploymentTransactionHash");
+        manifest.validationTierCreationTransactionHash =
+            json.readBytes32(".validationTierCreationTransactionHash");
+        manifest.factoryDeploymentInputHash = json.readBytes32(".factoryDeploymentInputHash");
+        manifest.validationTierCreationInputHash =
+            json.readBytes32(".validationTierCreationInputHash");
         manifest.paymentToken = json.readAddress(".paymentToken");
         manifest.protocolOwner = json.readAddress(".protocolOwner");
         manifest.pendingProtocolOwner = json.readAddress(".pendingProtocolOwner");

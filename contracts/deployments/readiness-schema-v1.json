@@ -173,6 +173,8 @@
         "capturedBlockNumber",
         "capturedBlockHash",
         "transactionHashes",
+        "deploymentProvenance",
+        "webPublicConfig",
         "constructorInputs",
         "constructorInputsSha256",
         "creationCodeHashes",
@@ -193,6 +195,44 @@
           "type": "array",
           "minItems": 2,
           "items": { "$ref": "#/$defs/chainHash" }
+        },
+        "deploymentProvenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "factoryDeploymentTransactionHash",
+            "factoryDeploymentInputHash",
+            "validationTierCreationTransactionHash",
+            "validationTierCreationInputHash",
+            "verifiedAtBlock"
+          ],
+          "properties": {
+            "factoryDeploymentTransactionHash": { "$ref": "#/$defs/chainHash" },
+            "factoryDeploymentInputHash": { "$ref": "#/$defs/chainHash" },
+            "validationTierCreationTransactionHash": { "$ref": "#/$defs/chainHash" },
+            "validationTierCreationInputHash": { "$ref": "#/$defs/chainHash" },
+            "verifiedAtBlock": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "webPublicConfig": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "chainId",
+            "factoryAddress",
+            "factoryRuntimeCodeHash",
+            "rendererRuntimeCodeHash",
+            "deployerRuntimeCodeHash",
+            "usdGRuntimeCodeHash"
+          ],
+          "properties": {
+            "chainId": { "enum": [46630, 4663] },
+            "factoryAddress": { "$ref": "#/$defs/address" },
+            "factoryRuntimeCodeHash": { "$ref": "#/$defs/chainHash" },
+            "rendererRuntimeCodeHash": { "$ref": "#/$defs/chainHash" },
+            "deployerRuntimeCodeHash": { "$ref": "#/$defs/chainHash" },
+            "usdGRuntimeCodeHash": { "$ref": "#/$defs/chainHash" }
+          }
         },
         "constructorInputs": { "$ref": "#/$defs/constructorInputs" },
         "constructorInputsSha256": { "$ref": "#/$defs/sha256" },

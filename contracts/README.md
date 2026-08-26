@@ -34,7 +34,15 @@ The repeatable broadcast, exact-block manifest, independent RPC check, and
 current testnet USDG blocker are documented in the
 [deployment runbook](../docs/runbooks/deployment.md).
 No testnet deployment is recorded until an approved official source publishes
-the canonical token address; mainnet remains outside the U7 runbook.
+the canonical token address and the exact proxy is pinned in the deployment
+guard. The guard currently rejects every testnet token input rather than trusting
+metadata supplied by an arbitrary contract; mainnet remains outside the U7 runbook.
+
+The deployment manifest commits to the factory creation transaction and the
+validation-tier `createTier` transaction. Independent verification fetches both
+receipts, checks their blocks, sender/destination/created address, and hashes the
+actual input against current audited initcode or full call data. Runtime hashes
+alone cannot establish deployment provenance.
 
 The [local lifecycle evidence](../docs/release/local-evidence.md) exercises the
 complete creator/supporter and custody path deterministically. It is deliberately

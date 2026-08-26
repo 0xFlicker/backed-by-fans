@@ -63,6 +63,10 @@ fi
 valid_ready="contracts/deployments/fixtures/readiness-ready.valid.json"
 "$repo_root/scripts/check-readiness-record.sh" "$valid_ready"
 invalid_ready_filters=(
+  'del(.observedDeployment.deploymentProvenance)'
+  '.observedDeployment.deploymentProvenance.factoryDeploymentTransactionHash = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"'
+  'del(.observedDeployment.webPublicConfig)'
+  '.observedDeployment.webPublicConfig.factoryRuntimeCodeHash = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"'
   'del(.observedDeployment.creationCodeHashes)'
   'del(.observedDeployment.runtimeCodeHashes)'
   'del(.observedDeployment.usdG)'
