@@ -48,12 +48,8 @@ jobs:
           forge test --match-path "test/deployment/*.t.sol" -vvv
 
       - name: Run canonical Robinhood testnet USDG fork checks
-        if: ${{ vars.ROBINHOOD_TESTNET_USDG_ADDRESS != '' }}
-        env:
-          RUN_ROBINHOOD_FORK_TESTS: "true"
-          ROBINHOOD_TESTNET_RPC_URL: https://rpc.testnet.chain.robinhood.com
-          ROBINHOOD_USDG_ADDRESS: ${{ vars.ROBINHOOD_TESTNET_USDG_ADDRESS }}
-        run: forge test --match-path "test/fork/RobinhoodUSDG.t.sol" -vvv
+        if: ${{ vars.RUN_ROBINHOOD_FORK_TESTS == 'true' }}
+        run: ../scripts/check-testnet-usdg.sh https://rpc.testnet.chain.robinhood.com
 
       - name: Run unit and fuzz tests
         run: forge test --no-match-path "test/{invariants,deployment,fork}/*.t.sol" -vvv
