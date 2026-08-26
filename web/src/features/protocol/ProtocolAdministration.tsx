@@ -23,8 +23,10 @@ import {
 import {
   executeTransaction,
   waitForWriteReceipt,
+  type WriteReceipt,
 } from "@/features/protocol/write-transaction";
 import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
+import { receiptProvesProtocolWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import { factoryWriteGuard } from "@/features/protocol/factory-authenticity";
 import { publicConfig } from "@/lib/config";
 import { isSameAddress } from "@/lib/address";
@@ -99,27 +101,30 @@ function ProtocolControls({
   async function perform(
     label: string,
     simulate: () => Promise<SendWrite>,
-    provesAction: (next: ProtocolSnapshot) => boolean,
+    provesAction: (next: ProtocolSnapshot, receipt?: WriteReceipt) => boolean,
   ) {
     setAction(label);
-    const reconcile = async () => {
+    let confirmedReceipt: WriteReceipt | undefined;
+    const reconcile = recovery.track(async (receipt?: WriteReceipt) => {
+      confirmedReceipt ??= receipt;
       const refreshed = await onRefresh();
       if (refreshed?.status !== "valid") {
         throw new Error("Fresh protocol state was unavailable.");
       }
-      return provesAction(refreshed.data) ? refreshed.data : undefined;
-    };
-    const tracked = recovery.track(reconcile);
-    const result = await executeTransaction({
+      return provesAction(refreshed.data, confirmedReceipt)
+        ? refreshed.data
+        : undefined;
+    });
+    const outcome = await executeTransaction({
       dispatch,
       simulate,
       submit: (send) => send(),
       wait: async (hash, onReplaced) => {
         return waitForWriteReceipt(client, hash, onReplaced);
       },
-      reconcile: tracked,
+      reconcile,
     });
-    if (result !== undefined) recovery.clear();
+    if (outcome.status !== "uncertain") recovery.clear();
   }
 
   return (
@@ -226,7 +231,12 @@ function ProtocolControls({
               void perform(
                 "Withdraw protocol fees",
                 factoryWrite("withdrawProtocolFees"),
-                (next) => next.protocolBalance === 0n,
+                (next, receipt) =>
+                  receiptProvesProtocolWithdrawal(receipt, {
+                    factory: snapshot.factory,
+                    recipient: snapshot.feeRecipient,
+                    amount: snapshot.protocolBalance,
+                  }) || next.protocolBalance === 0n,
               )
             }
             type="button"

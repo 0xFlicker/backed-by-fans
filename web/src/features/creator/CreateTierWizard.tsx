@@ -145,6 +145,12 @@ export function CreateTierWizard() {
     setStep(next.id);
   }
 
+  function clearDeploymentRecovery() {
+    baselineCount.current = undefined;
+    lastConfig.current = undefined;
+    recovery.clear();
+  }
+
   async function reconcileDeployment(config: TierConfig, fromIndex: bigint) {
     if (publicConfig.deployment.status !== "ready") return undefined;
     const recovered = await recoverCreatedTier(client, {
@@ -196,7 +202,7 @@ export function CreateTierWizard() {
             "A fresh registry read found the prior deployment, so no duplicate transaction was prepared.",
           );
           dispatch({ type: "RECONCILED" });
-          recovery.clear();
+          clearDeploymentRecovery();
           return;
         }
         if (
@@ -242,7 +248,7 @@ export function CreateTierWizard() {
     const reconcile = recovery.track(() =>
       reconcileDeployment(config, fromIndex),
     );
-    const deployed = await executeTransaction({
+    const outcome = await executeTransaction({
       dispatch,
       simulate: async () => {
         const { request } = await client.simulateContract({
@@ -260,7 +266,7 @@ export function CreateTierWizard() {
       },
       reconcile,
     });
-    if (deployed) recovery.clear();
+    if (outcome.status !== "uncertain") clearDeploymentRecovery();
   }
 
   if (createdTier) {

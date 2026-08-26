@@ -30,8 +30,10 @@ import {
   executeTransaction,
   waitForWriteReceipt,
   type Replacement,
+  type WriteReceipt,
 } from "@/features/protocol/write-transaction";
 import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
+import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
 import { publicConfig } from "@/lib/config";
@@ -119,12 +121,16 @@ function ManagementControls({
   async function perform(
     label: string,
     simulate: () => Promise<SendWrite>,
-    reconcile: () => Promise<unknown | undefined>,
+    reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
     approval?: () => Promise<SendWrite>,
   ) {
     setActiveAction(label);
-    const tracked = recovery.track(reconcile);
-    const result = await executeTransaction({
+    let confirmedReceipt: WriteReceipt | undefined;
+    const tracked = recovery.track((receipt?: WriteReceipt) => {
+      confirmedReceipt ??= receipt;
+      return reconcile(confirmedReceipt);
+    });
+    const outcome = await executeTransaction({
       dispatch,
       simulate,
       submit: (send) => send(),
@@ -138,8 +144,8 @@ function ManagementControls({
         : undefined,
       reconcile: tracked,
     });
-    if (result !== undefined) recovery.clear();
-    return result;
+    if (outcome.status !== "uncertain") recovery.clear();
+    return outcome.status === "reconciled" ? outcome.result : undefined;
   }
 
   async function reconcileSnapshot(
@@ -294,7 +300,11 @@ function ManagementControls({
       }
       await perform(
         `Refund membership #${refundPreview.tokenId}`,
-        tierWrite("refund", [refundPreview.tokenId, refundPreview.topUp]),
+        tierWrite("refund", [
+          refundPreview.tokenId,
+          refundPreview.gross,
+          refundPreview.topUp,
+        ]),
         async () => {
           const current = await readTokenTime(refundPreview.tokenId);
           return current.paidSeconds === 0n &&
@@ -655,8 +665,15 @@ function ManagementControls({
                 void perform(
                   "Withdraw creator proceeds",
                   tierWrite("withdrawCreatorProceeds"),
-                  () =>
-                    reconcileSnapshot((next) => next.creatorProceeds === 0n),
+                  (receipt) =>
+                    reconcileSnapshot(
+                      (next) =>
+                        receiptProvesCreatorWithdrawal(receipt, {
+                          tier: snapshot.address,
+                          owner: snapshot.creator,
+                          amount: snapshot.creatorProceeds,
+                        }) || next.creatorProceeds === 0n,
+                    ),
                 )
               }
               type="button"

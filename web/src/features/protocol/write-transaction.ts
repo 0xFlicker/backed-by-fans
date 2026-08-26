@@ -1,4 +1,10 @@
-import type { Hash, PublicClient } from "viem";
+import {
+  BaseError,
+  UserRejectedRequestError,
+  type Hash,
+  type Log,
+  type PublicClient,
+} from "viem";
 
 import {
   decodeTransactionError,
@@ -12,7 +18,14 @@ export type Replacement = {
 
 export type WriteReceipt = {
   status: "success" | "reverted" | "cancelled";
+  blockNumber?: bigint;
+  logs?: Log[];
 };
+
+export type TransactionExecutionOutcome<Result> =
+  | { status: "reconciled"; result: Result }
+  | { status: "definitive-failure" }
+  | { status: "uncertain" };
 
 export async function waitForWriteReceipt(
   client: PublicClient,
@@ -30,17 +43,22 @@ export async function waitForWriteReceipt(
       });
     },
   });
-  return { status: cancelled ? "cancelled" : receipt.status };
+  return {
+    status: cancelled ? "cancelled" : receipt.status,
+    blockNumber: receipt.blockNumber,
+    logs: receipt.logs,
+  };
 }
 
 export async function reconcileTransaction<Result>(input: {
-  reconcile: () => Promise<Result | undefined>;
+  reconcile: (receipt?: WriteReceipt) => Promise<Result | undefined>;
   dispatch: (event: TransactionEvent) => void;
   priorError?: string;
+  receipt?: WriteReceipt;
 }): Promise<Result | undefined> {
   input.dispatch({ type: "RECONCILE" });
   try {
-    const result = await input.reconcile();
+    const result = await input.reconcile(input.receipt);
     if (result === undefined) {
       input.dispatch({
         type: "UNCERTAIN",
@@ -73,7 +91,7 @@ export async function executeTransaction<
     hash: Hash,
     onReplaced: (replacement: Replacement) => void,
   ) => Promise<WriteReceipt>;
-  reconcile: () => Promise<Result | undefined>;
+  reconcile: (receipt?: WriteReceipt) => Promise<Result | undefined>;
   dispatch: (event: TransactionEvent) => void;
   approval?: {
     simulate: () => Promise<ApprovalRequest>;
@@ -83,8 +101,9 @@ export async function executeTransaction<
       onReplaced: (replacement: Replacement) => void,
     ) => Promise<WriteReceipt>;
   };
-}): Promise<Result | undefined> {
-  let stage: "before-submit" | "approval-submitted" | "submitted" =
+}): Promise<TransactionExecutionOutcome<Result>> {
+  let stage:
+    "before-submit" | "approval-submitted" | "submitting" | "submitted" =
     "before-submit";
 
   try {
@@ -109,14 +128,14 @@ export async function executeTransaction<
           type: "CANCELLED",
           error: "The wallet cancelled the USDG approval replacement.",
         });
-        return undefined;
+        return { status: "definitive-failure" };
       }
       if (approvalReceipt.status === "reverted") {
         input.dispatch({
           type: "REVERTED",
           error: "The USDG approval reverted onchain.",
         });
-        return undefined;
+        return { status: "definitive-failure" };
       }
       stage = "before-submit";
       input.dispatch({ type: "APPROVED" });
@@ -128,6 +147,7 @@ export async function executeTransaction<
       input.dispatch({ type: "SIMULATED", approvalRequired: false });
     }
     input.dispatch({ type: "SIGN" });
+    stage = "submitting";
     const hash = await input.submit(request);
     stage = "submitted";
     input.dispatch({ type: "SIGNED" });
@@ -144,28 +164,39 @@ export async function executeTransaction<
         type: "CANCELLED",
         error: "The wallet cancelled the action replacement.",
       });
-      return undefined;
+      return { status: "definitive-failure" };
     }
     if (receipt.status === "reverted") {
       input.dispatch({
         type: "REVERTED",
         error: "The confirmed transaction reverted onchain.",
       });
-      return undefined;
+      return { status: "definitive-failure" };
     }
     input.dispatch({ type: "CONFIRM" });
-    return reconcileTransaction({
+    const result = await reconcileTransaction({
       dispatch: input.dispatch,
       reconcile: input.reconcile,
+      receipt,
     });
+    return result === undefined
+      ? { status: "uncertain" }
+      : { status: "reconciled", result };
   } catch (error) {
     const detail = decodeTransactionError(error);
-    if (stage === "submitted") {
-      return reconcileTransaction({
+    if (stage === "submitted" || stage === "submitting") {
+      if (stage === "submitting" && isExplicitUserRejection(error)) {
+        input.dispatch({ type: "FAILED", error: detail });
+        return { status: "definitive-failure" };
+      }
+      const result = await reconcileTransaction({
         dispatch: input.dispatch,
         reconcile: input.reconcile,
         priorError: detail,
       });
+      return result === undefined
+        ? { status: "uncertain" }
+        : { status: "reconciled", result };
     }
     input.dispatch({
       type: "FAILED",
@@ -174,6 +205,15 @@ export async function executeTransaction<
           ? `${detail} No protected action was submitted; recheck the USDG allowance before continuing.`
           : detail,
     });
-    return undefined;
+    return { status: "definitive-failure" };
   }
+}
+
+function isExplicitUserRejection(error: unknown) {
+  if (error instanceof UserRejectedRequestError) return true;
+  if (!(error instanceof BaseError)) return false;
+  return (
+    error.walk((cause) => cause instanceof UserRejectedRequestError) instanceof
+    UserRejectedRequestError
+  );
 }

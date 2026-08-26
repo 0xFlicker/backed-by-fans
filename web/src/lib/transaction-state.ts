@@ -118,7 +118,7 @@ export function transactionReducer(
         ...state,
         phase: "uncertain",
         message:
-          "A transaction was submitted, but its outcome is not yet proven. Do not submit the action again.",
+          "A transaction may have been submitted, but its outcome is not yet proven. Do not submit the action again.",
         error: event.error,
       };
     case "CANCELLED":

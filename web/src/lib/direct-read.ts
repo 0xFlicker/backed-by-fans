@@ -27,6 +27,9 @@ export const multicall3Address = getAddress(
 export const multicall3RuntimeHash =
   "0xd5c15df687b16f2ff992fc8d767b4216323184a2bbc6ee2f9c398c318e770891";
 
+type MulticallResult =
+  { status: "success"; result: unknown } | { status: "failure" };
+
 const summaryFields = [
   "name",
   "symbol",
@@ -271,7 +274,7 @@ export async function readTierSnapshotState(
   }
 
   const blockNumber = authenticity.capturedBlock;
-  const reads = [
+  const fields = [
     "name",
     "symbol",
     "owner",
@@ -291,22 +294,47 @@ export async function readTierSnapshotState(
   ] as const;
 
   try {
-    const settled = await Promise.allSettled(
-      reads.map((functionName) =>
-        client.readContract({
+    const missing: string[] = [];
+    let values: unknown[];
+    const multicallStatus = await verifyMulticall3(client, blockNumber);
+    if (multicallStatus === "verified") {
+      const results = (await client.multicall({
+        contracts: fields.map((functionName) => ({
           address: input.tier,
           abi: tierAbi,
           functionName,
-          blockNumber,
-        }),
-      ),
-    );
-    const missing: string[] = [];
-    const values = settled.map((result, index) => {
-      if (result.status === "fulfilled") return result.value;
-      missing.push(reads[index]);
-      return undefined;
-    });
+        })),
+        allowFailure: true,
+        blockNumber,
+        multicallAddress: multicall3Address,
+      })) as MulticallResult[];
+      values = results.map((result, index) => {
+        if (result.status === "success") return result.result;
+        missing.push(fields[index]);
+        return undefined;
+      });
+    } else {
+      const settled: PromiseSettledResult<unknown>[] = [];
+      for (let offset = 0; offset < fields.length; offset += 4) {
+        settled.push(
+          ...(await Promise.allSettled(
+            fields.slice(offset, offset + 4).map((functionName) =>
+              client.readContract({
+                address: input.tier,
+                abi: tierAbi,
+                functionName,
+                blockNumber,
+              }),
+            ),
+          )),
+        );
+      }
+      values = settled.map((result, index) => {
+        if (result.status === "fulfilled") return result.value;
+        missing.push(fields[index]);
+        return undefined;
+      });
+    }
 
     if (missing.length > 0) {
       return {

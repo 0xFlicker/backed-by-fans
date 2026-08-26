@@ -1,9 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
-import { getAddress, type Address, type PublicClient } from "viem";
+import { getAddress, keccak256, type Address, type PublicClient } from "viem";
+
+vi.mock("viem", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("viem")>();
+  return { ...actual, keccak256: vi.fn(actual.keccak256) };
+});
+vi.mock("@/lib/authenticity", () => ({
+  verifyTierAuthenticity: vi.fn(),
+}));
+
+import { verifyTierAuthenticity } from "@/lib/authenticity";
 
 import {
   maxCatalogPageLimit,
+  multicall3RuntimeHash,
   readCatalogPage,
+  readTierSnapshotState,
   readTierSummaries,
   validateTierRouteParam,
   verifyMulticall3,
@@ -12,6 +24,16 @@ import {
 const factory = getAddress("0x1111111111111111111111111111111111111111");
 const tierA = getAddress("0x2222222222222222222222222222222222222222");
 const tierB = getAddress("0x3333333333333333333333333333333333333333");
+const deployment = {
+  status: "ready" as const,
+  chainId: 46630 as const,
+  factoryAddress: factory,
+  usdgAddress: tierB,
+  factoryRuntimeCodeHash: `0x${"01".repeat(32)}` as const,
+  rendererRuntimeCodeHash: `0x${"02".repeat(32)}` as const,
+  deployerRuntimeCodeHash: `0x${"03".repeat(32)}` as const,
+  usdgRuntimeCodeHash: `0x${"04".repeat(32)}` as const,
+};
 
 function client(value: Partial<PublicClient>) {
   return value as PublicClient;
@@ -121,5 +143,56 @@ describe("direct reads", () => {
       ],
     });
     expect(readContract).toHaveBeenCalledTimes(6);
+  });
+
+  it("batches a verified tier snapshot into one Multicall3 read", async () => {
+    vi.mocked(verifyTierAuthenticity).mockResolvedValue({
+      status: "verified",
+      capturedBlock: 12n,
+      factory,
+      tier: tierA,
+      paymentToken: tierB,
+    });
+    vi.mocked(keccak256).mockReturnValueOnce(multicall3RuntimeHash);
+    const success = (result: unknown) => ({ status: "success", result });
+    const values = [
+      "Front Row",
+      "FRONT",
+      factory,
+      1_000_000n,
+      2_592_000n,
+      false,
+      "Description",
+      "ipfs://image",
+      "https://example.com",
+      500,
+      250,
+      100n,
+      2n,
+      12n,
+      tierB,
+      factory,
+    ];
+    const multicall = vi
+      .fn()
+      .mockResolvedValue(values.map((value) => success(value)));
+    const readContract = vi.fn();
+    const result = await readTierSnapshotState(
+      client({
+        getBytecode: vi.fn().mockResolvedValue("0x6000"),
+        getBlockNumber: vi.fn().mockResolvedValue(12n),
+        multicall,
+        readContract,
+      } as Partial<PublicClient>),
+      { tier: tierA, deployment },
+    );
+
+    expect(result).toMatchObject({
+      status: "valid",
+      capturedBlock: 12n,
+      data: { name: "Front Row", creator: factory, occupiedSupply: 2n },
+    });
+    expect(multicall).toHaveBeenCalledTimes(1);
+    expect(readContract).not.toHaveBeenCalled();
   });
 });

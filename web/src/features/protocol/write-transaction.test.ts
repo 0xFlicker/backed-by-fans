@@ -1,4 +1,4 @@
-import type { PublicClient } from "viem";
+import { UserRejectedRequestError, type PublicClient } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -41,7 +41,7 @@ describe("shared protocol write execution", () => {
       dispatch: (event) => events.push(event),
     });
 
-    expect(result).toBe("fresh state");
+    expect(result).toEqual({ status: "reconciled", result: "fresh state" });
     expect(events.map(({ type }) => type)).toEqual([
       "SIMULATE",
       "SIMULATED",
@@ -204,6 +204,49 @@ describe("shared protocol write execution", () => {
     });
   });
 
+  it("reconciles a protected submit that broadcasts and then loses its response", async () => {
+    const events: TransactionEvent[] = [];
+    let broadcast = false;
+    const outcome = await executeTransaction({
+      simulate: async () => ({}),
+      submit: async () => {
+        broadcast = true;
+        throw new Error("wallet response lost");
+      },
+      wait: async () => ({ status: "success" }),
+      reconcile: async () => (broadcast ? "proven state" : undefined),
+      dispatch: (event) => events.push(event),
+    });
+
+    expect(outcome).toEqual({
+      status: "reconciled",
+      result: "proven state",
+    });
+    expect(events.some(({ type }) => type === "FAILED")).toBe(false);
+    expect(events.at(-1)).toEqual({ type: "RECONCILED" });
+  });
+
+  it("keeps an explicit wallet rejection safely retryable", async () => {
+    const events: TransactionEvent[] = [];
+    const reconcile = vi.fn();
+    const outcome = await executeTransaction({
+      simulate: async () => ({}),
+      submit: async () => {
+        throw new UserRejectedRequestError(new Error("rejected"));
+      },
+      wait: async () => ({ status: "success" }),
+      reconcile,
+      dispatch: (event) => events.push(event),
+    });
+
+    expect(outcome).toEqual({ status: "definitive-failure" });
+    expect(events.at(-1)).toEqual({
+      type: "FAILED",
+      error: "User rejected the request.",
+    });
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+
   it("recovers a submitted write from its proven postcondition", async () => {
     const dispatch = vi.fn();
     await expect(
@@ -216,7 +259,7 @@ describe("shared protocol write execution", () => {
         reconcile: async () => "proven state",
         dispatch,
       }),
-    ).resolves.toBe("proven state");
+    ).resolves.toEqual({ status: "reconciled", result: "proven state" });
 
     expect(dispatch).toHaveBeenLastCalledWith({ type: "RECONCILED" });
   });

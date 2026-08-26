@@ -31,8 +31,10 @@ import {
   executeTransaction,
   waitForWriteReceipt,
   type Replacement,
+  type WriteReceipt,
 } from "@/features/protocol/write-transaction";
 import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
+import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
 import { publicConfig } from "@/lib/config";
@@ -294,12 +296,16 @@ export function MembershipExperience({
   async function perform(
     label: string,
     simulate: () => Promise<SendWrite>,
-    reconcile: () => Promise<unknown | undefined>,
+    reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
     approve?: () => Promise<SendWrite>,
   ) {
     setPreparedAction(label);
-    const tracked = recovery.track(reconcile);
-    const result = await executeTransaction({
+    let confirmedReceipt: WriteReceipt | undefined;
+    const tracked = recovery.track((receipt?: WriteReceipt) => {
+      confirmedReceipt ??= receipt;
+      return reconcile(confirmedReceipt);
+    });
+    const outcome = await executeTransaction({
       dispatch,
       simulate,
       submit: (send) => send(),
@@ -309,8 +315,8 @@ export function MembershipExperience({
         : undefined,
       reconcile: tracked,
     });
-    if (result !== undefined) recovery.clear();
-    return result;
+    if (outcome.status !== "uncertain") recovery.clear();
+    return outcome.status === "reconciled" ? outcome.result : undefined;
   }
 
   async function reconcileSnapshot(
@@ -848,7 +854,18 @@ export function MembershipExperience({
                     void perform(
                       "Withdraw creator proceeds",
                       tierWrite("withdrawCreatorProceeds"),
-                      reconcileWalletIncrease(snapshot.creatorProceeds!),
+                      (receipt) =>
+                        reconcileSnapshot(
+                          (next) =>
+                            receiptProvesCreatorWithdrawal(receipt, {
+                              tier: snapshot.address,
+                              owner: snapshot.creator,
+                              amount: snapshot.creatorProceeds!,
+                            }) ||
+                            (next.walletUsdgBalance ?? 0n) >=
+                              (snapshot.walletUsdgBalance ?? 0n) +
+                                snapshot.creatorProceeds!,
+                        ),
                     )
                   }
                   type="button"

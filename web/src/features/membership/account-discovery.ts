@@ -189,34 +189,23 @@ async function inspectTiersWithMulticall(
     },
     { address: tier, abi: tierAbi, functionName: "owner" as const },
   ]);
-  const [codeReads, reads] = await Promise.all([
-    Promise.allSettled(
-      input.tiers.map((tier) =>
-        client.getBytecode({ address: tier, blockNumber: input.blockNumber }),
-      ),
-    ),
-    client.multicall({
-      contracts,
-      allowFailure: true,
-      blockNumber: input.blockNumber,
-      multicallAddress: multicall3Address,
-    }) as Promise<MulticallResult[]>,
-  ]);
+  const reads = (await client.multicall({
+    contracts,
+    allowFailure: true,
+    blockNumber: input.blockNumber,
+    multicallAddress: multicall3Address,
+  })) as MulticallResult[];
   const groupSize = 7 + interfaceIds.length;
   const candidates: BatchCandidate[] = [];
   const skipped: string[] = [];
 
   input.tiers.forEach((tier, index) => {
-    const code = codeReads[index];
     const group = reads.slice(index * groupSize, (index + 1) * groupSize);
     if (
-      code.status !== "fulfilled" ||
-      !code.value ||
-      code.value === "0x" ||
       group.length !== groupSize ||
       group.some((result) => result.status !== "success")
     ) {
-      skipped.push(`${tier}: contract code or batched reads unavailable`);
+      skipped.push(`${tier}: batched contract reads unavailable`);
       return;
     }
     const values = group.map((result) =>
@@ -393,18 +382,19 @@ export async function discoverAccountPage(
           blockNumber: page.capturedBlock,
         })
       : undefined;
-  const inspected = batch
-    ? undefined
-    : await Promise.all(
-        page.addresses.map((tier) =>
-          inspectTier(client, {
-            ...input,
-            tier,
-            blockNumber: page.capturedBlock,
-            verifiedFactory,
-          }),
-        ),
+  const inspected: Awaited<ReturnType<typeof inspectTier>>[] = [];
+  if (!batch) {
+    for (const tier of page.addresses) {
+      inspected.push(
+        await inspectTier(client, {
+          ...input,
+          tier,
+          blockNumber: page.capturedBlock,
+          verifiedFactory,
+        }),
       );
+    }
+  }
   return {
     capturedBlock: page.capturedBlock,
     total: page.total,
@@ -413,9 +403,9 @@ export async function discoverAccountPage(
     nextOffset: page.nextOffset,
     results:
       batch?.results ??
-      inspected!.flatMap(({ result }) => (result ? [result] : [])),
+      inspected.flatMap(({ result }) => (result ? [result] : [])),
     skipped:
       batch?.skipped ??
-      inspected!.flatMap(({ skipped }) => (skipped ? [skipped] : [])),
+      inspected.flatMap(({ skipped }) => (skipped ? [skipped] : [])),
   };
 }

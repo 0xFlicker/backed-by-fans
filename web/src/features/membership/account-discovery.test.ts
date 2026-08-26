@@ -109,6 +109,35 @@ describe("bounded account discovery", () => {
     ).toBe(true);
   });
 
+  it("inspects the no-Multicall fallback one tier at a time", async () => {
+    let active = 0;
+    let maximumActive = 0;
+    vi.mocked(verifyTierAuthenticity).mockImplementation(
+      async (_client, input) => {
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        await Promise.resolve();
+        active -= 1;
+        return {
+          status: "interface-mismatch",
+          address: input.tier,
+          label: "Unverified contract",
+          failedChecks: ["factory registration"],
+        };
+      },
+    );
+
+    await discoverAccountPage(
+      {
+        getBlockNumber: vi.fn().mockResolvedValue(80n),
+      } as unknown as PublicClient,
+      { deployment, wallet, offset: 0n },
+    );
+
+    expect(maximumActive).toBe(1);
+    expect(verifyTierAuthenticity).toHaveBeenCalledTimes(2);
+  });
+
   it("batches authenticity and claim reads when verified Multicall3 is available", async () => {
     vi.mocked(readCatalogPage).mockResolvedValue({
       capturedBlock: 80n,
@@ -157,6 +186,7 @@ describe("bounded account discovery", () => {
       },
     ]);
     expect(multicall).toHaveBeenCalledTimes(2);
+    expect(client.getBytecode).not.toHaveBeenCalled();
     expect(verifyTierAuthenticity).not.toHaveBeenCalled();
   });
 });
