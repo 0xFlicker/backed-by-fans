@@ -36,9 +36,8 @@ the configured tests in `web/tests/e2e/anvil-membership.spec.ts`,
   approvals and confirmed onchain reconciliation;
 - a blocked fixed destination retaining its exact onchain claim with no
   redirect control and safe retry guidance; and
-- a post-broadcast wallet-response loss surviving a full page reload,
-  reconciling from the durable exact intent, and proving exactly one protected
-  submission.
+- successful writes advancing only from the receipt returned by wagmi/viem to
+  exact receipt-event checks and refreshed canonical contract state.
 
 The flow also runs axe on configured supporter states. Run the browser evidence
 alone from the repository root:

@@ -16,7 +16,7 @@ describe("transaction state machine", () => {
     expect(isTransactionInFlight("approval")).toBe(true);
     expect(isTransactionInFlight("replacement")).toBe(true);
     expect(isTransactionInFlight("reconciliation")).toBe(true);
-    expect(isTransactionInFlight("uncertain")).toBe(true);
+    expect(isTransactionInFlight("uncertain")).toBe(false);
     expect(isTransactionInFlight("idle")).toBe(false);
     expect(isTransactionInFlight("retry")).toBe(false);
   });
@@ -73,17 +73,14 @@ describe("transaction state machine", () => {
     },
   );
 
-  it("keeps uncertain outcomes in flight until their state is proven", () => {
+  it("does not create an application write embargo after verification fails", () => {
     const uncertain = transactionReducer(initialTransactionState, {
       type: "UNCERTAIN",
       error: "receipt unavailable",
     });
     expect(uncertain.phase).toBe("uncertain");
-    expect(isTransactionInFlight(uncertain.phase)).toBe(true);
-
-    const reconciled = transactionReducer(uncertain, { type: "RECONCILED" });
-    expect(reconciled).toMatchObject({ phase: "confirmed" });
-    expect(reconciled.error).toBeUndefined();
+    expect(isTransactionInFlight(uncertain.phase)).toBe(false);
+    expect(uncertain.message).toContain("Check your wallet or explorer");
   });
 
   it("preserves a readable non-viem error", () => {

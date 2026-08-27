@@ -9,7 +9,7 @@ import {
   type Address,
   type Hash,
 } from "viem";
-import { useAccount, useChainId, useWalletClient } from "wagmi";
+import { useAccount, useChainId, useWriteContract } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
 import { TransactionFlow } from "@/components/TransactionFlow";
@@ -25,21 +25,18 @@ import {
   validateSupplyCap,
 } from "@/features/creator/management";
 import { readTierManagementState } from "@/features/creator/management-read";
-import {
-  executeTransaction,
-  waitForWriteReceipt,
-  type Replacement,
-  type WriteReceipt,
-} from "@/features/protocol/write-transaction";
-import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
 import { receiptProvesMembershipRefund } from "@/features/protocol/payout-reconciliation";
-import type { WriteIntent } from "@/features/protocol/pending-write";
-import {
-  recoverPendingWrite,
-  recoverTierGrant,
-} from "@/features/protocol/pending-write-recovery";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
+import {
+  receiptProvesGrantRevocation,
+  reconcileTierGrant,
+} from "@/features/protocol/grant-reconciliation";
 import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
+import {
+  isSuccessfulWriteReceipt,
+  reconcileSuccessfulWrite,
+  type SuccessfulWriteReceipt,
+} from "@/features/protocol/write-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isNonZeroAddress, isSameAddress } from "@/lib/address";
 import { publicConfig } from "@/lib/config";
@@ -71,7 +68,7 @@ function ManagementControls({
 }) {
   const account = useAccount();
   const chainId = useChainId();
-  const wallet = useWalletClient({ chainId: publicConfig.chainId });
+  const write = useWriteContract();
   const client = useMemo(() => createDirectReadClient(), []);
   const gas = useQuery({
     queryKey: ["management-gas-balance", snapshot.address, account.address],
@@ -103,17 +100,6 @@ function ManagementControls({
   const [imageURI, setImageURI] = useState(snapshot.imageURI);
   const [externalURI, setExternalURI] = useState(snapshot.externalURI);
   const [newOwner, setNewOwner] = useState("");
-  const recovery = useTransactionReconciliation(
-    dispatch,
-    `${chainId}:${account.address ?? "disconnected"}:${snapshot.address}`,
-    {
-      recover: (pending) => recoverPendingWrite(client, pending),
-      onRecovered: (_resolution, pending) => {
-        setActiveAction(pending.label);
-        void onRefresh();
-      },
-    },
-  );
   const permissions = managementPermissions(snapshot, account.address);
   const authenticity: AuthenticityResult = {
     status: "verified",
@@ -131,17 +117,10 @@ function ManagementControls({
   const writesVerified =
     fresh &&
     guard.enabled &&
-    Boolean(wallet.data) &&
     (gas.data ?? 0n) > 0n &&
+    !write.isPending &&
     !isTransactionInFlight(transaction.phase);
   const canOwnerWrite = writesVerified && permissions.canOperate;
-
-  async function waitForReceipt(
-    hash: Hash,
-    onReplaced: (value: Replacement) => void,
-  ) {
-    return waitForWriteReceipt(client, hash, onReplaced);
-  }
 
   async function runExclusive<Result>(task: () => Promise<Result>) {
     if (operationInFlight.current) return undefined;
@@ -155,45 +134,111 @@ function ManagementControls({
 
   async function performUnlocked(
     label: string,
-    intent: WriteIntent,
     simulate: () => Promise<SendWrite>,
-    reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
+    reconcile: (
+      receipt: SuccessfulWriteReceipt,
+    ) => Promise<unknown | undefined>,
     approval?: () => Promise<SendWrite>,
   ) {
     setActiveAction(label);
-    const tracked = recovery.track({
-      label,
-      intent,
-      reconcile,
-    });
-    const outcome = await executeTransaction({
-      dispatch,
-      simulate,
-      submit: (send) => send(),
-      wait: waitForReceipt,
-      approval: approval
-        ? {
-            simulate: approval,
-            submit: (send) => send(),
-            wait: waitForReceipt,
-          }
-        : undefined,
-      reconcile: tracked.reconcile,
-      lifecycle: tracked.lifecycle,
-    });
-    if (outcome.status !== "uncertain") tracked.clear();
-    return outcome.status === "reconciled" ? outcome.result : undefined;
+    let waitingForReceipt = false;
+    try {
+      dispatch({ type: "SIMULATE" });
+      if (approval) {
+        const sendApproval = await approval();
+        dispatch({ type: "SIMULATED", approvalRequired: true });
+        const approvalHash = await sendApproval();
+        dispatch({ type: "SUBMITTED", hash: approvalHash });
+        waitingForReceipt = true;
+        let approvalCancelled = false;
+        const approvalReceipt = await client.waitForTransactionReceipt({
+          hash: approvalHash,
+          onReplaced: (replacement) => {
+            approvalCancelled ||= replacement.reason === "cancelled";
+            dispatch({
+              type: "REPLACED",
+              replacementHash: replacement.transaction.hash,
+              reason: replacement.reason,
+            });
+          },
+        });
+        waitingForReceipt = false;
+        if (approvalCancelled) {
+          dispatch({
+            type: "CANCELLED",
+            error: "The wallet cancelled the USDG approval.",
+          });
+          return undefined;
+        }
+        if (approvalReceipt.status === "reverted") {
+          dispatch({
+            type: "REVERTED",
+            error: "The USDG approval reverted onchain.",
+          });
+          return undefined;
+        }
+        dispatch({ type: "APPROVED" });
+      }
+
+      const send = await simulate();
+      if (!approval) dispatch({ type: "SIMULATED", approvalRequired: false });
+      dispatch({ type: "SIGN" });
+      const hash = await send();
+      dispatch({ type: "SIGNED" });
+      dispatch({ type: "SUBMITTED", hash });
+      waitingForReceipt = true;
+      let cancelled = false;
+      const receipt = await client.waitForTransactionReceipt({
+        hash,
+        onReplaced: (replacement) => {
+          cancelled ||= replacement.reason === "cancelled";
+          dispatch({
+            type: "REPLACED",
+            replacementHash: replacement.transaction.hash,
+            reason: replacement.reason,
+          });
+        },
+      });
+      waitingForReceipt = false;
+      if (cancelled) {
+        dispatch({
+          type: "CANCELLED",
+          error: "The wallet cancelled this tier action.",
+        });
+        return undefined;
+      }
+      if (!isSuccessfulWriteReceipt(receipt)) {
+        dispatch({
+          type: "REVERTED",
+          error: "The tier transaction reverted onchain.",
+        });
+        return undefined;
+      }
+      dispatch({ type: "CONFIRM" });
+      return reconcileSuccessfulWrite({
+        dispatch,
+        receipt,
+        reconcile,
+      });
+    } catch (error) {
+      dispatch({
+        type: waitingForReceipt ? "UNCERTAIN" : "FAILED",
+        error: decodeTransactionError(error),
+      });
+      return undefined;
+    }
   }
 
   function perform(
     label: string,
-    intent: WriteIntent,
     simulate: () => Promise<SendWrite>,
-    reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
+    reconcile: (
+      receipt: SuccessfulWriteReceipt,
+    ) => Promise<unknown | undefined>,
     approval?: () => Promise<SendWrite>,
   ) {
     return runExclusive(() =>
-      performUnlocked(label, intent, simulate, reconcile, approval),
+      performUnlocked(label, simulate, reconcile, approval),
     );
   }
 
@@ -222,7 +267,6 @@ function ManagementControls({
     if (tokenId === 0n) {
       return {
         tokenId,
-        blockNumber,
         timestamp: block.timestamp,
         expiration: 0n,
         paidSeconds: 0n,
@@ -247,7 +291,6 @@ function ManagementControls({
     ]);
     return {
       tokenId,
-      blockNumber,
       timestamp: block.timestamp,
       expiration,
       paidSeconds: balances[0],
@@ -274,7 +317,6 @@ function ManagementControls({
       }),
     ]);
     return {
-      blockNumber,
       paidSeconds: balances[0],
       grantSeconds: balances[1],
       refundableGross: refund[0],
@@ -295,7 +337,7 @@ function ManagementControls({
       | "acceptOwnership",
   >(functionName: Name, args: readonly unknown[] = []) {
     return async () => {
-      if (!wallet.data || !account.address) {
+      if (!account.address) {
         throw new Error("Connect the operating wallet before simulating.");
       }
       const { request } = await client.simulateContract({
@@ -306,7 +348,7 @@ function ManagementControls({
         args,
       } as never);
       await assertSufficientGas(client, account.address, request);
-      return () => wallet.data!.writeContract(request);
+      return () => write.writeContractAsync(request);
     };
   }
 
@@ -344,15 +386,9 @@ function ManagementControls({
 
   async function refund() {
     const tokenId = parseTokenId(refundToken);
-    if (
-      !refundPreview ||
-      refundPreview.tokenId !== tokenId ||
-      !account.address ||
-      !wallet.data
-    )
+    if (!refundPreview || refundPreview.tokenId !== tokenId || !account.address)
       return;
     const owner = account.address;
-    const connectedWallet = wallet.data;
     await runExclusive(async () => {
       try {
         let approval: (() => Promise<SendWrite>) | undefined;
@@ -373,20 +409,12 @@ function ManagementControls({
                 args: [snapshot.address, refundPreview.topUp],
               });
               await assertSufficientGas(client, owner, request);
-              return () => connectedWallet.writeContract(request);
+              return () => write.writeContractAsync(request);
             };
           }
         }
         await performUnlocked(
           `Refund membership #${refundPreview.tokenId}`,
-          {
-            kind: "tier-refund",
-            tier: snapshot.address,
-            tokenId: refundPreview.tokenId,
-            recipient: refundPreview.recipient,
-            tierOwner: snapshot.creator,
-            fromBlock: capturedBlock + 1n,
-          },
           tierWrite("refund", [
             refundPreview.tokenId,
             refundPreview.gross,
@@ -430,8 +458,7 @@ function ManagementControls({
         const recipient = getAddress(grantRecipient.trim());
         const before = await readRecipientTime(recipient);
         const grantedSeconds = grantPeriodsValue * snapshot.periodDuration;
-        const intent = {
-          kind: "tier-grant",
+        const baseline = {
           tier: snapshot.address,
           recipient,
           tokenId: before.tokenId,
@@ -439,18 +466,11 @@ function ManagementControls({
           baselinePaidSeconds: before.paidSeconds,
           baselineGrantSeconds: before.grantSeconds,
           grantedSeconds,
-          fromBlock: before.blockNumber + 1n,
-        } satisfies WriteIntent;
+        };
         await performUnlocked(
           "Grant complimentary time",
-          intent,
           tierWrite("grantTime", [recipient, grantPeriodsValue]),
-          async (receipt) => {
-            const recovered = await recoverTierGrant(client, intent, receipt);
-            return recovered.status === "reconciled"
-              ? recovered.result
-              : undefined;
-          },
+          (receipt) => reconcileTierGrant(client, baseline, receipt),
         );
       } catch (error) {
         dispatch({ type: "FAILED", error: decodeTransactionError(error) });
@@ -472,15 +492,16 @@ function ManagementControls({
         }
         await performUnlocked(
           "Revoke remaining grant time",
-          {
-            kind: "tier-revoke-grant",
-            tier: snapshot.address,
-            tokenId: revokeTokenValue,
-            previousGrantSeconds: before.grantSeconds,
-            fromBlock: before.blockNumber + 1n,
-          },
           tierWrite("revokeGrantTime", [revokeTokenValue]),
-          async () => {
+          async (receipt) => {
+            if (
+              !receiptProvesGrantRevocation(receipt, {
+                tier: snapshot.address,
+                tokenId: revokeTokenValue,
+              })
+            ) {
+              return undefined;
+            }
             const current = await readTokenTime(revokeTokenValue);
             return current.grantSeconds === 0n ? current : undefined;
           },
@@ -590,13 +611,6 @@ function ManagementControls({
               onClick={() =>
                 void perform(
                   snapshot.paused ? "Unpause tier" : "Pause tier",
-                  {
-                    kind: "tier-paused",
-                    tier: snapshot.address,
-                    previous: snapshot.paused,
-                    expected: !snapshot.paused,
-                    fromBlock: capturedBlock + 1n,
-                  },
                   tierWrite("setPaused", [!snapshot.paused]),
                   () =>
                     reconcileSnapshot(
@@ -641,13 +655,6 @@ function ManagementControls({
                   onClick={() =>
                     void perform(
                       "Update supply cap",
-                      {
-                        kind: "tier-supply-cap",
-                        tier: snapshot.address,
-                        previous: snapshot.supplyCap,
-                        expected: supplyCapValue!,
-                        fromBlock: capturedBlock + 1n,
-                      },
                       tierWrite("setSupplyCap", [supplyCapValue!]),
                       () =>
                         reconcileSnapshot(
@@ -677,13 +684,6 @@ function ManagementControls({
                   onClick={() =>
                     void perform(
                       "Update prepayment limit",
-                      {
-                        kind: "tier-prepayment",
-                        tier: snapshot.address,
-                        previous: snapshot.maxPrepaidPeriods,
-                        expected: prepaymentValue!,
-                        fromBlock: capturedBlock + 1n,
-                      },
                       tierWrite("setMaxPrepaidPeriods", [prepaymentValue!]),
                       () =>
                         reconcileSnapshot(
@@ -832,13 +832,6 @@ function ManagementControls({
               onClick={() =>
                 void perform(
                   "Withdraw creator proceeds",
-                  {
-                    kind: "tier-withdrawal",
-                    tier: snapshot.address,
-                    owner: snapshot.creator,
-                    amount: snapshot.creatorProceeds,
-                    fromBlock: capturedBlock + 1n,
-                  },
                   tierWrite("withdrawCreatorProceeds"),
                   (receipt) =>
                     reconcileSnapshot(
@@ -847,7 +840,7 @@ function ManagementControls({
                           tier: snapshot.address,
                           owner: snapshot.creator,
                           amount: snapshot.creatorProceeds,
-                        }) || next.creatorProceeds === 0n,
+                        }) && next.creatorProceeds === 0n,
                     ),
                 )
               }
@@ -893,17 +886,6 @@ function ManagementControls({
               onClick={() =>
                 void perform(
                   "Update tier presentation",
-                  {
-                    kind: "tier-metadata",
-                    tier: snapshot.address,
-                    description,
-                    imageURI,
-                    externalURI,
-                    previousDescription: snapshot.description,
-                    previousImageURI: snapshot.imageURI,
-                    previousExternalURI: snapshot.externalURI,
-                    fromBlock: capturedBlock + 1n,
-                  },
                   tierWrite("setTierMetadata", [
                     { description, imageURI, externalURI },
                   ]),
@@ -954,13 +936,6 @@ function ManagementControls({
                 onClick={() =>
                   void perform(
                     "Start ownership transfer",
-                    {
-                      kind: "tier-pending-owner",
-                      tier: snapshot.address,
-                      previous: snapshot.pendingOwner,
-                      expected: getAddress(newOwner.trim()),
-                      fromBlock: capturedBlock + 1n,
-                    },
                     tierWrite("transferOwnership", [
                       getAddress(newOwner.trim()),
                     ]),
@@ -983,13 +958,6 @@ function ManagementControls({
                 onClick={() =>
                   void perform(
                     "Accept tier ownership",
-                    {
-                      kind: "tier-accept-owner",
-                      tier: snapshot.address,
-                      previousOwner: snapshot.creator,
-                      expected: account.address!,
-                      fromBlock: capturedBlock + 1n,
-                    },
                     tierWrite("acceptOwnership"),
                     () =>
                       reconcileSnapshot(
@@ -1017,10 +985,7 @@ function ManagementControls({
         </p>
       )}
       <p className="eyebrow">Prepared action · {activeAction}</p>
-      <TransactionFlow
-        onReconcile={() => void recovery.recheck()}
-        state={transaction}
-      />
+      <TransactionFlow state={transaction} />
     </div>
   );
 }

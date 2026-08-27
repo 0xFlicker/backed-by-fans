@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { formatUnits, zeroAddress } from "viem";
 
-import { tierAbi, tokenAbi } from "../../src/contracts/abis";
+import { factoryAbi, tierAbi, tokenAbi } from "../../src/contracts/abis";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -145,6 +145,73 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
         functionName: "owner",
       }),
     ).resolves.toBe(newOwner);
+  } finally {
+    await revertAnvil(snapshot);
+  }
+});
+
+test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
+  test.skip(testInfo.project.name !== "desktop", "One mutation is sufficient.");
+  const snapshot = await snapshotAnvil();
+  const creator = requiredAnvilAddress("creator");
+  const member = requiredAnvilAddress("member");
+  const newRecipient = requiredAnvilAddress("giftRecipient");
+  const factory = requiredAnvilAddress("factory");
+  const configuredTier = requiredAnvilAddress("tier");
+  const usdg = requiredAnvilAddress("usdg");
+  const client = anvilPublicClient();
+
+  try {
+    expectSuccessfulReceipt(
+      await sendContract({
+        account: member,
+        address: usdg,
+        abi: tokenAbi,
+        functionName: "approve",
+        args: [configuredTier, 10_000_000n],
+      }),
+    );
+    expectSuccessfulReceipt(
+      await sendContract({
+        account: member,
+        address: configuredTier,
+        abi: tierAbi,
+        functionName: "purchase",
+        args: [1n, zeroAddress],
+      }),
+    );
+
+    await installAnvilWallet(page, creator);
+    await page.goto("/protocol");
+    await connectAnvilWallet(page, creator);
+
+    await page
+      .getByRole("button", { name: "Withdraw to fee recipient" })
+      .click();
+    await expectReconciled(page, "Withdraw protocol fees");
+    await expect(
+      client.readContract({
+        address: usdg,
+        abi: tokenAbi,
+        functionName: "balanceOf",
+        args: [factory],
+      }),
+    ).resolves.toBe(0n);
+
+    await page.getByLabel("New fee recipient").fill(newRecipient);
+    await page.getByRole("button", { name: "Set fee recipient" }).click();
+    await expectReconciled(page, "Change protocol fee recipient");
+    await expect(
+      client.readContract({
+        address: factory,
+        abi: factoryAbi,
+        functionName: "feeRecipient",
+      }),
+    ).resolves.toBe(newRecipient);
   } finally {
     await revertAnvil(snapshot);
   }

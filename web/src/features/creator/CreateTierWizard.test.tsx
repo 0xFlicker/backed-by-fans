@@ -14,7 +14,7 @@ vi.mock("wagmi", () => ({
   }),
   useChainId: () => walletChainId,
   useSwitchChain: () => ({ switchChain: vi.fn() }),
-  useWalletClient: () => ({ data: undefined }),
+  useWriteContract: () => ({ isPending: false, writeContractAsync: vi.fn() }),
 }));
 vi.mock("@/components/WalletControl", () => ({
   WalletControl: () => <button type="button">Connect wallet</button>,

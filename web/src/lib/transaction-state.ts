@@ -58,7 +58,6 @@ export function isTransactionInFlight(phase: TransactionPhase) {
     "confirmation",
     "reconciliation",
     "replacement",
-    "uncertain",
   ].includes(phase);
 }
 
@@ -118,7 +117,7 @@ export function transactionReducer(
         ...state,
         phase: "uncertain",
         message:
-          "A transaction may have been submitted, but its outcome is not yet proven. Do not submit the action again.",
+          "The app has not verified the final onchain result. Check your wallet or explorer and refresh before continuing.",
         error: event.error,
       };
     case "CANCELLED":

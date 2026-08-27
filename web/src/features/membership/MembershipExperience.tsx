@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useMemo, useReducer, useState } from "react";
+import { useMemo, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   formatUnits,
@@ -11,7 +11,7 @@ import {
   zeroAddress,
   type Hash,
 } from "viem";
-import { useAccount, useChainId, useWalletClient } from "wagmi";
+import { useAccount, useChainId, useWriteContract } from "wagmi";
 
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
@@ -28,26 +28,24 @@ import {
   validateGift,
 } from "@/features/membership/state";
 import {
-  executeTransaction,
-  waitForWriteReceipt,
-  type Replacement,
-  type WriteReceipt,
-} from "@/features/protocol/write-transaction";
-import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
-import type { WriteIntent } from "@/features/protocol/pending-write";
-import { recoverPendingWrite } from "@/features/protocol/pending-write-recovery";
-import {
+  receiptProvesPayment,
   receiptProvesReferralClaim,
   receiptProvesRewardClaim,
 } from "@/features/protocol/payout-reconciliation";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
+import {
+  isSuccessfulWriteReceipt,
+  reconcileSuccessfulWrite,
+  type SuccessfulWriteReceipt,
+} from "@/features/protocol/write-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
 import { publicConfig } from "@/lib/config";
 import { createDirectReadClient } from "@/lib/direct-read";
 import type { ReadState } from "@/lib/read-state";
 import {
+  decodeTransactionError,
   initialTransactionState,
   isTransactionInFlight,
   transactionReducer,
@@ -119,12 +117,13 @@ export function MembershipExperience({
 }) {
   const account = useAccount();
   const chainId = useChainId();
-  const wallet = useWalletClient({ chainId: publicConfig.chainId });
+  const write = useWriteContract();
   const client = useMemo(() => createDirectReadClient(), []);
   const [transaction, dispatch] = useReducer(
     transactionReducer,
     initialTransactionState,
   );
+  const operationInFlight = useRef(false);
   const [periods, setPeriods] = useState("1");
   const [contribution, setContribution] = useState("0");
   const [referralChoice, setReferralChoice] =
@@ -134,17 +133,6 @@ export function MembershipExperience({
   const [giftRecipient, setGiftRecipient] = useState("");
   const [giftPeriods, setGiftPeriods] = useState("1");
   const [preparedAction, setPreparedAction] = useState("No action prepared");
-  const recovery = useTransactionReconciliation(
-    dispatch,
-    `${chainId}:${account.address ?? "disconnected"}:${snapshot.address}`,
-    {
-      recover: (pending) => recoverPendingWrite(client, pending),
-      onRecovered: (_resolution, pending) => {
-        setPreparedAction(pending.label);
-        void onRefresh();
-      },
-    },
-  );
   const authenticity: AuthenticityResult = {
     status: "verified",
     capturedBlock,
@@ -161,7 +149,6 @@ export function MembershipExperience({
   const walletReady =
     account.isConnected &&
     chainId === publicConfig.chainId &&
-    Boolean(wallet.data) &&
     Boolean(snapshot.wallet);
   const actionState = classifyMembershipState({
     walletReady,
@@ -173,8 +160,8 @@ export function MembershipExperience({
   const writesVerified =
     fresh &&
     guard.enabled &&
-    Boolean(wallet.data) &&
     (snapshot.walletEthBalance ?? 0n) > 0n &&
+    !write.isPending &&
     !isTransactionInFlight(transaction.phase);
   const periodValue = parseUint64Input(periods, { allowZero: false });
   const contributionValue = parseUsdg(contribution);
@@ -266,10 +253,6 @@ export function MembershipExperience({
     giftState.data.paidSeconds + giftPreview.duration >
       snapshot.maxPrepaidPeriods * snapshot.periodDuration;
 
-  async function wait(hash: Hash, onReplaced: (value: Replacement) => void) {
-    return waitForWriteReceipt(client, hash, onReplaced);
-  }
-
   function tierWrite(
     functionName:
       | "purchase"
@@ -282,7 +265,7 @@ export function MembershipExperience({
     args: readonly unknown[] = [],
   ) {
     return async (): Promise<SendWrite> => {
-      if (!wallet.data || !account.address)
+      if (!account.address)
         throw new Error("Connect the acting wallet before simulation.");
       const { request } = await client.simulateContract({
         account: account.address,
@@ -292,14 +275,14 @@ export function MembershipExperience({
         args,
       } as never);
       await assertSufficientGas(client, account.address, request);
-      return () => wallet.data!.writeContract(request);
+      return () => write.writeContractAsync(request);
     };
   }
 
   function approval(amount: bigint) {
     if (amount === 0n) return undefined;
     return async (): Promise<SendWrite> => {
-      if (!wallet.data || !account.address)
+      if (!account.address)
         throw new Error("Connect the paying wallet before approval.");
       const { request } = await client.simulateContract({
         account: account.address,
@@ -309,36 +292,122 @@ export function MembershipExperience({
         args: [snapshot.address, amount],
       });
       await assertSufficientGas(client, account.address, request);
-      return () => wallet.data!.writeContract(request);
+      return () => write.writeContractAsync(request);
     };
+  }
+
+  async function performUnlocked(
+    label: string,
+    simulate: () => Promise<SendWrite>,
+    reconcile: (
+      receipt: SuccessfulWriteReceipt,
+    ) => Promise<unknown | undefined>,
+    approve?: () => Promise<SendWrite>,
+  ) {
+    setPreparedAction(label);
+    let waitingForReceipt = false;
+    try {
+      dispatch({ type: "SIMULATE" });
+      if (approve) {
+        const sendApproval = await approve();
+        dispatch({ type: "SIMULATED", approvalRequired: true });
+        const approvalHash = await sendApproval();
+        dispatch({ type: "SUBMITTED", hash: approvalHash });
+        waitingForReceipt = true;
+        let approvalCancelled = false;
+        const approvalReceipt = await client.waitForTransactionReceipt({
+          hash: approvalHash,
+          onReplaced: (replacement) => {
+            approvalCancelled ||= replacement.reason === "cancelled";
+            dispatch({
+              type: "REPLACED",
+              replacementHash: replacement.transaction.hash,
+              reason: replacement.reason,
+            });
+          },
+        });
+        waitingForReceipt = false;
+        if (approvalCancelled) {
+          dispatch({
+            type: "CANCELLED",
+            error: "The wallet cancelled the USDG approval.",
+          });
+          return undefined;
+        }
+        if (approvalReceipt.status === "reverted") {
+          dispatch({
+            type: "REVERTED",
+            error: "The USDG approval reverted onchain.",
+          });
+          return undefined;
+        }
+        dispatch({ type: "APPROVED" });
+      }
+
+      const send = await simulate();
+      if (!approve) dispatch({ type: "SIMULATED", approvalRequired: false });
+      dispatch({ type: "SIGN" });
+      const hash = await send();
+      dispatch({ type: "SIGNED" });
+      dispatch({ type: "SUBMITTED", hash });
+      waitingForReceipt = true;
+      let cancelled = false;
+      const receipt = await client.waitForTransactionReceipt({
+        hash,
+        onReplaced: (replacement) => {
+          cancelled ||= replacement.reason === "cancelled";
+          dispatch({
+            type: "REPLACED",
+            replacementHash: replacement.transaction.hash,
+            reason: replacement.reason,
+          });
+        },
+      });
+      waitingForReceipt = false;
+      if (cancelled) {
+        dispatch({
+          type: "CANCELLED",
+          error: "The wallet cancelled this action.",
+        });
+        return undefined;
+      }
+      if (!isSuccessfulWriteReceipt(receipt)) {
+        dispatch({
+          type: "REVERTED",
+          error: "The transaction reverted onchain.",
+        });
+        return undefined;
+      }
+      dispatch({ type: "CONFIRM" });
+      return reconcileSuccessfulWrite({
+        dispatch,
+        receipt,
+        reconcile,
+      });
+    } catch (error) {
+      dispatch({
+        type: waitingForReceipt ? "UNCERTAIN" : "FAILED",
+        error: decodeTransactionError(error),
+      });
+      return undefined;
+    }
   }
 
   async function perform(
     label: string,
-    intent: WriteIntent,
     simulate: () => Promise<SendWrite>,
-    reconcile: (receipt?: WriteReceipt) => Promise<unknown | undefined>,
+    reconcile: (
+      receipt: SuccessfulWriteReceipt,
+    ) => Promise<unknown | undefined>,
     approve?: () => Promise<SendWrite>,
   ) {
-    setPreparedAction(label);
-    const tracked = recovery.track({
-      label,
-      intent,
-      reconcile,
-    });
-    const outcome = await executeTransaction({
-      dispatch,
-      simulate,
-      submit: (send) => send(),
-      wait,
-      approval: approve
-        ? { simulate: approve, submit: (send) => send(), wait }
-        : undefined,
-      reconcile: tracked.reconcile,
-      lifecycle: tracked.lifecycle,
-    });
-    if (outcome.status !== "uncertain") tracked.clear();
-    return outcome.status === "reconciled" ? outcome.result : undefined;
+    if (operationInFlight.current) return undefined;
+    operationInFlight.current = true;
+    try {
+      return await performUnlocked(label, simulate, reconcile, approve);
+    } finally {
+      operationInFlight.current = false;
+    }
   }
 
   async function reconcileSnapshot(
@@ -361,6 +430,7 @@ export function MembershipExperience({
       !account.address
     )
       return;
+    const payer = account.address;
     if (needsChoice && choiceAddress === undefined) {
       dispatch({
         type: "FAILED",
@@ -388,28 +458,18 @@ export function MembershipExperience({
             : "locked-address";
     await perform(
       primaryTitle,
-      {
-        kind: "membership-payment",
-        tier: snapshot.address,
-        payer: account.address,
-        recipient: account.address,
-        gross: selfPreview.gross,
-        periods: snapshot.pricePerPeriod === 0n ? 1n : periodValue,
-        fromBlock: capturedBlock + 1n,
-        minimumExpiration: selfPreview.resultingExpiration,
-        minimumShares: priorShares + selfPreview.sharesAdded,
-        referralStatus:
-          expectedReferral === "locked-none"
-            ? 1
-            : expectedReferral === "locked-address"
-              ? 2
-              : 0,
-      },
       simulate,
-      () =>
+      (receipt) =>
         reconcileSnapshot((next) => {
           const credential = next.credential;
           return Boolean(
+            receiptProvesPayment(receipt, {
+              tier: snapshot.address,
+              payer,
+              recipient: payer,
+              gross: selfPreview.gross,
+              periods: snapshot.pricePerPeriod === 0n ? 1n : periodValue,
+            }) &&
             credential &&
             credential.expiration >= selfPreview.resultingExpiration &&
             credential.shares >= priorShares + selfPreview.sharesAdded &&
@@ -431,16 +491,6 @@ export function MembershipExperience({
       return;
     await perform(
       `Gift ${giftPeriodValue} period${giftPeriodValue === 1n ? "" : "s"}`,
-      {
-        kind: "membership-gift",
-        tier: snapshot.address,
-        payer: account.address!,
-        recipient: normalizedGift,
-        gross: giftPreview.gross,
-        periods: giftPeriodValue,
-        fromBlock: capturedBlock + 1n,
-        minimumExpiration: giftPreview.resultingExpiration,
-      },
       tierWrite("gift", [
         normalizedGift,
         giftPeriodValue,
@@ -451,7 +501,18 @@ export function MembershipExperience({
             : 2,
         giftState.data.referrer,
       ]),
-      async () => {
+      async (receipt) => {
+        if (
+          !receiptProvesPayment(receipt, {
+            tier: snapshot.address,
+            payer: account.address!,
+            recipient: normalizedGift,
+            gross: giftPreview.gross,
+            periods: giftPeriodValue,
+          })
+        ) {
+          return undefined;
+        }
         const blockNumber = await client.getBlockNumber();
         const recipient = await readGiftRecipientState(client, {
           tier: snapshot.address,
@@ -849,14 +910,6 @@ export function MembershipExperience({
                   onClick={() =>
                     void perform(
                       "Claim membership rewards",
-                      {
-                        kind: "reward-claim",
-                        tier: snapshot.address,
-                        tokenId: snapshot.credential!.tokenId,
-                        owner: snapshot.credential!.owner,
-                        amount: snapshot.credential!.claimableReward,
-                        fromBlock: capturedBlock + 1n,
-                      },
                       tierWrite("claimReward", [snapshot.credential!.tokenId]),
                       (receipt) =>
                         reconcileSnapshot(
@@ -866,7 +919,7 @@ export function MembershipExperience({
                               tokenId: snapshot.credential!.tokenId,
                               owner: snapshot.credential!.owner,
                               amount: snapshot.credential!.claimableReward,
-                            }) || next.credential?.claimableReward === 0n,
+                            }) && next.credential?.claimableReward === 0n,
                         ),
                     )
                   }
@@ -892,13 +945,6 @@ export function MembershipExperience({
                 onClick={() =>
                   void perform(
                     "Claim referral proceeds",
-                    {
-                      kind: "referral-claim",
-                      tier: snapshot.address,
-                      referrer: snapshot.wallet!,
-                      amount: snapshot.claimableReferral ?? 0n,
-                      fromBlock: capturedBlock + 1n,
-                    },
                     tierWrite("claimReferral"),
                     (receipt) =>
                       reconcileSnapshot(
@@ -910,7 +956,7 @@ export function MembershipExperience({
                               referrer: snapshot.wallet,
                               amount: snapshot.claimableReferral ?? 0n,
                             }),
-                          ) || (next.claimableReferral ?? 0n) === 0n,
+                          ) && (next.claimableReferral ?? 0n) === 0n,
                       ),
                   )
                 }
@@ -934,13 +980,6 @@ export function MembershipExperience({
                   onClick={() =>
                     void perform(
                       "Withdraw creator proceeds",
-                      {
-                        kind: "tier-withdrawal",
-                        tier: snapshot.address,
-                        owner: snapshot.creator,
-                        amount: snapshot.creatorProceeds!,
-                        fromBlock: capturedBlock + 1n,
-                      },
                       tierWrite("withdrawCreatorProceeds"),
                       (receipt) =>
                         reconcileSnapshot(
@@ -949,7 +988,7 @@ export function MembershipExperience({
                               tier: snapshot.address,
                               owner: snapshot.creator,
                               amount: snapshot.creatorProceeds!,
-                            }) || next.creatorProceeds === 0n,
+                            }) && next.creatorProceeds === 0n,
                         ),
                     )
                   }
@@ -984,14 +1023,6 @@ export function MembershipExperience({
                   onClick={() =>
                     void perform(
                       "Synchronize inactive capacity",
-                      {
-                        kind: "synchronize",
-                        tier: snapshot.address,
-                        tokenId: snapshot.credential!.tokenId,
-                        previousOccupied: snapshot.credential!.occupied,
-                        previousActive: snapshot.credential!.active,
-                        fromBlock: capturedBlock + 1n,
-                      },
                       tierWrite("synchronize", [snapshot.credential!.tokenId]),
                       () =>
                         reconcileSnapshot(
@@ -1062,10 +1093,7 @@ export function MembershipExperience({
         </p>
       )}
       <p className="eyebrow">Prepared action · {preparedAction}</p>
-      <TransactionFlow
-        onReconcile={() => void recovery.recheck()}
-        state={transaction}
-      />
+      <TransactionFlow state={transaction} />
     </div>
   );
 }

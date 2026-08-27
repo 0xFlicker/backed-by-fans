@@ -92,12 +92,12 @@ the confirmed block. Important protocol events include:
   `OwnershipTransferred` for both factory and tier.
 
 An event index is optional convenience infrastructure, never a source of truth.
-Before submission, persist the exact action intent and its captured block. After
-a replaced, dropped, reverted, or uncertain transaction, locate the final
-receipt if possible; otherwise query canonical logs from that captured block.
-Require the exact event fields for the intended action and any direct-state
-postconditions that cannot be established from the event alone. A current
-mutable value by itself is not proof that the pending action produced it.
+Wagmi and viem exclusively own receipt waiting, polling, replacement detection,
+and transaction outcome classification. After they return a successful receipt,
+the application may decode exact event fields from that supplied receipt and
+reread the affected canonical contract state before showing product success.
+The application does not persist write intents, rediscover receipts, scan
+historical logs, or infer same-nonce outcomes.
 
 ## Standards
 

@@ -1,11 +1,11 @@
 import { parseEventLogs, type Address } from "viem";
 
 import { tierAbi } from "@/contracts/abis";
-import type { WriteReceipt } from "@/features/protocol/write-transaction";
+import type { SuccessfulReceiptLogs } from "@/features/protocol/write-reconciliation";
 import { isSameAddress } from "@/lib/address";
 
 export function receiptProvesPayment(
-  receipt: WriteReceipt | undefined,
+  receipt: SuccessfulReceiptLogs,
   input: {
     tier: Address;
     payer: Address;
@@ -14,7 +14,7 @@ export function receiptProvesPayment(
     periods: bigint;
   },
 ) {
-  if (!receipt?.logs || input.periods === 0n) return false;
+  if (input.periods === 0n) return false;
   return parseEventLogs({
     abi: tierAbi,
     eventName: "PaymentProcessed",
@@ -31,10 +31,10 @@ export function receiptProvesPayment(
 }
 
 export function receiptProvesRewardClaim(
-  receipt: WriteReceipt | undefined,
+  receipt: SuccessfulReceiptLogs,
   input: { tier: Address; tokenId: bigint; owner: Address; amount: bigint },
 ) {
-  if (!receipt?.logs || input.amount === 0n) return false;
+  if (input.amount === 0n) return false;
   return parseEventLogs({
     abi: tierAbi,
     eventName: "RewardClaimed",
@@ -50,10 +50,10 @@ export function receiptProvesRewardClaim(
 }
 
 export function receiptProvesReferralClaim(
-  receipt: WriteReceipt | undefined,
+  receipt: SuccessfulReceiptLogs,
   input: { tier: Address; referrer: Address; amount: bigint },
 ) {
-  if (!receipt?.logs || input.amount === 0n) return false;
+  if (input.amount === 0n) return false;
   return parseEventLogs({
     abi: tierAbi,
     eventName: "ReferralClaimed",
@@ -68,7 +68,7 @@ export function receiptProvesReferralClaim(
 }
 
 export function receiptProvesMembershipRefund(
-  receipt: WriteReceipt | undefined,
+  receipt: SuccessfulReceiptLogs,
   input: {
     tier: Address;
     tokenId: bigint;
@@ -76,7 +76,6 @@ export function receiptProvesMembershipRefund(
     tierOwner: Address;
   },
 ) {
-  if (!receipt?.logs) return false;
   return parseEventLogs({
     abi: tierAbi,
     eventName: "MembershipRefunded",

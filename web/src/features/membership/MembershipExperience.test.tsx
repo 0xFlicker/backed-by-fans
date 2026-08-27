@@ -10,7 +10,7 @@ const wallet = getAddress("0x1111111111111111111111111111111111111111");
 vi.mock("wagmi", () => ({
   useAccount: () => ({ address: wallet, isConnected: true }),
   useChainId: () => 46_630,
-  useWalletClient: () => ({ data: { writeContract: vi.fn() } }),
+  useWriteContract: () => ({ isPending: false, writeContractAsync: vi.fn() }),
 }));
 vi.mock("@/components/WalletControl", () => ({
   WalletControl: () => <button type="button">Connect wallet</button>,

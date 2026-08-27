@@ -104,7 +104,6 @@ export async function installAnvilWallet(page: Page, initialAccount: Address) {
       type Listener = (...args: unknown[]) => void;
       const listeners = new Map<string, Set<Listener>>();
       let activeAccount: string = account;
-      let loseNextSendResponse = false;
       let requestId = 0;
 
       async function forwardRpc(method: string, params: readonly unknown[]) {
@@ -182,26 +181,17 @@ export async function installAnvilWallet(page: Page, initialAccount: Address) {
               { ...transaction, gas: `0x${bufferedGas.toString(16)}` },
             ];
           }
-          const result = await forwardRpc(method, forwardedParams);
-          if (method === "eth_sendTransaction" && loseNextSendResponse) {
-            loseNextSendResponse = false;
-            throw new Error("Local wallet response lost after broadcast.");
-          }
-          return result;
+          return forwardRpc(method, forwardedParams);
         },
       };
       const walletWindow = window as typeof window & {
         __bbfSetAnvilAccount?: (nextAccount: string) => void;
-        __bbfLoseNextSendResponse?: () => void;
       };
       walletWindow.__bbfSetAnvilAccount = (nextAccount) => {
         activeAccount = nextAccount;
         for (const listener of listeners.get("accountsChanged") ?? []) {
           listener([activeAccount]);
         }
-      };
-      walletWindow.__bbfLoseNextSendResponse = () => {
-        loseNextSendResponse = true;
       };
       Object.defineProperty(window, "ethereum", {
         configurable: false,
@@ -258,18 +248,6 @@ export async function switchAnvilAccount(page: Page, account: Address) {
       name: accountPattern(account),
     }),
   ).toBeVisible();
-}
-
-export async function loseNextSendResponse(page: Page) {
-  await page.evaluate(() => {
-    const walletWindow = window as typeof window & {
-      __bbfLoseNextSendResponse?: () => void;
-    };
-    if (!walletWindow.__bbfLoseNextSendResponse) {
-      throw new Error("The configured Anvil wallet is unavailable.");
-    }
-    walletWindow.__bbfLoseNextSendResponse();
-  });
 }
 
 export async function expectReconciled(page: Page, preparedAction?: string) {

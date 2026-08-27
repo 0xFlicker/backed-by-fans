@@ -1,13 +1,14 @@
-import { getAddress, type Address, type PublicClient } from "viem";
+import {
+  getAddress,
+  parseEventLogs,
+  type Address,
+  type PublicClient,
+} from "viem";
 
 import { factoryAbi, tierAbi } from "@/contracts/abis";
 import type { TierConfig } from "@/features/creator/config";
+import type { SuccessfulWriteReceipt } from "@/features/protocol/write-reconciliation";
 import { isSameAddress } from "@/lib/address";
-
-export type RegistryRecovery =
-  | { status: "not-found"; currentCount: bigint }
-  | { status: "found"; currentCount: bigint; tier: Address }
-  | { status: "ambiguous"; currentCount: bigint; tiers: Address[] };
 
 async function matchesLaunchTerms(
   client: PublicClient,
@@ -119,50 +120,43 @@ async function matchesLaunchTerms(
   );
 }
 
-export async function recoverCreatedTier(
+export async function reconcileCreatedTier(
   client: PublicClient,
   input: {
     factory: Address;
-    fromIndex: bigint;
     config: TierConfig;
+    receipt: SuccessfulWriteReceipt;
   },
-): Promise<RegistryRecovery> {
-  const blockNumber = await client.getBlockNumber();
-  const currentCount = await client.readContract({
-    address: input.factory,
+): Promise<Address | undefined> {
+  const events = parseEventLogs({
     abi: factoryAbi,
-    functionName: "tierCount",
-    blockNumber,
-  });
-  if (currentCount <= input.fromIndex) {
-    return { status: "not-found", currentCount };
-  }
+    eventName: "TierCreated",
+    logs: input.receipt.logs,
+    strict: true,
+  }).filter(
+    (event) =>
+      isSameAddress(event.address, input.factory) &&
+      isSameAddress(event.args.creator, input.config.creator) &&
+      event.args.name === input.config.name &&
+      event.args.symbol === input.config.symbol,
+  );
+  if (events.length !== 1) return undefined;
 
-  const added = currentCount - input.fromIndex;
-  if (added > 100n) {
-    throw new RangeError(
-      "More than 100 tiers were added while deployment was uncertain; review the registry manually before retrying.",
-    );
-  }
-  const candidates = await client.readContract({
+  const tier = getAddress(events[0].args.tier);
+  const blockNumber = await client.getBlockNumber();
+  if (blockNumber < input.receipt.blockNumber) return undefined;
+  const registered = await client.readContract({
     address: input.factory,
     abi: factoryAbi,
     functionName: "tiers",
-    args: [input.fromIndex, added],
+    args: [events[0].args.tierIndex, 1n],
     blockNumber,
   });
-  const matches: Address[] = [];
-  for (const tier of candidates) {
-    if (await matchesLaunchTerms(client, tier, input.config, blockNumber)) {
-      matches.push(getAddress(tier));
-    }
+  if (registered.length !== 1 || !isSameAddress(registered[0], tier)) {
+    return undefined;
   }
 
-  if (matches.length === 1) {
-    return { status: "found", currentCount, tier: matches[0] };
-  }
-  if (matches.length > 1) {
-    return { status: "ambiguous", currentCount, tiers: matches };
-  }
-  return { status: "not-found", currentCount };
+  return (await matchesLaunchTerms(client, tier, input.config, blockNumber))
+    ? tier
+    : undefined;
 }

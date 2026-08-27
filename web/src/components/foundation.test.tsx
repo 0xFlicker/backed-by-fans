@@ -106,12 +106,10 @@ describe("foundation status components", () => {
     expect(onRetry).toHaveBeenCalledOnce();
   });
 
-  it("offers only an onchain recheck for an uncertain submitted action", async () => {
-    const onReconcile = vi.fn();
+  it("leaves uncertain outcomes to wallet or explorer inspection", () => {
     const onRetry = vi.fn();
     render(
       <TransactionFlow
-        onReconcile={onReconcile}
         onRetry={onRetry}
         state={{
           phase: "uncertain",
@@ -125,10 +123,7 @@ describe("foundation status components", () => {
     expect(
       screen.queryByRole("button", { name: /retry from simulation/i }),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      screen.getByRole("button", { name: /recheck onchain outcome/i }),
-    );
-    expect(onReconcile).toHaveBeenCalledOnce();
+    expect(screen.getByText(/wallet or explorer/i)).toBeVisible();
     expect(onRetry).not.toHaveBeenCalled();
   });
 });

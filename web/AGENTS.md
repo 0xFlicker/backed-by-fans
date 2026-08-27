@@ -90,6 +90,11 @@ replacement is safe to retry. Those are wallet-library responsibilities.
   primitive that should own the behavior and verify its pinned API and types.
 - Never report the absence of application-local polling, persistence, locking,
   nonce handling, or replacement inference as a defect.
+- Do not speculate that a rejected wagmi write secretly broadcast and use that
+  speculation to justify application recovery. Without a library-supplied
+  hash, surface the library error. If wagmi mishandles a reproducible response-
+  loss case, take the reproduction and fix upstream instead of inferring an
+  onchain outcome in the dapp.
 - Tests must exercise the wagmi/viem integration boundary and domain
   postconditions, not create a parallel wallet implementation and then prove
   that implementation internally consistent.

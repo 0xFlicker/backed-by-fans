@@ -1,27 +1,24 @@
 "use client";
 
-import { useMemo, useReducer, useState } from "react";
+import { useMemo, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits, getAddress, zeroAddress, type Hash } from "viem";
-import { useAccount, useChainId, useWalletClient } from "wagmi";
+import { useAccount, useChainId, useWriteContract } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
 import { factoryAbi } from "@/contracts/abis";
 import { protocolPermissions } from "@/features/protocol/authority";
-import type { WriteIntent } from "@/features/protocol/pending-write";
-import { recoverPendingWrite } from "@/features/protocol/pending-write-recovery";
 import {
   readProtocolState,
   type ProtocolSnapshot,
 } from "@/features/protocol/protocol-read";
 import {
-  executeTransaction,
-  waitForWriteReceipt,
-  type WriteReceipt,
-} from "@/features/protocol/write-transaction";
-import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
+  isSuccessfulWriteReceipt,
+  reconcileSuccessfulWrite,
+  type SuccessfulWriteReceipt,
+} from "@/features/protocol/write-reconciliation";
 import { receiptProvesProtocolWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import { factoryWriteGuard } from "@/features/protocol/factory-authenticity";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
@@ -34,6 +31,7 @@ import {
   unavailableDeploymentState,
 } from "@/lib/read-state";
 import {
+  decodeTransactionError,
   initialTransactionState,
   isTransactionInFlight,
   transactionReducer,
@@ -50,7 +48,7 @@ function ProtocolControls({
 }) {
   const account = useAccount();
   const chainId = useChainId();
-  const wallet = useWalletClient({ chainId: publicConfig.chainId });
+  const write = useWriteContract();
   const client = useMemo(() => createDirectReadClient(), []);
   const gas = useQuery({
     queryKey: ["protocol-gas-balance", snapshot.factory, account.address],
@@ -64,17 +62,7 @@ function ProtocolControls({
     transactionReducer,
     initialTransactionState,
   );
-  const recovery = useTransactionReconciliation(
-    dispatch,
-    `${chainId}:${account.address ?? "disconnected"}:${snapshot.factory}`,
-    {
-      recover: (pending) => recoverPendingWrite(client, pending),
-      onRecovered: (_resolution, pending) => {
-        setAction(pending.label);
-        void onRefresh();
-      },
-    },
-  );
+  const operationInFlight = useRef(false);
   const permissions = protocolPermissions(snapshot, account.address);
   const guard = factoryWriteGuard({
     deployment: publicConfig.deployment,
@@ -84,8 +72,8 @@ function ProtocolControls({
   });
   const writesVerified =
     guard.enabled &&
-    Boolean(wallet.data) &&
     (gas.data ?? 0n) > 0n &&
+    !write.isPending &&
     !isTransactionInFlight(transaction.phase);
 
   function factoryWrite(
@@ -97,7 +85,7 @@ function ProtocolControls({
     args: readonly unknown[] = [],
   ) {
     return async (): Promise<SendWrite> => {
-      if (!account.address || !wallet.data) {
+      if (!account.address) {
         throw new Error("Connect the authorized wallet before simulating.");
       }
       const { request } = await client.simulateContract({
@@ -108,41 +96,93 @@ function ProtocolControls({
         args,
       } as never);
       await assertSufficientGas(client, account.address, request);
-      return () => wallet.data!.writeContract(request);
+      return () => write.writeContractAsync(request);
     };
+  }
+
+  async function performUnlocked(
+    label: string,
+    simulate: () => Promise<SendWrite>,
+    provesAction: (
+      next: ProtocolSnapshot,
+      receipt: SuccessfulWriteReceipt,
+    ) => boolean,
+  ) {
+    setAction(label);
+    let waitingForReceipt = false;
+    try {
+      dispatch({ type: "SIMULATE" });
+      const send = await simulate();
+      dispatch({ type: "SIMULATED", approvalRequired: false });
+      dispatch({ type: "SIGN" });
+      const hash = await send();
+      dispatch({ type: "SIGNED" });
+      dispatch({ type: "SUBMITTED", hash });
+      waitingForReceipt = true;
+      let cancelled = false;
+      const receipt = await client.waitForTransactionReceipt({
+        hash,
+        onReplaced: (replacement) => {
+          cancelled ||= replacement.reason === "cancelled";
+          dispatch({
+            type: "REPLACED",
+            replacementHash: replacement.transaction.hash,
+            reason: replacement.reason,
+          });
+        },
+      });
+      waitingForReceipt = false;
+      if (cancelled) {
+        dispatch({
+          type: "CANCELLED",
+          error: "The wallet cancelled this protocol action.",
+        });
+        return;
+      }
+      if (!isSuccessfulWriteReceipt(receipt)) {
+        dispatch({
+          type: "REVERTED",
+          error: "The protocol transaction reverted onchain.",
+        });
+        return;
+      }
+      dispatch({ type: "CONFIRM" });
+      await reconcileSuccessfulWrite({
+        dispatch,
+        receipt,
+        reconcile: async (successfulReceipt) => {
+          const refreshed = await onRefresh();
+          if (refreshed?.status !== "valid") {
+            throw new Error("Fresh protocol state was unavailable.");
+          }
+          return provesAction(refreshed.data, successfulReceipt)
+            ? refreshed.data
+            : undefined;
+        },
+      });
+    } catch (error) {
+      dispatch({
+        type: waitingForReceipt ? "UNCERTAIN" : "FAILED",
+        error: decodeTransactionError(error),
+      });
+    }
   }
 
   async function perform(
     label: string,
-    intent: WriteIntent,
     simulate: () => Promise<SendWrite>,
-    provesAction: (next: ProtocolSnapshot, receipt?: WriteReceipt) => boolean,
+    provesAction: (
+      next: ProtocolSnapshot,
+      receipt: SuccessfulWriteReceipt,
+    ) => boolean,
   ) {
-    setAction(label);
-    const tracked = recovery.track({
-      label,
-      intent,
-      reconcile: async (receipt?: WriteReceipt) => {
-        const refreshed = await onRefresh();
-        if (refreshed?.status !== "valid") {
-          throw new Error("Fresh protocol state was unavailable.");
-        }
-        return provesAction(refreshed.data, receipt)
-          ? refreshed.data
-          : undefined;
-      },
-    });
-    const outcome = await executeTransaction({
-      dispatch,
-      simulate,
-      submit: (send) => send(),
-      wait: async (hash, onReplaced) => {
-        return waitForWriteReceipt(client, hash, onReplaced);
-      },
-      reconcile: tracked.reconcile,
-      lifecycle: tracked.lifecycle,
-    });
-    if (outcome.status !== "uncertain") tracked.clear();
+    if (operationInFlight.current) return;
+    operationInFlight.current = true;
+    try {
+      await performUnlocked(label, simulate, provesAction);
+    } finally {
+      operationInFlight.current = false;
+    }
   }
 
   return (
@@ -221,13 +261,6 @@ function ProtocolControls({
             onClick={() =>
               void perform(
                 "Change protocol fee recipient",
-                {
-                  kind: "protocol-fee-recipient",
-                  factory: snapshot.factory,
-                  previous: snapshot.feeRecipient,
-                  expected: getAddress(feeRecipient.trim()),
-                  fromBlock: snapshot.authenticity.capturedBlock + 1n,
-                },
                 factoryWrite("setFeeRecipient", [
                   getAddress(feeRecipient.trim()),
                 ]),
@@ -263,21 +296,13 @@ function ProtocolControls({
             onClick={() =>
               void perform(
                 "Withdraw protocol fees",
-                {
-                  kind: "protocol-withdrawal",
-                  factory: snapshot.factory,
-                  paymentToken: snapshot.paymentToken,
-                  recipient: snapshot.feeRecipient,
-                  amount: snapshot.protocolBalance,
-                  fromBlock: snapshot.authenticity.capturedBlock + 1n,
-                },
                 factoryWrite("withdrawProtocolFees"),
                 (next, receipt) =>
                   receiptProvesProtocolWithdrawal(receipt, {
                     factory: snapshot.factory,
                     recipient: snapshot.feeRecipient,
                     amount: snapshot.protocolBalance,
-                  }) || next.protocolBalance === 0n,
+                  }) && next.protocolBalance === 0n,
               )
             }
             type="button"
@@ -318,13 +343,6 @@ function ProtocolControls({
               onClick={() =>
                 void perform(
                   "Start protocol ownership transfer",
-                  {
-                    kind: "protocol-pending-owner",
-                    factory: snapshot.factory,
-                    previous: snapshot.pendingOwner,
-                    expected: getAddress(newOwner.trim()),
-                    fromBlock: snapshot.authenticity.capturedBlock + 1n,
-                  },
                   factoryWrite("transferOwnership", [
                     getAddress(newOwner.trim()),
                   ]),
@@ -345,13 +363,6 @@ function ProtocolControls({
               onClick={() =>
                 void perform(
                   "Accept protocol ownership",
-                  {
-                    kind: "protocol-accept-owner",
-                    factory: snapshot.factory,
-                    previousOwner: snapshot.owner,
-                    expected: account.address!,
-                    fromBlock: snapshot.authenticity.capturedBlock + 1n,
-                  },
                   factoryWrite("acceptOwnership"),
                   (next) =>
                     account.address !== undefined &&
@@ -374,10 +385,7 @@ function ProtocolControls({
         </p>
       )}
       <p className="eyebrow">Prepared action · {action}</p>
-      <TransactionFlow
-        onReconcile={() => void recovery.recheck()}
-        state={transaction}
-      />
+      <TransactionFlow state={transaction} />
     </div>
   );
 }

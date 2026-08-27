@@ -17,11 +17,9 @@ const phases: { phase: TransactionPhase; label: string }[] = [
 export function TransactionFlow({
   state,
   onRetry,
-  onReconcile,
 }: {
   state: TransactionState;
   onRetry?: () => void;
-  onReconcile?: () => void;
 }) {
   const activeIndex = phases.findIndex(({ phase }) => phase === state.phase);
   const retryable = ["cancelled", "reverted", "retry"].includes(state.phase);
@@ -73,20 +71,10 @@ export function TransactionFlow({
           Retry from simulation
         </button>
       )}
-      {state.phase === "uncertain" && onReconcile && (
-        <button
-          className="button button-dark"
-          onClick={onReconcile}
-          type="button"
-        >
-          Recheck onchain outcome
-        </button>
-      )}
       {state.phase === "uncertain" && (
         <p className="small-copy">
-          This exact action stays in this browser across a reload. Reopen its
-          wallet, chain, and contract context to recheck it. Do not clear site
-          data or resend only because a receipt or read timed out.
+          Check the transaction in your wallet or explorer and refresh the page
+          before deciding whether to submit another action.
         </p>
       )}
       {state.phase === "replacement" && (

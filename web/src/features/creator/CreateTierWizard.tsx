@@ -11,8 +11,13 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatUnits, isAddress, type Address } from "viem";
-import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
+import { formatUnits, type Address } from "viem";
+import {
+  useAccount,
+  useChainId,
+  useSwitchChain,
+  useWriteContract,
+} from "wagmi";
 
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
@@ -29,13 +34,12 @@ import {
   verifyFactoryAuthenticity,
 } from "@/features/protocol/factory-authenticity";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
-import { recoverCreatedTier } from "@/features/protocol/registry-recovery";
-import { recoverPendingWrite } from "@/features/protocol/pending-write-recovery";
+import { reconcileCreatedTier } from "@/features/protocol/registry-reconciliation";
 import {
-  executeTransaction,
-  waitForWriteReceipt,
-} from "@/features/protocol/write-transaction";
-import { useTransactionReconciliation } from "@/features/protocol/use-transaction-reconciliation";
+  isSuccessfulWriteReceipt,
+  reconcileSuccessfulWrite,
+  type SuccessfulWriteReceipt,
+} from "@/features/protocol/write-reconciliation";
 import { publicConfig } from "@/lib/config";
 import { createDirectReadClient } from "@/lib/direct-read";
 import {
@@ -95,7 +99,7 @@ export function CreateTierWizard() {
   const [economicsAcknowledged, setEconomicsAcknowledged] = useState(false);
   const [giftingAcknowledged, setGiftingAcknowledged] = useState(false);
   const [createdTier, setCreatedTier] = useState<Address>();
-  const [recoveryNote, setRecoveryNote] = useState<string>();
+  const [confirmationNote, setConfirmationNote] = useState<string>();
   const [transaction, dispatch] = useReducer(
     transactionReducer,
     initialTransactionState,
@@ -103,6 +107,7 @@ export function CreateTierWizard() {
   const deployInFlight = useRef(false);
   const account = useAccount();
   const chainId = useChainId();
+  const write = useWriteContract();
   const client = useMemo(() => createDirectReadClient(), []);
   const gas = useQuery({
     queryKey: ["creator-gas-balance", publicConfig.chainId, account.address],
@@ -113,31 +118,7 @@ export function CreateTierWizard() {
     ),
     queryFn: () => client.getBalance({ address: account.address! }),
   });
-  const recovery = useTransactionReconciliation(
-    dispatch,
-    `${chainId}:${account.address ?? "disconnected"}:${
-      publicConfig.deployment.status === "ready"
-        ? publicConfig.deployment.factoryAddress
-        : "factory-unavailable"
-    }`,
-    {
-      recover: (pending) => recoverPendingWrite(client, pending),
-      onRecovered: (resolution, pending) => {
-        if (
-          pending.intent.kind === "create-tier" &&
-          typeof resolution.result === "string" &&
-          isAddress(resolution.result)
-        ) {
-          setCreatedTier(resolution.result);
-          setRecoveryNote(
-            "A durable registry recheck confirmed this exact tier after the page was reopened.",
-          );
-        }
-      },
-    },
-  );
   const switchChain = useSwitchChain();
-  const wallet = useWalletClient({ chainId: publicConfig.chainId });
   const result = useMemo(
     () => evaluateCreatorForm(form, account.address),
     [account.address, form],
@@ -159,15 +140,15 @@ export function CreateTierWizard() {
     formValid &&
     acknowledged &&
     guard.enabled &&
-    Boolean(wallet.data) &&
     (gas.data ?? 0n) > 0n &&
+    !write.isPending &&
     !isTransactionInFlight(transaction.phase);
 
   function update(key: keyof CreatorForm) {
     return (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setForm((current) => ({ ...current, [key]: event.target.value }));
       setCreatedTier(undefined);
-      setRecoveryNote(undefined);
+      setConfirmationNote(undefined);
     };
   }
 
@@ -178,27 +159,25 @@ export function CreateTierWizard() {
     setStep(next.id);
   }
 
-  async function reconcileDeployment(config: TierConfig, fromIndex: bigint) {
+  async function reconcileDeployment(
+    config: TierConfig,
+    receipt: SuccessfulWriteReceipt,
+  ) {
     if (publicConfig.deployment.status !== "ready") return undefined;
-    const recovered = await recoverCreatedTier(client, {
+    const tier = await reconcileCreatedTier(client, {
       factory: publicConfig.deployment.factoryAddress,
-      fromIndex,
       config,
+      receipt,
     });
-    if (recovered.status === "found") {
-      setCreatedTier(recovered.tier);
-      setRecoveryNote(
-        "The factory registry confirms this tier with the complete reviewed launch terms.",
+    if (tier) {
+      setCreatedTier(tier);
+      setConfirmationNote(
+        "The successful receipt and factory registry confirm this tier with the complete reviewed launch terms.",
       );
-      return recovered.tier;
-    }
-    if (recovered.status === "ambiguous") {
-      throw new Error(
-        "More than one matching tier appeared in the registry. Review those addresses before another deployment.",
-      );
+      return tier;
     }
     throw new Error(
-      "The factory has not registered this reviewed tier yet. Do not assume deployment succeeded.",
+      "The successful receipt did not prove one registered tier with the complete reviewed launch terms.",
     );
   }
 
@@ -216,7 +195,6 @@ export function CreateTierWizard() {
     if (
       !deployEnabled ||
       !result.config ||
-      !wallet.data ||
       publicConfig.deployment.status !== "ready" ||
       !account.address
     ) {
@@ -226,45 +204,65 @@ export function CreateTierWizard() {
     const config = result.config;
     const factory = publicConfig.deployment.factoryAddress;
 
-    let fromIndex: bigint;
+    setConfirmationNote(undefined);
+
+    let waitingForReceipt = false;
     try {
-      fromIndex = await client.readContract({
+      dispatch({ type: "SIMULATE" });
+      const { request } = await client.simulateContract({
+        account: creator,
         address: factory,
         abi: factoryAbi,
-        functionName: "tierCount",
+        functionName: "createTier",
+        args: [config],
+      });
+      await assertSufficientGas(client, creator, request);
+      dispatch({ type: "SIMULATED", approvalRequired: false });
+      dispatch({ type: "SIGN" });
+      const hash = await write.writeContractAsync(request);
+      dispatch({ type: "SIGNED" });
+      dispatch({ type: "SUBMITTED", hash });
+      waitingForReceipt = true;
+      let cancelled = false;
+      const receipt = await client.waitForTransactionReceipt({
+        hash,
+        onReplaced: (replacement) => {
+          cancelled ||= replacement.reason === "cancelled";
+          dispatch({
+            type: "REPLACED",
+            replacementHash: replacement.transaction.hash,
+            reason: replacement.reason,
+          });
+        },
+      });
+      waitingForReceipt = false;
+      if (cancelled) {
+        dispatch({
+          type: "CANCELLED",
+          error: "The wallet cancelled the deployment transaction.",
+        });
+        return;
+      }
+      if (!isSuccessfulWriteReceipt(receipt)) {
+        dispatch({
+          type: "REVERTED",
+          error: "The deployment transaction reverted onchain.",
+        });
+        return;
+      }
+      dispatch({ type: "CONFIRM" });
+      await reconcileSuccessfulWrite({
+        dispatch,
+        receipt,
+        reconcile: (successfulReceipt) =>
+          reconcileDeployment(config, successfulReceipt),
       });
     } catch (error) {
-      dispatch({ type: "FAILED", error: decodeTransactionError(error) });
-      return;
+      dispatch({
+        type: waitingForReceipt ? "UNCERTAIN" : "FAILED",
+        error: decodeTransactionError(error),
+      });
     }
-    setRecoveryNote(undefined);
-
-    const tracked = recovery.track({
-      label: "Deploy membership",
-      intent: { kind: "create-tier", factory, fromIndex, config },
-      reconcile: () => reconcileDeployment(config, fromIndex),
-    });
-    const outcome = await executeTransaction({
-      dispatch,
-      simulate: async () => {
-        const { request } = await client.simulateContract({
-          account: creator,
-          address: factory,
-          abi: factoryAbi,
-          functionName: "createTier",
-          args: [config],
-        });
-        await assertSufficientGas(client, creator, request);
-        return request;
-      },
-      submit: (request) => wallet.data.writeContract(request),
-      wait: async (hash, onReplaced) => {
-        return waitForWriteReceipt(client, hash, onReplaced);
-      },
-      reconcile: tracked.reconcile,
-      lifecycle: tracked.lifecycle,
-    });
-    if (outcome.status !== "uncertain") tracked.clear();
   }
 
   if (createdTier) {
@@ -279,7 +277,7 @@ export function CreateTierWizard() {
         <h1 className="font-display" id="creator-success-title">
           Your membership is ready to share.
         </h1>
-        <p>{recoveryNote}</p>
+        <p>{confirmationNote}</p>
         <code>{createdTier}</code>
         <div className="creator-actions">
           <Link className="button button-applause" href={sharePath}>
@@ -719,7 +717,6 @@ export function CreateTierWizard() {
               Simulate and deploy membership
             </button>
             <TransactionFlow
-              onReconcile={() => void recovery.recheck()}
               onRetry={() => void deploy()}
               state={transaction}
             />
