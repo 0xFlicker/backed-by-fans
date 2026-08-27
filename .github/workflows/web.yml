@@ -35,6 +35,9 @@ jobs:
       - name: Install pinned dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check generated contract bindings
+        run: bun run generate:check
+
       - name: Check formatting
         run: bun run format
 

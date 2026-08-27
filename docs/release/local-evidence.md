@@ -51,7 +51,7 @@ address inside the disposable chain and points its test-only EIP-1967
 implementation commitment at that same mock runtime solely to exercise the web
 authenticity guard. The mock can reject a selected recipient solely to prove
 the fixed-destination failure experience. It never asserts that the mock is
-USDG, never produces a deployment manifest, and never authorizes a public
+USDG, never changes public broadcast records or generated addresses, and never authorizes a public
 deployment.
 
 Local deterministic evidence is not a public testnet pilot, audit, independent

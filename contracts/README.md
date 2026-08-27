@@ -30,20 +30,20 @@ forge --version
 The reported Forge version must be `1.7.1`. No deployer key belongs in a dotenv
 file; use Foundry's encrypted keystore as described in `.env.example`.
 
-The repeatable broadcast, exact-block manifest, independent RPC check, and
-official testnet USDG evidence are documented in the
+The repeatable broadcast, Wagmi generation, source verification, and official
+testnet USDG evidence are documented in the
 [deployment runbook](../docs/runbooks/deployment.md).
 The exact official testnet proxy is pinned in the deployment guard and verified
 against live chain state. No public testnet protocol deployment is recorded
 until operational identities, an encrypted funded deployer, source verification,
-and captured-block evidence are available. The guard rejects arbitrary
-metadata-compatible tokens; mainnet remains outside the U7 runbook.
+and operational review are available. The guard rejects arbitrary
+metadata-compatible tokens. Mainnet additionally requires the exact `4663`
+confirmation value and every human release gate.
 
-The deployment manifest commits to the factory creation transaction and the
-validation-tier `createTier` transaction. Independent verification fetches both
-receipts, checks their blocks, sender/destination/created address, and hashes the
-actual input against current audited initcode or full call data. Runtime hashes
-alone cannot establish deployment provenance.
+Successful public Foundry broadcasts under `broadcast/DeployProtocol.s.sol/`
+are committed and consumed directly by Wagmi CLI. Anvil uses chain `31337` and
+a temporary `FOUNDRY_BROADCAST` directory, so local evidence cannot modify the
+public address map.
 
 The [local lifecycle evidence](../docs/release/local-evidence.md) exercises the
 complete creator/supporter and custody path deterministically. It is deliberately

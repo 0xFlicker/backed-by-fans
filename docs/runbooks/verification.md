@@ -1,82 +1,35 @@
 # Deployment verification runbook
 
-Status: **local procedure ready; no public deployment verified**.
+Status: **procedure ready; no public Backed By Fans deployment is asserted by
+this repository**.
 
-Use this after the broadcast and manifest capture steps in
-[deployment.md](deployment.md). A deployer cannot verify their own work alone.
-The verifier starts from a clean checkout, reproduces the pinned build, and uses
-a second RPC provider that is operationally independent from the broadcast RPC.
+After an authorized public broadcast, an operator other than the deployer
+should verify the following before promotion:
 
-## Required evidence
+1. The checked-in Foundry `run-latest.json` is for chain `46630` or `4663`, its
+   deployment transactions succeeded, and its factory address matches the
+   explorer.
+2. `bun run generate:check` is clean and `web/src/contracts.ts` contains that
+   address under the same chain ID without changing the other network.
+3. The factory is bound to the canonical USDG for that chain and exposes the
+   reviewed owner, empty pending owner, fixed fee recipient, renderer, tier
+   deployer, and protocol fee.
+4. Blockscout shows exact verified source for the renderer, factory, deployer,
+   and immutable code stores.
+5. `./scripts/verify-local.sh` passes from a clean checkout.
+6. The production web build visibly labels testnet, selects the exact chain in
+   chain-qualified tier links, rejects unsupported or undeployed chains, and
+   completes the applicable live-wallet lifecycle in
+   [testnet-pilot.md](../pilots/testnet-pilot.md).
 
-1. Fetch the manifest's captured block through the second RPC and compare its
-   hash exactly.
-2. Run `contracts/scripts/check-deployment.sh` against that RPC. It proves the
-   network/token, manifest-pinned factory creation and validation-tier call
-   transactions, their exact audited inputs and receipts, the validation
-   receipt's emitted tier/creator/index, creation blocks,
-   factory/deployer/store/tier bindings, code
-   hashes, exact validation-tier registry position, standards, ownership, empty
-   proxy slots, compiler settings, and exact verification URL network/address.
-3. Reconstruct `type(MembershipTier).creationCode` independently from the two
-   immutable code stores, skipping each STOP prefix, then compare length and
-   hash with the local artifact and deployer commitments.
-4. Confirm verified source pages for renderer, factory, deployer, both stores,
-   and the validation tier.
-5. Record the verifier, UTC time, clean source commit, RPC provider (never its
-   secret URL), command output digest, and disposition in the readiness record.
-6. On deployment day, separately record USDG proxy, current implementation and
-   authority, proxy and implementation code hashes, decimals, pause state, and
-   one observation block/hash. Do not infer these facts solely from a symbol.
-7. Confirm the readiness record's web public chain, factory address, and four
-   runtime hashes exactly equal the checked deployment observations before
-   building the public web artifact.
+Use ordinary Foundry, Cast, Blockscout, Wagmi, and Viem behavior for these
+checks. Do not add a second transaction-receipt engine, captured-block manifest,
+runtime-code-hash browser gate, signed readiness schema, or validation tier.
+The deployed contracts and their verified source remain the authority; the
+broadcast file is the durable generation input, not a substitute for chain
+state.
 
-```sh
-cd contracts
-../scripts/check-readiness-docs.sh
-./scripts/check-clean-room.sh
-forge build --sizes
-./scripts/check-deployment.sh deployments/robinhood-testnet.json "$SECOND_RPC_URL"
-```
-
-The current testnet manifest is blocked, so the last command must not be run as
-if a deployment exists. A transport error is not a contract mismatch. A block,
-code, source, ownership, or manifest mismatch invalidates the candidate.
-Running the Solidity checker alone is insufficient evidence because it cannot
-fetch or authenticate the manifest-pinned transaction receipts; the shell
-wrapper is the sole accepted end-to-end deployment verdict.
-
-## Post-deployment smoke
-
-Before public promotion, an operator independent of the deployer reconstructs
-the launch tier from the audited creation template and constructor inputs,
-proves the factory has no tier authority, and performs deliberately low-value
-payment/allocation plus claim or refund, creator/protocol withdrawal, and direct
-active-status reads through the production web build. Reconcile transaction
-receipts, fixed destinations, every custody bucket, and resulting active state.
-Record evidence in the readiness manifest. A local mock lifecycle cannot replace
-this public-chain smoke.
-
-## Immutable evidence and supersession
-
-Hash and sign the reviewed deployment and readiness JSON files outside the
-repository using the approved organizational signing method. Do not put a
-private key or signature secret in this repository. Record signer identity,
-scheme, signature, digest, and signing time in the immutable evidence bundle.
-Validate the populated record before signing:
-
-```sh
-./scripts/check-readiness-record.sh contracts/deployments/readiness-candidate.json
-```
-
-A `ready` record is rejected unless all eleven gates are `PASS` with nonempty
-evidence, an owner, review time, every frozen-artifact digest/build setting, and
-at least two complete signatures. The checked-in blocked template is not a
-release candidate.
-
-Never edit an accepted deployment manifest to reconcile a mismatch and never
-"roll back" chain state. Create a new manifest with a new identifier and an
-explicit `supersedes` reference; mark the prior record superseded in an append-
-only index. An incident record must explain why. A newer manifest is not valid
-until every gate is rerun against the new deployment.
+Mainnet remains a human release decision. The audit, accounting, ownership,
+Safe, monitoring, incident response, operational identity, explicit
+authorization, and provisional-brand gates in
+[mainnet-readiness.md](mainnet-readiness.md) must still pass before launch.

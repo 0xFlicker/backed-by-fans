@@ -39,12 +39,9 @@ jobs:
       - name: Run Forge build
         run: forge build --sizes
 
-      - name: Validate deployment tooling and checked-in manifest state
+      - name: Validate deployment tooling
         run: |
-          ../scripts/check-readiness-docs.sh
-          bash -n scripts/check-deployment.sh scripts/test-check-deployment.sh
-          bash scripts/test-check-deployment.sh
-          bash -n ../scripts/verify-local.sh
+          bash -n ../scripts/verify-local.sh ../scripts/test-web-anvil.sh
           forge test --match-path "test/deployment/*.t.sol" -vvv
 
       - name: Run canonical Robinhood testnet USDG fork checks

@@ -16,7 +16,7 @@ change, rerun it immediately and begin a fresh short observation window.
 - Tier solvency: token balance falls below `creatorProceeds + rewardReserve +
   totalReferralLiability`.
 - Authority: factory/tier owner, pending owner, fee recipient, deployer binding,
-  renderer, or canonical payment token differs from the signed manifest.
+  renderer, or canonical payment token differs from the reviewed deployment.
 - Runtime: code hash or code presence differs at factory, renderer, deployer,
   either creation-code store, or any monitored registered tier.
 - USDG: proxy implementation, authority, runtime hash, decimals, or pause state

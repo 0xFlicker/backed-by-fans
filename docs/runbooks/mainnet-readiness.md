@@ -12,7 +12,7 @@ from a green local test.
 | Gate | Status | Required evidence |
 | --- | --- | --- |
 | Canonical public testnet USDG | PASS | Paxos source, exact proxy pin, and live read-only observation recorded in [testnet USDG evidence](../release/testnet-usdg-evidence.md), reviewed 2026-08-26. |
-| Public testnet deployment and source verification | BLOCKED | Captured-block deployment manifest, exact source pages, second-RPC verification. |
+| Public testnet deployment and source verification | BLOCKED | Checked-in Foundry broadcast, generated Wagmi address, exact source pages, and independent operator verification. |
 | Public testnet lifecycle | BLOCKED | Factory deployment, creator tier, payment, allocation, claim, refund, natural expiry, sync, creator ownership transfer, child verification, and production web build. |
 | Unassisted public testnet creator/supporter pilot | BLOCKED | Completed [pilot record](../pilots/testnet-pilot.md), participant consent, issues/disposition. |
 | Brand and name launch readiness | BLOCKED | Every item in the [brand checklist](../brand/backed-by-fans-launch-readiness.md) has professional evidence. |
@@ -36,12 +36,12 @@ Robinhood testnet USDG proxy as
 `0x7E955252E15c84f5768B83c41a71F9eba181802F`. Revalidate both values and the
 deployment-day authority inventory from the linked official sources in
 [deployment.md](deployment.md) on execution day. A local mock is test evidence
-only and must never appear in a public deployment manifest.
+only and must never appear in a public Foundry broadcast or generated address map.
 
 ## Final decision
 
-A GO record must identify the exact signed deployment and readiness manifests,
-frozen commit/artifacts, chain/token, Safe identities, audit/accounting reports,
-pilot evidence, reproducibility evidence, monitoring owners, rollback-free
-incident plan, approvers, signatures, and UTC decision time. Any mismatch is
-NO-GO and requires a newly frozen, reviewed, superseding candidate.
+A GO record must identify the frozen commit and artifacts, checked-in mainnet
+Foundry broadcast, generated address, chain/token, Safe identities,
+audit/accounting reports, pilot evidence, reproducibility evidence, monitoring
+owners, incident plan, approvers, and UTC decision time. Any mismatch is NO-GO
+and requires a newly frozen and reviewed candidate.

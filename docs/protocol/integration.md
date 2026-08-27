@@ -1,7 +1,7 @@
 # Protocol integration guide
 
 This guide describes direct-chain integration with Backed By Fans v1. It is
-not a deployment registry. Resolve addresses from a signed deployment manifest,
+not a deployment registry. Resolve addresses from the Wagmi-generated chain map,
 then verify them against chain state before enabling a transaction.
 
 ## Authenticity and discovery

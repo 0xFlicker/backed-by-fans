@@ -3,9 +3,6 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "== Readiness documents =="
-"$repo_root/scripts/check-readiness-docs.sh"
-
 echo "== Contracts =="
 cd "$repo_root/contracts"
 ./scripts/check-clean-room.sh
@@ -30,6 +27,7 @@ slither . --config-file slither.config.json --fail-high
 echo "== Web =="
 cd "$repo_root/web"
 bun install --frozen-lockfile
+bun run generate:check
 bun run format
 bun run lint
 bun run test

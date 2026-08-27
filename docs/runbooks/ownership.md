@@ -32,7 +32,7 @@ fee recipient separately from the intended factory owner.
 
 ## Procedure
 
-1. Reproduce the current signed manifest and direct-read `owner`, `pendingOwner`,
+1. Reproduce the current checked-in broadcast and direct-read `owner`, `pendingOwner`,
    balances, liabilities, fee recipient, and pause/cap state.
 2. Verify the nominee's address and control through two independent channels.
 3. Initiate `transferOwnership`; record receipt and expected pending address.

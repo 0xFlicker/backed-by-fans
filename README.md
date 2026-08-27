@@ -25,8 +25,8 @@ become authorized because local checks pass: the current
 
 ## Local checks
 
-The repository-level verification command runs the documentation/manifest,
-clean-room, complete contract, static-analysis, web, and browser gates with no
+The repository-level verification command runs the clean-room, generated
+binding, complete contract, static-analysis, web, and browser gates with no
 network secrets:
 
 ```sh
@@ -53,6 +53,7 @@ Individual project checks are also available:
 ```sh
 cd web
 bun install --frozen-lockfile
+bun run generate:check
 bun run format
 bun run lint
 bun run typecheck
@@ -70,7 +71,7 @@ forge test
 
 Operator procedures are indexed by the
 [deployment](docs/runbooks/deployment.md),
-[independent verification](docs/runbooks/verification.md),
+[deployment verification](docs/runbooks/verification.md),
 [monitoring](docs/runbooks/monitoring.md),
 [incident response](docs/runbooks/incident-response.md),
 [ownership](docs/runbooks/ownership.md), and
