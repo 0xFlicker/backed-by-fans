@@ -290,21 +290,31 @@ contract DeploymentScriptsTest is Test {
             _CAPTURED_BLOCK_HASH,
             address(_factory),
             address(_validationTier),
+            0,
             urls
         );
         _checker.check(manifest, _CAPTURED_BLOCK_HASH);
     }
 
-    function test_validationTierMustRemainPristineUntilManifestCapture() public {
-        vm.prank(_tierOwner);
-        _validationTier.grantTime(makeAddr("grantRecipient"), 1);
+    function test_manifestUsesEmittedValidationTierIndexAfterAnotherTierIsCreated() public {
+        address laterTierOwner = makeAddr("laterTierOwner");
+        MembershipTypes.TierConfig memory laterConfig =
+            MembershipTestConfig.defaultConfig(laterTierOwner);
+        vm.prank(laterTierOwner);
+        _factory.createTier(laterConfig);
+
+        CheckDeployment.Manifest memory manifest = _capture();
+
+        assertEq(_factory.tierCount(), 2);
+        assertEq(manifest.validationTier, address(_validationTier));
+        assertEq(manifest.validationTierIndex, 0);
+        _checker.check(manifest, _CAPTURED_BLOCK_HASH);
 
         CheckDeployment.VerificationUrls memory urls =
             _verificationUrls(_factory, address(_validationTier), true);
-
         vm.expectRevert(
             abi.encodeWithSelector(
-                CheckDeployment.DeploymentCheckFailed.selector, "validationTierMustRemainPristine"
+                CheckDeployment.DeploymentCheckFailed.selector, "validationTierIndex"
             )
         );
         _checker.capture(
@@ -313,8 +323,25 @@ contract DeploymentScriptsTest is Test {
             _CAPTURED_BLOCK_HASH,
             address(_factory),
             address(_validationTier),
+            1,
             urls
         );
+    }
+
+    function test_publicPurchaseCannotInvalidateValidationTierCapture() public {
+        address member = makeAddr("validationTierMember");
+        uint256 price = _validationTier.pricePerPeriod();
+        _paymentToken.mint(member, price);
+        vm.startPrank(member);
+        _paymentToken.approve(address(_validationTier), price);
+        _validationTier.purchase(1, address(0));
+        vm.stopPrank();
+
+        CheckDeployment.Manifest memory manifest = _capture();
+
+        assertEq(_validationTier.totalMinted(), 1);
+        assertEq(manifest.validationTierIndex, 0);
+        _checker.check(manifest, _CAPTURED_BLOCK_HASH);
     }
 
     function test_checkedInTestnetManifestIsExplicitlyBlockedNotFakeDeployment() public {
@@ -339,6 +366,7 @@ contract DeploymentScriptsTest is Test {
             _CAPTURED_BLOCK_HASH,
             address(_factory),
             address(_validationTier),
+            0,
             urls
         );
     }

@@ -151,8 +151,8 @@ contract DeployProtocol is RobinhoodDeploymentGuard {
         _validateDeploymentInputs(expectedChainId, paymentToken, protocolOwner, feeRecipient);
     }
 
-    /// @notice Creates the pristine registered child used by the independent testnet checker.
-    /// @dev Run immediately before manifest capture and never transact with this tier.
+    /// @notice Creates the registered child used by the independent testnet checker.
+    /// @dev Record the exact receipt and address for manifest capture and independent verification.
     function deployValidationTier() external returns (MembershipTier tier) {
         if (block.chainid != ROBINHOOD_TESTNET_CHAIN_ID) revert ValidationTierTestnetOnly();
 
@@ -170,7 +170,7 @@ contract DeployProtocol is RobinhoodDeploymentGuard {
             name: "Backed By Fans Deployment Check",
             symbol: "BBF-CHECK",
             metadata: MembershipTypes.TierMetadata({
-                description: "Pristine testnet tier for deployment verification.",
+                description: "Testnet tier for deployment verification.",
                 imageURI: "",
                 externalURI: ""
             }),

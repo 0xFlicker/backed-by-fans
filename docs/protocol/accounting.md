@@ -86,6 +86,16 @@ The ERC-5643 `cancelSubscription(tokenId)` adapter cannot express a ceiling and
 therefore authorizes the full execution-time top-up. It exists for standards
 compatibility; operational interfaces should prefer the bounded canonical path.
 
+For an operator-initiated refund, first pause the tier and wait for that
+transaction to confirm. Read `previewRefund(tokenId)` from confirmed paused
+state, then submit `refund(tokenId, grossRefund, ownerTopUp)` with those returned
+values as the ceilings. Keep the tier paused until the refund confirms; unpause
+in a separate transaction afterward. Any subscriber payment already pending
+when the pause confirms will revert, so it cannot increase the refundable time
+between preview and execution. Other accounting changes can still make the
+bounded refund revert safely and require a fresh preview. Operator applications
+must not use `cancelSubscription` for this workflow.
+
 ## Custody buckets
 
 Factory custody is protocol fees plus any unsolicited factory surplus. Tier

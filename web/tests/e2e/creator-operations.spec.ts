@@ -109,8 +109,15 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
       }),
     ).resolves.toBe(0n);
 
+    const readRefundPreview = page.getByRole("button", {
+      name: "Read refund preview",
+    });
     await page.getByLabel("Membership token", { exact: true }).fill("1");
-    await page.getByRole("button", { name: "Read refund preview" }).click();
+    await expect(readRefundPreview).toBeDisabled();
+    await page.getByRole("button", { name: "Pause time increases" }).click();
+    await expectReconciled(page, "Pause tier");
+    await expect(readRefundPreview).toBeEnabled();
+    await readRefundPreview.click();
     const [grossRefund, ownerTopUp] = await client.readContract({
       address: configuredTier,
       abi: tierAbi,
@@ -128,6 +135,9 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
       .getByRole("button", { name: "Approve exact top-up and refund" })
       .click();
     await expectReconciled(page, "Refund membership #1");
+    await expect(refundPreview).toHaveCount(0);
+    await page.getByRole("button", { name: "Unpause time increases" }).click();
+    await expectReconciled(page, "Unpause tier");
 
     await page.getByLabel("New creator owner").fill(newOwner);
     await page.getByRole("button", { name: "Name pending owner" }).click();

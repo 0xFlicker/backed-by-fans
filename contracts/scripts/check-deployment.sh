@@ -16,7 +16,8 @@ IFS=$'\t' read -r \
   manifest_status captured_block manifest_hash renderer factory deployer store_a store_b \
   validation_tier renderer_creation_block factory_creation_block \
   validation_tier_creation_block factory_deployment_tx validation_tier_creation_tx \
-  factory_deployment_input_hash validation_tier_creation_input_hash validation_tier_owner < <(
+  factory_deployment_input_hash validation_tier_creation_input_hash validation_tier_owner \
+  validation_tier_index < <(
     jq -r '[
       .status,
       .capturedBlockNumber,
@@ -34,7 +35,8 @@ IFS=$'\t' read -r \
       .validationTierCreationTransactionHash,
       .factoryDeploymentInputHash,
       .validationTierCreationInputHash,
-      .validationTierOwner
+      .validationTierOwner,
+      .validationTierIndex
     ] | @tsv' "${manifest_path}"
   )
 
@@ -65,6 +67,12 @@ validate_block_number "${factory_creation_block}" "factory creation block number
 validate_block_number \
   "${validation_tier_creation_block}" "validation tier creation block number"
 
+if [[ ! "${validation_tier_index}" =~ ^(0|[1-9][0-9]*)$ ]] \
+  || ! validation_tier_index_topic="$(cast to-uint256 "${validation_tier_index}")"; then
+  echo "deployment check: validation tier index must be an unsigned 256-bit decimal" >&2
+  exit 2
+fi
+
 manifest_hash="$(tr '[:upper:]' '[:lower:]' <<<"${manifest_hash}")"
 factory_deployment_tx="$(tr '[:upper:]' '[:lower:]' <<<"${factory_deployment_tx}")"
 validation_tier_creation_tx="$(tr '[:upper:]' '[:lower:]' <<<"${validation_tier_creation_tx}")"
@@ -80,6 +88,7 @@ to_decimal() {
   fi
 }
 
+last_checked_receipt_json=""
 check_transaction_provenance() {
   local transaction_hash="$1"
   local expected_block="$2"
@@ -128,6 +137,8 @@ check_transaction_provenance() {
     echo "deployment check: ${label} sender, destination, or created contract differs" >&2
     exit 4
   fi
+
+  last_checked_receipt_json="${receipt_json}"
 }
 
 if ! block_json="$(cast block "${captured_block}" --rpc-url "${rpc_url}" --json)"; then
@@ -141,6 +152,7 @@ if [[ "${observed_hash}" != "${manifest_hash}" ]]; then
 fi
 
 factory_lower="$(tr '[:upper:]' '[:lower:]' <<<"${factory}")"
+validation_tier_lower="$(tr '[:upper:]' '[:lower:]' <<<"${validation_tier}")"
 validation_tier_owner_lower="$(tr '[:upper:]' '[:lower:]' <<<"${validation_tier_owner}")"
 check_transaction_provenance \
   "${factory_deployment_tx}" \
@@ -158,6 +170,52 @@ check_transaction_provenance \
   "${validation_tier_owner_lower}" \
   "" \
   "validation tier creation"
+
+check_validation_tier_created_log() {
+  local receipt_json="$1"
+  local tier_created_topic
+  local expected_tier_topic
+  local expected_creator_topic
+  local matching_logs
+  local matching_log_count
+  local observed_topic_count
+  local observed_tier_topic
+  local observed_creator_topic
+  local observed_index_topic
+
+  tier_created_topic="0x94a437c44602c7031c052d4753448436f88c52344ec5202572fe1ba00f1314b7"
+  expected_tier_topic="0x000000000000000000000000${validation_tier_lower#0x}"
+  expected_creator_topic="0x000000000000000000000000${validation_tier_owner_lower#0x}"
+  matching_logs="$({ jq -c \
+    --arg factory "${factory_lower}" \
+    --arg signature "${tier_created_topic}" \
+    '[.logs[]? | select(
+      ((.address // "") | ascii_downcase) == $factory
+      and (((.topics[0] // "") | ascii_downcase) == $signature)
+    )]' <<<"${receipt_json}"; } 2>/dev/null)" || {
+      echo "deployment check: validation tier creation receipt logs are malformed" >&2
+      exit 4
+    }
+  matching_log_count="$(jq -r 'length' <<<"${matching_logs}")"
+  if [[ "${matching_log_count}" != "1" ]]; then
+    echo "deployment check: validation tier creation receipt must contain exactly one factory TierCreated log" >&2
+    exit 4
+  fi
+
+  observed_topic_count="$(jq -r '.[0].topics | length' <<<"${matching_logs}")"
+  observed_tier_topic="$(jq -r '.[0].topics[1] // empty' <<<"${matching_logs}" | tr '[:upper:]' '[:lower:]')"
+  observed_creator_topic="$(jq -r '.[0].topics[2] // empty' <<<"${matching_logs}" | tr '[:upper:]' '[:lower:]')"
+  observed_index_topic="$(jq -r '.[0].topics[3] // empty' <<<"${matching_logs}" | tr '[:upper:]' '[:lower:]')"
+  if [[ "${observed_topic_count}" != "4" \
+    || "${observed_tier_topic}" != "${expected_tier_topic}" \
+    || "${observed_creator_topic}" != "${expected_creator_topic}" \
+    || "${observed_index_topic}" != "${validation_tier_index_topic}" ]]; then
+    echo "deployment check: validation tier creation TierCreated tier, creator, or index differs from manifest" >&2
+    exit 4
+  fi
+}
+
+check_validation_tier_created_log "${last_checked_receipt_json}"
 
 check_creation_block() {
   local address="$1"

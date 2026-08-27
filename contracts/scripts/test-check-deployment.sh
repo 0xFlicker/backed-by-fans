@@ -35,6 +35,7 @@ write_manifest() {
       creationCodeStoreB: "0x0000000000000000000000000000000000000005",
       validationTier: "0x0000000000000000000000000000000000000006",
       validationTierOwner: $tier_owner,
+      validationTierIndex: 0,
       rendererCreationBlockNumber: 450,
       factoryCreationBlockNumber: 460,
       validationTierCreationBlockNumber: 475,
@@ -52,6 +53,10 @@ set -euo pipefail
 factory_tx="0x1111111111111111111111111111111111111111111111111111111111111111"
 factory="0x0000000000000000000000000000000000000002"
 tier_owner="0x0000000000000000000000000000000000000007"
+tier_created_topic="0x94a437c44602c7031c052d4753448436f88c52344ec5202572fe1ba00f1314b7"
+tier_topic="0x0000000000000000000000000000000000000000000000000000000000000006"
+creator_topic="0x0000000000000000000000000000000000000000000000000000000000000007"
+index_topic="0x0000000000000000000000000000000000000000000000000000000000000000"
 
 case "$1" in
   block)
@@ -66,9 +71,36 @@ case "$1" in
     ;;
   receipt)
     if [[ "$2" == "${factory_tx}" ]]; then
-      printf '%s\n' "{\"contractAddress\":\"${factory}\",\"blockNumber\":\"0x1cc\",\"status\":\"0x1\"}"
+      printf '%s\n' "{\"contractAddress\":\"${factory}\",\"blockNumber\":\"0x1cc\",\"status\":\"0x1\",\"logs\":[]}"
     else
-      printf '%s\n' '{"contractAddress":null,"blockNumber":"0x1db","status":"0x1"}'
+      case "${TIER_LOG_VARIANT:-correct}" in
+        correct)
+          logs="[{\"address\":\"${factory}\",\"topics\":[\"${tier_created_topic}\",\"${tier_topic}\",\"${creator_topic}\",\"${index_topic}\"],\"data\":\"0x\"}]"
+          ;;
+        mismatched-tier)
+          bad_tier_topic="0x0000000000000000000000000000000000000000000000000000000000000009"
+          logs="[{\"address\":\"${factory}\",\"topics\":[\"${tier_created_topic}\",\"${bad_tier_topic}\",\"${creator_topic}\",\"${index_topic}\"],\"data\":\"0x\"}]"
+          ;;
+        mismatched-creator)
+          bad_creator_topic="0x0000000000000000000000000000000000000000000000000000000000000009"
+          logs="[{\"address\":\"${factory}\",\"topics\":[\"${tier_created_topic}\",\"${tier_topic}\",\"${bad_creator_topic}\",\"${index_topic}\"],\"data\":\"0x\"}]"
+          ;;
+        mismatched-index)
+          bad_index_topic="0x0000000000000000000000000000000000000000000000000000000000000001"
+          logs="[{\"address\":\"${factory}\",\"topics\":[\"${tier_created_topic}\",\"${tier_topic}\",\"${creator_topic}\",\"${bad_index_topic}\"],\"data\":\"0x\"}]"
+          ;;
+        missing)
+          logs="[]"
+          ;;
+        duplicate)
+          log="{\"address\":\"${factory}\",\"topics\":[\"${tier_created_topic}\",\"${tier_topic}\",\"${creator_topic}\",\"${index_topic}\"],\"data\":\"0x\"}"
+          logs="[${log},${log}]"
+          ;;
+        *)
+          exit 1
+          ;;
+      esac
+      printf '%s\n' "{\"contractAddress\":null,\"blockNumber\":\"0x1db\",\"status\":\"0x1\",\"logs\":${logs}}"
     fi
     ;;
   keccak)
@@ -80,6 +112,9 @@ case "$1" in
     ;;
   to-dec)
     printf '%d\n' "$(( $2 ))"
+    ;;
+  to-uint256)
+    printf '0x%064x\n' "$2"
     ;;
   code)
     address="$2"
@@ -119,6 +154,15 @@ chmod +x "${test_dir}/bin/cast" "${test_dir}/bin/forge"
 write_manifest "${factory_input_hash}"
 PATH="${test_dir}/bin:${PATH}" \
   "${script_dir}/check-deployment.sh" "${test_dir}/manifest.json" "fixture-rpc" >/dev/null
+
+for variant in mismatched-tier mismatched-creator mismatched-index missing duplicate; do
+  if TIER_LOG_VARIANT="${variant}" PATH="${test_dir}/bin:${PATH}" \
+    "${script_dir}/check-deployment.sh" "${test_dir}/manifest.json" "fixture-rpc" \
+    >/dev/null 2>&1; then
+    echo "deployment wrapper accepted ${variant} validation tier creation logs" >&2
+    exit 1
+  fi
+done
 
 write_manifest "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 if PATH="${test_dir}/bin:${PATH}" \

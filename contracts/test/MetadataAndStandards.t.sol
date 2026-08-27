@@ -148,7 +148,7 @@ contract MetadataAndStandardsTest is Test {
         assertTrue(tier.supportsInterface(type(IERC5643).interfaceId));
         assertTrue(tier.supportsInterface(0x49064906));
         assertTrue(tier.locked(tokenId));
-        assertTrue(tier.isRenewable(tokenId));
+        assertFalse(tier.isRenewable(tokenId));
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.ReferralChoiceRequired.selector);
@@ -160,6 +160,20 @@ contract MetadataAndStandardsTest is Test {
 
         assertEq(tier.expiresAt(tokenId), expiration);
         assertEq(address(tier).balance, 0);
+    }
+
+    function test_isRenewableTurnsTrueAfterReferralChoiceIsLocked() public {
+        uint256 tokenId = tier.grantTime(member, 1);
+        assertFalse(tier.isRenewable(tokenId));
+
+        uint256 price = tier.pricePerPeriod();
+        token.mint(member, price);
+        vm.startPrank(member);
+        token.approve(address(tier), price);
+        tier.purchase(1, address(0));
+        vm.stopPrank();
+
+        assertTrue(tier.isRenewable(tokenId));
     }
 
     function _decodeTokenURI(string memory uri) private pure returns (string memory json) {

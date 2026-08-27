@@ -98,7 +98,7 @@ factory creation blocks from their receipts; the deployer and both immutable
 code stores share the factory's creation block. Do not treat a successful
 broadcast as verification.
 
-## 4. Create the pristine validation child
+## 4. Create the validation child
 
 Set `DEPLOYED_FACTORY` and `VALIDATION_TIER_OWNER` to the same account selected
 with `--sender`, then simulate and broadcast the dedicated function:
@@ -114,9 +114,14 @@ forge script script/DeployProtocol.s.sol:DeployProtocol \
 
 Record the factory deployment transaction hash, validation-tier creation
 transaction hash, validation-tier address, and their exact creation blocks. This
-registered child exists only to reconstruct the full factory-created path. Do not purchase, grant, pause, edit,
-transfer ownership, change caps or metadata, or otherwise mutate it before or
-after capture. The checker requires it to remain pristine.
+registered child reconstructs the full factory-created path. Public purchases,
+gifts, and other accounting activity do not invalidate it: deployment evidence
+is based on its exact registry position, constructor input, bytecode, immutable
+bindings, and transaction provenance, not mutable balances or membership state.
+Before capture, do not change constructor-recorded metadata, caps, or ownership:
+the transaction-provenance check must reproduce the original `createTier` input.
+Pause state and changes after capture are separate operational facts and must be
+recorded normally.
 
 Verify exact source for the renderer, factory, bound deployer, its immutable
 code stores, and validation tier. Record each exact Blockscout contract URL in
@@ -142,15 +147,22 @@ forge script script/CheckDeployment.s.sol:CheckDeployment \
 ```
 
 Set `RENDERER_CREATION_BLOCK`, `FACTORY_CREATION_BLOCK`,
-`VALIDATION_TIER_CREATION_BLOCK`, `FACTORY_DEPLOYMENT_TRANSACTION_HASH`, and
-`VALIDATION_TIER_CREATION_TRANSACTION_HASH` from the broadcast receipts. The
-writer checks every generated field before replacing the blocked manifest:
+`VALIDATION_TIER_CREATION_BLOCK`, `VALIDATION_TIER_INDEX`,
+`FACTORY_DEPLOYMENT_TRANSACTION_HASH`, and
+`VALIDATION_TIER_CREATION_TRANSACTION_HASH` from the broadcast receipts and
+the validation tier's `TierCreated` event. The writer checks every generated
+field before replacing the blocked manifest:
 chain and token, block context, operational identities, factory/deployer/tier
-bindings, registered tier index, pristine child state, standards interfaces,
+bindings, exact registered tier index, standards interfaces,
 compiler settings, creation-code hashes, instance-aware runtime hashes, empty
 EIP-1967 proxy slots, explicit validation-tier constructor terms, expected
 factory initcode and full `createTier` call hashes, and exact network/address
 verification URLs.
+
+`writeManifest()` and the Solidity `check` entry point attest the captured state
+and local artifacts. They do not fetch transaction receipts. Only the wrapper in
+step 6 is the accepted end-to-end deployment check because it independently
+fetches and binds both creation transactions before running the Solidity checks.
 
 Review and sign the resulting diff. The manifest is evidence, not canonical
 state; deployed contracts remain the source of truth.
@@ -185,7 +197,9 @@ a second RPC URL:
 The wrapper fetches `capturedBlockNumber` through that RPC, compares its hash to
 the manifest, fetches both manifest-pinned transactions and successful receipts,
 and verifies the factory creation destination/address/input/block plus the
-validation-tier caller/factory destination/full call input/block. It then proves
+validation-tier caller/factory destination/full call input/block. It also
+requires that exact receipt's single factory `TierCreated` log to match the
+manifest's validation tier, owner, and index. It then proves
 each renderer, factory, deployer, code-store, and validation tier creation block
 by comparing code at that block and its predecessor, before running
 `CheckDeployment` on a fork pinned to the exact captured block. A missing

@@ -105,7 +105,9 @@ The credential exposes ERC-165, ERC-721 identity, ERC-5192 locking, ERC-4906
 metadata update events, and the supported ERC-5643 subscription adapter. ERC-5643
 renewal accepts exact whole-period durations only. It cannot silently choose
 `LockedNone`: a positive fixed-price credential with `Unset` attribution must use
-the canonical purchase path first. ERC-5643 cancellation is the creator-owned
-full-refund adapter, not a supporter-controlled cancellation right. Because the
-standard signature has no top-up ceiling, it deliberately permits any required
-owner top-up; operator interfaces should use the canonical bounded refund.
+the canonical purchase path first, and `isRenewable(tokenId)` returns false until
+that choice is locked. ERC-5643 cancellation is the creator-owned full-refund
+adapter, not a supporter-controlled cancellation right. Because the standard
+signature has no top-up ceiling, it deliberately permits any required owner
+top-up; operator interfaces should pause, wait for confirmation, preview, and
+use the canonical bounded refund before unpausing.

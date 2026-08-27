@@ -153,6 +153,7 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
             vm.envBytes32("OBSERVED_BLOCK_HASH"),
             vm.envAddress("DEPLOYED_FACTORY"),
             vm.envAddress("VALIDATION_TIER_ADDRESS"),
+            vm.envUint("VALIDATION_TIER_INDEX"),
             urls
         );
         json = serializeManifest(manifest);
@@ -165,6 +166,7 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         bytes32 observedBlockHash,
         address factoryAddress,
         address validationTierAddress,
+        uint256 validationTierIndex,
         VerificationUrls memory urls
     ) public view returns (Manifest memory manifest) {
         if (block.number == 0 || observedBlockHash == bytes32(0)) {
@@ -198,9 +200,7 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
         manifest.creationCodeStoreB = deployer.creationCodeStoreB();
         manifest.validationTier = validationTierAddress;
         manifest.validationTierOwner = tier.owner();
-        uint256 tierCount = factory.tierCount();
-        if (tierCount == 0) revert DeploymentCheckFailed("validationTierIndex");
-        manifest.validationTierIndex = tierCount - 1;
+        manifest.validationTierIndex = validationTierIndex;
         manifest.paymentTokenRuntimeCodeHash = paymentToken.codehash;
         manifest.rendererRuntimeCodeHash = manifest.renderer.codehash;
         manifest.factoryRuntimeCodeHash = factoryAddress.codehash;
@@ -447,13 +447,6 @@ contract CheckDeployment is RobinhoodDeploymentGuard {
                 || tier.protocolFeeBps() != 100
         ) {
             revert DeploymentCheckFailed("validationTierBindings");
-        }
-        if (
-            tier.totalMinted() != 0 || tier.occupiedSupply() != 0 || tier.paused()
-                || tier.creatorProceeds() != 0 || tier.rewardReserve() != 0
-                || tier.totalReferralLiability() != 0
-        ) {
-            revert DeploymentCheckFailed("validationTierMustRemainPristine");
         }
         if (
             !tier.supportsInterface(type(IERC165).interfaceId)

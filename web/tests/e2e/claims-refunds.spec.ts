@@ -190,8 +190,15 @@ test.describe("configured Anvil claims and refunds", () => {
       await page.goto(`/tiers/${tier}/manage`);
       await connectAnvilWallet(page, creator);
 
+      const readRefundPreview = page.getByRole("button", {
+        name: "Read refund preview",
+      });
       await page.getByLabel("Membership token", { exact: true }).fill("1");
-      await page.getByRole("button", { name: "Read refund preview" }).click();
+      await expect(readRefundPreview).toBeDisabled();
+      await page.getByRole("button", { name: "Pause time increases" }).click();
+      await expectReconciled(page, "Pause tier");
+      await expect(readRefundPreview).toBeEnabled();
+      await readRefundPreview.click();
       const [grossRefund, ownerTopUp] = await client.readContract({
         address: tier,
         abi: tierAbi,
@@ -212,6 +219,11 @@ test.describe("configured Anvil claims and refunds", () => {
       await expect(refund).toBeEnabled();
       await refund.click();
       await expectReconciled(page, "Refund membership #1");
+      await expect(refundPreview).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Unpause time increases" })
+        .click();
+      await expectReconciled(page, "Unpause tier");
 
       const tokenId = await client.readContract({
         address: tier,
@@ -235,6 +247,58 @@ test.describe("configured Anvil claims and refunds", () => {
           args: [member],
         }),
       ).resolves.toBe(false);
+    } finally {
+      await revertAnvil(snapshot);
+    }
+  });
+
+  test("@anvil invalidates the preview when the tier is unpaused elsewhere", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    test.skip(
+      testInfo.project.name !== "desktop",
+      "One mutation is sufficient.",
+    );
+    const snapshot = await snapshotAnvil();
+    const creator = requiredAnvilAddress("creator");
+    const tier = requiredAnvilAddress("tier");
+
+    try {
+      await seedPurchase();
+      await installAnvilWallet(page, creator);
+      await page.goto(`/tiers/${tier}/manage`);
+      await connectAnvilWallet(page, creator);
+
+      await page.getByRole("button", { name: "Pause time increases" }).click();
+      await expectReconciled(page, "Pause tier");
+      await page.getByLabel("Membership token", { exact: true }).fill("1");
+      await page.getByRole("button", { name: "Read refund preview" }).click();
+
+      const refundPreview = page.locator(".refund-preview");
+      await expect(refundPreview).toBeVisible();
+      expectSuccessfulReceipt(
+        await sendContract({
+          account: creator,
+          address: tier,
+          abi: tierAbi,
+          functionName: "setPaused",
+          args: [false],
+        }),
+      );
+
+      const refund = page.getByRole("button", {
+        name: "Approve exact top-up and refund",
+      });
+      await expect(refund).toBeEnabled();
+      await refund.click();
+      await expect(
+        page.getByText(
+          "The tier is no longer paused. Pause it again and read a new refund preview.",
+        ),
+      ).toBeVisible();
+      await expect(refundPreview).toHaveCount(0);
+      await expect(refund).toBeDisabled();
     } finally {
       await revertAnvil(snapshot);
     }

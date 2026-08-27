@@ -17,7 +17,11 @@ referrals, or protected liabilities.
 
 Before acceptance, record refund exposure and ensure the next owner understands
 that a refund can require its exact USDG top-up. Exercise preview and allowance
-checks using a non-production rehearsal.
+checks using a non-production rehearsal. The operational sequence is: pause and
+wait for confirmation, preview from confirmed paused state, execute the bounded
+`refund` with the previewed ceilings, wait for confirmation, and only then
+unpause. Do not use the unbounded ERC-5643 cancellation adapter for routine
+refunds.
 
 ## Factory ownership
 

@@ -176,6 +176,8 @@ contract ReferralsTest is Test {
             new MembershipTier(address(this), paymentToken, address(renderer), config);
         uint256 tokenId = zeroTier.grantTime(member, 1);
 
+        assertTrue(zeroTier.isRenewable(tokenId));
+
         vm.prank(member);
         zeroTier.renewSubscription(tokenId, _PERIOD);
 

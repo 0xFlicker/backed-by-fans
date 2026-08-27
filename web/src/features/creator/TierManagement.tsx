@@ -89,6 +89,7 @@ function ManagementControls({
   const [revokeToken, setRevokeToken] = useState("");
   const [refundToken, setRefundToken] = useState("");
   const [refundPreview, setRefundPreview] = useState<{
+    capturedBlock: bigint;
     tokenId: bigint;
     recipient: Address;
     gross: bigint;
@@ -354,25 +355,40 @@ function ManagementControls({
 
   async function previewRefund() {
     const tokenId = parseTokenId(refundToken);
-    if (tokenId === undefined) return;
+    if (tokenId === undefined || !snapshot.paused) return;
     const version = ++refundPreviewVersion.current;
+    setRefundPreview(undefined);
     try {
+      const refreshed = await onRefresh();
+      if (refreshed?.status !== "valid" || !refreshed.data.paused) {
+        setRefundPreview(undefined);
+        dispatch({
+          type: "FAILED",
+          error:
+            "Pause the tier and wait for the paused state to be confirmed before reading a refund preview.",
+        });
+        return;
+      }
+      const previewBlock = refreshed.capturedBlock;
       const [refund, recipient] = await Promise.all([
         client.readContract({
           address: snapshot.address,
           abi: tierAbi,
           functionName: "previewRefund",
           args: [tokenId],
+          blockNumber: previewBlock,
         }),
         client.readContract({
           address: snapshot.address,
           abi: tierAbi,
           functionName: "ownerOf",
           args: [tokenId],
+          blockNumber: previewBlock,
         }),
       ]);
       if (version !== refundPreviewVersion.current) return;
       setRefundPreview({
+        capturedBlock: previewBlock,
         tokenId,
         recipient,
         gross: refund[0],
@@ -386,27 +402,43 @@ function ManagementControls({
 
   async function refund() {
     const tokenId = parseTokenId(refundToken);
-    if (!refundPreview || refundPreview.tokenId !== tokenId || !account.address)
-      return;
+    const preview =
+      refundPreview?.capturedBlock === capturedBlock && snapshot.paused
+        ? refundPreview
+        : undefined;
+    if (!preview || preview.tokenId !== tokenId || !account.address) return;
     const owner = account.address;
     await runExclusive(async () => {
       try {
+        const paused = await client.readContract({
+          address: snapshot.address,
+          abi: tierAbi,
+          functionName: "paused",
+        });
+        if (!paused) {
+          dispatch({
+            type: "FAILED",
+            error:
+              "The tier is no longer paused. Pause it again and read a new refund preview.",
+          });
+          return;
+        }
         let approval: (() => Promise<SendWrite>) | undefined;
-        if (refundPreview.topUp > 0n) {
+        if (preview.topUp > 0n) {
           const allowance = await client.readContract({
             address: snapshot.paymentToken,
             abi: tokenAbi,
             functionName: "allowance",
             args: [owner, snapshot.address],
           });
-          if (allowance < refundPreview.topUp) {
+          if (allowance < preview.topUp) {
             approval = async () => {
               const { request } = await client.simulateContract({
                 account: owner,
                 address: snapshot.paymentToken,
                 abi: tokenAbi,
                 functionName: "approve",
-                args: [snapshot.address, refundPreview.topUp],
+                args: [snapshot.address, preview.topUp],
               });
               await assertSufficientGas(client, owner, request);
               return () => write.writeContractAsync(request);
@@ -414,24 +446,20 @@ function ManagementControls({
           }
         }
         await performUnlocked(
-          `Refund membership #${refundPreview.tokenId}`,
-          tierWrite("refund", [
-            refundPreview.tokenId,
-            refundPreview.gross,
-            refundPreview.topUp,
-          ]),
+          `Refund membership #${preview.tokenId}`,
+          tierWrite("refund", [preview.tokenId, preview.gross, preview.topUp]),
           async (receipt) => {
             if (
               !receiptProvesMembershipRefund(receipt, {
                 tier: snapshot.address,
-                tokenId: refundPreview.tokenId,
-                recipient: refundPreview.recipient,
+                tokenId: preview.tokenId,
+                recipient: preview.recipient,
                 tierOwner: snapshot.creator,
               })
             ) {
               return undefined;
             }
-            const current = await readTokenTime(refundPreview.tokenId);
+            const current = await readTokenTime(preview.tokenId);
             return current.paidSeconds === 0n &&
               current.grantSeconds === 0n &&
               current.refundableGross === 0n
@@ -442,6 +470,9 @@ function ManagementControls({
         );
       } catch (error) {
         dispatch({ type: "FAILED", error: decodeTransactionError(error) });
+      } finally {
+        refundPreviewVersion.current += 1;
+        setRefundPreview(undefined);
       }
     });
   }
@@ -520,6 +551,10 @@ function ManagementControls({
   });
   const revokeTokenValue = parseTokenId(revokeToken);
   const refundTokenValue = parseTokenId(refundToken);
+  const currentRefundPreview =
+    fresh && snapshot.paused && refundPreview?.capturedBlock === capturedBlock
+      ? refundPreview
+      : undefined;
   const metadataError = validateMutableMetadata({
     description,
     imageURI,
@@ -766,6 +801,11 @@ function ManagementControls({
                 Refunds always pay the membership token owner. Protocol, reward,
                 and referral allocations are never clawed back.
               </p>
+              <p className="small-copy">
+                Pause the tier and wait for confirmation before previewing. A
+                newer tier snapshot requires a new preview; unpause only after
+                the refund reconciles.
+              </p>
             </div>
             <label className="creator-field">
               <span>Membership token</span>
@@ -784,6 +824,7 @@ function ManagementControls({
               disabled={
                 !writesVerified ||
                 !permissions.canOperate ||
+                !snapshot.paused ||
                 refundTokenValue === undefined
               }
               onClick={() => void previewRefund()}
@@ -791,15 +832,15 @@ function ManagementControls({
             >
               Read refund preview
             </button>
-            {refundPreview && (
+            {currentRefundPreview && (
               <dl className="refund-preview" aria-live="polite">
                 <div>
                   <dt>Gross refund</dt>
-                  <dd>{formatUnits(refundPreview.gross, 6)} USDG</dd>
+                  <dd>{formatUnits(currentRefundPreview.gross, 6)} USDG</dd>
                 </div>
                 <div>
                   <dt>Exact owner top-up</dt>
-                  <dd>{formatUnits(refundPreview.topUp, 6)} USDG</dd>
+                  <dd>{formatUnits(currentRefundPreview.topUp, 6)} USDG</dd>
                 </div>
               </dl>
             )}
@@ -807,8 +848,8 @@ function ManagementControls({
               className="button button-warning"
               disabled={
                 !canOwnerWrite ||
-                !refundPreview ||
-                refundPreview.tokenId !== refundTokenValue
+                !currentRefundPreview ||
+                currentRefundPreview.tokenId !== refundTokenValue
               }
               onClick={() => void refund()}
               type="button"

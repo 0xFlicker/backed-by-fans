@@ -13,15 +13,16 @@ a second RPC provider that is operationally independent from the broadcast RPC.
    hash exactly.
 2. Run `contracts/scripts/check-deployment.sh` against that RPC. It proves the
    network/token, manifest-pinned factory creation and validation-tier call
-   transactions, their exact audited inputs and receipts, creation blocks,
+   transactions, their exact audited inputs and receipts, the validation
+   receipt's emitted tier/creator/index, creation blocks,
    factory/deployer/store/tier bindings, code
-   hashes, pristine validation tier, registration, standards, ownership, empty
+   hashes, exact validation-tier registry position, standards, ownership, empty
    proxy slots, compiler settings, and exact verification URL network/address.
 3. Reconstruct `type(MembershipTier).creationCode` independently from the two
    immutable code stores, skipping each STOP prefix, then compare length and
    hash with the local artifact and deployer commitments.
 4. Confirm verified source pages for renderer, factory, deployer, both stores,
-   and the pristine validation tier.
+   and the validation tier.
 5. Record the verifier, UTC time, clean source commit, RPC provider (never its
    secret URL), command output digest, and disposition in the readiness record.
 6. On deployment day, separately record USDG proxy, current implementation and
@@ -42,6 +43,9 @@ forge build --sizes
 The current testnet manifest is blocked, so the last command must not be run as
 if a deployment exists. A transport error is not a contract mismatch. A block,
 code, source, ownership, or manifest mismatch invalidates the candidate.
+Running the Solidity checker alone is insufficient evidence because it cannot
+fetch or authenticate the manifest-pinned transaction receipts; the shell
+wrapper is the sole accepted end-to-end deployment verdict.
 
 ## Post-deployment smoke
 

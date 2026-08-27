@@ -182,6 +182,10 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     function isRenewable(uint256 tokenId) external view override returns (bool) {
         _requireOwned(tokenId);
         if (paused) return false;
+        if (
+            pricePerPeriod != 0
+                && _referralStates[tokenId].status == MembershipTypes.ReferralStatus.Unset
+        ) return false;
 
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
         if (!state.occupied && supplyCap != 0 && occupiedSupply >= supplyCap) return false;

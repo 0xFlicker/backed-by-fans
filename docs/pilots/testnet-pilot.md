@@ -9,7 +9,7 @@ date: 2026-08-26
 This is an unexecuted template. It is **not** evidence of a public pilot, user
 approval, audit, deployment, or launch readiness.
 
-Blocker: no public, source-verified factory or pristine validation tier is
+Blocker: no public, source-verified factory or validation tier is
 recorded. Operational identities, a funded encrypted deployer, broadcast
 receipts, and captured-block verification evidence are still unavailable.
 
