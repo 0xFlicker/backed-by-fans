@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
+    "generate": "wagmi generate && prettier --write src/contracts.ts",
+    "generate:check": "bun run generate && git diff --exit-code -- src/contracts.ts",
     "start": "next start",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
@@ -27,6 +29,7 @@
     "wagmi": "2.19.5"
   },
   "devDependencies": {
+    "@wagmi/cli": "2.9.0",
     "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.62.1",
     "@tailwindcss/postcss": "4.3.3",

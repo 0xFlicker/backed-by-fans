@@ -24,6 +24,30 @@ release containing the fix. Do not build an application-local wallet or receipt
 subsystem as a substitute. Any exception requires explicit user approval after
 the upstream limitation and proposed scope are documented.
 
+## Generated contract boundary
+
+Foundry artifacts and public Foundry broadcast records are the contract source
+of truth for the web application. Run `bun run generate` from `web/`; Wagmi CLI's
+Foundry plugin owns ABI resolution, per-chain deployment-address discovery,
+contract configs, and generated React hooks in `src/contracts.ts`.
+
+- Never hand-maintain an ABI, deployed public address, generated contract
+  config, or generated contract hook in application source.
+- Never write an application-local parser or copier for Foundry broadcast
+  artifacts. Use the Foundry plugin's `includeBroadcasts` support.
+- Never replace Wagmi generation with explorer scraping, environment-provided
+  public deployment addresses, or a parallel bindings generator.
+- Commit public-chain `run-latest.json` broadcast records and the generated
+  `src/contracts.ts`. Run `bun run generate:check` in verification so drift
+  fails visibly.
+- Keep disposable Anvil broadcast output outside the Foundry project's public
+  `broadcast/` directory. Local test configuration may inject its ephemeral
+  factory address, but it must not become a public deployment record.
+
+Reviewers must reject handwritten or parallel contract bindings even when they
+are described as a convenience, compatibility layer, deployment fallback, or
+extra verification.
+
 ## Required implementation pattern
 
 - Pass the request returned by `simulateContract` directly to the connected
