@@ -1,7 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { formatUnits, zeroAddress } from "viem";
 
-import { factoryAbi, tierAbi, tokenAbi } from "../../src/contracts/abis";
+import {
+  membershipFactoryAbi,
+  membershipTierAbi,
+  usdgAbi,
+} from "../../src/contracts";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -38,7 +42,7 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
       await sendContract({
         account: member,
         address: usdg,
-        abi: tokenAbi,
+        abi: usdgAbi,
         functionName: "approve",
         args: [configuredTier, 10_000_000n],
       }),
@@ -47,14 +51,14 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
       await sendContract({
         account: member,
         address: configuredTier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "purchase",
         args: [1n, zeroAddress],
       }),
     );
 
     await installAnvilWallet(page, creator);
-    await page.goto(`/tiers/${configuredTier}/manage`);
+    await page.goto(`/chains/31337/tiers/${configuredTier}/manage`);
     await connectAnvilWallet(page, creator);
     await expect(page.getByText("This wallet operates the tier")).toBeVisible();
 
@@ -87,7 +91,7 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
     await expectReconciled(page, "Grant complimentary time");
     const grantedToken = await client.readContract({
       address: configuredTier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "tokenOf",
       args: [recipient],
     });
@@ -104,7 +108,7 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
     await expect(
       client.readContract({
         address: configuredTier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "creatorProceeds",
       }),
     ).resolves.toBe(0n);
@@ -120,7 +124,7 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
     await readRefundPreview.click();
     const [grossRefund, ownerTopUp] = await client.readContract({
       address: configuredTier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "previewRefund",
       args: [1n],
     });
@@ -151,7 +155,7 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
     await expect(
       client.readContract({
         address: configuredTier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "owner",
       }),
     ).resolves.toBe(newOwner);
@@ -180,7 +184,7 @@ test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi
       await sendContract({
         account: member,
         address: usdg,
-        abi: tokenAbi,
+        abi: usdgAbi,
         functionName: "approve",
         args: [configuredTier, 10_000_000n],
       }),
@@ -189,7 +193,7 @@ test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi
       await sendContract({
         account: member,
         address: configuredTier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "purchase",
         args: [1n, zeroAddress],
       }),
@@ -206,7 +210,7 @@ test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi
     await expect(
       client.readContract({
         address: usdg,
-        abi: tokenAbi,
+        abi: usdgAbi,
         functionName: "balanceOf",
         args: [factory],
       }),
@@ -218,7 +222,7 @@ test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi
     await expect(
       client.readContract({
         address: factory,
-        abi: factoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "feeRecipient",
       }),
     ).resolves.toBe(newRecipient);
@@ -228,7 +232,7 @@ test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi
 });
 
 test("validates management routes before any direct read", async ({ page }) => {
-  await page.goto("/tiers/not-an-address/manage");
+  await page.goto("/chains/31337/tiers/not-an-address/manage");
   await expect(page.getByText("Invalid tier address")).toBeVisible();
   await expect(page.getByText(/management URL/i)).toBeVisible();
 });
@@ -236,11 +240,9 @@ test("validates management routes before any direct read", async ({ page }) => {
 test("fails registered-tier management closed without deployment config", async ({
   page,
 }) => {
-  await page.goto(`/tiers/${tier}/manage`);
+  await page.goto(`/chains/31337/tiers/${tier}/manage`);
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
-  await expect(
-    page.getByText(/no independently checked factory/i),
-  ).toBeVisible();
+  await expect(page.getByText(/not deployed/i)).toBeVisible();
 });
 
 test("fails protocol administration closed without a verified factory", async ({
@@ -248,7 +250,5 @@ test("fails protocol administration closed without a verified factory", async ({
 }) => {
   await page.goto("/protocol");
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
-  await expect(
-    page.getByText(/no independently checked factory/i),
-  ).toBeVisible();
+  await expect(page.getByText(/not deployed/i)).toBeVisible();
 });

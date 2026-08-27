@@ -8,8 +8,10 @@ import type { TierSupporterSnapshot } from "@/contracts/types";
 const wallet = getAddress("0x1111111111111111111111111111111111111111");
 
 vi.mock("wagmi", () => ({
-  useAccount: () => ({ address: wallet, isConnected: true }),
+  useAccount: () => ({ address: wallet, chainId: 46_630, isConnected: true }),
   useChainId: () => 46_630,
+  useConfig: () => ({}),
+  usePublicClient: () => ({}),
   useWriteContract: () => ({ isPending: false, writeContractAsync: vi.fn() }),
 }));
 vi.mock("@/components/WalletControl", () => ({
@@ -76,6 +78,7 @@ function renderExperience(value: TierSupporterSnapshot) {
     >
       <MembershipExperience
         capturedBlock={100n}
+        expectedChainId={46630}
         fresh
         onRefresh={async () => undefined}
         snapshot={value}
@@ -95,6 +98,7 @@ describe("supporter membership experience", () => {
       <QueryClientProvider client={new QueryClient()}>
         <MembershipExperience
           capturedBlock={100n}
+          expectedChainId={46630}
           fresh
           onRefresh={async () => undefined}
           snapshot={{ ...snapshot, credential: credential() }}
@@ -109,6 +113,7 @@ describe("supporter membership experience", () => {
       <QueryClientProvider client={new QueryClient()}>
         <MembershipExperience
           capturedBlock={100n}
+          expectedChainId={46630}
           fresh
           onRefresh={async () => undefined}
           snapshot={{
@@ -129,6 +134,7 @@ describe("supporter membership experience", () => {
       <QueryClientProvider client={new QueryClient()}>
         <MembershipExperience
           capturedBlock={100n}
+          expectedChainId={46630}
           fresh
           onRefresh={async () => undefined}
           snapshot={{

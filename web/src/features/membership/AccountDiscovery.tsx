@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits, isAddress, type Address } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
 import {
@@ -16,15 +17,14 @@ import {
   type AccountCache,
 } from "@/features/membership/account-cache";
 import { discoverAccountPage } from "@/features/membership/account-discovery";
-import { publicConfig } from "@/lib/config";
 import type { ReadyDeployment } from "@/lib/config";
-import { createDirectReadClient } from "@/lib/direct-read";
 import {
   classifyReadError,
   unavailableDeploymentState,
 } from "@/lib/read-state";
+import { useActiveNetwork } from "@/lib/use-active-network";
 
-function DirectTierAccess() {
+function DirectTierAccess({ chainId }: { chainId: number }) {
   const [value, setValue] = useState("");
   const valid = isAddress(value.trim());
 
@@ -56,7 +56,10 @@ function DirectTierAccess() {
             : "The contract must pass factory and interface checks before writes."}
         </p>
         {valid ? (
-          <Link className="button button-dark" href={`/tiers/${value.trim()}`}>
+          <Link
+            className="button button-dark"
+            href={`/chains/${chainId}/tiers/${value.trim()}` as Route}
+          >
             Read this tier
           </Link>
         ) : (
@@ -103,7 +106,7 @@ function HydratedDiscovery({
   deployment,
   wallet,
 }: ConnectedDiscoveryProps) {
-  const client = useMemo(() => createDirectReadClient(), []);
+  const client = usePublicClient({ chainId: deployment.chainId })!;
   const [savedCache, setSavedCache] = useState<AccountCache>(() =>
     loadAccountCache(window.localStorage, cacheKey),
   );
@@ -262,7 +265,9 @@ function HydratedDiscovery({
                   </dl>
                   <Link
                     className="button button-light"
-                    href={`/tiers/${tier.tier}`}
+                    href={
+                      `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route
+                    }
                   >
                     Open membership
                   </Link>
@@ -313,15 +318,11 @@ function HydratedDiscovery({
 
 export function AccountDiscovery() {
   const account = useAccount();
-  const deployment = publicConfig.deployment;
+  const { chainId, deployment } = useActiveNetwork();
 
   const key =
     deployment.status === "ready" && account.isConnected && account.address
-      ? accountCacheKey(
-          publicConfig.chainId,
-          deployment.factoryAddress,
-          account.address,
-        )
+      ? accountCacheKey(chainId, deployment.factoryAddress, account.address)
       : undefined;
 
   return (
@@ -337,7 +338,7 @@ export function AccountDiscovery() {
         </p>
       </header>
 
-      <DirectTierAccess />
+      <DirectTierAccess chainId={chainId} />
 
       {deployment.status !== "ready" ? (
         <ReadStateView state={unavailableDeploymentState(deployment)} />

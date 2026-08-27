@@ -5,7 +5,7 @@ import {
   type PublicClient,
 } from "viem";
 
-import { factoryAbi, tierAbi } from "@/contracts/abis";
+import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import type { TierConfig } from "@/features/creator/config";
 import type { SuccessfulWriteReceipt } from "@/features/protocol/write-reconciliation";
 import { isSameAddress } from "@/lib/address";
@@ -32,73 +32,73 @@ async function matchesLaunchTerms(
   ] = await Promise.all([
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "owner",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "name",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "symbol",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "pricePerPeriod",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "periodDuration",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "rewardBps",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "referralBps",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "supplyCap",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "maxPrepaidPeriods",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "description",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "imageURI",
       blockNumber,
     }),
     client.readContract({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "externalURI",
       blockNumber,
     }),
@@ -129,7 +129,7 @@ export async function reconcileCreatedTier(
   },
 ): Promise<Address | undefined> {
   const events = parseEventLogs({
-    abi: factoryAbi,
+    abi: membershipFactoryAbi,
     eventName: "TierCreated",
     logs: input.receipt.logs,
     strict: true,
@@ -143,11 +143,11 @@ export async function reconcileCreatedTier(
   if (events.length !== 1) return undefined;
 
   const tier = getAddress(events[0].args.tier);
-  const blockNumber = await client.getBlockNumber();
+  const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
   if (blockNumber < input.receipt.blockNumber) return undefined;
   const registered = await client.readContract({
     address: input.factory,
-    abi: factoryAbi,
+    abi: membershipFactoryAbi,
     functionName: "tiers",
     args: [events[0].args.tierIndex, 1n],
     blockNumber,

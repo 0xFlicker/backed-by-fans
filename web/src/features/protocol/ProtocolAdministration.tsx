@@ -1,14 +1,20 @@
 "use client";
 
-import { useMemo, useReducer, useRef, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { simulateContract } from "@wagmi/core";
 import { formatUnits, getAddress, zeroAddress, type Hash } from "viem";
-import { useAccount, useChainId, useWriteContract } from "wagmi";
+import {
+  useAccount,
+  useConfig,
+  usePublicClient,
+  useWriteContract,
+} from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
-import { factoryAbi } from "@/contracts/abis";
+import { membershipFactoryAbi } from "@/contracts";
 import { protocolPermissions } from "@/features/protocol/authority";
 import {
   readProtocolState,
@@ -20,11 +26,10 @@ import {
   type SuccessfulWriteReceipt,
 } from "@/features/protocol/write-reconciliation";
 import { receiptProvesProtocolWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
-import { factoryWriteGuard } from "@/features/protocol/factory-authenticity";
+import { deploymentWriteGuard } from "@/features/protocol/deployment-write-guard";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
-import { publicConfig } from "@/lib/config";
+import { getSupportedChain } from "@/lib/chains";
 import { isNonZeroAddress, isSameAddress } from "@/lib/address";
-import { createDirectReadClient } from "@/lib/direct-read";
 import {
   classifyReadError,
   type ReadState,
@@ -36,23 +41,31 @@ import {
   isTransactionInFlight,
   transactionReducer,
 } from "@/lib/transaction-state";
+import { useActiveNetwork } from "@/lib/use-active-network";
 
 type SendWrite = () => Promise<Hash>;
 
 function ProtocolControls({
   snapshot,
   onRefresh,
+  expectedChainId,
 }: {
   snapshot: ProtocolSnapshot;
   onRefresh: () => Promise<ReadState<ProtocolSnapshot> | undefined>;
+  expectedChainId: 4663 | 46630 | 31337;
 }) {
   const account = useAccount();
-  const chainId = useChainId();
   const write = useWriteContract();
-  const client = useMemo(() => createDirectReadClient(), []);
+  const wagmiConfig = useConfig();
+  const client = usePublicClient({ chainId: expectedChainId })!;
   const gas = useQuery({
-    queryKey: ["protocol-gas-balance", snapshot.factory, account.address],
-    enabled: Boolean(account.address && chainId === publicConfig.chainId),
+    queryKey: [
+      "protocol-gas-balance",
+      expectedChainId,
+      snapshot.factory,
+      account.address,
+    ],
+    enabled: Boolean(account.address && account.chainId === expectedChainId),
     queryFn: () => client.getBalance({ address: account.address! }),
   });
   const [feeRecipient, setFeeRecipient] = useState("");
@@ -64,11 +77,15 @@ function ProtocolControls({
   );
   const operationInFlight = useRef(false);
   const permissions = protocolPermissions(snapshot, account.address);
-  const guard = factoryWriteGuard({
-    deployment: publicConfig.deployment,
-    walletChainId: account.isConnected ? chainId : undefined,
-    expectedChainId: publicConfig.chainId,
-    authenticity: snapshot.authenticity,
+  const guard = deploymentWriteGuard({
+    deployment: {
+      status: "ready",
+      chainId: expectedChainId,
+      factoryAddress: snapshot.factory,
+      usdgAddress: snapshot.paymentToken,
+    },
+    walletChainId: account.isConnected ? account.chainId : undefined,
+    expectedChainId,
   });
   const writesVerified =
     guard.enabled &&
@@ -88,10 +105,11 @@ function ProtocolControls({
       if (!account.address) {
         throw new Error("Connect the authorized wallet before simulating.");
       }
-      const { request } = await client.simulateContract({
+      const { request } = await simulateContract(wagmiConfig, {
         account: account.address,
+        chainId: expectedChainId,
         address: snapshot.factory,
-        abi: factoryAbi,
+        abi: membershipFactoryAbi,
         functionName,
         args,
       } as never);
@@ -381,7 +399,8 @@ function ProtocolControls({
       {!writesVerified && (
         <p className="inline-status" role="status">
           Protocol writes remain disabled until the configured factory and its
-          bound contracts are verified on {publicConfig.chain.name}.
+          bound contracts are verified on{" "}
+          {getSupportedChain(expectedChainId).name}.
         </p>
       )}
       <p className="eyebrow">Prepared action · {action}</p>
@@ -391,19 +410,18 @@ function ProtocolControls({
 }
 
 export function ProtocolAdministration() {
-  const client = useMemo(() => createDirectReadClient(), []);
+  const { chainId, client, deployment } = useActiveNetwork();
   const protocol = useQuery({
-    queryKey: ["protocol-administration", publicConfig.chainId],
-    enabled: publicConfig.deployment.status === "ready",
-    queryFn: () => readProtocolState(client, publicConfig.deployment),
+    queryKey: ["protocol-administration", chainId],
+    enabled: deployment.status === "ready" && Boolean(client),
+    queryFn: () => {
+      if (!client) throw new Error("No public client is available.");
+      return readProtocolState(client, deployment);
+    },
   });
 
-  if (publicConfig.deployment.status !== "ready") {
-    return (
-      <ReadStateView
-        state={unavailableDeploymentState(publicConfig.deployment)}
-      />
-    );
+  if (deployment.status !== "ready") {
+    return <ReadStateView state={unavailableDeploymentState(deployment)} />;
   }
   if (protocol.isError) {
     const classified = classifyReadError(protocol.error);
@@ -439,6 +457,7 @@ export function ProtocolAdministration() {
     >
       {(snapshot) => (
         <ProtocolControls
+          expectedChainId={deployment.chainId}
           onRefresh={async () => (await protocol.refetch()).data}
           snapshot={snapshot}
         />

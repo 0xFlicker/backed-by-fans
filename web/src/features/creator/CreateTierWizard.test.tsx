@@ -10,9 +10,12 @@ let walletChainId = 46_630;
 vi.mock("wagmi", () => ({
   useAccount: () => ({
     address: walletAddress,
+    chainId: walletAddress ? walletChainId : undefined,
     isConnected: Boolean(walletAddress),
   }),
   useChainId: () => walletChainId,
+  useConfig: () => ({}),
+  usePublicClient: () => ({}),
   useSwitchChain: () => ({ switchChain: vi.fn() }),
   useWriteContract: () => ({ isPending: false, writeContractAsync: vi.fn() }),
 }));

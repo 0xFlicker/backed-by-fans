@@ -14,7 +14,7 @@ has evidence and approval.
 
 - Bun `1.3.14`
 - A browser wallet exposing EIP-1193, or a public WalletConnect project ID
-- A checked deployment manifest before setting a factory address
+- Foundry for regenerating contract bindings from public broadcasts
 
 ## Public configuration
 
@@ -23,28 +23,23 @@ variable starts with `NEXT_PUBLIC_`, is intentionally public, and is frozen into
 the browser bundle during `next build`. Never place a secret, private RPC
 credential, wallet key, or server token in these variables.
 
-The factory deliberately has no default. The application pins the official USDG
-proxy independently for testnet and mainnet and rejects any supplied token that
-differs from the selected chain's pin. Both networks also require the factory,
-renderer, deployer, and USDG runtime-code hashes from an independently checked
-signed deployment record, including the USDG EIP-1967 implementation address
-and runtime-code hash. The browser verifies the proxy slot, implementation
-bytecode, contract hashes, and RPC chain ID at the same captured block before
-exposing writes. Missing commitments render a distinct unavailable state; they
-never fall back to same-shaped contract interfaces. Mainnet authorization and
-promotion remain outside the web implementation units.
+`bun run generate` uses Wagmi CLI's Foundry and React plugins to write
+`src/contracts.ts`. Public factory addresses come only from successful checked-in
+Foundry `run-latest.json` broadcasts. Robinhood testnet and mainnet coexist in
+one generated map; missing deployments render an explicit unavailable state.
+The application pins canonical USDG independently for both public chains.
 
-Individual tier runtime hashes vary because constructor values are immutable
-in bytecode. Tier trust therefore comes from registration by the exact checked
-factory, the exact checked bound deployer, and verified tier factory/token and
-interface bindings—not from reusing one validation-tier hash for every tier.
+Tier trust comes from registration by the generated factory plus verified tier
+factory, canonical-token, and interface bindings. The browser does not perform
+a redundant runtime-code-hash attestation against the same frontend RPC it is
+already using.
 
 ## Direct creator and protocol operations
 
 - `/create` guides a creator through metadata, immutable economics, mutable
   limits, material risks, acknowledgements, factory deployment, registry
   reconciliation, and the share-success state.
-- `/tiers/[tierAddress]/manage` verifies factory registration and expected
+- `/chains/[chainId]/tiers/[tierAddress]/manage` verifies factory registration and expected
   interfaces before exposing tier-owner pause, limits, grants, revocation,
   refund, withdrawal, metadata, and two-step ownership controls.
 - `/protocol` verifies the configured factory, deployer, renderer, and USDG
@@ -65,7 +60,7 @@ destinations; the application never offers a redirect field.
 
 ## Supporter memberships and account discovery
 
-- `/tiers/[tierAddress]` reads the connected wallet's permanent credential,
+- `/chains/[chainId]/tiers/[tierAddress]` reads the connected wallet's permanent credential,
   current access, held capacity, referral lock, shares, refund preview, and
   fixed-destination claims at one captured block. The primary action changes
   between joining, active renewal, held-place renewal, and synchronized rejoin.
@@ -87,6 +82,8 @@ remaining claim and recovery guidance, never a redirect control.
 
 ```sh
 bun install --frozen-lockfile
+bun run generate
+bun run generate:check
 bun run format
 bun run lint
 bun run typecheck

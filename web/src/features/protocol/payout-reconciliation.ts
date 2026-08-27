@@ -1,6 +1,6 @@
 import { parseEventLogs, type Address } from "viem";
 
-import { tierAbi } from "@/contracts/abis";
+import { membershipTierAbi } from "@/contracts";
 import type { SuccessfulReceiptLogs } from "@/features/protocol/write-reconciliation";
 import { isSameAddress } from "@/lib/address";
 
@@ -16,7 +16,7 @@ export function receiptProvesPayment(
 ) {
   if (input.periods === 0n) return false;
   return parseEventLogs({
-    abi: tierAbi,
+    abi: membershipTierAbi,
     eventName: "PaymentProcessed",
     logs: receipt.logs,
     strict: true,
@@ -36,7 +36,7 @@ export function receiptProvesRewardClaim(
 ) {
   if (input.amount === 0n) return false;
   return parseEventLogs({
-    abi: tierAbi,
+    abi: membershipTierAbi,
     eventName: "RewardClaimed",
     logs: receipt.logs,
     strict: true,
@@ -55,7 +55,7 @@ export function receiptProvesReferralClaim(
 ) {
   if (input.amount === 0n) return false;
   return parseEventLogs({
-    abi: tierAbi,
+    abi: membershipTierAbi,
     eventName: "ReferralClaimed",
     logs: receipt.logs,
     strict: true,
@@ -77,7 +77,7 @@ export function receiptProvesMembershipRefund(
   },
 ) {
   return parseEventLogs({
-    abi: tierAbi,
+    abi: membershipTierAbi,
     eventName: "MembershipRefunded",
     logs: receipt.logs,
     strict: true,

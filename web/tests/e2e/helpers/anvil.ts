@@ -9,17 +9,17 @@ import {
   type Hash,
   type TransactionReceipt,
 } from "viem";
-import { robinhood } from "viem/chains";
+import { foundry } from "viem/chains";
 
 export const anvilEnvironment = {
   rpcUrl: process.env.BBF_ANVIL_RPC_URL,
-  factory: process.env.NEXT_PUBLIC_FACTORY_ADDRESS,
+  factory: process.env.NEXT_PUBLIC_ANVIL_FACTORY_ADDRESS,
   tier: process.env.BBF_ANVIL_TIER_ADDRESS,
   creator: process.env.BBF_ANVIL_CREATOR_ADDRESS,
   member: process.env.BBF_ANVIL_MEMBER_ADDRESS,
   giftRecipient: process.env.BBF_ANVIL_GIFT_RECIPIENT_ADDRESS,
   newOwner: process.env.BBF_ANVIL_NEW_OWNER_ADDRESS,
-  usdg: process.env.NEXT_PUBLIC_USDG_ADDRESS,
+  usdg: process.env.NEXT_PUBLIC_ANVIL_USDG_ADDRESS,
 } as const;
 
 export const anvilEnabled = Object.values(anvilEnvironment).every(Boolean);
@@ -71,7 +71,7 @@ export async function revertAnvil(snapshot: string) {
 
 export function anvilPublicClient() {
   return createPublicClient({
-    chain: robinhood,
+    chain: foundry,
     transport: http(requiredAnvilRpc()),
   });
 }
@@ -157,7 +157,7 @@ export async function installAnvilWallet(page: Page, initialAccount: Address) {
           }
           if (method === "wallet_switchEthereumChain") {
             for (const listener of listeners.get("chainChanged") ?? []) {
-              listener("0x1237");
+              listener("0x7a69");
             }
             return null;
           }

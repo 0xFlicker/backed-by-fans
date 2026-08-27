@@ -5,7 +5,7 @@ import {
   type PublicClient,
 } from "viem";
 
-import { tierAbi, tokenAbi } from "@/contracts/abis";
+import { membershipTierAbi, usdgAbi } from "@/contracts";
 import type {
   ReferralStatus,
   SupporterCredential,
@@ -64,7 +64,7 @@ export async function readGiftRecipientState(
 ): Promise<GiftRecipientState> {
   const tokenId = await client.readContract({
     address: input.tier,
-    abi: tierAbi,
+    abi: membershipTierAbi,
     functionName: "tokenOf",
     args: [input.recipient],
     blockNumber: input.blockNumber,
@@ -83,35 +83,35 @@ export async function readGiftRecipientState(
   const [expiration, active, occupied, time, referral] = await Promise.all([
     client.readContract({
       address: input.tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "expiresAt",
       args: [tokenId],
       blockNumber: input.blockNumber,
     }),
     client.readContract({
       address: input.tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "isActiveToken",
       args: [tokenId],
       blockNumber: input.blockNumber,
     }),
     client.readContract({
       address: input.tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "isOccupied",
       args: [tokenId],
       blockNumber: input.blockNumber,
     }),
     client.readContract({
       address: input.tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "timeBalances",
       args: [tokenId],
       blockNumber: input.blockNumber,
     }),
     client.readContract({
       address: input.tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "referralOf",
       args: [tokenId],
       blockNumber: input.blockNumber,
@@ -175,42 +175,57 @@ function credentialContracts(
   tokenId: bigint,
 ): Record<string, unknown>[] {
   return [
-    { address: tier, abi: tierAbi, functionName: "ownerOf", args: [tokenId] },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
+      functionName: "ownerOf",
+      args: [tokenId],
+    },
+    {
+      address: tier,
+      abi: membershipTierAbi,
       functionName: "isActiveToken",
       args: [tokenId],
     },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "isOccupied",
       args: [tokenId],
     },
-    { address: tier, abi: tierAbi, functionName: "expiresAt", args: [tokenId] },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
+      functionName: "expiresAt",
+      args: [tokenId],
+    },
+    {
+      address: tier,
+      abi: membershipTierAbi,
       functionName: "timeBalances",
       args: [tokenId],
     },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "referralOf",
       args: [tokenId],
     },
-    { address: tier, abi: tierAbi, functionName: "sharesOf", args: [tokenId] },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
+      functionName: "sharesOf",
+      args: [tokenId],
+    },
+    {
+      address: tier,
+      abi: membershipTierAbi,
       functionName: "claimableReward",
       args: [tokenId],
     },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "previewRefund",
       args: [tokenId],
     },
@@ -255,13 +270,13 @@ export async function readTierSupporterState(
         [
           {
             address: input.tier,
-            abi: tierAbi,
+            abi: membershipTierAbi,
             functionName: "tokenOf",
             args: [wallet],
           },
           {
             address: input.deployment.usdgAddress,
-            abi: tokenAbi,
+            abi: usdgAbi,
             functionName: "balanceOf",
             args: [wallet],
           },
@@ -273,13 +288,13 @@ export async function readTierSupporterState(
           },
           {
             address: input.deployment.usdgAddress,
-            abi: tokenAbi,
+            abi: usdgAbi,
             functionName: "allowance",
             args: [wallet, input.tier],
           },
           {
             address: input.tier,
-            abi: tierAbi,
+            abi: membershipTierAbi,
             functionName: "claimableReferral",
             args: [wallet],
           },
@@ -300,7 +315,7 @@ export async function readTierSupporterState(
       if (isSameAddress(wallet, tier.data.creator)) {
         detailContracts.push({
           address: input.tier,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "creatorProceeds",
         });
       }
@@ -323,14 +338,14 @@ export async function readTierSupporterState(
         await Promise.all([
           client.readContract({
             address: input.tier,
-            abi: tierAbi,
+            abi: membershipTierAbi,
             functionName: "tokenOf",
             args: [wallet],
             blockNumber,
           }),
           client.readContract({
             address: input.deployment.usdgAddress,
-            abi: tokenAbi,
+            abi: usdgAbi,
             functionName: "balanceOf",
             args: [wallet],
             blockNumber,
@@ -338,14 +353,14 @@ export async function readTierSupporterState(
           client.getBalance({ address: wallet, blockNumber }),
           client.readContract({
             address: input.deployment.usdgAddress,
-            abi: tokenAbi,
+            abi: usdgAbi,
             functionName: "allowance",
             args: [wallet, input.tier],
             blockNumber,
           }),
           client.readContract({
             address: input.tier,
-            abi: tierAbi,
+            abi: membershipTierAbi,
             functionName: "claimableReferral",
             args: [wallet],
             blockNumber,
@@ -358,7 +373,7 @@ export async function readTierSupporterState(
         isSameAddress(wallet, tier.data.creator)
           ? client.readContract({
               address: input.tier,
-              abi: tierAbi,
+              abi: membershipTierAbi,
               functionName: "creatorProceeds",
               blockNumber,
             })

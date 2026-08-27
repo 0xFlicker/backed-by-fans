@@ -16,7 +16,7 @@ test.describe("configured Anvil RPC behavior", () => {
     await page.route(`${anvilEnvironment.rpcUrl}/`, (route) =>
       route.abort("connectionfailed"),
     );
-    await page.goto(`/tiers/${tier}`);
+    await page.goto(`/chains/31337/tiers/${tier}`);
 
     await expect(page.getByText("Onchain state unavailable")).toBeVisible();
     await expect(page.getByText(/0 USDG/i)).toHaveCount(0);

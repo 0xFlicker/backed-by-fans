@@ -131,6 +131,52 @@ button:disabled {
   justify-self: end;
 }
 
+.wallet-control {
+  align-items: center;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.network-selector select {
+  background: var(--house-light);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--backstage);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  max-width: 13rem;
+  padding: 0.55rem 1.8rem 0.55rem 0.75rem;
+}
+
+.testnet-badge {
+  background: var(--encore);
+  border: 1px solid var(--backstage);
+  border-radius: 999px;
+  color: var(--backstage);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.3rem 0.48rem;
+  text-transform: uppercase;
+}
+
+.network-error {
+  color: var(--applause);
+  flex-basis: 100%;
+  font-size: 0.75rem;
+}
+
+.sr-only {
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 .brand-lockup {
   align-items: center;
   display: inline-flex;
@@ -1632,7 +1678,7 @@ dd {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1300px) {
   .site-header {
     grid-template-columns: 1fr auto;
   }
@@ -1642,6 +1688,18 @@ dd {
     grid-row: 2;
     justify-content: space-between;
     order: 3;
+  }
+}
+
+@media (max-width: 960px) {
+  .wallet-control,
+  .network-selector {
+    min-width: 0;
+  }
+
+  .network-selector select {
+    max-width: 100%;
+    width: 100%;
   }
 
   .hero {
@@ -1701,6 +1759,20 @@ dd {
 
   .site-header {
     gap: 0.8rem;
+    grid-template-columns: 1fr;
+  }
+
+  .site-header > :last-child {
+    justify-self: stretch;
+  }
+
+  .wallet-control {
+    flex-wrap: wrap;
+    grid-row: 2;
+  }
+
+  .network-selector {
+    flex: 1 1 12rem;
   }
 
   .brand-lockup span {
@@ -1709,6 +1781,7 @@ dd {
 
   .primary-nav {
     gap: 0.5rem;
+    grid-row: 3;
   }
 
   .primary-nav a {

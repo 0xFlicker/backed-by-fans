@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 
+import { ChainRouteBoundary } from "@/components/ChainRouteBoundary";
 import { ReadStateView } from "@/components/ReadState";
 import { TierManagement } from "@/features/creator/TierManagement";
+import { parseSupportedChainId } from "@/lib/chains";
 import { validateTierRouteParam } from "@/lib/direct-read";
 
 type ManagePageProps = {
-  params: Promise<{ tierAddress: string }>;
+  params: Promise<{ chainId: string; tierAddress: string }>;
 };
 
 export const metadata: Metadata = {
@@ -15,21 +17,25 @@ export const metadata: Metadata = {
 };
 
 export default async function ManagePage({ params }: ManagePageProps) {
-  const { tierAddress } = await params;
-  const address = validateTierRouteParam(tierAddress);
+  const route = await params;
+  const chainId = parseSupportedChainId(route.chainId);
+  const address = validateTierRouteParam(route.tierAddress);
 
   return (
     <section className="page-shell manage-page">
-      {!address ? (
+      {!chainId || !address ? (
         <ReadStateView
           state={{
             status: "invalid-address",
-            value: tierAddress,
-            label: "This management URL does not contain a valid EVM address.",
+            value: `${route.chainId}/${route.tierAddress}`,
+            label:
+              "This management URL does not contain a supported chain and valid EVM address.",
           }}
         />
       ) : (
-        <TierManagement tierAddress={address} />
+        <ChainRouteBoundary chainId={chainId}>
+          <TierManagement chainId={chainId} tierAddress={address} />
+        </ChainRouteBoundary>
       )}
     </section>
   );

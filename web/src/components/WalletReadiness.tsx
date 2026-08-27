@@ -1,16 +1,18 @@
 "use client";
 
 import { formatEther, formatUnits, type Address } from "viem";
-import { useAccount, useBalance, useChainId, useReadContract } from "wagmi";
+import { useAccount, useBalance, useReadContract } from "wagmi";
 
-import { tokenAbi } from "@/contracts/abis";
+import { usdgAbi } from "@/contracts";
 import { ReadStateView } from "@/components/ReadState";
-import { publicConfig } from "@/lib/config";
+import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
+import { getDeployment, publicConfig } from "@/lib/config";
 import {
   classifyReadError,
   unavailableDeploymentState,
   type ReadState,
 } from "@/lib/read-state";
+import { useActiveNetwork } from "@/lib/use-active-network";
 
 type VerifiedBalances = {
   eth: bigint;
@@ -20,15 +22,17 @@ type VerifiedBalances = {
 function WalletBalanceGrid({
   balances,
   estimatedCost,
+  networkName,
 }: {
   balances: VerifiedBalances;
   estimatedCost?: bigint;
+  networkName: string;
 }) {
   return (
     <dl className="readiness-grid">
       <div>
         <dt>Network</dt>
-        <dd>{publicConfig.chain.name}</dd>
+        <dd>{networkName}</dd>
       </div>
       <div>
         <dt>ETH for gas</dt>
@@ -54,18 +58,22 @@ function ConnectedWalletReadiness({
   account,
   paymentToken,
   estimatedCost,
+  chainId,
+  networkName,
 }: {
   account: Address;
   paymentToken: Address;
   estimatedCost?: bigint;
+  chainId: 4663 | 46630 | 31337;
+  networkName: string;
 }) {
-  const gas = useBalance({ address: account, chainId: publicConfig.chainId });
+  const gas = useBalance({ address: account, chainId });
   const usdg = useReadContract({
     address: paymentToken,
-    abi: tokenAbi,
+    abi: usdgAbi,
     functionName: "balanceOf",
     args: [account],
-    chainId: publicConfig.chainId,
+    chainId,
   });
 
   if (gas.isLoading || usdg.isLoading) {
@@ -94,26 +102,31 @@ function ConnectedWalletReadiness({
     <WalletBalanceGrid
       balances={{ eth: gas.data.value, usdg: usdg.data }}
       estimatedCost={estimatedCost}
+      networkName={networkName}
     />
   ) : null;
 }
 
 export function WalletReadiness({
   estimatedCost,
+  expectedChainId,
   verifiedBalances,
 }: {
   estimatedCost?: bigint;
+  expectedChainId?: SupportedChainId;
   verifiedBalances?: VerifiedBalances;
 }) {
   const account = useAccount();
-  const chainId = useChainId();
+  const active = useActiveNetwork();
+  const deployment = expectedChainId
+    ? getDeployment(publicConfig, expectedChainId)
+    : active.deployment;
+  const chain = expectedChainId
+    ? getSupportedChain(expectedChainId)
+    : active.chain;
 
-  if (publicConfig.deployment.status !== "ready") {
-    return (
-      <ReadStateView
-        state={unavailableDeploymentState(publicConfig.deployment)}
-      />
-    );
+  if (deployment.status !== "ready") {
+    return <ReadStateView state={unavailableDeploymentState(deployment)} />;
   }
 
   if (!account.address || !account.isConnected) {
@@ -129,14 +142,15 @@ export function WalletReadiness({
     );
   }
 
-  if (chainId !== publicConfig.chainId) {
+  if (!chain) {
     return (
       <ReadStateView
         state={{
           status: "wrong-chain",
-          expectedChainId: publicConfig.chainId,
-          actualChainId: chainId,
-          label: `Switch to ${publicConfig.chain.name} before preparing a transaction.`,
+          expectedChainId: deployment.chainId,
+          actualChainId: active.chainId,
+          label:
+            "Switch to a supported Backed By Fans network before preparing a transaction.",
         }}
       />
     );
@@ -148,18 +162,21 @@ export function WalletReadiness({
         <WalletBalanceGrid
           balances={verifiedBalances}
           estimatedCost={estimatedCost}
+          networkName={chain.name}
         />
       ) : (
         <ConnectedWalletReadiness
           account={account.address}
           estimatedCost={estimatedCost}
-          paymentToken={publicConfig.deployment.usdgAddress}
+          paymentToken={deployment.usdgAddress}
+          chainId={deployment.chainId}
+          networkName={chain.name}
         />
       )}
       <p className="readiness-guidance">
-        Need funds? Transfer USDG to this wallet on {publicConfig.chain.name}{" "}
-        and keep a small ETH balance for gas. Backed By Fans does not provide a
-        fiat checkout.
+        Need funds? Transfer USDG to this wallet on {chain.name} and keep a
+        small ETH balance for gas. Backed By Fans does not provide a fiat
+        checkout.
       </p>
     </>
   );

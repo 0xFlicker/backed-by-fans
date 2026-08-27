@@ -11,28 +11,20 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { simulateContract } from "@wagmi/core";
 import { formatUnits, type Address } from "viem";
-import {
-  useAccount,
-  useChainId,
-  useSwitchChain,
-  useWriteContract,
-} from "wagmi";
+import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
 import { WalletReadiness } from "@/components/WalletReadiness";
-import { factoryAbi } from "@/contracts/abis";
+import { membershipFactoryAbi } from "@/contracts";
 import {
   defaultCreatorForm,
   evaluateCreatorForm,
   type CreatorForm,
   type TierConfig,
 } from "@/features/creator/config";
-import {
-  factoryWriteGuard,
-  verifyFactoryAuthenticity,
-} from "@/features/protocol/factory-authenticity";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import { reconcileCreatedTier } from "@/features/protocol/registry-reconciliation";
 import {
@@ -40,8 +32,8 @@ import {
   reconcileSuccessfulWrite,
   type SuccessfulWriteReceipt,
 } from "@/features/protocol/write-reconciliation";
-import { publicConfig } from "@/lib/config";
-import { createDirectReadClient } from "@/lib/direct-read";
+import { deploymentWriteGuard } from "@/features/protocol/deployment-write-guard";
+import { useActiveNetwork } from "@/lib/use-active-network";
 import {
   decodeTransactionError,
   initialTransactionState,
@@ -98,7 +90,10 @@ export function CreateTierWizard() {
   const [step, setStep] = useState<StepId>("metadata");
   const [economicsAcknowledged, setEconomicsAcknowledged] = useState(false);
   const [giftingAcknowledged, setGiftingAcknowledged] = useState(false);
-  const [createdTier, setCreatedTier] = useState<Address>();
+  const [createdTier, setCreatedTier] = useState<{
+    address: Address;
+    chainId: number;
+  }>();
   const [confirmationNote, setConfirmationNote] = useState<string>();
   const [transaction, dispatch] = useReducer(
     transactionReducer,
@@ -106,33 +101,26 @@ export function CreateTierWizard() {
   );
   const deployInFlight = useRef(false);
   const account = useAccount();
-  const chainId = useChainId();
   const write = useWriteContract();
-  const client = useMemo(() => createDirectReadClient(), []);
+  const wagmiConfig = useConfig();
+  const active = useActiveNetwork();
+  const { client, deployment } = active;
   const gas = useQuery({
-    queryKey: ["creator-gas-balance", publicConfig.chainId, account.address],
+    queryKey: ["creator-gas-balance", active.chainId, account.address],
     enabled: Boolean(
-      publicConfig.deployment.status === "ready" &&
-      account.address &&
-      chainId === publicConfig.chainId,
+      deployment.status === "ready" && account.address && client,
     ),
-    queryFn: () => client.getBalance({ address: account.address! }),
+    queryFn: () => client!.getBalance({ address: account.address! }),
   });
   const switchChain = useSwitchChain();
   const result = useMemo(
     () => evaluateCreatorForm(form, account.address),
     [account.address, form],
   );
-  const factoryAuthenticity = useQuery({
-    queryKey: ["factory-authenticity", publicConfig.chainId],
-    enabled: publicConfig.deployment.status === "ready",
-    queryFn: () => verifyFactoryAuthenticity(client, publicConfig.deployment),
-  });
-  const guard = factoryWriteGuard({
-    deployment: publicConfig.deployment,
-    walletChainId: account.isConnected ? chainId : undefined,
-    expectedChainId: publicConfig.chainId,
-    authenticity: factoryAuthenticity.data,
+  const guard = deploymentWriteGuard({
+    deployment,
+    walletChainId: account.isConnected ? account.chainId : undefined,
+    expectedChainId: active.clientChainId,
   });
   const formValid = Boolean(result.config);
   const acknowledged = economicsAcknowledged && giftingAcknowledged;
@@ -163,14 +151,14 @@ export function CreateTierWizard() {
     config: TierConfig,
     receipt: SuccessfulWriteReceipt,
   ) {
-    if (publicConfig.deployment.status !== "ready") return undefined;
+    if (deployment.status !== "ready" || !client) return undefined;
     const tier = await reconcileCreatedTier(client, {
-      factory: publicConfig.deployment.factoryAddress,
+      factory: deployment.factoryAddress,
       config,
       receipt,
     });
     if (tier) {
-      setCreatedTier(tier);
+      setCreatedTier({ address: tier, chainId: deployment.chainId });
       setConfirmationNote(
         "The successful receipt and factory registry confirm this tier with the complete reviewed launch terms.",
       );
@@ -195,24 +183,26 @@ export function CreateTierWizard() {
     if (
       !deployEnabled ||
       !result.config ||
-      publicConfig.deployment.status !== "ready" ||
+      deployment.status !== "ready" ||
+      !client ||
       !account.address
     ) {
       return;
     }
     const creator = account.address;
     const config = result.config;
-    const factory = publicConfig.deployment.factoryAddress;
+    const factory = deployment.factoryAddress;
 
     setConfirmationNote(undefined);
 
     let waitingForReceipt = false;
     try {
       dispatch({ type: "SIMULATE" });
-      const { request } = await client.simulateContract({
+      const { request } = await simulateContract(wagmiConfig, {
         account: creator,
+        chainId: deployment.chainId,
         address: factory,
-        abi: factoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "createTier",
         args: [config],
       });
@@ -266,8 +256,10 @@ export function CreateTierWizard() {
   }
 
   if (createdTier) {
-    const sharePath = `/tiers/${createdTier}` as Route;
-    const managePath = `/tiers/${createdTier}/manage` as Route;
+    const sharePath =
+      `/chains/${createdTier.chainId}/tiers/${createdTier.address}` as Route;
+    const managePath =
+      `/chains/${createdTier.chainId}/tiers/${createdTier.address}/manage` as Route;
     return (
       <section
         className="creator-success"
@@ -278,7 +270,7 @@ export function CreateTierWizard() {
           Your membership is ready to share.
         </h1>
         <p>{confirmationNote}</p>
-        <code>{createdTier}</code>
+        <code>{createdTier.address}</code>
         <div className="creator-actions">
           <Link className="button button-applause" href={sharePath}>
             Open membership page
@@ -678,17 +670,18 @@ export function CreateTierWizard() {
                 <p className="eyebrow">Wallet and network</p>
                 <WalletControl />
               </div>
-              {account.isConnected && chainId !== publicConfig.chainId && (
-                <button
-                  className="button button-warning"
-                  onClick={() =>
-                    switchChain.switchChain({ chainId: publicConfig.chainId })
-                  }
-                  type="button"
-                >
-                  Switch to {publicConfig.chain.name}
-                </button>
-              )}
+              {account.isConnected &&
+                account.chainId !== active.clientChainId && (
+                  <button
+                    className="button button-warning"
+                    onClick={() =>
+                      switchChain.switchChain({ chainId: active.clientChainId })
+                    }
+                    type="button"
+                  >
+                    Switch to {active.chain?.name ?? "a supported network"}
+                  </button>
+                )}
               <WalletReadiness />
             </div>
 

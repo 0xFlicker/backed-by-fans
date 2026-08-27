@@ -6,7 +6,7 @@ import {
 } from "viem";
 import { describe, expect, it } from "vitest";
 
-import { tierAbi } from "@/contracts/abis";
+import { membershipTierAbi } from "@/contracts";
 import {
   receiptProvesMembershipRefund,
   receiptProvesPayment,
@@ -28,7 +28,7 @@ describe("payout receipt reconciliation", () => {
         [10_000_000n, 2n],
       ),
       topics: encodeEventTopics({
-        abi: tierAbi,
+        abi: membershipTierAbi,
         eventName: "PaymentProcessed",
         args: { payer: owner, recipient: creator, tokenId: 4n },
       }),
@@ -69,7 +69,7 @@ describe("payout receipt reconciliation", () => {
       address: tier,
       data: encodeAbiParameters([{ type: "uint256" }], [9n]),
       topics: encodeEventTopics({
-        abi: tierAbi,
+        abi: membershipTierAbi,
         eventName: "RewardClaimed",
         args: { tokenId: 4n, owner },
       }),
@@ -78,7 +78,7 @@ describe("payout receipt reconciliation", () => {
       address: tier,
       data: encodeAbiParameters([{ type: "uint256" }], [7n]),
       topics: encodeEventTopics({
-        abi: tierAbi,
+        abi: membershipTierAbi,
         eventName: "ReferralClaimed",
         args: { referrer: owner },
       }),
@@ -110,7 +110,7 @@ describe("payout receipt reconciliation", () => {
         [10n, 2n],
       ),
       topics: encodeEventTopics({
-        abi: tierAbi,
+        abi: membershipTierAbi,
         eventName: "MembershipRefunded",
         args: { tokenId: 4n, recipient: owner, tierOwner: creator },
       }),

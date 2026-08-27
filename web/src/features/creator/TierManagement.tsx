@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useReducer, useRef, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { simulateContract } from "@wagmi/core";
 import {
   formatUnits,
   getAddress,
@@ -9,12 +10,17 @@ import {
   type Address,
   type Hash,
 } from "viem";
-import { useAccount, useChainId, useWriteContract } from "wagmi";
+import {
+  useAccount,
+  useConfig,
+  usePublicClient,
+  useWriteContract,
+} from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
-import { tierAbi, tokenAbi } from "@/contracts/abis";
+import { membershipTierAbi, usdgAbi } from "@/contracts";
 import type { TierManagementSnapshot } from "@/contracts/types";
 import {
   managementPermissions,
@@ -39,8 +45,8 @@ import {
 } from "@/features/protocol/write-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isNonZeroAddress, isSameAddress } from "@/lib/address";
-import { publicConfig } from "@/lib/config";
-import { createDirectReadClient } from "@/lib/direct-read";
+import { getSupportedChain } from "@/lib/chains";
+import { getDeployment, publicConfig } from "@/lib/config";
 import {
   classifyReadError,
   type ReadState,
@@ -60,19 +66,26 @@ function ManagementControls({
   capturedBlock,
   fresh,
   onRefresh,
+  expectedChainId,
 }: {
   snapshot: TierManagementSnapshot;
   capturedBlock: bigint;
   fresh: boolean;
   onRefresh: () => Promise<ReadState<TierManagementSnapshot> | undefined>;
+  expectedChainId: 4663 | 46630 | 31337;
 }) {
   const account = useAccount();
-  const chainId = useChainId();
   const write = useWriteContract();
-  const client = useMemo(() => createDirectReadClient(), []);
+  const wagmiConfig = useConfig();
+  const client = usePublicClient({ chainId: expectedChainId })!;
   const gas = useQuery({
-    queryKey: ["management-gas-balance", snapshot.address, account.address],
-    enabled: Boolean(account.address && chainId === publicConfig.chainId),
+    queryKey: [
+      "management-gas-balance",
+      expectedChainId,
+      snapshot.address,
+      account.address,
+    ],
+    enabled: Boolean(account.address && account.chainId === expectedChainId),
     queryFn: () => client.getBalance({ address: account.address! }),
   });
   const [transaction, dispatch] = useReducer(
@@ -110,9 +123,9 @@ function ManagementControls({
     paymentToken: snapshot.paymentToken,
   };
   const guard = getWriteGuard({
-    deployment: publicConfig.deployment,
-    walletChainId: account.isConnected ? chainId : undefined,
-    expectedChainId: publicConfig.chainId,
+    deployment: getDeployment(publicConfig, expectedChainId),
+    walletChainId: account.isConnected ? account.chainId : undefined,
+    expectedChainId,
     authenticity,
   });
   const writesVerified =
@@ -254,12 +267,12 @@ function ManagementControls({
   }
 
   async function readRecipientTime(recipient: Address) {
-    const blockNumber = await client.getBlockNumber();
+    const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
     const [block, tokenId] = await Promise.all([
       client.getBlock({ blockNumber }),
       client.readContract({
         address: snapshot.address,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "tokenOf",
         args: [recipient],
         blockNumber,
@@ -277,14 +290,14 @@ function ManagementControls({
     const [expiration, balances] = await Promise.all([
       client.readContract({
         address: snapshot.address,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "expiresAt",
         args: [tokenId],
         blockNumber,
       }),
       client.readContract({
         address: snapshot.address,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "timeBalances",
         args: [tokenId],
         blockNumber,
@@ -300,18 +313,18 @@ function ManagementControls({
   }
 
   async function readTokenTime(tokenId: bigint) {
-    const blockNumber = await client.getBlockNumber();
+    const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
     const [balances, refund] = await Promise.all([
       client.readContract({
         address: snapshot.address,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "timeBalances",
         args: [tokenId],
         blockNumber,
       }),
       client.readContract({
         address: snapshot.address,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "previewRefund",
         args: [tokenId],
         blockNumber,
@@ -341,10 +354,11 @@ function ManagementControls({
       if (!account.address) {
         throw new Error("Connect the operating wallet before simulating.");
       }
-      const { request } = await client.simulateContract({
+      const { request } = await simulateContract(wagmiConfig, {
         account: account.address,
+        chainId: expectedChainId,
         address: snapshot.address,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName,
         args,
       } as never);
@@ -373,14 +387,14 @@ function ManagementControls({
       const [refund, recipient] = await Promise.all([
         client.readContract({
           address: snapshot.address,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "previewRefund",
           args: [tokenId],
           blockNumber: previewBlock,
         }),
         client.readContract({
           address: snapshot.address,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "ownerOf",
           args: [tokenId],
           blockNumber: previewBlock,
@@ -412,7 +426,7 @@ function ManagementControls({
       try {
         const paused = await client.readContract({
           address: snapshot.address,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "paused",
         });
         if (!paused) {
@@ -427,16 +441,17 @@ function ManagementControls({
         if (preview.topUp > 0n) {
           const allowance = await client.readContract({
             address: snapshot.paymentToken,
-            abi: tokenAbi,
+            abi: usdgAbi,
             functionName: "allowance",
             args: [owner, snapshot.address],
           });
           if (allowance < preview.topUp) {
             approval = async () => {
-              const { request } = await client.simulateContract({
+              const { request } = await simulateContract(wagmiConfig, {
                 account: owner,
+                chainId: expectedChainId,
                 address: snapshot.paymentToken,
-                abi: tokenAbi,
+                abi: usdgAbi,
                 functionName: "approve",
                 args: [snapshot.address, preview.topUp],
               });
@@ -1021,8 +1036,8 @@ function ManagementControls({
       {!writesVerified && (
         <p className="inline-status" role="status">
           Writes stay disabled until this registered tier is fresh, the wallet
-          uses {publicConfig.chain.name}, and the expected contract interfaces
-          are verified.
+          uses {getSupportedChain(expectedChainId).name}, and the expected
+          contract interfaces are verified.
         </p>
       )}
       <p className="eyebrow">Prepared action · {activeAction}</p>
@@ -1031,14 +1046,21 @@ function ManagementControls({
   );
 }
 
-export function TierManagement({ tierAddress }: { tierAddress: Address }) {
-  const deployment = publicConfig.deployment;
-  const client = useMemo(() => createDirectReadClient(), []);
+export function TierManagement({
+  chainId,
+  tierAddress,
+}: {
+  chainId: 4663 | 46630 | 31337;
+  tierAddress: Address;
+}) {
+  const deployment = getDeployment(publicConfig, chainId);
+  const client = usePublicClient({ chainId });
   const management = useQuery({
-    queryKey: ["tier-management", tierAddress],
-    enabled: deployment.status === "ready",
+    queryKey: ["tier-management", chainId, tierAddress],
+    enabled: deployment.status === "ready" && Boolean(client),
     queryFn: () => {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
+      if (!client) throw new Error("No public client is available.");
       return readTierManagementState(client, {
         tier: tierAddress,
         deployment,
@@ -1084,6 +1106,7 @@ export function TierManagement({ tierAddress }: { tierAddress: Address }) {
     >
       {(snapshot) => (
         <ManagementControls
+          expectedChainId={chainId}
           capturedBlock={
             management.data?.status === "valid" ||
             management.data?.status === "stale"

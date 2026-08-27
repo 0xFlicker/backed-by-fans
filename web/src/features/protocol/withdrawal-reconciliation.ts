@@ -1,6 +1,6 @@
 import { parseEventLogs, type Address } from "viem";
 
-import { factoryAbi, tierAbi } from "@/contracts/abis";
+import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import type { SuccessfulReceiptLogs } from "@/features/protocol/write-reconciliation";
 import { isSameAddress } from "@/lib/address";
 
@@ -14,7 +14,7 @@ export function receiptProvesProtocolWithdrawal(
 ) {
   if (input.amount === 0n) return false;
   return parseEventLogs({
-    abi: factoryAbi,
+    abi: membershipFactoryAbi,
     eventName: "ProtocolFeesWithdrawn",
     logs: receipt.logs,
     strict: true,
@@ -36,7 +36,7 @@ export function receiptProvesCreatorWithdrawal(
 ) {
   if (input.amount === 0n) return false;
   return parseEventLogs({
-    abi: tierAbi,
+    abi: membershipTierAbi,
     eventName: "CreatorProceedsWithdrawn",
     logs: receipt.logs,
     strict: true,

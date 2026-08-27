@@ -23,18 +23,16 @@ test("keeps direct membership access independent of discovery configuration", as
   await input.fill(validTier);
   await expect(
     page.getByRole("link", { name: "Read this tier" }),
-  ).toHaveAttribute("href", `/tiers/${validTier}`);
+  ).toHaveAttribute("href", `/chains/46630/tiers/${validTier}`);
 });
 
 test("never turns an unavailable supporter read into balances or success", async ({
   page,
 }) => {
-  await page.goto(`/tiers/${validTier}`);
+  await page.goto(`/chains/46630/tiers/${validTier}`);
 
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
-  await expect(
-    page.getByText(/no independently checked factory/i),
-  ).toBeVisible();
+  await expect(page.getByText(/not deployed/i)).toBeVisible();
   await expect(page.getByText(/complete and reconciled onchain/i)).toHaveCount(
     0,
   );

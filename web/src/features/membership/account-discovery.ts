@@ -1,17 +1,14 @@
 import { getAddress, isAddress, type Address, type PublicClient } from "viem";
 
-import { factoryAbi, membershipInterfaceIds, tierAbi } from "@/contracts/abis";
+import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import type { AccountTierResult } from "@/features/membership/account-cache";
-import {
-  verifyFactoryAuthenticity,
-  type FactoryAuthenticity,
-} from "@/features/protocol/factory-authenticity";
 import {
   tierBindingFailures,
   verifyTierAuthenticity,
 } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
 import type { ReadyDeployment } from "@/lib/config";
+import { membershipInterfaces } from "@/lib/membership-interfaces";
 import {
   multicall3Address,
   readCatalogPage,
@@ -36,7 +33,6 @@ async function inspectTier(
   input: {
     tier: Address;
     deployment: ReadyDeployment;
-    verifiedFactory: Extract<FactoryAuthenticity, { status: "verified" }>;
     wallet: Address;
     blockNumber: bigint;
   },
@@ -45,7 +41,6 @@ async function inspectTier(
     deployment: input.deployment,
     tier: input.tier,
     blockNumber: input.blockNumber,
-    verifiedFactory: input.verifiedFactory,
   });
   if (authenticity.status !== "verified") {
     return { skipped: `${input.tier}: ${authenticity.label}` };
@@ -55,27 +50,27 @@ async function inspectTier(
     const [name, tokenId, claimableReferral, owner] = await Promise.all([
       client.readContract({
         address: input.tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "name",
         blockNumber: input.blockNumber,
       }),
       client.readContract({
         address: input.tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "tokenOf",
         args: [input.wallet],
         blockNumber: input.blockNumber,
       }),
       client.readContract({
         address: input.tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "claimableReferral",
         args: [input.wallet],
         blockNumber: input.blockNumber,
       }),
       client.readContract({
         address: input.tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "owner",
         blockNumber: input.blockNumber,
       }),
@@ -85,7 +80,7 @@ async function inspectTier(
         ? false
         : client.readContract({
             address: input.tier,
-            abi: tierAbi,
+            abi: membershipTierAbi,
             functionName: "isActiveToken",
             args: [tokenId],
             blockNumber: input.blockNumber,
@@ -94,7 +89,7 @@ async function inspectTier(
         ? 0n
         : client.readContract({
             address: input.tier,
-            abi: tierAbi,
+            abi: membershipTierAbi,
             functionName: "claimableReward",
             args: [tokenId],
             blockNumber: input.blockNumber,
@@ -102,7 +97,7 @@ async function inspectTier(
       isSameAddress(owner, input.wallet)
         ? client.readContract({
             address: input.tier,
-            abi: tierAbi,
+            abi: membershipTierAbi,
             functionName: "creatorProceeds",
             blockNumber: input.blockNumber,
           })
@@ -151,44 +146,44 @@ async function inspectTiersWithMulticall(
     blockNumber: bigint;
   },
 ) {
-  const interfaceIds = Object.values(membershipInterfaceIds);
+  const interfaceIds = membershipInterfaces.map(({ id }) => id);
   const contracts = input.tiers.flatMap((tier) => [
     {
       address: input.deployment.factoryAddress,
-      abi: factoryAbi,
+      abi: membershipFactoryAbi,
       functionName: "isRegisteredTier" as const,
       args: [tier] as const,
     },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "factory" as const,
     },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "paymentToken" as const,
     },
     ...interfaceIds.map((interfaceId) => ({
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "supportsInterface" as const,
       args: [interfaceId] as const,
     })),
-    { address: tier, abi: tierAbi, functionName: "name" as const },
+    { address: tier, abi: membershipTierAbi, functionName: "name" as const },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "tokenOf" as const,
       args: [input.wallet] as const,
     },
     {
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "claimableReferral" as const,
       args: [input.wallet] as const,
     },
-    { address: tier, abi: tierAbi, functionName: "owner" as const },
+    { address: tier, abi: membershipTierAbi, functionName: "owner" as const },
   ]);
   const reads = (await client.multicall({
     contracts,
@@ -268,7 +263,7 @@ async function inspectTiersWithMulticall(
           field: "active",
           contract: {
             address: candidate.tier,
-            abi: tierAbi,
+            abi: membershipTierAbi,
             functionName: "isActiveToken",
             args: [candidate.tokenId],
           },
@@ -278,7 +273,7 @@ async function inspectTiersWithMulticall(
           field: "claimableReward",
           contract: {
             address: candidate.tier,
-            abi: tierAbi,
+            abi: membershipTierAbi,
             functionName: "claimableReward",
             args: [candidate.tokenId],
           },
@@ -291,7 +286,7 @@ async function inspectTiersWithMulticall(
         field: "creatorProceeds",
         contract: {
           address: candidate.tier,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "creatorProceeds",
         },
       });
@@ -362,19 +357,15 @@ export async function discoverAccountPage(
     offset: bigint;
   },
 ): Promise<AccountDiscoveryPage> {
-  const capturedBlock = await client.getBlockNumber();
-  const [page, verifiedFactory, multicallStatus] = await Promise.all([
+  const capturedBlock = await client.getBlockNumber({ cacheTime: 0 });
+  const [page, multicallStatus] = await Promise.all([
     readCatalogPage(client, input.deployment.factoryAddress, {
       offset: input.offset,
       limit: accountDiscoveryPageLimit,
       blockNumber: capturedBlock,
     }),
-    verifyFactoryAuthenticity(client, input.deployment, capturedBlock),
     verifyMulticall3(client, capturedBlock),
   ]);
-  if (verifiedFactory.status !== "verified") {
-    throw new Error(verifiedFactory.label);
-  }
   const batch =
     multicallStatus === "verified"
       ? await inspectTiersWithMulticall(client, {
@@ -391,7 +382,6 @@ export async function discoverAccountPage(
           ...input,
           tier,
           blockNumber: page.capturedBlock,
-          verifiedFactory,
         }),
       );
     }

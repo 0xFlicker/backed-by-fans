@@ -1,12 +1,9 @@
 import { getAddress, isAddress, type Address, type PublicClient } from "viem";
 
-import { factoryAbi, membershipInterfaceIds, tierAbi } from "@/contracts/abis";
-import {
-  verifyFactoryAuthenticity,
-  type FactoryAuthenticity,
-} from "@/features/protocol/factory-authenticity";
+import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import { isSameAddress } from "@/lib/address";
 import type { DeploymentAvailability, ReadyDeployment } from "@/lib/config";
+import { membershipInterfaces } from "@/lib/membership-interfaces";
 import { classifyReadError } from "@/lib/read-state";
 
 export type AuthenticityResult =
@@ -59,7 +56,7 @@ export function tierBindingFailures(input: {
   ) {
     failedChecks.push("tier USDG binding");
   }
-  Object.keys(membershipInterfaceIds).forEach((name, index) => {
+  membershipInterfaces.forEach(({ name }, index) => {
     if (input.supportedInterfaces[index] !== true) {
       failedChecks.push(`${name} interface`);
     }
@@ -73,7 +70,6 @@ export async function verifyTierAuthenticity(
     tier: string;
     deployment: ReadyDeployment;
     blockNumber?: bigint;
-    verifiedFactory?: Extract<FactoryAuthenticity, { status: "verified" }>;
   },
 ): Promise<AuthenticityResult> {
   if (!isAddress(input.tier)) {
@@ -91,43 +87,20 @@ export async function verifyTierAuthenticity(
   const paymentToken = input.deployment.usdgAddress;
 
   try {
-    if (
-      input.verifiedFactory &&
-      (!isSameAddress(input.verifiedFactory.factory, factory) ||
-        !isSameAddress(input.verifiedFactory.paymentToken, paymentToken) ||
-        (input.blockNumber !== undefined &&
-          input.verifiedFactory.capturedBlock !== input.blockNumber))
-    ) {
+    const [capturedBlock, rpcChainId] = await Promise.all([
+      input.blockNumber === undefined
+        ? client.getBlockNumber({ cacheTime: 0 })
+        : Promise.resolve(input.blockNumber),
+      client.getChainId(),
+    ]);
+    if (rpcChainId !== input.deployment.chainId) {
       return {
         status: "interface-mismatch",
         address: tier,
-        failedChecks: ["verified factory context"],
-        label: "The reused factory verification does not match this request.",
+        failedChecks: ["RPC chain ID"],
+        label: "The RPC does not match the requested membership network.",
       };
     }
-    const factoryAuthenticity =
-      input.verifiedFactory ??
-      (await verifyFactoryAuthenticity(
-        client,
-        input.deployment,
-        input.blockNumber,
-      ));
-    if (factoryAuthenticity.status === "rate-limited") {
-      return factoryAuthenticity;
-    }
-    if (factoryAuthenticity.status === "unavailable") {
-      return factoryAuthenticity;
-    }
-    if (factoryAuthenticity.status === "interface-mismatch") {
-      return {
-        status: "interface-mismatch",
-        address: tier,
-        failedChecks: factoryAuthenticity.failedChecks,
-        label: factoryAuthenticity.label,
-      };
-    }
-
-    const capturedBlock = factoryAuthenticity.capturedBlock;
     const tierCode = await client.getBytecode({
       address: tier,
       blockNumber: capturedBlock,
@@ -146,39 +119,38 @@ export async function verifyTierAuthenticity(
       };
     }
 
-    const interfaceNames = Object.keys(membershipInterfaceIds);
     const readLabels = [
       "factory registration",
       "tier factory binding",
       "tier USDG binding",
-      ...interfaceNames.map((name) => `${name} interface`),
+      ...membershipInterfaces.map(({ name }) => `${name} interface`),
     ];
     const reads = await Promise.allSettled([
       client.readContract({
         address: factory,
-        abi: factoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "isRegisteredTier",
         args: [tier],
         blockNumber: capturedBlock,
       }),
       client.readContract({
         address: tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "factory",
         blockNumber: capturedBlock,
       }),
       client.readContract({
         address: tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "paymentToken",
         blockNumber: capturedBlock,
       }),
-      ...Object.values(membershipInterfaceIds).map((interfaceId) =>
+      ...membershipInterfaces.map(({ id }) =>
         client.readContract({
           address: tier,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "supportsInterface",
-          args: [interfaceId],
+          args: [id],
           blockNumber: capturedBlock,
         }),
       ),

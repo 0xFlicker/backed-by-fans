@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { formatUnits, zeroAddress, type Address } from "viem";
 
-import { tierAbi, tokenAbi } from "../../src/contracts/abis";
+import { membershipTierAbi, usdgAbi } from "../../src/contracts";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -38,7 +38,7 @@ async function seedPurchase(referrer: Address = zeroAddress) {
     await sendContract({
       account: member,
       address: usdg,
-      abi: tokenAbi,
+      abi: usdgAbi,
       functionName: "approve",
       args: [tier, 10_000_000n],
     }),
@@ -47,7 +47,7 @@ async function seedPurchase(referrer: Address = zeroAddress) {
     await sendContract({
       account: member,
       address: tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "purchase",
       args: [1n, referrer],
     }),
@@ -73,7 +73,7 @@ test.describe("configured Anvil claims and refunds", () => {
     try {
       await installAnvilWallet(page, member);
       await seedPurchase(referrer);
-      await page.goto(`/tiers/${tier}`);
+      await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, member);
 
       await expect(page.getByText("0.5 USDG · token owner only")).toBeVisible();
@@ -134,7 +134,7 @@ test.describe("configured Anvil claims and refunds", () => {
         }),
       );
       await installAnvilWallet(page, member);
-      await page.goto(`/tiers/${tier}`);
+      await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, member);
 
       const rewardRow = page
@@ -156,7 +156,7 @@ test.describe("configured Anvil claims and refunds", () => {
       await expect(
         client.readContract({
           address: tier,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "claimableReward",
           args: [1n],
         }),
@@ -187,7 +187,7 @@ test.describe("configured Anvil claims and refunds", () => {
     try {
       await seedPurchase();
       await installAnvilWallet(page, creator);
-      await page.goto(`/tiers/${tier}/manage`);
+      await page.goto(`/chains/31337/tiers/${tier}/manage`);
       await connectAnvilWallet(page, creator);
 
       const readRefundPreview = page.getByRole("button", {
@@ -201,7 +201,7 @@ test.describe("configured Anvil claims and refunds", () => {
       await readRefundPreview.click();
       const [grossRefund, ownerTopUp] = await client.readContract({
         address: tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "previewRefund",
         args: [1n],
       });
@@ -227,13 +227,13 @@ test.describe("configured Anvil claims and refunds", () => {
 
       const tokenId = await client.readContract({
         address: tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "tokenOf",
         args: [member],
       });
       const balances = await client.readContract({
         address: tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "timeBalances",
         args: [tokenId],
       });
@@ -242,7 +242,7 @@ test.describe("configured Anvil claims and refunds", () => {
       await expect(
         client.readContract({
           address: tier,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "isActive",
           args: [member],
         }),
@@ -267,7 +267,7 @@ test.describe("configured Anvil claims and refunds", () => {
     try {
       await seedPurchase();
       await installAnvilWallet(page, creator);
-      await page.goto(`/tiers/${tier}/manage`);
+      await page.goto(`/chains/31337/tiers/${tier}/manage`);
       await connectAnvilWallet(page, creator);
 
       await page.getByRole("button", { name: "Pause time increases" }).click();
@@ -281,7 +281,7 @@ test.describe("configured Anvil claims and refunds", () => {
         await sendContract({
           account: creator,
           address: tier,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "setPaused",
           args: [false],
         }),

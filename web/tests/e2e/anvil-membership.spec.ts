@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { tokenAbi } from "../../src/contracts/abis";
+import { usdgAbi } from "../../src/contracts";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -20,7 +20,7 @@ test.describe("@anvil configured local Anvil membership", () => {
   test("renders a verified direct tier accessibly at every supported viewport", async ({
     page,
   }) => {
-    await page.goto(`/tiers/${requiredAnvilAddress("tier")}`);
+    await page.goto(`/chains/31337/tiers/${requiredAnvilAddress("tier")}`);
 
     await expect(
       page.getByRole("heading", { level: 1, name: "Local Creator Circle" }),
@@ -51,7 +51,7 @@ test.describe("@anvil configured local Anvil membership", () => {
     await page.route(`${requiredAnvilRpc()}/`, (route) =>
       route.abort("connectionfailed"),
     );
-    await page.goto(`/tiers/${requiredAnvilAddress("tier")}`);
+    await page.goto(`/chains/31337/tiers/${requiredAnvilAddress("tier")}`);
 
     await expect(page.getByText("Onchain state unavailable")).toBeVisible();
     await expect(page.getByText(/0 USDG/i)).toHaveCount(0);
@@ -75,7 +75,7 @@ test.describe("@anvil configured local Anvil membership", () => {
     const client = anvilPublicClient();
     try {
       await installAnvilWallet(page, member);
-      await page.goto(`/tiers/${tier}`);
+      await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, member);
       await expect(
         page.getByText("Current allowance").locator(".."),
@@ -111,7 +111,7 @@ test.describe("@anvil configured local Anvil membership", () => {
       await expect(
         client.readContract({
           address: usdg,
-          abi: tokenAbi,
+          abi: usdgAbi,
           functionName: "allowance",
           args: [member, tier],
         }),

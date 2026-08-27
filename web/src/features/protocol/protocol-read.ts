@@ -1,10 +1,6 @@
 import type { Address, PublicClient } from "viem";
 
-import { factoryAbi, tokenAbi } from "@/contracts/abis";
-import {
-  verifyFactoryAuthenticity,
-  type FactoryAuthenticity,
-} from "@/features/protocol/factory-authenticity";
+import { membershipFactoryAbi, usdgAbi } from "@/contracts";
 import type { DeploymentAvailability } from "@/lib/config";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
@@ -17,83 +13,105 @@ export type ProtocolSnapshot = {
   protocolFeeBps: number;
   protocolBalance: bigint;
   tierCount: bigint;
-  authenticity: Extract<FactoryAuthenticity, { status: "verified" }>;
 };
 
 export async function readProtocolState(
   client: PublicClient,
   deployment: DeploymentAvailability,
 ): Promise<ReadState<ProtocolSnapshot>> {
-  const authenticity = await verifyFactoryAuthenticity(client, deployment);
-  if (authenticity.status === "rate-limited") return authenticity;
-  if (authenticity.status === "unavailable") {
+  if (deployment.status !== "ready") {
     return {
       status: "unavailable",
-      reason: "rpc-unavailable",
-      label: authenticity.label,
-    };
-  }
-  if (authenticity.status === "interface-mismatch") {
-    return {
-      status: "interface-mismatch",
-      address:
-        deployment.status === "ready"
-          ? deployment.factoryAddress
-          : "unavailable",
-      failedChecks: authenticity.failedChecks,
-      label: authenticity.label,
+      reason: "not-deployed",
+      label: deployment.detail,
     };
   }
 
   try {
-    const blockNumber = authenticity.capturedBlock;
-    const [owner, pendingOwner, feeRecipient, tierCount, balance] =
-      await Promise.all([
-        client.readContract({
-          address: authenticity.factory,
-          abi: factoryAbi,
-          functionName: "owner",
-          blockNumber,
-        }),
-        client.readContract({
-          address: authenticity.factory,
-          abi: factoryAbi,
-          functionName: "pendingOwner",
-          blockNumber,
-        }),
-        client.readContract({
-          address: authenticity.factory,
-          abi: factoryAbi,
-          functionName: "feeRecipient",
-          blockNumber,
-        }),
-        client.readContract({
-          address: authenticity.factory,
-          abi: factoryAbi,
-          functionName: "tierCount",
-          blockNumber,
-        }),
-        client.readContract({
-          address: authenticity.paymentToken,
-          abi: tokenAbi,
-          functionName: "balanceOf",
-          args: [authenticity.factory],
-          blockNumber,
-        }),
-      ]);
+    const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
+    const [
+      rpcChainId,
+      boundToken,
+      owner,
+      pendingOwner,
+      feeRecipient,
+      feeBps,
+      tierCount,
+      balance,
+    ] = await Promise.all([
+      client.getChainId(),
+      client.readContract({
+        address: deployment.factoryAddress,
+        abi: membershipFactoryAbi,
+        functionName: "paymentToken",
+        blockNumber,
+      }),
+      client.readContract({
+        address: deployment.factoryAddress,
+        abi: membershipFactoryAbi,
+        functionName: "owner",
+        blockNumber,
+      }),
+      client.readContract({
+        address: deployment.factoryAddress,
+        abi: membershipFactoryAbi,
+        functionName: "pendingOwner",
+        blockNumber,
+      }),
+      client.readContract({
+        address: deployment.factoryAddress,
+        abi: membershipFactoryAbi,
+        functionName: "feeRecipient",
+        blockNumber,
+      }),
+      client.readContract({
+        address: deployment.factoryAddress,
+        abi: membershipFactoryAbi,
+        functionName: "protocolFeeBps",
+        blockNumber,
+      }),
+      client.readContract({
+        address: deployment.factoryAddress,
+        abi: membershipFactoryAbi,
+        functionName: "tierCount",
+        blockNumber,
+      }),
+      client.readContract({
+        address: deployment.usdgAddress,
+        abi: usdgAbi,
+        functionName: "balanceOf",
+        args: [deployment.factoryAddress],
+        blockNumber,
+      }),
+    ]);
+    if (rpcChainId !== deployment.chainId) {
+      return {
+        status: "wrong-chain",
+        expectedChainId: deployment.chainId,
+        actualChainId: rpcChainId,
+        label: "The RPC does not match the selected membership network.",
+      };
+    }
+    if (boundToken.toLowerCase() !== deployment.usdgAddress.toLowerCase()) {
+      return {
+        status: "interface-mismatch",
+        address: deployment.factoryAddress,
+        failedChecks: ["factory USDG binding"],
+        label: "The factory is not bound to canonical USDG for this network.",
+      };
+    }
     return {
       status: "valid",
       capturedBlock: blockNumber,
       data: {
-        factory: authenticity.factory,
-        paymentToken: authenticity.paymentToken,
+        factory: deployment.factoryAddress,
+        paymentToken: deployment.usdgAddress,
         owner,
         pendingOwner,
         feeRecipient,
-        protocolFeeBps: authenticity.protocolFeeBps,
+        protocolFeeBps: feeBps,
         protocolBalance: balance,
         tierCount,
-        authenticity,
       },
     };
   } catch (error) {

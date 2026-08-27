@@ -1,21 +1,15 @@
 import {
-  createPublicClient,
   getAddress,
-  http,
   isAddress,
   keccak256,
   type Address,
   type PublicClient,
 } from "viem";
 
-import { factoryAbi, tierAbi } from "@/contracts/abis";
+import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import type { CatalogPage, TierSnapshot, TierSummary } from "@/contracts/types";
 import { verifyTierAuthenticity } from "@/lib/authenticity";
-import {
-  publicConfig,
-  type PublicConfig,
-  type ReadyDeployment,
-} from "@/lib/config";
+import type { ReadyDeployment } from "@/lib/config";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
 export const catalogPageLimit = 24;
@@ -39,16 +33,6 @@ const summaryFields = [
   "paused",
 ] as const;
 
-export function createDirectReadClient(config: PublicConfig = publicConfig) {
-  return createPublicClient({
-    // Reconciliation refetches immediately after a receipt. A cached block
-    // number can otherwise make a successful write look uncertain.
-    cacheTime: 0,
-    chain: config.chain,
-    transport: http(config.rpcUrl),
-  });
-}
-
 export function validateTierRouteParam(value: string): Address | undefined {
   return isAddress(value) ? getAddress(value) : undefined;
 }
@@ -64,17 +48,18 @@ export async function readCatalogPage(
     throw new RangeError("Catalog pagination is outside the factory bounds.");
   }
 
-  const capturedBlock = input.blockNumber ?? (await client.getBlockNumber());
+  const capturedBlock =
+    input.blockNumber ?? (await client.getBlockNumber({ cacheTime: 0 }));
   const [total, addresses] = await Promise.all([
     client.readContract({
       address: factory,
-      abi: factoryAbi,
+      abi: membershipFactoryAbi,
       functionName: "tierCount",
       blockNumber: capturedBlock,
     }),
     client.readContract({
       address: factory,
-      abi: factoryAbi,
+      abi: membershipFactoryAbi,
       functionName: "tiers",
       args: [offset, BigInt(limit)],
       blockNumber: capturedBlock,
@@ -145,7 +130,7 @@ async function readSummariesDirectly(
       summaryFields.map((functionName) =>
         client.readContract({
           address,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName,
           blockNumber,
         }),
@@ -197,7 +182,7 @@ export async function readTierSummaries(
     const contracts = addresses.flatMap((address) =>
       summaryFields.map((functionName) => ({
         address,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName,
       })),
     );
@@ -304,7 +289,7 @@ export async function readTierSnapshotState(
       const results = (await client.multicall({
         contracts: fields.map((functionName) => ({
           address: input.tier,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName,
         })),
         allowFailure: true,
@@ -324,7 +309,7 @@ export async function readTierSnapshotState(
             fields.slice(offset, offset + 4).map((functionName) =>
               client.readContract({
                 address: input.tier,
-                abi: tierAbi,
+                abi: membershipTierAbi,
                 functionName,
                 blockNumber,
               }),
@@ -369,7 +354,7 @@ export async function readTierSnapshotState(
       paymentToken: values[14] as Address,
       factory: values[15] as Address,
     };
-    const latestBlock = await client.getBlockNumber();
+    const latestBlock = await client.getBlockNumber({ cacheTime: 0 });
     if (latestBlock - blockNumber > staleBlockDistance) {
       return {
         status: "stale",

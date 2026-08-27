@@ -5,7 +5,7 @@ const validTier = "0x2222222222222222222222222222222222222222";
 test("validates a direct tier route before reading any contract", async ({
   page,
 }) => {
-  await page.goto("/tiers/not-an-address");
+  await page.goto("/chains/46630/tiers/not-an-address");
   await expect(page.getByText("Invalid tier address")).toBeVisible();
   await expect(
     page.getByText(/does not contain a valid EVM address/i),
@@ -15,11 +15,9 @@ test("validates a direct tier route before reading any contract", async ({
 test("renders a configured-unavailable state for a valid direct route", async ({
   page,
 }) => {
-  await page.goto(`/tiers/${validTier}`);
+  await page.goto(`/chains/46630/tiers/${validTier}`);
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
-  await expect(
-    page.getByText(/no independently checked factory/i),
-  ).toBeVisible();
+  await expect(page.getByText(/not deployed/i)).toBeVisible();
 });
 
 test("serves the provisional app icon and favicon routes", async ({
@@ -52,12 +50,9 @@ test("renders complete creator setup while unavailable writes fail closed", asyn
   await page.getByRole("button", { name: /^review$/i }).click();
   await expect(
     page
-      .getByText(
-        "No independently checked factory is configured for this chain.",
-        {
-          exact: true,
-        },
-      )
+      .getByText("Backed By Fans is not deployed on Robinhood Chain Testnet.", {
+        exact: true,
+      })
       .first(),
   ).toBeVisible();
   await expect(

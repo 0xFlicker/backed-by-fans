@@ -10,12 +10,8 @@ vi.mock("@/lib/authenticity", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/authenticity")>()),
   verifyTierAuthenticity: vi.fn(),
 }));
-vi.mock("@/features/protocol/factory-authenticity", () => ({
-  verifyFactoryAuthenticity: vi.fn(),
-}));
 
 import { discoverAccountPage } from "@/features/membership/account-discovery";
-import { verifyFactoryAuthenticity } from "@/features/protocol/factory-authenticity";
 import { verifyTierAuthenticity } from "@/lib/authenticity";
 import { readCatalogPage, verifyMulticall3 } from "@/lib/direct-read";
 
@@ -29,13 +25,6 @@ const deployment = {
   chainId: 46630 as const,
   factoryAddress: factory,
   usdgAddress: token,
-  factoryRuntimeCodeHash: `0x${"01".repeat(32)}` as const,
-  rendererRuntimeCodeHash: `0x${"02".repeat(32)}` as const,
-  deployerRuntimeCodeHash: `0x${"03".repeat(32)}` as const,
-  usdgRuntimeCodeHash: `0x${"04".repeat(32)}` as const,
-  usdgImplementationAddress:
-    "0x5555555555555555555555555555555555555555" as const,
-  usdgImplementationRuntimeCodeHash: `0x${"05".repeat(32)}` as const,
 };
 
 describe("bounded account discovery", () => {
@@ -47,13 +36,6 @@ describe("bounded account discovery", () => {
       limit: 12,
       addresses: [tierA, tierB],
       nextOffset: 2n,
-    });
-    vi.mocked(verifyFactoryAuthenticity).mockResolvedValue({
-      status: "verified",
-      capturedBlock: 80n,
-      factory,
-      paymentToken: token,
-      protocolFeeBps: 100,
     });
     vi.mocked(verifyMulticall3).mockResolvedValue("missing");
     vi.mocked(verifyTierAuthenticity).mockImplementation(

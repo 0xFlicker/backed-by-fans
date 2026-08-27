@@ -1,6 +1,6 @@
 import type { Address, PublicClient } from "viem";
 
-import { tierAbi } from "@/contracts/abis";
+import { membershipTierAbi } from "@/contracts";
 import type { TierManagementSnapshot } from "@/contracts/types";
 import type { ReadyDeployment } from "@/lib/config";
 import { readTierSnapshotState } from "@/lib/direct-read";
@@ -17,19 +17,19 @@ export async function readTierManagementState(
     const [pendingOwner, creatorProceeds, totalMinted] = await Promise.all([
       client.readContract({
         address: input.tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "pendingOwner",
         blockNumber: tier.capturedBlock,
       }),
       client.readContract({
         address: input.tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "creatorProceeds",
         blockNumber: tier.capturedBlock,
       }),
       client.readContract({
         address: input.tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "totalMinted",
         blockNumber: tier.capturedBlock,
       }),

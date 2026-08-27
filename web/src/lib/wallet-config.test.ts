@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { robinhoodTestnet } from "viem/chains";
+import { robinhood, robinhoodTestnet } from "viem/chains";
 
+import { localAnvil } from "@/lib/chains";
 import { buildPublicConfig } from "@/lib/config";
 import { createWalletConfig } from "@/lib/wallet-config";
 
@@ -14,6 +15,8 @@ describe("wallet connectors", () => {
     expect(config.chains.map((chain) => chain.id)).toContain(
       robinhoodTestnet.id,
     );
+    expect(config.chains.map((chain) => chain.id)).toContain(robinhood.id);
+    expect(config.chains.map((chain) => chain.id)).not.toContain(localAnvil.id);
   });
 
   it("adds generic WalletConnect only when its public project ID exists", () => {
@@ -27,6 +30,35 @@ describe("wallet connectors", () => {
     );
     expect(configured.connectors.map((connector) => connector.type)).toContain(
       "walletConnect",
+    );
+  });
+
+  it("adds Anvil only for a complete local test configuration", () => {
+    const config = createWalletConfig(
+      buildPublicConfig(
+        {
+          anvilRpcUrl: "http://127.0.0.1:8545",
+          anvilFactoryAddress: "0x1111111111111111111111111111111111111111",
+          anvilUsdgAddress: "0x2222222222222222222222222222222222222222",
+        },
+        {},
+      ),
+    );
+
+    expect(config.chains.map((chain) => chain.id)).toContain(localAnvil.id);
+  });
+
+  it("starts new sessions on mainnet only after a mainnet deployment exists", () => {
+    const config = createWalletConfig(
+      buildPublicConfig(
+        {},
+        { [robinhood.id]: "0x1111111111111111111111111111111111111111" },
+      ),
+    );
+
+    expect(config.chains[0].id).toBe(robinhood.id);
+    expect(config.chains.map((chain) => chain.id)).toContain(
+      robinhoodTestnet.id,
     );
   });
 });

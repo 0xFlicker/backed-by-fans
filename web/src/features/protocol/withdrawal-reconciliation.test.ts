@@ -6,7 +6,7 @@ import {
 } from "viem";
 import { describe, expect, it } from "vitest";
 
-import { factoryAbi, tierAbi } from "@/contracts/abis";
+import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import {
   receiptProvesCreatorWithdrawal,
   receiptProvesProtocolWithdrawal,
@@ -16,7 +16,7 @@ const contract = getAddress("0x1111111111111111111111111111111111111111");
 const recipient = getAddress("0x2222222222222222222222222222222222222222");
 
 function withdrawalLog(
-  abi: typeof factoryAbi | typeof tierAbi,
+  abi: typeof membershipFactoryAbi | typeof membershipTierAbi,
   eventName: "ProtocolFeesWithdrawn" | "CreatorProceedsWithdrawn",
   indexedName: "recipient" | "owner",
   amount: bigint,
@@ -37,7 +37,12 @@ describe("withdrawal receipt reconciliation", () => {
     const receipt = {
       status: "success" as const,
       logs: [
-        withdrawalLog(factoryAbi, "ProtocolFeesWithdrawn", "recipient", 9n),
+        withdrawalLog(
+          membershipFactoryAbi,
+          "ProtocolFeesWithdrawn",
+          "recipient",
+          9n,
+        ),
       ],
     };
 
@@ -60,7 +65,14 @@ describe("withdrawal receipt reconciliation", () => {
   it("requires the exact tier, owner, and amount", () => {
     const receipt = {
       status: "success" as const,
-      logs: [withdrawalLog(tierAbi, "CreatorProceedsWithdrawn", "owner", 12n)],
+      logs: [
+        withdrawalLog(
+          membershipTierAbi,
+          "CreatorProceedsWithdrawn",
+          "owner",
+          12n,
+        ),
+      ],
     };
 
     expect(

@@ -1,6 +1,6 @@
 import { parseEventLogs, type Address, type PublicClient } from "viem";
 
-import { tierAbi } from "@/contracts/abis";
+import { membershipTierAbi } from "@/contracts";
 import type { SuccessfulWriteReceipt } from "@/features/protocol/write-reconciliation";
 import { isSameAddress } from "@/lib/address";
 
@@ -43,7 +43,7 @@ export async function reconcileTierGrant(
   const [tokenId, block] = await Promise.all([
     client.readContract({
       address: baseline.tier,
-      abi: tierAbi,
+      abi: membershipTierAbi,
       functionName: "tokenOf",
       args: [baseline.recipient],
     }),
@@ -62,7 +62,7 @@ export async function reconcileTierGrant(
   const grantSeconds = previous.grantSeconds + baseline.grantedSeconds;
   const expiration = block.timestamp + paidSeconds + grantSeconds;
   const proven = parseEventLogs({
-    abi: tierAbi,
+    abi: membershipTierAbi,
     eventName: "MembershipTimeUpdated",
     logs: receipt.logs,
     strict: true,
@@ -85,7 +85,7 @@ export function receiptProvesGrantRevocation(
   input: { tier: Address; tokenId: bigint },
 ) {
   return parseEventLogs({
-    abi: tierAbi,
+    abi: membershipTierAbi,
     eventName: "MembershipTimeUpdated",
     logs: receipt.logs,
     strict: true,

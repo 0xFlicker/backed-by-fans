@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useMemo, useReducer, useRef, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { simulateContract } from "@wagmi/core";
 import {
   formatUnits,
   getAddress,
@@ -11,12 +12,17 @@ import {
   zeroAddress,
   type Hash,
 } from "viem";
-import { useAccount, useChainId, useWriteContract } from "wagmi";
+import {
+  useAccount,
+  useConfig,
+  usePublicClient,
+  useWriteContract,
+} from "wagmi";
 
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
 import { WalletReadiness } from "@/components/WalletReadiness";
-import { tierAbi, tokenAbi } from "@/contracts/abis";
+import { membershipTierAbi, usdgAbi } from "@/contracts";
 import type { TierSupporterSnapshot } from "@/contracts/types";
 import { parseUint64Input } from "@/features/creator/management";
 import { readGiftRecipientState } from "@/features/membership/membership-read";
@@ -41,8 +47,8 @@ import {
 } from "@/features/protocol/write-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
-import { publicConfig } from "@/lib/config";
-import { createDirectReadClient } from "@/lib/direct-read";
+import { getDeployment, publicConfig } from "@/lib/config";
+import { getSupportedChain } from "@/lib/chains";
 import type { ReadState } from "@/lib/read-state";
 import {
   decodeTransactionError,
@@ -109,16 +115,19 @@ export function MembershipExperience({
   capturedBlock,
   fresh,
   onRefresh,
+  expectedChainId,
 }: {
   snapshot: TierSupporterSnapshot;
   capturedBlock: bigint;
   fresh: boolean;
+  expectedChainId: 4663 | 46630 | 31337;
   onRefresh: () => Promise<ReadState<TierSupporterSnapshot> | undefined>;
 }) {
   const account = useAccount();
-  const chainId = useChainId();
   const write = useWriteContract();
-  const client = useMemo(() => createDirectReadClient(), []);
+  const wagmiConfig = useConfig();
+  const client = usePublicClient({ chainId: expectedChainId })!;
+  const deployment = getDeployment(publicConfig, expectedChainId);
   const [transaction, dispatch] = useReducer(
     transactionReducer,
     initialTransactionState,
@@ -141,14 +150,14 @@ export function MembershipExperience({
     paymentToken: snapshot.paymentToken,
   };
   const guard = getWriteGuard({
-    deployment: publicConfig.deployment,
-    walletChainId: account.isConnected ? chainId : undefined,
-    expectedChainId: publicConfig.chainId,
+    deployment,
+    walletChainId: account.isConnected ? account.chainId : undefined,
+    expectedChainId,
     authenticity,
   });
   const walletReady =
     account.isConnected &&
-    chainId === publicConfig.chainId &&
+    account.chainId === expectedChainId &&
     Boolean(snapshot.wallet);
   const actionState = classifyMembershipState({
     walletReady,
@@ -212,13 +221,14 @@ export function MembershipExperience({
   const giftState = useQuery({
     queryKey: [
       "gift-recipient",
+      expectedChainId,
       snapshot.address,
       normalizedGift,
       capturedBlock.toString(),
     ],
-    enabled: Boolean(normalizedGift && !giftError && fresh),
+    enabled: Boolean(normalizedGift && !giftError && fresh && client),
     queryFn: () =>
-      readGiftRecipientState(client, {
+      readGiftRecipientState(client!, {
         tier: snapshot.address,
         recipient: normalizedGift!,
         blockNumber: capturedBlock,
@@ -267,10 +277,11 @@ export function MembershipExperience({
     return async (): Promise<SendWrite> => {
       if (!account.address)
         throw new Error("Connect the acting wallet before simulation.");
-      const { request } = await client.simulateContract({
+      const { request } = await simulateContract(wagmiConfig, {
         account: account.address,
+        chainId: expectedChainId,
         address: snapshot.address,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName,
         args,
       } as never);
@@ -284,10 +295,11 @@ export function MembershipExperience({
     return async (): Promise<SendWrite> => {
       if (!account.address)
         throw new Error("Connect the paying wallet before approval.");
-      const { request } = await client.simulateContract({
+      const { request } = await simulateContract(wagmiConfig, {
         account: account.address,
+        chainId: expectedChainId,
         address: snapshot.paymentToken,
-        abi: tokenAbi,
+        abi: usdgAbi,
         functionName: "approve",
         args: [snapshot.address, amount],
       });
@@ -513,7 +525,7 @@ export function MembershipExperience({
         ) {
           return undefined;
         }
-        const blockNumber = await client.getBlockNumber();
+        const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
         const recipient = await readGiftRecipientState(client, {
           tier: snapshot.address,
           recipient: normalizedGift,
@@ -878,6 +890,7 @@ export function MembershipExperience({
             </div>
             <WalletReadiness
               estimatedCost={selfPreview?.gross ?? snapshot.pricePerPeriod}
+              expectedChainId={expectedChainId}
               verifiedBalances={
                 snapshot.walletEthBalance !== undefined &&
                 snapshot.walletUsdgBalance !== undefined
@@ -1055,7 +1068,9 @@ export function MembershipExperience({
                 isSameAddress(snapshot.wallet, snapshot.creator) && (
                   <Link
                     className="button button-outline"
-                    href={`/tiers/${snapshot.address}/manage` as Route}
+                    href={
+                      `/chains/${expectedChainId}/tiers/${snapshot.address}/manage` as Route
+                    }
                   >
                     Open creator refund controls
                   </Link>
@@ -1089,7 +1104,8 @@ export function MembershipExperience({
       {!writesVerified && (
         <p className="inline-status" role="status">
           Writes remain closed until this tier is fresh, factory-registered,
-          interface-verified, and the wallet uses {publicConfig.chain.name}.
+          interface-verified, and the wallet uses{" "}
+          {getSupportedChain(expectedChainId).name}.
         </p>
       )}
       <p className="eyebrow">Prepared action · {preparedAction}</p>

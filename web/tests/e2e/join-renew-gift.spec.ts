@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { tierAbi } from "../../src/contracts/abis";
+import { membershipTierAbi } from "../../src/contracts";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -33,7 +33,7 @@ test.describe("configured Anvil join, renew, and gift", () => {
 
     try {
       await installAnvilWallet(page, member);
-      await page.goto(`/tiers/${tier}`);
+      await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, member);
 
       await page.getByRole("radio", { name: "Explicitly no referrer" }).check();
@@ -44,13 +44,13 @@ test.describe("configured Anvil join, renew, and gift", () => {
 
       const tokenId = await client.readContract({
         address: tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "tokenOf",
         args: [member],
       });
       const firstExpiration = await client.readContract({
         address: tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "expiresAt",
         args: [tokenId],
       });
@@ -68,7 +68,7 @@ test.describe("configured Anvil join, renew, and gift", () => {
       await expectReconciled(page, "Renew active membership");
       const renewedExpiration = await client.readContract({
         address: tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "expiresAt",
         args: [tokenId],
       });
@@ -90,7 +90,7 @@ test.describe("configured Anvil join, renew, and gift", () => {
 
       const recipientToken = await client.readContract({
         address: tier,
-        abi: tierAbi,
+        abi: membershipTierAbi,
         functionName: "tokenOf",
         args: [recipient],
       });
@@ -98,7 +98,7 @@ test.describe("configured Anvil join, renew, and gift", () => {
       await expect(
         client.readContract({
           address: tier,
-          abi: tierAbi,
+          abi: membershipTierAbi,
           functionName: "sharesOf",
           args: [recipientToken],
         }),

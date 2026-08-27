@@ -1,29 +1,34 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type Address } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
 import { MembershipExperience } from "@/features/membership/MembershipExperience";
 import { readTierSupporterState } from "@/features/membership/membership-read";
-import { publicConfig } from "@/lib/config";
-import { createDirectReadClient } from "@/lib/direct-read";
+import { getDeployment, publicConfig } from "@/lib/config";
 import {
   classifyReadError,
   unavailableDeploymentState,
 } from "@/lib/read-state";
 
-export function TierReadPanel({ tierAddress }: { tierAddress: Address }) {
-  const deployment = publicConfig.deployment;
+export function TierReadPanel({
+  chainId,
+  tierAddress,
+}: {
+  chainId: 4663 | 46630 | 31337;
+  tierAddress: Address;
+}) {
+  const deployment = getDeployment(publicConfig, chainId);
   const account = useAccount();
-  const client = useMemo(() => createDirectReadClient(), []);
+  const client = usePublicClient({ chainId });
   const tier = useQuery({
-    queryKey: ["tier-supporter", tierAddress, account.address],
-    enabled: deployment.status === "ready",
+    queryKey: ["tier-supporter", chainId, tierAddress, account.address],
+    enabled: deployment.status === "ready" && Boolean(client),
     queryFn: () => {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
+      if (!client) throw new Error("No public client is available.");
       return readTierSupporterState(client, {
         tier: tierAddress,
         deployment,
@@ -76,6 +81,7 @@ export function TierReadPanel({ tierAddress }: { tierAddress: Address }) {
           fresh={tier.data?.status === "valid"}
           onRefresh={async () => (await tier.refetch()).data}
           snapshot={snapshot}
+          expectedChainId={chainId}
         />
       )}
     </ReadStateView>

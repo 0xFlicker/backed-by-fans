@@ -7,7 +7,7 @@ import {
 } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
-import { tierAbi } from "@/contracts/abis";
+import { membershipTierAbi } from "@/contracts";
 import {
   reconcileTierGrant,
   type TierGrantBaseline,
@@ -39,7 +39,7 @@ function timeUpdateLog(input: {
       [input.paidSeconds, input.grantSeconds, input.expiration],
     ),
     topics: encodeEventTopics({
-      abi: tierAbi,
+      abi: membershipTierAbi,
       eventName: "MembershipTimeUpdated",
       args: { tokenId: 7n },
     }),

@@ -1,17 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import type { Route } from "next";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatUnits } from "viem";
 
 import type { TierSummary } from "@/contracts/types";
 import { ReadStateView } from "@/components/ReadState";
-import { verifyFactoryAuthenticity } from "@/features/protocol/factory-authenticity";
-import { publicConfig } from "@/lib/config";
 import {
   catalogPageLimit,
-  createDirectReadClient,
   readCatalogPage,
   readTierSummaries,
 } from "@/lib/direct-read";
@@ -19,6 +17,7 @@ import {
   classifyReadError,
   unavailableDeploymentState,
 } from "@/lib/read-state";
+import { useActiveNetwork } from "@/lib/use-active-network";
 
 function summariesFromState(
   state: Awaited<ReturnType<typeof readTierSummaries>>,
@@ -30,38 +29,38 @@ function summariesFromState(
 }
 
 export function CatalogExplorer() {
+  const { chainId, client, deployment } = useActiveNetwork();
   const [pageRequest, setPageRequest] = useState<{
+    chainId: number;
     offset: bigint;
     capturedBlock?: bigint;
-  }>({ offset: 0n });
-  const client = useMemo(() => createDirectReadClient(), []);
-  const deployment = publicConfig.deployment;
+  }>({ chainId, offset: 0n });
+  const activePageRequest =
+    pageRequest.chainId === chainId
+      ? pageRequest
+      : { chainId, offset: 0n, capturedBlock: undefined };
   const catalog = useQuery({
     queryKey: [
       "catalog",
-      pageRequest.offset.toString(),
-      pageRequest.capturedBlock?.toString(),
+      chainId,
+      activePageRequest.offset.toString(),
+      activePageRequest.capturedBlock?.toString(),
     ],
-    enabled: deployment.status === "ready",
+    enabled: deployment.status === "ready" && Boolean(client),
     queryFn: async () => {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
-      const authenticity = await verifyFactoryAuthenticity(
-        client,
-        deployment,
-        pageRequest.capturedBlock,
-      );
-      if (authenticity.status !== "verified") return { authenticity };
+      if (!client) throw new Error("No public client is available.");
       const page = await readCatalogPage(client, deployment.factoryAddress, {
-        offset: pageRequest.offset,
+        offset: activePageRequest.offset,
         limit: catalogPageLimit,
-        blockNumber: authenticity.capturedBlock,
+        blockNumber: activePageRequest.capturedBlock,
       });
       const summaries = await readTierSummaries(
         client,
         page.addresses,
         page.capturedBlock,
       );
-      return { authenticity, page, summaries };
+      return { page, summaries };
     },
   });
 
@@ -99,38 +98,6 @@ export function CatalogExplorer() {
   }
 
   if (!catalog.data) return null;
-  if (catalog.data.authenticity.status === "rate-limited") {
-    return <ReadStateView state={catalog.data.authenticity} />;
-  }
-  if (catalog.data.authenticity.status === "unavailable") {
-    return (
-      <ReadStateView
-        state={{
-          status: "unavailable",
-          reason: "rpc-unavailable",
-          label: catalog.data.authenticity.label,
-        }}
-      />
-    );
-  }
-  if (catalog.data.authenticity.status === "interface-mismatch") {
-    return (
-      <ReadStateView
-        state={{
-          status: "interface-mismatch",
-          address: deployment.factoryAddress,
-          failedChecks: catalog.data.authenticity.failedChecks,
-          label: catalog.data.authenticity.label,
-        }}
-      />
-    );
-  }
-  if (
-    !("page" in catalog.data) ||
-    !catalog.data.page ||
-    !catalog.data.summaries
-  )
-    return null;
   const { page, summaries: summaryState } = catalog.data;
   const summaries = summariesFromState(summaryState);
 
@@ -156,7 +123,10 @@ export function CatalogExplorer() {
         <ul className="tier-list">
           {summaries.map((tier, index) => (
             <li key={tier.address}>
-              <Link className="tier-row" href={`/tiers/${tier.address}`}>
+              <Link
+                className="tier-row"
+                href={`/chains/${chainId}/tiers/${tier.address}` as Route}
+              >
                 <span className="tier-number font-mono">
                   {String(Number(page.offset) + index + 1).padStart(2, "0")}
                 </span>
@@ -182,6 +152,7 @@ export function CatalogExplorer() {
           disabled={page.offset === 0n}
           onClick={() =>
             setPageRequest({
+              chainId,
               offset:
                 page.offset > BigInt(page.limit)
                   ? page.offset - BigInt(page.limit)
@@ -199,6 +170,7 @@ export function CatalogExplorer() {
           onClick={() =>
             page.nextOffset !== null &&
             setPageRequest({
+              chainId,
               offset: page.nextOffset,
               capturedBlock: page.capturedBlock,
             })
