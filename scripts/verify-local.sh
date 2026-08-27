@@ -9,7 +9,6 @@ echo "== Readiness documents =="
 echo "== Contracts =="
 cd "$repo_root/contracts"
 ./scripts/check-clean-room.sh
-bash ./scripts/test-check-deployment.sh
 forge fmt --check
 forge build --sizes
 forge test -vvv

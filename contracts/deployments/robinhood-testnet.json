@@ -1,9 +1,0 @@
-{
-  "$schema": "./schema-v1.json",
-  "schemaVersion": 1,
-  "status": "blocked",
-  "network": "robinhood-testnet",
-  "chainId": 46630,
-  "paymentToken": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
-  "blocker": "Canonical testnet USDG is pinned and live-verified, but no public protocol deployment has been executed. Operational identities, a funded encrypted deployer keystore, exact source verification, and captured-block evidence are still unavailable."
-}

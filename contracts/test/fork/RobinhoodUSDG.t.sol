@@ -7,6 +7,7 @@ import {Test} from "forge-std/Test.sol";
 import {
     DeployProtocol,
     IUSDGDeploymentTarget,
+    ProtocolDeployment,
     RobinhoodDeploymentGuard
 } from "../../script/DeployProtocol.s.sol";
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
@@ -26,13 +27,10 @@ contract RobinhoodUSDGForkTest is Test {
         address protocolOwner = makeAddr("forkProtocolOwner");
         address feeRecipient = makeAddr("forkFeeRecipient");
         _assertCanonicalTokenState(deployment, paymentToken);
-        deployment.validateInputs(
-            deployment.ROBINHOOD_TESTNET_CHAIN_ID(), paymentToken, protocolOwner, feeRecipient
-        );
+        deployment.validateInputs(protocolOwner, feeRecipient);
 
-        (OnchainMetadataRenderer renderer, MembershipFactory factory) = deployment.deploy(
-            deployment.ROBINHOOD_TESTNET_CHAIN_ID(), paymentToken, protocolOwner, feeRecipient
-        );
+        (OnchainMetadataRenderer renderer, MembershipFactory factory) =
+            deployment.deploy(protocolOwner, feeRecipient);
 
         assertEq(block.chainid, deployment.ROBINHOOD_TESTNET_CHAIN_ID());
         assertTrue(paymentToken.code.length != 0);
@@ -54,7 +52,6 @@ contract RobinhoodUSDGForkTest is Test {
         address paymentToken = deployment.ROBINHOOD_TESTNET_USDG();
         address protocolOwner = makeAddr("driftProtocolOwner");
         address feeRecipient = makeAddr("driftFeeRecipient");
-        uint256 chainId = deployment.ROBINHOOD_TESTNET_CHAIN_ID();
         bytes32 implementationSlot = deployment.EIP1967_IMPLEMENTATION_SLOT();
         bytes32 originalImplementation = vm.load(paymentToken, implementationSlot);
         address unreviewedImplementation = makeAddr("unreviewedImplementation");
@@ -63,8 +60,8 @@ contract RobinhoodUSDGForkTest is Test {
         vm.store(
             paymentToken, implementationSlot, bytes32(uint256(uint160(unreviewedImplementation)))
         );
-        vm.expectRevert(RobinhoodDeploymentGuard.InvalidUSDGContract.selector);
-        deployment.validateInputs(chainId, paymentToken, protocolOwner, feeRecipient);
+        vm.expectRevert(ProtocolDeployment.InvalidUSDGContract.selector);
+        deployment.validateInputs(protocolOwner, feeRecipient);
 
         vm.store(paymentToken, implementationSlot, originalImplementation);
         vm.mockCall(
@@ -72,8 +69,8 @@ contract RobinhoodUSDGForkTest is Test {
             abi.encodeWithSelector(IUSDGDeploymentTarget.paused.selector),
             abi.encode(true)
         );
-        vm.expectRevert(RobinhoodDeploymentGuard.InvalidUSDGContract.selector);
-        deployment.validateInputs(chainId, paymentToken, protocolOwner, feeRecipient);
+        vm.expectRevert(ProtocolDeployment.InvalidUSDGContract.selector);
+        deployment.validateInputs(protocolOwner, feeRecipient);
     }
 
     function _assertCanonicalTokenState(DeployProtocol deployment, address paymentToken)
