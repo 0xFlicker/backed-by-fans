@@ -32,6 +32,10 @@ RUN_ROBINHOOD_FORK_TESTS=true \
   USDG_OBSERVATION_BLOCK_NUMBER="$observation_block_number" \
   forge test --match-path test/fork/RobinhoodUSDG.t.sol -vvv
 
-echo "Robinhood testnet USDG evidence block hash and current-state preflight passed."
+RUN_ROBINHOOD_FORK_TESTS=true \
+  ROBINHOOD_TESTNET_RPC_URL="$rpc_url" \
+  forge test --match-path test/fork/RobinhoodSafe.t.sol -vvv
+
+echo "Robinhood testnet USDG and Safe current-state preflight passed."
 echo "Current observation block: $observation_block_number"
 echo "Current observation block hash: $observation_block_hash"

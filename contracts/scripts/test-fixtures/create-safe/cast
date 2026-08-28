@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'cast %s\n' "$*" >>"$MOCK_LOG"
+case "${1:-} ${2:-}" in
+  "chain-id --rpc-url")
+    printf '%s\n' "$MOCK_CHAIN_ID"
+    ;;
+  "wallet address")
+    printf '%s\n' "$MOCK_DEPLOYER"
+    ;;
+  *)
+    echo "unexpected mock cast invocation: $*" >&2
+    exit 1
+    ;;
+esac

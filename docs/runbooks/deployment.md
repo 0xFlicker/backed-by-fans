@@ -37,17 +37,35 @@ forge test -vvv
 cast wallet import backed-by-fans-testnet --interactive
 ```
 
-Set the public operational identities and RPC URL in the shell or ignored
-`contracts/.env`:
+Verify that the encrypted account resolves to the approved deployer:
 
 ```sh
-export PROTOCOL_OWNER=0x...
-export FEE_RECIPIENT=0x...
-export DEPLOYER_ADDRESS=0x...
+cast wallet address --account backed-by-fans-testnet
+# 0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
+```
+
+Create and rehearse the testnet Safe before deploying the protocol. The Safe
+creation workflow, exact v1.5.0 L2 contracts, and direct checks are in
+[safe.md](safe.md):
+
+```sh
+./scripts/create-safe.sh testnet dry-run
+./scripts/create-safe.sh testnet broadcast
+```
+
+Set the Safe as the initial protocol owner and fee recipient, then set the
+deployer and RPC URL in the shell or ignored `contracts/.env`:
+
+```sh
+export SAFE_ADDRESS=0xeAA4B38A99f766117C1D493a21012fec25f70505
+export PROTOCOL_OWNER="$SAFE_ADDRESS"
+export FEE_RECIPIENT="$SAFE_ADDRESS"
+export DEPLOYER_ADDRESS=0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
 export ROBINHOOD_RPC_URL=https://rpc.testnet.chain.robinhood.com
 ```
 
-Review those three identities out of band, then dry-run without `--broadcast`:
+Review the Safe, deployer, and fee identity out of band, then dry-run without
+`--broadcast`:
 
 ```sh
 forge script script/DeployProtocol.s.sol:DeployProtocol \

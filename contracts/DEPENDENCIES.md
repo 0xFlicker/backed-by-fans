@@ -12,6 +12,22 @@ The compiler is Solidity `0.8.36` and the required Foundry release is `v1.7.1`.
 Do not update a dependency to a moving branch. Review and record a new exact tag,
 commit, and license in the same change that updates its gitlink.
 
+## External deployed-contract provenance
+
+These repositories are not vendored or compiled into Backed By Fans. The Safe
+creation script calls their canonical deployed contracts through
+project-authored interfaces and pins their released addresses, code hashes,
+version, setup behavior, and documented storage slots.
+
+| Dependency | Tag | Commit | License | Use |
+| --- | --- | --- | --- | --- |
+| [Safe Smart Account](https://github.com/safe-global/safe-smart-account) | `v1.5.0` | `dc437e8fba8b4805d76bcbd1c668c9fd3d1e83be` | LGPL-3.0 | `SafeL2`, proxy factory behavior, setup ABI, and account validation |
+| [Safe Deployments](https://github.com/safe-global/safe-deployments) | repository snapshot | `0974182c16c57ca6fe2b9bba8cffb8a7e55fb83c` | MIT | Canonical v1.5.0 addresses and chain availability |
+
+Updating either pinned Safe release or deployment snapshot requires a reviewed
+source change with new addresses, code hashes, deterministic Safe address,
+tests, and this provenance record. No Safe source is copied into this project.
+
 ## Public standards provenance
 
 The project-authored standard interfaces were transcribed from the CC0 public

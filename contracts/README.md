@@ -33,6 +33,19 @@ file; use Foundry's encrypted keystore as described in `.env.example`.
 The repeatable broadcast, Wagmi generation, source verification, and official
 testnet USDG evidence are documented in the
 [deployment runbook](../docs/runbooks/deployment.md).
+Create the chain's Safe first with the canonical Safe v1.5.0 L2 workflow in the
+[Safe runbook](../docs/runbooks/safe.md):
+
+```sh
+./scripts/create-safe.sh testnet dry-run
+./scripts/create-safe.sh testnet broadcast
+```
+
+The wrapper defaults to the `backed-by-fans-testnet` encrypted account and
+verifies that it resolves to the approved deployer address. The same deterministic
+Safe address is used on testnet and mainnet; mainnet creation has a separate
+explicit confirmation gate.
+
 The exact official testnet proxy is pinned in the deployment guard and verified
 against live chain state. No public testnet protocol deployment is recorded
 until operational identities, an encrypted funded deployer, source verification,
