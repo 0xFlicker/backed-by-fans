@@ -15,7 +15,7 @@ export default defineConfig({
       project: "../contracts",
       includeBroadcasts: true,
       include: [
-        "MembershipFactory.sol/**",
+        "MembershipFactory.sol/MembershipFactory.json",
         "MembershipTier.sol/**",
         "OnchainMetadataRenderer.sol/**",
       ],

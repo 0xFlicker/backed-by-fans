@@ -31,6 +31,12 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+capture_public_generation_state() {
+  git -C "$repo_root" status --porcelain=v1 -- web/src/contracts.ts contracts/broadcast
+  git -C "$repo_root" diff -- web/src/contracts.ts contracts/broadcast
+  git -C "$repo_root" diff --cached -- web/src/contracts.ts contracts/broadcast
+}
+
 for command_name in anvil cast forge jq curl bun nc; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     echo "$command_name is required for the local Anvil browser gate." >&2
@@ -51,11 +57,9 @@ if nc -z "$web_host" "$web_port" 2>/dev/null; then
   exit 1
 fi
 
-public_generation_before="$({
-  git status --porcelain=v1 -- web/src/contracts.ts contracts/broadcast
-  git diff -- web/src/contracts.ts contracts/broadcast
-  git diff --cached -- web/src/contracts.ts contracts/broadcast
-} | shasum -a 256)"
+public_generation_before="$temp_dir/public-generation-before"
+public_generation_after="$temp_dir/public-generation-after"
+capture_public_generation_state >"$public_generation_before"
 
 anvil --silent --host "$anvil_host" --port "$anvil_port" --chain-id 31337 \
   >"$temp_dir/anvil.log" 2>&1 &
@@ -132,12 +136,8 @@ export BBF_ANVIL_MEMBER_ADDRESS="$member"
 export BBF_ANVIL_GIFT_RECIPIENT_ADDRESS="$gift_recipient"
 export BBF_ANVIL_NEW_OWNER_ADDRESS="$new_owner"
 
-public_generation_after="$({
-  git status --porcelain=v1 -- web/src/contracts.ts contracts/broadcast
-  git diff -- web/src/contracts.ts contracts/broadcast
-  git diff --cached -- web/src/contracts.ts contracts/broadcast
-} | shasum -a 256)"
-if [[ "$public_generation_before" != "$public_generation_after" ]]; then
+capture_public_generation_state >"$public_generation_after"
+if ! diff -u "$public_generation_before" "$public_generation_after"; then
   echo "Local deployment altered public broadcasts or generated contracts." >&2
   exit 1
 fi

@@ -1,3 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'forge %s\n' "$*" >>"$MOCK_LOG"
+if [[ -n "${MOCK_FORGE_FAIL_ON:-}" && "$*" == *"$MOCK_FORGE_FAIL_ON"* ]]; then
+  exit 1
+fi

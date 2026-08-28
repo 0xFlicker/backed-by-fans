@@ -22,7 +22,8 @@ an eager differential payment model for randomized purchases, gifts, exits,
 refunds, and failed fixed-destination exits.
 
 The same repository-wide command starts a disposable Anvil chain and a
-production Next.js server, configures exact runtime-code commitments, and runs
+production Next.js server, injects only that process's disposable Anvil
+deployment addresses, and runs
 the configured tests in `web/tests/e2e/anvil-membership.spec.ts`,
 `create-tier.spec.ts`, `creator-operations.spec.ts`,
 `join-renew-gift.spec.ts`, `claims-refunds.spec.ts`, and
@@ -46,13 +47,12 @@ alone from the repository root:
 ./scripts/test-web-anvil.sh
 ```
 
-The harness installs a test-only mock token runtime at the official mainnet USDG
-address inside the disposable chain and points its test-only EIP-1967
-implementation commitment at that same mock runtime solely to exercise the web
-authenticity guard. The mock can reject a selected recipient solely to prove
-the fixed-destination failure experience. It never asserts that the mock is
-USDG, never changes public broadcast records or generated addresses, and never authorizes a public
-deployment.
+The harness deploys a test-only mock token normally on Anvil. The mock can
+reject a selected recipient solely to prove the fixed-destination failure
+experience. The harness redirects Foundry's local broadcast output to a
+temporary directory and fails if the run changes public broadcast records or
+Wagmi-generated addresses. It never asserts that the mock is canonical USDG
+and never authorizes a public deployment.
 
 Local deterministic evidence is not a public testnet pilot, audit, independent
 accounting review, production rehearsal, or mainnet authorization.

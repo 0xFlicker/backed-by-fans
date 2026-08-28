@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/public-chain-common.sh"
+
 usage() {
   cat <<'EOF'
 Usage: ./scripts/create-safe.sh <testnet|mainnet> [dry-run|broadcast]
@@ -25,57 +28,25 @@ network="${1:-}"
 action="${2:-dry-run}"
 expected_deployer="0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"
 
-case "$network" in
-  testnet)
-    expected_chain_id="46630"
-    default_account="backed-by-fans-testnet"
-    default_rpc_url="https://rpc.testnet.chain.robinhood.com"
-    ;;
-  mainnet)
-    expected_chain_id="4663"
-    default_account="backed-by-fans"
-    default_rpc_url="https://rpc.mainnet.chain.robinhood.com"
-    ;;
-  *)
-    usage >&2
-    exit 2
-    ;;
-esac
+if ! bbf_configure_public_network "$network"; then
+  usage >&2
+  exit 2
+fi
 
 if [[ "$action" != "dry-run" && "$action" != "broadcast" ]]; then
   usage >&2
   exit 2
 fi
 
-if [[ "$network" == "mainnet" && "${CONFIRM_MAINNET_SAFE_CREATION:-}" != "4663" ]]; then
-  echo "Safe creation: mainnet requires CONFIRM_MAINNET_SAFE_CREATION=4663" >&2
-  exit 1
-fi
-
-if [[ "${FOUNDRY_BROADCAST+x}" == "x" ]]; then
-  echo "Safe creation: unset FOUNDRY_BROADCAST so the public artifact stays in contracts/broadcast" >&2
-  exit 1
-fi
+bbf_require_mainnet_confirmation "$network" CONFIRM_MAINNET_SAFE_CREATION "Safe creation"
+bbf_reject_broadcast_override "Safe creation"
 
 account="${ACCOUNT:-$default_account}"
-rpc_url="$default_rpc_url"
 
-project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+project_dir="$(cd "$script_dir/.." && pwd)"
 cd "$project_dir"
 
-observed_chain_id="$(cast chain-id --rpc-url "$rpc_url")"
-if [[ "$observed_chain_id" != "$expected_chain_id" ]]; then
-  echo "Safe creation: expected chain $expected_chain_id, RPC returned $observed_chain_id" >&2
-  exit 1
-fi
-
-observed_deployer="$(cast wallet address --account "$account")"
-normalized_observed="$(printf '%s' "$observed_deployer" | tr '[:upper:]' '[:lower:]')"
-normalized_expected="$(printf '%s' "$expected_deployer" | tr '[:upper:]' '[:lower:]')"
-if [[ "$normalized_observed" != "$normalized_expected" ]]; then
-  echo "Safe creation: account $account resolves to $observed_deployer, expected $expected_deployer" >&2
-  exit 1
-fi
+bbf_verify_public_context "Safe creation" "$account" "$expected_deployer"
 
 forge_args=(
   script/CreateSafe.s.sol:CreateRobinhoodSafe

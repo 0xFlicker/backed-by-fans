@@ -24,21 +24,23 @@ contract RobinhoodUSDGForkTest is Test {
 
         DeployProtocol deployment = new DeployProtocol();
         address paymentToken = deployment.ROBINHOOD_TESTNET_USDG();
-        address protocolOwner = makeAddr("forkProtocolOwner");
-        address feeRecipient = makeAddr("forkFeeRecipient");
         _assertCanonicalTokenState(deployment, paymentToken);
-        deployment.validateInputs(protocolOwner, feeRecipient);
 
-        (OnchainMetadataRenderer renderer, MembershipFactory factory) =
-            deployment.deploy(protocolOwner, feeRecipient);
+        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
+        MembershipFactory factory = new MembershipFactory(
+            IERC20Metadata(paymentToken),
+            address(renderer),
+            deployment.INITIAL_PROTOCOL_AUTHORITY(),
+            deployment.INITIAL_PROTOCOL_AUTHORITY()
+        );
 
         assertEq(block.chainid, deployment.ROBINHOOD_TESTNET_CHAIN_ID());
         assertTrue(paymentToken.code.length != 0);
         assertTrue(address(renderer).code.length != 0);
         assertTrue(address(factory).code.length != 0);
         assertEq(address(factory.paymentToken()), paymentToken);
-        assertEq(factory.owner(), protocolOwner);
-        assertEq(factory.feeRecipient(), feeRecipient);
+        assertEq(factory.owner(), deployment.INITIAL_PROTOCOL_AUTHORITY());
+        assertEq(factory.feeRecipient(), deployment.INITIAL_PROTOCOL_AUTHORITY());
     }
 
     function test_observedGuardRejectsImplementationAndPauseDriftWhenExplicitlyEnabled() public {
@@ -50,8 +52,6 @@ contract RobinhoodUSDGForkTest is Test {
 
         DeployProtocol deployment = new DeployProtocol();
         address paymentToken = deployment.ROBINHOOD_TESTNET_USDG();
-        address protocolOwner = makeAddr("driftProtocolOwner");
-        address feeRecipient = makeAddr("driftFeeRecipient");
         bytes32 implementationSlot = deployment.EIP1967_IMPLEMENTATION_SLOT();
         bytes32 originalImplementation = vm.load(paymentToken, implementationSlot);
         address unreviewedImplementation = makeAddr("unreviewedImplementation");
@@ -61,7 +61,7 @@ contract RobinhoodUSDGForkTest is Test {
             paymentToken, implementationSlot, bytes32(uint256(uint160(unreviewedImplementation)))
         );
         vm.expectRevert(ProtocolDeployment.InvalidUSDGContract.selector);
-        deployment.validateInputs(protocolOwner, feeRecipient);
+        deployment.validateInputs();
 
         vm.store(paymentToken, implementationSlot, originalImplementation);
         vm.mockCall(
@@ -70,7 +70,7 @@ contract RobinhoodUSDGForkTest is Test {
             abi.encode(true)
         );
         vm.expectRevert(ProtocolDeployment.InvalidUSDGContract.selector);
-        deployment.validateInputs(protocolOwner, feeRecipient);
+        deployment.validateInputs();
     }
 
     function _assertCanonicalTokenState(DeployProtocol deployment, address paymentToken)

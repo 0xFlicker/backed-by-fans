@@ -59,5 +59,8 @@
   "trustedDependencies": [
     "sharp",
     "unrs-resolver"
-  ]
+  ],
+  "patchedDependencies": {
+    "@wagmi/cli@2.9.0": "patches/@wagmi%2Fcli@2.9.0.patch"
+  }
 }

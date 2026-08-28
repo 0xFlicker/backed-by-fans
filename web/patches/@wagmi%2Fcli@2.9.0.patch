@@ -1,0 +1,83 @@
+diff --git a/dist/esm/plugins/foundry.js b/dist/esm/plugins/foundry.js
+index 524b5ebde9aa9830574dcd4d3b8bc6bc6cba2874..c7e4538874008465c327bb601c86450388dc713d 100644
+--- a/dist/esm/plugins/foundry.js
++++ b/dist/esm/plugins/foundry.js
+@@ -86,12 +86,13 @@ export function foundry(config = {}) {
+                     continue;
+                 const transactions = broadcast.transactions || [];
+                 for (const tx of transactions) {
+-                    if (tx.transactionType !== 'CREATE' &&
+-                        tx.transactionType !== 'CREATE2')
++                    const isCreate = tx.transactionType === 'CREATE' || tx.transactionType === 'CREATE2';
++                    const containsDeployments = isCreate || tx.transactionType === 'CALL';
++                    if (!containsDeployments)
+                         continue;
+-                    if (tx.contractName && tx.contractAddress) {
++                    const contractAddress = tx.address ?? tx.contractAddress;
++                    if (isCreate && tx.contractName && contractAddress) {
+                         const contractName = tx.contractName;
+-                        const contractAddress = tx.contractAddress;
+                         if (!deployments[contractName]) {
+                             deployments[contractName] = {};
+                         }
+@@ -99,13 +100,13 @@ export function foundry(config = {}) {
+                     }
+                     const additionalContracts = tx.additionalContracts || [];
+                     for (const additional of additionalContracts) {
+-                        if (additional.contractName && additional.contractAddress) {
++                        const additionalAddress = additional.address ?? additional.contractAddress;
++                        if (additional.contractName && additionalAddress) {
+                             const contractName = additional.contractName;
+-                            const contractAddress = additional.contractAddress;
+                             if (!deployments[contractName]) {
+                                 deployments[contractName] = {};
+                             }
+-                            deployments[contractName][chainId] = contractAddress;
++                            deployments[contractName][chainId] = additionalAddress;
+                         }
+                     }
+                 }
+diff --git a/src/plugins/foundry.ts b/src/plugins/foundry.ts
+index 0dc2de12e3022f67320e2870eab6dda49e4530d7..a305d13ffcad22f197c1cc33e33155fb904eae32 100644
+--- a/src/plugins/foundry.ts
++++ b/src/plugins/foundry.ts
+@@ -182,13 +182,14 @@ export function foundry(config: FoundryConfig = {}): FoundryResult {
+         const transactions = broadcast.transactions || []
+         for (const tx of transactions) {
+-          if (
+-            tx.transactionType !== 'CREATE' &&
+-            tx.transactionType !== 'CREATE2'
+-          )
+-            continue
+-          if (tx.contractName && tx.contractAddress) {
++          const isCreate =
++            tx.transactionType === 'CREATE' || tx.transactionType === 'CREATE2'
++          const containsDeployments =
++            isCreate || tx.transactionType === 'CALL'
++          if (!containsDeployments) continue
++
++          const contractAddress = tx.address ?? tx.contractAddress
++          if (isCreate && tx.contractName && contractAddress) {
+             const contractName = tx.contractName
+-            const contractAddress = tx.contractAddress
+             if (!deployments[contractName]) {
+               deployments[contractName] = {}
+             }
+@@ -196,13 +197,14 @@ export function foundry(config: FoundryConfig = {}): FoundryResult {
+           }
+           const additionalContracts = tx.additionalContracts || []
+           for (const additional of additionalContracts) {
+-            if (additional.contractName && additional.contractAddress) {
++            const additionalAddress =
++              additional.address ?? additional.contractAddress
++            if (additional.contractName && additionalAddress) {
+               const contractName = additional.contractName
+-              const contractAddress = additional.contractAddress
+               if (!deployments[contractName]) {
+                 deployments[contractName] = {}
+               }
+-              deployments[contractName][chainId] = contractAddress
++              deployments[contractName][chainId] = additionalAddress
+             }
+           }
+         }

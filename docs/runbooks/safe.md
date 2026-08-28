@@ -106,15 +106,11 @@ instead of accepting a second address.
 
 ## Operational configuration
 
-For the initial testnet protocol deployment, use the created Safe for both the
-factory owner and fee recipient unless a later product decision separates them:
-
-```sh
-export PROTOCOL_OWNER="$SAFE_ADDRESS"
-export FEE_RECIPIENT="$SAFE_ADDRESS"
-```
-
-The protocol contracts name the Safe, not the EOA, as owner and fee recipient.
+The public protocol factory binds this deterministic Safe as both initial owner
+and fee recipient. These are not shell inputs: keeping them out of constructor
+arguments makes the public deployment deterministic and prevents an operator
+from accidentally selecting the deployer EOA instead. The protocol contracts
+name the Safe, not the EOA, as owner and fee recipient.
 Because the deployer is the Safe's sole owner in this bootstrap configuration,
 it still indirectly controls both authorities. Moving to a real multisig
 requires adding independent owners and raising the threshold.

@@ -4,6 +4,8 @@ pragma solidity =0.8.36;
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 
+import {RobinhoodProtocolConfig} from "../src/RobinhoodProtocolConfig.sol";
+
 /// @dev Exact Safe v1.5.0 surface used by the creation script.
 interface ISafeL2 {
     function VERSION() external view returns (string memory);
@@ -50,12 +52,12 @@ interface ISafeProxy {
 
 /// @notice Creates the same Safe v1.5.0 L2 account on supported Robinhood chains.
 contract CreateRobinhoodSafe is Script {
-    uint256 public constant ROBINHOOD_MAINNET_CHAIN_ID = 4663;
-    uint256 public constant ROBINHOOD_TESTNET_CHAIN_ID = 46_630;
+    uint256 public constant ROBINHOOD_MAINNET_CHAIN_ID = RobinhoodProtocolConfig.MAINNET_CHAIN_ID;
+    uint256 public constant ROBINHOOD_TESTNET_CHAIN_ID = RobinhoodProtocolConfig.TESTNET_CHAIN_ID;
     address public constant APPROVED_DEPLOYER = 0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027;
 
     // Safe v1.5.0 canonical deployments from safe-global/safe-deployments.
-    address public constant SAFE_L2_SINGLETON = 0xEdd160fEBBD92E350D4D398fb636302fccd67C7e;
+    address public constant SAFE_L2_SINGLETON = RobinhoodProtocolConfig.SAFE_L2_SINGLETON;
     bytes32 public constant SAFE_L2_SINGLETON_CODE_HASH =
         0x180193227186ccb85316c94db1f0d156ed932b14712cfaac78901899178572dc;
     address public constant SAFE_PROXY_FACTORY = 0x14F2982D601c9458F93bd70B218933A6f8165e7b;
@@ -68,7 +70,8 @@ contract CreateRobinhoodSafe is Script {
 
     // The non-chain-specific L2 entrypoint makes the Safe address identical on both chains.
     bytes32 public constant SAFE_SALT = keccak256("Backed By Fans protocol Safe v1");
-    address public constant EXPECTED_SAFE_ADDRESS = 0xeAA4B38A99f766117C1D493a21012fec25f70505;
+    address public constant EXPECTED_SAFE_ADDRESS =
+        RobinhoodProtocolConfig.INITIAL_PROTOCOL_AUTHORITY;
 
     bytes32 private constant _SAFE_VERSION_HASH = keccak256("1.5.0");
     address private constant _SENTINEL_MODULES = address(0x1);

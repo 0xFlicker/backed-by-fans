@@ -6,6 +6,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "== Contracts =="
 cd "$repo_root/contracts"
 ./scripts/check-clean-room.sh
+./scripts/test-create-safe.sh
+./scripts/test-deploy-protocol.sh
 forge fmt --check
 forge build --sizes
 forge test -vvv

@@ -46,6 +46,25 @@ verifies that it resolves to the approved deployer address. The same determinist
 Safe address is used on testnet and mainnet; mainnet creation has a separate
 explicit confirmation gate.
 
+The public protocol is also deterministic across both chains. A chain-neutral
+coordinator has the same CREATE2 address, then creates the renderer and factory
+at the same nonces using the chain-canonical USDG. Different USDG addresses do
+not change the coordinator, renderer, factory, tier deployer, or
+creation-code-store addresses. Rehearse or broadcast it only through the
+guarded wrapper:
+
+```sh
+./scripts/deploy-protocol.sh testnet dry-run
+./scripts/deploy-protocol.sh testnet broadcast
+./scripts/deploy-protocol.sh testnet status
+```
+
+If every transaction was mined but source verification failed, recover through
+Foundry's durable artifact with
+`./scripts/deploy-protocol.sh testnet resume-verify`. The wrapper first proves
+the complete deployment onchain without a signer, then lets Foundry resume
+verification. It refuses partial deployments; do not rebroadcast a complete one.
+
 The exact official testnet proxy is pinned in the deployment guard and verified
 against live chain state. No public testnet protocol deployment is recorded
 until operational identities, an encrypted funded deployer, source verification,
