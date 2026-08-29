@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { formatUnits, zeroAddress } from "viem";
 
 import {
-  membershipFactoryAbi,
+  robinhoodMembershipFactoryAbi,
   membershipTierAbi,
   usdgAbi,
 } from "../../src/contracts";
@@ -222,7 +222,7 @@ test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi
     await expect(
       client.readContract({
         address: factory,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName: "feeRecipient",
       }),
     ).resolves.toBe(newRecipient);

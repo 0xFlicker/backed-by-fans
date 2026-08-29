@@ -6,7 +6,7 @@ import {
   type PublicClient,
 } from "viem";
 
-import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
+import { membershipTierAbi, robinhoodMembershipFactoryAbi } from "@/contracts";
 import type { CatalogPage, TierSnapshot, TierSummary } from "@/contracts/types";
 import { verifyTierAuthenticity } from "@/lib/authenticity";
 import type { ReadyDeployment } from "@/lib/config";
@@ -53,13 +53,13 @@ export async function readCatalogPage(
   const [total, addresses] = await Promise.all([
     client.readContract({
       address: factory,
-      abi: membershipFactoryAbi,
+      abi: robinhoodMembershipFactoryAbi,
       functionName: "tierCount",
       blockNumber: capturedBlock,
     }),
     client.readContract({
       address: factory,
-      abi: membershipFactoryAbi,
+      abi: robinhoodMembershipFactoryAbi,
       functionName: "tiers",
       args: [offset, BigInt(limit)],
       blockNumber: capturedBlock,

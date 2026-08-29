@@ -1,6 +1,6 @@
 import type { Address, PublicClient } from "viem";
 
-import { membershipFactoryAbi, usdgAbi } from "@/contracts";
+import { robinhoodMembershipFactoryAbi, usdgAbi } from "@/contracts";
 import type { DeploymentAvailability } from "@/lib/config";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
@@ -42,37 +42,37 @@ export async function readProtocolState(
       client.getChainId(),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName: "paymentToken",
         blockNumber,
       }),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName: "owner",
         blockNumber,
       }),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName: "pendingOwner",
         blockNumber,
       }),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName: "feeRecipient",
         blockNumber,
       }),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName: "protocolFeeBps",
         blockNumber,
       }),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName: "tierCount",
         blockNumber,
       }),

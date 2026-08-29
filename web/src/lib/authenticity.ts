@@ -1,6 +1,6 @@
 import { getAddress, isAddress, type Address, type PublicClient } from "viem";
 
-import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
+import { membershipTierAbi, robinhoodMembershipFactoryAbi } from "@/contracts";
 import { isSameAddress } from "@/lib/address";
 import type { DeploymentAvailability, ReadyDeployment } from "@/lib/config";
 import { membershipInterfaces } from "@/lib/membership-interfaces";
@@ -128,7 +128,7 @@ export async function verifyTierAuthenticity(
     const reads = await Promise.allSettled([
       client.readContract({
         address: factory,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName: "isRegisteredTier",
         args: [tier],
         blockNumber: capturedBlock,

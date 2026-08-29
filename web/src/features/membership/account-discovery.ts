@@ -1,6 +1,6 @@
 import { getAddress, isAddress, type Address, type PublicClient } from "viem";
 
-import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
+import { membershipTierAbi, robinhoodMembershipFactoryAbi } from "@/contracts";
 import type { AccountTierResult } from "@/features/membership/account-cache";
 import {
   tierBindingFailures,
@@ -150,7 +150,7 @@ async function inspectTiersWithMulticall(
   const contracts = input.tiers.flatMap((tier) => [
     {
       address: input.deployment.factoryAddress,
-      abi: membershipFactoryAbi,
+      abi: robinhoodMembershipFactoryAbi,
       functionName: "isRegisteredTier" as const,
       args: [tier] as const,
     },

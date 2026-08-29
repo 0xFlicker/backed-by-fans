@@ -15,9 +15,10 @@ export default defineConfig({
       project: "../contracts",
       includeBroadcasts: true,
       include: [
-        "MembershipFactory.sol/MembershipFactory.json",
         "MembershipTier.sol/**",
         "OnchainMetadataRenderer.sol/**",
+        "RobinhoodMembershipFactory.sol/**",
+        "TestnetUSDG.sol/**",
       ],
     }),
     react(),

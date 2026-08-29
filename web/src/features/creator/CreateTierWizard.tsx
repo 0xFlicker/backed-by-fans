@@ -18,7 +18,7 @@ import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
 import { WalletReadiness } from "@/components/WalletReadiness";
-import { membershipFactoryAbi } from "@/contracts";
+import { robinhoodMembershipFactoryAbi } from "@/contracts";
 import {
   defaultCreatorForm,
   evaluateCreatorForm,
@@ -202,7 +202,7 @@ export function CreateTierWizard() {
         account: creator,
         chainId: deployment.chainId,
         address: factory,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName: "createTier",
         args: [config],
       });

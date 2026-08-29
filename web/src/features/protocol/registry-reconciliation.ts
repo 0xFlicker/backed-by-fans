@@ -5,7 +5,7 @@ import {
   type PublicClient,
 } from "viem";
 
-import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
+import { membershipTierAbi, robinhoodMembershipFactoryAbi } from "@/contracts";
 import type { TierConfig } from "@/features/creator/config";
 import type { SuccessfulWriteReceipt } from "@/features/protocol/write-reconciliation";
 import { isSameAddress } from "@/lib/address";
@@ -129,7 +129,7 @@ export async function reconcileCreatedTier(
   },
 ): Promise<Address | undefined> {
   const events = parseEventLogs({
-    abi: membershipFactoryAbi,
+    abi: robinhoodMembershipFactoryAbi,
     eventName: "TierCreated",
     logs: input.receipt.logs,
     strict: true,
@@ -147,7 +147,7 @@ export async function reconcileCreatedTier(
   if (blockNumber < input.receipt.blockNumber) return undefined;
   const registered = await client.readContract({
     address: input.factory,
-    abi: membershipFactoryAbi,
+    abi: robinhoodMembershipFactoryAbi,
     functionName: "tiers",
     args: [events[0].args.tierIndex, 1n],
     blockNumber,

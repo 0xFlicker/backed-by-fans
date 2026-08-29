@@ -12,9 +12,6 @@ import {
 export const officialMainnetUsdg = getAddress(
   "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
 );
-export const officialTestnetUsdg = getAddress(
-  "0x7E955252E15c84f5768B83c41a71F9eba181802F",
-);
 
 export type PublicEnvironment = {
   mainnetRpcUrl?: string;
@@ -76,11 +73,11 @@ function generatedFactoryAddresses(): Partial<
   Record<SupportedChainId, Address>
 > {
   const exports = generatedContracts as Record<string, unknown>;
-  const value = exports.membershipFactoryAddress;
+  const value = exports.robinhoodMembershipFactoryAddress;
   if (value === undefined) return {};
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(
-      "The generated MembershipFactory deployment map is invalid.",
+      "The generated RobinhoodMembershipFactory deployment map is invalid.",
     );
   }
 
@@ -90,16 +87,32 @@ function generatedFactoryAddresses(): Partial<
     if (chainId !== robinhood.id && chainId !== robinhoodTestnet.id) continue;
     addresses[chainId] = parseRequiredAddress(
       rawAddress,
-      `Generated MembershipFactory address for chain ${chainId}`,
+      `Generated RobinhoodMembershipFactory address for chain ${chainId}`,
     );
   }
   return addresses;
 }
 
-function officialUsdg(chainId: SupportedChainId): Address {
-  if (chainId === robinhood.id) return officialMainnetUsdg;
-  if (chainId === robinhoodTestnet.id) return officialTestnetUsdg;
-  throw new Error(`Chain ${chainId} has no public USDG binding.`);
+function generatedUsdgAddresses(): Partial<Record<SupportedChainId, Address>> {
+  const exports = generatedContracts as Record<string, unknown>;
+  const addresses: Partial<Record<SupportedChainId, Address>> = {
+    [robinhood.id]: officialMainnetUsdg,
+  };
+  const value = exports.testnetUsdgAddress;
+  if (value === undefined) return addresses;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("The generated TestnetUSDG deployment map is invalid.");
+  }
+  const testnetAddress = (value as Record<number, unknown>)[
+    robinhoodTestnet.id
+  ];
+  if (testnetAddress !== undefined) {
+    addresses[robinhoodTestnet.id] = parseRequiredAddress(
+      testnetAddress,
+      `Generated TestnetUSDG address for chain ${robinhoodTestnet.id}`,
+    );
+  }
+  return addresses;
 }
 
 export function buildPublicConfig(
@@ -107,6 +120,7 @@ export function buildPublicConfig(
   factoryAddresses: Partial<
     Record<number, string>
   > = generatedFactoryAddresses(),
+  usdgAddresses: Partial<Record<number, string>> = generatedUsdgAddresses(),
 ): PublicConfig {
   const mainnetRpcUrl = parsePublicUrl(
     environment.mainnetRpcUrl,
@@ -121,7 +135,8 @@ export function buildPublicConfig(
 
   for (const chainId of [robinhoodTestnet.id, robinhood.id] as const) {
     const factoryAddress = factoryAddresses[chainId];
-    if (!factoryAddress) continue;
+    const usdgAddress = usdgAddresses[chainId];
+    if (!factoryAddress || !usdgAddress) continue;
     deployments[chainId] = {
       status: "ready",
       chainId,
@@ -129,7 +144,10 @@ export function buildPublicConfig(
         factoryAddress,
         `MembershipFactory address for chain ${chainId}`,
       ),
-      usdgAddress: officialUsdg(chainId),
+      usdgAddress: parseRequiredAddress(
+        usdgAddress,
+        `USDG address for chain ${chainId}`,
+      ),
     };
   }
 

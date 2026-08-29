@@ -14,7 +14,7 @@ import {
 import { ReadStateView } from "@/components/ReadState";
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
-import { membershipFactoryAbi } from "@/contracts";
+import { robinhoodMembershipFactoryAbi } from "@/contracts";
 import { protocolPermissions } from "@/features/protocol/authority";
 import {
   readProtocolState,
@@ -109,7 +109,7 @@ function ProtocolControls({
         account: account.address,
         chainId: expectedChainId,
         address: snapshot.factory,
-        abi: membershipFactoryAbi,
+        abi: robinhoodMembershipFactoryAbi,
         functionName,
         args,
       } as never);

@@ -8,7 +8,7 @@ import {
 } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
-import { membershipFactoryAbi } from "@/contracts";
+import { robinhoodMembershipFactoryAbi } from "@/contracts";
 import {
   defaultCreatorForm,
   evaluateCreatorForm,
@@ -31,7 +31,7 @@ function tierCreatedLog(emittedTier: Address, tierIndex = 0n) {
       [config.name, config.symbol],
     ),
     topics: encodeEventTopics({
-      abi: membershipFactoryAbi,
+      abi: robinhoodMembershipFactoryAbi,
       eventName: "TierCreated",
       args: { tier: emittedTier, creator, tierIndex },
     }),

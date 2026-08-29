@@ -7,13 +7,13 @@ import {
   buildPublicConfig,
   getDeployment,
   officialMainnetUsdg,
-  officialTestnetUsdg,
 } from "@/lib/config";
 
 const testnetFactory = "0x1111111111111111111111111111111111111111";
 const mainnetFactory = "0x2222222222222222222222222222222222222222";
 const anvilFactory = "0x3333333333333333333333333333333333333333";
 const anvilUsdg = "0x4444444444444444444444444444444444444444";
+const testnetUsdg = "0x5555555555555555555555555555555555555555";
 
 describe("buildPublicConfig", () => {
   it("keeps both public networks available while reporting absent deployments", () => {
@@ -39,6 +39,10 @@ describe("buildPublicConfig", () => {
         [robinhoodTestnet.id]: testnetFactory,
         [robinhood.id]: mainnetFactory,
       },
+      {
+        [robinhoodTestnet.id]: testnetUsdg,
+        [robinhood.id]: officialMainnetUsdg,
+      },
     );
 
     expect(config.defaultChainId).toBe(robinhood.id);
@@ -46,7 +50,7 @@ describe("buildPublicConfig", () => {
       status: "ready",
       chainId: robinhoodTestnet.id,
       factoryAddress: getAddress(testnetFactory),
-      usdgAddress: officialTestnetUsdg,
+      usdgAddress: getAddress(testnetUsdg),
     });
     expect(getDeployment(config, robinhood.id)).toEqual({
       status: "ready",
@@ -60,13 +64,18 @@ describe("buildPublicConfig", () => {
     const config = buildPublicConfig(
       {},
       { [robinhoodTestnet.id]: testnetFactory },
+      { [robinhoodTestnet.id]: testnetUsdg },
     );
 
     expect(config.defaultChainId).toBe(robinhoodTestnet.id);
   });
 
   it("supports a mainnet-only generated deployment", () => {
-    const config = buildPublicConfig({}, { [robinhood.id]: mainnetFactory });
+    const config = buildPublicConfig(
+      {},
+      { [robinhood.id]: mainnetFactory },
+      { [robinhood.id]: officialMainnetUsdg },
+    );
 
     expect(config.defaultChainId).toBe(robinhood.id);
     expect(getDeployment(config, robinhood.id)).toMatchObject({
@@ -81,7 +90,11 @@ describe("buildPublicConfig", () => {
 
   it("fails fast on an invalid generated address", () => {
     expect(() =>
-      buildPublicConfig({}, { [robinhoodTestnet.id]: "not-an-address" }),
+      buildPublicConfig(
+        {},
+        { [robinhoodTestnet.id]: "not-an-address" },
+        { [robinhoodTestnet.id]: testnetUsdg },
+      ),
     ).toThrow("MembershipFactory address for chain 46630");
   });
 
