@@ -20,7 +20,7 @@ from a green local test.
 | Independent accounting review | BLOCKED | Signed report over the frozen factory-created tier, scripts, immutables, rounding and USDG assumptions; exact artifact digest; findings/dispositions. |
 | Independent security audit | BLOCKED | Signed final report over that same scope/artifact; every high/critical closed and each medium explicitly approved; retest evidence. |
 | Reproducible build | OPEN | Two independent clean builds match frozen creation/runtime and web artifact digests. Cannot pass before freeze. |
-| Production Safe configuration/rehearsal | BLOCKED | Owners/threshold/modules/guard/fallback and rehearsal evidence from [Safe runbook](safe.md). The scripted 1-of-1 bootstrap Safe does not satisfy organizational multisig controls by itself. |
+| Production Safe configuration/rehearsal | BLOCKED | Evidence from the [Safe runbook](safe.md) that owner, threshold, modules, guard, and fallback exactly match the approved 1-of-1 policy; explicit acceptance of sole-signer compromise/loss risk; and rehearsed custody, backup, recovery, transaction review, and incident response. |
 | Production deployment identities | BLOCKED | Protocol owner, fee recipient, deployer, operational roles and separation approved. |
 | Independent RPC/explorer operations | BLOCKED | Two RPC providers, source verifier, monitoring and incident responders rehearsed. |
 | Mainnet deployment-day USDG facts | BLOCKED | Proxy, implementation, authority, code hashes, decimals, pause state and one observation block/hash. |

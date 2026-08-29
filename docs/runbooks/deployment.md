@@ -31,13 +31,14 @@ Current direct deployment predictions:
 
 | Contract | Address |
 | --- | --- |
-| Testnet USDG | `0x3c6BAE5c87ddc6ADd15c4cf1d2CC9d39Ad8Be80e` |
+| Testnet USDG | `0xAB97dbB8f4ae0B4a3cc0D6963D75334B1c40da09` |
 | Onchain metadata renderer | `0x2cA28c2996E264a24b59A76b3D58F164112AebD7` |
-| Membership factory | `0xe83cb80611b0c66dc08C2E7bda847e02Be486DB9` |
+| Membership factory | `0xC902F211a6346325B0b50e2B7942C952dCaa5038` |
 
-The contract tests recompute these addresses from the pinned compiler output,
-salts, and canonical CREATE2 deployer. A source change that changes initcode also
-changes the predicted address and must be reviewed before broadcast.
+The contract tests pin and recompute these addresses from the compiler output,
+salts, and canonical CREATE2 deployer. A source change that changes initcode
+therefore fails before broadcast until the new addresses are explicitly
+reviewed and updated.
 
 ## 1. Verify the checkout
 
@@ -95,7 +96,7 @@ canonical CREATE2 deployer, deterministic addresses, and every factory/tier-
 deployer binding before reporting success.
 
 If transactions mined but Blockscout verification failed, keep the original
-`broadcast/DeployProtocol.s.sol/46630/run-latest.json` and run:
+`broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json` and run:
 
 ```sh
 ./scripts/deploy-protocol.sh testnet resume-verify
@@ -108,10 +109,13 @@ reconstruct transaction state.
 Mainnet uses the same protocol script only after an explicit GO decision:
 
 ```sh
-export CONFIRM_MAINNET_DEPLOYMENT=4663
-./scripts/deploy-protocol.sh mainnet dry-run
-./scripts/deploy-protocol.sh mainnet broadcast
+CONFIRM_MAINNET_DEPLOYMENT=4663 ./scripts/deploy-protocol.sh mainnet dry-run
+CONFIRM_MAINNET_DEPLOYMENT=4663 ./scripts/deploy-protocol.sh mainnet broadcast
 ```
+
+The confirmation must be present in the invoking process. The wrappers ignore
+confirmation values stored in `contracts/.env` so a past decision cannot become
+a reusable mainnet authorization.
 
 There is no mainnet LOL Dollar deployment.
 

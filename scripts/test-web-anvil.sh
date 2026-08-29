@@ -98,7 +98,7 @@ usdg="$({
 export LOCAL_USDG_ADDRESS="$usdg"
 export PROTOCOL_OWNER="$creator"
 export FEE_RECIPIENT="$creator"
-deployment_json="$(forge script script/DeployProtocol.s.sol:DeployLocalProtocol \
+deployment_json="$(forge script script/DeployDirectProtocol.s.sol:DeployLocalProtocol \
   --rpc-url "$rpc_url" \
   --broadcast \
   --unlocked \

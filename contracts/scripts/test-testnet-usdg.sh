@@ -67,6 +67,12 @@ assert_contains "$mock_log" "--account backed-by-fans-testnet"
 assert_contains "$mock_log" "--broadcast"
 
 : >"$mock_log"
+run_expect_failure \
+  "$script_dir/mint-testnet-usdg.sh" 0x1111111111111111111111111111111111111111 1.0000001 dry-run
+assert_contains "$test_dir/stderr" "at most six fractional digits"
+[[ ! -s "$mock_log" ]] || fail "over-precise amount invoked external tools"
+
+: >"$mock_log"
 run_expect_failure env MOCK_CHAIN_ID=4663 "$script_dir/deploy-testnet-usdg.sh" dry-run
 assert_not_contains "$mock_log" "forge"
 

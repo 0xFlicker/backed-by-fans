@@ -34,6 +34,26 @@ export MOCK_DEPLOYER=0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
 export PATH="$mock_bin:$PATH"
 unset ROBINHOOD_TESTNET_RPC_URL ROBINHOOD_MAINNET_RPC_URL
 
+dotenv_fixture="$test_dir/.env"
+printf 'CONFIRM_MAINNET_DEPLOYMENT=4663\nCONFIRM_MAINNET_SAFE_CREATION=4663\n' >"$dotenv_fixture"
+(
+  unset CONFIRM_MAINNET_DEPLOYMENT CONFIRM_MAINNET_SAFE_CREATION
+  # shellcheck source=public-chain-common.sh
+  source "$script_dir/public-chain-common.sh"
+  bbf_load_dotenv "$dotenv_fixture"
+  [[ -z "${CONFIRM_MAINNET_DEPLOYMENT+x}" ]] || fail "dotenv authorized mainnet deployment"
+  [[ -z "${CONFIRM_MAINNET_SAFE_CREATION+x}" ]] || fail "dotenv authorized mainnet Safe creation"
+)
+(
+  export CONFIRM_MAINNET_DEPLOYMENT=4662
+  export CONFIRM_MAINNET_SAFE_CREATION=4662
+  # shellcheck source=public-chain-common.sh
+  source "$script_dir/public-chain-common.sh"
+  bbf_load_dotenv "$dotenv_fixture"
+  [[ "$CONFIRM_MAINNET_DEPLOYMENT" == "4662" ]] || fail "dotenv replaced deployment confirmation"
+  [[ "$CONFIRM_MAINNET_SAFE_CREATION" == "4662" ]] || fail "dotenv replaced Safe confirmation"
+)
+
 : >"$mock_log"
 "$script_dir/create-safe.sh" testnet dry-run
 assert_contains "$mock_log" "cast chain-id --rpc-url"

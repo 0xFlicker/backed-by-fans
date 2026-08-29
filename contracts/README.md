@@ -78,10 +78,12 @@ The app refers to this token only as USDG. Mainnet remains bound to canonical
 Paxos USDG and additionally requires the exact `4663` confirmation value and
 every human release gate.
 
-Successful public Foundry broadcasts under `broadcast/DeployProtocol.s.sol/`
-are committed and consumed directly by Wagmi CLI. Anvil uses chain `31337` and
-a temporary `FOUNDRY_BROADCAST` directory, so local evidence cannot modify the
-public address map.
+Commit the successful public Foundry broadcasts under
+`broadcast/TestnetUSDG.s.sol/` and `broadcast/DeployDirectProtocol.s.sol/`.
+Wagmi CLI consumes both: the first supplies the testnet USDG address and the
+second supplies the factory address. Anvil uses chain `31337` and a temporary
+`FOUNDRY_BROADCAST` directory, so local evidence cannot modify the public
+address map.
 
 The [local lifecycle evidence](../docs/release/local-evidence.md) exercises the
 complete creator/supporter and custody path deterministically. It is deliberately

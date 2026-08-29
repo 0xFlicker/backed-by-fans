@@ -3,7 +3,7 @@ pragma solidity =0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
-import {DeployProtocol} from "../../script/DeployProtocol.s.sol";
+import {DeployProtocol} from "../../script/DeployDirectProtocol.s.sol";
 import {TestnetUSDG} from "../../src/TestnetUSDG.sol";
 
 /// @notice Opt-in live fork gate for the deployed LOL Dollar testnet USDG.

@@ -33,6 +33,10 @@ if [[ "$action" != "dry-run" && "$action" != "broadcast" ]]; then
   usage >&2
   exit 2
 fi
+if [[ ! "$amount_input" =~ ^[0-9]+([.][0-9]{1,6})?$ ]]; then
+  echo "USDG mint: amount must be a decimal with at most six fractional digits" >&2
+  exit 2
+fi
 
 recipient="$(cast to-check-sum-address "$recipient_input")"
 amount_base_units="$(cast parse-units "$amount_input" 6)"

@@ -9,7 +9,7 @@ import {
     DeployProtocol,
     ProtocolDeployment,
     RobinhoodDeploymentGuard
-} from "../../script/DeployProtocol.s.sol";
+} from "../../script/DeployDirectProtocol.s.sol";
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTierDeployer} from "../../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
@@ -26,7 +26,11 @@ contract WrongDecimalsUSDG is ERC20 {
 contract DeployProtocolHarness is DeployProtocol {
     function _validateUSDGState(address) internal view override {}
 
-    function validatedDeploymentState(address paymentToken) external view returns (address renderer, address factory) {
+    function validatedDeploymentState(address paymentToken)
+        external
+        view
+        returns (address renderer, address factory)
+    {
         (OnchainMetadataRenderer deployedRenderer, MembershipFactory deployedFactory) =
             _validatedDeploymentState(paymentToken);
         return (address(deployedRenderer), address(deployedFactory));
@@ -47,6 +51,9 @@ contract DeploymentScriptsTest is Test {
     uint256 private constant _MAINNET_CHAIN_ID = 4663;
     uint256 private constant _TESTNET_CHAIN_ID = 46_630;
     uint256 private constant _ANVIL_CHAIN_ID = 31_337;
+    address private constant _EXPECTED_TESTNET_USDG = 0xAB97dbB8f4ae0B4a3cc0D6963D75334B1c40da09;
+    address private constant _EXPECTED_RENDERER = 0x2cA28c2996E264a24b59A76b3D58F164112AebD7;
+    address private constant _EXPECTED_FACTORY = 0xC902F211a6346325B0b50e2B7942C952dCaa5038;
     bytes private constant _CREATE2_DEPLOYER_RUNTIME =
         hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3";
 
@@ -72,27 +79,45 @@ contract DeploymentScriptsTest is Test {
     function test_directFactoryInitcodeAndAddressesMatchAcrossChains() public {
         bytes32 mainnetInitcodeHash = keccak256(type(RobinhoodMembershipFactory).creationCode);
         (address mainnetRenderer, address mainnetFactory) = _publicDeployment.predictedAddresses();
+        assertEq(_publicDeployment.ROBINHOOD_TESTNET_USDG(), _EXPECTED_TESTNET_USDG);
+        assertEq(mainnetRenderer, _EXPECTED_RENDERER);
+        assertEq(mainnetFactory, _EXPECTED_FACTORY);
 
         uint256 snapshot = vm.snapshotState();
-        (OnchainMetadataRenderer deployedMainnetRenderer, MembershipFactory deployedMainnetFactory) = _deployProtocol();
+        (
+            OnchainMetadataRenderer deployedMainnetRenderer,
+            MembershipFactory deployedMainnetFactory
+        ) = _deployProtocol();
         assertEq(address(deployedMainnetRenderer), mainnetRenderer);
         assertEq(address(deployedMainnetFactory), mainnetFactory);
-        assertEq(address(deployedMainnetFactory.paymentToken()), _publicDeployment.ROBINHOOD_MAINNET_USDG());
+        assertEq(
+            address(deployedMainnetFactory.paymentToken()),
+            _publicDeployment.ROBINHOOD_MAINNET_USDG()
+        );
         vm.revertToState(snapshot);
 
         vm.chainId(_TESTNET_CHAIN_ID);
         _deployTestnetUSDG();
         bytes32 testnetInitcodeHash = keccak256(type(RobinhoodMembershipFactory).creationCode);
         (address testnetRenderer, address testnetFactory) = _publicDeployment.predictedAddresses();
-        (OnchainMetadataRenderer deployedTestnetRenderer, MembershipFactory deployedTestnetFactory) = _deployProtocol();
+        (
+            OnchainMetadataRenderer deployedTestnetRenderer,
+            MembershipFactory deployedTestnetFactory
+        ) = _deployProtocol();
 
         assertEq(testnetInitcodeHash, mainnetInitcodeHash);
         assertEq(testnetRenderer, mainnetRenderer);
         assertEq(testnetFactory, mainnetFactory);
         assertEq(address(deployedTestnetRenderer), mainnetRenderer);
         assertEq(address(deployedTestnetFactory), mainnetFactory);
-        assertEq(address(deployedTestnetFactory.paymentToken()), _publicDeployment.ROBINHOOD_TESTNET_USDG());
-        assertTrue(address(deployedTestnetFactory.paymentToken()) != _publicDeployment.ROBINHOOD_MAINNET_USDG());
+        assertEq(
+            address(deployedTestnetFactory.paymentToken()),
+            _publicDeployment.ROBINHOOD_TESTNET_USDG()
+        );
+        assertTrue(
+            address(deployedTestnetFactory.paymentToken())
+                != _publicDeployment.ROBINHOOD_MAINNET_USDG()
+        );
     }
 
     function test_directFactoryInitcodeFitsTheCreate2ProtocolLimit() public pure {
@@ -113,7 +138,8 @@ contract DeploymentScriptsTest is Test {
 
     function test_existingDeploymentIsValidatedAtEachDirectStep() public {
         address paymentToken = _publicDeployment.ROBINHOOD_MAINNET_USDG();
-        (address renderer, address factory) = _publicDeployment.validatedDeploymentState(paymentToken);
+        (address renderer, address factory) =
+            _publicDeployment.validatedDeploymentState(paymentToken);
         assertEq(renderer, address(0));
         assertEq(factory, address(0));
 
@@ -139,7 +165,8 @@ contract DeploymentScriptsTest is Test {
         _publicDeployment.validatedCompletedDeployment(paymentToken);
 
         _deployFactory();
-        (address renderer, address factory) = _publicDeployment.validatedCompletedDeployment(paymentToken);
+        (address renderer, address factory) =
+            _publicDeployment.validatedCompletedDeployment(paymentToken);
         (address expectedRenderer, address expectedFactory) = _publicDeployment.predictedAddresses();
         assertEq(renderer, expectedRenderer);
         assertEq(factory, expectedFactory);
@@ -163,12 +190,16 @@ contract DeploymentScriptsTest is Test {
 
     function test_publicDeploymentRejectsUnsupportedChains() public {
         vm.chainId(1);
-        vm.expectRevert(abi.encodeWithSelector(RobinhoodProtocolConfig.UnsupportedRobinhoodChain.selector, 1));
+        vm.expectRevert(
+            abi.encodeWithSelector(RobinhoodProtocolConfig.UnsupportedRobinhoodChain.selector, 1)
+        );
         _publicDeployment.validateInputs();
     }
 
     function test_mainnetRequiresExactExplicitConfirmation() public {
-        vm.expectRevert(abi.encodeWithSelector(DeployProtocol.MainnetConfirmationRequired.selector, 0));
+        vm.expectRevert(
+            abi.encodeWithSelector(DeployProtocol.MainnetConfirmationRequired.selector, 0)
+        );
         _publicDeployment.validateMainnetConfirmation(0);
         _publicDeployment.validateMainnetConfirmation(_MAINNET_CHAIN_ID);
 
@@ -187,8 +218,37 @@ contract DeploymentScriptsTest is Test {
         vm.expectRevert(RobinhoodDeploymentGuard.InvalidProtocolSafe.selector);
         _publicDeployment.validateInputs();
 
-        vm.mockCall(safe, abi.encodeWithSignature("masterCopy()"), abi.encode(_publicDeployment.SAFE_L2_SINGLETON()));
+        vm.mockCall(
+            safe,
+            abi.encodeWithSignature("masterCopy()"),
+            abi.encode(_publicDeployment.SAFE_L2_SINGLETON())
+        );
         vm.mockCall(safe, abi.encodeWithSignature("VERSION()"), abi.encode("1.4.1"));
+        vm.expectRevert(RobinhoodDeploymentGuard.InvalidProtocolSafe.selector);
+        _publicDeployment.validateInputs();
+    }
+
+    function test_publicDeploymentRequiresExpectedSafeAuthorityConfiguration() public {
+        address safe = _publicDeployment.INITIAL_PROTOCOL_AUTHORITY();
+        address[] memory wrongOwners = new address[](1);
+        wrongOwners[0] = makeAddr("wrong-owner");
+        vm.mockCall(safe, abi.encodeWithSignature("getOwners()"), abi.encode(wrongOwners));
+        vm.expectRevert(RobinhoodDeploymentGuard.InvalidProtocolSafe.selector);
+        _publicDeployment.validateInputs();
+
+        _installProtocolSafe();
+        vm.mockCall(safe, abi.encodeWithSignature("getThreshold()"), abi.encode(uint256(2)));
+        vm.expectRevert(RobinhoodDeploymentGuard.InvalidProtocolSafe.selector);
+        _publicDeployment.validateInputs();
+
+        _installProtocolSafe();
+        address[] memory modules = new address[](1);
+        modules[0] = makeAddr("module");
+        vm.mockCall(
+            safe,
+            abi.encodeWithSignature("getModulesPaginated(address,uint256)", address(0x1), 1),
+            abi.encode(modules, address(0x1))
+        );
         vm.expectRevert(RobinhoodDeploymentGuard.InvalidProtocolSafe.selector);
         _publicDeployment.validateInputs();
     }
@@ -238,11 +298,18 @@ contract DeploymentScriptsTest is Test {
         assertEq(factory.renderer(), address(renderer));
 
         vm.chainId(_MAINNET_CHAIN_ID);
-        vm.expectRevert(abi.encodeWithSelector(DeployLocalProtocol.UnexpectedLocalChain.selector, _MAINNET_CHAIN_ID));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployLocalProtocol.UnexpectedLocalChain.selector, _MAINNET_CHAIN_ID
+            )
+        );
         localDeployment.validateInputs(address(localUSDG), protocolOwner, feeRecipient);
     }
 
-    function _deployProtocol() private returns (OnchainMetadataRenderer renderer, MembershipFactory factory) {
+    function _deployProtocol()
+        private
+        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
+    {
         renderer = _deployRenderer();
         factory = _deployFactory();
     }
@@ -250,7 +317,9 @@ contract DeploymentScriptsTest is Test {
     function _deployRenderer() private returns (OnchainMetadataRenderer renderer) {
         (address expectedRenderer,) = _publicDeployment.predictedAddresses();
         if (expectedRenderer.code.length == 0) {
-            _callCreate2(_publicDeployment.RENDERER_SALT(), type(OnchainMetadataRenderer).creationCode);
+            _callCreate2(
+                _publicDeployment.RENDERER_SALT(), type(OnchainMetadataRenderer).creationCode
+            );
         }
         renderer = OnchainMetadataRenderer(expectedRenderer);
     }
@@ -258,7 +327,9 @@ contract DeploymentScriptsTest is Test {
     function _deployFactory() private returns (MembershipFactory factory) {
         (, address expectedFactory) = _publicDeployment.predictedAddresses();
         if (expectedFactory.code.length == 0) {
-            _callCreate2(_publicDeployment.FACTORY_SALT(), type(RobinhoodMembershipFactory).creationCode);
+            _callCreate2(
+                _publicDeployment.FACTORY_SALT(), type(RobinhoodMembershipFactory).creationCode
+            );
         }
         factory = MembershipFactory(expectedFactory);
     }
@@ -327,8 +398,44 @@ contract DeploymentScriptsTest is Test {
 
     function _installProtocolSafe() private {
         address safe = _publicDeployment.INITIAL_PROTOCOL_AUTHORITY();
+        address[] memory owners = new address[](1);
+        owners[0] = _publicDeployment.APPROVED_DEPLOYER();
+        address[] memory modules = new address[](0);
         vm.etch(safe, hex"00");
-        vm.mockCall(safe, abi.encodeWithSignature("masterCopy()"), abi.encode(_publicDeployment.SAFE_L2_SINGLETON()));
+        vm.mockCall(
+            safe,
+            abi.encodeWithSignature("masterCopy()"),
+            abi.encode(_publicDeployment.SAFE_L2_SINGLETON())
+        );
         vm.mockCall(safe, abi.encodeWithSignature("VERSION()"), abi.encode("1.5.0"));
+        vm.mockCall(safe, abi.encodeWithSignature("getOwners()"), abi.encode(owners));
+        vm.mockCall(safe, abi.encodeWithSignature("getThreshold()"), abi.encode(uint256(1)));
+        vm.mockCall(
+            safe,
+            abi.encodeWithSignature("getModulesPaginated(address,uint256)", address(0x1), 1),
+            abi.encode(modules, address(0x1))
+        );
+        vm.mockCall(
+            safe,
+            abi.encodeWithSignature(
+                "getStorageAt(uint256,uint256)",
+                uint256(0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5),
+                1
+            ),
+            abi.encode(
+                abi.encodePacked(
+                    bytes32(uint256(uint160(_publicDeployment.COMPATIBILITY_FALLBACK_HANDLER())))
+                )
+            )
+        );
+        vm.mockCall(
+            safe,
+            abi.encodeWithSignature(
+                "getStorageAt(uint256,uint256)",
+                uint256(0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8),
+                1
+            ),
+            abi.encode(abi.encodePacked(bytes32(0)))
+        );
     }
 }

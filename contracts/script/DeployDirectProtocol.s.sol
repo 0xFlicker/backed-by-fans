@@ -20,6 +20,17 @@ interface IProtocolSafe {
     function VERSION() external view returns (string memory);
 
     function masterCopy() external view returns (address);
+
+    function getOwners() external view returns (address[] memory);
+
+    function getThreshold() external view returns (uint256);
+
+    function getModulesPaginated(address start, uint256 pageSize)
+        external
+        view
+        returns (address[] memory modules, address next);
+
+    function getStorageAt(uint256 offset, uint256 length) external view returns (bytes memory);
 }
 
 abstract contract ProtocolDeployment is Script {
@@ -27,7 +38,10 @@ abstract contract ProtocolDeployment is Script {
     error InvalidOperationalAddress();
     error InvalidUSDGContract();
 
-    function _validateInputs(address paymentToken, address protocolOwner, address feeRecipient) internal view {
+    function _validateInputs(address paymentToken, address protocolOwner, address feeRecipient)
+        internal
+        view
+    {
         if (protocolOwner == address(0) || feeRecipient == address(0)) {
             revert InvalidOperationalAddress();
         }
@@ -55,7 +69,9 @@ abstract contract ProtocolDeployment is Script {
         returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
     {
         renderer = new OnchainMetadataRenderer();
-        factory = new MembershipFactory(IERC20Metadata(paymentToken), address(renderer), protocolOwner, feeRecipient);
+        factory = new MembershipFactory(
+            IERC20Metadata(paymentToken), address(renderer), protocolOwner, feeRecipient
+        );
     }
 
     function _checkDeployment(
@@ -67,10 +83,10 @@ abstract contract ProtocolDeployment is Script {
     ) internal view {
         address tierDeployer = factory.deployer();
         if (
-            address(renderer).code.length == 0 || address(factory).code.length == 0 || tierDeployer.code.length == 0
-                || address(factory.paymentToken()) != paymentToken || factory.renderer() != address(renderer)
-                || factory.owner() != protocolOwner || factory.pendingOwner() != address(0)
-                || factory.feeRecipient() != feeRecipient
+            address(renderer).code.length == 0 || address(factory).code.length == 0
+                || tierDeployer.code.length == 0 || address(factory.paymentToken()) != paymentToken
+                || factory.renderer() != address(renderer) || factory.owner() != protocolOwner
+                || factory.pendingOwner() != address(0) || factory.feeRecipient() != feeRecipient
                 || MembershipTierDeployer(tierDeployer).factory() != address(factory)
                 || MembershipTierDeployer(tierDeployer).renderer() != address(renderer)
         ) {
@@ -78,7 +94,10 @@ abstract contract ProtocolDeployment is Script {
         }
     }
 
-    function _logDeployment(OnchainMetadataRenderer renderer, MembershipFactory factory) internal view {
+    function _logDeployment(OnchainMetadataRenderer renderer, MembershipFactory factory)
+        internal
+        view
+    {
         console2.log("Backed By Fans renderer", address(renderer));
         console2.log("Backed By Fans factory", address(factory));
         console2.log("Backed By Fans tier deployer", factory.deployer());
@@ -90,7 +109,8 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     uint256 public constant ROBINHOOD_MAINNET_CHAIN_ID = RobinhoodProtocolConfig.MAINNET_CHAIN_ID;
     uint256 public constant ROBINHOOD_TESTNET_CHAIN_ID = RobinhoodProtocolConfig.TESTNET_CHAIN_ID;
     address public constant ROBINHOOD_MAINNET_USDG = RobinhoodProtocolConfig.MAINNET_USDG;
-    address public constant INITIAL_PROTOCOL_AUTHORITY = RobinhoodProtocolConfig.INITIAL_PROTOCOL_AUTHORITY;
+    address public constant INITIAL_PROTOCOL_AUTHORITY =
+        RobinhoodProtocolConfig.INITIAL_PROTOCOL_AUTHORITY;
     address public constant SAFE_L2_SINGLETON = RobinhoodProtocolConfig.SAFE_L2_SINGLETON;
     address public constant APPROVED_DEPLOYER = RobinhoodProtocolConfig.APPROVED_DEPLOYER;
     address public constant CREATE2_DEPLOYER = RobinhoodProtocolConfig.CREATE2_DEPLOYER;
@@ -98,15 +118,24 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     bytes32 public constant RENDERER_SALT = RobinhoodProtocolConfig.RENDERER_SALT;
     bytes32 public constant FACTORY_SALT = RobinhoodProtocolConfig.FACTORY_SALT;
 
-    bytes32 public constant CREATE2_DEPLOYER_CODE_HASH = RobinhoodProtocolConfig.CREATE2_DEPLOYER_CODE_HASH;
-    address public constant ROBINHOOD_MAINNET_USDG_IMPLEMENTATION = 0x68184C449E1a8f34fA18d289737129FD27B66f8F;
+    bytes32 public constant CREATE2_DEPLOYER_CODE_HASH =
+        RobinhoodProtocolConfig.CREATE2_DEPLOYER_CODE_HASH;
+    address public constant ROBINHOOD_MAINNET_USDG_IMPLEMENTATION =
+        0x68184C449E1a8f34fA18d289737129FD27B66f8F;
     bytes32 public constant ROBINHOOD_MAINNET_USDG_PROXY_RUNTIME_CODE_HASH =
         0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6;
     bytes32 public constant ROBINHOOD_MAINNET_USDG_IMPLEMENTATION_RUNTIME_CODE_HASH =
         0x3a551ac5c744af57e68a1d1431ac403c0f516ffd7d224a75746aee11fc4f3baf;
     bytes32 public constant EIP1967_IMPLEMENTATION_SLOT =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+    address public constant COMPATIBILITY_FALLBACK_HANDLER =
+        0x3EfCBb83A4A7AfcB4F68D501E2c2203a38be77f4;
     bytes32 private constant _SAFE_VERSION_HASH = keccak256("1.5.0");
+    address private constant _SENTINEL_MODULES = address(0x1);
+    bytes32 private constant _FALLBACK_HANDLER_STORAGE_SLOT =
+        0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
+    bytes32 private constant _GUARD_STORAGE_SLOT =
+        0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8;
 
     error CanonicalCreate2DeployerMismatch(bytes32 expected, bytes32 observed);
     error DeploymentStateMismatch();
@@ -133,7 +162,9 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
 
         bytes32 observedCreate2DeployerHash = CREATE2_DEPLOYER.codehash;
         if (observedCreate2DeployerHash != CREATE2_DEPLOYER_CODE_HASH) {
-            revert CanonicalCreate2DeployerMismatch(CREATE2_DEPLOYER_CODE_HASH, observedCreate2DeployerHash);
+            revert CanonicalCreate2DeployerMismatch(
+                CREATE2_DEPLOYER_CODE_HASH, observedCreate2DeployerHash
+            );
         }
 
         _validateUSDGState(paymentToken);
@@ -142,17 +173,41 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     function _validateProtocolSafe() private view {
         address authority = INITIAL_PROTOCOL_AUTHORITY;
         if (authority.code.length == 0) revert InvalidProtocolSafe();
+        IProtocolSafe account = IProtocolSafe(authority);
 
-        try IProtocolSafe(authority).masterCopy() returns (address singleton) {
+        try account.masterCopy() returns (address singleton) {
             if (singleton != SAFE_L2_SINGLETON) revert InvalidProtocolSafe();
         } catch {
             revert InvalidProtocolSafe();
         }
 
-        try IProtocolSafe(authority).VERSION() returns (string memory version) {
+        try account.VERSION() returns (string memory version) {
             if (keccak256(bytes(version)) != _SAFE_VERSION_HASH) revert InvalidProtocolSafe();
         } catch {
             revert InvalidProtocolSafe();
+        }
+
+        address[] memory owners = account.getOwners();
+        (address[] memory modules, address nextModule) =
+            account.getModulesPaginated(_SENTINEL_MODULES, 1);
+        if (
+            owners.length != 1 || owners[0] != APPROVED_DEPLOYER || account.getThreshold() != 1
+                || modules.length != 0 || nextModule != _SENTINEL_MODULES
+                || _readSafeAddressSlot(account, _FALLBACK_HANDLER_STORAGE_SLOT)
+                    != COMPATIBILITY_FALLBACK_HANDLER
+                || _readSafeAddressSlot(account, _GUARD_STORAGE_SLOT) != address(0)
+        ) revert InvalidProtocolSafe();
+    }
+
+    function _readSafeAddressSlot(IProtocolSafe safe, bytes32 slot)
+        private
+        view
+        returns (address value)
+    {
+        bytes memory stored = safe.getStorageAt(uint256(slot), 1);
+        if (stored.length != 32) revert InvalidProtocolSafe();
+        assembly ("memory-safe") {
+            value := mload(add(stored, 0x20))
         }
     }
 
@@ -174,10 +229,12 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
             revert InvalidUSDGContract();
         }
 
-        address implementation = address(uint160(uint256(vm.load(paymentToken, EIP1967_IMPLEMENTATION_SLOT))));
+        address implementation =
+            address(uint160(uint256(vm.load(paymentToken, EIP1967_IMPLEMENTATION_SLOT))));
         if (
             implementation != ROBINHOOD_MAINNET_USDG_IMPLEMENTATION
-                || implementation.codehash != ROBINHOOD_MAINNET_USDG_IMPLEMENTATION_RUNTIME_CODE_HASH
+                || implementation.codehash
+                    != ROBINHOOD_MAINNET_USDG_IMPLEMENTATION_RUNTIME_CODE_HASH
         ) {
             revert InvalidUSDGContract();
         }
@@ -210,7 +267,13 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
         if (expectedFactory.code.length != 0) {
             if (address(renderer) == address(0)) revert DeploymentStateMismatch();
             factory = MembershipFactory(expectedFactory);
-            _checkDeployment(renderer, factory, paymentToken, INITIAL_PROTOCOL_AUTHORITY, INITIAL_PROTOCOL_AUTHORITY);
+            _checkDeployment(
+                renderer,
+                factory,
+                paymentToken,
+                INITIAL_PROTOCOL_AUTHORITY,
+                INITIAL_PROTOCOL_AUTHORITY
+            );
         }
     }
 
@@ -245,13 +308,16 @@ contract DeployProtocol is RobinhoodDeploymentGuard {
 
         if (address(factory) == address(0)) {
             vm.startBroadcast();
-            RobinhoodMembershipFactory deployedFactory = new RobinhoodMembershipFactory{salt: FACTORY_SALT}();
+            RobinhoodMembershipFactory deployedFactory =
+                new RobinhoodMembershipFactory{salt: FACTORY_SALT}();
             vm.stopBroadcast();
             factory = MembershipFactory(address(deployedFactory));
             if (address(factory) != expectedFactory) revert DeterministicAddressMismatch();
         }
 
-        _checkDeployment(renderer, factory, paymentToken, INITIAL_PROTOCOL_AUTHORITY, INITIAL_PROTOCOL_AUTHORITY);
+        _checkDeployment(
+            renderer, factory, paymentToken, INITIAL_PROTOCOL_AUTHORITY, INITIAL_PROTOCOL_AUTHORITY
+        );
         _logDeployment(renderer, factory);
     }
 
@@ -268,7 +334,11 @@ contract DeployProtocol is RobinhoodDeploymentGuard {
 
 /// @notice Read-only public deployment preflight and status validation.
 contract ValidateProtocol is RobinhoodDeploymentGuard {
-    function run() external view returns (OnchainMetadataRenderer renderer, MembershipFactory factory) {
+    function run()
+        external
+        view
+        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
+    {
         address paymentToken = _validatePublicInputs();
         (renderer, factory) = _validatedDeploymentState(paymentToken);
         (address expectedRenderer, address expectedFactory) = predictedAddresses();
@@ -288,7 +358,11 @@ contract ValidateProtocol is RobinhoodDeploymentGuard {
 
 /// @notice Signer-free gate proving no deployment transaction remains before verification resume.
 contract ValidateCompletedProtocol is RobinhoodDeploymentGuard {
-    function run() external view returns (OnchainMetadataRenderer renderer, MembershipFactory factory) {
+    function run()
+        external
+        view
+        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
+    {
         address paymentToken = _validatePublicInputs();
         (renderer, factory) = _validatedCompletedDeployment(paymentToken);
         console2.log("Backed By Fans deployment status: complete");
@@ -325,11 +399,17 @@ contract DeployLocalProtocol is ProtocolDeployment {
         _checkDeployment(renderer, factory, paymentToken, protocolOwner, feeRecipient);
     }
 
-    function validateInputs(address paymentToken, address protocolOwner, address feeRecipient) external view {
+    function validateInputs(address paymentToken, address protocolOwner, address feeRecipient)
+        external
+        view
+    {
         _validateLocalInputs(paymentToken, protocolOwner, feeRecipient);
     }
 
-    function _validateLocalInputs(address paymentToken, address protocolOwner, address feeRecipient) private view {
+    function _validateLocalInputs(address paymentToken, address protocolOwner, address feeRecipient)
+        private
+        view
+    {
         if (block.chainid != ANVIL_CHAIN_ID) revert UnexpectedLocalChain(block.chainid);
         _validateInputs(paymentToken, protocolOwner, feeRecipient);
     }

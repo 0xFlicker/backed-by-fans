@@ -1,7 +1,7 @@
 # Safe creation and configuration runbook
 
-Status: **OPEN — scripts are verified; no Backed By Fans Safe is recorded as
-deployed**.
+Status: **TESTNET DEPLOYED — the testnet Safe broadcast is recorded; mainnet
+creation remains unauthorized and blocked by the readiness gates**.
 
 Safe's hosted configuration and transaction services currently include both
 [Robinhood Chain mainnet](https://safe-config.safe.global/api/v1/chains/4663/)
@@ -15,8 +15,10 @@ The current v1 bootstrap configuration deliberately has one owner and threshold
 one. That owner is the encrypted Foundry deployer account. A 1-of-1 Safe is a
 smart account, **not a multisig security improvement**: compromise or loss of
 that one key still controls or strands the account. It gives Backed By Fans a
-standard Safe administration surface and a path to add owners later, but it does
-not satisfy the production organizational-control gate by itself.
+standard Safe administration surface while preserving the approved sole-signer
+policy. Mainnet readiness therefore requires explicit acceptance of the
+single-signer compromise and loss risks, plus a rehearsed backup and recovery
+path; the presence of a Safe does not make those risks disappear.
 
 ## Pinned Safe deployment
 
@@ -95,9 +97,8 @@ broadcast:
 
 ```sh
 cd contracts
-export CONFIRM_MAINNET_SAFE_CREATION=4663
-ACCOUNT=backed-by-fans ./scripts/create-safe.sh mainnet dry-run
-ACCOUNT=backed-by-fans ./scripts/create-safe.sh mainnet broadcast
+CONFIRM_MAINNET_SAFE_CREATION=4663 ACCOUNT=backed-by-fans ./scripts/create-safe.sh mainnet dry-run
+CONFIRM_MAINNET_SAFE_CREATION=4663 ACCOUNT=backed-by-fans ./scripts/create-safe.sh mainnet broadcast
 ```
 
 The mainnet predicted address must match the testnet Safe address. A mismatch is
@@ -112,18 +113,21 @@ arguments makes the public deployment deterministic and prevents an operator
 from accidentally selecting the deployer EOA instead. The protocol contracts
 name the Safe, not the EOA, as owner and fee recipient.
 Because the deployer is the Safe's sole owner in this bootstrap configuration,
-it still indirectly controls both authorities. Moving to a real multisig
-requires adding independent owners and raising the threshold.
+it still indirectly controls both authorities. Changing owners or threshold
+would change the deterministic authority policy enforced by the deployment
+script and requires an explicit product decision plus corresponding contract,
+test, and runbook changes before deployment.
 
-The protocol does not require Safe, but production protocol ownership, fee
-custody, and creator operations should use independently reviewed organizational
-controls appropriate to their risk. This document is a checklist, not evidence
-that any Safe is configured.
+The protocol does not require Safe, but production protocol ownership and fee
+custody still require independently reviewed operational controls appropriate to
+their risk. For the approved 1-of-1 policy, that means documented key custody,
+backup, recovery, transaction review, and incident response. This document is a
+checklist, not evidence that any Safe is configured.
 
 For each proposed Safe, record and verify directly:
 
 - chain and Safe address;
-- owner addresses, organizational roles, independence, and recovery plan;
+- the sole owner address, key-custody controls, backup, and recovery plan;
 - signature threshold and the rationale for loss/compromise tolerance;
 - every enabled module, guard, and fallback handler, including an explicit
   disposition when the list is empty;

@@ -47,7 +47,7 @@ bbf_reject_broadcast_override "Protocol deployment"
 cd "$project_dir"
 
 if [[ "$action" == "resume-verify" ]]; then
-  broadcast_artifact="broadcast/DeployProtocol.s.sol/$expected_chain_id/run-latest.json"
+  broadcast_artifact="broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/run-latest.json"
   if [[ ! -f "$broadcast_artifact" ]]; then
     echo "Protocol deployment: missing durable Foundry broadcast artifact: $broadcast_artifact" >&2
     exit 1
@@ -58,7 +58,7 @@ bbf_verify_public_chain "Protocol deployment"
 
 if [[ "$action" == "status" ]]; then
   forge script \
-    script/DeployProtocol.s.sol:ValidateProtocol \
+    script/DeployDirectProtocol.s.sol:ValidateProtocol \
     --rpc-url "$rpc_url" \
     -vvv
   exit 0
@@ -66,12 +66,12 @@ fi
 
 if [[ "$action" == "resume-verify" ]]; then
   forge script \
-    script/DeployProtocol.s.sol:ValidateCompletedProtocol \
+    script/DeployDirectProtocol.s.sol:ValidateCompletedProtocol \
     --rpc-url "$rpc_url" \
     -vvv
 
   forge script \
-    script/DeployProtocol.s.sol:DeployProtocol \
+    script/DeployDirectProtocol.s.sol:DeployProtocol \
     --rpc-url "$rpc_url" \
     --resume \
     --verify \
@@ -82,7 +82,7 @@ if [[ "$action" == "resume-verify" ]]; then
 fi
 
 forge_args=(
-  script/DeployProtocol.s.sol:DeployProtocol
+  script/DeployDirectProtocol.s.sol:DeployProtocol
   --rpc-url "$rpc_url"
   --sender "$BBF_APPROVED_DEPLOYER"
   --always-use-create-2-factory

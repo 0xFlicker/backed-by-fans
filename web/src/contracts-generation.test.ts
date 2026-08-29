@@ -92,7 +92,7 @@ async function generateFactoryAddress(deployments: DeploymentFixture[]) {
     const broadcastDirectory = join(
       project,
       "broadcast",
-      "DeployProtocol.s.sol",
+      "DeployDirectProtocol.s.sol",
       String(deployment.chainId),
     );
     await mkdir(broadcastDirectory, { recursive: true });

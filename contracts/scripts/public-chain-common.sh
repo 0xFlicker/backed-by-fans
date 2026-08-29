@@ -5,11 +5,26 @@ readonly BBF_CREATE2_DEPLOYER="0x4e59b44847b379578588920cA78FbF26c0B4956C"
 
 bbf_load_dotenv() {
   local dotenv_path="$1"
+  local deployment_confirmation_was_set="${CONFIRM_MAINNET_DEPLOYMENT+x}"
+  local deployment_confirmation="${CONFIRM_MAINNET_DEPLOYMENT:-}"
+  local safe_confirmation_was_set="${CONFIRM_MAINNET_SAFE_CREATION+x}"
+  local safe_confirmation="${CONFIRM_MAINNET_SAFE_CREATION:-}"
   if [[ -f "$dotenv_path" ]]; then
     set -a
     # shellcheck disable=SC1090
     source "$dotenv_path"
     set +a
+  fi
+
+  if [[ "$deployment_confirmation_was_set" == "x" ]]; then
+    export CONFIRM_MAINNET_DEPLOYMENT="$deployment_confirmation"
+  else
+    unset CONFIRM_MAINNET_DEPLOYMENT
+  fi
+  if [[ "$safe_confirmation_was_set" == "x" ]]; then
+    export CONFIRM_MAINNET_SAFE_CREATION="$safe_confirmation"
+  else
+    unset CONFIRM_MAINNET_SAFE_CREATION
   fi
 }
 
