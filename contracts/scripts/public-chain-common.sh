@@ -1,17 +1,30 @@
 #!/usr/bin/env bash
 
+readonly BBF_APPROVED_DEPLOYER="0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"
+readonly BBF_CREATE2_DEPLOYER="0x4e59b44847b379578588920cA78FbF26c0B4956C"
+
+bbf_load_dotenv() {
+  local dotenv_path="$1"
+  if [[ -f "$dotenv_path" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$dotenv_path"
+    set +a
+  fi
+}
+
 bbf_configure_public_network() {
   case "$1" in
     testnet)
       expected_chain_id="46630"
       default_account="backed-by-fans-testnet"
-      rpc_url="https://rpc.testnet.chain.robinhood.com"
+      rpc_url="${ROBINHOOD_TESTNET_RPC_URL:-https://rpc.testnet.chain.robinhood.com}"
       verifier_url="https://explorer.testnet.chain.robinhood.com/api/"
       ;;
     mainnet)
       expected_chain_id="4663"
       default_account="backed-by-fans"
-      rpc_url="https://rpc.mainnet.chain.robinhood.com"
+      rpc_url="${ROBINHOOD_MAINNET_RPC_URL:-https://rpc.mainnet.chain.robinhood.com}"
       verifier_url="https://robinhoodchain.blockscout.com/api/"
       ;;
     *)

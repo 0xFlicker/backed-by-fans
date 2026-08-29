@@ -8,6 +8,7 @@ cd "$repo_root/contracts"
 ./scripts/check-clean-room.sh
 ./scripts/test-create-safe.sh
 ./scripts/test-deploy-protocol.sh
+./scripts/test-testnet-usdg.sh
 forge fmt --check
 forge build --sizes
 forge test -vvv

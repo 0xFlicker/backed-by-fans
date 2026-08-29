@@ -26,7 +26,8 @@ fi
 
 network="${1:-}"
 action="${2:-dry-run}"
-expected_deployer="0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"
+project_dir="$(cd "$script_dir/.." && pwd)"
+bbf_load_dotenv "$project_dir/.env"
 
 if ! bbf_configure_public_network "$network"; then
   usage >&2
@@ -43,16 +44,15 @@ bbf_reject_broadcast_override "Safe creation"
 
 account="${ACCOUNT:-$default_account}"
 
-project_dir="$(cd "$script_dir/.." && pwd)"
 cd "$project_dir"
 
-bbf_verify_public_context "Safe creation" "$account" "$expected_deployer"
+bbf_verify_public_context "Safe creation" "$account" "$BBF_APPROVED_DEPLOYER"
 
 forge_args=(
   script/CreateSafe.s.sol:CreateRobinhoodSafe
   --rpc-url "$rpc_url"
   --account "$account"
-  --sender "$expected_deployer"
+  --sender "$BBF_APPROVED_DEPLOYER"
   -vvvv
 )
 

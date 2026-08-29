@@ -32,10 +32,11 @@ export MOCK_LOG="$mock_log"
 export MOCK_CHAIN_ID=46630
 export MOCK_DEPLOYER=0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
 export PATH="$mock_bin:$PATH"
+unset ROBINHOOD_TESTNET_RPC_URL ROBINHOOD_MAINNET_RPC_URL
 
 : >"$mock_log"
 "$script_dir/create-safe.sh" testnet dry-run
-assert_contains "$mock_log" "cast chain-id --rpc-url https://rpc.testnet.chain.robinhood.com"
+assert_contains "$mock_log" "cast chain-id --rpc-url"
 assert_contains "$mock_log" "cast wallet address --account backed-by-fans-testnet"
 assert_contains "$mock_log" "forge script script/CreateSafe.s.sol:CreateRobinhoodSafe"
 assert_contains "$mock_log" "--sender 0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"

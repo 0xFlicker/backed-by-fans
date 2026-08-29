@@ -46,12 +46,11 @@ verifies that it resolves to the approved deployer address. The same determinist
 Safe address is used on testnet and mainnet; mainnet creation has a separate
 explicit confirmation gate.
 
-The public protocol is also deterministic across both chains. A chain-neutral
-coordinator has the same CREATE2 address, then creates the renderer and factory
-at the same nonces using the chain-canonical USDG. Different USDG addresses do
-not change the coordinator, renderer, factory, tier deployer, or
-creation-code-store addresses. Rehearse or broadcast it only through the
-guarded wrapper:
+The public renderer and production factory deploy directly through Foundry's
+canonical CREATE2 deployer. The production factory has no constructor arguments;
+its constructor selects USDG from `block.chainid`, so mainnet and testnet use the
+same factory initcode and therefore the same protocol addresses. Rehearse or
+broadcast only through the guarded wrapper:
 
 ```sh
 ./scripts/deploy-protocol.sh testnet dry-run
@@ -65,12 +64,19 @@ Foundry's durable artifact with
 the complete deployment onchain without a signer, then lets Foundry resume
 verification. It refuses partial deployments; do not rebroadcast a complete one.
 
-The exact official testnet proxy is pinned in the deployment guard and verified
-against live chain state. No public testnet protocol deployment is recorded
-until operational identities, an encrypted funded deployer, source verification,
-and operational review are available. The guard rejects arbitrary
-metadata-compatible tokens. Mainnet additionally requires the exact `4663`
-confirmation value and every human release gate.
+Robinhood testnet uses the deployer-mintable `LOL Dollar` token with symbol
+`USDG`. Deploy it before the protocol, then mint human-readable amounts to test
+wallets:
+
+```sh
+./scripts/deploy-testnet-usdg.sh dry-run
+./scripts/deploy-testnet-usdg.sh broadcast
+./scripts/mint-testnet-usdg.sh 0xRecipient 100 broadcast
+```
+
+The app refers to this token only as USDG. Mainnet remains bound to canonical
+Paxos USDG and additionally requires the exact `4663` confirmation value and
+every human release gate.
 
 Successful public Foundry broadcasts under `broadcast/DeployProtocol.s.sol/`
 are committed and consumed directly by Wagmi CLI. Anvil uses chain `31337` and
@@ -95,9 +101,6 @@ forge test --match-path "test/e2e/LocalLifecycleEvidence.t.sol" -vvv
 slither . --config-file slither.config.json --fail-high
 ```
 
-From the repository root, replay the exact public testnet USDG evidence and
-check current proxy state with `./scripts/check-testnet-usdg.sh RPC_URL`.
-
 `FactoryAndFees.t.sol` guards every deployable runtime and initcode against the
 network limits and caps tier creation below 6.5 million gas. The guard is
 deliberately a ceiling rather than exact bytecode or gas equality so harmless
@@ -120,6 +123,6 @@ The remaining reported categories are retained in CI output for review:
 - `reentrancy-benign` and `reentrancy-events` identify the immutable tier deployer;
   the factory is its only caller and a new tier constructor cannot call the factory.
 - `timestamp` is the intended subscription clock and refund-time input.
-- `assembly` is isolated to hash-verified creation-code storage and deployment.
+- `assembly` is isolated to hash-verified tier creation-code storage.
 - `too-many-digits` incorrectly classifies `type(MembershipTier).creationCode` as
   a numeric literal.

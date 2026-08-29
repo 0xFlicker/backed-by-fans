@@ -17,10 +17,10 @@ change, rerun it immediately and begin a fresh short observation window.
   totalReferralLiability`.
 - Authority: factory/tier owner, pending owner, fee recipient, deployer binding,
   renderer, or canonical payment token differs from the reviewed deployment.
-- Runtime: code hash or code presence differs at factory, renderer, deployer,
-  either creation-code store, or any monitored registered tier.
-- USDG: proxy implementation, authority, runtime hash, decimals, or pause state
-  differs from the signed deployment-day observation.
+- Runtime: code hash or code presence differs at factory, renderer, tier
+  deployer, testnet USDG, or any monitored registered tier.
+- Mainnet USDG: proxy implementation, authority, runtime hash, decimals, or
+  pause state differs from the deployment-day observation.
 - Registry: a tier presented as official fails `isRegisteredTier` or its
   immutable factory/token/interface wiring.
 - Operational: unexpected pause/cap/metadata change, failed fixed-destination

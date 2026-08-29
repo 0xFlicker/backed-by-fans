@@ -28,8 +28,8 @@ fi
 
 network="${1:-}"
 action="${2:-dry-run}"
-expected_deployer="0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"
-create2_deployer="0x4e59b44847b379578588920cA78FbF26c0B4956C"
+project_dir="$(cd "$script_dir/.." && pwd)"
+bbf_load_dotenv "$project_dir/.env"
 
 if ! bbf_configure_public_network "$network"; then
   usage >&2
@@ -44,7 +44,6 @@ fi
 bbf_require_mainnet_confirmation "$network" CONFIRM_MAINNET_DEPLOYMENT "Protocol deployment"
 bbf_reject_broadcast_override "Protocol deployment"
 
-project_dir="$(cd "$script_dir/.." && pwd)"
 cd "$project_dir"
 
 if [[ "$action" == "resume-verify" ]]; then
@@ -82,21 +81,20 @@ if [[ "$action" == "resume-verify" ]]; then
   exit 0
 fi
 
-account="${ACCOUNT:-$default_account}"
-bbf_verify_public_account "Protocol deployment" "$account" "$expected_deployer"
-
 forge_args=(
   script/DeployProtocol.s.sol:DeployProtocol
   --rpc-url "$rpc_url"
-  --account "$account"
-  --sender "$expected_deployer"
+  --sender "$BBF_APPROVED_DEPLOYER"
   --always-use-create-2-factory
-  --create2-deployer "$create2_deployer"
+  --create2-deployer "$BBF_CREATE2_DEPLOYER"
   -vvvv
 )
 
 if [[ "$action" == "broadcast" ]]; then
+  account="${ACCOUNT:-$default_account}"
+  bbf_verify_public_account "Protocol deployment" "$account" "$BBF_APPROVED_DEPLOYER"
   forge_args+=(
+    --account "$account"
     --broadcast
     --verify
     --verifier blockscout

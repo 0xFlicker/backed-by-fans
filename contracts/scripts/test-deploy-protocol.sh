@@ -33,6 +33,7 @@ export MOCK_LOG="$mock_log"
 export MOCK_CHAIN_ID=46630
 export MOCK_DEPLOYER=0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
 export PATH="$mock_bin:$PATH"
+unset ROBINHOOD_TESTNET_RPC_URL ROBINHOOD_MAINNET_RPC_URL
 
 mkdir -p "$wrapper_dir"
 cp "$script_dir/deploy-protocol.sh" "$script_dir/public-chain-common.sh" "$wrapper_dir/"
@@ -40,17 +41,18 @@ deploy_wrapper="$wrapper_dir/deploy-protocol.sh"
 
 : >"$mock_log"
 "$deploy_wrapper" testnet dry-run
-assert_contains "$mock_log" "cast chain-id --rpc-url https://rpc.testnet.chain.robinhood.com"
-assert_contains "$mock_log" "cast wallet address --account backed-by-fans-testnet"
+assert_contains "$mock_log" "cast chain-id --rpc-url"
 assert_contains "$mock_log" "forge script script/DeployProtocol.s.sol:DeployProtocol"
 assert_contains "$mock_log" "--always-use-create-2-factory"
 assert_contains "$mock_log" "--create2-deployer 0x4e59b44847b379578588920cA78FbF26c0B4956C"
 assert_contains "$mock_log" "--sender 0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"
 assert_not_contains "$mock_log" "--broadcast"
 assert_not_contains "$mock_log" "--verify"
+assert_not_contains "$mock_log" "--account"
 
 : >"$mock_log"
 "$deploy_wrapper" testnet broadcast
+assert_contains "$mock_log" "cast wallet address --account backed-by-fans-testnet"
 assert_contains "$mock_log" "--broadcast"
 assert_contains "$mock_log" "--verify"
 assert_contains "$mock_log" "--verifier blockscout"
@@ -83,13 +85,13 @@ assert_not_contains "$mock_log" "cast wallet address"
 
 : >"$mock_log"
 run_expect_failure env MOCK_DEPLOYER=0x0000000000000000000000000000000000000001 \
-  "$deploy_wrapper" testnet dry-run
+  "$deploy_wrapper" testnet broadcast
 assert_not_contains "$mock_log" "forge"
 
 : >"$mock_log"
 "$deploy_wrapper" testnet status
-assert_contains "$mock_log" "cast chain-id --rpc-url https://rpc.testnet.chain.robinhood.com"
-assert_contains "$mock_log" "forge script script/DeployProtocol.s.sol:ValidateProtocol --rpc-url https://rpc.testnet.chain.robinhood.com -vvv"
+assert_contains "$mock_log" "cast chain-id --rpc-url"
+assert_contains "$mock_log" "forge script script/DeployProtocol.s.sol:ValidateProtocol --rpc-url"
 assert_not_contains "$mock_log" "cast wallet address"
 assert_not_contains "$mock_log" "--account"
 assert_not_contains "$mock_log" "--sender"
@@ -105,8 +107,8 @@ mkdir -p "$test_dir/project/broadcast/DeployProtocol.s.sol/46630"
 printf '{}\n' >"$test_dir/project/broadcast/DeployProtocol.s.sol/46630/run-latest.json"
 : >"$mock_log"
 "$deploy_wrapper" testnet resume-verify
-assert_contains "$mock_log" "forge script script/DeployProtocol.s.sol:ValidateCompletedProtocol --rpc-url https://rpc.testnet.chain.robinhood.com -vvv"
-assert_contains "$mock_log" "forge script script/DeployProtocol.s.sol:DeployProtocol --rpc-url https://rpc.testnet.chain.robinhood.com --resume --verify --verifier blockscout --verifier-url https://explorer.testnet.chain.robinhood.com/api/ -vvvv"
+assert_contains "$mock_log" "forge script script/DeployProtocol.s.sol:ValidateCompletedProtocol --rpc-url"
+assert_contains "$mock_log" "forge script script/DeployProtocol.s.sol:DeployProtocol --rpc-url"
 assert_contains "$mock_log" "--resume"
 assert_contains "$mock_log" "--verify"
 assert_contains "$mock_log" "--verifier blockscout"

@@ -14,8 +14,8 @@ should verify the following before promotion:
 3. The factory is bound to the canonical USDG for that chain and exposes the
    reviewed owner, empty pending owner, fixed fee recipient, renderer, tier
    deployer, and protocol fee.
-4. Blockscout shows exact verified source for the renderer, factory, deployer,
-   and immutable code stores.
+4. Blockscout shows exact verified source for the testnet USDG when applicable,
+   renderer, factory, and tier deployer.
 5. `./scripts/verify-local.sh` passes from a clean checkout.
 6. The production web build visibly labels testnet, selects the exact chain in
    chain-qualified tier links, rejects unsupported or undeployed chains, and
