@@ -29,7 +29,7 @@ test("keeps direct membership access independent of discovery configuration", as
 test("never turns an unavailable supporter read into balances or success", async ({
   page,
 }) => {
-  await page.goto(`/chains/46630/tiers/${validTier}`);
+  await page.goto(`/chains/4663/tiers/${validTier}`);
 
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
   await expect(page.getByText(/not deployed/i)).toBeVisible();

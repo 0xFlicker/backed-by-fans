@@ -123,9 +123,9 @@ describe("supporter membership experience", () => {
         />
       </QueryClientProvider>,
     );
-    expect(
-      screen.getAllByText("Renew with your held place").length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Renew your membership").length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getByRole("button", { name: "Synchronize this place" }),
     ).toBeVisible();
@@ -149,7 +149,7 @@ describe("supporter membership experience", () => {
       </QueryClientProvider>,
     );
     expect(
-      screen.getAllByText("Rejoin and reacquire a place").length,
+      screen.getAllByText("Rejoin this membership").length,
     ).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: "Synchronize this place" }),
@@ -163,7 +163,7 @@ describe("supporter membership experience", () => {
       "0",
     );
     expect(
-      screen.getByText(/zero adds one period with no fees/i),
+      screen.getByText(/enter 0 to join without a payment/i),
     ).toBeVisible();
     expect(
       screen.getAllByText("0 USDG", { exact: true }).length,
@@ -173,18 +173,15 @@ describe("supporter membership experience", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("requires an explicit first positive referral choice and explains fixed destinations", () => {
+  it("keeps referrals implicit and hides claims that are not available", () => {
     renderExperience(snapshot);
 
     expect(
-      screen.getByRole("group", {
-        name: "First positive self-payment referral choice",
-      }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Join this membership" }),
-    ).toBeDisabled();
-    expect(screen.getByText(/cannot redirect it/i)).toBeVisible();
-    expect(screen.getAllByText(/permanent shares/i)[0]).toBeVisible();
+      screen.queryByText(/first positive self-payment referral choice/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/referral proceeds/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/creator proceeds/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/permanent shares/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Contract Addresses")).toBeVisible();
   });
 });

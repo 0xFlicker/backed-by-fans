@@ -15,7 +15,7 @@ test("validates a direct tier route before reading any contract", async ({
 test("renders a configured-unavailable state for a valid direct route", async ({
   page,
 }) => {
-  await page.goto(`/chains/46630/tiers/${validTier}`);
+  await page.goto(`/chains/4663/tiers/${validTier}`);
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
   await expect(page.getByText(/not deployed/i)).toBeVisible();
 });
@@ -44,16 +44,19 @@ test("renders complete creator setup while unavailable writes fail closed", asyn
       name: "Your work. Your membership. Your people.",
     }),
   ).toBeVisible();
-  await expect(page.getByLabel("Membership name")).toHaveValue(
+  await expect(page.getByLabel("Membership name")).toHaveValue("");
+  await expect(page.getByLabel("Membership name")).toHaveAttribute(
+    "placeholder",
     "Creator membership",
   );
+  await page.getByLabel("Membership name").fill("Creator membership");
+  await page.getByLabel("Symbol").fill("FANS");
+  await page.getByLabel("Membership network").selectOption("4663");
   await page.getByRole("button", { name: /^review$/i }).click();
   await expect(
-    page
-      .getByText("Backed By Fans is not deployed on Robinhood Chain Testnet.", {
-        exact: true,
-      })
-      .first(),
+    page.getByText("Backed By Fans is not deployed on Robinhood Chain.", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /simulate and deploy/i }),

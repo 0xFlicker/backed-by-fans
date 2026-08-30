@@ -253,14 +253,18 @@ export async function switchAnvilAccount(page: Page, account: Address) {
 export async function expectReconciled(page: Page, preparedAction?: string) {
   if (preparedAction) {
     await expect(
-      page.getByText(`Prepared action · ${preparedAction}`, { exact: true }),
+      page
+        .getByText(`Prepared action · ${preparedAction}`, { exact: true })
+        .or(
+          page
+            .locator(".membership-transaction")
+            .filter({ hasText: preparedAction }),
+        ),
     ).toBeVisible();
   }
-  await expect(page.locator(".transaction-phase-label")).toHaveText(
-    "confirmed",
-    { timeout: 30_000 },
-  );
-  await expect(page.getByText("Complete and reconciled onchain.")).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(
+    page
+      .locator(".transaction-phase-label", { hasText: "confirmed" })
+      .or(page.locator(".membership-transaction.transaction-confirmed")),
+  ).toBeVisible({ timeout: 30_000 });
 }

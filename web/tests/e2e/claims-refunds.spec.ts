@@ -76,18 +76,20 @@ test.describe("configured Anvil claims and refunds", () => {
       await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, member);
 
-      await expect(page.getByText("0.5 USDG · token owner only")).toBeVisible();
-      await page
+      const rewardRow = page
+        .locator(".claim-row")
+        .filter({ hasText: "Membership rewards" });
+      await expect(rewardRow).toContainText("0.5 USDG");
+      await rewardRow
         .getByRole("button", { name: "Claim to this wallet" })
-        .first()
         .click();
       await expectReconciled(page, "Claim membership rewards");
-      await expect(page.getByText("0 USDG · token owner only")).toBeVisible();
+      await expect(rewardRow).toHaveCount(0);
 
       await switchAnvilAccount(page, referrer);
       const referralRow = page
         .locator(".claim-row")
-        .filter({ hasText: "locked referrer only" });
+        .filter({ hasText: "Referral proceeds" });
       await expect(referralRow).toContainText("0.1 USDG");
       const referralClaim = referralRow.getByRole("button", {
         name: "Claim to this wallet",
@@ -95,10 +97,7 @@ test.describe("configured Anvil claims and refunds", () => {
       await expect(referralClaim).toBeEnabled();
       await referralClaim.click();
       await expectReconciled(page, "Claim referral proceeds");
-      await expect(referralRow).toContainText("0 USDG");
-      await expect(
-        page.getByText(/This app cannot redirect it/i),
-      ).toContainText("This app cannot redirect it");
+      await expect(referralRow).toHaveCount(0);
 
       const results = await new AxeBuilder({ page }).analyze();
       expect(results.violations).toEqual([]);
@@ -139,19 +138,19 @@ test.describe("configured Anvil claims and refunds", () => {
 
       const rewardRow = page
         .locator(".claim-row")
-        .filter({ hasText: "token owner only" });
+        .filter({ hasText: "Membership rewards" });
       await expect(rewardRow).toContainText("0.5 USDG");
       await rewardRow
         .getByRole("button", { name: "Claim to this wallet" })
         .click();
       await expect(
-        page.getByText("Prepared action · Claim membership rewards", {
-          exact: true,
-        }),
+        page
+          .locator(".membership-transaction")
+          .filter({ hasText: "Claim membership rewards" }),
       ).toBeVisible();
-      await expect(page.locator(".transaction-phase-label")).toHaveText(
-        "retry",
-      );
+      await expect(
+        page.locator(".membership-transaction.transaction-retry"),
+      ).toBeVisible();
       await expect(rewardRow).toContainText("0.5 USDG");
       await expect(
         client.readContract({
@@ -161,9 +160,9 @@ test.describe("configured Anvil claims and refunds", () => {
           args: [1n],
         }),
       ).resolves.toBe(500_000n);
-      await expect(page.getByText(/cannot redirect it/i)).toContainText(
-        "retry only after the same destination can receive USDG",
-      );
+      await expect(
+        page.getByText(/funds remain available here/i),
+      ).toBeVisible();
       await expect(rewardRow.locator("input")).toHaveCount(0);
     } finally {
       await revertAnvil(snapshot);

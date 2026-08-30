@@ -25,14 +25,9 @@ test.describe("@anvil configured local Anvil membership", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Local Creator Circle" }),
     ).toBeVisible();
-    await expect(page.getByText("Factory-registered membership")).toBeVisible();
+    await expect(page.getByText("Contract Addresses")).toBeVisible();
     await expect(page.getByText("Onchain state unavailable")).toHaveCount(0);
-    await expect(
-      page.getByRole("heading", {
-        level: 2,
-        name: "Clear from check to reconciliation",
-      }),
-    ).toBeVisible();
+    await expect(page.locator(".membership-transaction")).toHaveCount(0);
 
     const overflow = await page.evaluate(
       () =>
@@ -77,20 +72,8 @@ test.describe("@anvil configured local Anvil membership", () => {
       await installAnvilWallet(page, member);
       await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, member);
-      await expect(
-        page.getByText("Current allowance").locator(".."),
-      ).toContainText("0 USDG");
-      const readiness = page.getByRole("region", {
-        name: "Fund before signing",
-      });
-      await expect(
-        readiness.getByText("ETH for gas").locator(".."),
-      ).toContainText("10000.00000");
-      await expect(
-        readiness.getByText("USDG balance").locator(".."),
-      ).toContainText("1000");
+      await expect(page.getByText(/exact 10 USDG approval/i)).toBeVisible();
 
-      await page.getByRole("radio", { name: "Explicitly no referrer" }).check();
       const join = page.getByRole("button", { name: "Join this membership" });
       await expect(join).toBeEnabled();
       await join.click();
@@ -101,13 +84,9 @@ test.describe("@anvil configured local Anvil membership", () => {
           .getByRole("region", { name: "Current membership status" })
           .getByRole("heading", { level: 2, name: "Renew active membership" }),
       ).toBeVisible();
-      await expect(page.getByText("0.5 USDG · token owner only")).toBeVisible();
       await expect(
-        readiness.getByText("USDG balance").locator(".."),
-      ).toContainText("990");
-      await expect(
-        page.getByText("Current allowance").locator(".."),
-      ).toContainText("0 USDG");
+        page.locator(".claim-row").filter({ hasText: "Membership rewards" }),
+      ).toContainText("0.5 USDG");
       await expect(
         client.readContract({
           address: usdg,
@@ -117,16 +96,9 @@ test.describe("@anvil configured local Anvil membership", () => {
         }),
       ).resolves.toBe(0n);
 
-      const transactionFlow = page.locator(".transaction-flow");
-      await expect(transactionFlow).toHaveAttribute(
-        "aria-labelledby",
-        "transaction-title",
-      );
-      expect(
-        await transactionFlow
-          .locator(".transaction-message")
-          .getAttribute("role"),
-      ).toBe("status");
+      await expect(
+        page.locator(".membership-transaction.transaction-confirmed"),
+      ).toHaveAttribute("role", "status");
 
       const results = await new AxeBuilder({ page }).analyze();
       expect(results.violations).toEqual([]);

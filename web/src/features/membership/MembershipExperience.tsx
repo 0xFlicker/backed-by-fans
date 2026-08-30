@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import type { Route } from "next";
-import { useReducer, useRef, useState } from "react";
+import { useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import {
@@ -10,6 +8,7 @@ import {
   getAddress,
   isAddress,
   zeroAddress,
+  type Address,
   type Hash,
 } from "viem";
 import {
@@ -19,14 +18,16 @@ import {
   useWriteContract,
 } from "wagmi";
 
-import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
-import { WalletReadiness } from "@/components/WalletReadiness";
 import { membershipTierAbi, usdgAbi } from "@/contracts";
 import type { TierSupporterSnapshot } from "@/contracts/types";
 import { parseUint64Input } from "@/features/creator/management";
 import { readGiftRecipientState } from "@/features/membership/membership-read";
 import { formatMembershipDate } from "@/features/membership/date";
+import {
+  captureSharedReferrer,
+  membershipShareUrl,
+} from "@/features/membership/referral";
 import {
   buildPaymentPreview,
   classifyMembershipState,
@@ -46,7 +47,6 @@ import {
   type SuccessfulWriteReceipt,
 } from "@/features/protocol/write-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
-import { isSameAddress } from "@/lib/address";
 import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain } from "@/lib/chains";
 import type { ReadState } from "@/lib/read-state";
@@ -58,39 +58,61 @@ import {
 } from "@/lib/transaction-state";
 
 type SendWrite = () => Promise<Hash>;
-type ReferralChoice = "unselected" | "none" | "address";
 
 function formatPeriod(seconds: bigint) {
   const days = seconds / 86_400n;
   return days > 0n ? `${days} days` : `${seconds} seconds`;
 }
 
+function transactionStatusCopy(phase: string) {
+  switch (phase) {
+    case "simulation":
+      return "Checking the details…";
+    case "approval":
+      return "Approve USDG in your wallet.";
+    case "signature":
+      return "Confirm in your wallet.";
+    case "submission":
+    case "confirmation":
+    case "replacement":
+      return "Waiting for the network…";
+    case "reconciliation":
+      return "Updating your membership…";
+    case "confirmed":
+      return "Done.";
+    case "cancelled":
+      return "Cancelled.";
+    case "reverted":
+    case "retry":
+      return "That did not go through.";
+    case "uncertain":
+      return "Check your wallet before trying again.";
+    default:
+      return "";
+  }
+}
+
 function referralAddress(
   snapshot: TierSupporterSnapshot,
-  choice: ReferralChoice,
-  addressInput: string,
+  sharedReferrer: Address | undefined,
 ) {
   const locked = snapshot.credential?.referralStatus;
   if (locked === "locked-none") return zeroAddress;
   if (locked === "locked-address") return snapshot.credential!.referrer;
-  if (choice === "none") return zeroAddress;
-  if (choice === "address" && isAddress(addressInput.trim())) {
-    return getAddress(addressInput.trim());
-  }
-  return undefined;
+  return sharedReferrer ?? zeroAddress;
 }
 
 function statusCopy(state: ReturnType<typeof classifyMembershipState>) {
   switch (state) {
     case "unready":
       return [
-        "Connect and prepare",
-        "Connect a wallet and check gas and USDG before joining.",
+        "Join this membership",
+        "Connect your wallet to choose your membership time.",
       ];
     case "joinable":
       return [
         "Join this membership",
-        "No credential has been created for this wallet yet.",
+        "Choose how long you would like to join.",
       ];
     case "active":
       return [
@@ -99,13 +121,13 @@ function statusCopy(state: ReturnType<typeof classifyMembershipState>) {
       ];
     case "expired-occupied":
       return [
-        "Renew with your held place",
-        "Access expired, but this credential still holds capacity until synchronization.",
+        "Renew your membership",
+        "Your access has ended. Renew to continue.",
       ];
     case "historical-synchronized":
       return [
-        "Rejoin and reacquire a place",
-        "The historical credential remains, but capacity must be checked again.",
+        "Rejoin this membership",
+        "Choose a new membership period to return.",
       ];
   }
 }
@@ -135,13 +157,26 @@ export function MembershipExperience({
   const operationInFlight = useRef(false);
   const [periods, setPeriods] = useState("1");
   const [contribution, setContribution] = useState("0");
-  const [referralChoice, setReferralChoice] =
-    useState<ReferralChoice>("unselected");
-  const [referrer, setReferrer] = useState("");
-  const [giftOpen, setGiftOpen] = useState(false);
+  const sharedReferrer = useRef<Address | undefined>(undefined);
+  const [shareState, setShareState] = useState<
+    "idle" | "copied" | "unavailable"
+  >("idle");
   const [giftRecipient, setGiftRecipient] = useState("");
   const [giftPeriods, setGiftPeriods] = useState("1");
-  const [preparedAction, setPreparedAction] = useState("No action prepared");
+  const [preparedAction, setPreparedAction] = useState("");
+
+  useLayoutEffect(() => {
+    const captured = captureSharedReferrer({
+      chainId: expectedChainId,
+      tier: snapshot.address,
+      url: new URL(window.location.href),
+      storage: window.localStorage,
+    });
+    sharedReferrer.current = captured.referrer;
+    if (captured.cleanPath) {
+      window.history.replaceState(window.history.state, "", captured.cleanPath);
+    }
+  }, [expectedChainId, snapshot.address]);
   const authenticity: AuthenticityResult = {
     status: "verified",
     capturedBlock,
@@ -174,13 +209,6 @@ export function MembershipExperience({
     !isTransactionInFlight(transaction.phase);
   const periodValue = parseUint64Input(periods, { allowZero: false });
   const contributionValue = parseUsdg(contribution);
-  const grossIsPositive =
-    snapshot.pricePerPeriod > 0n || (contributionValue ?? 0n) > 0n;
-  const choiceAddress = referralAddress(snapshot, referralChoice, referrer);
-  const needsChoice =
-    grossIsPositive &&
-    snapshot.credential?.referralStatus !== "locked-none" &&
-    snapshot.credential?.referralStatus !== "locked-address";
   const selfPreview =
     periodValue !== undefined && contributionValue !== undefined
       ? buildPaymentPreview({
@@ -194,10 +222,7 @@ export function MembershipExperience({
           rewardBps: snapshot.rewardBps,
           referralBps: snapshot.referralBps,
           referralApplies:
-            snapshot.credential?.referralStatus === "locked-address" ||
-            (needsChoice &&
-              choiceAddress !== undefined &&
-              choiceAddress !== zeroAddress),
+            snapshot.credential?.referralStatus === "locked-address",
         })
       : undefined;
   const reacquiring =
@@ -443,21 +468,11 @@ export function MembershipExperience({
     )
       return;
     const payer = account.address;
-    if (needsChoice && choiceAddress === undefined) {
-      dispatch({
-        type: "FAILED",
-        error:
-          "Choose explicit no referral or enter a referrer before the first positive self-payment.",
-      });
-      return;
-    }
+    const paymentReferrer = referralAddress(snapshot, sharedReferrer.current);
     const simulate =
       snapshot.pricePerPeriod === 0n
-        ? tierWrite("contribute", [
-            contributionValue,
-            choiceAddress ?? zeroAddress,
-          ])
-        : tierWrite("purchase", [periodValue, choiceAddress ?? zeroAddress]);
+        ? tierWrite("contribute", [contributionValue, paymentReferrer])
+        : tierWrite("purchase", [periodValue, paymentReferrer]);
     const priorShares = snapshot.credential?.shares ?? 0n;
     const expectedReferral =
       snapshot.credential?.referralStatus !== undefined &&
@@ -465,7 +480,7 @@ export function MembershipExperience({
         ? snapshot.credential.referralStatus
         : selfPreview.gross === 0n
           ? "unset"
-          : choiceAddress === zeroAddress
+          : paymentReferrer === zeroAddress
             ? "locked-none"
             : "locked-address";
     await perform(
@@ -547,70 +562,135 @@ export function MembershipExperience({
     capacityFull ||
     exceedsPrepaymentLimit ||
     !selfPreview ||
-    (needsChoice && choiceAddress === undefined) ||
     (selfPreview && (snapshot.walletUsdgBalance ?? 0n) < selfPreview.gross);
+
+  const network = getSupportedChain(expectedChainId);
+  const explorerUrl = network.blockExplorers?.default.url;
+  const rewardClaim = snapshot.credential?.claimableReward ?? 0n;
+  const referralClaim = snapshot.claimableReferral ?? 0n;
+  const creatorClaim = snapshot.creatorProceeds ?? 0n;
+  const hasClaims = rewardClaim > 0n || referralClaim > 0n || creatorClaim > 0n;
+  const fundingShortfall =
+    selfPreview &&
+    snapshot.walletUsdgBalance !== undefined &&
+    snapshot.walletUsdgBalance < selfPreview.gross
+      ? selfPreview.gross - snapshot.walletUsdgBalance
+      : 0n;
+  const displayedHash = transaction.replacementHash ?? transaction.hash;
+
+  async function copyShareLink() {
+    if (!account.address) return;
+    try {
+      await navigator.clipboard.writeText(
+        membershipShareUrl({
+          origin: window.location.origin,
+          chainId: expectedChainId,
+          tier: snapshot.address,
+          referrer: account.address,
+        }),
+      );
+      setShareState("copied");
+    } catch {
+      setShareState("unavailable");
+    }
+  }
 
   return (
     <div className="membership-experience">
       <div className="tier-identity">
         <div>
-          <p className="eyebrow">Factory-registered membership</p>
+          <p className="eyebrow">Membership</p>
           <h1 className="font-display">{snapshot.name}</h1>
           <p>
             {snapshot.description ||
               "The creator has not added a description yet."}
           </p>
         </div>
-        <div className="creator-frame compact" aria-hidden="true">
-          <span>{snapshot.symbol.slice(0, 3)}</span>
+        <div className="membership-identity-actions">
+          <span className="membership-symbol">{snapshot.symbol}</span>
+          {account.address && (
+            <button
+              className="text-button"
+              onClick={() => void copyShareLink()}
+              type="button"
+            >
+              {shareState === "copied"
+                ? "Link copied"
+                : shareState === "unavailable"
+                  ? "Copy unavailable"
+                  : "Copy share link"}
+            </button>
+          )}
         </div>
       </div>
 
-      <section
-        className={`membership-status status-${actionState}`}
-        aria-label="Current membership status"
-      >
+      <dl className="membership-essentials" aria-label="Membership terms">
         <div>
-          <p className="eyebrow">Your membership</p>
-          <h2 id="membership-status-title">{primaryTitle}</h2>
-          <p>{primaryDescription}</p>
+          <dt>Price</dt>
+          <dd>{formatUnits(snapshot.pricePerPeriod, 6)} USDG</dd>
         </div>
-        {snapshot.credential && (
+        <div>
+          <dt>Membership period</dt>
+          <dd>{formatPeriod(snapshot.periodDuration)}</dd>
+        </div>
+        <div>
+          <dt>Members</dt>
+          <dd>
+            {snapshot.occupiedSupply.toString()}
+            {snapshot.supplyCap === 0n
+              ? " active"
+              : ` of ${snapshot.supplyCap.toString()}`}
+          </dd>
+        </div>
+      </dl>
+
+      {snapshot.credential && (
+        <section
+          className={`membership-status status-${actionState}`}
+          aria-label="Current membership status"
+        >
+          <div>
+            <p className="eyebrow">Your membership</p>
+            <h2 id="membership-status-title">{primaryTitle}</h2>
+            <p>{primaryDescription}</p>
+          </div>
           <dl>
             <div>
-              <dt>Credential</dt>
-              <dd>#{snapshot.credential.tokenId.toString()} · permanent</dd>
+              <dt>Membership</dt>
+              <dd>#{snapshot.credential.tokenId.toString()}</dd>
             </div>
             <div>
               <dt>Access</dt>
-              <dd>
-                {snapshot.credential.active
-                  ? "Active"
-                  : "Inactive / historical"}
-              </dd>
+              <dd>{snapshot.credential.active ? "Active" : "Inactive"}</dd>
             </div>
             <div>
-              <dt>Expiration</dt>
+              <dt>Through</dt>
               <dd>{formatMembershipDate(snapshot.credential.expiration)}</dd>
             </div>
-            <div>
-              <dt>Capacity</dt>
-              <dd>
-                {snapshot.credential.occupied
-                  ? "Place held"
-                  : "Released after sync"}
-              </dd>
-            </div>
           </dl>
-        )}
-        {!walletReady && <WalletControl />}
-      </section>
+        </section>
+      )}
 
-      <div className="supporter-columns">
+      <div
+        className={`supporter-columns ${
+          !hasClaims &&
+          !(
+            snapshot.credential &&
+            !snapshot.credential.active &&
+            snapshot.credential.occupied
+          )
+            ? "is-single"
+            : ""
+        }`}
+      >
         <div className="supporter-primary">
           <section className="supporter-action" aria-label="Membership action">
-            <p className="eyebrow">Primary action</p>
+            <p className="eyebrow">
+              {snapshot.credential ? "Continue" : "Join"}
+            </p>
             <h2 id="primary-action-title">{primaryTitle}</h2>
+            <p className="action-description">{primaryDescription}</p>
+            {!walletReady && <WalletControl />}
             {snapshot.pricePerPeriod === 0n ? (
               <label className="creator-field">
                 <span>Optional USDG contribution</span>
@@ -620,14 +700,11 @@ export function MembershipExperience({
                   onChange={(event) => setContribution(event.target.value)}
                   value={contribution}
                 />
-                <small>
-                  Zero adds one period with no fees, shares, or referral lock.
-                  Any positive amount uses normal economics.
-                </small>
+                <small>Enter 0 to join without a payment.</small>
               </label>
             ) : (
               <label className="creator-field">
-                <span>Whole periods</span>
+                <span>Periods</span>
                 <input
                   inputMode="numeric"
                   min="1"
@@ -637,118 +714,58 @@ export function MembershipExperience({
               </label>
             )}
 
-            {needsChoice && grossIsPositive && (
-              <fieldset className="referral-choice">
-                <legend>First positive self-payment referral choice</legend>
-                <label>
-                  <input
-                    checked={referralChoice === "none"}
-                    name="referral-choice"
-                    onChange={() => setReferralChoice("none")}
-                    type="radio"
-                  />{" "}
-                  Explicitly no referrer
-                </label>
-                <label>
-                  <input
-                    checked={referralChoice === "address"}
-                    name="referral-choice"
-                    onChange={() => setReferralChoice("address")}
-                    type="radio"
-                  />{" "}
-                  Lock a referrer
-                </label>
-                {referralChoice === "address" && (
-                  <input
-                    aria-label="Referrer address"
-                    className="font-mono"
-                    onChange={(event) => setReferrer(event.target.value)}
-                    value={referrer}
-                  />
-                )}
-                <small>
-                  This selection is permanent after the first positive
-                  self-payment. Self-referral is allowed by the contract.
-                </small>
-              </fieldset>
-            )}
-            {snapshot.credential &&
-              snapshot.credential.referralStatus !== "unset" && (
-                <p className="inline-status">
-                  Referral is permanently{" "}
-                  {snapshot.credential.referralStatus === "locked-none"
-                    ? "locked to none"
-                    : `locked to ${snapshot.credential.referrer}`}
-                  .
-                </p>
-              )}
-
             {selfPreview && (
               <dl
                 className="payment-preview"
                 aria-label="Membership payment preview"
               >
                 <div>
-                  <dt>Gross payment</dt>
+                  <dt>Total</dt>
                   <dd>{formatUnits(selfPreview.gross, 6)} USDG</dd>
                 </div>
                 <div>
-                  <dt>Time added</dt>
+                  <dt>Access added</dt>
                   <dd>{formatPeriod(selfPreview.duration)}</dd>
                 </div>
                 <div>
-                  <dt>Resulting expiration</dt>
+                  <dt>Membership through</dt>
                   <dd>
                     {formatMembershipDate(selfPreview.resultingExpiration)}
                   </dd>
                 </div>
-                <div>
-                  <dt>Permanent shares added</dt>
-                  <dd>{formatUnits(selfPreview.sharesAdded, 6)}</dd>
-                </div>
-                <div>
-                  <dt>Current allowance</dt>
-                  <dd>{formatUnits(snapshot.allowance ?? 0n, 6)} USDG</dd>
-                </div>
-                <div>
-                  <dt>Exact approval if needed</dt>
-                  <dd>{formatUnits(selfPreview.exactApproval, 6)} USDG</dd>
-                </div>
-                {selfPreview.split && (
-                  <>
-                    <div>
-                      <dt>Creator · referred</dt>
-                      <dd>
-                        {formatUnits(selfPreview.split.creatorReferred, 6)} USDG
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Creator · unreferred</dt>
-                      <dd>
-                        {formatUnits(selfPreview.split.creatorUnreferred, 6)}{" "}
-                        USDG
-                      </dd>
-                    </div>
-                  </>
-                )}
               </dl>
+            )}
+            {selfPreview && selfPreview.exactApproval > 0n && (
+              <p className="small-copy">
+                Your wallet will first request an exact{" "}
+                {formatUnits(selfPreview.exactApproval, 6)} USDG approval.
+              </p>
+            )}
+            {fundingShortfall > 0n && (
+              <p className="funding-notice" role="status">
+                Add {formatUnits(fundingShortfall, 6)} USDG to this wallet to
+                continue. Your balance is{" "}
+                {formatUnits(snapshot.walletUsdgBalance ?? 0n, 6)} USDG.
+              </p>
+            )}
+            {walletReady && (snapshot.walletEthBalance ?? 0n) === 0n && (
+              <p className="funding-notice" role="status">
+                Add a small amount of ETH on {network.name} for gas.
+              </p>
             )}
             {capacityFull && (
               <p className="inline-status" role="alert">
-                Capacity is currently full. This historical credential lost its
-                place after synchronization and must wait for a slot.
+                This membership is currently full.
               </p>
             )}
             {exceedsPrepaymentLimit && (
               <p className="inline-status" role="alert">
-                This purchase would exceed the creator&apos;s current prepaid
-                period limit. Reduce the number of periods and simulate again.
+                Choose fewer periods to stay within the membership limit.
               </p>
             )}
             {snapshot.paused && (
               <p className="inline-status" role="alert">
-                The creator has paused every time-increasing action. Existing
-                access and claims remain available.
+                New membership time is temporarily paused.
               </p>
             )}
             <button
@@ -761,334 +778,285 @@ export function MembershipExperience({
                 ? "Add one membership period"
                 : primaryTitle}
             </button>
+
+            {transaction.phase !== "idle" && (
+              <div
+                aria-live="polite"
+                className={`membership-transaction transaction-${transaction.phase}`}
+                role={transaction.error ? "alert" : "status"}
+              >
+                <strong>{preparedAction}</strong>
+                <span>{transactionStatusCopy(transaction.phase)}</span>
+                {transaction.error && <span>{transaction.error}</span>}
+                {displayedHash && explorerUrl && (
+                  <a
+                    href={`${explorerUrl}/tx/${displayedHash}`}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    View transaction
+                  </a>
+                )}
+              </div>
+            )}
           </section>
 
           {snapshot.pricePerPeriod > 0n && (
-            <section className="supporter-action gift-action">
-              <button
-                aria-expanded={giftOpen}
-                className="button button-outline"
-                onClick={() => setGiftOpen((open) => !open)}
-                type="button"
-              >
-                Gift this membership deliberately
-              </button>
-              {giftOpen && (
-                <div>
-                  <h2>Gift time and permanent shares</h2>
-                  <p>
-                    The recipient does not approve this action. A gift may
-                    create a permanent soulbound credential, dilute reward
-                    ownership, and hold capped capacity until expiry and
-                    synchronization.
+            <details className="gift-action">
+              <summary>Gift this membership</summary>
+              <div>
+                <h2>Send membership time</h2>
+                <p>The recipient gets membership access without paying.</p>
+                <label className="creator-field">
+                  <span>Recipient wallet</span>
+                  <input
+                    className="font-mono"
+                    onChange={(event) => setGiftRecipient(event.target.value)}
+                    value={giftRecipient}
+                  />
+                  {giftRecipient && giftError && (
+                    <small role="alert">{giftError}</small>
+                  )}
+                </label>
+                <label className="creator-field">
+                  <span>Whole periods</span>
+                  <input
+                    inputMode="numeric"
+                    min="1"
+                    onChange={(event) => setGiftPeriods(event.target.value)}
+                    value={giftPeriods}
+                  />
+                </label>
+                {giftState.isLoading && (
+                  <p className="inline-status" role="status">
+                    Checking the recipient&apos;s membership.
                   </p>
-                  <label className="creator-field">
-                    <span>Recipient wallet</span>
-                    <input
-                      className="font-mono"
-                      onChange={(event) => setGiftRecipient(event.target.value)}
-                      value={giftRecipient}
-                    />
-                    {giftRecipient && giftError && (
-                      <small role="alert">{giftError}</small>
-                    )}
-                  </label>
-                  <label className="creator-field">
-                    <span>Whole periods</span>
-                    <input
-                      inputMode="numeric"
-                      min="1"
-                      onChange={(event) => setGiftPeriods(event.target.value)}
-                      value={giftPeriods}
-                    />
-                  </label>
-                  <p className="small-copy">
-                    Gifts never choose or replace referral attribution. An unset
-                    recipient receives the unreferred split; an existing locked
-                    choice continues.
+                )}
+                {giftState.error && (
+                  <p className="inline-status" role="alert">
+                    Recipient details are unavailable. Try again.
                   </p>
-                  {giftState.isLoading && (
-                    <p className="inline-status" role="status">
-                      Checking the recipient&apos;s credential and held
-                      capacity.
-                    </p>
-                  )}
-                  {giftState.error && (
-                    <p className="inline-status" role="alert">
-                      Recipient state is unavailable. No gift amount or capacity
-                      was assumed; retry the direct read.
-                    </p>
-                  )}
-                  {giftPreview && (
-                    <dl className="payment-preview">
-                      <div>
-                        <dt>Gross gift</dt>
-                        <dd>{formatUnits(giftPreview.gross, 6)} USDG</dd>
-                      </div>
-                      <div>
-                        <dt>Time added</dt>
-                        <dd>{formatPeriod(giftPreview.duration)}</dd>
-                      </div>
-                      <div>
-                        <dt>Resulting expiration</dt>
-                        <dd>
-                          {formatMembershipDate(
-                            giftPreview.resultingExpiration,
-                          )}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Permanent shares</dt>
-                        <dd>{formatUnits(giftPreview.sharesAdded, 6)}</dd>
-                      </div>
-                    </dl>
-                  )}
-                  {giftCapacityFull && (
-                    <p className="inline-status" role="alert">
-                      Capacity is full and this recipient does not currently
-                      hold a place. Another supporter may also take the last
-                      slot before confirmation.
-                    </p>
-                  )}
-                  {giftExceedsPrepaymentLimit && (
-                    <p className="inline-status" role="alert">
-                      This gift would exceed the recipient&apos;s prepaid period
-                      limit.
-                    </p>
-                  )}
-                  <button
-                    className="button button-warning"
-                    disabled={
-                      !writesVerified ||
-                      Boolean(giftError) ||
-                      !giftPreview ||
-                      snapshot.paused ||
-                      giftCapacityFull ||
-                      giftExceedsPrepaymentLimit ||
-                      (snapshot.walletUsdgBalance ?? 0n) <
-                        (giftPreview?.gross ?? 0n)
-                    }
-                    onClick={() => void sendGift()}
-                    type="button"
-                  >
-                    Approve exact USDG and send gift
-                  </button>
-                </div>
-              )}
-            </section>
+                )}
+                {giftPreview && (
+                  <dl className="payment-preview">
+                    <div>
+                      <dt>Total</dt>
+                      <dd>{formatUnits(giftPreview.gross, 6)} USDG</dd>
+                    </div>
+                    <div>
+                      <dt>Access added</dt>
+                      <dd>{formatPeriod(giftPreview.duration)}</dd>
+                    </div>
+                    <div>
+                      <dt>Membership through</dt>
+                      <dd>
+                        {formatMembershipDate(giftPreview.resultingExpiration)}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+                {giftCapacityFull && (
+                  <p className="inline-status" role="alert">
+                    This membership is currently full.
+                  </p>
+                )}
+                {giftExceedsPrepaymentLimit && (
+                  <p className="inline-status" role="alert">
+                    This gift would exceed the recipient&apos;s prepaid period
+                    limit.
+                  </p>
+                )}
+                <button
+                  className="button button-warning"
+                  disabled={
+                    !writesVerified ||
+                    Boolean(giftError) ||
+                    !giftPreview ||
+                    snapshot.paused ||
+                    giftCapacityFull ||
+                    giftExceedsPrepaymentLimit ||
+                    (snapshot.walletUsdgBalance ?? 0n) <
+                      (giftPreview?.gross ?? 0n)
+                  }
+                  onClick={() => void sendGift()}
+                  type="button"
+                >
+                  Send gift
+                </button>
+              </div>
+            </details>
           )}
         </div>
 
-        <aside className="supporter-secondary">
-          <section
-            className="wallet-readiness"
-            aria-labelledby="supporter-readiness"
-          >
-            <div>
-              <p className="eyebrow">Wallet readiness</p>
-              <h2 id="supporter-readiness">Fund before signing</h2>
-            </div>
-            <WalletReadiness
-              estimatedCost={selfPreview?.gross ?? snapshot.pricePerPeriod}
-              expectedChainId={expectedChainId}
-              verifiedBalances={
-                snapshot.walletEthBalance !== undefined &&
-                snapshot.walletUsdgBalance !== undefined
-                  ? {
-                      eth: snapshot.walletEthBalance,
-                      usdg: snapshot.walletUsdgBalance,
-                    }
-                  : undefined
-              }
-            />
-          </section>
-          <section className="claim-groups" aria-labelledby="claims-title">
-            <p className="eyebrow">Fixed-destination claims</p>
-            <h2 id="claims-title">Claim only to the onchain owner</h2>
-            {snapshot.credential && (
-              <div className="claim-row">
-                <div>
-                  <strong>Membership rewards</strong>
-                  <span>
-                    {formatUnits(snapshot.credential.claimableReward, 6)} USDG ·
-                    token owner only
-                  </span>
-                </div>
-                <button
-                  className="button button-outline"
-                  disabled={
-                    !writesVerified ||
-                    snapshot.credential.claimableReward === 0n
-                  }
-                  onClick={() =>
-                    void perform(
-                      "Claim membership rewards",
-                      tierWrite("claimReward", [snapshot.credential!.tokenId]),
-                      (receipt) =>
-                        reconcileSnapshot(
-                          (next) =>
-                            receiptProvesRewardClaim(receipt, {
-                              tier: snapshot.address,
-                              tokenId: snapshot.credential!.tokenId,
-                              owner: snapshot.credential!.owner,
-                              amount: snapshot.credential!.claimableReward,
-                            }) && next.credential?.claimableReward === 0n,
-                        ),
-                    )
-                  }
-                  type="button"
-                >
-                  Claim to this wallet
-                </button>
-              </div>
-            )}
-            <div className="claim-row">
-              <div>
-                <strong>Referral proceeds</strong>
-                <span>
-                  {formatUnits(snapshot.claimableReferral ?? 0n, 6)} USDG ·
-                  locked referrer only
-                </span>
-              </div>
-              <button
-                className="button button-outline"
-                disabled={
-                  !writesVerified || (snapshot.claimableReferral ?? 0n) === 0n
-                }
-                onClick={() =>
-                  void perform(
-                    "Claim referral proceeds",
-                    tierWrite("claimReferral"),
-                    (receipt) =>
-                      reconcileSnapshot(
-                        (next) =>
-                          Boolean(
-                            snapshot.wallet &&
-                            receiptProvesReferralClaim(receipt, {
-                              tier: snapshot.address,
-                              referrer: snapshot.wallet,
-                              amount: snapshot.claimableReferral ?? 0n,
-                            }),
-                          ) && (next.claimableReferral ?? 0n) === 0n,
-                      ),
-                  )
-                }
-                type="button"
-              >
-                Claim to this wallet
-              </button>
-            </div>
-            {snapshot.creatorProceeds !== undefined && (
-              <div className="claim-row">
-                <div>
-                  <strong>Creator proceeds</strong>
-                  <span>
-                    {formatUnits(snapshot.creatorProceeds, 6)} USDG · current
-                    tier owner only
-                  </span>
-                </div>
-                <button
-                  className="button button-outline"
-                  disabled={!writesVerified || snapshot.creatorProceeds === 0n}
-                  onClick={() =>
-                    void perform(
-                      "Withdraw creator proceeds",
-                      tierWrite("withdrawCreatorProceeds"),
-                      (receipt) =>
-                        reconcileSnapshot(
-                          (next) =>
-                            receiptProvesCreatorWithdrawal(receipt, {
-                              tier: snapshot.address,
-                              owner: snapshot.creator,
-                              amount: snapshot.creatorProceeds!,
-                            }) && next.creatorProceeds === 0n,
-                        ),
-                    )
-                  }
-                  type="button"
-                >
-                  Withdraw to this wallet
-                </button>
-              </div>
-            )}
-            <p className="small-copy">
-              If USDG cannot reach a frozen or blocked destination, the
-              transaction fails atomically and the exact onchain claim remains.
-              This app cannot redirect it; retry only after the same destination
-              can receive USDG.
-            </p>
-          </section>
-
-          {snapshot.credential &&
+        {(hasClaims ||
+          (snapshot.credential &&
             !snapshot.credential.active &&
-            snapshot.credential.occupied && (
-              <section className="maintenance-action">
-                <p className="eyebrow">Permissionless maintenance</p>
-                <h2>Release expired capacity</h2>
-                <p>
-                  Synchronization keeps identity, shares, referral choice, and
-                  claimable balances. If someone renewed before this confirms,
-                  the call safely becomes a no-op.
+            snapshot.credential.occupied)) && (
+          <aside className="supporter-secondary">
+            {hasClaims && (
+              <section className="claim-groups" aria-labelledby="claims-title">
+                <p className="eyebrow">Available now</p>
+                <h2 id="claims-title">Funds for this wallet</h2>
+                {rewardClaim > 0n && snapshot.credential && (
+                  <div className="claim-row">
+                    <div>
+                      <strong>Membership rewards</strong>
+                      <span>{formatUnits(rewardClaim, 6)} USDG</span>
+                    </div>
+                    <button
+                      className="button button-outline"
+                      disabled={!writesVerified || rewardClaim === 0n}
+                      onClick={() =>
+                        void perform(
+                          "Claim membership rewards",
+                          tierWrite("claimReward", [
+                            snapshot.credential!.tokenId,
+                          ]),
+                          (receipt) =>
+                            reconcileSnapshot(
+                              (next) =>
+                                receiptProvesRewardClaim(receipt, {
+                                  tier: snapshot.address,
+                                  tokenId: snapshot.credential!.tokenId,
+                                  owner: snapshot.credential!.owner,
+                                  amount: snapshot.credential!.claimableReward,
+                                }) && next.credential?.claimableReward === 0n,
+                            ),
+                        )
+                      }
+                      type="button"
+                    >
+                      Claim to this wallet
+                    </button>
+                  </div>
+                )}
+                {referralClaim > 0n && (
+                  <div className="claim-row">
+                    <div>
+                      <strong>Referral proceeds</strong>
+                      <span>{formatUnits(referralClaim, 6)} USDG</span>
+                    </div>
+                    <button
+                      className="button button-outline"
+                      disabled={!writesVerified || referralClaim === 0n}
+                      onClick={() =>
+                        void perform(
+                          "Claim referral proceeds",
+                          tierWrite("claimReferral"),
+                          (receipt) =>
+                            reconcileSnapshot(
+                              (next) =>
+                                Boolean(
+                                  snapshot.wallet &&
+                                  receiptProvesReferralClaim(receipt, {
+                                    tier: snapshot.address,
+                                    referrer: snapshot.wallet,
+                                    amount: snapshot.claimableReferral ?? 0n,
+                                  }),
+                                ) && (next.claimableReferral ?? 0n) === 0n,
+                            ),
+                        )
+                      }
+                      type="button"
+                    >
+                      Claim to this wallet
+                    </button>
+                  </div>
+                )}
+                {creatorClaim > 0n &&
+                  snapshot.creatorProceeds !== undefined && (
+                    <div className="claim-row">
+                      <div>
+                        <strong>Creator proceeds</strong>
+                        <span>{formatUnits(creatorClaim, 6)} USDG</span>
+                      </div>
+                      <button
+                        className="button button-outline"
+                        disabled={
+                          !writesVerified || snapshot.creatorProceeds === 0n
+                        }
+                        onClick={() =>
+                          void perform(
+                            "Withdraw creator proceeds",
+                            tierWrite("withdrawCreatorProceeds"),
+                            (receipt) =>
+                              reconcileSnapshot(
+                                (next) =>
+                                  receiptProvesCreatorWithdrawal(receipt, {
+                                    tier: snapshot.address,
+                                    owner: snapshot.creator,
+                                    amount: snapshot.creatorProceeds!,
+                                  }) && next.creatorProceeds === 0n,
+                              ),
+                          )
+                        }
+                        type="button"
+                      >
+                        Withdraw to this wallet
+                      </button>
+                    </div>
+                  )}
+                <p className="small-copy">
+                  Claims always pay this connected wallet. If USDG cannot reach
+                  it, the funds remain available here.
                 </p>
-                <button
-                  className="button button-dark"
-                  disabled={!writesVerified}
-                  onClick={() =>
-                    void perform(
-                      "Synchronize inactive capacity",
-                      tierWrite("synchronize", [snapshot.credential!.tokenId]),
-                      () =>
-                        reconcileSnapshot(
-                          (next) =>
-                            next.credential?.occupied === false ||
-                            next.credential?.active === true,
-                        ),
-                    )
-                  }
-                  type="button"
-                >
-                  Synchronize this place
-                </button>
               </section>
             )}
 
-          {snapshot.credential && (
-            <section className="refund-guidance">
-              <p className="eyebrow">Refund status</p>
-              <h2>
-                {formatUnits(snapshot.credential.refundableGross, 6)} USDG gross
-                currently previewed
-              </h2>
-              <p>
-                Only the current creator can execute the canonical full refund.
-                Payment always returns to the permanent token owner; there is no
-                redirect control.
-              </p>
-              {snapshot.wallet &&
-                isSameAddress(snapshot.wallet, snapshot.creator) && (
-                  <Link
-                    className="button button-outline"
-                    href={
-                      `/chains/${expectedChainId}/tiers/${snapshot.address}/manage` as Route
+            {snapshot.credential &&
+              !snapshot.credential.active &&
+              snapshot.credential.occupied && (
+                <section className="maintenance-action">
+                  <p className="eyebrow">Expired membership</p>
+                  <h2>Release expired capacity</h2>
+                  <p>
+                    Free this inactive place for another supporter. Your
+                    membership history and funds stay intact.
+                  </p>
+                  <button
+                    className="button button-dark"
+                    disabled={!writesVerified}
+                    onClick={() =>
+                      void perform(
+                        "Synchronize inactive capacity",
+                        tierWrite("synchronize", [
+                          snapshot.credential!.tokenId,
+                        ]),
+                        () =>
+                          reconcileSnapshot(
+                            (next) =>
+                              next.credential?.occupied === false ||
+                              next.credential?.active === true,
+                          ),
+                      )
                     }
+                    type="button"
                   >
-                    Open creator refund controls
-                  </Link>
-                )}
-            </section>
-          )}
-        </aside>
+                    Synchronize this place
+                  </button>
+                </section>
+              )}
+          </aside>
+        )}
       </div>
 
       <details className="contract-facts">
-        <summary>Verified contract facts</summary>
+        <summary>Contract Addresses</summary>
         <dl>
           <div>
-            <dt>Tier</dt>
-            <dd className="font-mono">{snapshot.address}</dd>
+            <dt>Membership</dt>
+            <dd className="font-mono">
+              {explorerUrl ? (
+                <a href={`${explorerUrl}/address/${snapshot.address}`}>
+                  {snapshot.address}
+                </a>
+              ) : (
+                snapshot.address
+              )}
+            </dd>
           </div>
           <div>
-            <dt>Creator owner</dt>
+            <dt>Creator</dt>
             <dd className="font-mono">{snapshot.creator}</dd>
           </div>
           <div>
@@ -1101,15 +1069,6 @@ export function MembershipExperience({
           </div>
         </dl>
       </details>
-      {!writesVerified && (
-        <p className="inline-status" role="status">
-          Writes remain closed until this tier is fresh, factory-registered,
-          interface-verified, and the wallet uses{" "}
-          {getSupportedChain(expectedChainId).name}.
-        </p>
-      )}
-      <p className="eyebrow">Prepared action · {preparedAction}</p>
-      <TransactionFlow state={transaction} />
     </div>
   );
 }

@@ -69,6 +69,19 @@ export function TierReadPanel({
     );
   }
 
+  if (tier.data.status === "valid") {
+    return (
+      <MembershipExperience
+        capturedBlock={tier.data.capturedBlock}
+        expectedChainId={chainId}
+        fresh
+        key={`${chainId}:${tierAddress}:${account.address ?? "disconnected"}`}
+        onRefresh={async () => (await tier.refetch()).data}
+        snapshot={tier.data.data}
+      />
+    );
+  }
+
   return (
     <ReadStateView onRetry={() => void tier.refetch()} state={tier.data}>
       {(snapshot) => (
@@ -79,6 +92,7 @@ export function TierReadPanel({
               : 0n
           }
           fresh={tier.data?.status === "valid"}
+          key={`${chainId}:${tierAddress}:${account.address ?? "disconnected"}`}
           onRefresh={async () => (await tier.refetch()).data}
           snapshot={snapshot}
           expectedChainId={chainId}

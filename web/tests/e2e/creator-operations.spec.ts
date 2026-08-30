@@ -249,6 +249,7 @@ test("fails protocol administration closed without a verified factory", async ({
   page,
 }) => {
   await page.goto("/protocol");
+  await page.getByLabel("Membership network").selectOption("4663");
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
   await expect(page.getByText(/not deployed/i)).toBeVisible();
 });

@@ -134,8 +134,12 @@ test("treats an emptied split as zero without shifting its paired input", async 
 
   const reward = page.getByLabel("Membership rewards (%)");
   const referral = page.getByLabel("Referral share (%)");
-  const rewardBefore = await reward.boundingBox();
-  const referralBefore = await referral.boundingBox();
+  const documentY = (locator: typeof reward) =>
+    locator.evaluate((element) =>
+      Math.round(element.getBoundingClientRect().top + window.scrollY),
+    );
+  const rewardBefore = await documentY(reward);
+  const referralBefore = await documentY(referral);
   await reward.fill("");
 
   await expect(page.getByText(/use a percentage from 0 to 100/i)).toHaveCount(
@@ -143,14 +147,10 @@ test("treats an emptied split as zero without shifting its paired input", async 
   );
   await expect(page.getByLabel("Payment split preview")).toBeVisible();
 
-  const rewardAfter = await reward.boundingBox();
-  const referralAfter = await referral.boundingBox();
-  expect(rewardBefore).not.toBeNull();
-  expect(referralBefore).not.toBeNull();
-  expect(rewardAfter).not.toBeNull();
-  expect(referralAfter).not.toBeNull();
-  expect(Math.abs(rewardBefore!.y - rewardAfter!.y)).toBeLessThanOrEqual(1);
-  expect(Math.abs(referralBefore!.y - referralAfter!.y)).toBeLessThanOrEqual(1);
+  const rewardAfter = await documentY(reward);
+  const referralAfter = await documentY(referral);
+  expect(Math.abs(rewardBefore - rewardAfter)).toBeLessThanOrEqual(1);
+  expect(Math.abs(referralBefore - referralAfter)).toBeLessThanOrEqual(1);
 
   await referral.focus();
   await expect(reward).toHaveValue("0");

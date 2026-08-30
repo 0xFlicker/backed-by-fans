@@ -33,10 +33,14 @@ test.describe("configured Anvil join, renew, and gift", () => {
 
     try {
       await installAnvilWallet(page, member);
-      await page.goto(`/chains/31337/tiers/${tier}`);
+      await page.goto(`/chains/31337/tiers/${tier}?ref=${recipient}`);
+      await expect(page).toHaveURL(
+        new RegExp(`/chains/31337/tiers/${tier}$`, "i"),
+      );
+      await expect(page.getByText(/referrer|referral/i)).toHaveCount(0);
+      await page.reload();
       await connectAnvilWallet(page, member);
 
-      await page.getByRole("radio", { name: "Explicitly no referrer" }).check();
       const join = page.getByRole("button", { name: "Join this membership" });
       await expect(join).toBeEnabled();
       await join.click();
@@ -54,6 +58,13 @@ test.describe("configured Anvil join, renew, and gift", () => {
         functionName: "expiresAt",
         args: [tokenId],
       });
+      const referral = await client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "referralOf",
+        args: [tokenId],
+      });
+      expect(referral[1]).toBe(recipient);
       await expect(
         page
           .getByRole("region", { name: "Current membership status" })
@@ -74,15 +85,13 @@ test.describe("configured Anvil join, renew, and gift", () => {
       });
       expect(renewedExpiration - firstExpiration).toBe(2_592_000n);
 
-      await page
-        .getByRole("button", { name: "Gift this membership deliberately" })
-        .click();
+      await page.getByText("Gift this membership", { exact: true }).click();
       await page.getByLabel("Recipient wallet").fill(recipient);
-      await expect(page.getByText("Gross gift").locator("..")).toContainText(
+      await expect(page.getByText("Total").last().locator("..")).toContainText(
         "10 USDG",
       );
       const gift = page.getByRole("button", {
-        name: "Approve exact USDG and send gift",
+        name: "Send gift",
       });
       await expect(gift).toBeEnabled();
       await gift.click();
