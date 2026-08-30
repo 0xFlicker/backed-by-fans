@@ -1,16 +1,19 @@
 # Deployment verification runbook
 
-Status: **procedure ready; no public Backed By Fans deployment is asserted by
-this repository**.
+Status: **TESTNET DEPLOYMENT RECORDED — independent verification and the live
+pilot remain incomplete. No mainnet deployment is asserted or authorized.**
 
 After an authorized public broadcast, an operator other than the deployer
 should verify the following before promotion:
 
-1. The checked-in Foundry `run-latest.json` is for chain `46630` or `4663`, its
-   deployment transactions succeeded, and its factory address matches the
-   explorer.
-2. `bun run generate:check` is clean and `web/src/contracts.ts` contains that
-   address under the same chain ID without changing the other network.
+1. The checked-in `TestnetUSDG.s.sol` and `DeployDirectProtocol.s.sol`
+   `run-latest.json` files are for chain `46630`, contain the successful token,
+   renderer, and factory deployments, and match the explorer. Mint-only
+   `MintTestnetUSDG.s.sol` records are operational history, not deployment
+   inputs.
+2. `bun run generate:check` is clean and `web/src/contracts.ts` contains the
+   token, renderer, and factory under chain `46630` without changing the other
+   network.
 3. The factory is bound to the canonical USDG for that chain and exposes the
    reviewed owner, empty pending owner, fixed fee recipient, renderer, tier
    deployer, and protocol fee.

@@ -1,7 +1,8 @@
 # Robinhood public deployment runbook
 
-Status: **OPEN — the earlier coordinator-based testnet deployment is preserved
-as history and will be superseded by the direct CREATE2 deployment.**
+Status: **TESTNET DEPLOYED — the direct CREATE2 deployment and generated Wagmi
+bindings are recorded. Independent verification and the live pilot remain
+open; mainnet remains unauthorized.**
 
 This is the minimum public workflow. It does not authorize mainnet deployment.
 Mainnet still requires every human gate in
@@ -10,10 +11,10 @@ and provisional-brand clearance.
 
 ## Fixed configuration
 
-| Network | Chain ID | USDG | Encrypted account |
-| --- | ---: | --- | --- |
-| Robinhood Chain Testnet | `46630` | Deterministic `LOL Dollar` test token, symbol `USDG` | `backed-by-fans-testnet` |
-| Robinhood Chain Mainnet | `4663` | Paxos USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` | `backed-by-fans` |
+| Network                 | Chain ID | USDG                                                    | Encrypted account        |
+| ----------------------- | -------: | ------------------------------------------------------- | ------------------------ |
+| Robinhood Chain Testnet |  `46630` | Deterministic `LOL Dollar` test token, symbol `USDG`    | `backed-by-fans-testnet` |
+| Robinhood Chain Mainnet |   `4663` | Paxos USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` | `backed-by-fans`         |
 
 The approved deployer is
 `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027`. The deterministic Safe
@@ -29,11 +30,11 @@ There is no coordinator or public factory-code-store deployment.
 
 Current direct deployment predictions:
 
-| Contract | Address |
-| --- | --- |
-| Testnet USDG | `0xAB97dbB8f4ae0B4a3cc0D6963D75334B1c40da09` |
+| Contract                  | Address                                      |
+| ------------------------- | -------------------------------------------- |
+| Testnet USDG              | `0xAB97dbB8f4ae0B4a3cc0D6963D75334B1c40da09` |
 | Onchain metadata renderer | `0x2cA28c2996E264a24b59A76b3D58F164112AebD7` |
-| Membership factory | `0xC902F211a6346325B0b50e2B7942C952dCaa5038` |
+| Membership factory        | `0xC902F211a6346325B0b50e2B7942C952dCaa5038` |
 
 The contract tests pin and recompute these addresses from the compiler output,
 salts, and canonical CREATE2 deployer. A source change that changes initcode
@@ -82,6 +83,12 @@ Mint a human-readable amount to any test wallet:
 ./scripts/mint-testnet-usdg.sh 0xRecipient 100 broadcast
 ```
 
+Token deployment and minting intentionally use different Foundry scripts.
+`broadcast/TestnetUSDG.s.sol/46630/run-latest.json` must remain the successful
+`CREATE2` deployment record consumed by Wagmi. Mint transactions are written
+under `broadcast/MintTestnetUSDG.s.sol/`, are ignored by Git, and must never
+replace or be copied over the deployment record.
+
 ## 3. Deploy the protocol
 
 ```sh
@@ -121,17 +128,37 @@ There is no mainnet LOL Dollar deployment.
 
 ## 4. Generate the web bindings
 
-Successful public broadcasts are the durable Wagmi input. From `web/`:
+Successful public deployment broadcasts are the durable Wagmi input. Commit
+these active records and retain timestamped deployment artifacts as history
+when present:
+
+- `contracts/broadcast/TestnetUSDG.s.sol/46630/run-latest.json`
+- `contracts/broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json`
+
+Remove the obsolete deployment's `run-latest.json` active pointer while keeping
+its timestamped file as history. Wagmi must see one active deployment per
+contract and chain.
+
+Then generate the web bindings from `web/`:
 
 ```sh
 bun run generate
-bun run generate:check
 ```
 
 Wagmi CLI's Foundry plugin reads `run-latest.json` for each chain and generates
 the testnet USDG and production-factory address maps, ABIs, configs, and hooks in
 `web/src/contracts.ts`. The app uses Viem's standard ERC-20 ABI and displays the
 token simply as USDG. Do not copy addresses or ABIs by hand.
+
+Review and commit the broadcast records and generated `web/src/contracts.ts`,
+then prove the committed file is reproducible:
+
+```sh
+bun run generate:check
+```
+
+`generate:check` is expected to fail before that commit because its purpose is
+to reject any generated-file drift from Git.
 
 Testnet and mainnet deployments coexist in the generated maps. A future testnet
 redeployment updates only chain `46630`; a mainnet deployment adds chain `4663`.
