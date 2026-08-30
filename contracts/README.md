@@ -83,7 +83,8 @@ Commit the successful public Foundry broadcasts under
 Wagmi CLI consumes both: the first supplies the testnet USDG address and the
 second supplies the factory address. Anvil uses chain `31337` and a temporary
 `FOUNDRY_BROADCAST` directory, so local evidence cannot modify the public
-address map.
+address map. Minting uses the separate `MintTestnetUSDG.s.sol` script so a mint
+cannot overwrite the token deployment record Wagmi consumes.
 
 The [local lifecycle evidence](../docs/release/local-evidence.md) exercises the
 complete creator/supporter and custody path deterministically. It is deliberately

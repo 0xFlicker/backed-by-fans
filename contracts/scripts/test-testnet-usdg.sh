@@ -56,7 +56,7 @@ assert_not_contains "$mock_log" "--account"
 : >"$mock_log"
 "$script_dir/mint-testnet-usdg.sh" 0x1111111111111111111111111111111111111111 100 dry-run
 assert_contains "$mock_log" "cast parse-units 100 6"
-assert_contains "$mock_log" "forge script script/TestnetUSDG.s.sol:MintTestnetUSDG"
+assert_contains "$mock_log" "forge script script/MintTestnetUSDG.s.sol:MintTestnetUSDG"
 assert_not_contains "$mock_log" "--account"
 assert_not_contains "$mock_log" "--broadcast"
 

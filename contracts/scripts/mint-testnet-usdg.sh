@@ -56,7 +56,7 @@ export USDG_RECIPIENT="$recipient"
 export USDG_AMOUNT="$amount_base_units"
 
 forge_args=(
-  script/TestnetUSDG.s.sol:MintTestnetUSDG
+  script/MintTestnetUSDG.s.sol:MintTestnetUSDG
   --rpc-url "$rpc_url"
   --sender "$BBF_APPROVED_DEPLOYER"
   -vvvv

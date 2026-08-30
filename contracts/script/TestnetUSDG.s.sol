@@ -12,7 +12,8 @@ abstract contract TestnetUSDGGuard is Script {
     address public constant APPROVED_DEPLOYER = RobinhoodProtocolConfig.APPROVED_DEPLOYER;
     address public constant CREATE2_DEPLOYER = RobinhoodProtocolConfig.CREATE2_DEPLOYER;
     bytes32 public constant TESTNET_USDG_SALT = RobinhoodProtocolConfig.TESTNET_USDG_SALT;
-    bytes32 public constant CREATE2_DEPLOYER_CODE_HASH = RobinhoodProtocolConfig.CREATE2_DEPLOYER_CODE_HASH;
+    bytes32 public constant CREATE2_DEPLOYER_CODE_HASH =
+        RobinhoodProtocolConfig.CREATE2_DEPLOYER_CODE_HASH;
 
     error CanonicalCreate2DeployerMismatch(bytes32 expected, bytes32 observed);
     error ExistingTokenCodeMismatch(bytes32 expected, bytes32 observed);
@@ -43,7 +44,8 @@ abstract contract TestnetUSDGGuard is Script {
             revert ExistingTokenCodeMismatch(expectedRuntimeCodeHash, observedRuntimeCodeHash);
         }
         if (
-            address(token) != expected || token.owner() != APPROVED_DEPLOYER || token.decimals() != 6
+            address(token) != expected || token.owner() != APPROVED_DEPLOYER
+                || token.decimals() != 6
                 || keccak256(bytes(token.name())) != keccak256("LOL Dollar")
                 || keccak256(bytes(token.symbol())) != keccak256("USDG")
         ) revert TokenInvariantFailed();
@@ -83,33 +85,5 @@ contract ValidateTestnetUSDG is TestnetUSDGGuard {
         _validateToken(token, expected);
         console2.log("Backed By Fans testnet USDG", address(token));
         console2.log("LOL Dollar total supply", token.totalSupply());
-    }
-}
-
-/// @notice Mints exact base units of testnet USDG to an address using the encrypted deployer.
-contract MintTestnetUSDG is TestnetUSDGGuard {
-    function run() external returns (uint256 mintedAmount) {
-        _validateChain();
-        address expected = expectedToken();
-        TestnetUSDG token = TestnetUSDG(expected);
-        _validateToken(token, expected);
-
-        address recipient = vm.envAddress("USDG_RECIPIENT");
-        mintedAmount = vm.envUint("USDG_AMOUNT");
-        if (recipient == address(0)) revert InvalidRecipient();
-        if (mintedAmount == 0) revert InvalidMintAmount();
-
-        uint256 balanceBefore = token.balanceOf(recipient);
-        vm.startBroadcast();
-        token.mint(recipient, mintedAmount);
-        vm.stopBroadcast();
-        uint256 balanceAfter = token.balanceOf(recipient);
-        if (balanceAfter != balanceBefore + mintedAmount) {
-            revert TokenInvariantFailed();
-        }
-
-        console2.log("USDG recipient", recipient);
-        console2.log("USDG minted base units", mintedAmount);
-        console2.log("USDG recipient balance", balanceAfter);
     }
 }
