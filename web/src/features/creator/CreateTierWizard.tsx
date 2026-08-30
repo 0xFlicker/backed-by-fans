@@ -90,6 +90,9 @@ function usd(value: bigint) {
 
 export function CreateTierWizard() {
   const [form, setForm] = useState(defaultCreatorForm);
+  const [touchedFields, setTouchedFields] = useState<
+    Partial<Record<keyof CreatorForm, boolean>>
+  >({});
   const [step, setStep] = useState<StepId>("metadata");
   const [economicsAcknowledged, setEconomicsAcknowledged] = useState(false);
   const [giftingAcknowledged, setGiftingAcknowledged] = useState(false);
@@ -147,6 +150,10 @@ export function CreateTierWizard() {
     setForm((current) =>
       current[key].trim() === "" ? { ...current, [key]: "0" } : current,
     );
+  }
+
+  function touch(key: keyof CreatorForm) {
+    setTouchedFields((current) => ({ ...current, [key]: true }));
   }
 
   function go(direction: 1 | -1) {
@@ -339,7 +346,7 @@ export function CreateTierWizard() {
             </p>
             <div className="creator-field-grid">
               <Field
-                error={result.errors.name}
+                error={touchedFields.name ? result.errors.name : undefined}
                 hint="Permanent · 100 UTF-8 bytes maximum"
                 id="tier-name"
                 label="Membership name"
@@ -347,13 +354,15 @@ export function CreateTierWizard() {
                 <input
                   aria-describedby="tier-name-hint tier-name-error"
                   id="tier-name"
+                  onBlur={() => touch("name")}
                   onChange={update("name")}
+                  placeholder="Creator membership"
                   required
                   value={form.name}
                 />
               </Field>
               <Field
-                error={result.errors.symbol}
+                error={touchedFields.symbol ? result.errors.symbol : undefined}
                 hint="Permanent · short ERC-721 symbol"
                 id="tier-symbol"
                 label="Symbol"
@@ -361,7 +370,9 @@ export function CreateTierWizard() {
                 <input
                   aria-describedby="tier-symbol-hint tier-symbol-error"
                   id="tier-symbol"
+                  onBlur={() => touch("symbol")}
                   onChange={update("symbol")}
+                  placeholder="FANS"
                   required
                   value={form.symbol}
                 />

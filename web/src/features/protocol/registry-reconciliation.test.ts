@@ -20,7 +20,14 @@ const creator = getAddress("0x1111111111111111111111111111111111111111");
 const factory = getAddress("0x2222222222222222222222222222222222222222");
 const tier = getAddress("0x3333333333333333333333333333333333333333");
 const otherTier = getAddress("0x4444444444444444444444444444444444444444");
-const config = evaluateCreatorForm(defaultCreatorForm, creator).config!;
+const config = evaluateCreatorForm(
+  {
+    ...defaultCreatorForm,
+    name: "Creator membership",
+    symbol: "FANS",
+  },
+  creator,
+).config!;
 
 function tierCreatedLog(emittedTier: Address, tierIndex = 0n) {
   return {

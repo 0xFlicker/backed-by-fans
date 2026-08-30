@@ -53,8 +53,8 @@ export type CreatorFormResult = {
 };
 
 export const defaultCreatorForm: CreatorForm = {
-  name: "Creator membership",
-  symbol: "FANS",
+  name: "",
+  symbol: "",
   description: "",
   imageURI: "",
   externalURI: "",

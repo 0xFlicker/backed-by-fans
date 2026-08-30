@@ -45,11 +45,33 @@ describe("creator setup component", () => {
     walletChainId = 46_630;
   });
 
+  it("starts identity fields empty with examples as placeholders", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+
+    const name = screen.getByLabelText("Membership name");
+    const symbol = screen.getByLabelText("Symbol");
+    expect(name).toHaveValue("");
+    expect(name).toHaveAttribute("placeholder", "Creator membership");
+    expect(symbol).toHaveValue("");
+    expect(symbol).toHaveAttribute("placeholder", "FANS");
+    expect(document.getElementById("tier-name-error")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+
+    await user.click(name);
+    await user.click(symbol);
+    expect(document.getElementById("tier-name-error")).toHaveAttribute(
+      "role",
+      "alert",
+    );
+  });
+
   it("preserves completed input through wallet and network rerenders", async () => {
     const user = userEvent.setup();
     const view = renderWizard();
     const name = screen.getByLabelText("Membership name");
-    await user.clear(name);
     await user.type(name, "The listening room");
 
     walletAddress = getAddress("0x1111111111111111111111111111111111111111");

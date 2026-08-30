@@ -8,10 +8,20 @@ import {
 } from "@/features/creator/config";
 
 const creator = getAddress("0x1111111111111111111111111111111111111111");
+const validCreatorForm = {
+  ...defaultCreatorForm,
+  name: "Creator membership",
+  symbol: "FANS",
+};
 
 describe("creator tier configuration", () => {
-  it("produces the confirmed default terms", () => {
-    const result = evaluateCreatorForm(defaultCreatorForm, creator);
+  it("keeps identity examples out of the submitted default form", () => {
+    expect(defaultCreatorForm.name).toBe("");
+    expect(defaultCreatorForm.symbol).toBe("");
+  });
+
+  it("produces the confirmed default economic terms with an identity", () => {
+    const result = evaluateCreatorForm(validCreatorForm, creator);
 
     expect(result.errors).toEqual({});
     expect(result.config).toMatchObject({
@@ -28,7 +38,7 @@ describe("creator tier configuration", () => {
   it("accepts arbitrary valid basis-point percentages", () => {
     const result = evaluateCreatorForm(
       {
-        ...defaultCreatorForm,
+        ...validCreatorForm,
         rewardPercent: "33.33",
         referralPercent: "65.67",
       },
@@ -45,7 +55,7 @@ describe("creator tier configuration", () => {
   it("treats empty percentage edits as zero", () => {
     const result = evaluateCreatorForm(
       {
-        ...defaultCreatorForm,
+        ...validCreatorForm,
         rewardPercent: "",
         referralPercent: "   ",
       },
@@ -61,7 +71,7 @@ describe("creator tier configuration", () => {
   it("rejects an invalid split before a config can be signed", () => {
     const result = evaluateCreatorForm(
       {
-        ...defaultCreatorForm,
+        ...validCreatorForm,
         rewardPercent: "60",
         referralPercent: "40",
       },
@@ -75,7 +85,7 @@ describe("creator tier configuration", () => {
   it("warns about capped open zero-price tiers and gifting exposure", () => {
     const result = evaluateCreatorForm(
       {
-        ...defaultCreatorForm,
+        ...validCreatorForm,
         priceUsd: "0",
         supplyCap: "25",
         maxPrepaidPeriods: "0",

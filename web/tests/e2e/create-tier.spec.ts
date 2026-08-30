@@ -27,6 +27,7 @@ test("@anvil deploys and shares a creator-owned tier through the production UI",
     await page.goto("/create");
     await connectAnvilWallet(page, creator);
     await page.getByLabel("Membership name").fill("Anvil listening room");
+    await page.getByLabel("Symbol").fill("ANVIL");
     await page.getByRole("button", { name: /^risks$/i }).click();
     await page.getByRole("checkbox").nth(0).check();
     await page.getByRole("checkbox").nth(1).check();
@@ -67,10 +68,18 @@ test("walks through defaults, arbitrary splits, risks, and immutable review", as
 }) => {
   await page.goto("/create");
 
-  await expect(page.getByLabel("Membership name")).toHaveValue(
+  await expect(page.getByLabel("Membership name")).toHaveValue("");
+  await expect(page.getByLabel("Membership name")).toHaveAttribute(
+    "placeholder",
     "Creator membership",
   );
-  await expect(page.getByLabel("Symbol")).toHaveValue("FANS");
+  await expect(page.getByLabel("Symbol")).toHaveValue("");
+  await expect(page.getByLabel("Symbol")).toHaveAttribute(
+    "placeholder",
+    "FANS",
+  );
+  await page.getByLabel("Membership name").fill("Creator membership");
+  await page.getByLabel("Symbol").fill("FANS");
 
   await page.getByRole("button", { name: /^price & period$/i }).click();
   await expect(page.getByLabel("USDG per period")).toHaveValue("10");
