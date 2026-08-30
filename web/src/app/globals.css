@@ -1335,6 +1335,10 @@ dd {
   margin-top: 1rem;
 }
 
+.control-group > .button + .button {
+  margin-inline-start: 0.8rem;
+}
+
 .control-group > .creator-actions {
   margin-top: 1rem;
 }
@@ -1951,6 +1955,10 @@ dd {
   .creator-actions .button,
   .control-group > .button {
     width: 100%;
+  }
+
+  .control-group > .button + .button {
+    margin-inline-start: 0;
   }
 
   .management-heading {
