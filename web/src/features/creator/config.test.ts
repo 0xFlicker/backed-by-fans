@@ -42,6 +42,22 @@ describe("creator tier configuration", () => {
     );
   });
 
+  it("treats empty percentage edits as zero", () => {
+    const result = evaluateCreatorForm(
+      {
+        ...defaultCreatorForm,
+        rewardPercent: "",
+        referralPercent: "   ",
+      },
+      creator,
+    );
+
+    expect(result.errors.rewardPercent).toBeUndefined();
+    expect(result.errors.referralPercent).toBeUndefined();
+    expect(result.config?.rewardBps).toBe(0);
+    expect(result.config?.referralBps).toBe(0);
+  });
+
   it("rejects an invalid split before a config can be signed", () => {
     const result = evaluateCreatorForm(
       {

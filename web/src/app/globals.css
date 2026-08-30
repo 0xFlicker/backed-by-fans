@@ -1036,6 +1036,7 @@ dd {
 }
 
 .creator-field {
+  align-content: start;
   display: grid;
   gap: 0.55rem;
   margin-top: 1.25rem;

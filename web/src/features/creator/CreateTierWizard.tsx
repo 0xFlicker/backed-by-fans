@@ -72,11 +72,14 @@ function Field({
         {hint}
       </p>
       {children}
-      {error && (
-        <p className="field-error" id={`${id}-error`} role="alert">
-          {error}
-        </p>
-      )}
+      <p
+        aria-hidden={!error}
+        className="field-error"
+        id={`${id}-error`}
+        role={error ? "alert" : undefined}
+      >
+        {error ?? "\u00a0"}
+      </p>
     </div>
   );
 }
@@ -138,6 +141,12 @@ export function CreateTierWizard() {
       setCreatedTier(undefined);
       setConfirmationNote(undefined);
     };
+  }
+
+  function normalizeEmptyPercent(key: "rewardPercent" | "referralPercent") {
+    setForm((current) =>
+      current[key].trim() === "" ? { ...current, [key]: "0" } : current,
+    );
   }
 
   function go(direction: 1 | -1) {
@@ -468,6 +477,7 @@ export function CreateTierWizard() {
                   id="tier-reward"
                   inputMode="decimal"
                   min="0"
+                  onBlur={() => normalizeEmptyPercent("rewardPercent")}
                   onChange={update("rewardPercent")}
                   value={form.rewardPercent}
                 />
@@ -483,6 +493,7 @@ export function CreateTierWizard() {
                   id="tier-referral"
                   inputMode="decimal"
                   min="0"
+                  onBlur={() => normalizeEmptyPercent("referralPercent")}
                   onChange={update("referralPercent")}
                   value={form.referralPercent}
                 />
@@ -634,8 +645,8 @@ export function CreateTierWizard() {
                   <div>
                     <dt>Reward / referral</dt>
                     <dd>
-                      {form.rewardPercent || "—"}% /{" "}
-                      {form.referralPercent || "—"}%
+                      {form.rewardPercent || "0"}% /{" "}
+                      {form.referralPercent || "0"}%
                     </dd>
                   </div>
                 </dl>

@@ -70,6 +70,29 @@ describe("creator setup component", () => {
     );
   });
 
+  it("keeps an empty percentage calm while editing and normalizes it to zero on blur", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+
+    await user.click(screen.getByRole("button", { name: /^support split$/i }));
+    const reward = screen.getByLabelText("Membership rewards (%)");
+    const referral = screen.getByLabelText("Referral share (%)");
+
+    await user.clear(reward);
+    expect(reward).toHaveValue("");
+    expect(document.getElementById("tier-reward-error")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(document.getElementById("tier-reward-error")).not.toHaveAttribute(
+      "role",
+    );
+    expect(document.getElementById("tier-referral-error")).toBeInTheDocument();
+
+    await user.click(referral);
+    expect(reward).toHaveValue("0");
+  });
+
   it("requires both material acknowledgements before deployment", async () => {
     const user = userEvent.setup();
     walletAddress = getAddress("0x1111111111111111111111111111111111111111");

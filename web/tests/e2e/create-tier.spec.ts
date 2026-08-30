@@ -117,6 +117,36 @@ test("rejects invalid split totals before signing without losing input", async (
   );
 });
 
+test("treats an emptied split as zero without shifting its paired input", async ({
+  page,
+}) => {
+  await page.goto("/create");
+  await page.getByRole("button", { name: /^support split$/i }).click();
+
+  const reward = page.getByLabel("Membership rewards (%)");
+  const referral = page.getByLabel("Referral share (%)");
+  const rewardBefore = await reward.boundingBox();
+  const referralBefore = await referral.boundingBox();
+  await reward.fill("");
+
+  await expect(page.getByText(/use a percentage from 0 to 100/i)).toHaveCount(
+    0,
+  );
+  await expect(page.getByLabel("Payment split preview")).toBeVisible();
+
+  const rewardAfter = await reward.boundingBox();
+  const referralAfter = await referral.boundingBox();
+  expect(rewardBefore).not.toBeNull();
+  expect(referralBefore).not.toBeNull();
+  expect(rewardAfter).not.toBeNull();
+  expect(referralAfter).not.toBeNull();
+  expect(Math.abs(rewardBefore!.y - rewardAfter!.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(referralBefore!.y - referralAfter!.y)).toBeLessThanOrEqual(1);
+
+  await referral.focus();
+  await expect(reward).toHaveValue("0");
+});
+
 test("keeps creator setup keyboard reachable and responsive", async ({
   page,
 }) => {

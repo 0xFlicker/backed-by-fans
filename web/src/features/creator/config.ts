@@ -77,7 +77,10 @@ function parseWholeUint64(value: string): bigint | undefined {
 }
 
 function parsePercentToBps(value: string): number | undefined {
-  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(value.trim());
+  const normalized = value.trim();
+  if (normalized === "") return 0;
+
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(normalized);
   if (!match) return undefined;
   const whole = Number(match[1]);
   const fraction = Number((match[2] ?? "").padEnd(2, "0"));
