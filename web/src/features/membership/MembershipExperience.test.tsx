@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { getAddress, zeroAddress } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
@@ -182,6 +183,23 @@ describe("supporter membership experience", () => {
     expect(
       screen.queryByRole("button", { name: /gift this membership/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps the payment preview in place while the periods field is empty", async () => {
+    const user = userEvent.setup();
+    renderExperience({ ...snapshot, credential: credential() });
+
+    const periods = screen.getByLabelText("Periods");
+    const preview = screen.getByLabelText("Membership payment preview");
+    await user.clear(periods);
+
+    expect(periods).toHaveAttribute("aria-invalid", "true");
+    expect(within(preview).getByText("0 USDG")).toBeVisible();
+    expect(within(preview).getByText("0 days")).toBeVisible();
+    expect(screen.getByText("Enter 1 or more whole periods.")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Renew active membership" }),
+    ).toBeDisabled();
   });
 
   it("keeps referrals implicit and hides claims that are not available", () => {

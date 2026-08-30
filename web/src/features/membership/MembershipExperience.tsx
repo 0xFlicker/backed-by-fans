@@ -216,22 +216,22 @@ export function MembershipExperience({
     !isTransactionInFlight(transaction.phase);
   const periodValue = parseUint64Input(periods, { allowZero: false });
   const contributionValue = parseUsdg(contribution);
-  const selfPreview =
-    periodValue !== undefined && contributionValue !== undefined
-      ? buildPaymentPreview({
-          now: snapshot.capturedTimestamp,
-          currentExpiration: snapshot.credential?.expiration ?? 0n,
-          periodDuration: snapshot.periodDuration,
-          periods: snapshot.pricePerPeriod === 0n ? 1n : periodValue,
-          pricePerPeriod: snapshot.pricePerPeriod,
-          contribution: contributionValue,
-          allowance: snapshot.allowance ?? 0n,
-          rewardBps: snapshot.rewardBps,
-          referralBps: snapshot.referralBps,
-          referralApplies:
-            snapshot.credential?.referralStatus === "locked-address",
-        })
-      : undefined;
+  const primaryInputValid =
+    snapshot.pricePerPeriod === 0n
+      ? contributionValue !== undefined
+      : periodValue !== undefined;
+  const selfPreview = buildPaymentPreview({
+    now: snapshot.capturedTimestamp,
+    currentExpiration: snapshot.credential?.expiration ?? 0n,
+    periodDuration: snapshot.periodDuration,
+    periods: snapshot.pricePerPeriod === 0n ? 1n : (periodValue ?? 0n),
+    pricePerPeriod: snapshot.pricePerPeriod,
+    contribution: contributionValue ?? 0n,
+    allowance: snapshot.allowance ?? 0n,
+    rewardBps: snapshot.rewardBps,
+    referralBps: snapshot.referralBps,
+    referralApplies: snapshot.credential?.referralStatus === "locked-address",
+  });
   const reacquiring =
     actionState === "joinable" || actionState === "historical-synchronized";
   const capacityFull =
@@ -239,7 +239,6 @@ export function MembershipExperience({
     snapshot.supplyCap !== 0n &&
     snapshot.occupiedSupply >= snapshot.supplyCap;
   const exceedsPrepaymentLimit =
-    selfPreview !== undefined &&
     snapshot.maxPrepaidPeriods !== 0n &&
     (snapshot.credential?.paidSeconds ?? 0n) + selfPreview.duration >
       snapshot.maxPrepaidPeriods * snapshot.periodDuration;
@@ -468,7 +467,6 @@ export function MembershipExperience({
 
   async function buyForSelf() {
     if (
-      !selfPreview ||
       periodValue === undefined ||
       contributionValue === undefined ||
       !account.address
@@ -568,8 +566,8 @@ export function MembershipExperience({
     snapshot.paused ||
     capacityFull ||
     exceedsPrepaymentLimit ||
-    !selfPreview ||
-    (selfPreview && (snapshot.walletUsdgBalance ?? 0n) < selfPreview.gross);
+    !primaryInputValid ||
+    (snapshot.walletUsdgBalance ?? 0n) < selfPreview.gross;
 
   const network = getSupportedChain(expectedChainId);
   const explorerUrl = network.blockExplorers?.default.url;
@@ -578,7 +576,6 @@ export function MembershipExperience({
   const creatorClaim = snapshot.creatorProceeds ?? 0n;
   const hasClaims = rewardClaim > 0n || referralClaim > 0n || creatorClaim > 0n;
   const fundingShortfall =
-    selfPreview &&
     snapshot.walletUsdgBalance !== undefined &&
     snapshot.walletUsdgBalance < selfPreview.gross
       ? selfPreview.gross - snapshot.walletUsdgBalance
@@ -718,6 +715,7 @@ export function MembershipExperience({
               <label className="creator-field">
                 <span>Optional USDG contribution</span>
                 <input
+                  aria-invalid={contributionValue === undefined}
                   inputMode="decimal"
                   min="0"
                   onChange={(event) => setContribution(event.target.value)}
@@ -729,6 +727,7 @@ export function MembershipExperience({
               <label className="creator-field">
                 <span>Periods</span>
                 <input
+                  aria-invalid={periodValue === undefined}
                   inputMode="numeric"
                   min="1"
                   onChange={(event) => setPeriods(event.target.value)}
@@ -737,33 +736,43 @@ export function MembershipExperience({
               </label>
             )}
 
-            {selfPreview && (
-              <dl
-                className="payment-preview"
-                aria-label="Membership payment preview"
-              >
-                <div>
-                  <dt>Total</dt>
-                  <dd>{formatUnits(selfPreview.gross, 6)} USDG</dd>
-                </div>
-                <div>
-                  <dt>Access added</dt>
-                  <dd>{formatPeriod(selfPreview.duration)}</dd>
-                </div>
-                <div>
-                  <dt>Membership through</dt>
-                  <dd>
-                    {formatMembershipDate(selfPreview.resultingExpiration)}
-                  </dd>
-                </div>
-              </dl>
-            )}
-            {selfPreview && selfPreview.exactApproval > 0n && (
-              <p className="small-copy">
-                Your wallet will first request an exact{" "}
-                {formatUnits(selfPreview.exactApproval, 6)} USDG approval.
-              </p>
-            )}
+            <dl
+              className="payment-preview"
+              aria-label="Membership payment preview"
+            >
+              <div>
+                <dt>Total</dt>
+                <dd>{formatUnits(selfPreview.gross, 6)} USDG</dd>
+              </div>
+              <div>
+                <dt>Access added</dt>
+                <dd>
+                  {selfPreview.duration === 0n
+                    ? "0 days"
+                    : formatPeriod(selfPreview.duration)}
+                </dd>
+              </div>
+              <div>
+                <dt>Membership through</dt>
+                <dd>{formatMembershipDate(selfPreview.resultingExpiration)}</dd>
+              </div>
+            </dl>
+            <p className="small-copy" aria-live="polite">
+              {!primaryInputValid ? (
+                snapshot.pricePerPeriod === 0n ? (
+                  "Enter a valid USDG contribution."
+                ) : (
+                  "Enter 1 or more whole periods."
+                )
+              ) : selfPreview.exactApproval > 0n ? (
+                <>
+                  Your wallet will first request an exact{" "}
+                  {formatUnits(selfPreview.exactApproval, 6)} USDG approval.
+                </>
+              ) : (
+                "Your current USDG allowance covers this payment."
+              )}
+            </p>
             {fundingShortfall > 0n && (
               <p className="funding-notice" role="status">
                 Add {formatUnits(fundingShortfall, 6)} USDG to this wallet to
