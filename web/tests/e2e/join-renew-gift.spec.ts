@@ -68,7 +68,7 @@ test.describe("configured Anvil join, renew, and gift", () => {
       await expect(
         page
           .getByRole("region", { name: "Current membership status" })
-          .getByRole("heading", { name: "Renew active membership" }),
+          .getByRole("heading", { name: "Membership active" }),
       ).toBeVisible();
 
       const renew = page.getByRole("button", {

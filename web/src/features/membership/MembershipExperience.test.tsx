@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { getAddress, zeroAddress } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
@@ -105,9 +105,20 @@ describe("supporter membership experience", () => {
         />
       </QueryClientProvider>,
     );
+    const activeStatus = screen.getByRole("region", {
+      name: "Current membership status",
+    });
     expect(
-      screen.getAllByText("Renew active membership").length,
-    ).toBeGreaterThan(0);
+      within(activeStatus).getByRole("heading", {
+        name: "Membership active",
+      }),
+    ).toBeVisible();
+    expect(
+      within(activeStatus).queryByText("Renew active membership"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Membership action" }),
+    ).toHaveTextContent("Renew active membership");
 
     view.rerender(
       <QueryClientProvider client={new QueryClient()}>

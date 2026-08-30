@@ -131,6 +131,14 @@ function statusCopy(state: ReturnType<typeof classifyMembershipState>) {
   }
 }
 
+function membershipStatusTitle(credential: {
+  active: boolean;
+  occupied: boolean;
+}) {
+  if (credential.active) return "Membership active";
+  return credential.occupied ? "Membership expired" : "Previous membership";
+}
+
 export function MembershipExperience({
   snapshot,
   capturedBlock,
@@ -665,8 +673,9 @@ export function MembershipExperience({
         >
           <div>
             <p className="eyebrow">Your membership</p>
-            <h2 id="membership-status-title">{primaryTitle}</h2>
-            <p>{primaryDescription}</p>
+            <h2 id="membership-status-title">
+              {membershipStatusTitle(snapshot.credential)}
+            </h2>
           </div>
           <dl>
             <div>

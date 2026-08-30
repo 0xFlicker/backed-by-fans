@@ -137,7 +137,7 @@ test.describe("@anvil configured local Anvil membership", () => {
       await expect(
         page
           .getByRole("region", { name: "Current membership status" })
-          .getByRole("heading", { level: 2, name: "Renew active membership" }),
+          .getByRole("heading", { level: 2, name: "Membership active" }),
       ).toBeVisible();
       await expect(
         page.locator(".claim-row").filter({ hasText: "Membership rewards" }),
