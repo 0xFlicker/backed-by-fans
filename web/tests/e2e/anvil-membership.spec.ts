@@ -55,6 +55,29 @@ test.describe("@anvil configured local Anvil membership", () => {
     ).toHaveCount(0);
   });
 
+  test("gives the connected creator a direct path to tier management", async ({
+    page,
+  }) => {
+    const creator = requiredAnvilAddress("creator");
+    const tier = requiredAnvilAddress("tier");
+    await installAnvilWallet(page, creator);
+    await page.goto(`/chains/31337/tiers/${tier}`);
+    await connectAnvilWallet(page, creator);
+
+    const manage = page.getByRole("link", { name: "Manage membership" });
+    await expect(manage).toHaveAttribute(
+      "href",
+      `/chains/31337/tiers/${tier}/manage`,
+    );
+    await manage.click();
+
+    await expect(page).toHaveURL(`/chains/31337/tiers/${tier}/manage`);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Local Creator Circle" }),
+    ).toBeVisible();
+    await expect(page.getByText("This wallet operates the tier")).toBeVisible();
+  });
+
   test("connects an unlocked wallet and reconciles an exact-approval purchase", async ({
     page,
   }, testInfo) => {

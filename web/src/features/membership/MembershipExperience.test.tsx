@@ -184,4 +184,27 @@ describe("supporter membership experience", () => {
     expect(screen.queryByText(/permanent shares/i)).not.toBeInTheDocument();
     expect(screen.getByText("Contract Addresses")).toBeVisible();
   });
+
+  it("shows management only to the connected tier creator", () => {
+    const view = renderExperience({ ...snapshot, creator: wallet });
+
+    expect(
+      screen.getByRole("link", { name: "Manage membership" }),
+    ).toHaveAttribute("href", `/chains/46630/tiers/${snapshot.address}/manage`);
+
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MembershipExperience
+          capturedBlock={100n}
+          expectedChainId={46630}
+          fresh
+          onRefresh={async () => undefined}
+          snapshot={snapshot}
+        />
+      </QueryClientProvider>,
+    );
+    expect(
+      screen.queryByRole("link", { name: "Manage membership" }),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -168,11 +168,11 @@ function HydratedDiscovery({
     <section className="account-results surface-card">
       <div className="account-results-heading">
         <div>
-          <p className="eyebrow">Verified direct reads</p>
-          <h2 className="font-display">Memberships and claims</h2>
+          <p className="eyebrow">From the registry</p>
+          <h2 className="font-display">Your memberships</h2>
           <p>
             Discovery scans at most 12 registered tiers per request. Saved
-            results show the block where each tier was last verified, and a
+            results show the block where each tier was last read, and a
             completed scan refreshes from the start on the next visit.
           </p>
         </div>
@@ -222,8 +222,8 @@ function HydratedDiscovery({
 
           {currentCache.results.length === 0 ? (
             <div className="empty-room">
-              <p className="eyebrow">Nothing verified yet</p>
-              <h3>No membership or claim was found in the scanned pages.</h3>
+              <p className="eyebrow">Nothing found yet</p>
+              <h3>No membership, creator tier, or claim was found.</h3>
             </div>
           ) : (
             <ul className="account-tier-list">
@@ -240,37 +240,62 @@ function HydratedDiscovery({
                           : `Historical credential #${tier.tokenId}`}
                     </span>
                     <span className="font-mono">
-                      Verified at block {tier.capturedBlock}
+                      Read at block {tier.capturedBlock}
                     </span>
                   </div>
-                  <dl>
-                    <div>
-                      <dt>Reward</dt>
-                      <dd>
-                        {formatUnits(BigInt(tier.claimableReward), 6)} USDG
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Referral</dt>
-                      <dd>
-                        {formatUnits(BigInt(tier.claimableReferral), 6)} USDG
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Creator</dt>
-                      <dd>
-                        {formatUnits(BigInt(tier.creatorProceeds), 6)} USDG
-                      </dd>
-                    </div>
-                  </dl>
-                  <Link
-                    className="button button-light"
-                    href={
-                      `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route
-                    }
-                  >
-                    Open membership
-                  </Link>
+                  {(BigInt(tier.claimableReward) > 0n ||
+                    BigInt(tier.claimableReferral) > 0n ||
+                    BigInt(tier.creatorProceeds) > 0n) && (
+                    <dl>
+                      {BigInt(tier.claimableReward) > 0n && (
+                        <div>
+                          <dt>Membership rewards</dt>
+                          <dd>
+                            {formatUnits(BigInt(tier.claimableReward), 6)} USDG
+                          </dd>
+                        </div>
+                      )}
+                      {BigInt(tier.claimableReferral) > 0n && (
+                        <div>
+                          <dt>Referral proceeds</dt>
+                          <dd>
+                            {formatUnits(BigInt(tier.claimableReferral), 6)}{" "}
+                            USDG
+                          </dd>
+                        </div>
+                      )}
+                      {tier.creatorOwned &&
+                        BigInt(tier.creatorProceeds) > 0n && (
+                          <div>
+                            <dt>Creator proceeds</dt>
+                            <dd>
+                              {formatUnits(BigInt(tier.creatorProceeds), 6)}{" "}
+                              USDG
+                            </dd>
+                          </div>
+                        )}
+                    </dl>
+                  )}
+                  <div className="account-tier-actions">
+                    <Link
+                      className="button button-light"
+                      href={
+                        `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route
+                      }
+                    >
+                      Open membership
+                    </Link>
+                    {tier.creatorOwned && (
+                      <Link
+                        className="button button-dark"
+                        href={
+                          `/chains/${deployment.chainId}/tiers/${tier.tier}/manage` as Route
+                        }
+                      >
+                        Manage membership
+                      </Link>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

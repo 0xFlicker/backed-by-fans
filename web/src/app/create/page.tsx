@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { CreateTierWizard } from "@/features/creator/CreateTierWizard";
 
@@ -19,6 +20,9 @@ export default function CreatePage() {
           Build the terms in plain language, see how support is split, and know
           exactly which choices become permanent before your wallet signs.
         </p>
+        <Link className="text-button" href="/account">
+          Manage existing memberships
+        </Link>
       </div>
       <CreateTierWizard />
     </section>

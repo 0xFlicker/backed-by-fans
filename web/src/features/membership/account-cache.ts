@@ -3,6 +3,7 @@ import { isAddress, type Address } from "viem";
 export type AccountTierResult = {
   tier: Address;
   name: string;
+  creatorOwned: boolean;
   tokenId: bigint;
   active: boolean;
   claimableReward: bigint;
@@ -22,14 +23,14 @@ type CachedAccountTier = Omit<
 };
 
 export type AccountCache = {
-  version: 2;
+  version: 3;
   cursor: string;
   complete: boolean;
   results: CachedAccountTier[];
 };
 
 export function emptyAccountCache(): AccountCache {
-  return { version: 2, cursor: "0", complete: false, results: [] };
+  return { version: 3, cursor: "0", complete: false, results: [] };
 }
 
 export function accountCacheKey(
@@ -37,7 +38,7 @@ export function accountCacheKey(
   factory: Address,
   wallet: Address,
 ) {
-  return `backed-by-fans:account:v2:${chainId}:${factory.toLowerCase()}:${wallet.toLowerCase()}`;
+  return `backed-by-fans:account:v3:${chainId}:${factory.toLowerCase()}:${wallet.toLowerCase()}`;
 }
 
 function cachedResult(
@@ -75,7 +76,7 @@ export function mergeAccountPage(
     ),
   );
   return {
-    version: 2,
+    version: 3,
     cursor: page.resumeOffset.toString(),
     complete: page.complete,
     results: [...results.values()],
@@ -86,7 +87,7 @@ function validCache(value: unknown): value is AccountCache {
   if (!value || typeof value !== "object") return false;
   const cache = value as Partial<AccountCache>;
   if (
-    cache.version !== 2 ||
+    cache.version !== 3 ||
     typeof cache.cursor !== "string" ||
     typeof cache.complete !== "boolean" ||
     !Array.isArray(cache.results)
@@ -99,6 +100,7 @@ function validCache(value: unknown): value is AccountCache {
       if (
         !isAddress(result.tier) ||
         typeof result.name !== "string" ||
+        typeof result.creatorOwned !== "boolean" ||
         typeof result.active !== "boolean"
       )
         return false;

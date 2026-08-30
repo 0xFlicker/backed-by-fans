@@ -103,13 +103,20 @@ async function inspectTier(
           })
         : 0n,
     ]);
-    if (tokenId === 0n && claimableReferral === 0n && creatorProceeds === 0n) {
+    const creatorOwned = isSameAddress(owner, input.wallet);
+    if (
+      !creatorOwned &&
+      tokenId === 0n &&
+      claimableReferral === 0n &&
+      creatorProceeds === 0n
+    ) {
       return {};
     }
     return {
       result: {
         tier: input.tier,
         name,
+        creatorOwned,
         tokenId,
         active,
         claimableReward,
@@ -329,7 +336,9 @@ async function inspectTiersWithMulticall(
       continue;
     }
     const claim = claims.get(candidate.tier)!;
+    const creatorOwned = isSameAddress(candidate.owner, input.wallet);
     if (
+      !creatorOwned &&
       candidate.tokenId === 0n &&
       candidate.claimableReferral === 0n &&
       claim.creatorProceeds === 0n
@@ -339,6 +348,7 @@ async function inspectTiersWithMulticall(
     results.push({
       tier: candidate.tier,
       name: candidate.name,
+      creatorOwned,
       tokenId: candidate.tokenId,
       active: claim.active,
       claimableReward: claim.claimableReward,

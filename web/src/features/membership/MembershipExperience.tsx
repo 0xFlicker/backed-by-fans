@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import type { Route } from "next";
 import { useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
@@ -47,6 +49,7 @@ import {
   type SuccessfulWriteReceipt,
 } from "@/features/protocol/write-reconciliation";
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
+import { isSameAddress } from "@/lib/address";
 import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain } from "@/lib/chains";
 import type { ReadState } from "@/lib/read-state";
@@ -577,6 +580,11 @@ export function MembershipExperience({
       ? selfPreview.gross - snapshot.walletUsdgBalance
       : 0n;
   const displayedHash = transaction.replacementHash ?? transaction.hash;
+  const isCreator = Boolean(
+    snapshot.wallet && isSameAddress(snapshot.wallet, snapshot.creator),
+  );
+  const managePath =
+    `/chains/${expectedChainId}/tiers/${snapshot.address}/manage` as Route;
 
   async function copyShareLink() {
     if (!account.address) return;
@@ -609,17 +617,27 @@ export function MembershipExperience({
         <div className="membership-identity-actions">
           <span className="membership-symbol">{snapshot.symbol}</span>
           {account.address && (
-            <button
-              className="text-button"
-              onClick={() => void copyShareLink()}
-              type="button"
-            >
-              {shareState === "copied"
-                ? "Link copied"
-                : shareState === "unavailable"
-                  ? "Copy unavailable"
-                  : "Copy share link"}
-            </button>
+            <div className="membership-action-links">
+              {isCreator && (
+                <Link
+                  className="button button-dark button-small"
+                  href={managePath}
+                >
+                  Manage membership
+                </Link>
+              )}
+              <button
+                className="text-button"
+                onClick={() => void copyShareLink()}
+                type="button"
+              >
+                {shareState === "copied"
+                  ? "Link copied"
+                  : shareState === "unavailable"
+                    ? "Copy unavailable"
+                    : "Copy share link"}
+              </button>
+            </div>
           )}
         </div>
       </div>

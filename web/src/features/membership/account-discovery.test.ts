@@ -164,6 +164,7 @@ describe("bounded account discovery", () => {
       {
         tier: tierA,
         name: "Room",
+        creatorOwned: false,
         tokenId: 1n,
         active: true,
         claimableReward: 2n,
@@ -174,5 +175,48 @@ describe("bounded account discovery", () => {
     expect(multicall).toHaveBeenCalledTimes(2);
     expect(client.getBytecode).not.toHaveBeenCalled();
     expect(verifyTierAuthenticity).not.toHaveBeenCalled();
+  });
+
+  it("retains a creator-owned tier even when it has no membership or proceeds", async () => {
+    vi.mocked(readCatalogPage).mockResolvedValue({
+      capturedBlock: 80n,
+      total: 1n,
+      offset: 0n,
+      limit: 12,
+      addresses: [tierA],
+      nextOffset: null,
+    });
+    vi.mocked(verifyMulticall3).mockResolvedValue("missing");
+    const readContract = vi.fn(({ functionName }: { functionName: string }) => {
+      const values: Record<string, unknown> = {
+        name: "Creator room",
+        tokenOf: 0n,
+        claimableReferral: 0n,
+        owner: wallet,
+        creatorProceeds: 0n,
+      };
+      return Promise.resolve(values[functionName]);
+    });
+
+    const page = await discoverAccountPage(
+      {
+        getBlockNumber: vi.fn().mockResolvedValue(80n),
+        readContract,
+      } as unknown as PublicClient,
+      { deployment, wallet, offset: 0n },
+    );
+
+    expect(page.results).toEqual([
+      {
+        tier: tierA,
+        name: "Creator room",
+        creatorOwned: true,
+        tokenId: 0n,
+        active: false,
+        claimableReward: 0n,
+        claimableReferral: 0n,
+        creatorProceeds: 0n,
+      },
+    ]);
   });
 });

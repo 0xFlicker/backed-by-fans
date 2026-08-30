@@ -626,7 +626,7 @@ main {
   max-width: 63rem;
 }
 
-.page-intro p:last-child,
+.page-intro > p:last-of-type,
 .narrow-page > p {
   color: var(--muted-ink);
   font-size: 1.08rem;
@@ -1459,6 +1459,15 @@ dd {
   justify-items: end;
 }
 
+.membership-action-links,
+.account-tier-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
 .membership-symbol {
   color: var(--muted-ink);
   font-size: 0.78rem;
@@ -1963,6 +1972,11 @@ dd {
 
   .membership-identity-actions {
     justify-items: start;
+  }
+
+  .membership-action-links,
+  .account-tier-actions {
+    justify-content: flex-start;
   }
 
   .gift-action > .button,

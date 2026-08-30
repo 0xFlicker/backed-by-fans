@@ -43,6 +43,7 @@ describe("account discovery cache", () => {
         {
           tier,
           name: "The listening room",
+          creatorOwned: false,
           tokenId: 1n,
           active: true,
           claimableReward: 2_000_000n,
@@ -69,6 +70,7 @@ describe("account discovery cache", () => {
         {
           tier,
           name: "Room",
+          creatorOwned: true,
           tokenId: 1n,
           active: false,
           claimableReward: 1n,
@@ -86,6 +88,7 @@ describe("account discovery cache", () => {
         {
           tier,
           name: "Room",
+          creatorOwned: true,
           tokenId: 1n,
           active: true,
           claimableReward: 5n,
@@ -115,6 +118,7 @@ describe("account discovery cache", () => {
         {
           tier,
           name: "Room",
+          creatorOwned: false,
           tokenId: 1n,
           active: true,
           claimableReward: 4n,
@@ -148,6 +152,7 @@ describe("account discovery cache", () => {
           {
             tier,
             name: "Room",
+            creatorOwned: false,
             tokenId: 1n,
             active: true,
             claimableReward: 1n,
@@ -176,6 +181,7 @@ describe("account discovery cache", () => {
         {
           tier,
           name: "Room",
+          creatorOwned: false,
           tokenId: 1n,
           active: true,
           claimableReward: 5n,
