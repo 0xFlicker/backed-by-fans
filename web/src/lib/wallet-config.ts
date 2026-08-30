@@ -33,8 +33,8 @@ export function createWalletConfig(config: PublicConfig = publicConfig) {
       connectors,
       ssr: true,
       transports: {
-        [publicChains[0].id]: http(config.testnetRpcUrl),
-        [publicChains[1].id]: http(config.mainnetRpcUrl),
+        [publicChains[0].id]: http(),
+        [publicChains[1].id]: http(),
         [31_337]: http(config.anvilRpcUrl),
       },
     });
@@ -45,8 +45,8 @@ export function createWalletConfig(config: PublicConfig = publicConfig) {
     connectors,
     ssr: true,
     transports: {
-      [publicChains[0].id]: http(config.testnetRpcUrl),
-      [publicChains[1].id]: http(config.mainnetRpcUrl),
+      [publicChains[0].id]: http(),
+      [publicChains[1].id]: http(),
     },
   });
 }

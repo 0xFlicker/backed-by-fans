@@ -14,8 +14,6 @@ export const officialMainnetUsdg = getAddress(
 );
 
 export type PublicEnvironment = {
-  mainnetRpcUrl?: string;
-  testnetRpcUrl?: string;
   walletConnectProjectId?: string;
   siteUrl?: string;
   anvilRpcUrl?: string;
@@ -40,8 +38,6 @@ export type DeploymentAvailability =
     };
 
 export type PublicConfig = {
-  mainnetRpcUrl: string;
-  testnetRpcUrl: string;
   anvilRpcUrl?: string;
   walletConnectProjectId?: string;
   siteUrl: string;
@@ -122,14 +118,6 @@ export function buildPublicConfig(
   > = generatedFactoryAddresses(),
   usdgAddresses: Partial<Record<number, string>> = generatedUsdgAddresses(),
 ): PublicConfig {
-  const mainnetRpcUrl = parsePublicUrl(
-    environment.mainnetRpcUrl,
-    robinhood.rpcUrls.default.http[0],
-  );
-  const testnetRpcUrl = parsePublicUrl(
-    environment.testnetRpcUrl,
-    robinhoodTestnet.rpcUrls.default.http[0],
-  );
   const siteUrl = parsePublicUrl(environment.siteUrl, "http://localhost:3000");
   const deployments: Partial<Record<SupportedChainId, ReadyDeployment>> = {};
 
@@ -186,8 +174,6 @@ export function buildPublicConfig(
     environment.walletConnectProjectId?.trim() || undefined;
 
   return {
-    mainnetRpcUrl,
-    testnetRpcUrl,
     anvilRpcUrl,
     walletConnectProjectId,
     siteUrl,
@@ -220,17 +206,7 @@ export function getDeployment(
   );
 }
 
-export function getRpcUrl(config: PublicConfig, chainId: SupportedChainId) {
-  if (chainId === robinhood.id) return config.mainnetRpcUrl;
-  if (chainId === robinhoodTestnet.id) return config.testnetRpcUrl;
-  if (chainId === localAnvil.id && config.anvilRpcUrl)
-    return config.anvilRpcUrl;
-  throw new Error(`No RPC transport is configured for chain ${chainId}.`);
-}
-
 export const publicConfig = buildPublicConfig({
-  mainnetRpcUrl: process.env.NEXT_PUBLIC_ROBINHOOD_MAINNET_RPC_URL,
-  testnetRpcUrl: process.env.NEXT_PUBLIC_ROBINHOOD_TESTNET_RPC_URL,
   walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
   anvilRpcUrl: process.env.NEXT_PUBLIC_ANVIL_RPC_URL,

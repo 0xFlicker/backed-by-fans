@@ -223,14 +223,20 @@ function accountPattern(account: Address) {
 
 export async function connectAnvilWallet(page: Page, account: Address) {
   const banner = page.getByRole("banner");
+  const connected = banner.getByRole("button", {
+    name: accountPattern(account),
+  });
   const connect = banner.getByRole("button", { name: "Connect wallet" });
   if (await connect.isVisible()) {
-    await connect.click();
+    try {
+      await connect.click({ timeout: 2_000 });
+    } catch (error) {
+      if (await connected.isVisible()) return;
+      throw error;
+    }
     await page.getByRole("button", { name: /local anvil wallet/i }).click();
   }
-  await expect(
-    banner.getByRole("button", { name: accountPattern(account) }),
-  ).toBeVisible();
+  await expect(connected).toBeVisible();
 }
 
 export async function switchAnvilAccount(page: Page, account: Address) {

@@ -130,13 +130,9 @@ describe("buildPublicConfig", () => {
     });
   });
 
-  it("falls back from malformed public URLs without throwing", () => {
-    const config = buildPublicConfig(
-      { mainnetRpcUrl: "file:///private/key", siteUrl: "not a URL" },
-      {},
-    );
+  it("falls back from a malformed public site URL without throwing", () => {
+    const config = buildPublicConfig({ siteUrl: "not a URL" }, {});
 
-    expect(config.mainnetRpcUrl).toBe(robinhood.rpcUrls.default.http[0]);
     expect(config.siteUrl).toBe("http://localhost:3000");
   });
 });

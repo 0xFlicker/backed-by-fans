@@ -2,30 +2,38 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { type Address } from "viem";
-import { useAccount, usePublicClient } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
+import type { TierSupporterSnapshot } from "@/contracts/types";
 import { MembershipExperience } from "@/features/membership/MembershipExperience";
 import { readTierSupporterState } from "@/features/membership/membership-read";
 import { getDeployment, publicConfig } from "@/lib/config";
+import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import {
   classifyReadError,
+  type ReadState,
   unavailableDeploymentState,
 } from "@/lib/read-state";
+import { useWalletPublicClient } from "@/lib/use-wallet-public-client";
 
 export function TierReadPanel({
   chainId,
   tierAddress,
+  initialState,
 }: {
   chainId: 4663 | 46630 | 31337;
   tierAddress: Address;
+  initialState?: ReadState<TierSupporterSnapshot>;
 }) {
   const deployment = getDeployment(publicConfig, chainId);
-  const account = useAccount();
-  const client = usePublicClient({ chainId });
+  const account = useHydratedAccount();
+  const client = useWalletPublicClient(chainId);
   const tier = useQuery({
     queryKey: ["tier-supporter", chainId, tierAddress, account.address],
-    enabled: deployment.status === "ready" && Boolean(client),
+    enabled:
+      deployment.status === "ready" &&
+      Boolean(client) &&
+      account.chainId === chainId,
     queryFn: () => {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
       if (!client) throw new Error("No public client is available.");
@@ -35,12 +43,15 @@ export function TierReadPanel({
         wallet: account.address,
       });
     },
+    initialData: initialState,
+    placeholderData: (previous) => previous ?? initialState,
+    staleTime: 0,
   });
 
   if (deployment.status !== "ready") {
     return <ReadStateView state={unavailableDeploymentState(deployment)} />;
   }
-  if (tier.isError) {
+  if (tier.isError && !tier.data) {
     const classified = classifyReadError(tier.error);
     return (
       <ReadStateView
@@ -57,7 +68,7 @@ export function TierReadPanel({
       />
     );
   }
-  if (tier.isLoading || !tier.data) {
+  if (!tier.data) {
     return (
       <ReadStateView
         state={{
@@ -74,7 +85,9 @@ export function TierReadPanel({
       <MembershipExperience
         capturedBlock={tier.data.capturedBlock}
         expectedChainId={chainId}
-        fresh
+        fresh={
+          tier.isFetchedAfterMount && !tier.isError && !tier.isPlaceholderData
+        }
         key={`${chainId}:${tierAddress}:${account.address ?? "disconnected"}`}
         onRefresh={async () => (await tier.refetch()).data}
         snapshot={tier.data.data}
@@ -91,7 +104,12 @@ export function TierReadPanel({
               ? tier.data.capturedBlock
               : 0n
           }
-          fresh={tier.data?.status === "valid"}
+          fresh={
+            tier.isFetchedAfterMount &&
+            !tier.isError &&
+            !tier.isPlaceholderData &&
+            tier.data?.status === "valid"
+          }
           key={`${chainId}:${tierAddress}:${account.address ?? "disconnected"}`}
           onRefresh={async () => (await tier.refetch()).data}
           snapshot={snapshot}

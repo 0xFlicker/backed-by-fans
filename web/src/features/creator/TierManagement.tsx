@@ -10,12 +10,7 @@ import {
   type Address,
   type Hash,
 } from "viem";
-import {
-  useAccount,
-  useConfig,
-  usePublicClient,
-  useWriteContract,
-} from "wagmi";
+import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
 import { TransactionFlow } from "@/components/TransactionFlow";
@@ -46,12 +41,14 @@ import {
 import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isNonZeroAddress, isSameAddress } from "@/lib/address";
 import { getSupportedChain } from "@/lib/chains";
+import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { getDeployment, publicConfig } from "@/lib/config";
 import {
   classifyReadError,
   type ReadState,
   unavailableDeploymentState,
 } from "@/lib/read-state";
+import { useWalletPublicClient } from "@/lib/use-wallet-public-client";
 import {
   decodeTransactionError,
   initialTransactionState,
@@ -74,7 +71,7 @@ function ManagementControls({
   onRefresh: () => Promise<ReadState<TierManagementSnapshot> | undefined>;
   expectedChainId: 4663 | 46630 | 31337;
 }) {
-  const account = useAccount();
+  const account = useHydratedAccount();
   const write = useWriteContract();
   const wagmiConfig = useConfig();
   const client = usePublicClient({ chainId: expectedChainId })!;
@@ -1049,15 +1046,21 @@ function ManagementControls({
 export function TierManagement({
   chainId,
   tierAddress,
+  initialState,
 }: {
   chainId: 4663 | 46630 | 31337;
   tierAddress: Address;
+  initialState?: ReadState<TierManagementSnapshot>;
 }) {
   const deployment = getDeployment(publicConfig, chainId);
-  const client = usePublicClient({ chainId });
+  const account = useHydratedAccount();
+  const client = useWalletPublicClient(chainId);
   const management = useQuery({
     queryKey: ["tier-management", chainId, tierAddress],
-    enabled: deployment.status === "ready" && Boolean(client),
+    enabled:
+      deployment.status === "ready" &&
+      Boolean(client) &&
+      account.chainId === chainId,
     queryFn: () => {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
       if (!client) throw new Error("No public client is available.");
@@ -1066,12 +1069,15 @@ export function TierManagement({
         deployment,
       });
     },
+    initialData: initialState,
+    placeholderData: (previous) => previous ?? initialState,
+    staleTime: 0,
   });
 
   if (deployment.status !== "ready") {
     return <ReadStateView state={unavailableDeploymentState(deployment)} />;
   }
-  if (management.isError) {
+  if (management.isError && !management.data) {
     const classified = classifyReadError(management.error);
     return (
       <ReadStateView
@@ -1088,7 +1094,7 @@ export function TierManagement({
       />
     );
   }
-  if (!management.data || management.isLoading) {
+  if (!management.data) {
     return (
       <ReadStateView
         state={{
@@ -1113,7 +1119,12 @@ export function TierManagement({
               ? management.data.capturedBlock
               : 0n
           }
-          fresh={management.data?.status === "valid"}
+          fresh={
+            management.isFetchedAfterMount &&
+            !management.isError &&
+            !management.isPlaceholderData &&
+            management.data?.status === "valid"
+          }
           onRefresh={async () => (await management.refetch()).data}
           snapshot={snapshot}
         />

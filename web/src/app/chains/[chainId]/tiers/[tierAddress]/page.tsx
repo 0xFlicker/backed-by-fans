@@ -5,6 +5,7 @@ import { ReadStateView } from "@/components/ReadState";
 import { TierReadPanel } from "@/components/TierReadPanel";
 import { parseSupportedChainId } from "@/lib/chains";
 import { validateTierRouteParam } from "@/lib/direct-read";
+import { readServerTierSupporterState } from "@/lib/server-tier-state";
 
 type TierPageProps = {
   params: Promise<{ chainId: string; tierAddress: string }>;
@@ -28,6 +29,10 @@ export default async function TierPage({ params }: TierPageProps) {
   const route = await params;
   const chainId = parseSupportedChainId(route.chainId);
   const address = validateTierRouteParam(route.tierAddress);
+  const initialState =
+    chainId && address
+      ? await readServerTierSupporterState(chainId, address)
+      : undefined;
 
   return (
     <section className="page-shell tier-page">
@@ -42,7 +47,11 @@ export default async function TierPage({ params }: TierPageProps) {
         />
       ) : (
         <ChainRouteBoundary chainId={chainId}>
-          <TierReadPanel chainId={chainId} tierAddress={address} />
+          <TierReadPanel
+            chainId={chainId}
+            initialState={initialState}
+            tierAddress={address}
+          />
         </ChainRouteBoundary>
       )}
     </section>

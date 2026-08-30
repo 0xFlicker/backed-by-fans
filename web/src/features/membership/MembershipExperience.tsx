@@ -13,12 +13,7 @@ import {
   type Address,
   type Hash,
 } from "viem";
-import {
-  useAccount,
-  useConfig,
-  usePublicClient,
-  useWriteContract,
-} from "wagmi";
+import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 
 import { WalletControl } from "@/components/WalletControl";
 import { membershipTierAbi, usdgAbi } from "@/contracts";
@@ -52,6 +47,7 @@ import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
 import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain } from "@/lib/chains";
+import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import type { ReadState } from "@/lib/read-state";
 import {
   decodeTransactionError,
@@ -120,7 +116,7 @@ function statusCopy(state: ReturnType<typeof classifyMembershipState>) {
     case "active":
       return [
         "Renew active membership",
-        "New time extends from the current expiration.",
+        "New subscription extends the current.",
       ];
     case "expired-occupied":
       return [
@@ -148,7 +144,7 @@ export function MembershipExperience({
   expectedChainId: 4663 | 46630 | 31337;
   onRefresh: () => Promise<ReadState<TierSupporterSnapshot> | undefined>;
 }) {
-  const account = useAccount();
+  const account = useHydratedAccount();
   const write = useWriteContract();
   const wagmiConfig = useConfig();
   const client = usePublicClient({ chainId: expectedChainId })!;

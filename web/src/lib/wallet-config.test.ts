@@ -17,6 +17,15 @@ describe("wallet connectors", () => {
     );
     expect(config.chains.map((chain) => chain.id)).toContain(robinhood.id);
     expect(config.chains.map((chain) => chain.id)).not.toContain(localAnvil.id);
+    const getClient = config.getClient as unknown as (input: {
+      chainId: number;
+    }) => { transport: { url?: string } };
+    expect(getClient({ chainId: robinhoodTestnet.id }).transport.url).toBe(
+      robinhoodTestnet.rpcUrls.default.http[0],
+    );
+    expect(getClient({ chainId: robinhood.id }).transport.url).toBe(
+      robinhood.rpcUrls.default.http[0],
+    );
   });
 
   it("adds generic WalletConnect only when its public project ID exists", () => {

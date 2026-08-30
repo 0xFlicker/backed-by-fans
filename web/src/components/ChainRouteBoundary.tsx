@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import { useChainId, useSwitchChain } from "wagmi";
 
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
+import { useHydratedAccount } from "@/lib/use-hydrated-account";
 
 export function ChainRouteBoundary({
   chainId,
@@ -12,7 +13,7 @@ export function ChainRouteBoundary({
   chainId: SupportedChainId;
   children: ReactNode;
 }) {
-  const account = useAccount();
+  const account = useHydratedAccount();
   const selectedChainId = useChainId();
   const activeChainId =
     account.isConnected && account.chainId !== undefined

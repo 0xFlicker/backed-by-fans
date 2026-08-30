@@ -17,6 +17,36 @@ import {
 test.describe("@anvil configured local Anvil membership", () => {
   test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
 
+  test("server-renders member and creator routes without browser JavaScript", async ({
+    browser,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "desktop",
+      "One SSR pass is sufficient.",
+    );
+    const tier = requiredAnvilAddress("tier");
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+
+    try {
+      await page.goto(`/chains/31337/tiers/${tier}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Local Creator Circle" }),
+      ).toBeVisible();
+      await expect(page.getByText("Contract Addresses")).toBeVisible();
+
+      await page.goto(`/chains/31337/tiers/${tier}/manage`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Local Creator Circle" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("heading", { level: 2, name: "Mutable limits" }),
+      ).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
   test("renders a verified direct tier accessibly at every supported viewport", async ({
     page,
   }) => {
@@ -40,7 +70,7 @@ test.describe("@anvil configured local Anvil membership", () => {
     expect(results.violations).toEqual([]);
   });
 
-  test("renders RPC loss as unavailable and never as a zero-value membership", async ({
+  test("keeps the server snapshot when browser RPC is unavailable", async ({
     page,
   }) => {
     await page.route(`${requiredAnvilRpc()}/`, (route) =>
@@ -48,8 +78,10 @@ test.describe("@anvil configured local Anvil membership", () => {
     );
     await page.goto(`/chains/31337/tiers/${requiredAnvilAddress("tier")}`);
 
-    await expect(page.getByText("Onchain state unavailable")).toBeVisible();
-    await expect(page.getByText(/0 USDG/i)).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Local Creator Circle" }),
+    ).toBeVisible();
+    await expect(page.getByText("Onchain state unavailable")).toHaveCount(0);
     await expect(
       page.getByText(/complete and reconciled onchain/i),
     ).toHaveCount(0);
