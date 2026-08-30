@@ -1335,6 +1335,10 @@ dd {
   margin-top: 1rem;
 }
 
+.control-group > .creator-actions {
+  margin-top: 1rem;
+}
+
 .refund-preview {
   background: var(--encore);
   border-radius: var(--radius);
