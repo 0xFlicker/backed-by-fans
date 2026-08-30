@@ -118,7 +118,7 @@ button:disabled {
   border-bottom: 1px solid rgba(17, 19, 26, 0.22);
   display: grid;
   gap: 1.5rem;
-  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   margin: 0 auto;
   max-width: var(--page-width);
   min-height: 5.5rem;
@@ -134,7 +134,14 @@ button:disabled {
 .wallet-control {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.55rem;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.network-selector {
+  min-width: 0;
 }
 
 .network-selector select {
@@ -145,7 +152,7 @@ button:disabled {
   font: inherit;
   font-size: 0.78rem;
   font-weight: 650;
-  max-width: 13rem;
+  max-width: min(13rem, 100%);
   padding: 0.55rem 1.8rem 0.55rem 0.75rem;
 }
 
@@ -184,6 +191,7 @@ button:disabled {
   font-weight: 740;
   gap: 0.7rem;
   letter-spacing: -0.02em;
+  min-width: 0;
   text-decoration: none;
 }
 
@@ -198,6 +206,7 @@ button:disabled {
   font-size: 0.88rem;
   font-weight: 620;
   gap: clamp(1rem, 2.8vw, 2.5rem);
+  min-width: 0;
 }
 
 .primary-nav a {
@@ -215,19 +224,21 @@ main {
 }
 
 .hero {
+  align-items: center;
   display: grid;
-  gap: clamp(3rem, 7vw, 7rem);
-  grid-template-columns: minmax(0, 0.92fr) minmax(24rem, 1.08fr);
+  gap: clamp(2.5rem, 6vw, 6rem);
+  grid-template-columns: minmax(0, 0.88fr) minmax(22rem, 0.92fr);
   margin: 0 auto;
   max-width: var(--page-width);
-  min-height: min(49rem, calc(100svh - 5.5rem));
+  min-height: min(46rem, calc(100dvh - 5.5rem));
   overflow: hidden;
-  padding: clamp(4rem, 8vw, 8rem) var(--page-gutter);
+  padding: clamp(3rem, 7vw, 6rem) var(--page-gutter);
 }
 
 .hero-copy {
-  align-self: center;
+  align-self: start;
   max-width: 40rem;
+  padding-top: clamp(3rem, 7vw, 6rem);
 }
 
 .eyebrow {
@@ -239,10 +250,11 @@ main {
 }
 
 .hero h1 {
-  font-size: clamp(4rem, 7.5vw, 8rem);
+  font-size: clamp(3.8rem, 6.7vw, 7rem);
   letter-spacing: -0.055em;
-  line-height: 0.86;
+  line-height: 0.91;
   margin: 0;
+  max-width: 10ch;
   text-wrap: balance;
 }
 
@@ -312,85 +324,53 @@ main {
 }
 
 .hero-art {
-  align-self: center;
-  min-height: 34rem;
+  justify-self: end;
+  max-width: 31rem;
+  position: relative;
+  width: 100%;
+}
+
+.hero-media {
+  background: var(--backstage);
+  box-shadow: 1.25rem 1.25rem 0 var(--fan-blue);
+  line-height: 0;
+  overflow: hidden;
   position: relative;
 }
 
-.stack-card {
-  border: 3px solid var(--backstage);
-  border-radius: var(--radius-large);
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 19rem;
-  padding: 1.5rem;
-  position: absolute;
-  width: min(28rem, 80%);
+.hero-image {
+  aspect-ratio: 4 / 5;
+  display: block;
+  height: auto;
+  object-fit: cover;
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
 }
 
-.stack-card span {
-  font-size: 0.75rem;
-  font-weight: 720;
-  letter-spacing: 0.12em;
-  margin-bottom: 0.6rem;
-  text-transform: uppercase;
+.hero-media:hover .hero-image {
+  transform: scale(1.035);
 }
 
-.stack-card strong {
-  font-family: "Instrument Serif", Georgia, serif;
-  font-size: clamp(2rem, 4vw, 3.6rem);
-  font-weight: 400;
-  line-height: 0.95;
-}
-
-.stack-card-fans {
-  background: var(--fan-blue);
-  color: white;
-  left: 0;
-  top: 0;
-  transform: rotate(-7deg);
-}
-
-.stack-card-story {
-  background: var(--applause);
-  right: 2%;
-  top: 14%;
-  transform: rotate(5deg);
-}
-
-.stack-card-creator {
+.hero-mark {
   background: var(--encore);
-  bottom: 0;
-  left: 12%;
-  min-height: 25rem;
-  transform: rotate(-1deg);
-  z-index: 2;
-}
-
-.creator-frame {
-  align-items: center;
-  background:
-    linear-gradient(90deg, transparent 49%, rgba(17, 19, 26, 0.08) 50%),
-    var(--paper);
   border: 2px solid var(--backstage);
-  border-radius: calc(var(--radius-large) - 0.45rem);
-  display: flex;
-  flex: 1;
-  justify-content: center;
-  margin-bottom: 1.5rem;
-  min-height: 10rem;
-  overflow: hidden;
+  bottom: 1.5rem;
+  display: grid;
+  height: clamp(4.5rem, 9vw, 7rem);
+  left: -1.75rem;
+  padding: 0.75rem;
+  place-items: center;
+  position: absolute;
+  transform: rotate(-6deg);
+  width: clamp(4.5rem, 9vw, 7rem);
 }
 
-.creator-frame-mark {
-  height: 7rem;
-  transform: rotate(4deg);
-  width: 7rem;
+.hero-mark svg {
+  height: 100%;
+  width: 100%;
 }
 
-.how-section,
+.principle-section,
 .catalog-section,
 .closing-section,
 .page-shell {
@@ -400,17 +380,33 @@ main {
   padding-right: var(--page-gutter);
 }
 
-.how-section {
-  background: var(--backstage);
-  color: white;
+.principle-section {
+  align-items: center;
   display: grid;
-  gap: clamp(3rem, 8vw, 8rem);
-  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
-  padding-bottom: clamp(4rem, 8vw, 8rem);
-  padding-top: clamp(4rem, 8vw, 8rem);
+  gap: clamp(2.5rem, 7vw, 7rem);
+  grid-template-columns: minmax(0, 1.08fr) minmax(19rem, 0.92fr);
+  padding-bottom: clamp(5rem, 10vw, 9rem);
+  padding-top: clamp(4rem, 8vw, 7rem);
 }
 
-.section-heading h2,
+.principle-media {
+  line-height: 0;
+  overflow: hidden;
+}
+
+.principle-image {
+  aspect-ratio: 3 / 2;
+  display: block;
+  height: auto;
+  object-fit: cover;
+  width: 100%;
+}
+
+.principle-copy {
+  max-width: 36rem;
+}
+
+.principle-copy h2,
 .closing-section h2,
 .page-intro h1 {
   font-size: clamp(3rem, 5.8vw, 6.5rem);
@@ -420,30 +416,37 @@ main {
   text-wrap: balance;
 }
 
-.how-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.how-list li {
-  border-top: 1px solid rgba(255, 255, 255, 0.28);
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: 3rem 1fr;
-  padding: 1.65rem 0;
-}
-
-.how-list h3 {
-  font-size: 1.3rem;
-  margin: 0;
-}
-
-.how-list p {
-  color: #d9dbe3;
+.principle-copy > p,
+.closing-section p {
+  color: var(--muted-ink);
   line-height: 1.6;
-  margin: 0.5rem 0 0;
-  max-width: 38rem;
+  margin: 1.25rem 0 0;
+  max-width: 32rem;
+}
+
+.principles {
+  margin: 2.5rem 0 0;
+}
+
+.principles > div {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.65rem;
+  padding: 1.1rem 0;
+}
+
+.principles dt {
+  color: var(--backstage);
+  font-size: 0.88rem;
+  font-weight: 760;
+  letter-spacing: -0.015em;
+}
+
+.principles dd {
+  color: var(--muted-ink);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 34rem;
 }
 
 .catalog-section {
@@ -452,15 +455,28 @@ main {
 }
 
 .catalog-heading {
-  align-items: end;
-  display: flex;
-  gap: 2rem;
-  justify-content: space-between;
+  max-width: 47rem;
   margin-bottom: 3rem;
 }
 
 .catalog-heading h2 {
-  max-width: 50rem;
+  font-size: clamp(3rem, 5.8vw, 6.5rem);
+  letter-spacing: -0.05em;
+  line-height: 0.92;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.catalog-heading p {
+  color: var(--muted-ink);
+  line-height: 1.6;
+  margin: 1.25rem 0 0;
+  max-width: 32rem;
+}
+
+.catalog-heading .text-link {
+  display: inline-flex;
+  margin-top: 1rem;
 }
 
 .text-link,
@@ -566,19 +582,17 @@ main {
 
 .closing-section {
   align-items: center;
-  background: var(--applause);
-  border-bottom: 3px solid var(--backstage);
-  border-top: 3px solid var(--backstage);
+  border-top: 1px solid var(--line);
   display: grid;
-  gap: 2rem;
-  grid-template-columns: auto 1fr auto;
-  padding-bottom: clamp(3rem, 6vw, 5rem);
-  padding-top: clamp(3rem, 6vw, 5rem);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  grid-template-columns: auto minmax(0, 1fr);
+  padding-bottom: clamp(4rem, 7vw, 6rem);
+  padding-top: clamp(4rem, 7vw, 6rem);
 }
 
 .closing-section h2 {
-  font-size: clamp(2.5rem, 4vw, 4.8rem);
-  max-width: 50rem;
+  font-size: clamp(2.7rem, 4.5vw, 5.2rem);
+  max-width: 12ch;
 }
 
 .closing-mark {
@@ -1412,8 +1426,8 @@ dd {
   animation: settle-in 580ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
 }
 
-.settle-stack {
-  animation: settle-stack 720ms 100ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+.settle-media {
+  animation: settle-media 720ms 100ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
 }
 
 @keyframes settle-in {
@@ -1427,7 +1441,7 @@ dd {
   }
 }
 
-@keyframes settle-stack {
+@keyframes settle-media {
   from {
     opacity: 0;
     transform: translate(1.5rem, 2rem) rotate(2deg);
@@ -1435,6 +1449,25 @@ dd {
   to {
     opacity: 1;
     transform: translate(0, 0) rotate(0);
+  }
+}
+
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation: reveal-on-scroll 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-range: entry 10% cover 28%;
+    animation-timeline: view();
+  }
+}
+
+@keyframes reveal-on-scroll {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -1529,7 +1562,7 @@ dd {
 .claim-groups h2,
 .maintenance-action h2,
 .refund-guidance h2,
-.direct-claim-access h2,
+.direct-tier-access h2,
 .account-results h2 {
   font-size: clamp(1.6rem, 3vw, 2.5rem);
   margin: 0.3rem 0 0.65rem;
@@ -1594,7 +1627,7 @@ dd {
 .supporter-action,
 .claim-groups,
 .maintenance-action,
-.direct-claim-access,
+.direct-tier-access,
 .account-results {
   border-top: 2px solid var(--backstage);
   padding-top: clamp(1.5rem, 3vw, 2.25rem);
@@ -1684,8 +1717,7 @@ dd {
 }
 
 .account-heading,
-.account-results-heading,
-.direct-claim-access {
+.account-results-heading {
   align-items: start;
   display: grid;
   gap: 1.5rem;
@@ -1699,9 +1731,30 @@ dd {
   max-width: 10ch;
 }
 
-.direct-claim-access {
+.direct-tier-access {
+  border-top: 1px solid var(--line);
+  margin-top: clamp(1rem, 3vw, 2rem);
+  padding-top: 0;
+}
+
+.direct-tier-access summary,
+.account-list-settings summary,
+.membership-reference summary {
+  cursor: pointer;
+  font-weight: 720;
+}
+
+.direct-tier-access > summary {
+  font-size: 0.95rem;
+  padding: 1.1rem 0;
+}
+
+.direct-tier-access-body {
   align-items: end;
+  display: grid;
+  gap: 1.5rem;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr) auto;
+  padding: 0 0 1.5rem;
 }
 
 .account-tier-list {
@@ -1717,13 +1770,13 @@ dd {
   border-top: 1px solid var(--line);
   display: grid;
   gap: 1.5rem;
-  grid-template-columns: minmax(12rem, 1fr) minmax(18rem, 1.3fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   padding-top: 1.25rem;
 }
 
-.account-tier-list > li > div:first-child {
+.account-tier-identity {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.45rem;
 }
 
 .account-tier-list strong {
@@ -1736,10 +1789,60 @@ dd {
 }
 
 .account-tier-list dl {
+  grid-column: 1 / -1;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-@media (max-width: 1300px) {
+.membership-state {
+  font-weight: 650;
+}
+
+.membership-reference {
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+  margin-top: 0.35rem;
+}
+
+.membership-reference summary {
+  width: fit-content;
+}
+
+.membership-reference dl {
+  display: block;
+  margin-top: 0.6rem;
+}
+
+.membership-reference dl > div {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.membership-reference dd {
+  overflow-wrap: anywhere;
+}
+
+.account-list-settings {
+  border-top: 1px solid var(--line);
+  color: var(--muted-ink);
+  font-size: 0.85rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.account-list-settings > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-top: 0.4rem;
+}
+
+.account-list-settings p {
+  margin: 0;
+}
+
+@media (max-width: 1100px) {
   .site-header {
     grid-template-columns: 1fr auto;
   }
@@ -1767,22 +1870,17 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .hero-copy {
+    padding-top: 0;
+  }
+
   .hero-art {
-    min-height: 35rem;
-    width: min(42rem, 100%);
-  }
-
-  .how-section {
-    grid-template-columns: 1fr;
-  }
-
-  .closing-section {
-    grid-template-columns: auto 1fr;
-  }
-
-  .closing-section .button {
-    grid-column: 2;
     justify-self: start;
+    max-width: 42rem;
+  }
+
+  .principle-section {
+    grid-template-columns: 1fr;
   }
 
   .creator-workspace,
@@ -1791,7 +1889,7 @@ dd {
     grid-template-columns: 1fr;
   }
 
-  .direct-claim-access,
+  .direct-tier-access-body,
   .account-heading,
   .account-results-heading,
   .account-tier-list > li {
@@ -1867,19 +1965,9 @@ dd {
   }
 
   .hero-art {
-    min-height: 29rem;
+    max-width: none;
   }
 
-  .stack-card {
-    min-height: 15rem;
-    width: 84%;
-  }
-
-  .stack-card-creator {
-    min-height: 19rem;
-  }
-
-  .catalog-heading,
   .site-footer {
     align-items: start;
     flex-direction: column;
@@ -1897,10 +1985,6 @@ dd {
 
   .closing-section {
     grid-template-columns: 1fr;
-  }
-
-  .closing-section .button {
-    grid-column: 1;
   }
 
   .closing-mark {
@@ -1994,7 +2078,7 @@ dd {
   .gift-action > .button,
   .supporter-action > .button,
   .claim-row .button,
-  .direct-claim-access .button,
+  .direct-tier-access .button,
   .account-tier-list .button {
     width: 100%;
   }

@@ -11,18 +11,23 @@ test("keeps direct membership access independent of discovery configuration", as
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Memberships that stay yours.",
+      name: "Your account.",
     }),
   ).toBeVisible();
-  await expect(page.getByText(/no indexer or account database/i)).toBeVisible();
-  await expect(page.getByText("Onchain state unavailable")).toBeVisible();
+  await expect(page.getByText(/manage the ones you create/i)).toBeVisible();
+  await expect(
+    page.getByText("Your memberships", { exact: true }),
+  ).toBeVisible();
 
-  const input = page.getByLabel(/Tier contract/);
+  await page.getByText("Already have a membership link?").click();
+  const input = page.getByLabel(/Membership address/);
   await input.fill("not-an-address");
-  await expect(page.getByText(/complete EVM address/i)).toBeVisible();
+  await expect(
+    page.getByText(/complete address, starting with 0x/i),
+  ).toBeVisible();
   await input.fill(validTier);
   await expect(
-    page.getByRole("link", { name: "Read this tier" }),
+    page.getByRole("link", { name: "Open membership" }),
   ).toHaveAttribute("href", `/chains/46630/tiers/${validTier}`);
 });
 

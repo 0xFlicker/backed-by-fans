@@ -5,6 +5,7 @@ import type { ReadState } from "@/lib/read-state";
 type ReadStateViewProps<T> = {
   state: ReadState<T>;
   children?: (data: T) => ReactNode;
+  heading?: string;
   onRetry?: () => void;
 };
 
@@ -23,6 +24,7 @@ const statusCopy = {
 export function ReadStateView<T>({
   state,
   children,
+  heading,
   onRetry,
 }: ReadStateViewProps<T>) {
   const canRenderData =
@@ -49,7 +51,7 @@ export function ReadStateView<T>({
               : "!"}
         </span>
         <div>
-          <p className="eyebrow">{statusCopy[state.status]}</p>
+          <p className="eyebrow">{heading ?? statusCopy[state.status]}</p>
           <p>{label}</p>
         </div>
       </div>

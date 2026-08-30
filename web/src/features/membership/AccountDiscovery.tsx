@@ -29,46 +29,49 @@ function DirectTierAccess({ chainId }: { chainId: number }) {
   const valid = isAddress(value.trim());
 
   return (
-    <section className="direct-claim-access surface-card">
-      <div>
-        <p className="eyebrow">Direct claim access</p>
-        <h2 className="font-display">Open a membership by address.</h2>
-        <p>
-          This route reads the tier directly. It never depends on the local
-          discovery cache.
-        </p>
+    <details className="direct-tier-access">
+      <summary>Already have a membership link?</summary>
+      <div className="direct-tier-access-body">
+        <div>
+          <p className="eyebrow">Add a membership</p>
+          <h2 className="font-display">Open it by address.</h2>
+          <p>
+            Paste a membership address to open it directly. This is useful if it
+            is not showing in your list yet.
+          </p>
+        </div>
+        <label className="creator-field">
+          <span>Membership address</span>
+          <input
+            aria-describedby="direct-tier-guidance"
+            className="font-mono"
+            onInput={(event) => setValue(event.currentTarget.value)}
+            placeholder="0x…"
+            spellCheck={false}
+            value={value}
+          />
+        </label>
+        <div>
+          <p className="field-guidance" id="direct-tier-guidance">
+            {value && !valid
+              ? "Enter the complete address, starting with 0x."
+              : "We will confirm that this is a Backed By Fans membership before you can make changes."}
+          </p>
+          {valid ? (
+            <Link
+              className="button button-dark"
+              href={`/chains/${chainId}/tiers/${value.trim()}` as Route}
+            >
+              Open membership
+            </Link>
+          ) : (
+            <button className="button button-dark" disabled type="button">
+              Open membership
+            </button>
+          )}
+        </div>
       </div>
-      <label className="creator-field">
-        <span>Tier contract</span>
-        <input
-          aria-describedby="direct-tier-guidance"
-          className="font-mono"
-          onChange={(event) => setValue(event.target.value)}
-          placeholder="0x…"
-          spellCheck={false}
-          value={value}
-        />
-      </label>
-      <div>
-        <p className="field-guidance" id="direct-tier-guidance">
-          {value && !valid
-            ? "Enter a complete EVM address."
-            : "The contract must pass factory and interface checks before writes."}
-        </p>
-        {valid ? (
-          <Link
-            className="button button-dark"
-            href={`/chains/${chainId}/tiers/${value.trim()}` as Route}
-          >
-            Read this tier
-          </Link>
-        ) : (
-          <button className="button button-dark" disabled type="button">
-            Read this tier
-          </button>
-        )}
-      </div>
-    </section>
+    </details>
   );
 }
 
@@ -165,27 +168,22 @@ function HydratedDiscovery({
   const hasSkipped = Boolean(page?.skipped.length);
 
   return (
-    <section className="account-results surface-card">
+    <section className="account-results">
       <div className="account-results-heading">
         <div>
-          <p className="eyebrow">From the registry</p>
           <h2 className="font-display">Your memberships</h2>
           <p>
-            Discovery scans at most 12 registered tiers per request. Saved
-            results show the block where each tier was last read, and a
-            completed scan refreshes from the start on the next visit.
+            The memberships connected to this wallet, including the ones you
+            support and the ones you run.
           </p>
         </div>
-        <button className="text-button" onClick={eraseCache} type="button">
-          Erase saved scan
-        </button>
       </div>
 
       {discovery.isLoading && (
         <ReadStateView
           state={{
             status: "loading",
-            label: `Scanning the factory from registry offset ${offset.toString()}.`,
+            label: "Looking for memberships connected to this wallet.",
           }}
         />
       )}
@@ -205,43 +203,48 @@ function HydratedDiscovery({
       )}
       {page && (
         <>
-          <div className="account-scan-meta">
-            <p className="font-mono">
-              Block {page.capturedBlock.toString()} · scanned{" "}
-              {page.offset.toString()}–{page.scannedTo.toString()} of{" "}
-              {page.total.toString()}
+          {hasSkipped && (
+            <p className="warning-copy" role="alert">
+              We could not check {page.skipped.length} membership
+              {page.skipped.length === 1 ? " yet" : "s yet"}. Your saved list
+              has not been changed.
             </p>
-            {hasSkipped && (
-              <p className="warning-copy" role="alert">
-                {page.skipped.length} tier read
-                {page.skipped.length === 1 ? " was" : "s were"} unavailable. The
-                cursor remains on this page so none are silently skipped.
-              </p>
-            )}
-          </div>
+          )}
 
           {currentCache.results.length === 0 ? (
             <div className="empty-room">
-              <p className="eyebrow">Nothing found yet</p>
-              <h3>No membership, creator tier, or claim was found.</h3>
+              <p className="eyebrow">Nothing here yet</p>
+              <h3>No memberships are connected to this wallet.</h3>
+              <p>
+                If you have a membership link, you can open it directly below.
+              </p>
             </div>
           ) : (
             <ul className="account-tier-list">
               {currentCache.results.map((tier) => (
                 <li key={tier.tier}>
-                  <div>
+                  <div className="account-tier-identity">
                     <strong className="font-display">{tier.name}</strong>
-                    <span className="font-mono">{tier.tier}</span>
-                    <span>
-                      {tier.tokenId === "0"
-                        ? "No credential"
-                        : tier.active
-                          ? `Active credential #${tier.tokenId}`
-                          : `Historical credential #${tier.tokenId}`}
+                    <span className="membership-state">
+                      {tier.creatorOwned && tier.active
+                        ? "You are a member and the creator"
+                        : tier.creatorOwned
+                          ? "You manage this membership"
+                          : tier.tokenId === "0"
+                            ? "You have no active membership"
+                            : tier.active
+                              ? "Your membership is active"
+                              : "Your membership has ended"}
                     </span>
-                    <span className="font-mono">
-                      Read at block {tier.capturedBlock}
-                    </span>
+                    <details className="membership-reference">
+                      <summary>Membership details</summary>
+                      <dl>
+                        <div>
+                          <dt>Membership address</dt>
+                          <dd className="font-mono">{tier.tier}</dd>
+                        </div>
+                      </dl>
+                    </details>
                   </div>
                   {(BigInt(tier.claimableReward) > 0n ||
                     BigInt(tier.claimableReferral) > 0n ||
@@ -249,7 +252,7 @@ function HydratedDiscovery({
                     <dl>
                       {BigInt(tier.claimableReward) > 0n && (
                         <div>
-                          <dt>Membership rewards</dt>
+                          <dt>Rewards ready to collect</dt>
                           <dd>
                             {formatUnits(BigInt(tier.claimableReward), 6)} USDG
                           </dd>
@@ -257,7 +260,7 @@ function HydratedDiscovery({
                       )}
                       {BigInt(tier.claimableReferral) > 0n && (
                         <div>
-                          <dt>Referral proceeds</dt>
+                          <dt>Referral earnings ready</dt>
                           <dd>
                             {formatUnits(BigInt(tier.claimableReferral), 6)}{" "}
                             USDG
@@ -267,7 +270,7 @@ function HydratedDiscovery({
                       {tier.creatorOwned &&
                         BigInt(tier.creatorProceeds) > 0n && (
                           <div>
-                            <dt>Creator proceeds</dt>
+                            <dt>Creator earnings ready</dt>
                             <dd>
                               {formatUnits(BigInt(tier.creatorProceeds), 6)}{" "}
                               USDG
@@ -283,7 +286,7 @@ function HydratedDiscovery({
                         `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route
                       }
                     >
-                      Open membership
+                      View membership
                     </Link>
                     {tier.creatorOwned && (
                       <Link
@@ -311,7 +314,7 @@ function HydratedDiscovery({
                 }}
                 type="button"
               >
-                Retry this page
+                Try again
               </button>
             ) : page.nextOffset !== null ? (
               <button
@@ -319,7 +322,7 @@ function HydratedDiscovery({
                 onClick={() => advance(page.nextOffset as bigint)}
                 type="button"
               >
-                Scan next page
+                Find more memberships
               </button>
             ) : (
               <button
@@ -331,10 +334,26 @@ function HydratedDiscovery({
                 }}
                 type="button"
               >
-                Refresh saved results
+                Check again
               </button>
             )}
           </div>
+
+          <details className="account-list-settings">
+            <summary>List settings</summary>
+            <div>
+              <p>
+                This list is saved on this device to make future visits faster.
+              </p>
+              <button
+                className="text-button"
+                onClick={eraseCache}
+                type="button"
+              >
+                Clear saved list
+              </button>
+            </div>
+          </details>
         </>
       )}
     </section>
@@ -354,25 +373,27 @@ export function AccountDiscovery() {
     <div className="account-stack">
       <header className="account-heading">
         <div>
-          <p className="eyebrow">Your side of the room</p>
-          <h1 className="font-display">Memberships that stay yours.</h1>
+          <p className="eyebrow">Your account</p>
+          <h1 className="font-display">Your account.</h1>
         </div>
         <p>
-          Read credentials, rewards, referrals, and creator proceeds directly
-          from the registry. No indexer or account database sits in the middle.
+          See the memberships you support, manage the ones you create, and
+          collect any earnings waiting for you.
         </p>
       </header>
 
-      <DirectTierAccess chainId={chainId} />
-
       {deployment.status !== "ready" ? (
-        <ReadStateView state={unavailableDeploymentState(deployment)} />
+        <ReadStateView
+          heading="Memberships unavailable"
+          state={unavailableDeploymentState(deployment)}
+        />
       ) : !account.isConnected || !account.address ? (
         <ReadStateView
+          heading="Your memberships"
           state={{
             status: "unavailable",
             reason: "rpc-unavailable",
-            label: "Connect a wallet to scan the bounded factory registry.",
+            label: "Connect your wallet to see your memberships.",
           }}
         />
       ) : (
@@ -383,6 +404,8 @@ export function AccountDiscovery() {
           wallet={account.address}
         />
       )}
+
+      <DirectTierAccess chainId={chainId} />
     </div>
   );
 }

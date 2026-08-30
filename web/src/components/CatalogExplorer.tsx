@@ -116,7 +116,6 @@ export function CatalogExplorer() {
 
       {summaries.length === 0 ? (
         <div className="empty-room">
-          <p className="eyebrow">The room is quiet</p>
           <h2>No memberships are registered at this captured block.</h2>
         </div>
       ) : (

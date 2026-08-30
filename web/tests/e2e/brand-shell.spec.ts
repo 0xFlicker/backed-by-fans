@@ -10,7 +10,13 @@ test("renders the exact provisional brand shell without starter identity", async
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "Your people make your work possible.",
+      name: "Keep it direct.",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      level: 2,
+      name: "Support the work. Keep the membership.",
     }),
   ).toBeVisible();
   await expect(
@@ -91,7 +97,7 @@ test("keeps primary actions touch-sized and supports 200% content zoom", async (
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Your people make your work possible.",
+        name: "Keep it direct.",
       }),
     ).toBeVisible();
     expect(
