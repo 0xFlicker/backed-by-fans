@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { RendererRegistryEntry } from "@/contracts/types";
 import {
@@ -45,10 +45,9 @@ const foundingRenderer = {
 } satisfies RendererRegistryEntry;
 
 function StudioHarness({
-  onKeepComposition,
   renderers = [foundingRenderer],
   initialRendererVersion = 1,
-}: Pick<CreatorStudioProps, "onKeepComposition"> & {
+}: {
   renderers?: readonly RendererRegistryEntry[];
   initialRendererVersion?: number;
 } = {}) {
@@ -69,7 +68,6 @@ function StudioHarness({
       art={art}
       media={media}
       onArtChange={setArt}
-      onKeepComposition={onKeepComposition}
       onMediaChange={setMedia}
       onRendererChange={setRendererVersion}
       onSelectionChange={setSelection}
@@ -215,18 +213,11 @@ describe("CreatorStudio", () => {
     expect(tierText).not.toBeChecked();
   });
 
-  it("hands the exact controlled art and media values to final review", async () => {
-    const user = userEvent.setup();
-    const onKeepComposition = vi.fn();
-    render(<StudioHarness onKeepComposition={onKeepComposition} />);
+  it("does not require a separate art-direction confirmation", () => {
+    render(<StudioHarness />);
 
-    await user.click(
-      screen.getByRole("button", { name: /Keep this direction/i }),
-    );
-    expect(onKeepComposition).toHaveBeenCalledOnce();
-    expect(onKeepComposition).toHaveBeenCalledWith(
-      expect.objectContaining({ engine: "stack", collectionSeed: 1n }),
-      { mode: "none" },
-    );
+    expect(
+      screen.queryByRole("button", { name: /Keep this direction/i }),
+    ).not.toBeInTheDocument();
   });
 });

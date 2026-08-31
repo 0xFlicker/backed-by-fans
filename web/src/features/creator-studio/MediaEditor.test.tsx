@@ -89,35 +89,44 @@ describe("MediaEditor", () => {
     expect(screen.queryByText(/Arweave|IPFS|HTTPS reference/i)).toBeNull();
   });
 
-  it("passes a local file and exact settings to the one processing boundary", async () => {
+  it("passes an explicitly selected file to the processing boundary", async () => {
     const user = userEvent.setup();
     const onNativeSourceSelected = vi.fn();
     render(<MediaHarness onNativeSourceSelected={onNativeSourceSelected} />);
 
     await openMediaControls(user);
     await user.click(screen.getByRole("radio", { name: /Add your image/i }));
-    await user.selectOptions(screen.getByLabelText("Image size"), "384");
-    await user.click(screen.getByRole("radio", { name: "PNG" }));
     const file = new File([new Uint8Array([137, 80, 78, 71])], "stage.png", {
       type: "image/png",
     });
-    await user.upload(screen.getByLabelText("Choose image"), file);
+    await user.upload(screen.getByLabelText("Add new image"), file);
 
-    expect(onNativeSourceSelected).toHaveBeenCalledWith(file, {
-      dimension: 384,
-      mime: "image/png",
-      jpegQuality: defaultNativeMediaSettings.jpegQuality,
-      pngPurpose: "transparency",
-    });
-    expect(screen.getByText(/Image placement/i)).toBeVisible();
+    expect(onNativeSourceSelected).toHaveBeenCalledWith(
+      file,
+      defaultNativeMediaSettings,
+    );
+    expect(screen.queryByLabelText("Image size")).not.toBeInTheDocument();
   });
 
-  it("offers byte-conscious square output sizes capped at 512 pixels", async () => {
+  it("shows output settings only after a new image is prepared", async () => {
     const user = userEvent.setup();
-    render(<MediaHarness />);
+    render(
+      <MediaHarness
+        initialMedia={{ mode: "native", confirmedStore: null }}
+        nativeState={{
+          status: "ready",
+          candidate: {
+            objectURL: "blob:creator-image",
+            byteLength: 1_024,
+            mime: "image/jpeg",
+            dimension: 512,
+            quality: 0.82,
+          },
+        }}
+      />,
+    );
 
     await openMediaControls(user);
-    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
 
     const outputSize = screen.getByLabelText("Image size");
     expect(outputSize).toHaveValue("512");
@@ -127,56 +136,39 @@ describe("MediaEditor", () => {
         (option) => option.textContent,
       ),
     ).toEqual(["256 × 256", "384 × 384", "512 × 512"]);
+    expect(screen.getByAltText("New image")).toBeVisible();
+    expect(screen.getByText(/Image placement/i)).toBeVisible();
   });
 
-  it("accepts clipboard image bytes without turning them into a reference", async () => {
+  it("accepts an explicit drag and drop on the add tile", async () => {
     const user = userEvent.setup();
     const onNativeSourceSelected = vi.fn();
     render(<MediaHarness onNativeSourceSelected={onNativeSourceSelected} />);
     await openMediaControls(user);
     await user.click(screen.getByRole("radio", { name: /Add your image/i }));
-    const file = new File([new Uint8Array([137, 80, 78, 71])], "paste.png", {
+    const file = new File([new Uint8Array([137, 80, 78, 71])], "drop.png", {
       type: "image/png",
     });
-
-    fireEvent.paste(screen.getByLabelText("Paste an image from clipboard"), {
-      clipboardData: {
-        getData: () => "",
-        items: [
-          {
-            kind: "file",
-            type: "image/png",
-            getAsFile: () => file,
-          },
-        ],
-      },
+    const addTile = screen.getByLabelText("Add new image").closest("label")!;
+    fireEvent.drop(addTile, {
+      dataTransfer: { files: [file] },
     });
 
     expect(onNativeSourceSelected).toHaveBeenCalledWith(
       file,
       defaultNativeMediaSettings,
     );
-    expect(screen.getByText(/Image received/i)).toBeVisible();
   });
 
-  it("rejects clipboard text instead of treating a pasted URL as an image", async () => {
+  it("does not expose a paste target", async () => {
     const user = userEvent.setup();
-    const onNativeSourceSelected = vi.fn();
-    render(<MediaHarness onNativeSourceSelected={onNativeSourceSelected} />);
+    render(<MediaHarness />);
     await openMediaControls(user);
     await user.click(screen.getByRole("radio", { name: /Add your image/i }));
-    const pasteTarget = screen.getByLabelText("Paste an image from clipboard");
-    fireEvent.paste(pasteTarget, {
-      clipboardData: {
-        getData: () => "https://media.example.com/member.png?edition=7",
-        items: [],
-      },
-    });
 
-    expect(onNativeSourceSelected).not.toHaveBeenCalled();
     expect(
-      screen.getByText("Paste the image itself, not text or a link."),
-    ).toBeVisible();
+      screen.queryByLabelText("Paste an image from clipboard"),
+    ).not.toBeInTheDocument();
   });
 
   it("does not require another approval after preparing an image", async () => {
@@ -198,9 +190,7 @@ describe("MediaEditor", () => {
     );
     await openMediaControls(user);
 
-    expect(
-      screen.getByAltText("Processed creator media candidate"),
-    ).toBeVisible();
+    expect(screen.getByAltText("New image")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Allow/i })).toBeNull();
   });
 
@@ -228,6 +218,7 @@ describe("MediaEditor", () => {
           total: 8n,
           offset: 0n,
           limit: 6,
+          selectedStore: store,
         }}
         onNextNativeLibraryPage={onNextNativeLibraryPage}
         onSelectNativeStore={onSelectNativeStore}
@@ -237,15 +228,17 @@ describe("MediaEditor", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /saved images/i,
+        name: /^images$/i,
       }),
     ).toBeVisible();
     expect(screen.queryByText("8 saved")).toBeNull();
     expect(screen.queryByText(store)).toBeNull();
     const savedImage = screen.getByRole("button", {
-      name: "Select saved image 1",
+      name: "Selected saved image 1",
     });
     expect(savedImage.querySelector("img")).toBeVisible();
+    expect(screen.queryByLabelText("Image size")).not.toBeInTheDocument();
+    expect(screen.getByText(/Image placement/i)).toBeVisible();
     await user.click(savedImage);
     expect(onSelectNativeStore).toHaveBeenCalledWith(store);
     await user.click(screen.getByRole("button", { name: "Next" }));

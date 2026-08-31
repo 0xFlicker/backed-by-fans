@@ -107,6 +107,7 @@ import {
   initialTransactionState,
   isTransactionInFlight,
   transactionReducer,
+  type TransactionPhase,
 } from "@/lib/transaction-state";
 
 const steps = [
@@ -244,6 +245,14 @@ function usd(value: bigint) {
   return `${formatUnits(value, 6)} USDG`;
 }
 
+function publicationStepStatus(phase: TransactionPhase, waiting = false) {
+  if (waiting) return "Next";
+  if (phase === "confirmed") return "Complete";
+  if (isTransactionInFlight(phase)) return "In progress";
+  if (phase === "idle") return "Ready";
+  return "Needs attention";
+}
+
 export function CreateTierWizard() {
   const [initialStudioSession] = useState(createInitialStudioSession);
   const [form, setForm] = useState(defaultCreatorForm);
@@ -298,7 +307,6 @@ export function CreateTierWizard() {
   const [selectingNativeStore, setSelectingNativeStore] = useState<Address>();
   const [mediaLibraryNotice, setMediaLibraryNotice] = useState<{
     scopeKey: string;
-    tone: "info" | "error";
     message: string;
   }>();
   const [pendingMediaVerification, setPendingMediaVerification] =
@@ -314,7 +322,6 @@ export function CreateTierWizard() {
     initialTransactionState,
   );
   const deployInFlight = useRef(false);
-  const mediaWriteInFlight = useRef(false);
   const mediaVerificationInFlight = useRef(false);
   const tierVerificationInFlight = useRef(false);
   const mediaSelectionGeneration = useRef(0);
@@ -523,7 +530,6 @@ export function CreateTierWizard() {
       selectedStore: currentConfirmedMedia?.store,
       selectingStore: selectingNativeStore,
       message: notice?.message,
-      messageTone: notice?.tone,
     };
   }, [
     creatorMediaLibrary.data,
@@ -535,10 +541,29 @@ export function CreateTierWizard() {
     mediaLibraryOffset,
     selectingNativeStore,
   ]);
+  const candidateHex = useMemo(
+    () =>
+      candidate
+        ? {
+            payload: bytesToHex(candidate.writeBytes),
+            renderer: bytesToHex(candidate.rendererCallBytes),
+          }
+        : undefined,
+    [candidate],
+  );
+  const candidatePayload = candidateHex?.payload;
+  const candidateMedia = useMemo(
+    () => (candidate ? nativeCandidateMediaConfig(candidate) : undefined),
+    [candidate],
+  );
+  const localImageSelected = media.mode === "native" && Boolean(candidate);
+  const localImageNeedsStorage = Boolean(
+    localImageSelected && !currentConfirmedMedia,
+  );
   const publicationMedia = useMemo<TierMediaConfig | undefined>(() => {
     if (media.mode === "none") return emptyMediaConfig;
-    return currentConfirmedMedia;
-  }, [currentConfirmedMedia, media.mode]);
+    return currentConfirmedMedia ?? candidateMedia;
+  }, [candidateMedia, currentConfirmedMedia, media.mode]);
   const creative = useMemo(
     () =>
       tierSalt && publicationMedia && selectedRenderer
@@ -562,17 +587,6 @@ export function CreateTierWizard() {
   });
   const formValid = Boolean(result.config);
   const acknowledged = economicsAcknowledged && giftingAcknowledged;
-  const deployEnabled =
-    formValid &&
-    acknowledged &&
-    Boolean(protocol.data) &&
-    draftScopeReady &&
-    guard.enabled &&
-    (gas.data ?? 0n) > 0n &&
-    !write.isPending &&
-    !currentPendingTierVerification &&
-    !isTransactionInFlight(transaction.phase) &&
-    !isTransactionInFlight(mediaTransaction.phase);
 
   useEffect(
     () => () => {
@@ -709,9 +723,7 @@ export function CreateTierWizard() {
             setConfirmedMediaScope(undefined);
             setNativeState({ status: "empty" });
           }
-          setDraftNotice(
-            "Your saved creative direction was restored and revalidated against the current contracts.",
-          );
+          setDraftNotice(undefined);
           setDraftRecoveryBlock(undefined);
           setDraftReadyKey(recoveryKey);
         } else if (recovered.status === "empty") {
@@ -845,21 +857,6 @@ export function CreateTierWizard() {
       }),
   });
 
-  const candidateHex = useMemo(
-    () =>
-      candidate
-        ? {
-            payload: bytesToHex(candidate.writeBytes),
-            renderer: bytesToHex(candidate.rendererCallBytes),
-          }
-        : undefined,
-    [candidate],
-  );
-  const candidatePayload = candidateHex?.payload;
-  const candidateMedia = useMemo(
-    () => (candidate ? nativeCandidateMediaConfig(candidate) : undefined),
-    [candidate],
-  );
   const presentedNativeState: NativeMediaState =
     nativeState.status === "stored" && !currentConfirmedMedia
       ? candidate
@@ -992,6 +989,9 @@ export function CreateTierWizard() {
         tierIdentity: tierIdentity.data!,
         art: result.config!.art,
         media: result.config!.media,
+        nativeMedia: localImageNeedsStorage
+          ? candidateHex?.renderer
+          : undefined,
         tokenId: 7,
         state: "active",
         referenceTimestamp: BigInt(Math.floor(Date.now() / 1_000)),
@@ -1005,12 +1005,11 @@ export function CreateTierWizard() {
       return decodeRendererTokenURI(tokenURI);
     },
   });
-  const publishEnabled = deployEnabled && Boolean(reviewToken.data);
   const activeDraftRecoveryBlock =
     draftRecoveryBlock?.key === draftScopeKey ? draftRecoveryBlock : undefined;
 
   const mediaStoreEnabled = Boolean(
-    media.mode === "native" &&
+    localImageNeedsStorage &&
     candidate &&
     candidatePayload &&
     candidateMedia &&
@@ -1025,6 +1024,28 @@ export function CreateTierWizard() {
     !currentPendingMediaVerification &&
     !isTransactionInFlight(mediaTransaction.phase) &&
     !isTransactionInFlight(transaction.phase),
+  );
+  const deployEnabled =
+    formValid &&
+    acknowledged &&
+    Boolean(protocol.data) &&
+    draftScopeReady &&
+    guard.enabled &&
+    (gas.data ?? 0n) > 0n &&
+    (!localImageNeedsStorage || mediaStoreEnabled) &&
+    !write.isPending &&
+    !currentPendingTierVerification &&
+    !isTransactionInFlight(transaction.phase) &&
+    !isTransactionInFlight(mediaTransaction.phase);
+  const publishEnabled = deployEnabled && Boolean(reviewToken.data);
+  const imageQueueComplete =
+    localImageSelected && Boolean(currentConfirmedMedia);
+  const imageQueueStatus = imageQueueComplete
+    ? "Complete"
+    : publicationStepStatus(mediaTransaction.phase);
+  const membershipQueueStatus = publicationStepStatus(
+    transaction.phase,
+    localImageNeedsStorage && mediaTransaction.phase !== "confirmed",
   );
 
   function update(key: keyof CreatorForm) {
@@ -1295,7 +1316,6 @@ export function CreateTierWizard() {
       if (!confirmed) {
         setMediaLibraryNotice({
           scopeKey: currentCreatorScopeKey,
-          tone: "error",
           message: "That stored image is unavailable for this membership.",
         });
         return;
@@ -1319,11 +1339,7 @@ export function CreateTierWizard() {
         confirmedStore: confirmed.store,
       });
       dispatchMedia({ type: "RESET" });
-      setMediaLibraryNotice({
-        scopeKey: currentCreatorScopeKey,
-        tone: "info",
-        message: "Stored image selected for this membership.",
-      });
+      setMediaLibraryNotice(undefined);
       resetCompletion();
     } catch (error) {
       if (
@@ -1334,7 +1350,6 @@ export function CreateTierWizard() {
       }
       setMediaLibraryNotice({
         scopeKey: currentCreatorScopeKey,
-        tone: "error",
         message:
           "Could not verify this stored image. " +
           decodeTransactionError(error),
@@ -1388,7 +1403,9 @@ export function CreateTierWizard() {
     }
   }
 
-  async function verifyStoredMedia(attempt: MediaVerificationAttempt) {
+  async function verifyStoredMedia(
+    attempt: MediaVerificationAttempt,
+  ): Promise<ConfirmedOnchainMedia | undefined> {
     if (
       mediaVerificationInFlight.current ||
       !sameCreatorProtocolScope(currentCreatorScopeRef.current, attempt.scope)
@@ -1439,30 +1456,16 @@ export function CreateTierWizard() {
           confirmedStore: stored.store,
         });
       }
-      setMediaLibraryNotice({
-        scopeKey: creatorProtocolScopeKey(attempt.scope)!,
-        tone: "info",
-        message: stillSelectedCandidate
-          ? "Image stored and saved for reuse."
-          : "Image stored. Your newer choice is unchanged.",
-      });
       void creatorMediaLibrary.refetch();
+      return stored;
     } finally {
       mediaVerificationInFlight.current = false;
     }
   }
 
-  async function storeNativeMedia() {
-    if (mediaWriteInFlight.current || currentPendingMediaVerification) return;
-    mediaWriteInFlight.current = true;
-    try {
-      await storeNativeMediaOnce();
-    } finally {
-      mediaWriteInFlight.current = false;
-    }
-  }
-
-  async function storeNativeMediaOnce() {
+  async function storeNativeMediaOnce(): Promise<
+    ConfirmedOnchainMedia | undefined
+  > {
     if (
       !mediaStoreEnabled ||
       !client ||
@@ -1544,12 +1547,13 @@ export function CreateTierWizard() {
         selectionGeneration,
       };
       setPendingMediaVerification(attempt);
-      await verifyStoredMedia(attempt);
+      return await verifyStoredMedia(attempt);
     } catch (error) {
       scopedDispatch({
         type: waitingForReceipt ? "UNCERTAIN" : "FAILED",
         error: decodeTransactionError(error),
       });
+      return undefined;
     }
   }
 
@@ -1642,9 +1646,12 @@ export function CreateTierWizard() {
     if (
       !publishEnabled ||
       !result.config ||
+      !publicationMedia ||
       !client ||
       !account.address ||
       !protocol.data ||
+      !selectedRenderer ||
+      !tierSalt ||
       !currentCreatorScope ||
       !draftScope ||
       !draftScopeKey
@@ -1652,10 +1659,32 @@ export function CreateTierWizard() {
       return;
     }
     const creator = account.address;
-    const config = result.config;
     const dependencies = protocol.data;
     const factory = dependencies.factory;
     const scope = currentCreatorScope;
+    const selectionGeneration = mediaSelectionGeneration.current;
+    let mediaForPublication = publicationMedia;
+
+    if (localImageNeedsStorage) {
+      const stored = await storeNativeMediaOnce();
+      if (
+        !stored ||
+        selectionGeneration !== mediaSelectionGeneration.current ||
+        !sameCreatorProtocolScope(currentCreatorScopeRef.current, scope)
+      ) {
+        return;
+      }
+      mediaForPublication = stored;
+    }
+
+    const publicationResult = evaluateCreatorForm(form, creator, {
+      tierSalt,
+      rendererVersion: selectedRenderer.version,
+      art: contractArt,
+      media: mediaForPublication,
+    });
+    if (!publicationResult.config) return;
+    const config = publicationResult.config;
     const scopedDispatch: typeof dispatch = (event) => {
       if (sameCreatorProtocolScope(currentCreatorScopeRef.current, scope)) {
         dispatch(event);
@@ -1891,7 +1920,6 @@ export function CreateTierWizard() {
               nativeSettings={nativeSettings}
               nativeState={presentedNativeState}
               onArtChange={handleArtChange}
-              onKeepComposition={() => setStep("price")}
               onMediaChange={handleMediaChange}
               onNextNativeLibraryPage={() =>
                 setMediaLibraryPage((current) => current + 1)
@@ -1967,80 +1995,6 @@ export function CreateTierWizard() {
                     </button>
                   )}
                 </div>
-              </section>
-            )}
-
-            {media.mode === "native" && candidate && !currentConfirmedMedia && (
-              <section
-                aria-labelledby="store-native-media-heading"
-                className="studio-commit-panel"
-              >
-                <div>
-                  <h2 id="store-native-media-heading">Store this image</h2>
-                  <p>
-                    This image and your wallet address will be public, even if
-                    you do not publish the membership.
-                  </p>
-                </div>
-                <div className="studio-commit-action">
-                  <WalletControl />
-                  {!guard.enabled && (
-                    <p className="inline-status">{guard.reason}</p>
-                  )}
-                  {mediaGasQuote.error && (
-                    <p className="inline-status" role="alert">
-                      Could not estimate storage. Try again.
-                    </p>
-                  )}
-                  <button
-                    className="button button-applause"
-                    disabled={!mediaStoreEnabled}
-                    onClick={() => void storeNativeMedia()}
-                    type="button"
-                  >
-                    Store image
-                  </button>
-                </div>
-                <TransactionFlow
-                  onRetry={() => void storeNativeMedia()}
-                  state={mediaTransaction}
-                />
-              </section>
-            )}
-
-            {currentPendingMediaVerification && (
-              <section className="studio-commit-panel" role="status">
-                <div>
-                  <h2>Finish checking the image</h2>
-                  <p>
-                    The image was stored. This retry only checks the result; it
-                    will not create another transaction.
-                  </p>
-                </div>
-                <button
-                  className="button button-dark"
-                  disabled={mediaTransaction.phase === "reconciliation"}
-                  onClick={() =>
-                    void verifyStoredMedia(currentPendingMediaVerification)
-                  }
-                  type="button"
-                >
-                  Check again
-                </button>
-              </section>
-            )}
-
-            {media.mode === "native" && currentConfirmedMedia && (
-              <section className="studio-stored-panel" role="status">
-                <h2>Image stored</h2>
-                <p>
-                  You can keep editing. Changing the image will require storing
-                  the new version.
-                </p>
-                <details className="technical-details">
-                  <summary>Storage address</summary>
-                  <code>{currentConfirmedMedia.store}</code>
-                </details>
               </section>
             )}
           </div>
@@ -2323,9 +2277,9 @@ export function CreateTierWizard() {
                     <dd>
                       {media.mode === "none"
                         ? "Generated artwork"
-                        : currentConfirmedMedia
-                          ? "Stored image"
-                          : "Image not stored yet"}
+                        : localImageSelected
+                          ? "New image"
+                          : "Saved image"}
                     </dd>
                   </div>
                 </dl>
@@ -2398,6 +2352,65 @@ export function CreateTierWizard() {
               <WalletReadiness />
             </div>
 
+            <section
+              aria-labelledby="publication-queue-heading"
+              className="publication-queue"
+            >
+              <div>
+                <p className="creator-steps-title">Transactions</p>
+                <h3 id="publication-queue-heading">Publish queue</h3>
+              </div>
+              <ol>
+                {localImageSelected ? (
+                  <li data-status={imageQueueStatus}>
+                    <span aria-hidden="true">1</span>
+                    <div>
+                      <strong>Store image</strong>
+                      <small>Public and permanent</small>
+                    </div>
+                    <em>{imageQueueStatus}</em>
+                  </li>
+                ) : null}
+                <li data-status={membershipQueueStatus}>
+                  <span aria-hidden="true">
+                    {localImageSelected ? "2" : "1"}
+                  </span>
+                  <div>
+                    <strong>Create membership</strong>
+                  </div>
+                  <em>{membershipQueueStatus}</em>
+                </li>
+              </ol>
+            </section>
+
+            {mediaGasQuote.error && localImageNeedsStorage ? (
+              <p className="inline-status" role="alert">
+                Image storage could not be prepared. Try again.
+              </p>
+            ) : null}
+
+            {currentPendingMediaVerification && (
+              <section className="studio-commit-panel" role="status">
+                <div>
+                  <h2>Finish checking the image</h2>
+                  <p>
+                    The image was stored. This check will not create another
+                    transaction.
+                  </p>
+                </div>
+                <button
+                  className="button button-dark"
+                  disabled={mediaTransaction.phase === "reconciliation"}
+                  onClick={() =>
+                    void verifyStoredMedia(currentPendingMediaVerification)
+                  }
+                  type="button"
+                >
+                  Check again
+                </button>
+              </section>
+            )}
+
             {!formValid && (
               <p className="inline-status" role="alert">
                 Finish the highlighted fields before publishing.
@@ -2452,6 +2465,14 @@ export function CreateTierWizard() {
             >
               Publish this membership
             </button>
+            {localImageSelected &&
+            mediaTransaction.phase !== "idle" &&
+            mediaTransaction.phase !== "confirmed" ? (
+              <TransactionFlow
+                onRetry={() => void deploy()}
+                state={mediaTransaction}
+              />
+            ) : null}
             <TransactionFlow
               onRetry={() => void deploy()}
               state={transaction}

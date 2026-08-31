@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getAddress, zeroAddress, type Address } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -404,15 +404,14 @@ describe("creator setup component", () => {
     expect(secondSeed).not.toBe(firstSeed);
   });
 
-  it("keeps an art direction by advancing to price and period", async () => {
+  it("confirms the art direction by advancing to price and period", async () => {
     const user = userEvent.setup();
     renderWizard();
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
-    const keep = screen.getByRole("button", {
-      name: /keep this direction/i,
-    });
-    await waitFor(() => expect(keep).toBeEnabled());
-    await user.click(keep);
+    expect(
+      screen.queryByRole("button", { name: /keep this direction/i }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /next step/i }));
 
     expect(
       screen.getByRole("heading", { name: /set price and renewal/i }),
@@ -430,6 +429,10 @@ describe("creator setup component", () => {
     await user.click(acknowledgements[0]);
     await user.click(screen.getByRole("button", { name: /^review$/i }));
 
+    const queue = screen.getByRole("region", { name: /publish queue/i });
+    expect(queue).toBeVisible();
+    expect(within(queue).getByText("Create membership")).toBeVisible();
+    expect(within(queue).queryByText("Store image")).not.toBeInTheDocument();
     expect(screen.getByText(/review both acknowledgements/i)).toBeVisible();
     expect(
       screen.getByRole("button", { name: /publish this membership/i }),

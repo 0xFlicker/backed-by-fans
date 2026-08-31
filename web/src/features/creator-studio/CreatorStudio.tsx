@@ -50,10 +50,6 @@ export type CreatorStudioProps = {
   onRendererChange: (version: number) => void;
   onRefreshPreviews?: () => void;
   onRetryPreview?: () => void;
-  onKeepComposition?: (
-    art: AnyStudioArtConfig,
-    media: StudioMediaDraft,
-  ) => void;
   nativeSettings?: NativeMediaSettings;
   nativeState?: NativeMediaState;
   nativeLibrary?: NativeMediaLibraryModel;
@@ -83,7 +79,6 @@ export function CreatorStudio({
   onRendererChange,
   onRefreshPreviews,
   onRetryPreview,
-  onKeepComposition,
   nativeSettings,
   nativeState,
   nativeLibrary,
@@ -148,12 +143,6 @@ export function CreatorStudio({
     setStudioAnnouncement(`${renderer.name ?? "Artwork collection"} selected.`);
   }
 
-  function keepComposition() {
-    onKeepComposition?.(art, media);
-    setEngineUndo(undefined);
-    setStudioAnnouncement(`${engineDetails[art.engine].label} kept.`);
-  }
-
   return (
     <section
       aria-labelledby="creator-studio-heading"
@@ -197,14 +186,6 @@ export function CreatorStudio({
                 type="button"
               >
                 <span aria-hidden="true">✦</span> Surprise me
-              </button>
-              <button
-                className={styles.keepButton}
-                disabled={toolsDisabled}
-                onClick={keepComposition}
-                type="button"
-              >
-                Keep this direction
               </button>
               {engineUndo ? (
                 <button

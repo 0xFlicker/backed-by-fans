@@ -1401,6 +1401,67 @@ dd {
   margin: 0;
 }
 
+.publication-queue {
+  border: 2px solid var(--backstage);
+  margin: 2rem 0 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.publication-queue h3 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  margin: 0.2rem 0 1rem;
+}
+
+.publication-queue ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.publication-queue li {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 0.9rem 0;
+}
+
+.publication-queue li > span {
+  align-items: center;
+  border: 1.5px solid var(--backstage);
+  border-radius: 50%;
+  display: flex;
+  font-family: var(--font-geist-mono), monospace;
+  height: 1.8rem;
+  justify-content: center;
+  width: 1.8rem;
+}
+
+.publication-queue li[data-status="Complete"] > span {
+  background: var(--encore);
+}
+
+.publication-queue li > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.publication-queue small,
+.publication-queue em {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.publication-queue em {
+  font-family: var(--font-geist-mono), monospace;
+}
+
 .inline-status {
   border-left: 0.45rem solid var(--applause);
   line-height: 1.5;

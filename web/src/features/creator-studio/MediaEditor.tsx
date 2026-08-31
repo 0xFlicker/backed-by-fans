@@ -1,9 +1,4 @@
-import {
-  useMemo,
-  useState,
-  type ChangeEvent,
-  type ClipboardEvent,
-} from "react";
+import { useMemo, useState, type ChangeEvent, type DragEvent } from "react";
 import { hexToBytes, type Address } from "viem";
 
 import {
@@ -73,7 +68,6 @@ export type NativeMediaLibraryModel = {
   selectedStore?: Address;
   selectingStore?: Address;
   message?: string;
-  messageTone?: "info" | "error";
 };
 
 const mediaModes = [
@@ -88,14 +82,6 @@ const mediaModes = [
     description: "Upload a JPEG or PNG.",
   },
 ] as const;
-
-function formatBytes(bytes: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "unit",
-    unit: "kilobyte",
-    maximumFractionDigits: bytes < 10_000 ? 1 : 0,
-  }).format(bytes / 1_000);
-}
 
 function StoredMediaImage({
   record,
@@ -170,15 +156,16 @@ export function MediaEditor({
   disabled?: boolean;
 }) {
   const { detailsRef, isWide } = useWideStudioDisclosure();
-  const [pasteMessage, setPasteMessage] = useState<string>();
-  const hasMedia = media.mode !== "none";
+  const [dropActive, setDropActive] = useState(false);
   const selectedStore = nativeLibrary?.selectedStore;
-  const selectedSavedImage =
-    nativeLibrary?.status === "ready" && selectedStore
-      ? nativeLibrary.records.find((record) =>
-          isSameAddress(record.store, selectedStore),
-        )
+  const localCandidate =
+    nativeState.status === "ready" ||
+    (nativeState.status === "stored" && nativeState.candidate)
+      ? nativeState.candidate
       : undefined;
+  const localTileSelected =
+    Boolean(localCandidate) || nativeState.status === "processing";
+  const hasSelectedImage = Boolean(localCandidate || selectedStore);
 
   function chooseMode(mode: (typeof mediaModes)[number]["mode"]) {
     if (mode === media.mode) return;
@@ -216,26 +203,12 @@ export function MediaEditor({
     event.target.value = "";
   }
 
-  function pasteImage(event: ClipboardEvent<HTMLDivElement>) {
-    const image = Array.from(event.clipboardData.items).find(
-      (item) =>
-        item.kind === "file" &&
-        (item.type === "image/jpeg" || item.type === "image/png"),
-    );
-    const file = image?.getAsFile();
-    if (file) {
-      event.preventDefault();
-      setPasteMessage("Image received. Preparing preview...");
-      onNativeSourceSelected?.(file, nativeSettings);
-      return;
-    }
-
-    if (event.clipboardData.getData("text/plain").trim()) {
-      event.preventDefault();
-      setPasteMessage("Paste the image itself, not text or a link.");
-      return;
-    }
-    setPasteMessage("Paste a JPEG or PNG image from your clipboard.");
+  function dropFile(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDropActive(false);
+    if (disabled || nativeState.status === "processing") return;
+    const file = event.dataTransfer.files[0];
+    if (file) onNativeSourceSelected?.(file, nativeSettings);
   }
 
   return (
@@ -285,53 +258,181 @@ export function MediaEditor({
 
         {media.mode === "native" ? (
           <div className={styles.mediaDetail}>
-            <div className={styles.nativeCandidateGrid}>
-              <div className={styles.candidateFrame}>
-                {nativeState.status === "ready" ||
-                (nativeState.status === "stored" && nativeState.candidate) ? (
-                  // The object URL represents the locally processed image.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    alt="Processed creator media candidate"
-                    src={nativeState.candidate?.objectURL}
-                  />
-                ) : selectedSavedImage ? (
-                  <StoredMediaImage
-                    alt="Selected saved image"
-                    record={selectedSavedImage}
-                  />
-                ) : (
-                  <div className={styles.candidateEmpty}>
-                    <span aria-hidden="true">＋</span>
-                    <p>Your image appears here.</p>
-                  </div>
-                )}
-              </div>
-              <div className={styles.nativeSettings}>
-                <label className={styles.fileButton}>
-                  <span>Choose image</span>
-                  <input
-                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                    disabled={disabled || nativeState.status === "processing"}
-                    onChange={chooseFile}
-                    type="file"
-                  />
-                </label>
-                <div
-                  aria-label="Paste an image from clipboard"
-                  className={styles.pasteTarget}
-                  onPaste={pasteImage}
-                  role="region"
-                  tabIndex={0}
-                >
-                  <strong>Paste an image</strong>
-                  <span>Focus here, then paste a JPEG or PNG.</span>
-                </div>
-                {pasteMessage ? (
-                  <p aria-live="polite" className={styles.verifiedLine}>
-                    {pasteMessage}
+            <section
+              aria-labelledby="studio-native-images-heading"
+              className={styles.nativeLibrary}
+            >
+              <h4 id="studio-native-images-heading">Images</h4>
+              <ul className={styles.nativeLibraryList}>
+                <li>
+                  <label
+                    aria-label={
+                      localCandidate ? "Replace new image" : "Add new image"
+                    }
+                    className={styles.nativeAddItem}
+                    data-drop-active={dropActive}
+                    data-selected={localTileSelected}
+                    onDragEnter={(event) => {
+                      event.preventDefault();
+                      if (!disabled) setDropActive(true);
+                    }}
+                    onDragLeave={() => setDropActive(false)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={dropFile}
+                  >
+                    <input
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                      disabled={disabled || nativeState.status === "processing"}
+                      onChange={chooseFile}
+                      type="file"
+                    />
+                    {localCandidate ? (
+                      // The object URL represents the locally processed image.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img alt="New image" src={localCandidate.objectURL} />
+                    ) : (
+                      <span aria-hidden="true" className={styles.addImageMark}>
+                        {nativeState.status === "processing" ? "…" : "+"}
+                      </span>
+                    )}
+                    {localCandidate ? (
+                      <span
+                        aria-hidden="true"
+                        className={styles.librarySelected}
+                      >
+                        ✓
+                      </span>
+                    ) : null}
+                  </label>
+                </li>
+                {nativeLibrary?.status === "ready"
+                  ? nativeLibrary.records.map((record, index) => {
+                      const selected =
+                        nativeLibrary.selectedStore !== undefined &&
+                        isSameAddress(
+                          nativeLibrary.selectedStore,
+                          record.store,
+                        );
+                      const selecting =
+                        nativeLibrary.selectingStore !== undefined &&
+                        isSameAddress(
+                          nativeLibrary.selectingStore,
+                          record.store,
+                        );
+                      const itemNumber =
+                        nativeLibrary.offset + BigInt(index) + 1n;
+                      return (
+                        <li key={record.store}>
+                          <button
+                            aria-label={
+                              (selected ? "Selected" : "Select") +
+                              " saved image " +
+                              itemNumber
+                            }
+                            aria-pressed={selected}
+                            className={styles.nativeLibraryItem}
+                            data-selected={selected}
+                            disabled={
+                              disabled ||
+                              Boolean(nativeLibrary.selectingStore) ||
+                              !onSelectNativeStore
+                            }
+                            onClick={() => onSelectNativeStore?.(record.store)}
+                            type="button"
+                          >
+                            <StoredMediaImage alt="" record={record} />
+                            {selected ? (
+                              <span
+                                aria-hidden="true"
+                                className={styles.librarySelected}
+                              >
+                                ✓
+                              </span>
+                            ) : null}
+                            {selecting ? (
+                              <span className={styles.libraryLoading}>
+                                Loading…
+                              </span>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })
+                  : null}
+              </ul>
+
+              {nativeLibrary?.status === "loading" ? (
+                <p className={styles.libraryStatus} role="status">
+                  Loading saved images…
+                </p>
+              ) : null}
+              {nativeLibrary?.status === "error" ? (
+                <div className={styles.libraryStatus}>
+                  <p className={styles.errorText} role="alert">
+                    {nativeLibrary.message ??
+                      "Saved images could not be loaded."}
                   </p>
-                ) : null}
+                  <button
+                    className={styles.secondaryButton}
+                    disabled={disabled || !onRetryNativeLibrary}
+                    onClick={onRetryNativeLibrary}
+                    type="button"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : null}
+              {nativeLibrary?.message && nativeLibrary.status === "ready" ? (
+                <p className={styles.errorText} role="alert">
+                  {nativeLibrary.message}
+                </p>
+              ) : null}
+              {nativeLibrary?.status === "ready" &&
+              nativeLibrary.total > BigInt(nativeLibrary.limit) ? (
+                <div
+                  aria-label="Saved image pages"
+                  className={styles.libraryPagination}
+                >
+                  <button
+                    className={styles.textButton}
+                    disabled={
+                      disabled ||
+                      nativeLibrary.offset === 0n ||
+                      !onPreviousNativeLibraryPage
+                    }
+                    onClick={onPreviousNativeLibraryPage}
+                    type="button"
+                  >
+                    Previous
+                  </button>
+                  <span>
+                    {(nativeLibrary.offset + 1n).toLocaleString("en-US")}-
+                    {(
+                      nativeLibrary.offset +
+                      BigInt(nativeLibrary.records.length)
+                    ).toLocaleString("en-US")}{" "}
+                    of {nativeLibrary.total.toLocaleString("en-US")}
+                  </span>
+                  <button
+                    className={styles.textButton}
+                    disabled={
+                      disabled ||
+                      nativeLibrary.offset +
+                        BigInt(nativeLibrary.records.length) >=
+                        nativeLibrary.total ||
+                      !onNextNativeLibraryPage
+                    }
+                    onClick={onNextNativeLibraryPage}
+                    type="button"
+                  >
+                    Next
+                  </button>
+                </div>
+              ) : null}
+            </section>
+
+            {localCandidate ? (
+              <div className={styles.nativeSettings}>
                 <label>
                   Image size
                   <select
@@ -446,21 +547,11 @@ export function MediaEditor({
                   </label>
                 )}
               </div>
-            </div>
+            ) : null}
 
             <div aria-live="polite" className={styles.mediaStatus}>
               {nativeState.status === "processing" ? (
                 <p>{nativeState.message ?? "Preparing image..."}</p>
-              ) : null}
-              {nativeState.status === "ready" ? (
-                <p>
-                  Ready: {nativeState.candidate.dimension}px{" "}
-                  {nativeState.candidate.mime === "image/png" ? "PNG" : "JPEG"},{" "}
-                  {formatBytes(nativeState.candidate.byteLength)}.
-                </p>
-              ) : null}
-              {nativeState.status === "stored" && nativeState.candidate ? (
-                <p>Image stored.</p>
               ) : null}
               {nativeState.status === "error" ? (
                 <p className={styles.errorText} role="alert">
@@ -468,149 +559,10 @@ export function MediaEditor({
                 </p>
               ) : null}
             </div>
-
-            {nativeLibrary ? (
-              <section
-                aria-labelledby="studio-native-library-heading"
-                className={styles.nativeLibrary}
-              >
-                <h4 id="studio-native-library-heading">Saved images</h4>
-
-                {nativeLibrary.status === "loading" ? (
-                  <p className={styles.libraryStatus} role="status">
-                    Loading saved images...
-                  </p>
-                ) : null}
-                {nativeLibrary.status === "error" ? (
-                  <div className={styles.libraryStatus}>
-                    <p className={styles.errorText} role="alert">
-                      {nativeLibrary.message ??
-                        "Saved images could not be loaded."}
-                    </p>
-                    <button
-                      className={styles.secondaryButton}
-                      disabled={disabled || !onRetryNativeLibrary}
-                      onClick={onRetryNativeLibrary}
-                      type="button"
-                    >
-                      Try again
-                    </button>
-                  </div>
-                ) : null}
-                {nativeLibrary.status === "ready" &&
-                nativeLibrary.records.length === 0 ? (
-                  <p className={styles.libraryStatus}>
-                    {nativeLibrary.total === 0n
-                      ? "No saved images yet."
-                      : "No images on this page. Go back to the previous page."}
-                  </p>
-                ) : null}
-                {nativeLibrary.status === "ready" &&
-                nativeLibrary.records.length > 0 ? (
-                  <ul className={styles.nativeLibraryList}>
-                    {nativeLibrary.records.map((record, index) => {
-                      const selected =
-                        nativeLibrary.selectedStore !== undefined &&
-                        isSameAddress(
-                          nativeLibrary.selectedStore,
-                          record.store,
-                        );
-                      const selecting =
-                        nativeLibrary.selectingStore !== undefined &&
-                        isSameAddress(
-                          nativeLibrary.selectingStore,
-                          record.store,
-                        );
-                      return (
-                        <li key={record.store}>
-                          <button
-                            aria-label={`${selected ? "Selected" : "Select"} saved image ${nativeLibrary.offset + BigInt(index) + 1n}`}
-                            aria-pressed={selected}
-                            className={styles.nativeLibraryItem}
-                            data-selected={selected}
-                            disabled={
-                              disabled ||
-                              Boolean(nativeLibrary.selectingStore) ||
-                              !onSelectNativeStore
-                            }
-                            onClick={() => onSelectNativeStore?.(record.store)}
-                            type="button"
-                          >
-                            <StoredMediaImage alt="" record={record} />
-                            {selected ? (
-                              <span
-                                aria-hidden="true"
-                                className={styles.librarySelected}
-                              >
-                                ✓
-                              </span>
-                            ) : null}
-                            {selecting ? (
-                              <span className={styles.libraryLoading}>
-                                Loading…
-                              </span>
-                            ) : null}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
-                {nativeLibrary.message &&
-                nativeLibrary.messageTone === "error" &&
-                nativeLibrary.status === "ready" ? (
-                  <p className={styles.errorText} role="alert">
-                    {nativeLibrary.message}
-                  </p>
-                ) : null}
-                {nativeLibrary.status === "ready" &&
-                nativeLibrary.total > BigInt(nativeLibrary.limit) ? (
-                  <div
-                    aria-label="Saved image pages"
-                    className={styles.libraryPagination}
-                  >
-                    <button
-                      className={styles.textButton}
-                      disabled={
-                        disabled ||
-                        nativeLibrary.offset === 0n ||
-                        !onPreviousNativeLibraryPage
-                      }
-                      onClick={onPreviousNativeLibraryPage}
-                      type="button"
-                    >
-                      Previous
-                    </button>
-                    <span>
-                      {(nativeLibrary.offset + 1n).toLocaleString("en-US")}-
-                      {(
-                        nativeLibrary.offset +
-                        BigInt(nativeLibrary.records.length)
-                      ).toLocaleString("en-US")}{" "}
-                      of {nativeLibrary.total.toLocaleString("en-US")}
-                    </span>
-                    <button
-                      className={styles.textButton}
-                      disabled={
-                        disabled ||
-                        nativeLibrary.offset +
-                          BigInt(nativeLibrary.records.length) >=
-                          nativeLibrary.total ||
-                        !onNextNativeLibraryPage
-                      }
-                      onClick={onNextNativeLibraryPage}
-                      type="button"
-                    >
-                      Next
-                    </button>
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
           </div>
         ) : null}
 
-        {hasMedia ? (
+        {hasSelectedImage ? (
           <details className={styles.mediaDirection} open>
             <summary>Image placement</summary>
             <div className={styles.controlStack}>

@@ -86,7 +86,7 @@ test("@anvil rediscovers and revalidates the connected creator's permanent media
 
   await expect(
     page.getByRole("heading", {
-      name: "Saved images",
+      name: "Images",
     }),
   ).toBeVisible();
   const savedImage = page.getByRole("button", {
@@ -99,7 +99,7 @@ test("@anvil rediscovers and revalidates the connected creator's permanent media
       name: "Selected saved image 1",
     }),
   ).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByAltText("Selected saved image")).toBeVisible();
+  await expect(page.getByText("Image placement")).toBeVisible();
   await expect(
     page.getByText("Stored image selected for this membership."),
   ).toHaveCount(0);
@@ -172,7 +172,7 @@ test("@anvil cancels stale local image work when the creator changes media mode"
   await page.getByText("Add an image", { exact: true }).click();
   await page.getByRole("radio", { name: /Add your image/i }).check();
   await page
-    .getByLabel("Choose image")
+    .getByLabel("Add new image")
     .setInputFiles(
       resolve(process.cwd(), "public/brand/backstage-membership-hero-v1.png"),
     );
@@ -181,13 +181,11 @@ test("@anvil cancels stale local image work when the creator changes media mode"
   await page.getByRole("radio", { name: /Generated artwork/i }).check();
   await page.getByRole("radio", { name: /Add your image/i }).check();
 
-  await expect(page.getByLabel("Choose image")).toBeEnabled();
+  await expect(page.getByLabel("Add new image")).toBeEnabled();
   await expect(page.getByText(/Preparing image/i)).toHaveCount(0);
   await page.waitForTimeout(1_100);
-  await expect(
-    page.getByAltText("Processed creator media candidate"),
-  ).toHaveCount(0);
-  await expect(page.getByLabel("Choose image")).toBeEnabled();
+  await expect(page.getByAltText("New image")).toHaveCount(0);
+  await expect(page.getByLabel("Add new image")).toBeEnabled();
 });
 
 test("keeps horizontal Art Studio step markers clear of dividers", async ({
