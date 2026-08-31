@@ -255,7 +255,7 @@ describe("creator setup component", () => {
     );
 
     const continueWithoutAutosave = await screen.findByRole("button", {
-      name: /continue without browser autosave/i,
+      name: /continue without autosave/i,
     });
     await user.click(continueWithoutAutosave);
 
@@ -298,7 +298,7 @@ describe("creator setup component", () => {
     await user.click(publish);
 
     await screen.findByRole("heading", {
-      name: /verify the membership.do not publish it again/i,
+      name: /finish checking the membership/i,
     });
     expect(publish).toBeDisabled();
     expect(writeContractAsync).toHaveBeenCalledOnce();
@@ -312,7 +312,7 @@ describe("creator setup component", () => {
     await waitFor(() =>
       expect(
         screen.queryByRole("heading", {
-          name: /verify the membership.do not publish it again/i,
+          name: /finish checking the membership/i,
         }),
       ).not.toBeInTheDocument(),
     );
@@ -325,15 +325,13 @@ describe("creator setup component", () => {
     );
 
     await screen.findByRole("heading", {
-      name: /verify the membership.do not publish it again/i,
+      name: /finish checking the membership/i,
     });
     const recoveredPublish = screen.getByRole("button", {
       name: /publish this membership/i,
     });
     expect(recoveredPublish).toBeDisabled();
-    await user.click(
-      screen.getByRole("button", { name: /retry onchain verification/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /check again/i }));
     await waitFor(() => expect(writeContractAsync).toHaveBeenCalledOnce());
     expect(activeClient.waitForTransactionReceipt).toHaveBeenCalledOnce();
   });
@@ -417,7 +415,7 @@ describe("creator setup component", () => {
     await user.click(keep);
 
     expect(
-      screen.getByRole("heading", { name: /set the permanent rhythm/i }),
+      screen.getByRole("heading", { name: /set price and renewal/i }),
     ).toBeVisible();
   });
 
@@ -432,7 +430,7 @@ describe("creator setup component", () => {
     await user.click(acknowledgements[0]);
     await user.click(screen.getByRole("button", { name: /^review$/i }));
 
-    expect(screen.getByText(/both permanence and gifting/i)).toBeVisible();
+    expect(screen.getByText(/review both acknowledgements/i)).toBeVisible();
     expect(
       screen.getByRole("button", { name: /publish this membership/i }),
     ).toBeDisabled();

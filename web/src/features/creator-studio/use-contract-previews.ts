@@ -77,7 +77,7 @@ async function readRendererPreview(
     to: renderer,
   });
   if (!response.data) {
-    throw new Error("The contract renderer returned no preview data.");
+    throw new Error("No preview was returned.");
   }
   return decodeFunctionResult({
     abi: onchainMetadataRendererAbi,
@@ -89,7 +89,7 @@ async function readRendererPreview(
 function errorMessage(error: unknown) {
   return error instanceof Error && error.message.trim()
     ? error.message
-    : "The contract renderer could not produce this preview.";
+    : "Could not render this preview.";
 }
 
 function svgResource(
@@ -102,7 +102,7 @@ function svgResource(
 ): PreviewResource<ContractSVGPreview> {
   if (!enabled) return { status: "idle" };
   if (query.isFetching) {
-    return { status: "loading", message: "Rendering the exact SVG…" };
+    return { status: "loading", message: "Rendering artwork..." };
   }
   if (query.error)
     return { status: "error", message: errorMessage(query.error) };
@@ -124,7 +124,8 @@ function useSettledDraft(
 }
 
 function svgDescription(selection: PreviewSelection, engine: number) {
-  return `${selection.state === "active" ? "Active" : "Archival afterglow"} onchain membership, token ${selection.tokenId}, renderer engine ${engine + 1}.`;
+  void engine;
+  return `${selection.state === "active" ? "Active" : "Afterglow"} membership artwork, token ${selection.tokenId}.`;
 }
 
 function svgQueryKey(
@@ -169,7 +170,7 @@ async function renderSVG(input: {
   );
   return {
     svg,
-    title: `${draft.tierName.trim() || "Creator Membership"} · token ${input.tokenId}`,
+    title: `${draft.tierName.trim() || "Creator Membership"}, token ${input.tokenId}`,
     description: svgDescription(selection, draft.art.engine),
   };
 }
@@ -284,7 +285,7 @@ export function useContractPreviews(input: PreviewQueriesInput): {
   const announcement = !input.enabled
     ? input.blockedMessage
     : focusedQuery.isFetching
-      ? "Refreshing the exact contract-rendered composition."
+      ? "Refreshing artwork."
       : focusedQuery.data
         ? `Token ${input.selection.tokenId} ${input.selection.state} preview is ready.`
         : undefined;

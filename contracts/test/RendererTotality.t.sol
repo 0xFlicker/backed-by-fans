@@ -110,7 +110,13 @@ contract RendererTotalityTest is Test {
         assertEq(_geometry(active), _geometry(afterglow));
         assertTrue(_contains(active, 'data-state="active"'));
         assertTrue(_contains(afterglow, 'data-state="afterglow"'));
-        assertTrue(_contains(afterglow, "ARCHIVAL AFTERGLOW"));
+        assertTrue(_contains(active, ">ACTIVE</text>"));
+        assertTrue(_contains(afterglow, ">EXPIRED</text>"));
+        assertFalse(_contains(active, "LIVE SUPPORT"));
+        assertFalse(_contains(afterglow, "ARCHIVAL AFTERGLOW"));
+        assertTrue(_contains(active, ".state-afterglow{display:none}"));
+        assertTrue(_contains(active, "svg[data-state='afterglow'] .state-active{display:none}"));
+        assertTrue(_contains(active, "svg[data-state='afterglow'] .state-afterglow{display:block}"));
         assertTrue(_contains(afterglow, "--hot:#f4e6c8"));
     }
 
@@ -245,7 +251,21 @@ contract RendererTotalityTest is Test {
                 )
             );
             assertTrue(_contains(active, "engine-media-clip"));
-            assertTrue(_contains(afterglow, "ARCHIVAL AFTERGLOW"));
+            assertTrue(_contains(afterglow, ">EXPIRED</text>"));
+            assertFalse(_contains(active, "class=\"engine-label\""));
+            assertFalse(_contains(afterglow, "class=\"engine-label\""));
+            assertTrue(_contains(active, "Creator Backers"));
+            assertTrue(_contains(afterglow, "Creator Backers"));
+            assertTrue(_contains(active, "NO. 7"));
+            assertTrue(_contains(afterglow, "NO. 7"));
+            string memory removedFooter =
+                string.concat(RendererPrimitives.engineName(token.art.engine), " / 0x");
+            assertFalse(_contains(active, removedFooter));
+            assertFalse(_contains(afterglow, removedFooter));
+            if (engineIndex == 3) {
+                assertFalse(_contains(active, "ONE VOICE / MANY"));
+                assertFalse(_contains(afterglow, "ONE VOICE / MANY"));
+            }
             activeHashes[engineIndex] = keccak256(bytes(active));
             for (uint8 prior; prior < engineIndex; ++prior) {
                 assertNotEq(activeHashes[engineIndex], activeHashes[prior]);

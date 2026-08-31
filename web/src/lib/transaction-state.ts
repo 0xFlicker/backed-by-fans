@@ -90,19 +90,19 @@ export function transactionReducer(
       return {
         ...state,
         phase: "confirmation",
-        message: "Confirmed onchain. Checking the resulting state.",
+        message: "Confirmed. Finishing the check.",
       };
     case "RECONCILE":
       return {
         ...state,
         phase: "reconciliation",
-        message: "Reconciling with a fresh onchain read.",
+        message: "Finishing the check.",
       };
     case "RECONCILED":
       return {
         ...state,
         phase: "confirmed",
-        message: "Complete and reconciled onchain.",
+        message: "Complete.",
         error: undefined,
       };
     case "REPLACED":
@@ -111,8 +111,8 @@ export function transactionReducer(
         phase: "replacement",
         message:
           event.reason === "cancelled"
-            ? "Your wallet submitted a cancellation. Waiting for its receipt."
-            : "Your wallet replaced this transaction. Tracking the new hash.",
+            ? "Your wallet submitted a cancellation. Waiting for it to finish."
+            : "Your wallet replaced this action. Waiting for it to finish.",
         replacementHash: event.replacementHash,
       };
     case "UNCERTAIN":
@@ -120,21 +120,21 @@ export function transactionReducer(
         ...state,
         phase: "uncertain",
         message:
-          "The app has not verified the final onchain result. Check your wallet or explorer and refresh before continuing.",
+          "The final result is not clear yet. Check your wallet and refresh before continuing.",
         error: event.error,
       };
     case "CANCELLED":
       return {
         ...state,
         phase: "cancelled",
-        message: "The replacement cancelled this action onchain.",
+        message: "This action was cancelled.",
         error: event.error,
       };
     case "REVERTED":
       return {
         ...state,
         phase: "reverted",
-        message: "The contract rejected this transaction.",
+        message: "This action was rejected.",
         error: event.error,
       };
     case "FAILED":

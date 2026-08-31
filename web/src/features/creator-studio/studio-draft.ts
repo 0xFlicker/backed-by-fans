@@ -267,48 +267,45 @@ function scopeMismatch(
   current: StudioDraftScope,
 ): StudioDraftRecovery | undefined {
   if (stored.chainId !== current.chainId) {
-    return rejected("chain-mismatch", "The draft belongs to another chain.");
+    return rejected("chain-mismatch", "This draft belongs to another network.");
   }
   if (!isSameAddress(stored.factory, current.factory)) {
     return rejected(
       "factory-mismatch",
-      "The draft belongs to another canonical membership factory.",
+      "This draft belongs to another membership network.",
     );
   }
   if (!isSameAddress(stored.creator, current.creator)) {
     return rejected(
       "creator-mismatch",
-      "Reconnect the creator account that owns this draft.",
+      "Reconnect the wallet that owns this draft.",
     );
   }
   if (stored.rendererVersion !== current.rendererVersion) {
     return rejected(
       "renderer-mismatch",
-      "The artwork renderer changed; review a fresh composition.",
+      "The artwork collection changed. Start a new direction.",
     );
   }
   if (!isSameAddress(stored.renderer, current.renderer)) {
     return rejected(
       "renderer-mismatch",
-      "The renderer generation changed; review a fresh composition.",
+      "The artwork collection changed. Start a new direction.",
     );
   }
   if (!isSameAddress(stored.mediaRegistry, current.mediaRegistry)) {
     return rejected(
       "media-registry-mismatch",
-      "The onchain media registry changed; select media again.",
+      "Image storage changed. Choose the image again.",
     );
   }
   if (stored.abiVersion !== current.abiVersion) {
-    return rejected(
-      "abi-mismatch",
-      "The Creator Studio contract interface changed; review a fresh draft.",
-    );
+    return rejected("abi-mismatch", "Art Studio changed. Review a new draft.");
   }
   if (stored.rendererBoundsVersion !== current.rendererBoundsVersion) {
     return rejected(
       "renderer-bounds-mismatch",
-      "The renderer control or media bounds changed; review a fresh draft.",
+      "Art Studio controls changed. Review a new draft.",
     );
   }
   return undefined;
@@ -369,16 +366,13 @@ export async function recoverUnsignedStudioDraft(
   if (
     new TextEncoder().encode(serialized).length > maxUnsignedStudioDraftBytes
   ) {
-    return rejected(
-      "malformed",
-      "The saved creative draft exceeds its storage limit.",
-    );
+    return rejected("malformed", "The saved draft is too large.");
   }
   let raw: unknown;
   try {
     raw = JSON.parse(serialized);
   } catch {
-    return rejected("malformed", "The saved creative draft is not valid JSON.");
+    return rejected("malformed", "The saved draft could not be read.");
   }
   if (
     isRecord(raw) &&
@@ -386,22 +380,16 @@ export async function recoverUnsignedStudioDraft(
   ) {
     return rejected(
       "version-mismatch",
-      "The saved creative draft uses another Studio version.",
+      "This draft was saved by another Art Studio version.",
     );
   }
 
   const draft = parseEnvelope(serialized);
   if (!draft) {
-    return rejected(
-      "malformed",
-      "The saved creative draft contains invalid or prohibited fields.",
-    );
+    return rejected("malformed", "The saved draft could not be read.");
   }
   if (!validScope(currentScope)) {
-    return rejected(
-      "malformed",
-      "The current Creator Studio scope is invalid.",
-    );
+    return rejected("malformed", "Art Studio could not load this draft.");
   }
   const mismatch = scopeMismatch(draft.scope, currentScope);
   if (mismatch) return mismatch;
@@ -411,17 +399,14 @@ export async function recoverUnsignedStudioDraft(
     if (!available) {
       return rejected(
         "tier-salt-used",
-        "This saved collection identity has already published a membership. Start a fresh Studio direction.",
+        "This draft has already been published. Start a new direction.",
       );
     }
   }
 
   if (draft.media.mode === "native" && draft.media.confirmedStore) {
     if (!options.validateConfirmedStore) {
-      return rejected(
-        "media-pointer-invalid",
-        "Revalidate the confirmed media store before restoring this draft.",
-      );
+      return rejected("media-pointer-invalid", "Choose the saved image again.");
     }
     const confirmed = await options.validateConfirmedStore(
       draft.media.confirmedStore,
@@ -430,7 +415,7 @@ export async function recoverUnsignedStudioDraft(
     if (!confirmed) {
       return rejected(
         "media-pointer-invalid",
-        "The confirmed media store is not registered for this creator.",
+        "This saved image is not available for this wallet.",
       );
     }
   }

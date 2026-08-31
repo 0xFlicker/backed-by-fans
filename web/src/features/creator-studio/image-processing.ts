@@ -633,7 +633,7 @@ function validateOutputOptions(options: ProcessImageOptions) {
   ) {
     return processingError(
       "invalid-output",
-      "The candidate byte limit exceeds the renderer-safe maximum.",
+      "This image size is not supported.",
     );
   }
   return { dimension, focalX, focalY, maxCandidateBytes };
@@ -831,13 +831,13 @@ export async function processImageSource(
     if (!validSignature) {
       return processingError(
         "encode-failed",
-        "The browser returned bytes that do not match the selected image format.",
+        "The browser could not prepare this image. Try another file.",
       );
     }
     if (bytes.byteLength > normalized.maxCandidateBytes) {
       return processingError(
         "candidate-too-large",
-        `The encoded image is ${bytes.byteLength.toLocaleString("en-US")} bytes; reduce quality or dimensions to fit ${normalized.maxCandidateBytes.toLocaleString("en-US")} bytes.`,
+        "This image is too large. Choose a smaller size or lower quality.",
       );
     }
     return exactCandidate(

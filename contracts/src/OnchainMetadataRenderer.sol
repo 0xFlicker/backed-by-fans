@@ -121,7 +121,7 @@ contract OnchainMetadataRenderer is IMembershipRenderer {
         string memory name =
             string.concat(token.tierName, " #", RendererPrimitives.decimal(token.tokenId));
         string memory engine = RendererPrimitives.engineName(token.art.engine);
-        string memory state = token.active ? "ACTIVE" : "AFTERGLOW";
+        string memory state = token.active ? "ACTIVE" : "EXPIRED";
         string memory mediaMode = media.length == 0 ? "GENERATED" : "ONCHAIN";
 
         RendererPrimitives.Buffer memory json = RendererPrimitives.init(
@@ -219,7 +219,7 @@ contract OnchainMetadataRenderer is IMembershipRenderer {
         svg.append(parts.mediaLayer);
         svg.append(parts.engine.overlay);
         svg.append('<rect class="grain" width="1200" height="1200"/>');
-        svg.append(_editorialOverlay(token, parts.escapedName, parts.geometry));
+        svg.append(_editorialOverlay(token, parts.escapedName));
         svg.append("</svg>");
     }
 
@@ -264,12 +264,10 @@ contract OnchainMetadataRenderer is IMembershipRenderer {
 
     function _editorialOverlay(
         MembershipTypes.TokenRenderData memory token,
-        string memory escapedName,
-        string memory geometry
+        string memory escapedName
     ) private pure returns (string memory) {
-        RendererPrimitives.Buffer memory overlay = RendererPrimitives.init(
-            bytes(escapedName).length * 2 + bytes(geometry).length + 4000
-        );
+        RendererPrimitives.Buffer memory overlay =
+            RendererPrimitives.init(bytes(escapedName).length * 2 + 4000);
         overlay.append('<g class="editorial"><text class="eyebrow" x="112" y="92">');
         overlay.append("BACKED BY FANS  /  ONCHAIN MEMBERSHIP</text>");
         if (token.art.textVisibility != 0) {
@@ -282,18 +280,14 @@ contract OnchainMetadataRenderer is IMembershipRenderer {
         }
         overlay.append('<text class="token-number" x="1090" y="1110" text-anchor="end">NO. ');
         overlay.append(RendererPrimitives.decimal(token.tokenId));
-        overlay.append('</text><text class="engine-label" x="112" y="1110">');
-        overlay.append(RendererPrimitives.engineName(token.art.engine));
-        overlay.append(" / ");
-        overlay.append(_shortGeometry(geometry));
         overlay.append(
             '</text><text class="state-copy state-active" x="1088" y="92" text-anchor="end">'
         );
-        overlay.append("LIVE SUPPORT</text>");
+        overlay.append("ACTIVE</text>");
         overlay.append(
             '<text class="state-copy state-afterglow" x="1088" y="92" text-anchor="end">'
         );
-        overlay.append("ARCHIVAL AFTERGLOW</text></g>");
+        overlay.append("EXPIRED</text></g>");
         return overlay.finish();
     }
 
@@ -340,9 +334,9 @@ contract OnchainMetadataRenderer is IMembershipRenderer {
             "svg[data-media='native'] .generated-aperture{opacity:.18}"
             ".aperture-sigil-a{fill:var(--blue)}.aperture-sigil-b{fill:var(--hot)}.aperture-sigil-c{fill:var(--gold)}"
             ".registration-ring{fill:none;stroke:var(--paper);stroke-width:5}.registration-ring circle{stroke-dasharray:22 12}"
-            ".editorial{pointer-events:none}.eyebrow,.state-copy,.engine-label,.token-number{fill:var(--paper);"
+            ".editorial{pointer-events:none}.eyebrow,.state-copy,.token-number{fill:var(--paper);"
             "font-weight:800;letter-spacing:3px;paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round}"
-            ".eyebrow,.state-copy{font-size:22px}.engine-label{font-size:19px}.token-number{font-size:32px}"
+            ".eyebrow,.state-copy{font-size:22px}.token-number{font-size:32px}"
             ".tier-name{fill:var(--paper);paint-order:stroke;stroke:var(--bg);stroke-width:9px;stroke-linejoin:round;font-size:"
         );
         css.append(RendererPrimitives.decimal(tierSize));
@@ -507,14 +501,5 @@ contract OnchainMetadataRenderer is IMembershipRenderer {
             return "font-family:'Courier New',Courier,monospace;font-weight:700;letter-spacing:7px";
         }
         return "font-family:Arial,Helvetica,sans-serif;font-weight:900;letter-spacing:-2px";
-    }
-
-    function _shortGeometry(string memory geometry) private pure returns (string memory) {
-        bytes memory full = bytes(geometry);
-        bytes memory shortValue = new bytes(10);
-        for (uint256 index; index < shortValue.length; ++index) {
-            shortValue[index] = full[index];
-        }
-        return string(shortValue);
     }
 }

@@ -80,7 +80,7 @@ describe("transaction state machine", () => {
     });
     expect(uncertain.phase).toBe("uncertain");
     expect(isTransactionInFlight(uncertain.phase)).toBe(false);
-    expect(uncertain.message).toContain("Check your wallet or explorer");
+    expect(uncertain.message).toContain("Check your wallet");
   });
 
   it("preserves a readable non-viem error", () => {

@@ -7,6 +7,7 @@ import {
   type NumericControlDefinition,
 } from "@/features/creator-studio/art-config";
 import type { SurpriseLock } from "@/features/creator-studio/surprise";
+import { useWideStudioDisclosure } from "@/features/creator-studio/use-wide-studio-disclosure";
 import styles from "@/features/creator-studio/CreatorStudio.module.css";
 
 export function normalizeNumericControlValue(
@@ -83,6 +84,35 @@ function NumericControl({
     );
   }
 
+  const booleanControl =
+    definition.min === 0 && definition.max === 1 && definition.step === 1;
+
+  if (booleanControl) {
+    return (
+      <div className={`${styles.controlRow} ${styles.booleanControl}`}>
+        <div className={styles.controlHeading}>
+          <label className={styles.checkboxControl} htmlFor={`${id}-checkbox`}>
+            <input
+              checked={value === 1}
+              disabled={disabled}
+              id={`${id}-checkbox`}
+              onChange={(event) => onChange(event.target.checked ? 1 : 0)}
+              type="checkbox"
+            />
+            <span>{definition.label}</span>
+          </label>
+          <LockButton
+            control={lock}
+            disabled={disabled}
+            label={definition.label}
+            locked={locked}
+            onToggle={onToggleLock}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.controlRow}>
       <div className={styles.controlHeading}>
@@ -120,7 +150,7 @@ function NumericControl({
         />
       </div>
       <span className={styles.controlBounds} id={`${id}-bounds`}>
-        {definition.min}–{definition.max}
+        {definition.min}-{definition.max}
       </span>
     </div>
   );
@@ -139,6 +169,7 @@ export function ArtControls({
   onToggleLock: (control: SurpriseLock) => void;
   disabled?: boolean;
 }) {
+  const { detailsRef, isWide } = useWideStudioDisclosure();
   const globalDefinitions = Object.entries(globalControlDefinitions).filter(
     ([, definition]) => definition.dependency.kind === "always",
   ) as [keyof typeof globalControlDefinitions, NumericControlDefinition][];
@@ -167,62 +198,69 @@ export function ArtControls({
   }
 
   return (
-    <section
-      aria-labelledby="studio-controls-heading"
-      className={styles.controlsSection}
-    >
-      <div className={styles.sectionHeading}>
-        <div>
-          <p className={styles.kicker}>Art direction</p>
-          <h3 id="studio-controls-heading">Shape the collection</h3>
-        </div>
-        <LockButton
-          control="collectionSeed"
-          disabled={disabled}
-          label="collection seed"
-          locked={locks.has("collectionSeed")}
-          onToggle={onToggleLock}
-        />
-      </div>
-      <p className={styles.seedLine}>
-        Seed <code>{art.collectionSeed.toString(16).padStart(32, "0")}</code>
-      </p>
-
-      <div className={styles.controlStack}>
-        {globalDefinitions.map(([key, definition]) => (
-          <NumericControl
-            definition={definition}
+    <details className={styles.controlsSection} ref={detailsRef}>
+      <summary
+        className={styles.customizationSummary}
+        onClick={isWide ? (event) => event.preventDefault() : undefined}
+        tabIndex={isWide ? -1 : undefined}
+      >
+        <span>
+          <span className={styles.kicker}>Artwork</span>
+          <h3 id="studio-controls-heading">Customize artwork</h3>
+        </span>
+        <span className={styles.summaryHint}>Palette, type, and texture</span>
+      </summary>
+      <div className={styles.customizationBody}>
+        <div className={styles.seedRow}>
+          <p className={styles.seedLine}>
+            Direction{" "}
+            <code>{art.collectionSeed.toString(16).padStart(32, "0")}</code>
+          </p>
+          <LockButton
+            control="collectionSeed"
             disabled={disabled}
-            id={`studio-global-${key}`}
-            key={key}
-            lock={`global.${key}`}
-            locked={locks.has(`global.${key}`)}
-            onChange={(value) => updateGlobal(key, value)}
-            onToggleLock={onToggleLock}
-            value={art.global[key]}
+            label="direction"
+            locked={locks.has("collectionSeed")}
+            onToggle={onToggleLock}
           />
-        ))}
-      </div>
+        </div>
 
-      <details className={styles.engineControls} open>
-        <summary>{art.engine.toUpperCase()} controls</summary>
         <div className={styles.controlStack}>
-          {Object.entries(specificDefinitions).map(([key, definition]) => (
+          {globalDefinitions.map(([key, definition]) => (
             <NumericControl
               definition={definition}
               disabled={disabled}
-              id={`studio-engine-${key}`}
-              key={`${art.engine}-${key}`}
-              lock={`engine.${key}`}
-              locked={locks.has(`engine.${key}`)}
-              onChange={(value) => updateEngine(key, value)}
+              id={`studio-global-${key}`}
+              key={key}
+              lock={`global.${key}`}
+              locked={locks.has(`global.${key}`)}
+              onChange={(value) => updateGlobal(key, value)}
               onToggleLock={onToggleLock}
-              value={(art.engineControls as Record<string, number>)[key]}
+              value={art.global[key]}
             />
           ))}
         </div>
-      </details>
-    </section>
+
+        <details className={styles.engineControls}>
+          <summary>Style controls</summary>
+          <div className={styles.controlStack}>
+            {Object.entries(specificDefinitions).map(([key, definition]) => (
+              <NumericControl
+                definition={definition}
+                disabled={disabled}
+                id={`studio-engine-${key}`}
+                key={`${art.engine}-${key}`}
+                lock={`engine.${key}`}
+                locked={locks.has(`engine.${key}`)}
+                onChange={(value) => updateEngine(key, value)}
+                onToggleLock={onToggleLock}
+                value={(art.engineControls as Record<string, number>)[key]}
+              />
+            ))}
+          </div>
+        </details>
+      </div>
+    </details>
   );
 }
 

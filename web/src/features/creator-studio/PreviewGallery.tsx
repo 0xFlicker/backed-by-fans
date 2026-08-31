@@ -85,7 +85,7 @@ export function PreviewGallery({
     >
       <div className={styles.previewHeading}>
         <div>
-          <p className={styles.stageKicker}>Contract-rendered proof</p>
+          <p className={styles.stageKicker}>Preview</p>
           <h2 id="art-preview-heading">Your membership artwork</h2>
         </div>
         <button
@@ -94,13 +94,13 @@ export function PreviewGallery({
           onClick={onRefreshSet}
           type="button"
         >
-          Refresh set
+          New preview
         </button>
       </div>
 
       <div className={styles.previewSelectors}>
         <fieldset disabled={disabled}>
-          <legend>Membership state</legend>
+          <legend>State</legend>
           <div className={styles.segmentedControl}>
             {(["active", "afterglow"] as const).map((state) => (
               <button
@@ -132,13 +132,13 @@ export function PreviewGallery({
             <span aria-hidden="true">
               BBF / {String(selection.tokenId).padStart(2, "0")}
             </span>
-            <p>The exact contract preview will appear here.</p>
+            <p>Your preview will appear here.</p>
           </div>
         )}
 
         {model.focusedSVG.status === "loading" ? (
           <p className={styles.stageStatus} role="status">
-            {model.focusedSVG.message ?? "Rendering the exact SVG…"}
+            {model.focusedSVG.message ?? "Rendering artwork..."}
           </p>
         ) : null}
         {model.focusedSVG.status === "error" ? (
@@ -155,8 +155,7 @@ export function PreviewGallery({
 
       <div className={styles.sampleHeading}>
         <div>
-          <p className={styles.kicker}>Collection check</p>
-          <h3>Three identities, one direction</h3>
+          <h3>One style, three memberships</h3>
         </div>
         <span>{selection.state === "active" ? "Active" : "Afterglow"} set</span>
       </div>
@@ -183,7 +182,9 @@ export function PreviewGallery({
                 />
               ) : (
                 <span className={styles.thumbnailEmpty}>
-                  {thumbnail.status === "error" ? "Unavailable" : "Rendering…"}
+                  {thumbnail.status === "error"
+                    ? "Unavailable"
+                    : "Rendering..."}
                 </span>
               )}
             </button>

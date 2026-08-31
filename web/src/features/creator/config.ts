@@ -126,25 +126,29 @@ export function evaluateCreatorForm(
   const description = form.description.trim();
   const externalURI = form.externalURI.trim();
 
-  if (!name || byteLength(name) > 100) {
-    errors.name = "Use a name between 1 and 100 UTF-8 bytes.";
+  if (!name) {
+    errors.name = "Enter a membership name.";
+  } else if (byteLength(name) > 100) {
+    errors.name = "Shorten the membership name.";
   } else if (!isValidOnchainText(name)) {
-    errors.name = "Remove unsupported control or text characters.";
+    errors.name = "Remove unsupported characters.";
   }
-  if (!symbol || byteLength(symbol) > 16) {
-    errors.symbol = "Use a symbol between 1 and 16 UTF-8 bytes.";
+  if (!symbol) {
+    errors.symbol = "Enter a symbol.";
+  } else if (byteLength(symbol) > 16) {
+    errors.symbol = "Shorten the symbol.";
   } else if (!isValidOnchainText(symbol)) {
-    errors.symbol = "Remove unsupported control or text characters.";
+    errors.symbol = "Remove unsupported characters.";
   }
   if (byteLength(description) > 500) {
-    errors.description = "Keep the description within 500 UTF-8 bytes.";
+    errors.description = "Shorten the description.";
   } else if (!isValidOnchainText(description)) {
-    errors.description = "Remove unsupported control or text characters.";
+    errors.description = "Remove unsupported characters.";
   }
   if (byteLength(externalURI) > 2_048) {
-    errors.externalURI = "Keep the website URI within 2,048 UTF-8 bytes.";
+    errors.externalURI = "Shorten the website address.";
   } else if (!isValidOnchainText(externalURI)) {
-    errors.externalURI = "Remove unsupported control or text characters.";
+    errors.externalURI = "Remove unsupported characters.";
   }
 
   let pricePerPeriod: bigint | undefined;
@@ -155,13 +159,13 @@ export function evaluateCreatorForm(
     pricePerPeriod = undefined;
   }
   if (pricePerPeriod === undefined) {
-    errors.priceUsd = "Enter a non-negative USDG amount with up to 6 decimals.";
+    errors.priceUsd = "Enter 0 or more, with up to 6 decimal places.";
   }
 
   const periodDays = parseWholeUint64(form.periodDays);
   const periodDuration = periodDays && periodDays * secondsPerDay;
   if (!periodDuration || periodDuration > uint64Max) {
-    errors.periodDays = "Enter a positive whole-day period within uint64.";
+    errors.periodDays = "Enter a whole number of days greater than 0.";
   }
 
   const rewardBps = parsePercentToBps(form.rewardPercent);
@@ -180,17 +184,16 @@ export function evaluateCreatorForm(
     rewardBps + referralBps + protocolFeeBps > bpsDenominator
   ) {
     errors.referralPercent =
-      "Rewards, referrals, and the fixed 1% protocol fee cannot exceed 100%.";
+      "Rewards, referrals, and the 1% platform fee cannot exceed 100%.";
   }
 
   const supplyCap = parseWholeUint64(form.supplyCap);
   if (supplyCap === undefined) {
-    errors.supplyCap = "Enter a non-negative whole-number capacity.";
+    errors.supplyCap = "Enter a whole number of 0 or more.";
   }
   const maxPrepaidPeriods = parseWholeUint64(form.maxPrepaidPeriods);
   if (maxPrepaidPeriods === undefined) {
-    errors.maxPrepaidPeriods =
-      "Enter a non-negative whole-number prepayment limit.";
+    errors.maxPrepaidPeriods = "Enter a whole number of 0 or more.";
   }
 
   const split =
@@ -202,23 +205,17 @@ export function evaluateCreatorForm(
       : undefined;
   const warnings: string[] = [];
   if (split && split.creatorReferred * 2n < split.gross) {
-    warnings.push(
-      "A referred payment leaves the creator with less than half of gross support.",
-    );
+    warnings.push("A referred payment gives you less than half of the total.");
   }
   if (pricePerPeriod === 0n && supplyCap && supplyCap > 0n) {
-    warnings.push(
-      "A capped zero-price tier is open to self-joins that can fill every available place.",
-    );
+    warnings.push("A free membership can fill every available place.");
   }
   if (supplyCap && supplyCap > 0n) {
-    warnings.push(
-      "Permissionless gifts can hold capped capacity until membership time expires and the slot is synchronized.",
-    );
+    warnings.push("Gifts can hold capacity until the membership expires.");
   }
   if (maxPrepaidPeriods === 0n) {
     warnings.push(
-      "Unlimited prepayment lets a gift hold membership time without a configured period ceiling.",
+      "Unlimited prepayment lets a gift hold membership time indefinitely.",
     );
   }
 
@@ -226,12 +223,12 @@ export function evaluateCreatorForm(
     creative &&
     (/^0x[0-9a-fA-F]{64}$/.test(creative.tierSalt) === false ||
       creative.tierSalt.toLowerCase() === zeroHash)
-      ? "Refresh the Art Studio to create a valid permanent tier identity."
+      ? "Return to Art Studio and create a new direction."
       : creative &&
           (!Number.isInteger(creative.rendererVersion) ||
             creative.rendererVersion < 1 ||
             creative.rendererVersion > 0xffff_ffff)
-        ? "Choose an enabled artwork renderer before publishing."
+        ? "Choose an artwork collection before publishing."
         : undefined;
 
   if (

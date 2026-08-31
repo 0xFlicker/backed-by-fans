@@ -68,17 +68,24 @@ function MediaHarness({
   );
 }
 
+async function openMediaControls(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByText("Add an image").closest("summary")!);
+}
+
 describe("MediaEditor", () => {
-  it("offers only generated art or exact Robinhood-onchain image bytes", () => {
+  it("starts collapsed and offers generated artwork or an uploaded image", () => {
     render(<MediaHarness />);
 
+    expect(
+      screen.getByText("Add an image").closest("details"),
+    ).not.toHaveAttribute("open");
     expect(screen.getAllByRole("radio")).toHaveLength(2);
     expect(
-      screen.getByRole("radio", { name: /Generated onchain art/i }),
+      screen.getByRole("radio", { name: /Generated artwork/i }),
     ).toBeChecked();
     expect(
-      screen.getByRole("radio", { name: /Add an onchain image/i }),
-    ).toBeVisible();
+      screen.getByRole("radio", { name: /Add your image/i }),
+    ).not.toBeVisible();
     expect(screen.queryByText(/Arweave|IPFS|HTTPS reference/i)).toBeNull();
   });
 
@@ -87,18 +94,14 @@ describe("MediaEditor", () => {
     const onNativeSourceSelected = vi.fn();
     render(<MediaHarness onNativeSourceSelected={onNativeSourceSelected} />);
 
-    await user.click(
-      screen.getByRole("radio", { name: /Add an onchain image/i }),
-    );
-    await user.selectOptions(screen.getByLabelText("Output size"), "384");
+    await openMediaControls(user);
+    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
+    await user.selectOptions(screen.getByLabelText("Image size"), "384");
     await user.click(screen.getByRole("radio", { name: "PNG" }));
     const file = new File([new Uint8Array([137, 80, 78, 71])], "stage.png", {
       type: "image/png",
     });
-    await user.upload(
-      screen.getByLabelText("Choose JPEG or PNG from your device"),
-      file,
-    );
+    await user.upload(screen.getByLabelText("Choose image"), file);
 
     expect(onNativeSourceSelected).toHaveBeenCalledWith(file, {
       dimension: 384,
@@ -113,11 +116,10 @@ describe("MediaEditor", () => {
     const user = userEvent.setup();
     render(<MediaHarness />);
 
-    await user.click(
-      screen.getByRole("radio", { name: /Add an onchain image/i }),
-    );
+    await openMediaControls(user);
+    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
 
-    const outputSize = screen.getByLabelText("Output size");
+    const outputSize = screen.getByLabelText("Image size");
     expect(outputSize).toHaveValue("512");
     expect(
       Array.from(
@@ -131,9 +133,8 @@ describe("MediaEditor", () => {
     const user = userEvent.setup();
     const onNativeSourceSelected = vi.fn();
     render(<MediaHarness onNativeSourceSelected={onNativeSourceSelected} />);
-    await user.click(
-      screen.getByRole("radio", { name: /Add an onchain image/i }),
-    );
+    await openMediaControls(user);
+    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
     const file = new File([new Uint8Array([137, 80, 78, 71])], "paste.png", {
       type: "image/png",
     });
@@ -155,16 +156,15 @@ describe("MediaEditor", () => {
       file,
       defaultNativeMediaSettings,
     );
-    expect(screen.getByText(/Clipboard image received/i)).toBeVisible();
+    expect(screen.getByText(/Image received/i)).toBeVisible();
   });
 
   it("rejects clipboard text instead of treating a pasted URL as an image", async () => {
     const user = userEvent.setup();
     const onNativeSourceSelected = vi.fn();
     render(<MediaHarness onNativeSourceSelected={onNativeSourceSelected} />);
-    await user.click(
-      screen.getByRole("radio", { name: /Add an onchain image/i }),
-    );
+    await openMediaControls(user);
+    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
     const pasteTarget = screen.getByLabelText("Paste an image from clipboard");
     fireEvent.paste(pasteTarget, {
       clipboardData: {
@@ -179,7 +179,8 @@ describe("MediaEditor", () => {
     ).toBeVisible();
   });
 
-  it("does not require another approval after preparing an image", () => {
+  it("does not require another approval after preparing an image", async () => {
+    const user = userEvent.setup();
     render(
       <MediaHarness
         initialMedia={{ mode: "native", confirmedStore: null }}
@@ -195,6 +196,7 @@ describe("MediaEditor", () => {
         }}
       />,
     );
+    await openMediaControls(user);
 
     expect(
       screen.getByAltText("Processed creator media candidate"),
@@ -230,13 +232,14 @@ describe("MediaEditor", () => {
         onSelectNativeStore={onSelectNativeStore}
       />,
     );
+    await openMediaControls(user);
 
     expect(
       screen.getByRole("heading", {
-        name: /reuse an image you already stored/i,
+        name: /choose a saved image/i,
       }),
     ).toBeVisible();
-    expect(screen.getByText("8 onchain")).toBeVisible();
+    expect(screen.getByText("8 saved")).toBeVisible();
     await user.click(screen.getByRole("button", { name: /Use 13 kB image/i }));
     expect(onSelectNativeStore).toHaveBeenCalledWith(store);
     await user.click(screen.getByRole("button", { name: "Next" }));
@@ -260,13 +263,12 @@ describe("MediaEditor", () => {
         onRetryNativeLibrary={onRetryNativeLibrary}
       />,
     );
+    await openMediaControls(user);
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The registry RPC is unavailable.",
     );
-    await user.click(
-      screen.getByRole("button", { name: "Retry library read" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetryNativeLibrary).toHaveBeenCalledOnce();
   });
 });

@@ -42,13 +42,10 @@ export function RendererPicker({
 
   return (
     <fieldset className={styles.rendererPicker} disabled={disabled}>
-      <legend>Choose an artwork collection</legend>
-      <p className={styles.sectionHint}>
-        The selected onchain renderer is permanently pinned to this membership.
-        New collections can join the registry without changing earlier NFTs.
-      </p>
+      <legend>Artwork collection</legend>
+      <p className={styles.sectionHint}>This choice is permanent.</p>
       <div
-        aria-label="Onchain artwork collections"
+        aria-label="Artwork collections"
         className={styles.rendererList}
         role="radiogroup"
       >
@@ -70,11 +67,11 @@ export function RendererPicker({
                 Edition {renderer.version}
               </span>
               <span>
-                <strong>{renderer.name ?? "Unnamed onchain renderer"}</strong>
+                <strong>{renderer.name ?? "Unnamed artwork collection"}</strong>
                 <small>
                   {supported
-                    ? "Six creator-controlled visual grammars, rendered entirely onchain."
-                    : "This collection needs a matching Creator Studio update before it can be edited safely."}
+                    ? "Six creator-controlled art styles."
+                    : "This collection is not available in this version of Art Studio."}
                 </small>
               </span>
             </button>
@@ -83,17 +80,15 @@ export function RendererPicker({
       </div>
       {enabled.length === 0 ? (
         <p className={styles.rendererAlert} role="alert">
-          No artwork renderer is currently enabled by this protocol.
+          No artwork collection is available on this network.
         </p>
       ) : !selected ? (
         <p className={styles.rendererAlert} role="alert">
-          Choose a compatible artwork collection before shaping or previewing
-          the membership.
+          Choose an artwork collection to continue.
         </p>
       ) : (
         <p className={styles.rendererStatus} role="status">
-          {selected.name} · registry edition {selected.version} is pinned for
-          preview and publication.
+          {selected.name} selected.
         </p>
       )}
     </fieldset>

@@ -98,9 +98,8 @@ export function CreatorStudio({
 }: CreatorStudioProps) {
   const [locks, setLocks] = useState<ReadonlySet<SurpriseLock>>(new Set());
   const [engineUndo, setEngineUndo] = useState<EngineSwitchUndo | undefined>();
-  const [studioAnnouncement, setStudioAnnouncement] = useState(
-    "STACK is ready to shape.",
-  );
+  const [studioAnnouncement, setStudioAnnouncement] =
+    useState("STACK selected.");
   const toolsDisabled = disabled || selectedRendererVersion === undefined;
 
   function toggleLock(control: SurpriseLock) {
@@ -117,9 +116,7 @@ export function CreatorStudio({
     const switched = switchCompositionEngine({ art, media }, engine);
     setEngineUndo(switched.undo);
     onArtChange(switched.composition.art);
-    setStudioAnnouncement(
-      `${engineDetails[engine].label} selected. Global direction and media are preserved.`,
-    );
+    setStudioAnnouncement(`${engineDetails[engine].label} selected.`);
   }
 
   function undoEngine() {
@@ -128,7 +125,7 @@ export function CreatorStudio({
     onArtChange(restored.art);
     setEngineUndo(undefined);
     setStudioAnnouncement(
-      `${engineDetails[restored.art.engine].label} composition restored.`,
+      `${engineDetails[restored.art.engine].label} restored.`,
     );
   }
 
@@ -140,9 +137,7 @@ export function CreatorStudio({
     ) as AnyStudioArtConfig;
     onArtChange(next);
     setEngineUndo(undefined);
-    setStudioAnnouncement(
-      `A new ${engineDetails[next.engine].label} direction is ready. Locked values stayed in place.`,
-    );
+    setStudioAnnouncement(`New ${engineDetails[next.engine].label} direction.`);
   }
 
   function changeRenderer(version: number) {
@@ -150,32 +145,28 @@ export function CreatorStudio({
     if (!renderer) return;
     onRendererChange(version);
     setEngineUndo(undefined);
-    setStudioAnnouncement(
-      `${renderer.name ?? "Onchain artwork collection"} selected and pinned to this membership.`,
-    );
+    setStudioAnnouncement(`${renderer.name ?? "Artwork collection"} selected.`);
   }
 
   function keepComposition() {
     onKeepComposition?.(art, media);
     setEngineUndo(undefined);
-    setStudioAnnouncement(
-      `${engineDetails[art.engine].label} kept for the final membership review.`,
-    );
+    setStudioAnnouncement(`${engineDetails[art.engine].label} kept.`);
   }
 
   return (
-    <section aria-labelledby="creator-studio-heading" className={styles.studio}>
+    <section
+      aria-labelledby="creator-studio-heading"
+      className={styles.studio}
+      data-creator-studio
+    >
       <header className={styles.studioHeader}>
         <div>
-          <p className={styles.kicker}>Immutable art direction</p>
           <h1 className="font-display" id="creator-studio-heading">
             Make the membership unmistakably yours.
           </h1>
         </div>
-        <p>
-          Choose a renderer, tune its character, and inspect the exact onchain
-          result before anything becomes permanent.
-        </p>
+        <p>Choose a style, preview it, and fine-tune only what matters.</p>
       </header>
 
       <div className={styles.workbench}>
@@ -196,8 +187,7 @@ export function CreatorStudio({
         <aside aria-label="Art direction tools" className={styles.toolColumn}>
           <div className={styles.surpriseBar}>
             <div>
-              <p className={styles.kicker}>Find the one</p>
-              <strong>Reroll freely. Publish only what you keep.</strong>
+              <strong>Find a direction</strong>
             </div>
             <div className={styles.surpriseActions}>
               <button
@@ -223,7 +213,7 @@ export function CreatorStudio({
                   onClick={undoEngine}
                   type="button"
                 >
-                  Undo engine change
+                  Undo style change
                 </button>
               ) : null}
             </div>
@@ -240,6 +230,9 @@ export function CreatorStudio({
             onChange={changeEngine}
             value={art.engine}
           />
+        </aside>
+
+        <div className={styles.customizationGrid}>
           <ArtControls
             art={art}
             disabled={toolsDisabled}
@@ -265,7 +258,7 @@ export function CreatorStudio({
             onSelectNativeStore={onSelectNativeStore}
             onToggleLock={toggleLock}
           />
-        </aside>
+        </div>
       </div>
 
       <p aria-live="polite" className={styles.studioAnnouncement} role="status">

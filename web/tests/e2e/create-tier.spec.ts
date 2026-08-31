@@ -79,16 +79,17 @@ test("@anvil rediscovers and revalidates the connected creator's permanent media
   await page.goto("/create");
   await connectAnvilWallet(page, creator);
   await page.getByRole("button", { name: /^art studio$/i }).click();
-  const nativeMode = page.getByRole("radio", { name: /Add an onchain image/i });
+  await page.getByText("Add an image", { exact: true }).click();
+  const nativeMode = page.getByRole("radio", { name: /Add your image/i });
   await expect(nativeMode).toBeEnabled();
   await nativeMode.check();
 
   await expect(
     page.getByRole("heading", {
-      name: "Reuse an image you already stored",
+      name: "Choose a saved image",
     }),
   ).toBeVisible();
-  await expect(page.getByText("1 onchain")).toBeVisible();
+  await expect(page.getByText("1 saved")).toBeVisible();
   await page.getByRole("button", { name: /Use .* image/i }).click();
 
   await expect(
@@ -96,7 +97,7 @@ test("@anvil rediscovers and revalidates the connected creator's permanent media
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
-      name: "The image is ready for this membership.",
+      name: "Image stored",
     }),
   ).toBeVisible();
   await expect(
@@ -132,18 +133,15 @@ test("@anvil deliberately continues in memory when creative autosave is inaccess
   await page.getByRole("button", { name: /^art studio$/i }).click();
 
   await expect(
-    page.getByRole("heading", { name: "Creative recovery is paused." }),
+    page.getByRole("heading", { name: "Saved draft needs attention." }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Continue without browser autosave" })
-    .click();
+  await page.getByRole("button", { name: "Continue without autosave" }).click();
   await expect(
-    page.getByText(
-      "Continuing for this creator without browser autosave. This in-memory draft will not survive a reload.",
-    ),
+    page.getByText("Autosave is off. Reloading will lose this draft."),
   ).toBeVisible();
+  await page.getByText("Add an image", { exact: true }).click();
   await expect(
-    page.getByRole("radio", { name: /Generated onchain art/i }),
+    page.getByRole("radio", { name: /Generated artwork/i }),
   ).toBeEnabled();
 });
 
@@ -173,28 +171,25 @@ test("@anvil cancels stale local image work when the creator changes media mode"
   await connectAnvilWallet(page, creator);
   await page.getByRole("button", { name: /^art studio$/i }).click();
 
-  await page.getByRole("radio", { name: /Add an onchain image/i }).check();
+  await page.getByText("Add an image", { exact: true }).click();
+  await page.getByRole("radio", { name: /Add your image/i }).check();
   await page
-    .getByLabel("Choose JPEG or PNG from your device")
+    .getByLabel("Choose image")
     .setInputFiles(
       resolve(process.cwd(), "public/brand/backstage-membership-hero-v1.png"),
     );
-  await expect(page.getByText(/Cropping and encoding locally/i)).toBeVisible();
+  await expect(page.getByText(/Preparing image/i)).toBeVisible();
 
-  await page.getByRole("radio", { name: /Generated onchain art/i }).check();
-  await page.getByRole("radio", { name: /Add an onchain image/i }).check();
+  await page.getByRole("radio", { name: /Generated artwork/i }).check();
+  await page.getByRole("radio", { name: /Add your image/i }).check();
 
-  await expect(
-    page.getByLabel("Choose JPEG or PNG from your device"),
-  ).toBeEnabled();
-  await expect(page.getByText(/Cropping and encoding locally/i)).toHaveCount(0);
+  await expect(page.getByLabel("Choose image")).toBeEnabled();
+  await expect(page.getByText(/Preparing image/i)).toHaveCount(0);
   await page.waitForTimeout(1_100);
   await expect(
     page.getByAltText("Processed creator media candidate"),
   ).toHaveCount(0);
-  await expect(
-    page.getByLabel("Choose JPEG or PNG from your device"),
-  ).toBeEnabled();
+  await expect(page.getByLabel("Choose image")).toBeEnabled();
 });
 
 test("keeps horizontal Art Studio step markers clear of dividers", async ({
@@ -229,6 +224,84 @@ test("keeps horizontal Art Studio step markers clear of dividers", async ({
   expect(markerInsets.every((inset) => inset >= 8)).toBe(true);
 });
 
+test("expands Art Studio controls on desktop and collapses them on mobile", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/create");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: /^art studio$/i }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Make the membership unmistakably yours.",
+    }),
+  ).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const detailsFor = (heading: string) => {
+      const element = Array.from(document.querySelectorAll("h3")).find(
+        (candidate) => candidate.textContent === heading,
+      );
+      const details = element?.closest("details");
+      if (!details) throw new Error(`${heading} disclosure is missing.`);
+      const bounds = details.getBoundingClientRect();
+      const summary = details.querySelector(":scope > summary");
+      const body = details.querySelector(":scope > div");
+      if (!summary || !body) {
+        throw new Error(`${heading} disclosure content is missing.`);
+      }
+      return {
+        open: details.open,
+        summaryTabIndex: (summary as HTMLElement).tabIndex,
+        top: Math.round(bounds.top),
+        right: Math.round(bounds.right),
+        bottom: Math.round(bounds.bottom),
+        left: Math.round(bounds.left),
+        width: Math.round(bounds.width),
+      };
+    };
+    return {
+      artwork: detailsFor("Customize artwork"),
+      image: detailsFor("Add an image"),
+    };
+  });
+
+  if (testInfo.project.name === "desktop") {
+    expect(geometry.artwork.open).toBe(true);
+    expect(geometry.image.open).toBe(true);
+    expect(geometry.artwork.summaryTabIndex).toBe(-1);
+    expect(geometry.image.summaryTabIndex).toBe(-1);
+    expect(Math.abs(geometry.artwork.top - geometry.image.top)).toBeLessThan(2);
+    expect(geometry.artwork.right).toBeLessThanOrEqual(geometry.image.left + 2);
+    expect(
+      Math.abs(geometry.artwork.width - geometry.image.width),
+    ).toBeLessThan(2);
+    await expect(
+      page.getByRole("checkbox", { name: "Show tier text" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("radio", { name: /Add your image/i }),
+    ).toBeVisible();
+  } else {
+    expect(geometry.artwork.open).toBe(false);
+    expect(geometry.image.open).toBe(false);
+    expect(geometry.artwork.summaryTabIndex).toBe(0);
+    expect(geometry.image.summaryTabIndex).toBe(0);
+    expect(geometry.image.top).toBeGreaterThanOrEqual(geometry.artwork.bottom);
+    await expect(
+      page.getByRole("checkbox", { name: "Show tier text" }),
+    ).toBeHidden();
+    await expect(
+      page.getByRole("radio", { name: /Add your image/i }),
+    ).toBeHidden();
+    await page.getByText("Customize artwork", { exact: true }).click();
+  }
+
+  await expect(
+    page.getByRole("checkbox", { name: "Show tier text" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Show tier text numeric value")).toHaveCount(0);
+});
+
 test("walks through defaults, arbitrary splits, risks, and immutable review", async ({
   page,
 }) => {
@@ -248,17 +321,19 @@ test("walks through defaults, arbitrary splits, risks, and immutable review", as
   await page.getByLabel("Symbol").fill("FANS");
 
   await page.getByRole("button", { name: /^price & period$/i }).click();
-  await expect(page.getByLabel("USDG per period")).toHaveValue("10");
+  await expect(page.getByLabel("Price per period (USDG)")).toHaveValue("10");
   await expect(page.getByLabel("Days per period")).toHaveValue("30");
 
   await page.getByRole("button", { name: /^support split$/i }).click();
   await page.getByLabel("Membership rewards (%)").fill("33.33");
   await page.getByLabel("Referral share (%)").fill("65.67");
-  await expect(page.getByText(/creator · referred/i)).toBeVisible();
+  await expect(page.getByText(/creator with referral/i)).toBeVisible();
   await expect(page.getByText("0 USDG", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: /^risks$/i }).click();
-  await expect(page.getByText(/permissionless gifts/i).first()).toBeVisible();
+  await expect(
+    page.getByText(/gifts can hold capacity/i).first(),
+  ).toBeVisible();
   const acknowledgements = page.getByRole("checkbox");
   await acknowledgements.nth(0).check();
   await acknowledgements.nth(1).check();
@@ -270,7 +345,7 @@ test("walks through defaults, arbitrary splits, risks, and immutable review", as
   await expect(
     page.getByRole("button", { name: /publish this membership/i }),
   ).toBeDisabled();
-  await expect(page.getByText(/writes are unavailable/i)).toBeVisible();
+  await expect(page.getByText(/publishing unavailable/i)).toBeVisible();
 });
 
 test("rejects invalid split totals before signing without losing input", async ({

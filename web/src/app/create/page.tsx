@@ -17,11 +17,11 @@ export default function CreatePage() {
           Your work. Your membership. Your people.
         </h1>
         <p>
-          Build the terms in plain language, see how support is split, and know
-          exactly which choices become permanent before your wallet signs.
+          Set the terms, preview the artwork, and see what becomes permanent
+          before you publish.
         </p>
         <Link className="text-button" href="/account">
-          Manage existing memberships
+          Manage memberships
         </Link>
       </div>
       <CreateTierWizard />

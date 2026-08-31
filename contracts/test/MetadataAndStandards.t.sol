@@ -61,7 +61,16 @@ contract MetadataAndStandardsTest is Test {
         assertEq(activeGeometry, afterglowGeometry);
         assertTrue(_contains(activeSVG, 'data-state="active"'));
         assertTrue(_contains(afterglowSVG, 'data-state="afterglow"'));
-        assertTrue(_contains(afterglowSVG, "ARCHIVAL AFTERGLOW"));
+        assertTrue(_contains(activeSVG, ">ACTIVE</text>"));
+        assertTrue(_contains(afterglowSVG, ">EXPIRED</text>"));
+        assertFalse(_contains(activeSVG, "LIVE SUPPORT"));
+        assertFalse(_contains(afterglowSVG, "ARCHIVAL AFTERGLOW"));
+        assertTrue(
+            _contains(
+                _decodeDataURI(tier.tokenURI(tokenId), "data:application/json;base64,"),
+                '"value":"EXPIRED"'
+            )
+        );
         assertFalse(tier.isActive(member));
         assertTrue(tier.isOccupied(tokenId));
     }

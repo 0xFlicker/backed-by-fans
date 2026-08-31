@@ -952,6 +952,14 @@ dd {
   top: 1.5rem;
 }
 
+.creator-steps-title {
+  font-size: 0.8rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
 .creator-steps ol {
   border-top: 2px solid var(--backstage);
   list-style: none;
@@ -1066,12 +1074,10 @@ dd {
   max-width: 46rem;
 }
 
-.studio-commit-facts,
 .final-art-copy dl {
   margin: 1.4rem 0 0;
 }
 
-.studio-commit-facts > div,
 .final-art-copy dl > div {
   align-items: baseline;
   border-top: 1px solid rgba(255, 255, 255, 0.22);
@@ -1081,12 +1087,10 @@ dd {
   padding: 0.7rem 0;
 }
 
-.studio-commit-facts dt,
 .final-art-copy dt {
   color: #b9bdca;
 }
 
-.studio-commit-facts dd,
 .final-art-copy dd {
   margin: 0;
   overflow-wrap: anywhere;
@@ -1111,17 +1115,10 @@ dd {
   font-size: clamp(2rem, 4vw, 3rem);
 }
 
-.studio-stored-panel code {
-  display: block;
-  margin-top: 1rem;
-  overflow-wrap: anywhere;
-}
-
 .creator-step-panel {
   background: var(--paper);
   border: 2px solid var(--backstage);
   border-radius: var(--radius-large);
-  min-height: 35rem;
   padding: clamp(1.25rem, 4vw, 3.25rem);
 }
 
@@ -1220,6 +1217,11 @@ dd {
   font-weight: 400;
 }
 
+.split-preview > div > p {
+  color: #d9dbe3;
+  margin: 0 0 0.35rem;
+}
+
 .split-preview dl,
 .management-facts,
 .protocol-facts,
@@ -1301,6 +1303,13 @@ dd {
   border-color: rgba(17, 19, 26, 0.25);
 }
 
+.terms-review h3 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 1.8rem;
+  font-weight: 400;
+  margin: 0 0 1rem;
+}
+
 .final-art-review {
   background: var(--backstage);
   border: 2px solid var(--backstage);
@@ -1324,6 +1333,29 @@ dd {
 
 .final-art-copy code {
   color: var(--encore);
+}
+
+.technical-details {
+  border-top: 1px solid currentColor;
+  margin-top: 1.25rem;
+  padding-top: 0.8rem;
+}
+
+.technical-details summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 720;
+  list-style-position: inside;
+}
+
+.technical-details code {
+  display: block;
+  margin-top: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.technical-details dl {
+  margin-top: 0.75rem;
 }
 
 .final-art-frame {

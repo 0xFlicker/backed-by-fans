@@ -484,9 +484,7 @@ export function CreateTierWizard() {
         offset: mediaLibraryOffset,
       });
       if (!page) {
-        throw new Error(
-          "The connected creator media registry could not be verified.",
-        );
+        throw new Error("Saved images could not be loaded.");
       }
       return page;
     },
@@ -507,7 +505,7 @@ export function CreateTierWizard() {
         message:
           creatorMediaLibrary.error instanceof Error
             ? creatorMediaLibrary.error.message
-            : "The connected creator media library could not be read.",
+            : "Saved images could not be loaded.",
       };
     }
     if (!creatorMediaLibrary.data) {
@@ -746,7 +744,7 @@ export function CreateTierWizard() {
         }
       } catch (error) {
         if (cancelled) return;
-        const message = `Creative draft recovery is unavailable: ${error instanceof Error ? error.message : "browser storage could not be read."}`;
+        const message = `Saved draft could not be loaded: ${error instanceof Error ? error.message : "browser storage could not be read."}`;
         setDraftNotice(message);
         setDraftRecoveryBlock({ key: recoveryKey, message, reason: "storage" });
       }
@@ -798,12 +796,12 @@ export function CreateTierWizard() {
             : current,
         );
         setDraftNotice((current) =>
-          current?.startsWith("Creative draft autosave paused:")
-            ? "Creative draft autosave resumed."
+          current?.startsWith("Autosave paused:")
+            ? "Autosave resumed."
             : current,
         );
       } catch (error) {
-        const message = `Creative draft autosave paused: ${error instanceof Error ? error.message : "browser storage is unavailable."}`;
+        const message = `Autosave paused: ${error instanceof Error ? error.message : "browser storage is unavailable."}`;
         setDraftNotice(message);
         setDraftRecoveryBlock({
           key: draftScopeKey,
@@ -915,15 +913,15 @@ export function CreateTierWizard() {
     enabled: Boolean(previewDraft && selectedRenderer && draftScopeReady),
     blockedMessage: !protocol.data
       ? protocol.error
-        ? "The canonical renderer registry is unavailable on this network."
-        : "Preparing the canonical renderer registry."
+        ? "Artwork is unavailable on this network."
+        : "Preparing artwork..."
       : !selectedRenderer
         ? enabledRenderers.length === 0
-          ? "No compatible onchain artwork renderer is enabled for this network."
-          : "Choose a compatible onchain artwork collection before rendering."
+          ? "No artwork collection is available on this network."
+          : "Choose an artwork collection."
         : !draftScopeReady
-          ? "Revalidate or discard the saved Studio draft before rendering against this creator scope."
-          : "Preparing the selected onchain renderer.",
+          ? "Review the saved Art Studio draft first."
+          : "Preparing artwork...",
   });
 
   const mediaGasQuote = useQuery({
@@ -1049,9 +1047,7 @@ export function CreateTierWizard() {
     );
     if (!renderer || !supportsFoundingSixStudio(renderer)) return;
     setRendererChoice({ registryScopeKey: rendererRegistryScopeKey, version });
-    setDraftNotice(
-      `${renderer.name} selected. Preview and publication will stay pinned to registry edition ${renderer.version}.`,
-    );
+    setDraftNotice(`${renderer.name} selected.`);
     resetCompletion();
   }
 
@@ -1066,12 +1062,12 @@ export function CreateTierWizard() {
       draftRecoveryBlock.reason === "storage" &&
       draftReadyKey === draftScopeKey
     ) {
-      setDraftNotice("Retrying browser autosave for this creator…");
+      setDraftNotice("Retrying autosave...");
       setDraftRecoveryRevision((current) => current + 1);
       return;
     }
     setDraftRecoveryBlock(undefined);
-    setDraftNotice("Revalidating the saved Studio draft…");
+    setDraftNotice("Checking the saved draft...");
     setDraftRecoveryRevision((current) => current + 1);
   }
 
@@ -1079,13 +1075,13 @@ export function CreateTierWizard() {
     const next = createInitialStudioSession();
     if (!next.tierSalt) {
       setDraftNotice(
-        "Secure randomness is still unavailable. Check this browser and try again before publishing.",
+        "The browser still could not prepare the collection. Try again.",
       );
       return;
     }
     setTierSalt(next.tierSalt);
     setArt(next.art);
-    setDraftNotice("A fresh permanent collection identity is ready.");
+    setDraftNotice("A new collection is ready.");
     resetCompletion();
   }
 
@@ -1101,7 +1097,7 @@ export function CreateTierWizard() {
     const next = createInitialStudioSession();
     if (!next.tierSalt) {
       setDraftNotice(
-        "Secure randomness is unavailable. Browser autosave remains paused; retry before publishing.",
+        "The browser could not prepare the collection. Try again before publishing.",
       );
       return;
     }
@@ -1122,9 +1118,7 @@ export function CreateTierWizard() {
     setDraftAutosaveBypassKey(draftScopeKey);
     setDraftReadyKey(draftScopeKey);
     setDraftRecoveryBlock(undefined);
-    setDraftNotice(
-      "Continuing for this creator without browser autosave. This in-memory draft will not survive a reload.",
-    );
+    setDraftNotice("Autosave is off. Reloading will lose this draft.");
     resetCompletion();
   }
 
@@ -1155,7 +1149,7 @@ export function CreateTierWizard() {
     setTierSalt(next.tierSalt);
     if (!next.tierSalt) {
       setDraftNotice(
-        "The browser could not create a fresh secure collection identity. Reload before publishing this draft.",
+        "The browser could not prepare a new collection. Reload before publishing.",
       );
     }
     setMedia({ mode: "none" });
@@ -1165,9 +1159,9 @@ export function CreateTierWizard() {
     setDraftRecoveryBlock(undefined);
     setDraftReadyKey(draftScopeKey);
     setDraftNotice((current) =>
-      current?.startsWith("The browser could not create")
+      current?.startsWith("The browser could not prepare")
         ? current
-        : "The blocked saved draft was removed. This creator now has a fresh Studio direction.",
+        : "The saved draft was removed. A new direction is ready.",
     );
     resetCompletion();
   }
@@ -1227,7 +1221,7 @@ export function CreateTierWizard() {
     dispatchMedia({ type: "RESET" });
     setNativeState({
       status: "processing",
-      message: "Cropping and encoding locally in this browser…",
+      message: "Preparing image...",
     });
     resetCompletion();
     const enqueue = () => {
@@ -1449,8 +1443,8 @@ export function CreateTierWizard() {
         scopeKey: creatorProtocolScopeKey(attempt.scope)!,
         tone: "info",
         message: stillSelectedCandidate
-          ? "Permanent storage verified. The image is now reusable from this creator’s onchain library."
-          : "Permanent storage verified and added to the onchain library. Your newer media choice remains unchanged.",
+          ? "Image stored and saved for reuse."
+          : "Image stored. Your newer choice is unchanged.",
       });
       void creatorMediaLibrary.refetch();
     } finally {
@@ -1525,14 +1519,14 @@ export function CreateTierWizard() {
       if (cancelled) {
         scopedDispatch({
           type: "CANCELLED",
-          error: "The wallet cancelled the media storage transaction.",
+          error: "The wallet cancelled image storage.",
         });
         return;
       }
       if (!isSuccessfulWriteReceipt(receipt)) {
         scopedDispatch({
           type: "REVERTED",
-          error: "The media storage transaction reverted onchain.",
+          error: "The image could not be stored.",
         });
         return;
       }
@@ -1616,8 +1610,7 @@ export function CreateTierWizard() {
           attempt.draftScope,
         );
       } catch {
-        draftCleanupWarning =
-          " Your browser could not clear the used local draft; on reload, the Studio will detect it and require a fresh direction.";
+        draftCleanupWarning = " Your browser could not clear the saved draft.";
       }
       const next = createInitialStudioSession();
       setTierSalt(next.tierSalt);
@@ -1628,7 +1621,7 @@ export function CreateTierWizard() {
       setNativeState({ status: "empty" });
       setCreatedTier({ address: tier, scope: attempt.scope });
       setConfirmationNote(
-        `The successful receipt and factory registry confirm this tier with the complete reviewed launch terms.${draftCleanupWarning}`,
+        `The membership was published with the terms you reviewed.${draftCleanupWarning}`,
       );
     } finally {
       tierVerificationInFlight.current = false;
@@ -1705,14 +1698,14 @@ export function CreateTierWizard() {
       if (cancelled) {
         scopedDispatch({
           type: "CANCELLED",
-          error: "The wallet cancelled the deployment transaction.",
+          error: "The wallet cancelled publishing.",
         });
         return;
       }
       if (!isSuccessfulWriteReceipt(receipt)) {
         scopedDispatch({
           type: "REVERTED",
-          error: "The deployment transaction reverted onchain.",
+          error: "The membership could not be published.",
         });
         return;
       }
@@ -1788,7 +1781,7 @@ export function CreateTierWizard() {
       }
     >
       <aside className="creator-steps" aria-label="Creator setup steps">
-        <p className="eyebrow">Set the room</p>
+        <p className="creator-steps-title">Create membership</p>
         <ol>
           {steps.map((item, index) => (
             <li className={step === item.id ? "is-current" : ""} key={item.id}>
@@ -1804,24 +1797,22 @@ export function CreateTierWizard() {
           ))}
         </ol>
         <p className="small-copy">
-          Your entries stay here while you connect, switch network, or recover
-          from a wallet error.
+          Your progress stays here if the wallet reconnects.
         </p>
       </aside>
 
       <section className="creator-stage" aria-labelledby={`step-${step}`}>
         {step === "metadata" && (
           <div className="creator-step-panel">
-            <p className="eyebrow">01 · Identity</p>
             <h2 id="step-metadata">Name the membership</h2>
             <p>
-              Give fans a clear, creator-led invitation. You can update the
-              description and links later; the name and symbol are permanent.
+              Choose the permanent name and symbol. You can edit the description
+              and website later.
             </p>
             <div className="creator-field-grid">
               <Field
                 error={touchedFields.name ? result.errors.name : undefined}
-                hint="Permanent · 100 UTF-8 bytes maximum"
+                hint="Permanent. Keep it short."
                 id="tier-name"
                 label="Membership name"
               >
@@ -1837,7 +1828,7 @@ export function CreateTierWizard() {
               </Field>
               <Field
                 error={touchedFields.symbol ? result.errors.symbol : undefined}
-                hint="Permanent · short ERC-721 symbol"
+                hint="Permanent. A short label like FANS."
                 id="tier-symbol"
                 label="Symbol"
               >
@@ -1854,7 +1845,7 @@ export function CreateTierWizard() {
             </div>
             <Field
               error={result.errors.description}
-              hint="Mutable · describe the relationship, access, or creative work"
+              hint="You can change this later."
               id="tier-description"
               label="Description"
             >
@@ -1868,15 +1859,15 @@ export function CreateTierWizard() {
             </Field>
             <Field
               error={result.errors.externalURI}
-              hint="Mutable · your public home or membership context"
+              hint="You can change this later."
               id="tier-website"
-              label="Website URI"
+              label="Website"
             >
               <input
                 aria-describedby="tier-website-hint tier-website-error"
                 id="tier-website"
                 onChange={update("externalURI")}
-                placeholder="https://…"
+                placeholder="https://..."
                 value={form.externalURI}
               />
             </Field>
@@ -1925,19 +1916,15 @@ export function CreateTierWizard() {
             {!tierSalt && (
               <section className="studio-commit-panel" role="alert">
                 <div>
-                  <p className="eyebrow">Secure identity unavailable</p>
-                  <h2>The browser could not create permanent randomness.</h2>
-                  <p>
-                    Nothing can be published until a fresh collection identity
-                    is created locally.
-                  </p>
+                  <h2>Couldn&apos;t prepare this collection.</h2>
+                  <p>Try again before publishing.</p>
                 </div>
                 <button
                   className="button button-dark"
                   onClick={retryStudioIdentity}
                   type="button"
                 >
-                  Retry secure identity
+                  Try again
                 </button>
               </section>
             )}
@@ -1951,13 +1938,8 @@ export function CreateTierWizard() {
             {activeDraftRecoveryBlock && (
               <section className="studio-commit-panel" role="alert">
                 <div>
-                  <p className="eyebrow">Saved draft needs attention</p>
-                  <h2>Creative recovery is paused.</h2>
+                  <h2>Saved draft needs attention.</h2>
                   <p>{activeDraftRecoveryBlock.message}</p>
-                  <p>
-                    No contract preview or wallet action will use this creator
-                    scope until recovery is resolved for this exact scope.
-                  </p>
                 </div>
                 <div className="studio-commit-action">
                   <button
@@ -1965,7 +1947,7 @@ export function CreateTierWizard() {
                     onClick={retryDraftRecovery}
                     type="button"
                   >
-                    Retry validation
+                    Try again
                   </button>
                   {activeDraftRecoveryBlock.reason === "storage" ? (
                     <button
@@ -1973,7 +1955,7 @@ export function CreateTierWizard() {
                       onClick={continueWithoutDraftAutosave}
                       type="button"
                     >
-                      Continue without browser autosave
+                      Continue without autosave
                     </button>
                   ) : (
                     <button
@@ -1994,32 +1976,11 @@ export function CreateTierWizard() {
                 className="studio-commit-panel"
               >
                 <div>
-                  <p className="eyebrow">Separate permanent action</p>
-                  <h2 id="store-native-media-heading">
-                    Store this exact image on Robinhood Chain
-                  </h2>
+                  <h2 id="store-native-media-heading">Store this image</h2>
                   <p>
-                    These {candidate.byteLength.toLocaleString("en-US")} bytes
-                    and your creator address will remain public and
-                    independently discoverable, even if you never publish the
-                    membership tier.
+                    This image and your wallet address will be public, even if
+                    you do not publish the membership.
                   </p>
-                  <dl className="studio-commit-facts">
-                    <div>
-                      <dt>Exact format</dt>
-                      <dd>{candidate.mime === "image/png" ? "PNG" : "JPEG"}</dd>
-                    </div>
-                    <div>
-                      <dt>Estimated gas</dt>
-                      <dd>
-                        {mediaGasQuote.isFetching
-                          ? "Estimating…"
-                          : mediaGasQuote.data
-                            ? mediaGasQuote.data.toLocaleString("en-US")
-                            : "Unavailable"}
-                      </dd>
-                    </div>
-                  </dl>
                 </div>
                 <div className="studio-commit-action">
                   <WalletControl />
@@ -2028,8 +1989,7 @@ export function CreateTierWizard() {
                   )}
                   {mediaGasQuote.error && (
                     <p className="inline-status" role="alert">
-                      The exact storage quote failed. Review the image or retry
-                      the configured RPC.
+                      Could not estimate storage. Try again.
                     </p>
                   )}
                   <button
@@ -2038,7 +1998,7 @@ export function CreateTierWizard() {
                     onClick={() => void storeNativeMedia()}
                     type="button"
                   >
-                    Store image permanently
+                    Store image
                   </button>
                 </div>
                 <TransactionFlow
@@ -2051,13 +2011,10 @@ export function CreateTierWizard() {
             {currentPendingMediaVerification && (
               <section className="studio-commit-panel" role="status">
                 <div>
-                  <p className="eyebrow">Receipt confirmed</p>
-                  <h2>Verify the permanent image—do not store it again.</h2>
+                  <h2>Finish checking the image</h2>
                   <p>
-                    The wallet supplied a successful receipt. This retry only
-                    repeats the canonical registry and runtime-byte checks with
-                    that exact in-memory receipt and payload; it cannot submit
-                    another transaction.
+                    The image was stored. This retry only checks the result; it
+                    will not create another transaction.
                   </p>
                 </div>
                 <button
@@ -2068,21 +2025,22 @@ export function CreateTierWizard() {
                   }
                   type="button"
                 >
-                  Retry onchain verification
+                  Check again
                 </button>
               </section>
             )}
 
             {media.mode === "native" && currentConfirmedMedia && (
               <section className="studio-stored-panel" role="status">
-                <p className="eyebrow">Permanently stored</p>
-                <h2>The image is ready for this membership.</h2>
+                <h2>Image stored</h2>
                 <p>
-                  Art controls remain editable. Changing the encoded image or
-                  format creates a new permanent media action; this confirmed
-                  store remains reusable.
+                  You can keep editing. Changing the image will require storing
+                  the new version.
                 </p>
-                <code>{currentConfirmedMedia.store}</code>
+                <details className="technical-details">
+                  <summary>Storage address</summary>
+                  <code>{currentConfirmedMedia.store}</code>
+                </details>
               </section>
             )}
           </div>
@@ -2090,18 +2048,14 @@ export function CreateTierWizard() {
 
         {step === "price" && (
           <div className="creator-step-panel">
-            <p className="eyebrow">03 · Price & period</p>
-            <h2 id="step-price">Set the permanent rhythm</h2>
-            <p>
-              Price and period cannot change after deployment. Supporters renew
-              manually; this protocol never schedules a charge.
-            </p>
+            <h2 id="step-price">Set price and renewal</h2>
+            <p>Price and period are permanent. Supporters renew manually.</p>
             <div className="creator-field-grid">
               <Field
                 error={result.errors.priceUsd}
-                hint="Permanent · use 0 for choose-your-support self-actions"
+                hint="Permanent. Enter 0 to let supporters choose the amount."
                 id="tier-price"
-                label="USDG per period"
+                label="Price per period (USDG)"
               >
                 <input
                   aria-describedby="tier-price-hint tier-price-error"
@@ -2114,7 +2068,7 @@ export function CreateTierWizard() {
               </Field>
               <Field
                 error={result.errors.periodDays}
-                hint="Permanent · whole days"
+                hint="Permanent. Whole days."
                 id="tier-period"
                 label="Days per period"
               >
@@ -2133,16 +2087,14 @@ export function CreateTierWizard() {
 
         {step === "splits" && (
           <div className="creator-step-panel">
-            <p className="eyebrow">04 · Support split</p>
-            <h2 id="step-splits">Choose how support is recognized</h2>
+            <h2 id="step-splits">Split each payment</h2>
             <p>
-              Rewards recognize membership support inside this tier. They are
-              not equity, yield, dividends, or a promised return.
+              Rewards are not equity, yield, dividends, or a promised return.
             </p>
             <div className="creator-field-grid">
               <Field
                 error={result.errors.rewardPercent}
-                hint="Permanent · any basis-point rate that keeps the total valid"
+                hint="Permanent."
                 id="tier-reward"
                 label="Membership rewards (%)"
               >
@@ -2158,7 +2110,7 @@ export function CreateTierWizard() {
               </Field>
               <Field
                 error={result.errors.referralPercent}
-                hint="Permanent · unused referral share returns to creator proceeds"
+                hint="Permanent. Unused referral share goes to you."
                 id="tier-referral"
                 label="Referral share (%)"
               >
@@ -2176,12 +2128,12 @@ export function CreateTierWizard() {
             {result.split && (
               <div className="split-preview" aria-label="Payment split preview">
                 <div>
-                  <p className="eyebrow">One period</p>
+                  <p>One payment</p>
                   <strong>{usd(result.split.gross)}</strong>
                 </div>
                 <dl>
                   <div>
-                    <dt>Protocol</dt>
+                    <dt>Platform fee</dt>
                     <dd>{usd(result.split.protocol)}</dd>
                   </div>
                   <div>
@@ -2189,15 +2141,15 @@ export function CreateTierWizard() {
                     <dd>{usd(result.split.reward)}</dd>
                   </div>
                   <div>
-                    <dt>Referral when locked</dt>
+                    <dt>Referral</dt>
                     <dd>{usd(result.split.referral)}</dd>
                   </div>
                   <div>
-                    <dt>Creator · referred</dt>
+                    <dt>Creator with referral</dt>
                     <dd>{usd(result.split.creatorReferred)}</dd>
                   </div>
                   <div>
-                    <dt>Creator · unreferred</dt>
+                    <dt>Creator without referral</dt>
                     <dd>{usd(result.split.creatorUnreferred)}</dd>
                   </div>
                 </dl>
@@ -2208,16 +2160,12 @@ export function CreateTierWizard() {
 
         {step === "limits" && (
           <div className="creator-step-panel">
-            <p className="eyebrow">05 · Capacity</p>
-            <h2 id="step-limits">Set today’s operating limits</h2>
-            <p>
-              These values can change later. Zero means unlimited. Lowering a
-              limit never removes existing time or occupied places.
-            </p>
+            <h2 id="step-limits">Set capacity</h2>
+            <p>You can change these later. Zero means no limit.</p>
             <div className="creator-field-grid">
               <Field
                 error={result.errors.supplyCap}
-                hint="Mutable · 0 is unlimited; never lower than occupied supply"
+                hint="Changeable. Zero means no limit."
                 id="tier-capacity"
                 label="Membership capacity"
               >
@@ -2232,7 +2180,7 @@ export function CreateTierWizard() {
               </Field>
               <Field
                 error={result.errors.maxPrepaidPeriods}
-                hint="Mutable · 12 is about one year at the default period"
+                hint="Changeable. Twelve periods is about one year."
                 id="tier-prepayment"
                 label="Maximum prepaid periods"
               >
@@ -2251,19 +2199,17 @@ export function CreateTierWizard() {
 
         {step === "risks" && (
           <div className="creator-step-panel">
-            <p className="eyebrow">06 · Material risks</p>
-            <h2 id="step-risks">Know what permissionless means</h2>
+            <h2 id="step-risks">Review the permanent terms</h2>
             <ul className="risk-list">
               {result.warnings.map((warning) => (
                 <li key={warning}>{warning}</li>
               ))}
               <li>
-                A gift can create a permanent credential and reward shares for a
-                recipient who did not ask for it.
+                A gift can create a membership and reward shares for someone who
+                did not ask for it.
               </li>
               <li>
-                A blocked refund recipient can leave capacity held until time
-                expires and someone synchronizes the membership.
+                A failed refund can hold a place until the membership expires.
               </li>
             </ul>
             <label className="acknowledgement">
@@ -2275,8 +2221,8 @@ export function CreateTierWizard() {
                 type="checkbox"
               />
               <span>
-                I understand price, period, reward rate, referral rate, payment
-                token, and the fixed 1% protocol fee are permanent.
+                I understand the price, period, reward rate, referral rate,
+                payment currency, and 1% platform fee are permanent.
               </span>
             </label>
             <label className="acknowledgement">
@@ -2288,8 +2234,8 @@ export function CreateTierWizard() {
                 type="checkbox"
               />
               <span>
-                I understand permissionless gifts can hold capacity, create
-                permanent shares, and may not be immediately refundable.
+                I understand gifts can hold capacity and may not be immediately
+                refundable.
               </span>
             </label>
           </div>
@@ -2297,23 +2243,22 @@ export function CreateTierWizard() {
 
         {step === "review" && (
           <div className="creator-step-panel">
-            <p className="eyebrow">07 · Immutable review</p>
-            <h2 id="step-review">Read it once as your future self</h2>
+            <h2 id="step-review">Review before publishing</h2>
             <div className="terms-review">
               <section>
-                <p className="eyebrow">Locked at deployment</p>
+                <h3>Permanent</h3>
                 <dl>
                   <div>
                     <dt>Name / symbol</dt>
                     <dd>
-                      {form.name || "—"} / {form.symbol || "—"}
+                      {form.name || "Not set"} / {form.symbol || "Not set"}
                     </dd>
                   </div>
                   <div>
                     <dt>Price / period</dt>
                     <dd>
-                      {form.priceUsd || "—"} USDG / {form.periodDays || "—"}{" "}
-                      days
+                      {form.priceUsd || "Not set"} USDG /{" "}
+                      {form.periodDays || "Not set"} days
                     </dd>
                   </div>
                   <div>
@@ -2326,7 +2271,7 @@ export function CreateTierWizard() {
                 </dl>
               </section>
               <section>
-                <p className="eyebrow">Mutable after deployment</p>
+                <h3>Changeable later</h3>
                 <dl>
                   <div>
                     <dt>Capacity</dt>
@@ -2343,8 +2288,11 @@ export function CreateTierWizard() {
                     </dd>
                   </div>
                   <div>
-                    <dt>Controls</dt>
-                    <dd>Pause, metadata, grants, refunds, and ownership</dd>
+                    <dt>After launch</dt>
+                    <dd>
+                      Pause, description, website, grants, refunds, and
+                      ownership
+                    </dd>
                   </div>
                 </dl>
               </section>
@@ -2355,83 +2303,84 @@ export function CreateTierWizard() {
               className="final-art-review"
             >
               <div className="final-art-copy">
-                <p className="eyebrow">Authoritative renderer checkpoint</p>
-                <h3 id="final-art-review-heading">
-                  The full onchain token response
-                </h3>
-                <p>
-                  This is decoded from the renderer&apos;s complete token URI,
-                  including the canonical self-contained SVG that the tier will
-                  publish.
-                </p>
+                <h3 id="final-art-review-heading">Final artwork</h3>
+                <p>This is the artwork supporters will see.</p>
                 <dl>
                   <div>
                     <dt>Artwork collection</dt>
                     <dd>
                       {selectedRenderer
-                        ? `${selectedRenderer.name} · registry edition ${selectedRenderer.version}`
-                        : "Choose a compatible renderer"}
+                        ? selectedRenderer.name
+                        : "Choose an artwork collection"}
                     </dd>
                   </div>
                   <div>
-                    <dt>Engine</dt>
+                    <dt>Style</dt>
                     <dd>{art.engine.toUpperCase()}</dd>
                   </div>
                   <div>
-                    <dt>Collection seed</dt>
-                    <dd>
-                      <code>
-                        {art.collectionSeed.toString(16).padStart(32, "0")}
-                      </code>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Media identity</dt>
+                    <dt>Image</dt>
                     <dd>
                       {media.mode === "none"
-                        ? "Generated onchain art"
+                        ? "Generated artwork"
                         : currentConfirmedMedia
-                          ? `Robinhood Chain · ${currentConfirmedMedia.length.toLocaleString("en-US")} bytes`
-                          : "Onchain image not stored yet"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Tier identity</dt>
-                    <dd>
-                      <code>
-                        {tierIdentity.data ?? "Connect wallet to bind"}
-                      </code>
+                          ? "Stored image"
+                          : "Image not stored yet"}
                     </dd>
                   </div>
                 </dl>
+                <details className="technical-details">
+                  <summary>Technical details</summary>
+                  <dl>
+                    <div>
+                      <dt>Collection seed</dt>
+                      <dd>
+                        <code>
+                          {art.collectionSeed.toString(16).padStart(32, "0")}
+                        </code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Membership identity</dt>
+                      <dd>
+                        <code>{tierIdentity.data ?? "Connect wallet"}</code>
+                      </dd>
+                    </div>
+                    {currentConfirmedMedia ? (
+                      <div>
+                        <dt>Image storage</dt>
+                        <dd>
+                          <code>{currentConfirmedMedia.store}</code>
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </details>
               </div>
               <div className="final-art-frame">
                 {reviewToken.data ? (
                   // The renderer's exact data URI must bypass image optimization.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    alt={`${reviewToken.data.metadata.name} canonical onchain membership artwork`}
+                    alt={`${reviewToken.data.metadata.name} membership artwork`}
                     src={svgPreviewDataURI(reviewToken.data.svg)}
                   />
                 ) : reviewToken.isFetching ? (
-                  <p role="status">Decoding the complete token response…</p>
+                  <p role="status">Preparing final artwork...</p>
                 ) : reviewToken.error ? (
                   <p role="alert">
-                    The authoritative token preview failed. Return to the Art
-                    Studio or retry the configured RPC before publishing.
+                    Could not load the final artwork. Return to Art Studio or
+                    try again.
                   </p>
                 ) : (
-                  <p>
-                    Complete the Art Studio and connect the publishing wallet to
-                    render the final token response.
-                  </p>
+                  <p>Finish the Art Studio and connect your wallet.</p>
                 )}
               </div>
             </section>
 
             <div className="wallet-review">
               <div>
-                <p className="eyebrow">Wallet and network</p>
+                <p className="creator-steps-title">Wallet</p>
                 <WalletControl />
               </div>
               {account.isConnected &&
@@ -2451,8 +2400,7 @@ export function CreateTierWizard() {
 
             {!formValid && (
               <p className="inline-status" role="alert">
-                Review the highlighted setup fields and complete the immutable
-                Art Studio selection before preparing a signature.
+                Finish the highlighted fields before publishing.
               </p>
             )}
             {result.creativeError && (
@@ -2462,28 +2410,26 @@ export function CreateTierWizard() {
             )}
             {reviewToken.isFetching && (
               <p className="inline-status" role="status">
-                The final full token response is still rendering.
+                Preparing final artwork.
               </p>
             )}
             {!acknowledged && (
               <p className="inline-status" role="status">
-                Both permanence and gifting acknowledgements are required.
+                Review both acknowledgements.
               </p>
             )}
             {!guard.enabled && (
               <p className="inline-status" role="status">
-                Writes are unavailable: {guard.reason}
+                Publishing unavailable: {guard.reason}
               </p>
             )}
             {currentPendingTierVerification && (
               <section className="studio-commit-panel" role="status">
                 <div>
-                  <p className="eyebrow">Receipt confirmed</p>
-                  <h2>Verify the membership—do not publish it again.</h2>
+                  <h2>Finish checking the membership</h2>
                   <p>
-                    This retry performs only the canonical factory and tier
-                    reads with the exact successful receipt and reviewed launch
-                    config retained in this page session.
+                    The membership was published. This retries the final check
+                    and will not publish again.
                   </p>
                 </div>
                 <button
@@ -2494,7 +2440,7 @@ export function CreateTierWizard() {
                   }
                   type="button"
                 >
-                  Retry onchain verification
+                  Check again
                 </button>
               </section>
             )}

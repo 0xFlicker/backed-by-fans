@@ -12,39 +12,33 @@ const engineDetails: Record<
 > = {
   stack: {
     label: "STACK",
-    short: "Planes / depth",
-    description:
-      "Monumental offset planes with apertures, edge rhythm, and supporter echoes.",
+    short: "Planes and depth",
+    description: "Offset planes, openings, and depth.",
   },
   chorus: {
     label: "CHORUS",
-    short: "Lights / orbit",
-    description:
-      "Supporter lights gather into orbits, clusters, trails, and moments of convergence.",
+    short: "Lights and orbit",
+    description: "Lights gather in orbits and trails.",
   },
   loom: {
     label: "LOOM",
-    short: "Ribbon / tension",
-    description:
-      "Woven signal ribbons cross under tension, revealing media through selected openings.",
+    short: "Ribbon and tension",
+    description: "Woven ribbons reveal the image beneath.",
   },
   bloom: {
     label: "BLOOM",
-    short: "Petals / halo",
-    description:
-      "Recursive radial growth moves between petals, halos, and live-room stage light.",
+    short: "Petals and halo",
+    description: "Petals and halos build outward.",
   },
   marquee: {
     label: "MARQUEE",
-    short: "Type / poster",
-    description:
-      "Oversized membership language, registration marks, grain, and backstage-poster energy.",
+    short: "Type and poster",
+    description: "Oversized type with poster energy.",
   },
   afterimage: {
     label: "AFTERIMAGE",
-    short: "Media / echo",
-    description:
-      "Duotone masks, repeats, and layered silhouettes give creator media a lasting echo.",
+    short: "Image and echo",
+    description: "Layered silhouettes leave a lasting echo.",
   },
 };
 
@@ -78,12 +72,10 @@ export function EnginePicker({
 
   return (
     <fieldset className={styles.enginePicker} disabled={disabled}>
-      <legend>Choose a visual grammar</legend>
-      <p className={styles.sectionHint}>
-        One renderer, six distinct ways to shape the same membership identity.
-      </p>
+      <legend>Art style</legend>
+      <p className={styles.sectionHint}>Pick a style. Fine-tune it below.</p>
       <div
-        aria-label="Art engines"
+        aria-label="Art styles"
         className={styles.engineList}
         role="radiogroup"
       >

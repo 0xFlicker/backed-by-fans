@@ -120,8 +120,8 @@ describe("creator tier configuration", () => {
     );
 
     expect(result.warnings).toEqual([
-      expect.stringMatching(/capped zero-price/i),
-      expect.stringMatching(/permissionless gifts/i),
+      expect.stringMatching(/free membership/i),
+      expect.stringMatching(/gifts can hold capacity/i),
       expect.stringMatching(/unlimited prepayment/i),
     ]);
   });
@@ -136,7 +136,7 @@ describe("creator tier configuration", () => {
     });
 
     expect(result.config).toBeUndefined();
-    expect(result.creativeError).toMatch(/valid permanent tier identity/i);
+    expect(result.creativeError).toMatch(/create a new direction/i);
   });
 
   it("requires an enabled renderer version to be selected", () => {
@@ -146,7 +146,7 @@ describe("creator tier configuration", () => {
     });
 
     expect(result.config).toBeUndefined();
-    expect(result.creativeError).toMatch(/enabled artwork renderer/i);
+    expect(result.creativeError).toMatch(/artwork collection/i);
   });
 
   it("matches the renderer's XML-safe text boundary before simulation", () => {

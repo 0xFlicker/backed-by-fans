@@ -32,7 +32,9 @@ describe("foundation status components", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: /retry/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /retry direct read/i }),
+    );
     expect(onRetry).toHaveBeenCalledOnce();
     expect(screen.getByText("pricePerPeriod")).toBeInTheDocument();
   });
@@ -102,7 +104,7 @@ describe("foundation status components", () => {
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent("Paused");
-    await userEvent.click(screen.getByRole("button", { name: /retry/i }));
+    await userEvent.click(screen.getByRole("button", { name: /try again/i }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
 
@@ -123,7 +125,7 @@ describe("foundation status components", () => {
     expect(
       screen.queryByRole("button", { name: /retry from simulation/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/wallet or explorer/i)).toBeVisible();
+    expect(screen.getByText(/check your wallet/i)).toBeVisible();
     expect(onRetry).not.toHaveBeenCalled();
   });
 });

@@ -35,7 +35,7 @@ function WalletBalanceGrid({
         <dd>{networkName}</dd>
       </div>
       <div>
-        <dt>ETH for gas</dt>
+        <dt>Network fee (ETH)</dt>
         <dd>{Number(formatEther(balances.eth)).toFixed(5)}</dd>
       </div>
       <div>
@@ -43,7 +43,7 @@ function WalletBalanceGrid({
         <dd>{formatUnits(balances.usdg, 6)}</dd>
       </div>
       <div>
-        <dt>Estimated membership cost</dt>
+        <dt>Estimated cost</dt>
         <dd>
           {estimatedCost === undefined
             ? "Choose an action to estimate"
@@ -79,7 +79,7 @@ function ConnectedWalletReadiness({
   if (gas.isLoading || usdg.isLoading) {
     return (
       <ReadStateView
-        state={{ status: "loading", label: "Checking ETH and USDG balances." }}
+        state={{ status: "loading", label: "Checking wallet balances." }}
       />
     );
   }
@@ -132,11 +132,10 @@ export function WalletReadiness({
   if (!account.address || !account.isConnected) {
     return (
       <div className="readiness-empty">
-        <p>Connect a wallet to check network, ETH for gas, and USDG.</p>
+        <p>Connect a wallet to check the network and balances.</p>
         <p>
-          Before joining, move USDG onto the configured Robinhood Chain network
-          and keep a small ETH balance for gas. Backed By Fans does not provide
-          a fiat checkout.
+          Keep USDG and a small amount of ETH on Robinhood Chain. Backed By Fans
+          does not provide a fiat checkout.
         </p>
       </div>
     );
@@ -149,8 +148,7 @@ export function WalletReadiness({
           status: "wrong-chain",
           expectedChainId: deployment.chainId,
           actualChainId: active.chainId,
-          label:
-            "Switch to a supported Backed By Fans network before preparing a transaction.",
+          label: "Switch to a supported Backed By Fans network.",
         }}
       />
     );
@@ -174,9 +172,8 @@ export function WalletReadiness({
         />
       )}
       <p className="readiness-guidance">
-        Need funds? Transfer USDG to this wallet on {chain.name} and keep a
-        small ETH balance for gas. Backed By Fans does not provide a fiat
-        checkout.
+        Need funds? Transfer USDG and a small amount of ETH to this wallet on{" "}
+        {chain.name}. Backed By Fans does not provide a fiat checkout.
       </p>
     </>
   );

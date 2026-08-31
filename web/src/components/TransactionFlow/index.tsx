@@ -6,13 +6,29 @@ import type {
 } from "@/lib/transaction-state";
 
 const phases: { phase: TransactionPhase; label: string }[] = [
-  { phase: "simulation", label: "Simulation" },
+  { phase: "simulation", label: "Check" },
   { phase: "approval", label: "Approval" },
-  { phase: "signature", label: "Signature" },
-  { phase: "submission", label: "Submission" },
-  { phase: "confirmation", label: "Confirmation" },
-  { phase: "reconciliation", label: "Reconciliation" },
+  { phase: "signature", label: "Wallet" },
+  { phase: "submission", label: "Sent" },
+  { phase: "confirmation", label: "Confirmed" },
+  { phase: "reconciliation", label: "Finish" },
 ];
+
+const phaseLabels: Record<TransactionPhase, string> = {
+  idle: "Ready",
+  simulation: "Checking",
+  approval: "Approval",
+  signature: "Wallet",
+  submission: "Sending",
+  confirmation: "Waiting",
+  reconciliation: "Finishing",
+  confirmed: "Complete",
+  replacement: "Replaced",
+  uncertain: "Check wallet",
+  cancelled: "Cancelled",
+  reverted: "Rejected",
+  retry: "Try again",
+};
 
 export function TransactionFlow({
   state,
@@ -21,6 +37,8 @@ export function TransactionFlow({
   state: TransactionState;
   onRetry?: () => void;
 }) {
+  if (state.phase === "idle") return null;
+
   const activeIndex = phases.findIndex(({ phase }) => phase === state.phase);
   const retryable = ["cancelled", "reverted", "retry"].includes(state.phase);
 
@@ -28,11 +46,10 @@ export function TransactionFlow({
     <section className="transaction-flow" aria-labelledby="transaction-title">
       <div className="transaction-heading">
         <div>
-          <p className="eyebrow">Transaction status</p>
-          <h2 id="transaction-title">Clear from check to reconciliation</h2>
+          <h2 id="transaction-title">Progress</h2>
         </div>
         <span className="transaction-phase-label">
-          {state.phase === "idle" ? "Ready" : state.phase}
+          {phaseLabels[state.phase]}
         </span>
       </div>
 
@@ -62,25 +79,27 @@ export function TransactionFlow({
       >
         <p>{state.message}</p>
         {state.error && <p className="transaction-error">{state.error}</p>}
-        {state.hash && <code>{state.hash}</code>}
-        {state.replacementHash && <code>{state.replacementHash}</code>}
+        {state.hash || state.replacementHash ? (
+          <details className="technical-details">
+            <summary>Transaction ID</summary>
+            {state.hash ? <code>{state.hash}</code> : null}
+            {state.replacementHash ? (
+              <code>{state.replacementHash}</code>
+            ) : null}
+          </details>
+        ) : null}
       </div>
 
       {retryable && onRetry && (
         <button className="button button-dark" onClick={onRetry} type="button">
-          Retry from simulation
+          Try again
         </button>
       )}
       {state.phase === "uncertain" && (
-        <p className="small-copy">
-          Check the transaction in your wallet or explorer and refresh the page
-          before deciding whether to submit another action.
-        </p>
+        <p className="small-copy">Check your wallet before trying again.</p>
       )}
       {state.phase === "replacement" && (
-        <p className="small-copy">
-          The replacement must confirm and reconcile before success is shown.
-        </p>
+        <p className="small-copy">Waiting for the replacement to finish.</p>
       )}
     </section>
   );

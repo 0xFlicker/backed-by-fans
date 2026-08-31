@@ -93,9 +93,7 @@ library BloomEngine {
             layer.append(RendererPrimitives.decimal(angle));
             layer.append(' 600 492)" d="M600 86V148"/>');
         }
-        layer.append('</g><text x="600" y="505" text-anchor="middle" class="engine-label">');
-        layer.append("ONE VOICE / MANY</text>");
-        layer.append("<!-- petals:");
+        layer.append("</g><!-- petals:");
         layer.append(RendererPrimitives.decimal(petals));
         layer.append(" --></g>");
         return layer.finish();

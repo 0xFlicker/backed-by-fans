@@ -98,6 +98,6 @@ describe("PreviewGallery", () => {
     );
 
     expect(screen.getByAltText(/Membership token 7/i)).toBeVisible();
-    expect(screen.getByText(/Rendering the exact SVG/i)).toBeVisible();
+    expect(screen.getByText(/Rendering artwork/i)).toBeVisible();
   });
 });

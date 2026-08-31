@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -94,46 +94,55 @@ describe("CreatorStudio", () => {
       screen.getByLabelText(/Token 1, active artwork preview/i),
     ).toBeVisible();
     expect(
-      screen.getAllByRole("radio", {
-        name: /Planes|Lights|Ribbon|Petals|Type|Media/i,
-      }),
+      within(
+        screen.getByRole("radiogroup", { name: "Art styles" }),
+      ).getAllByRole("radio"),
     ).toHaveLength(6);
-    expect(screen.getByText(/three identities, one direction/i)).toBeVisible();
+    expect(screen.getByText(/one style, three memberships/i)).toBeVisible();
     expect(screen.queryByText(/Arweave|IPFS|HTTPS reference/i)).toBeNull();
     expect(
-      screen.getByRole("radio", { name: /Add an onchain image/i }),
-    ).toBeVisible();
+      screen.getByRole("radio", { name: /Add your image/i }),
+    ).not.toBeVisible();
+  });
+
+  it("places collapsed artwork and image controls together below the preview", () => {
+    render(<StudioHarness />);
+
+    const artwork = screen.getByText("Customize artwork").closest("details");
+    const image = screen.getByText("Add an image").closest("details");
+
+    expect(artwork).not.toHaveAttribute("open");
+    expect(image).not.toHaveAttribute("open");
+    expect(artwork?.parentElement).toBe(image?.parentElement);
   });
 
   it("switches engines without losing media and provides a one-step undo", async () => {
     const user = userEvent.setup();
     render(<StudioHarness />);
 
-    await user.click(
-      screen.getByRole("radio", { name: /Add an onchain image/i }),
-    );
+    await user.click(screen.getByText("Add an image").closest("summary")!);
+    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
     const stack = screen.getByRole("radio", { name: /STACK/i });
     stack.focus();
     await user.keyboard("{ArrowDown}");
-    expect(screen.getByText("CHORUS controls")).toBeVisible();
+    expect(screen.getByText("Style controls")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /CHORUS/i })).toHaveAttribute(
       "aria-checked",
       "true",
     );
     expect(
-      screen.getByRole("radio", { name: /Add an onchain image/i }),
+      screen.getByRole("radio", { name: /Add your image/i }),
     ).toBeChecked();
 
     await user.click(
-      screen.getByRole("button", { name: /Undo engine change/i }),
+      screen.getByRole("button", { name: /Undo style change/i }),
     );
-    expect(screen.getByText("STACK controls")).toBeVisible();
     expect(screen.getByRole("radio", { name: /STACK/i })).toHaveAttribute(
       "aria-checked",
       "true",
     );
     expect(
-      screen.getByRole("radio", { name: /Add an onchain image/i }),
+      screen.getByRole("radio", { name: /Add your image/i }),
     ).toBeChecked();
   });
 
@@ -154,7 +163,7 @@ describe("CreatorStudio", () => {
     );
 
     expect(
-      screen.getByText(/Choose a compatible artwork collection/i),
+      screen.getByText(/Choose an artwork collection to continue/i),
     ).toBeVisible();
     expect(screen.getByRole("radio", { name: /STACK/i })).toBeDisabled();
     const choices = screen.getAllByRole("radio", {
@@ -164,16 +173,19 @@ describe("CreatorStudio", () => {
     expect(choices[1]).toBeDisabled();
     await user.click(choices[0]);
     expect(screen.getByRole("radio", { name: /STACK/i })).toBeEnabled();
-    expect(screen.getByText(/registry edition 1 is pinned/i)).toBeVisible();
+    expect(screen.getAllByText(/FOUNDING SIX selected/i)).not.toHaveLength(0);
   });
 
   it("honors per-control locks while generating a fresh direction", async () => {
     const user = userEvent.setup();
     render(<StudioHarness />);
 
+    await user.click(screen.getByText("Customize artwork").closest("summary")!);
     const palette = screen.getByLabelText("Palette numeric value");
     const seedLine = screen.getByText((_, node) =>
-      Boolean(node?.tagName === "P" && node.textContent?.startsWith("Seed ")),
+      Boolean(
+        node?.tagName === "P" && node.textContent?.startsWith("Direction "),
+      ),
     );
     const seedBefore = seedLine.textContent;
     expect(palette).toHaveValue(0);
@@ -185,6 +197,22 @@ describe("CreatorStudio", () => {
       screen.getByRole("button", { name: "Unlock Palette" }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(seedLine.textContent).not.toBe(seedBefore);
+  });
+
+  it("uses a checkbox for binary artwork controls", async () => {
+    const user = userEvent.setup();
+    render(<StudioHarness />);
+
+    await user.click(screen.getByText("Customize artwork").closest("summary")!);
+    const tierText = screen.getByRole("checkbox", {
+      name: "Show tier text",
+    });
+    expect(tierText).toBeChecked();
+    expect(
+      screen.queryByLabelText("Show tier text numeric value"),
+    ).not.toBeInTheDocument();
+    await user.click(tierText);
+    expect(tierText).not.toBeChecked();
   });
 
   it("hands the exact controlled art and media values to final review", async () => {
