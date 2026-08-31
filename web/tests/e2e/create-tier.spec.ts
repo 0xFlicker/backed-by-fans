@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { resolve } from "node:path";
 
-import { robinhoodMembershipFactoryAbi } from "../../src/contracts";
+import { membershipFactoryAbi } from "../../src/contracts";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -50,7 +50,7 @@ test("@anvil deploys and shares a creator-owned tier through the production UI",
     await expect(
       client.readContract({
         address: factory,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "isRegisteredTier",
         args: [deployedTier],
       }),

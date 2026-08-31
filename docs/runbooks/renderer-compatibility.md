@@ -8,6 +8,7 @@ The Robinhood profile and local Anvil gate use:
 
 - maximum runtime code: 98,304 bytes;
 - maximum initcode: 196,608 bytes;
+- maximum Nitro sequencer transaction data: 95,000 bytes;
 - renderer project ceilings: 88,000-byte runtime and 176,000-byte initcode;
 - local block and call gas: 100,000,000;
 - low-level `ImmutableCodeStore` payload: 98,303 bytes, reserving one byte for the non-executable `STOP` prefix;
@@ -49,15 +50,18 @@ The size ladder uses STACK. The 90 KiB maximum is then exercised independently a
 | AFTERIMAGE    |       128,235 |                 228,541 |       457,084 | 8,275,137 |            36,404,708 |
 
 The final six-engine `OnchainMetadataRenderer` artifact is 52,919-byte runtime and 52,947-byte
-initcode. The deployable `RobinhoodMembershipFactory` creation artifact is 112,035 bytes. Both
-remain below the project and Robinhood ceilings.
+initcode. The reviewed `MembershipFactory` payload appends its five fixed constructor arguments to
+45,834 bytes of base creation code, producing 45,994 bytes of initcode and 46,026 bytes of raw
+CREATE2 transaction data. Both components remain below the applicable project, Robinhood EVM, and
+Nitro sequencer ceilings.
 
 ## Release deployment compatibility
 
-The renderer and membership-factory initcode exceed Ethereum's 49,152-byte EIP-3860 limit. Foundry
-1.7.1 applies that Ethereum limit in its in-process script broadcaster even when the target
-Robinhood node permits the larger reviewed envelope. Public release deployment therefore must not
-use `forge script --broadcast` for this graph.
+The renderer initcode exceeds Ethereum's 49,152-byte EIP-3860 limit. Foundry 1.7.1 applies that
+Ethereum limit in its in-process script broadcaster even when the target Robinhood node permits the
+larger reviewed envelope. Public release deployment therefore must not use
+`forge script --broadcast` for this graph. The raw wrapper also enforces Nitro's independent
+95,000-byte transaction-data admission limit, which an Anvil fork does not emulate.
 
 Run the exact release preflight instead:
 
@@ -80,11 +84,11 @@ in `deployments/protocol/46630/candidate.json`; it cannot enable Wagmi addresses
 
 The recovery order is fixed:
 
-| Component                    | Allowed predecessor                       |
-| ---------------------------- | ----------------------------------------- |
-| `OnchainMediaStoreFactory`   | no candidate code                         |
-| `OnchainMetadataRenderer`    | exact media factory runtime               |
-| `RobinhoodMembershipFactory` | exact media factory and renderer runtimes |
+| Component                  | Allowed predecessor                       |
+| -------------------------- | ----------------------------------------- |
+| `OnchainMediaStoreFactory` | no candidate code                         |
+| `OnchainMetadataRenderer`  | exact media factory runtime               |
+| `MembershipFactory`        | exact media factory and renderer runtimes |
 
 Any non-prefix state, bytecode mismatch, or final immutable/dependency mismatch is a release stop.
 

@@ -24,6 +24,15 @@ A source, compiler, optimizer, metadata, deployer, salt, or expected-address cha
 different fingerprint. Preserve the old journal and resolve the release explicitly; do not edit it
 to make a new build appear resumable.
 
+Failed candidates are renamed with their source commit and failure reason, with an adjacent incident
+record containing the chain and nonce evidence. A corrected release always starts a fresh
+`candidate.json`; an archived journal is never rewritten to describe different bytecode.
+
+The release wrapper also rejects any `salt || initcode` payload above Robinhood Nitro's 95,000-byte
+sequencer transaction-data limit before local preflight or signing. Anvil validates the exact chain
+state, order, runtime, gas, and raised EVM code limits, but it does not emulate this sequencer
+admission rule.
+
 Only a complete, dependency-valid, source-verified journal can produce
 `broadcast/DeployDirectProtocol.s.sol/<chain-id>/run-latest.json`. Wagmi consumes the promoted
 broadcast record, never this candidate file directly.

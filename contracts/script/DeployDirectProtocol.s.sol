@@ -8,7 +8,6 @@ import {console2} from "forge-std/console2.sol";
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
-import {RobinhoodMembershipFactory} from "../src/RobinhoodMembershipFactory.sol";
 import {RobinhoodProtocolConfig} from "../src/RobinhoodProtocolConfig.sol";
 import {TestnetUSDG} from "../src/TestnetUSDG.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
@@ -172,13 +171,27 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
 
     function predictedAddresses()
         public
-        pure
+        view
         returns (address mediaStoreFactory, address renderer, address factory)
     {
         mediaStoreFactory = RobinhoodProtocolConfig.mediaStoreFactory();
         renderer = RobinhoodProtocolConfig.initialRenderer();
-        factory = RobinhoodProtocolConfig.create2Address(
-            FACTORY_SALT, keccak256(type(RobinhoodMembershipFactory).creationCode)
+        factory = RobinhoodProtocolConfig.create2Address(FACTORY_SALT, keccak256(factoryInitCode()));
+    }
+
+    /// @notice Exact MembershipFactory creation payload used by the raw CREATE2 release wrapper.
+    /// @dev Constructor arguments are fixed by chain configuration and the protocol Safe, so an
+    ///      arbitrary caller can only predeploy the reviewed factory at the reviewed address.
+    function factoryInitCode() public view returns (bytes memory) {
+        return abi.encodePacked(
+            type(MembershipFactory).creationCode,
+            abi.encode(
+                address(RobinhoodProtocolConfig.canonicalPaymentToken()),
+                RobinhoodProtocolConfig.initialRenderer(),
+                RobinhoodProtocolConfig.mediaStoreFactory(),
+                INITIAL_PROTOCOL_AUTHORITY,
+                INITIAL_PROTOCOL_AUTHORITY
+            )
         );
     }
 

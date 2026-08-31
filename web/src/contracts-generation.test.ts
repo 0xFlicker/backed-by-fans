@@ -254,18 +254,14 @@ async function generateFactoryAddress(deployments: DeploymentFixture[]) {
   const project = await mkdtemp(join(tmpdir(), "bbf-wagmi-foundry-"));
   temporaryProjects.push(project);
 
-  const artifactDirectory = join(
-    project,
-    "out",
-    "RobinhoodMembershipFactory.sol",
-  );
+  const artifactDirectory = join(project, "out", "MembershipFactory.sol");
   await mkdir(artifactDirectory, { recursive: true });
   await writeFile(
     join(project, "foundry.toml"),
     "[profile.default]\nout = 'out'\n",
   );
   await writeFile(
-    join(artifactDirectory, "RobinhoodMembershipFactory.json"),
+    join(artifactDirectory, "MembershipFactory.json"),
     JSON.stringify({
       abi: [
         {
@@ -299,7 +295,7 @@ async function generateFactoryAddress(deployments: DeploymentFixture[]) {
             additionalContracts: [
               {
                 transactionType: "CREATE2",
-                contractName: "RobinhoodMembershipFactory",
+                contractName: "MembershipFactory",
                 [deployment.addressField]: deployment.address,
               },
             ],
@@ -312,12 +308,11 @@ async function generateFactoryAddress(deployments: DeploymentFixture[]) {
   const plugin = foundry({
     project,
     includeBroadcasts: true,
-    include: ["RobinhoodMembershipFactory.sol/RobinhoodMembershipFactory.json"],
+    include: ["MembershipFactory.sol/MembershipFactory.json"],
     forge: { build: false, clean: false, rebuild: false },
   });
   const contracts = await plugin.contracts();
-  return contracts.find(({ name }) => name === "RobinhoodMembershipFactory")
-    ?.address;
+  return contracts.find(({ name }) => name === "MembershipFactory")?.address;
 }
 
 describe("Wagmi Foundry broadcast generation", () => {
@@ -338,7 +333,7 @@ describe("Wagmi Foundry broadcast generation", () => {
       "[profile.default]\nout = 'out'\n",
     );
 
-    for (const contractName of ["RobinhoodMembershipFactory", "TestnetUSDG"]) {
+    for (const contractName of ["MembershipFactory", "TestnetUSDG"]) {
       const artifactDirectory = join(project, "out", `${contractName}.sol`);
       await mkdir(artifactDirectory, { recursive: true });
       await writeFile(
@@ -385,7 +380,7 @@ describe("Wagmi Foundry broadcast generation", () => {
         additionalContracts: [
           {
             transactionType: "CREATE2",
-            contractName: "RobinhoodMembershipFactory",
+            contractName: "MembershipFactory",
             address,
           },
         ],
@@ -396,15 +391,14 @@ describe("Wagmi Foundry broadcast generation", () => {
       project,
       includeBroadcasts: true,
       include: [
-        "RobinhoodMembershipFactory.sol/RobinhoodMembershipFactory.json",
+        "MembershipFactory.sol/MembershipFactory.json",
         "TestnetUSDG.sol/TestnetUSDG.json",
       ],
       forge: { build: false, clean: false, rebuild: false },
     });
     const contracts = await plugin.contracts();
     expect(
-      contracts.find(({ name }) => name === "RobinhoodMembershipFactory")
-        ?.address,
+      contracts.find(({ name }) => name === "MembershipFactory")?.address,
     ).toEqual({ 4_663: mainnetFactory, 46_630: testnetFactory });
     expect(
       contracts.find(({ name }) => name === "TestnetUSDG")?.address,

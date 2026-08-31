@@ -13,7 +13,7 @@ import {
 import {
   membershipTierAbi,
   onchainMediaStoreFactoryAbi,
-  robinhoodMembershipFactoryAbi,
+  membershipFactoryAbi,
 } from "@/contracts";
 import type {
   ProtocolDependencySnapshot,
@@ -327,7 +327,7 @@ export async function verifyTierAuthenticity(
     const reads = await Promise.allSettled([
       client.readContract({
         address: protocol.data.factory,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "isRegisteredTier",
         args: [tier],
         blockNumber: capturedBlock,
@@ -432,7 +432,7 @@ export async function verifyTierAuthenticity(
     if (isBytes32(tierIdentity)) {
       identityTier = await client.readContract({
         address: protocol.data.factory,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "tierForIdentity",
         args: [tierIdentity],
         blockNumber: capturedBlock,

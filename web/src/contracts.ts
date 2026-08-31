@@ -6,6 +6,704 @@ import {
 } from "wagmi/codegen";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MembershipFactory
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const membershipFactoryAbi = [
+  {
+    type: "constructor",
+    inputs: [
+      {
+        name: "paymentToken_",
+        internalType: "contract IERC20",
+        type: "address",
+      },
+      { name: "renderer_", internalType: "address", type: "address" },
+      { name: "mediaStoreFactory_", internalType: "address", type: "address" },
+      { name: "initialOwner", internalType: "address", type: "address" },
+      { name: "initialFeeRecipient", internalType: "address", type: "address" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "acceptOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "config",
+        internalType: "struct MembershipTypes.TierConfig",
+        type: "tuple",
+        components: [
+          { name: "creator", internalType: "address", type: "address" },
+          { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
+          { name: "rendererVersion", internalType: "uint32", type: "uint32" },
+          { name: "name", internalType: "string", type: "string" },
+          { name: "symbol", internalType: "string", type: "string" },
+          { name: "pricePerPeriod", internalType: "uint256", type: "uint256" },
+          { name: "periodDuration", internalType: "uint64", type: "uint64" },
+          { name: "rewardBps", internalType: "uint16", type: "uint16" },
+          { name: "referralBps", internalType: "uint16", type: "uint16" },
+          { name: "supplyCap", internalType: "uint64", type: "uint64" },
+          { name: "maxPrepaidPeriods", internalType: "uint64", type: "uint64" },
+          {
+            name: "metadata",
+            internalType: "struct MembershipTypes.TierMetadata",
+            type: "tuple",
+            components: [
+              { name: "description", internalType: "string", type: "string" },
+              { name: "externalURI", internalType: "string", type: "string" },
+            ],
+          },
+          {
+            name: "art",
+            internalType: "struct MembershipTypes.ArtConfig",
+            type: "tuple",
+            components: [
+              { name: "engine", internalType: "uint16", type: "uint16" },
+              {
+                name: "collectionSeed",
+                internalType: "uint128",
+                type: "uint128",
+              },
+              { name: "palette", internalType: "uint8", type: "uint8" },
+              { name: "intensity", internalType: "uint8", type: "uint8" },
+              { name: "density", internalType: "uint8", type: "uint8" },
+              { name: "symmetry", internalType: "uint8", type: "uint8" },
+              { name: "typographyScale", internalType: "uint8", type: "uint8" },
+              { name: "typographyStyle", internalType: "uint8", type: "uint8" },
+              { name: "textVisibility", internalType: "uint8", type: "uint8" },
+              {
+                name: "imageFit",
+                internalType: "enum MembershipTypes.ImageFit",
+                type: "uint8",
+              },
+              { name: "focalX", internalType: "uint8", type: "uint8" },
+              { name: "focalY", internalType: "uint8", type: "uint8" },
+              { name: "grain", internalType: "uint8", type: "uint8" },
+              { name: "mediaMix", internalType: "uint8", type: "uint8" },
+              { name: "primary", internalType: "uint8", type: "uint8" },
+              { name: "secondary", internalType: "uint8", type: "uint8" },
+              { name: "tertiary", internalType: "uint8", type: "uint8" },
+            ],
+          },
+          {
+            name: "media",
+            internalType: "struct MembershipTypes.MediaConfig",
+            type: "tuple",
+            components: [
+              {
+                name: "mime",
+                internalType: "enum MembershipTypes.MediaMIME",
+                type: "uint8",
+              },
+              { name: "store", internalType: "address", type: "address" },
+              { name: "length", internalType: "uint32", type: "uint32" },
+              { name: "digest", internalType: "bytes32", type: "bytes32" },
+              {
+                name: "runtimeCodehash",
+                internalType: "bytes32",
+                type: "bytes32",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    name: "createTier",
+    outputs: [{ name: "tier", internalType: "address", type: "address" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "deployer",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "feeRecipient",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "tier", internalType: "address", type: "address" }],
+    name: "isRegisteredTier",
+    outputs: [{ name: "registered", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "creator", internalType: "address", type: "address" },
+      { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
+    ],
+    name: "isTierSaltUsed",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "maxPageSize",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "mediaStoreFactory",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "mediaStoreFactoryRuntimeCodehash",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "owner",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "paymentToken",
+    outputs: [{ name: "", internalType: "contract IERC20", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "pendingOwner",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "creator", internalType: "address", type: "address" },
+      { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
+    ],
+    name: "predictTierIdentity",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "protocolFeeBps",
+    outputs: [{ name: "", internalType: "uint16", type: "uint16" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "renderer_", internalType: "address", type: "address" }],
+    name: "registerRenderer",
+    outputs: [
+      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "rendererCount",
+    outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
+    ],
+    name: "rendererRecord",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.RendererRecord",
+        type: "tuple",
+        components: [
+          { name: "implementation", internalType: "address", type: "address" },
+          { name: "runtimeCodehash", internalType: "bytes32", type: "bytes32" },
+          { name: "enabled", internalType: "bool", type: "bool" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "rendererSchema",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "renderer_", internalType: "address", type: "address" }],
+    name: "rendererVersionOf",
+    outputs: [
+      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "renounceOwnership",
+    outputs: [],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "newRecipient", internalType: "address", type: "address" },
+    ],
+    name: "setFeeRecipient",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
+      { name: "enabled", internalType: "bool", type: "bool" },
+    ],
+    name: "setRendererEnabled",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "tierCount",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "tierIdentity_", internalType: "bytes32", type: "bytes32" },
+    ],
+    name: "tierForIdentity",
+    outputs: [{ name: "tier", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "offset", internalType: "uint256", type: "uint256" },
+      { name: "limit", internalType: "uint256", type: "uint256" },
+    ],
+    name: "tiers",
+    outputs: [{ name: "page", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "newOwner", internalType: "address", type: "address" }],
+    name: "transferOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "withdrawProtocolFees",
+    outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "previousRecipient",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "newRecipient",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "FeeRecipientUpdated",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "previousOwner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "newOwner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "OwnershipTransferStarted",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "previousOwner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "newOwner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "OwnershipTransferred",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "recipient",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "amount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "ProtocolFeesWithdrawn",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "rendererVersion",
+        internalType: "uint32",
+        type: "uint32",
+        indexed: true,
+      },
+      { name: "enabled", internalType: "bool", type: "bool", indexed: false },
+    ],
+    name: "RendererEnabled",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "rendererVersion",
+        internalType: "uint32",
+        type: "uint32",
+        indexed: true,
+      },
+      {
+        name: "renderer",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "runtimeCodehash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: true,
+      },
+    ],
+    name: "RendererRegistered",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      {
+        name: "engine",
+        internalType: "uint16",
+        type: "uint16",
+        indexed: false,
+      },
+      {
+        name: "collectionSeed",
+        internalType: "uint128",
+        type: "uint128",
+        indexed: false,
+      },
+      {
+        name: "artConfigHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+      {
+        name: "mediaStore",
+        internalType: "address",
+        type: "address",
+        indexed: false,
+      },
+      {
+        name: "mediaDigest",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+    ],
+    name: "TierArtConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      {
+        name: "creator",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "tierIdentity",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: true,
+      },
+      {
+        name: "tierIndex",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      { name: "name", internalType: "string", type: "string", indexed: false },
+      {
+        name: "symbol",
+        internalType: "string",
+        type: "string",
+        indexed: false,
+      },
+    ],
+    name: "TierCreated",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      {
+        name: "description",
+        internalType: "string",
+        type: "string",
+        indexed: false,
+      },
+      {
+        name: "externalURI",
+        internalType: "string",
+        type: "string",
+        indexed: false,
+      },
+    ],
+    name: "TierMetadataConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      {
+        name: "rendererVersion",
+        internalType: "uint32",
+        type: "uint32",
+        indexed: true,
+      },
+      {
+        name: "renderer",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "runtimeCodehash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+    ],
+    name: "TierRendererConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      {
+        name: "pricePerPeriod",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "periodDuration",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+      {
+        name: "rewardBps",
+        internalType: "uint16",
+        type: "uint16",
+        indexed: false,
+      },
+      {
+        name: "referralBps",
+        internalType: "uint16",
+        type: "uint16",
+        indexed: false,
+      },
+      {
+        name: "supplyCap",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+      {
+        name: "maxPrepaidPeriods",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+    ],
+    name: "TierTermsConfigured",
+  },
+  { type: "error", inputs: [], name: "CreatorMustBeCaller" },
+  { type: "error", inputs: [], name: "InexactTokenTransfer" },
+  { type: "error", inputs: [], name: "InvalidAddress" },
+  { type: "error", inputs: [], name: "InvalidContract" },
+  { type: "error", inputs: [], name: "InvalidPageSize" },
+  { type: "error", inputs: [], name: "InvalidPeriodDuration" },
+  { type: "error", inputs: [], name: "InvalidRateTotal" },
+  { type: "error", inputs: [], name: "InvalidRenderer" },
+  {
+    type: "error",
+    inputs: [
+      { name: "expected", internalType: "bytes32", type: "bytes32" },
+      { name: "actual", internalType: "bytes32", type: "bytes32" },
+    ],
+    name: "InvalidRendererSchema",
+  },
+  { type: "error", inputs: [], name: "InvalidTierSalt" },
+  {
+    type: "error",
+    inputs: [
+      { name: "expected", internalType: "bytes32", type: "bytes32" },
+      { name: "actual", internalType: "bytes32", type: "bytes32" },
+    ],
+    name: "MediaStoreFactoryCodeChanged",
+  },
+  { type: "error", inputs: [], name: "OnlyFeeRecipient" },
+  {
+    type: "error",
+    inputs: [{ name: "owner", internalType: "address", type: "address" }],
+    name: "OwnableInvalidOwner",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "account", internalType: "address", type: "address" }],
+    name: "OwnableUnauthorizedAccount",
+  },
+  { type: "error", inputs: [], name: "OwnershipRenunciationDisabled" },
+  { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
+  {
+    type: "error",
+    inputs: [
+      { name: "renderer", internalType: "address", type: "address" },
+      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
+    ],
+    name: "RendererAlreadyRegistered",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "renderer", internalType: "address", type: "address" },
+      { name: "expected", internalType: "bytes32", type: "bytes32" },
+      { name: "actual", internalType: "bytes32", type: "bytes32" },
+    ],
+    name: "RendererCodeChanged",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
+    ],
+    name: "RendererNotEnabled",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
+      { name: "enabled", internalType: "bool", type: "bool" },
+    ],
+    name: "RendererStatusUnchanged",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "token", internalType: "address", type: "address" }],
+    name: "SafeERC20FailedOperation",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "expected", internalType: "bytes32", type: "bytes32" },
+      { name: "actual", internalType: "bytes32", type: "bytes32" },
+    ],
+    name: "TierIdentityMismatch",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "creator", internalType: "address", type: "address" },
+      { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
+    ],
+    name: "TierSaltAlreadyUsed",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
+    ],
+    name: "UnknownRendererVersion",
+  },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // MembershipTier
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2323,700 +3021,6 @@ export const onchainMetadataRendererAbi = [
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// RobinhoodMembershipFactory
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export const robinhoodMembershipFactoryAbi = [
-  { type: "constructor", inputs: [], stateMutability: "nonpayable" },
-  {
-    type: "function",
-    inputs: [],
-    name: "acceptOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [
-      {
-        name: "config",
-        internalType: "struct MembershipTypes.TierConfig",
-        type: "tuple",
-        components: [
-          { name: "creator", internalType: "address", type: "address" },
-          { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
-          { name: "rendererVersion", internalType: "uint32", type: "uint32" },
-          { name: "name", internalType: "string", type: "string" },
-          { name: "symbol", internalType: "string", type: "string" },
-          { name: "pricePerPeriod", internalType: "uint256", type: "uint256" },
-          { name: "periodDuration", internalType: "uint64", type: "uint64" },
-          { name: "rewardBps", internalType: "uint16", type: "uint16" },
-          { name: "referralBps", internalType: "uint16", type: "uint16" },
-          { name: "supplyCap", internalType: "uint64", type: "uint64" },
-          { name: "maxPrepaidPeriods", internalType: "uint64", type: "uint64" },
-          {
-            name: "metadata",
-            internalType: "struct MembershipTypes.TierMetadata",
-            type: "tuple",
-            components: [
-              { name: "description", internalType: "string", type: "string" },
-              { name: "externalURI", internalType: "string", type: "string" },
-            ],
-          },
-          {
-            name: "art",
-            internalType: "struct MembershipTypes.ArtConfig",
-            type: "tuple",
-            components: [
-              { name: "engine", internalType: "uint16", type: "uint16" },
-              {
-                name: "collectionSeed",
-                internalType: "uint128",
-                type: "uint128",
-              },
-              { name: "palette", internalType: "uint8", type: "uint8" },
-              { name: "intensity", internalType: "uint8", type: "uint8" },
-              { name: "density", internalType: "uint8", type: "uint8" },
-              { name: "symmetry", internalType: "uint8", type: "uint8" },
-              { name: "typographyScale", internalType: "uint8", type: "uint8" },
-              { name: "typographyStyle", internalType: "uint8", type: "uint8" },
-              { name: "textVisibility", internalType: "uint8", type: "uint8" },
-              {
-                name: "imageFit",
-                internalType: "enum MembershipTypes.ImageFit",
-                type: "uint8",
-              },
-              { name: "focalX", internalType: "uint8", type: "uint8" },
-              { name: "focalY", internalType: "uint8", type: "uint8" },
-              { name: "grain", internalType: "uint8", type: "uint8" },
-              { name: "mediaMix", internalType: "uint8", type: "uint8" },
-              { name: "primary", internalType: "uint8", type: "uint8" },
-              { name: "secondary", internalType: "uint8", type: "uint8" },
-              { name: "tertiary", internalType: "uint8", type: "uint8" },
-            ],
-          },
-          {
-            name: "media",
-            internalType: "struct MembershipTypes.MediaConfig",
-            type: "tuple",
-            components: [
-              {
-                name: "mime",
-                internalType: "enum MembershipTypes.MediaMIME",
-                type: "uint8",
-              },
-              { name: "store", internalType: "address", type: "address" },
-              { name: "length", internalType: "uint32", type: "uint32" },
-              { name: "digest", internalType: "bytes32", type: "bytes32" },
-              {
-                name: "runtimeCodehash",
-                internalType: "bytes32",
-                type: "bytes32",
-              },
-            ],
-          },
-        ],
-      },
-    ],
-    name: "createTier",
-    outputs: [{ name: "tier", internalType: "address", type: "address" }],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "deployer",
-    outputs: [{ name: "", internalType: "address", type: "address" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "feeRecipient",
-    outputs: [{ name: "", internalType: "address", type: "address" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [{ name: "tier", internalType: "address", type: "address" }],
-    name: "isRegisteredTier",
-    outputs: [{ name: "registered", internalType: "bool", type: "bool" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "creator", internalType: "address", type: "address" },
-      { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
-    ],
-    name: "isTierSaltUsed",
-    outputs: [{ name: "", internalType: "bool", type: "bool" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "maxPageSize",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "mediaStoreFactory",
-    outputs: [{ name: "", internalType: "address", type: "address" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "mediaStoreFactoryRuntimeCodehash",
-    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "owner",
-    outputs: [{ name: "", internalType: "address", type: "address" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "paymentToken",
-    outputs: [{ name: "", internalType: "contract IERC20", type: "address" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "pendingOwner",
-    outputs: [{ name: "", internalType: "address", type: "address" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "creator", internalType: "address", type: "address" },
-      { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
-    ],
-    name: "predictTierIdentity",
-    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "protocolFeeBps",
-    outputs: [{ name: "", internalType: "uint16", type: "uint16" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [{ name: "renderer_", internalType: "address", type: "address" }],
-    name: "registerRenderer",
-    outputs: [
-      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
-    ],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "rendererCount",
-    outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
-    ],
-    name: "rendererRecord",
-    outputs: [
-      {
-        name: "",
-        internalType: "struct MembershipTypes.RendererRecord",
-        type: "tuple",
-        components: [
-          { name: "implementation", internalType: "address", type: "address" },
-          { name: "runtimeCodehash", internalType: "bytes32", type: "bytes32" },
-          { name: "enabled", internalType: "bool", type: "bool" },
-        ],
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "rendererSchema",
-    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [{ name: "renderer_", internalType: "address", type: "address" }],
-    name: "rendererVersionOf",
-    outputs: [
-      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "renounceOwnership",
-    outputs: [],
-    stateMutability: "pure",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "newRecipient", internalType: "address", type: "address" },
-    ],
-    name: "setFeeRecipient",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
-      { name: "enabled", internalType: "bool", type: "bool" },
-    ],
-    name: "setRendererEnabled",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "tierCount",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "tierIdentity_", internalType: "bytes32", type: "bytes32" },
-    ],
-    name: "tierForIdentity",
-    outputs: [{ name: "tier", internalType: "address", type: "address" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "offset", internalType: "uint256", type: "uint256" },
-      { name: "limit", internalType: "uint256", type: "uint256" },
-    ],
-    name: "tiers",
-    outputs: [{ name: "page", internalType: "address[]", type: "address[]" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [{ name: "newOwner", internalType: "address", type: "address" }],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "withdrawProtocolFees",
-    outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "previousRecipient",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "newRecipient",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-    ],
-    name: "FeeRecipientUpdated",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "previousOwner",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "newOwner",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-    ],
-    name: "OwnershipTransferStarted",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "previousOwner",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "newOwner",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-    ],
-    name: "OwnershipTransferred",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "recipient",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "amount",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-    ],
-    name: "ProtocolFeesWithdrawn",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "rendererVersion",
-        internalType: "uint32",
-        type: "uint32",
-        indexed: true,
-      },
-      { name: "enabled", internalType: "bool", type: "bool", indexed: false },
-    ],
-    name: "RendererEnabled",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "rendererVersion",
-        internalType: "uint32",
-        type: "uint32",
-        indexed: true,
-      },
-      {
-        name: "renderer",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "runtimeCodehash",
-        internalType: "bytes32",
-        type: "bytes32",
-        indexed: true,
-      },
-    ],
-    name: "RendererRegistered",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      { name: "tier", internalType: "address", type: "address", indexed: true },
-      {
-        name: "engine",
-        internalType: "uint16",
-        type: "uint16",
-        indexed: false,
-      },
-      {
-        name: "collectionSeed",
-        internalType: "uint128",
-        type: "uint128",
-        indexed: false,
-      },
-      {
-        name: "artConfigHash",
-        internalType: "bytes32",
-        type: "bytes32",
-        indexed: false,
-      },
-      {
-        name: "mediaStore",
-        internalType: "address",
-        type: "address",
-        indexed: false,
-      },
-      {
-        name: "mediaDigest",
-        internalType: "bytes32",
-        type: "bytes32",
-        indexed: false,
-      },
-    ],
-    name: "TierArtConfigured",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      { name: "tier", internalType: "address", type: "address", indexed: true },
-      {
-        name: "creator",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "tierIdentity",
-        internalType: "bytes32",
-        type: "bytes32",
-        indexed: true,
-      },
-      {
-        name: "tierIndex",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      { name: "name", internalType: "string", type: "string", indexed: false },
-      {
-        name: "symbol",
-        internalType: "string",
-        type: "string",
-        indexed: false,
-      },
-    ],
-    name: "TierCreated",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      { name: "tier", internalType: "address", type: "address", indexed: true },
-      {
-        name: "description",
-        internalType: "string",
-        type: "string",
-        indexed: false,
-      },
-      {
-        name: "externalURI",
-        internalType: "string",
-        type: "string",
-        indexed: false,
-      },
-    ],
-    name: "TierMetadataConfigured",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      { name: "tier", internalType: "address", type: "address", indexed: true },
-      {
-        name: "rendererVersion",
-        internalType: "uint32",
-        type: "uint32",
-        indexed: true,
-      },
-      {
-        name: "renderer",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "runtimeCodehash",
-        internalType: "bytes32",
-        type: "bytes32",
-        indexed: false,
-      },
-    ],
-    name: "TierRendererConfigured",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      { name: "tier", internalType: "address", type: "address", indexed: true },
-      {
-        name: "pricePerPeriod",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      {
-        name: "periodDuration",
-        internalType: "uint64",
-        type: "uint64",
-        indexed: false,
-      },
-      {
-        name: "rewardBps",
-        internalType: "uint16",
-        type: "uint16",
-        indexed: false,
-      },
-      {
-        name: "referralBps",
-        internalType: "uint16",
-        type: "uint16",
-        indexed: false,
-      },
-      {
-        name: "supplyCap",
-        internalType: "uint64",
-        type: "uint64",
-        indexed: false,
-      },
-      {
-        name: "maxPrepaidPeriods",
-        internalType: "uint64",
-        type: "uint64",
-        indexed: false,
-      },
-    ],
-    name: "TierTermsConfigured",
-  },
-  { type: "error", inputs: [], name: "CreatorMustBeCaller" },
-  { type: "error", inputs: [], name: "InexactTokenTransfer" },
-  { type: "error", inputs: [], name: "InvalidAddress" },
-  { type: "error", inputs: [], name: "InvalidContract" },
-  { type: "error", inputs: [], name: "InvalidPageSize" },
-  { type: "error", inputs: [], name: "InvalidPeriodDuration" },
-  { type: "error", inputs: [], name: "InvalidRateTotal" },
-  { type: "error", inputs: [], name: "InvalidRenderer" },
-  {
-    type: "error",
-    inputs: [
-      { name: "expected", internalType: "bytes32", type: "bytes32" },
-      { name: "actual", internalType: "bytes32", type: "bytes32" },
-    ],
-    name: "InvalidRendererSchema",
-  },
-  { type: "error", inputs: [], name: "InvalidTierSalt" },
-  {
-    type: "error",
-    inputs: [
-      { name: "expected", internalType: "bytes32", type: "bytes32" },
-      { name: "actual", internalType: "bytes32", type: "bytes32" },
-    ],
-    name: "MediaStoreFactoryCodeChanged",
-  },
-  { type: "error", inputs: [], name: "OnlyFeeRecipient" },
-  {
-    type: "error",
-    inputs: [{ name: "owner", internalType: "address", type: "address" }],
-    name: "OwnableInvalidOwner",
-  },
-  {
-    type: "error",
-    inputs: [{ name: "account", internalType: "address", type: "address" }],
-    name: "OwnableUnauthorizedAccount",
-  },
-  { type: "error", inputs: [], name: "OwnershipRenunciationDisabled" },
-  { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
-  {
-    type: "error",
-    inputs: [
-      { name: "renderer", internalType: "address", type: "address" },
-      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
-    ],
-    name: "RendererAlreadyRegistered",
-  },
-  {
-    type: "error",
-    inputs: [
-      { name: "renderer", internalType: "address", type: "address" },
-      { name: "expected", internalType: "bytes32", type: "bytes32" },
-      { name: "actual", internalType: "bytes32", type: "bytes32" },
-    ],
-    name: "RendererCodeChanged",
-  },
-  {
-    type: "error",
-    inputs: [
-      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
-    ],
-    name: "RendererNotEnabled",
-  },
-  {
-    type: "error",
-    inputs: [
-      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
-      { name: "enabled", internalType: "bool", type: "bool" },
-    ],
-    name: "RendererStatusUnchanged",
-  },
-  {
-    type: "error",
-    inputs: [{ name: "token", internalType: "address", type: "address" }],
-    name: "SafeERC20FailedOperation",
-  },
-  {
-    type: "error",
-    inputs: [
-      { name: "expected", internalType: "bytes32", type: "bytes32" },
-      { name: "actual", internalType: "bytes32", type: "bytes32" },
-    ],
-    name: "TierIdentityMismatch",
-  },
-  {
-    type: "error",
-    inputs: [
-      { name: "creator", internalType: "address", type: "address" },
-      { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
-    ],
-    name: "TierSaltAlreadyUsed",
-  },
-  {
-    type: "error",
-    inputs: [{ name: "origin", internalType: "address", type: "address" }],
-    name: "UnauthorizedDeploymentOrigin",
-  },
-  {
-    type: "error",
-    inputs: [
-      { name: "rendererVersion", internalType: "uint32", type: "uint32" },
-    ],
-    name: "UnknownRendererVersion",
-  },
-  {
-    type: "error",
-    inputs: [{ name: "chainId", internalType: "uint256", type: "uint256" }],
-    name: "UnsupportedRobinhoodChain",
-  },
-] as const;
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // TestnetUSDG
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3359,6 +3363,437 @@ export const usdgAbi = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // React
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__
+ */
+export const useReadMembershipFactory = /*#__PURE__*/ createUseReadContract({
+  abi: membershipFactoryAbi,
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"deployer"`
+ */
+export const useReadMembershipFactoryDeployer =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "deployer",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"feeRecipient"`
+ */
+export const useReadMembershipFactoryFeeRecipient =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "feeRecipient",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isRegisteredTier"`
+ */
+export const useReadMembershipFactoryIsRegisteredTier =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "isRegisteredTier",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isTierSaltUsed"`
+ */
+export const useReadMembershipFactoryIsTierSaltUsed =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "isTierSaltUsed",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"maxPageSize"`
+ */
+export const useReadMembershipFactoryMaxPageSize =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "maxPageSize",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"mediaStoreFactory"`
+ */
+export const useReadMembershipFactoryMediaStoreFactory =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "mediaStoreFactory",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"mediaStoreFactoryRuntimeCodehash"`
+ */
+export const useReadMembershipFactoryMediaStoreFactoryRuntimeCodehash =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "mediaStoreFactoryRuntimeCodehash",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"owner"`
+ */
+export const useReadMembershipFactoryOwner =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "owner",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"paymentToken"`
+ */
+export const useReadMembershipFactoryPaymentToken =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "paymentToken",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"pendingOwner"`
+ */
+export const useReadMembershipFactoryPendingOwner =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "pendingOwner",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"predictTierIdentity"`
+ */
+export const useReadMembershipFactoryPredictTierIdentity =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "predictTierIdentity",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"protocolFeeBps"`
+ */
+export const useReadMembershipFactoryProtocolFeeBps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "protocolFeeBps",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"rendererCount"`
+ */
+export const useReadMembershipFactoryRendererCount =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "rendererCount",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"rendererRecord"`
+ */
+export const useReadMembershipFactoryRendererRecord =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "rendererRecord",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"rendererSchema"`
+ */
+export const useReadMembershipFactoryRendererSchema =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "rendererSchema",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"rendererVersionOf"`
+ */
+export const useReadMembershipFactoryRendererVersionOf =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "rendererVersionOf",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"renounceOwnership"`
+ */
+export const useReadMembershipFactoryRenounceOwnership =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "renounceOwnership",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"tierCount"`
+ */
+export const useReadMembershipFactoryTierCount =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "tierCount",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"tierForIdentity"`
+ */
+export const useReadMembershipFactoryTierForIdentity =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "tierForIdentity",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"tiers"`
+ */
+export const useReadMembershipFactoryTiers =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "tiers",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__
+ */
+export const useWriteMembershipFactory = /*#__PURE__*/ createUseWriteContract({
+  abi: membershipFactoryAbi,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"acceptOwnership"`
+ */
+export const useWriteMembershipFactoryAcceptOwnership =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "acceptOwnership",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"createTier"`
+ */
+export const useWriteMembershipFactoryCreateTier =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "createTier",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"registerRenderer"`
+ */
+export const useWriteMembershipFactoryRegisterRenderer =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "registerRenderer",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setFeeRecipient"`
+ */
+export const useWriteMembershipFactorySetFeeRecipient =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "setFeeRecipient",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setRendererEnabled"`
+ */
+export const useWriteMembershipFactorySetRendererEnabled =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "setRendererEnabled",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"transferOwnership"`
+ */
+export const useWriteMembershipFactoryTransferOwnership =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "transferOwnership",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"withdrawProtocolFees"`
+ */
+export const useWriteMembershipFactoryWithdrawProtocolFees =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "withdrawProtocolFees",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__
+ */
+export const useSimulateMembershipFactory =
+  /*#__PURE__*/ createUseSimulateContract({ abi: membershipFactoryAbi });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"acceptOwnership"`
+ */
+export const useSimulateMembershipFactoryAcceptOwnership =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "acceptOwnership",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"createTier"`
+ */
+export const useSimulateMembershipFactoryCreateTier =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "createTier",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"registerRenderer"`
+ */
+export const useSimulateMembershipFactoryRegisterRenderer =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "registerRenderer",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setFeeRecipient"`
+ */
+export const useSimulateMembershipFactorySetFeeRecipient =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "setFeeRecipient",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setRendererEnabled"`
+ */
+export const useSimulateMembershipFactorySetRendererEnabled =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "setRendererEnabled",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"transferOwnership"`
+ */
+export const useSimulateMembershipFactoryTransferOwnership =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "transferOwnership",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"withdrawProtocolFees"`
+ */
+export const useSimulateMembershipFactoryWithdrawProtocolFees =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "withdrawProtocolFees",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__
+ */
+export const useWatchMembershipFactoryEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({ abi: membershipFactoryAbi });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"FeeRecipientUpdated"`
+ */
+export const useWatchMembershipFactoryFeeRecipientUpdatedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "FeeRecipientUpdated",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"OwnershipTransferStarted"`
+ */
+export const useWatchMembershipFactoryOwnershipTransferStartedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "OwnershipTransferStarted",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"OwnershipTransferred"`
+ */
+export const useWatchMembershipFactoryOwnershipTransferredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "OwnershipTransferred",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"ProtocolFeesWithdrawn"`
+ */
+export const useWatchMembershipFactoryProtocolFeesWithdrawnEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "ProtocolFeesWithdrawn",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"RendererEnabled"`
+ */
+export const useWatchMembershipFactoryRendererEnabledEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "RendererEnabled",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"RendererRegistered"`
+ */
+export const useWatchMembershipFactoryRendererRegisteredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "RendererRegistered",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierArtConfigured"`
+ */
+export const useWatchMembershipFactoryTierArtConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "TierArtConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierCreated"`
+ */
+export const useWatchMembershipFactoryTierCreatedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "TierCreated",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierMetadataConfigured"`
+ */
+export const useWatchMembershipFactoryTierMetadataConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "TierMetadataConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierRendererConfigured"`
+ */
+export const useWatchMembershipFactoryTierRendererConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "TierRendererConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierTermsConfigured"`
+ */
+export const useWatchMembershipFactoryTierTermsConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "TierTermsConfigured",
+  });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__
@@ -4743,439 +5178,6 @@ export const useReadOnchainMetadataRendererValidateConfiguration =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
     functionName: "validateConfiguration",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__
- */
-export const useReadRobinhoodMembershipFactory =
-  /*#__PURE__*/ createUseReadContract({ abi: robinhoodMembershipFactoryAbi });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"deployer"`
- */
-export const useReadRobinhoodMembershipFactoryDeployer =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "deployer",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"feeRecipient"`
- */
-export const useReadRobinhoodMembershipFactoryFeeRecipient =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "feeRecipient",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"isRegisteredTier"`
- */
-export const useReadRobinhoodMembershipFactoryIsRegisteredTier =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "isRegisteredTier",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"isTierSaltUsed"`
- */
-export const useReadRobinhoodMembershipFactoryIsTierSaltUsed =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "isTierSaltUsed",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"maxPageSize"`
- */
-export const useReadRobinhoodMembershipFactoryMaxPageSize =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "maxPageSize",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"mediaStoreFactory"`
- */
-export const useReadRobinhoodMembershipFactoryMediaStoreFactory =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "mediaStoreFactory",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"mediaStoreFactoryRuntimeCodehash"`
- */
-export const useReadRobinhoodMembershipFactoryMediaStoreFactoryRuntimeCodehash =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "mediaStoreFactoryRuntimeCodehash",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"owner"`
- */
-export const useReadRobinhoodMembershipFactoryOwner =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "owner",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"paymentToken"`
- */
-export const useReadRobinhoodMembershipFactoryPaymentToken =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "paymentToken",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"pendingOwner"`
- */
-export const useReadRobinhoodMembershipFactoryPendingOwner =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "pendingOwner",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"predictTierIdentity"`
- */
-export const useReadRobinhoodMembershipFactoryPredictTierIdentity =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "predictTierIdentity",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"protocolFeeBps"`
- */
-export const useReadRobinhoodMembershipFactoryProtocolFeeBps =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "protocolFeeBps",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"rendererCount"`
- */
-export const useReadRobinhoodMembershipFactoryRendererCount =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "rendererCount",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"rendererRecord"`
- */
-export const useReadRobinhoodMembershipFactoryRendererRecord =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "rendererRecord",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"rendererSchema"`
- */
-export const useReadRobinhoodMembershipFactoryRendererSchema =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "rendererSchema",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"rendererVersionOf"`
- */
-export const useReadRobinhoodMembershipFactoryRendererVersionOf =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "rendererVersionOf",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"renounceOwnership"`
- */
-export const useReadRobinhoodMembershipFactoryRenounceOwnership =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "renounceOwnership",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"tierCount"`
- */
-export const useReadRobinhoodMembershipFactoryTierCount =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "tierCount",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"tierForIdentity"`
- */
-export const useReadRobinhoodMembershipFactoryTierForIdentity =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "tierForIdentity",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"tiers"`
- */
-export const useReadRobinhoodMembershipFactoryTiers =
-  /*#__PURE__*/ createUseReadContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "tiers",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__
- */
-export const useWriteRobinhoodMembershipFactory =
-  /*#__PURE__*/ createUseWriteContract({ abi: robinhoodMembershipFactoryAbi });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"acceptOwnership"`
- */
-export const useWriteRobinhoodMembershipFactoryAcceptOwnership =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "acceptOwnership",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"createTier"`
- */
-export const useWriteRobinhoodMembershipFactoryCreateTier =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "createTier",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"registerRenderer"`
- */
-export const useWriteRobinhoodMembershipFactoryRegisterRenderer =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "registerRenderer",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"setFeeRecipient"`
- */
-export const useWriteRobinhoodMembershipFactorySetFeeRecipient =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "setFeeRecipient",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"setRendererEnabled"`
- */
-export const useWriteRobinhoodMembershipFactorySetRendererEnabled =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "setRendererEnabled",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"transferOwnership"`
- */
-export const useWriteRobinhoodMembershipFactoryTransferOwnership =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "transferOwnership",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"withdrawProtocolFees"`
- */
-export const useWriteRobinhoodMembershipFactoryWithdrawProtocolFees =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "withdrawProtocolFees",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__
- */
-export const useSimulateRobinhoodMembershipFactory =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: robinhoodMembershipFactoryAbi,
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"acceptOwnership"`
- */
-export const useSimulateRobinhoodMembershipFactoryAcceptOwnership =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "acceptOwnership",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"createTier"`
- */
-export const useSimulateRobinhoodMembershipFactoryCreateTier =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "createTier",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"registerRenderer"`
- */
-export const useSimulateRobinhoodMembershipFactoryRegisterRenderer =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "registerRenderer",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"setFeeRecipient"`
- */
-export const useSimulateRobinhoodMembershipFactorySetFeeRecipient =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "setFeeRecipient",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"setRendererEnabled"`
- */
-export const useSimulateRobinhoodMembershipFactorySetRendererEnabled =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "setRendererEnabled",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"transferOwnership"`
- */
-export const useSimulateRobinhoodMembershipFactoryTransferOwnership =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "transferOwnership",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `functionName` set to `"withdrawProtocolFees"`
- */
-export const useSimulateRobinhoodMembershipFactoryWithdrawProtocolFees =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: robinhoodMembershipFactoryAbi,
-    functionName: "withdrawProtocolFees",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__
- */
-export const useWatchRobinhoodMembershipFactoryEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"FeeRecipientUpdated"`
- */
-export const useWatchRobinhoodMembershipFactoryFeeRecipientUpdatedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "FeeRecipientUpdated",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"OwnershipTransferStarted"`
- */
-export const useWatchRobinhoodMembershipFactoryOwnershipTransferStartedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "OwnershipTransferStarted",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"OwnershipTransferred"`
- */
-export const useWatchRobinhoodMembershipFactoryOwnershipTransferredEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "OwnershipTransferred",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"ProtocolFeesWithdrawn"`
- */
-export const useWatchRobinhoodMembershipFactoryProtocolFeesWithdrawnEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "ProtocolFeesWithdrawn",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"RendererEnabled"`
- */
-export const useWatchRobinhoodMembershipFactoryRendererEnabledEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "RendererEnabled",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"RendererRegistered"`
- */
-export const useWatchRobinhoodMembershipFactoryRendererRegisteredEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "RendererRegistered",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"TierArtConfigured"`
- */
-export const useWatchRobinhoodMembershipFactoryTierArtConfiguredEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "TierArtConfigured",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"TierCreated"`
- */
-export const useWatchRobinhoodMembershipFactoryTierCreatedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "TierCreated",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"TierMetadataConfigured"`
- */
-export const useWatchRobinhoodMembershipFactoryTierMetadataConfiguredEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "TierMetadataConfigured",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"TierRendererConfigured"`
- */
-export const useWatchRobinhoodMembershipFactoryTierRendererConfiguredEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "TierRendererConfigured",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link robinhoodMembershipFactoryAbi}__ and `eventName` set to `"TierTermsConfigured"`
- */
-export const useWatchRobinhoodMembershipFactoryTierTermsConfiguredEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: robinhoodMembershipFactoryAbi,
-    eventName: "TierTermsConfigured",
   });
 
 /**

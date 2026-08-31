@@ -9,7 +9,6 @@ import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
 import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
-import {RobinhoodMembershipFactory} from "../src/RobinhoodMembershipFactory.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {RendererPrimitives} from "../src/renderer/RendererPrimitives.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
@@ -57,7 +56,6 @@ contract RendererBudgetTest is Test {
         assertLe(type(MembershipFactory).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
         assertLe(type(MembershipTier).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
         assertLe(type(MembershipTierDeployer).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
-        assertLe(type(RobinhoodMembershipFactory).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
     }
 
     function test_lowLevelCodeStoreBoundaryReservesOneSTOPByte() public view {

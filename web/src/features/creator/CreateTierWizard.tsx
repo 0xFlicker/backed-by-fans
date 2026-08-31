@@ -30,7 +30,7 @@ import { WalletReadiness } from "@/components/WalletReadiness";
 import {
   onchainMediaStoreFactoryAbi,
   onchainMetadataRendererAbi,
-  robinhoodMembershipFactoryAbi,
+  membershipFactoryAbi,
 } from "@/contracts";
 import type {
   ProtocolDependencySnapshot,
@@ -659,13 +659,13 @@ export function CreateTierWizard() {
             validateTierSalt: async (storedTierSalt) => {
               const identity = await client!.readContract({
                 address: dependencies.factory,
-                abi: robinhoodMembershipFactoryAbi,
+                abi: membershipFactoryAbi,
                 functionName: "predictTierIdentity",
                 args: [creator, storedTierSalt],
               });
               const existingTier = await client!.readContract({
                 address: dependencies.factory,
-                abi: robinhoodMembershipFactoryAbi,
+                abi: membershipFactoryAbi,
                 functionName: "tierForIdentity",
                 args: [identity],
               });
@@ -845,7 +845,7 @@ export function CreateTierWizard() {
     queryFn: () =>
       client!.readContract({
         address: protocol.data!.factory,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "predictTierIdentity",
         args: [identityCreator, tierSalt!],
       }),
@@ -1707,7 +1707,7 @@ export function CreateTierWizard() {
         account: creator,
         chainId: dependencies.chainId,
         address: factory,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "createTier",
         args: [config],
       });

@@ -69,11 +69,11 @@ function generatedFactoryAddresses(): Partial<
   Record<SupportedChainId, Address>
 > {
   const exports = generatedContracts as Record<string, unknown>;
-  const value = exports.robinhoodMembershipFactoryAddress;
+  const value = exports.membershipFactoryAddress;
   if (value === undefined) return {};
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(
-      "The generated RobinhoodMembershipFactory deployment map is invalid.",
+      "The generated MembershipFactory deployment map is invalid.",
     );
   }
 
@@ -83,7 +83,7 @@ function generatedFactoryAddresses(): Partial<
     if (chainId !== robinhood.id && chainId !== robinhoodTestnet.id) continue;
     addresses[chainId] = parseRequiredAddress(
       rawAddress,
-      `Generated RobinhoodMembershipFactory address for chain ${chainId}`,
+      `Generated MembershipFactory address for chain ${chainId}`,
     );
   }
   return addresses;

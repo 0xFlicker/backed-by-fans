@@ -6,6 +6,7 @@ source "$script_dir/public-chain-common.sh"
 
 readonly BBF_ROBINHOOD_RUNTIME_LIMIT=98304
 readonly BBF_ROBINHOOD_INITCODE_LIMIT=196608
+readonly BBF_NITRO_SEQUENCER_TX_DATA_LIMIT=95000
 readonly BBF_ROBINHOOD_GAS_LIMIT=100000000
 readonly BBF_MAINNET_USDG="0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
 readonly BBF_INITIAL_PROTOCOL_AUTHORITY="0xeAA4B38A99f766117C1D493a21012fec25f70505"
@@ -21,12 +22,12 @@ component_labels=("media store factory" "renderer" "membership factory")
 component_contracts=(
   "OnchainMediaStoreFactory"
   "OnchainMetadataRenderer"
-  "RobinhoodMembershipFactory"
+  "MembershipFactory"
 )
 component_artifacts=(
   "src/media/OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory"
   "src/OnchainMetadataRenderer.sol:OnchainMetadataRenderer"
-  "src/RobinhoodMembershipFactory.sol:RobinhoodMembershipFactory"
+  "src/MembershipFactory.sol:MembershipFactory"
 )
 component_salt_preimages=(
   "Backed By Fans media store factory v4"
@@ -44,6 +45,7 @@ deployment_prefix_count=0
 payment_token_address=""
 testnet_payment_token_runtime_hash=""
 payment_token_runtime_hash=""
+factory_constructor_args=""
 source_commit=""
 build_config_json=""
 build_config_hash=""
@@ -244,39 +246,6 @@ validate_build_environment() {
 build_deployment_plan() {
   FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
 
-  local index artifact init_code runtime_code init_bytes runtime_bytes salt init_hash
-  local runtime_hash address
-  for index in 0 1 2; do
-    artifact="${component_artifacts[$index]}"
-    init_code="$(FOUNDRY_PROFILE=robinhood forge inspect "$artifact" bytecode)"
-    runtime_code="$(FOUNDRY_PROFILE=robinhood forge inspect "$artifact" deployedBytecode)"
-    require_hex "${component_labels[$index]} initcode" "$init_code"
-    require_hex "${component_labels[$index]} runtime" "$runtime_code"
-
-    init_bytes=$(((${#init_code} - 2) / 2))
-    runtime_bytes=$(((${#runtime_code} - 2) / 2))
-    if ((init_bytes > BBF_ROBINHOOD_INITCODE_LIMIT)); then
-      fail "${component_labels[$index]} initcode is $init_bytes bytes; Robinhood limit is $BBF_ROBINHOOD_INITCODE_LIMIT"
-    fi
-    if ((runtime_bytes > BBF_ROBINHOOD_RUNTIME_LIMIT)); then
-      fail "${component_labels[$index]} runtime is $runtime_bytes bytes; Robinhood limit is $BBF_ROBINHOOD_RUNTIME_LIMIT"
-    fi
-
-    salt="$(cast keccak "${component_salt_preimages[$index]}")"
-    init_hash="$(cast keccak "$init_code")"
-    runtime_hash="$(cast keccak "$runtime_code")"
-    address="$(cast create2 \
-      --deployer "$BBF_CREATE2_DEPLOYER" \
-      --salt "$salt" \
-      --init-code-hash "$init_hash")"
-
-    component_salts[$index]="$salt"
-    component_init_codes[$index]="$init_code"
-    component_init_hashes[$index]="$init_hash"
-    component_runtime_hashes[$index]="$runtime_hash"
-    component_addresses[$index]="$address"
-  done
-
   if [[ "$expected_chain_id" == "46630" ]]; then
     local token_init_code token_runtime_code token_salt token_init_hash
     token_init_code="$(FOUNDRY_PROFILE=robinhood forge inspect \
@@ -297,6 +266,54 @@ build_deployment_plan() {
     payment_token_address="$BBF_MAINNET_USDG"
     payment_token_runtime_hash="$BBF_MAINNET_USDG_PROXY_RUNTIME_HASH"
   fi
+
+  local index artifact init_code runtime_code raw_create2_bytes
+  local init_bytes runtime_bytes salt init_hash runtime_hash address
+  for index in 0 1 2; do
+    artifact="${component_artifacts[$index]}"
+    init_code="$(FOUNDRY_PROFILE=robinhood forge inspect "$artifact" bytecode)"
+    runtime_code="$(FOUNDRY_PROFILE=robinhood forge inspect "$artifact" deployedBytecode)"
+    if [[ "$index" == "2" ]]; then
+      factory_constructor_args="$(cast abi-encode \
+        'constructor(address,address,address,address,address)' \
+        "$payment_token_address" \
+        "${component_addresses[1]}" \
+        "${component_addresses[0]}" \
+        "$BBF_INITIAL_PROTOCOL_AUTHORITY" \
+        "$BBF_INITIAL_PROTOCOL_AUTHORITY")"
+      require_hex "membership factory constructor arguments" "$factory_constructor_args"
+      init_code="${init_code}${factory_constructor_args#0x}"
+    fi
+    require_hex "${component_labels[$index]} initcode" "$init_code"
+    require_hex "${component_labels[$index]} runtime" "$runtime_code"
+
+    init_bytes=$(((${#init_code} - 2) / 2))
+    runtime_bytes=$(((${#runtime_code} - 2) / 2))
+    raw_create2_bytes=$((32 + init_bytes))
+    if ((init_bytes > BBF_ROBINHOOD_INITCODE_LIMIT)); then
+      fail "${component_labels[$index]} initcode is $init_bytes bytes; Robinhood limit is $BBF_ROBINHOOD_INITCODE_LIMIT"
+    fi
+    if ((raw_create2_bytes > BBF_NITRO_SEQUENCER_TX_DATA_LIMIT)); then
+      fail "${component_labels[$index]} raw CREATE2 transaction data is $raw_create2_bytes bytes; Robinhood Nitro sequencer limit is $BBF_NITRO_SEQUENCER_TX_DATA_LIMIT"
+    fi
+    if ((runtime_bytes > BBF_ROBINHOOD_RUNTIME_LIMIT)); then
+      fail "${component_labels[$index]} runtime is $runtime_bytes bytes; Robinhood limit is $BBF_ROBINHOOD_RUNTIME_LIMIT"
+    fi
+
+    salt="$(cast keccak "${component_salt_preimages[$index]}")"
+    init_hash="$(cast keccak "$init_code")"
+    runtime_hash="$(cast keccak "$runtime_code")"
+    address="$(cast create2 \
+      --deployer "$BBF_CREATE2_DEPLOYER" \
+      --salt "$salt" \
+      --init-code-hash "$init_hash")"
+
+    component_salts[$index]="$salt"
+    component_init_codes[$index]="$init_code"
+    component_init_hashes[$index]="$init_hash"
+    component_runtime_hashes[$index]="$runtime_hash"
+    component_addresses[$index]="$address"
+  done
 }
 
 validate_plan_against_solidity() {
@@ -1359,16 +1376,22 @@ run_anvil_preflight() {
 verify_sources() {
   local journal="$1"
   local index verified_at output safe_output
+  local -a verify_command
   for index in 0 1 2; do
     require_recorded_source_checkout "$journal"
-    if ! output="$(forge verify-contract \
-      --watch \
-      --chain "$expected_chain_id" \
-      --rpc-url "$rpc_url" \
-      --verifier blockscout \
-      --verifier-url "$verifier_url" \
-      "${component_addresses[$index]}" \
-      "${component_artifacts[$index]}" 2>&1)"; then
+    verify_command=(
+      forge verify-contract
+      --watch
+      --chain "$expected_chain_id"
+      --rpc-url "$rpc_url"
+      --verifier blockscout
+      --verifier-url "$verifier_url"
+    )
+    if [[ "$index" == "2" ]]; then
+      verify_command+=(--constructor-args "$factory_constructor_args")
+    fi
+    verify_command+=("${component_addresses[$index]}" "${component_artifacts[$index]}")
+    if ! output="$("${verify_command[@]}" 2>&1)"; then
       safe_output="${output//$rpc_url/<rpc-url>}"
       printf '%s\n' "$safe_output" >&2
       fail "Blockscout source verification failed for ${component_labels[$index]}"
@@ -1447,7 +1470,7 @@ render_broadcast_record() {
           value: .components[1].expectedAddress
         },
         factory: {
-          internal_type: "contract RobinhoodMembershipFactory",
+          internal_type: "contract MembershipFactory",
           value: .components[2].expectedAddress
         }
       },

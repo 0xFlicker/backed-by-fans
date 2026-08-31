@@ -113,9 +113,17 @@ factory_salt="$($real_cast keccak 'Backed By Fans factory v4')"
 export MOCK_MEDIA_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$media_salt" --init-code 0x6001)"
 export MOCK_RENDERER_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$renderer_salt" --init-code 0x6002)"
 export MOCK_SECOND_RENDERER_ADDRESS=0x9999999999999999999999999999999999999999
-export MOCK_FACTORY_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$factory_salt" --init-code 0x6003)"
 testnet_usdg_salt="$($real_cast keccak 'Backed By Fans testnet USDG v1')"
 export MOCK_TESTNET_USDG_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$testnet_usdg_salt" --init-code 0x6004)"
+factory_constructor_args="$($real_cast abi-encode \
+  'constructor(address,address,address,address,address)' \
+  "$MOCK_TESTNET_USDG_ADDRESS" \
+  "$MOCK_RENDERER_ADDRESS" \
+  "$MOCK_MEDIA_ADDRESS" \
+  "$MOCK_SAFE_ADDRESS" \
+  "$MOCK_SAFE_ADDRESS")"
+mock_factory_init_code="0x6003${factory_constructor_args#0x}"
+export MOCK_FACTORY_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$factory_salt" --init-code "$mock_factory_init_code")"
 export MOCK_MEDIA_RUNTIME_HASH="$($real_cast keccak "$MOCK_MEDIA_RUNTIME")"
 export MOCK_RENDERER_RUNTIME_HASH="$($real_cast keccak "$MOCK_RENDERER_RUNTIME")"
 export MOCK_SECOND_RENDERER_RUNTIME_HASH="$($real_cast keccak "$MOCK_SECOND_RENDERER_RUNTIME")"
@@ -186,6 +194,12 @@ assert_not_contains "$mock_log" ":DeployProtocol --rpc-url"
   || fail "dry-run wrote a public recovery journal"
 
 reset_project_state
+run_expect_failure env MOCK_FACTORY_BYTECODE_BYTES=94809 "$deploy_wrapper" testnet dry-run
+assert_contains "$test_dir/stderr" \
+  "membership factory raw CREATE2 transaction data is 95001 bytes; Robinhood Nitro sequencer limit is 95000"
+assert_not_contains "$mock_log" "cast send $create2_deployer"
+
+reset_project_state
 mkdir -p \
   "$contracts_dir/broadcast/TestnetUSDG.s.sol/46630" \
   "$contracts_dir/broadcast/DeployDirectProtocol.s.sol/4663"
@@ -202,6 +216,8 @@ assert_count "$mock_log" "cast mktx $create2_deployer <raw-create2-calldata> --r
 assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 3
 assert_count "$mock_log" "--nonce" 6
 assert_count "$mock_log" "forge verify-contract --watch --chain 46630" 3
+assert_contains "$mock_log" \
+  "--constructor-args $factory_constructor_args $MOCK_FACTORY_ADDRESS src/MembershipFactory.sol:MembershipFactory"
 assert_contains "$mock_log" "bun x wagmi generate"
 assert_contains "$mock_log" "bun x prettier --write"
 assert_not_contains "$mock_log" "--password"
@@ -216,7 +232,7 @@ assert_jq "$candidate" '[.components[].status] == ["deployed", "deployed", "depl
 assert_jq "$candidate" '[.components[].sourceVerified] == [true, true, true]'
 assert_jq "$active" '.chain == 46630 and (.transactions | length) == 3'
 assert_jq "$active" '[.transactions[].transactionType] == ["CALL", "CALL", "CALL"]'
-assert_jq "$active" '[.transactions[].additionalContracts[0].contractName] == ["OnchainMediaStoreFactory", "OnchainMetadataRenderer", "RobinhoodMembershipFactory"]'
+assert_jq "$active" '[.transactions[].additionalContracts[0].contractName] == ["OnchainMediaStoreFactory", "OnchainMetadataRenderer", "MembershipFactory"]'
 assert_jq "$active" '.deploymentPlan.components[0].allowedPredecessor == "empty" and .deploymentPlan.components[2].allowedPredecessor == "renderer"'
 assert_jq "$active" '.commit == "1111111111111111111111111111111111111111" and .deploymentPlan.schemaVersion == 4 and .deploymentPlan.sourceCommit == .commit and .deploymentPlan.operationalStateBlob == "2222222222222222222222222222222222222222"'
 assert_jq "$candidate" '.buildConfigHash | test("^0x[0-9a-f]{64}$")'

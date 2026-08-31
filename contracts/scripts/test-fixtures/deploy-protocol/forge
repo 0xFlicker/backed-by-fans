@@ -45,10 +45,17 @@ case "${1:-}" in
     case "$2:$3" in
       *OnchainMediaStoreFactory:bytecode) printf '%s\n' "${MOCK_MEDIA_BYTECODE:-0x6001}" ;;
       *OnchainMetadataRenderer:bytecode) printf '0x6002\n' ;;
-      *RobinhoodMembershipFactory:bytecode) printf '0x6003\n' ;;
+      *MembershipFactory:bytecode)
+        if [[ -n "${MOCK_FACTORY_BYTECODE_BYTES:-}" ]]; then
+          awk -v bytes="$MOCK_FACTORY_BYTECODE_BYTES" \
+            'BEGIN { printf "0x"; for (i = 0; i < bytes; i++) printf "00"; printf "\n" }'
+        else
+          printf '%s\n' "${MOCK_FACTORY_BYTECODE:-0x6003}"
+        fi
+        ;;
       *OnchainMediaStoreFactory:deployedBytecode) printf '%s\n' "$MOCK_MEDIA_RUNTIME" ;;
       *OnchainMetadataRenderer:deployedBytecode) printf '%s\n' "$MOCK_RENDERER_RUNTIME" ;;
-      *RobinhoodMembershipFactory:deployedBytecode) printf '%s\n' "$MOCK_FACTORY_RUNTIME" ;;
+      *MembershipFactory:deployedBytecode) printf '%s\n' "$MOCK_FACTORY_RUNTIME" ;;
       *TestnetUSDG:bytecode) printf '0x6004\n' ;;
       *TestnetUSDG:deployedBytecode) printf '%s\n' "$MOCK_TESTNET_USDG_RUNTIME" ;;
       *) echo "unexpected mock forge inspect invocation: $*" >&2; exit 1 ;;

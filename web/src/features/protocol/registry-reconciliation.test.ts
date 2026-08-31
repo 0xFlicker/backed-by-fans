@@ -15,10 +15,7 @@ vi.mock("@/features/protocol/protocol-read", () => ({
   readProtocolDependencies: vi.fn(),
 }));
 
-import {
-  onchainMediaStoreFactoryAbi,
-  robinhoodMembershipFactoryAbi,
-} from "@/contracts";
+import { onchainMediaStoreFactoryAbi, membershipFactoryAbi } from "@/contracts";
 import type {
   ProtocolDependencySnapshot,
   TierArtConfig,
@@ -123,7 +120,7 @@ function tierCreatedLog(
       [input.tierIndex ?? 0n, config.name, config.symbol],
     ),
     topics: encodeEventTopics({
-      abi: robinhoodMembershipFactoryAbi,
+      abi: membershipFactoryAbi,
       eventName: "TierCreated",
       args: {
         tier: emittedTier,
@@ -150,7 +147,7 @@ function tierRendererConfiguredLog(
       [input.runtimeCodehash ?? rendererRuntimeCodehash],
     ),
     topics: encodeEventTopics({
-      abi: robinhoodMembershipFactoryAbi,
+      abi: membershipFactoryAbi,
       eventName: "TierRendererConfigured",
       args: {
         tier: input.emittedTier ?? tier,

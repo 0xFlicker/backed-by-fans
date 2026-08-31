@@ -2,7 +2,7 @@ import { getAddress, keccak256, type Address, type PublicClient } from "viem";
 
 import {
   onchainMetadataRendererAbi,
-  robinhoodMembershipFactoryAbi,
+  membershipFactoryAbi,
   usdgAbi,
 } from "@/contracts";
 import type {
@@ -75,31 +75,31 @@ export async function readProtocolDependencies(
     ] = await Promise.all([
       client.readContract({
         address: deployment.factoryAddress,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "paymentToken",
         blockNumber: capturedBlock,
       }),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "rendererSchema",
         blockNumber: capturedBlock,
       }),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "rendererCount",
         blockNumber: capturedBlock,
       }),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "mediaStoreFactory",
         blockNumber: capturedBlock,
       }),
       client.readContract({
         address: deployment.factoryAddress,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "mediaStoreFactoryRuntimeCodehash",
         blockNumber: capturedBlock,
       }),
@@ -122,7 +122,7 @@ export async function readProtocolDependencies(
         return client
           .readContract({
             address: deployment.factoryAddress,
-            abi: robinhoodMembershipFactoryAbi,
+            abi: membershipFactoryAbi,
             functionName: "rendererRecord",
             args: [version],
             blockNumber: capturedBlock,
@@ -180,7 +180,7 @@ export async function readProtocolDependencies(
               }),
               client.readContract({
                 address: deployment.factoryAddress,
-                abi: robinhoodMembershipFactoryAbi,
+                abi: membershipFactoryAbi,
                 functionName: "rendererVersionOf",
                 args: [record.implementation],
                 blockNumber: capturedBlock,
@@ -309,31 +309,31 @@ export async function readProtocolState(
       await Promise.all([
         client.readContract({
           address: dependencies.data.factory,
-          abi: robinhoodMembershipFactoryAbi,
+          abi: membershipFactoryAbi,
           functionName: "owner",
           blockNumber,
         }),
         client.readContract({
           address: dependencies.data.factory,
-          abi: robinhoodMembershipFactoryAbi,
+          abi: membershipFactoryAbi,
           functionName: "pendingOwner",
           blockNumber,
         }),
         client.readContract({
           address: dependencies.data.factory,
-          abi: robinhoodMembershipFactoryAbi,
+          abi: membershipFactoryAbi,
           functionName: "feeRecipient",
           blockNumber,
         }),
         client.readContract({
           address: dependencies.data.factory,
-          abi: robinhoodMembershipFactoryAbi,
+          abi: membershipFactoryAbi,
           functionName: "protocolFeeBps",
           blockNumber,
         }),
         client.readContract({
           address: dependencies.data.factory,
-          abi: robinhoodMembershipFactoryAbi,
+          abi: membershipFactoryAbi,
           functionName: "tierCount",
           blockNumber,
         }),

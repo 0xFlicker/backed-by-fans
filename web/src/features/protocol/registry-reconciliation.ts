@@ -14,7 +14,7 @@ import {
 import {
   membershipTierAbi,
   onchainMediaStoreFactoryAbi,
-  robinhoodMembershipFactoryAbi,
+  membershipFactoryAbi,
 } from "@/contracts";
 import type {
   ProtocolDependencySnapshot,
@@ -678,7 +678,7 @@ export async function reconcileCreatedTier(
 
   const expectedIdentity = await client.readContract({
     address: freshProtocol.data.factory,
-    abi: robinhoodMembershipFactoryAbi,
+    abi: membershipFactoryAbi,
     functionName: "predictTierIdentity",
     args: [input.config.creator, input.config.tierSalt],
     blockNumber,
@@ -691,7 +691,7 @@ export async function reconcileCreatedTier(
   );
   if (!requestedRenderer?.enabled || !rendererRecord) return undefined;
   const events = parseEventLogs({
-    abi: robinhoodMembershipFactoryAbi,
+    abi: membershipFactoryAbi,
     eventName: "TierCreated",
     logs: input.receipt.logs,
     strict: true,
@@ -707,7 +707,7 @@ export async function reconcileCreatedTier(
 
   const tier = getAddress(events[0].args.tier);
   const rendererEvents = parseEventLogs({
-    abi: robinhoodMembershipFactoryAbi,
+    abi: membershipFactoryAbi,
     eventName: "TierRendererConfigured",
     logs: input.receipt.logs,
     strict: true,
@@ -725,28 +725,28 @@ export async function reconcileCreatedTier(
     await Promise.all([
       client.readContract({
         address: freshProtocol.data.factory,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "tiers",
         args: [events[0].args.tierIndex, 1n],
         blockNumber,
       }),
       client.readContract({
         address: freshProtocol.data.factory,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "isRegisteredTier",
         args: [tier],
         blockNumber,
       }),
       client.readContract({
         address: freshProtocol.data.factory,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "isTierSaltUsed",
         args: [input.config.creator, input.config.tierSalt],
         blockNumber,
       }),
       client.readContract({
         address: freshProtocol.data.factory,
-        abi: robinhoodMembershipFactoryAbi,
+        abi: membershipFactoryAbi,
         functionName: "tierForIdentity",
         args: [expectedIdentity],
         blockNumber,

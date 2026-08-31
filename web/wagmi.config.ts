@@ -47,7 +47,7 @@ export default defineConfig({
         "MembershipTier.sol/**",
         "OnchainMediaStoreFactory.sol/**",
         "OnchainMetadataRenderer.sol/**",
-        "RobinhoodMembershipFactory.sol/**",
+        "MembershipFactory.sol/**",
         "TestnetUSDG.sol/**",
       ],
     }),

@@ -1,9 +1,9 @@
 # Robinhood public deployment runbook
 
-Status: **replacement protocol not deployed.** The obsolete v2 active broadcast pointer has been
-removed. The v4 contracts, recovery journal, promoted broadcast record, and generated public
-bindings become canonical only after an explicitly authorized deployment completes every gate in
-this runbook. No testnet or mainnet deployment is implied by local or fork evidence.
+Status: **testnet deployment incomplete; not promoted.** The v4 media store factory and initial
+renderer are deployed on chain 46630, but the membership factory is not. The failed candidate is
+archived under `contracts/deployments/protocol/46630/`; no active broadcast pointer or generated
+public address exists. Mainnet remains undeployed.
 
 This runbook does not authorize mainnet. Mainnet still requires every human gate in
 [mainnet-readiness.md](mainnet-readiness.md), including an explicit GO decision and provisional-
@@ -25,27 +25,35 @@ The public bootstrap graph has three direct deterministic deployments, always in
 
 1. `OnchainMediaStoreFactory`
 2. the initial `OnchainMetadataRenderer`
-3. `RobinhoodMembershipFactory`
+3. `MembershipFactory`
 
-The membership factory has no constructor arguments. During construction it selects the payment
-token from `block.chainid`: LOL Dollar on testnet and canonical Paxos USDG on mainnet. Its initcode
-is therefore identical on both chains even though its deployed immutable payment-token binding is
-chain-specific. The factory records the initial renderer as enabled renderer version 1. Later
-renderer releases are appended to that factory registry; they do not replace the bootstrap
-renderer or mutate a published tier.
+The release wrapper appends five fixed constructor arguments to the actual `MembershipFactory`
+creation bytecode: the chain's reviewed USDG, the deterministic initial renderer and media factory,
+and the protocol Safe as both owner and fee recipient. The factory address is therefore
+chain-specific. Anyone submitting the exact salt and payload can only install that exact Safe-owned
+factory at that exact address; a different payload derives a different CREATE2 address. The factory
+runtime code hash is also chain-specific because construction patches the payment-token and
+tier-deployer immutables; the release parity test deploys the factory and records the resulting
+post-constructor code hash rather than hashing the artifact's immutable placeholders. The factory
+records the initial renderer as enabled renderer version 1. Later renderer releases are appended to
+that registry; they do not replace the bootstrap renderer or mutate a published tier.
 
 ## Why public deployment uses raw CREATE2 calls
 
-Robinhood Chain accepts the reviewed 98,304-byte runtime and 196,608-byte initcode envelope. The
-renderer and factory fit that envelope, but exceed Ethereum's 49,152-byte EIP-3860 initcode limit.
-Foundry's in-process script broadcaster applies the Ethereum limit before a transaction reaches the
-Robinhood RPC, so `forge script --broadcast` cannot be the public writer for these artifacts.
+Robinhood Chain accepts the reviewed 98,304-byte runtime and 196,608-byte initcode envelope, while
+its Nitro sequencer admits at most 95,000 bytes of transaction data. The renderer exceeds Ethereum's
+49,152-byte EIP-3860 initcode limit, so Foundry's in-process script broadcaster rejects it before a
+transaction reaches the Robinhood RPC. The factory's corrected raw CREATE2 payload is 46,026 bytes;
+the wrapper enforces the 95,000-byte sequencer ceiling for every component before any signing.
 
 `contracts/scripts/deploy-protocol.sh` instead:
 
 - builds with `FOUNDRY_PROFILE=robinhood` and `--ignore-eip-3860`;
 - reads the exact creation and runtime bytecode from the Foundry artifacts;
+- ABI-encodes the reviewed `MembershipFactory` constructor arguments and appends them to its
+  creation bytecode;
 - recomputes each salt, initcode hash, runtime hash, and canonical CREATE2 address;
+- rejects any raw CREATE2 payload above the Nitro sequencer's 95,000-byte transaction-data limit;
 - requires `config/operational-state/<chain-id>.json` to be tracked, byte-identical to `HEAD`,
   and to pin the reviewed deployment and current governance state;
 - proves the shell-computed salts, hashes, and addresses against the same Solidity release

@@ -13,7 +13,6 @@ import {
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTierDeployer} from "../../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
-import {RobinhoodMembershipFactory} from "../../src/RobinhoodMembershipFactory.sol";
 import {RobinhoodProtocolConfig} from "../../src/RobinhoodProtocolConfig.sol";
 import {TestnetUSDG} from "../../src/TestnetUSDG.sol";
 import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory.sol";
@@ -76,6 +75,7 @@ contract DeploymentScriptsTest is Test {
     uint256 private constant _TESTNET_CHAIN_ID = 46_630;
     uint256 private constant _ANVIL_CHAIN_ID = 31_337;
     uint256 private constant _ROBINHOOD_INITCODE_LIMIT = 196_608;
+    uint256 private constant _NITRO_SEQUENCER_TX_DATA_LIMIT = 95_000;
     address private constant _EXPECTED_TESTNET_USDG = 0xAB97dbB8f4ae0B4a3cc0D6963D75334B1c40da09;
     bytes private constant _CREATE2_DEPLOYER_RUNTIME =
         hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3";
@@ -105,8 +105,8 @@ contract DeploymentScriptsTest is Test {
         );
     }
 
-    function test_directFactoryInitcodeAndAddressesMatchAcrossChains() public {
-        bytes32 mainnetInitcodeHash = keccak256(type(RobinhoodMembershipFactory).creationCode);
+    function test_directFactoryInitcodePinsChainSpecificPaymentToken() public {
+        bytes32 mainnetInitcodeHash = keccak256(_publicDeployment.factoryInitCode());
         PredictedDeployment memory mainnet = _predictedDeployment();
         assertEq(_publicDeployment.ROBINHOOD_TESTNET_USDG(), _EXPECTED_TESTNET_USDG);
         assertTrue(mainnet.mediaStoreFactory != address(0));
@@ -119,21 +119,27 @@ contract DeploymentScriptsTest is Test {
 
         vm.chainId(_TESTNET_CHAIN_ID);
         _deployTestnetUSDG();
-        bytes32 testnetInitcodeHash = keccak256(type(RobinhoodMembershipFactory).creationCode);
+        bytes32 testnetInitcodeHash = keccak256(_publicDeployment.factoryInitCode());
         PredictedDeployment memory testnet = _predictedDeployment();
 
-        assertEq(testnetInitcodeHash, mainnetInitcodeHash);
+        assertNotEq(testnetInitcodeHash, mainnetInitcodeHash);
         assertEq(testnet.mediaStoreFactory, mainnet.mediaStoreFactory);
         assertEq(testnet.renderer, mainnet.renderer);
-        assertEq(testnet.factory, mainnet.factory);
+        assertNotEq(testnet.factory, mainnet.factory);
         _deployAndAssertPredicted(testnet, _publicDeployment.ROBINHOOD_TESTNET_USDG());
         assertTrue(
             _publicDeployment.ROBINHOOD_TESTNET_USDG() != _publicDeployment.ROBINHOOD_MAINNET_USDG()
         );
     }
 
-    function test_directFactoryInitcodeFitsRobinhoodProtocolLimit() public pure {
-        assertLt(type(RobinhoodMembershipFactory).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
+    function test_directFactoryInitcodeFitsRobinhoodProtocolLimit() public view {
+        assertLt(_publicDeployment.factoryInitCode().length, _ROBINHOOD_INITCODE_LIMIT);
+    }
+
+    function test_directFactoryTransactionFitsNitroSequencerLimit() public view {
+        bytes memory rawCreate2Data =
+            abi.encodePacked(_publicDeployment.FACTORY_SALT(), _publicDeployment.factoryInitCode());
+        assertLe(rawCreate2Data.length, _NITRO_SEQUENCER_TX_DATA_LIMIT);
     }
 
     function test_releaseWrapperPlanMatchesSolidityConfig() public {
@@ -163,7 +169,7 @@ contract DeploymentScriptsTest is Test {
         );
         assertEq(
             vm.envBytes32("BBF_RELEASE_FACTORY_INIT_HASH"),
-            keccak256(type(RobinhoodMembershipFactory).creationCode)
+            keccak256(_publicDeployment.factoryInitCode())
         );
         assertEq(
             vm.envBytes32("BBF_RELEASE_MEDIA_RUNTIME_HASH"),
@@ -191,17 +197,22 @@ contract DeploymentScriptsTest is Test {
         emit log_named_bytes32("BBF_RELEASE_FACTORY_RUNTIME_HASH", address(factory).codehash);
     }
 
-    function test_unauthorizedOriginCannotReserveFactoryAddress() public {
-        _deployMediaStoreFactory();
-        _deployRenderer();
-        address unauthorized = makeAddr("unauthorized");
+    function test_arbitraryOriginCanOnlyPredeployExactSafeOwnedFactory() public {
+        OnchainMediaStoreFactory mediaStoreFactory = _deployMediaStoreFactory();
+        OnchainMetadataRenderer renderer = _deployRenderer();
+        address arbitraryOrigin = makeAddr("arbitrary-origin");
         bytes32 salt = _publicDeployment.FACTORY_SALT();
         (bool success, bytes memory result) =
-            _rawCreate2(salt, type(RobinhoodMembershipFactory).creationCode, unauthorized);
-        assertFalse(success);
-        assertEq(result.length, 0);
+            _rawCreate2(salt, _publicDeployment.factoryInitCode(), arbitraryOrigin);
+        assertTrue(success);
+        assertEq(result.length, 20);
         (,, address expectedFactory) = _publicDeployment.predictedAddresses();
-        assertEq(expectedFactory.code.length, 0);
+        _assertExpectedDeployment(
+            mediaStoreFactory,
+            renderer,
+            MembershipFactory(expectedFactory),
+            _publicDeployment.ROBINHOOD_MAINNET_USDG()
+        );
     }
 
     function test_existingDeploymentIsValidatedAtEachDirectStep() public {
@@ -461,9 +472,7 @@ contract DeploymentScriptsTest is Test {
     function _deployFactory() private returns (MembershipFactory factory) {
         (,, address expectedFactory) = _publicDeployment.predictedAddresses();
         if (expectedFactory.code.length == 0) {
-            _callCreate2(
-                _publicDeployment.FACTORY_SALT(), type(RobinhoodMembershipFactory).creationCode
-            );
+            _callCreate2(_publicDeployment.FACTORY_SALT(), _publicDeployment.factoryInitCode());
         }
         factory = MembershipFactory(expectedFactory);
     }

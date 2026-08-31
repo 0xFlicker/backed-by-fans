@@ -28,7 +28,7 @@ mock_public_transaction_hash() {
 }
 
 case "${1:-}" in
-  keccak|create2)
+  keccak|create2|abi-encode)
     exec "$REAL_CAST" "$@"
     ;;
   chain-id)
