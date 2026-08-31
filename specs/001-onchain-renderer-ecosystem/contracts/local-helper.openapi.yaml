@@ -1,0 +1,271 @@
+openapi: 3.1.0
+info:
+  title: Backed By Fans Local Renderer Helper
+  version: 1.0.0
+  description: >-
+    Optional loopback-only coordination API started by the renderer skill. The helper creates its
+    own random, expiring capability; no SIWE, OAuth, account, or hosted token exchange is involved.
+    All state is bounded process memory and is destroyed when the helper exits or the capability
+    expires. Source image bytes are never accepted by this API.
+servers:
+  - url: http://127.0.0.1:{port}
+    variables:
+      port:
+        default: "0"
+security:
+  - rendererCapability: []
+paths:
+  /v1/session:
+    get:
+      operationId: getRendererSession
+      responses:
+        "200":
+          description: Current session summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+  /v1/candidate:
+    get:
+      operationId: getRendererCandidate
+      summary: Return the current renderer candidate to the public browser page
+      responses:
+        "200":
+          description: Current candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Candidate"
+    put:
+      operationId: putRendererCandidate
+      summary: Replace the current local renderer candidate and invalidate approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Candidate"
+      responses:
+        "200":
+          description: Accepted candidate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateSummary"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+  /v1/example-requests:
+    post:
+      operationId: createExampleRequestSet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExampleRequestSet"
+      responses:
+        "201":
+          description: Request set accepted and approval invalidated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExampleRequestSet"
+    get:
+      operationId: getExampleRequestSet
+      responses:
+        "200":
+          description: Current request set for browser processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExampleRequestSet"
+  /v1/example-results:
+    post:
+      operationId: submitExampleResults
+      description: Browser submits rendered SVG/data URI or failures; never source image bytes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExampleResultSet"
+      responses:
+        "200":
+          description: Results accepted for creator and agent review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExampleResultSet"
+  /v1/approval:
+    put:
+      operationId: putCreatorApproval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Approval"
+      responses:
+        "200":
+          description: Current candidate and complete result set approved
+        "409":
+          $ref: "#/components/responses/StaleCandidate"
+    delete:
+      operationId: rejectOrClearCreatorApproval
+      responses:
+        "204":
+          description: Approval and prepared deployment cleared
+  /v1/deployment-request:
+    put:
+      operationId: putUnsignedDeploymentRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeploymentRequest"
+      responses:
+        "200":
+          description: Prepared request matches current approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeploymentRequest"
+        "409":
+          $ref: "#/components/responses/StaleCandidate"
+    get:
+      operationId: getUnsignedDeploymentRequest
+      responses:
+        "200":
+          description: Current prepared deployment for browser display
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeploymentRequest"
+  /v1/deployment-result:
+    post:
+      operationId: submitDeploymentResult
+      description: Browser reports only a wagmi-supplied success or failure result.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeploymentResult"
+      responses:
+        "200":
+          description: Result accepted
+components:
+  securitySchemes:
+    rendererCapability:
+      type: http
+      scheme: bearer
+      description: >-
+        Random local capability generated by the helper and passed in the public page URL fragment.
+        It conveys no creator identity or wallet authority.
+  schemas:
+    Session:
+      type: object
+      additionalProperties: false
+      required: [sessionId, chainId, expiresAt, status]
+      properties:
+        sessionId: { type: string }
+        chainId: { type: integer, const: 46630 }
+        expiresAt: { type: string, format: date-time }
+        status: { type: string, enum: [ready, active, expired, closed] }
+    Candidate:
+      type: object
+      additionalProperties: false
+      required: [candidateId, artifactFingerprint, creationBytecode, runtimeBytecode, salt, manifest]
+      properties:
+        candidateId: { type: string }
+        artifactFingerprint: { type: string, pattern: "^0x[0-9a-fA-F]{64}$" }
+        creationBytecode: { type: string, pattern: "^0x[0-9a-fA-F]*$" }
+        runtimeBytecode: { type: string, pattern: "^0x[0-9a-fA-F]*$" }
+        salt: { type: string, pattern: "^0x[0-9a-fA-F]{64}$" }
+        manifest: { type: object }
+    CandidateSummary:
+      type: object
+      required: [candidateId, artifactFingerprint, initCodeHash, predictedAddress]
+      properties:
+        candidateId: { type: string }
+        artifactFingerprint: { type: string }
+        initCodeHash: { type: string }
+        predictedAddress: { type: string }
+    ExampleRequestSet:
+      type: object
+      additionalProperties: false
+      required: [candidateFingerprint, requestSetFingerprint, requests]
+      properties:
+        candidateFingerprint: { type: string }
+        requestSetFingerprint: { type: string }
+        requests:
+          type: array
+          minItems: 6
+          maxItems: 12
+          items:
+            type: object
+            required: [requestId, method, mode, contextWithoutMedia, localImageSlot]
+            properties:
+              requestId: { type: string }
+              method: { type: string, enum: [previewSVG, previewTokenURI] }
+              mode: { type: string, enum: [deployed-address, undeployed-initcode] }
+              contextWithoutMedia: { type: object }
+              localImageSlot: { type: boolean }
+    ExampleResultSet:
+      type: object
+      additionalProperties: false
+      required: [candidateFingerprint, requestSetFingerprint, results]
+      properties:
+        candidateFingerprint: { type: string }
+        requestSetFingerprint: { type: string }
+        results:
+          type: array
+          items:
+            type: object
+            required: [requestId, status, resultFingerprint]
+            properties:
+              requestId: { type: string }
+              status: { type: string, enum: [ready, failed] }
+              image: { type: string, maxLength: 600000 }
+              error: { type: string, maxLength: 2048 }
+              resultFingerprint: { type: string }
+    Approval:
+      type: object
+      additionalProperties: false
+      required: [chainId, candidateFingerprint, requestSetFingerprint, resultFingerprints]
+      properties:
+        chainId: { type: integer, const: 46630 }
+        candidateFingerprint: { type: string }
+        requestSetFingerprint: { type: string }
+        resultFingerprints:
+          type: array
+          minItems: 6
+          items: { type: string }
+    DeploymentRequest:
+      type: object
+      additionalProperties: false
+      required: [chainId, deployer, salt, initcode, calldata, rawByteLength, predictedAddress, approvalFingerprint]
+      properties:
+        chainId: { type: integer, const: 46630 }
+        deployer: { type: string }
+        salt: { type: string }
+        initcode: { type: string }
+        calldata: { type: string }
+        rawByteLength: { type: integer, maximum: 94999 }
+        predictedAddress: { type: string }
+        approvalFingerprint: { type: string }
+    DeploymentResult:
+      type: object
+      additionalProperties: false
+      required: [status, predictedAddress]
+      properties:
+        status: { type: string, enum: [confirmed, failed] }
+        predictedAddress: { type: string }
+        transactionHash: { type: string }
+        message: { type: string }
+  responses:
+    PayloadTooLarge:
+      description: Candidate or result exceeds the configured process/RPC envelope
+    StaleCandidate:
+      description: Candidate, request set, results, or approval no longer match
