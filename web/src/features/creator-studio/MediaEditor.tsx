@@ -58,8 +58,6 @@ export type NativeMediaState =
     }
   | { status: "error"; message: string };
 
-export type RpcMediaConsent = "not-required" | "required" | "granted";
-
 export type NativeMediaLibraryModel = {
   status: "loading" | "ready" | "error";
   records: readonly CreatorMediaRecord[];
@@ -101,13 +99,11 @@ export function MediaEditor({
   nativeSettings = defaultNativeMediaSettings,
   nativeState = { status: "empty" },
   nativeLibrary,
-  rpcConsent = "not-required",
   onMediaChange,
   onArtChange,
   onToggleLock,
   onNativeSettingsChange,
   onNativeSourceSelected,
-  onGrantRpcConsent,
   onNextNativeLibraryPage,
   onPreviousNativeLibraryPage,
   onRetryNativeLibrary,
@@ -120,7 +116,6 @@ export function MediaEditor({
   nativeSettings?: NativeMediaSettings;
   nativeState?: NativeMediaState;
   nativeLibrary?: NativeMediaLibraryModel;
-  rpcConsent?: RpcMediaConsent;
   onMediaChange: (media: StudioMediaDraft) => void;
   onArtChange: (art: AnyStudioArtConfig) => void;
   onToggleLock: (control: SurpriseLock) => void;
@@ -129,7 +124,6 @@ export function MediaEditor({
     source: Blob,
     settings: NativeMediaSettings,
   ) => void;
-  onGrantRpcConsent?: () => void;
   onNextNativeLibraryPage?: () => void;
   onPreviousNativeLibraryPage?: () => void;
   onRetryNativeLibrary?: () => void;
@@ -443,9 +437,7 @@ export function MediaEditor({
                 ) : null}
               </div>
               <p className={styles.sectionHint}>
-                This list comes from the connected creator’s registry. Every
-                selection is rechecked against its immutable runtime bytes
-                before it can appear in a preview or membership.
+                Choose an image you’ve already stored onchain.
               </p>
 
               {nativeLibrary.status === "loading" ? (
@@ -579,33 +571,6 @@ export function MediaEditor({
                 </div>
               ) : null}
             </section>
-          ) : null}
-
-          {rpcConsent === "required" ? (
-            <div className={styles.consentNotice}>
-              <div>
-                <strong>Preview privacy checkpoint</strong>
-                <p>
-                  The exact optimized candidate will be sent to your configured
-                  RPC for contract rendering and may be logged by that provider.
-                  Backed By Fans does not put these bytes in product analytics
-                  or error messages.
-                </p>
-              </div>
-              <button
-                className={styles.secondaryButton}
-                disabled={disabled || !onGrantRpcConsent}
-                onClick={onGrantRpcConsent}
-                type="button"
-              >
-                Allow this candidate
-              </button>
-            </div>
-          ) : null}
-          {rpcConsent === "granted" ? (
-            <p className={styles.verifiedLine}>
-              RPC preview allowed for these exact bytes.
-            </p>
           ) : null}
         </div>
       ) : null}

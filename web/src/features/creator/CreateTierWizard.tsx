@@ -59,7 +59,6 @@ import {
   type NativeMediaLibraryModel,
   type NativeMediaSettings,
   type NativeMediaState,
-  type RpcMediaConsent,
 } from "@/features/creator-studio/MediaEditor";
 import {
   svgPreviewDataURI,
@@ -263,7 +262,6 @@ export function CreateTierWizard() {
   const [nativeState, setNativeState] = useState<NativeMediaState>({
     status: "empty",
   });
-  const [rpcConsent, setRpcConsent] = useState<RpcMediaConsent>("not-required");
   const [confirmedMedia, setConfirmedMedia] = useState<ConfirmedOnchainMedia>();
   const [confirmedMediaScope, setConfirmedMediaScope] = useState<{
     chainId: number;
@@ -693,7 +691,6 @@ export function CreateTierWizard() {
           setTierSalt(recovered.draft.tierSalt);
           setArt(recovered.draft.art);
           setMedia(recovered.draft.media);
-          setRpcConsent("not-required");
           if (
             recovered.draft.media.mode === "native" &&
             recovered.draft.media.confirmedStore &&
@@ -731,7 +728,6 @@ export function CreateTierWizard() {
             setArt(next.art);
             setTierSalt(next.tierSalt);
             setMedia({ mode: "none" });
-            setRpcConsent("not-required");
             setConfirmedMedia(undefined);
             setConfirmedMediaScope(undefined);
             setNativeState({ status: "empty" });
@@ -872,26 +868,17 @@ export function CreateTierWizard() {
         ? { status: "ready", candidate }
         : { status: "empty" }
       : nativeState;
-  const nativeConsentBlocked = Boolean(
-    media.mode === "native" &&
-    candidate &&
-    !currentConfirmedMedia &&
-    rpcConsent !== "granted",
-  );
   const previewMedia = useMemo(() => {
     if (media.mode === "none") return emptyMediaConfig;
     if (media.mode === "native") {
       if (currentConfirmedMedia) return currentConfirmedMedia;
-      if (candidateMedia && rpcConsent === "granted") return candidateMedia;
+      if (candidateMedia) return candidateMedia;
       return emptyMediaConfig;
     }
     return emptyMediaConfig;
-  }, [candidateMedia, currentConfirmedMedia, media.mode, rpcConsent]);
+  }, [candidateMedia, currentConfirmedMedia, media.mode]);
   const previewNativeMedia =
-    media.mode === "native" &&
-    !currentConfirmedMedia &&
-    candidate &&
-    rpcConsent === "granted"
+    media.mode === "native" && !currentConfirmedMedia && candidate
       ? candidateHex?.renderer
       : undefined;
   const previewDraft = useMemo(
@@ -925,12 +912,7 @@ export function CreateTierWizard() {
     renderer: selectedRenderer?.implementation,
     draft: previewDraft,
     selection,
-    enabled: Boolean(
-      previewDraft &&
-      selectedRenderer &&
-      !nativeConsentBlocked &&
-      draftScopeReady,
-    ),
+    enabled: Boolean(previewDraft && selectedRenderer && draftScopeReady),
     blockedMessage: !protocol.data
       ? protocol.error
         ? "The canonical renderer registry is unavailable on this network."
@@ -941,9 +923,7 @@ export function CreateTierWizard() {
           : "Choose a compatible onchain artwork collection before rendering."
         : !draftScopeReady
           ? "Revalidate or discard the saved Studio draft before rendering against this creator scope."
-          : nativeConsentBlocked
-            ? "Allow this exact optimized candidate before it is sent to the configured RPC."
-            : "Preparing the selected onchain renderer.",
+          : "Preparing the selected onchain renderer.",
   });
 
   const mediaGasQuote = useQuery({
@@ -963,8 +943,7 @@ export function CreateTierWizard() {
       candidateMedia &&
       media.mode === "native" &&
       !currentConfirmedMedia &&
-      draftScopeReady &&
-      rpcConsent === "granted",
+      draftScopeReady,
     ),
     retry: false,
     queryFn: () =>
@@ -1039,7 +1018,6 @@ export function CreateTierWizard() {
     candidateMedia &&
     !currentConfirmedMedia &&
     draftScopeReady &&
-    rpcConsent === "granted" &&
     mediaGasQuote.data &&
     protocol.data &&
     account.address &&
@@ -1138,7 +1116,6 @@ export function CreateTierWizard() {
     setArt(next.art);
     setTierSalt(next.tierSalt);
     setMedia({ mode: "none" });
-    setRpcConsent("not-required");
     setConfirmedMedia(undefined);
     setConfirmedMediaScope(undefined);
     setNativeState({ status: "empty" });
@@ -1182,7 +1159,6 @@ export function CreateTierWizard() {
       );
     }
     setMedia({ mode: "none" });
-    setRpcConsent("not-required");
     setConfirmedMedia(undefined);
     setConfirmedMediaScope(undefined);
     setNativeState({ status: "empty" });
@@ -1248,7 +1224,6 @@ export function CreateTierWizard() {
     setConfirmedMedia(undefined);
     setConfirmedMediaScope(undefined);
     setMedia({ mode: "native", confirmedStore: null });
-    setRpcConsent("required");
     dispatchMedia({ type: "RESET" });
     setNativeState({
       status: "processing",
@@ -1327,8 +1302,7 @@ export function CreateTierWizard() {
         setMediaLibraryNotice({
           scopeKey: currentCreatorScopeKey,
           tone: "error",
-          message:
-            "Could not verify that image against the connected creator and its immutable runtime bytes.",
+          message: "That stored image is unavailable for this membership.",
         });
         return;
       }
@@ -1350,13 +1324,11 @@ export function CreateTierWizard() {
         status: "stored",
         confirmedStore: confirmed.store,
       });
-      setRpcConsent("not-required");
       dispatchMedia({ type: "RESET" });
       setMediaLibraryNotice({
         scopeKey: currentCreatorScopeKey,
         tone: "info",
-        message:
-          "Immutable bytes verified. This stored image now drives the exact renderer preview.",
+        message: "Stored image selected for this membership.",
       });
       resetCompletion();
     } catch (error) {
@@ -1472,7 +1444,6 @@ export function CreateTierWizard() {
           candidate,
           confirmedStore: stored.store,
         });
-        setRpcConsent("not-required");
       }
       setMediaLibraryNotice({
         scopeKey: creatorProtocolScopeKey(attempt.scope)!,
@@ -1810,7 +1781,11 @@ export function CreateTierWizard() {
 
   return (
     <div
-      className={`creator-workspace${step === "art" ? "creator-workspace-studio" : ""}`}
+      className={
+        step === "art"
+          ? "creator-workspace creator-workspace-studio"
+          : "creator-workspace"
+      }
     >
       <aside className="creator-steps" aria-label="Creator setup steps">
         <p className="eyebrow">Set the room</p>
@@ -1925,7 +1900,6 @@ export function CreateTierWizard() {
               nativeSettings={nativeSettings}
               nativeState={presentedNativeState}
               onArtChange={handleArtChange}
-              onGrantRpcConsent={() => setRpcConsent("granted")}
               onKeepComposition={() => setStep("price")}
               onMediaChange={handleMediaChange}
               onNextNativeLibraryPage={() =>
@@ -1944,7 +1918,6 @@ export function CreateTierWizard() {
               onSelectionChange={setSelection}
               preview={contractPreviews.model}
               renderers={protocol.data?.renderers ?? []}
-              rpcConsent={rpcConsent}
               selectedRendererVersion={selectedRenderer?.version}
               selection={selection}
             />
@@ -2043,7 +2016,7 @@ export function CreateTierWizard() {
                           ? "Estimating…"
                           : mediaGasQuote.data
                             ? mediaGasQuote.data.toLocaleString("en-US")
-                            : "Allow RPC preview to estimate"}
+                            : "Unavailable"}
                       </dd>
                     </div>
                   </dl>

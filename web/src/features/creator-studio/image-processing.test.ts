@@ -263,7 +263,7 @@ describe("bounded browser image processing", () => {
     const candidate = await processImageSource(
       new Blob([jpeg(1_200, 800, 6)]),
       {
-        dimension: 768,
+        dimension: 512,
         focalX: 50,
         focalY: 100,
         output: { mime: "image/jpeg", quality: 0.82 },
@@ -273,32 +273,32 @@ describe("bounded browser image processing", () => {
 
     expect(fake.setTransform).toHaveBeenLastCalledWith(
       0,
-      0.96,
-      -0.96,
+      0.64,
+      -0.64,
       0,
-      768,
-      -384,
+      512,
+      -256,
     );
     expect(fake.drawImage).toHaveBeenCalledOnce();
-    expect(fake.fillRect).toHaveBeenCalledWith(0, 0, 768, 768);
+    expect(fake.fillRect).toHaveBeenCalledWith(0, 0, 512, 512);
     expect(fake.close).toHaveBeenCalledOnce();
     expect(fake.canvases[0]).toMatchObject({ width: 0, height: 0 });
     expect(candidate).toMatchObject({
       mime: "image/jpeg",
-      dimension: 768,
+      dimension: 512,
       quality: 0.82,
       byteLength: 4,
     });
   });
 
   it.each([
-    [2, [-0.96, 0, 0, 0.96, 960, 0]],
-    [3, [-0.96, 0, 0, -0.96, 960, 768]],
-    [4, [0.96, 0, 0, -0.96, -192, 768]],
-    [5, [0, 0.96, 0.96, 0, 0, -192]],
-    [6, [0, 0.96, -0.96, 0, 768, -192]],
-    [7, [0, -0.96, -0.96, 0, 768, 960]],
-    [8, [0, -0.96, 0.96, 0, 0, 960]],
+    [2, [-0.64, 0, 0, 0.64, 640, 0]],
+    [3, [-0.64, 0, 0, -0.64, 640, 512]],
+    [4, [0.64, 0, 0, -0.64, -128, 512]],
+    [5, [0, 0.64, 0.64, 0, 0, -128]],
+    [6, [0, 0.64, -0.64, 0, 512, -128]],
+    [7, [0, -0.64, -0.64, 0, 512, 640]],
+    [8, [0, -0.64, 0.64, 0, 0, 640]],
   ] as const)(
     "normalizes EXIF orientation %i before decode and applies its original transform",
     async (orientation, expectedTransform) => {
@@ -307,7 +307,7 @@ describe("bounded browser image processing", () => {
       const candidate = await processImageSource(
         new Blob([sourceBytes]),
         {
-          dimension: 768,
+          dimension: 512,
           focalX: 50,
           focalY: 50,
           output: { mime: "image/jpeg", quality: 0.82 },
@@ -333,7 +333,7 @@ describe("bounded browser image processing", () => {
     const first = await processImageSource(
       new Blob([png(800, 800)]),
       {
-        dimension: 1_024,
+        dimension: 384,
         output: { mime: "image/png", purpose: "transparency" },
       },
       firstPlatform.platform,
@@ -350,7 +350,7 @@ describe("bounded browser image processing", () => {
     const second = await processImageSource(
       new Blob([png(800, 800)]),
       {
-        dimension: 1_280,
+        dimension: 512,
         output: { mime: "image/jpeg", quality: 0.7 },
       },
       secondPlatform.platform,

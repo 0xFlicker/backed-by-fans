@@ -91,7 +91,9 @@ test("@anvil rediscovers and revalidates the connected creator's permanent media
   await expect(page.getByText("1 onchain")).toBeVisible();
   await page.getByRole("button", { name: /Use .* image/i }).click();
 
-  await expect(page.getByText(/Immutable bytes verified/i)).toBeVisible();
+  await expect(
+    page.getByText("Stored image selected for this membership."),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", {
       name: "The image is ready for this membership.",
@@ -193,6 +195,38 @@ test("@anvil cancels stale local image work when the creator changes media mode"
   await expect(
     page.getByLabel("Choose JPEG or PNG from your device"),
   ).toBeEnabled();
+});
+
+test("keeps horizontal Art Studio step markers clear of dividers", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop",
+    "The seven-column rail is desktop-only.",
+  );
+  await page.goto("/create");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: /^art studio$/i }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Make the membership unmistakably yours.",
+    }),
+  ).toBeVisible();
+
+  const markerInsets = await page
+    .locator(".creator-steps li")
+    .evaluateAll((items) =>
+      items.map((item) => {
+        const marker = item.querySelector("span");
+        if (!marker) throw new Error("Creator step marker is missing.");
+        return (
+          marker.getBoundingClientRect().left -
+          item.getBoundingClientRect().left
+        );
+      }),
+    );
+
+  expect(markerInsets.every((inset) => inset >= 8)).toBe(true);
 });
 
 test("walks through defaults, arbitrary splits, risks, and immutable review", async ({

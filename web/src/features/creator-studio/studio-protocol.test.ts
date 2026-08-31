@@ -20,7 +20,7 @@ function candidate(): ExactMediaCandidate {
   const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x00]);
   return {
     mime: "image/jpeg",
-    dimension: 768,
+    dimension: 512,
     quality: 0.84,
     byteLength: bytes.byteLength,
     bytes,

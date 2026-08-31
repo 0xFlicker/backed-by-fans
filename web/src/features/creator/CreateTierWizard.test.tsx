@@ -371,6 +371,10 @@ describe("creator setup component", () => {
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
 
     expect(
+      screen.getByLabelText("Creator setup steps").parentElement,
+    ).toHaveClass("creator-workspace", "creator-workspace-studio");
+
+    expect(
       screen.getByRole("heading", {
         name: /make the membership unmistakably yours/i,
       }),

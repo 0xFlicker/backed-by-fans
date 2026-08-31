@@ -15,16 +15,13 @@ import {
   type NativeMediaLibraryModel,
   type NativeMediaSettings,
   type NativeMediaState,
-  type RpcMediaConsent,
 } from "@/features/creator-studio/MediaEditor";
 import type { StudioMediaDraft } from "@/features/creator-studio/studio-draft";
 
 function MediaHarness({
   initialMedia = { mode: "none" },
-  rpcConsent = "not-required",
   nativeState,
   onNativeSourceSelected,
-  onGrantRpcConsent,
   nativeLibrary,
   onNextNativeLibraryPage,
   onPreviousNativeLibraryPage,
@@ -32,13 +29,11 @@ function MediaHarness({
   onSelectNativeStore,
 }: {
   initialMedia?: StudioMediaDraft;
-  rpcConsent?: RpcMediaConsent;
   nativeState?: NativeMediaState;
   onNativeSourceSelected?: (
     source: Blob,
     settings: NativeMediaSettings,
   ) => void;
-  onGrantRpcConsent?: () => void;
   nativeLibrary?: NativeMediaLibraryModel;
   onNextNativeLibraryPage?: () => void;
   onPreviousNativeLibraryPage?: () => void;
@@ -61,7 +56,6 @@ function MediaHarness({
       nativeSettings={nativeSettings}
       nativeState={nativeState}
       onArtChange={setArt}
-      onGrantRpcConsent={onGrantRpcConsent}
       onMediaChange={setMedia}
       onNextNativeLibraryPage={onNextNativeLibraryPage}
       onNativeSettingsChange={setNativeSettings}
@@ -70,7 +64,6 @@ function MediaHarness({
       onRetryNativeLibrary={onRetryNativeLibrary}
       onSelectNativeStore={onSelectNativeStore}
       onToggleLock={vi.fn()}
-      rpcConsent={rpcConsent}
     />
   );
 }
@@ -97,7 +90,7 @@ describe("MediaEditor", () => {
     await user.click(
       screen.getByRole("radio", { name: /Add an onchain image/i }),
     );
-    await user.selectOptions(screen.getByLabelText("Output size"), "1024");
+    await user.selectOptions(screen.getByLabelText("Output size"), "384");
     await user.click(screen.getByRole("radio", { name: "PNG" }));
     const file = new File([new Uint8Array([137, 80, 78, 71])], "stage.png", {
       type: "image/png",
@@ -108,12 +101,30 @@ describe("MediaEditor", () => {
     );
 
     expect(onNativeSourceSelected).toHaveBeenCalledWith(file, {
-      dimension: 1024,
+      dimension: 384,
       mime: "image/png",
       jpegQuality: defaultNativeMediaSettings.jpegQuality,
       pngPurpose: "transparency",
     });
     expect(screen.getByText(/Image placement/i)).toBeVisible();
+  });
+
+  it("offers byte-conscious square output sizes capped at 512 pixels", async () => {
+    const user = userEvent.setup();
+    render(<MediaHarness />);
+
+    await user.click(
+      screen.getByRole("radio", { name: /Add an onchain image/i }),
+    );
+
+    const outputSize = screen.getByLabelText("Output size");
+    expect(outputSize).toHaveValue("512");
+    expect(
+      Array.from(
+        outputSize.querySelectorAll("option"),
+        (option) => option.textContent,
+      ),
+    ).toEqual(["256 × 256", "384 × 384", "512 × 512"]);
   });
 
   it("accepts clipboard image bytes without turning them into a reference", async () => {
@@ -168,23 +179,27 @@ describe("MediaEditor", () => {
     ).toBeVisible();
   });
 
-  it("requires honest RPC consent before exact candidate bytes leave the browser", async () => {
-    const user = userEvent.setup();
-    const onGrantRpcConsent = vi.fn();
+  it("does not require another approval after preparing an image", () => {
     render(
       <MediaHarness
         initialMedia={{ mode: "native", confirmedStore: null }}
-        onGrantRpcConsent={onGrantRpcConsent}
-        rpcConsent="required"
+        nativeState={{
+          status: "ready",
+          candidate: {
+            objectURL: "blob:creator-image",
+            byteLength: 1_024,
+            mime: "image/jpeg",
+            dimension: 512,
+            quality: 0.82,
+          },
+        }}
       />,
     );
 
-    expect(screen.getByText(/Preview privacy checkpoint/i)).toBeVisible();
-    expect(screen.getByText(/may be logged by that provider/i)).toBeVisible();
-    await user.click(
-      screen.getByRole("button", { name: /Allow this candidate/i }),
-    );
-    expect(onGrantRpcConsent).toHaveBeenCalledOnce();
+    expect(
+      screen.getByAltText("Processed creator media candidate"),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Allow/i })).toBeNull();
   });
 
   it("renders, selects, and pages the connected creator's bounded onchain media", async () => {

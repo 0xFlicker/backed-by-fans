@@ -1045,30 +1045,6 @@
   margin-top: 0.8rem;
 }
 
-.consentNotice {
-  align-items: start;
-  background: var(--backstage);
-  border-radius: var(--radius);
-  color: white;
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(0, 1fr) auto;
-  margin-top: 1rem;
-  padding: 1rem;
-}
-
-.consentNotice p {
-  color: #d9dbe3;
-  font-size: 0.7rem;
-  line-height: 1.45;
-  margin: 0.35rem 0 0;
-}
-
-.consentNotice .secondaryButton {
-  border-color: white;
-  color: white;
-}
-
 .errorText {
   color: #8a2514;
   font-size: 0.72rem;
@@ -1164,8 +1140,7 @@
   }
 
   .mediaModeGrid,
-  .nativeCandidateGrid,
-  .consentNotice {
+  .nativeCandidateGrid {
     grid-template-columns: 1fr;
   }
 
@@ -1200,8 +1175,7 @@
   .tokenSample,
   .rendererChoice,
   .engineChoice,
-  .mediaModeChoice,
-  .consentNotice {
+  .mediaModeChoice {
     border: 2px solid currentColor;
   }
 }

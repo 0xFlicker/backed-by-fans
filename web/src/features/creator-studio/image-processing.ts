@@ -4,9 +4,9 @@ export const imageSourceLimits = {
   maxPixels: 40_000_000,
 } as const;
 
-export const outputDimensions = [768, 1_024, 1_280] as const;
+export const outputDimensions = [256, 384, 512] as const;
 export type OutputDimension = (typeof outputDimensions)[number];
-export const defaultOutputDimension: OutputDimension = 1_024;
+export const defaultOutputDimension: OutputDimension = 512;
 export const jpegQualityBounds = { min: 0.55, max: 0.95, step: 0.01 } as const;
 export const defaultJpegQuality = 0.84;
 export const maxRenderableMediaBytes = 90 * 1024;
@@ -595,7 +595,7 @@ function validateOutputOptions(options: ProcessImageOptions) {
   if (!outputDimensions.includes(dimension)) {
     return processingError(
       "invalid-output",
-      "Choose a 768, 1,024, or 1,280 pixel square output.",
+      "Choose a 256, 384, or 512 pixel square output.",
     );
   }
   const focalX = options.focalX ?? 50;

@@ -1019,6 +1019,10 @@ dd {
   border-right: 1px solid var(--line);
 }
 
+.creator-workspace-studio .creator-steps button {
+  padding-inline: 0.75rem;
+}
+
 .creator-studio-step {
   display: grid;
   gap: 1rem;

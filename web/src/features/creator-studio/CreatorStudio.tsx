@@ -23,7 +23,6 @@ import {
   type NativeMediaLibraryModel,
   type NativeMediaSettings,
   type NativeMediaState,
-  type RpcMediaConsent,
 } from "@/features/creator-studio/MediaEditor";
 import {
   PreviewGallery,
@@ -58,13 +57,11 @@ export type CreatorStudioProps = {
   nativeSettings?: NativeMediaSettings;
   nativeState?: NativeMediaState;
   nativeLibrary?: NativeMediaLibraryModel;
-  rpcConsent?: RpcMediaConsent;
   onNativeSettingsChange?: (settings: NativeMediaSettings) => void;
   onNativeSourceSelected?: (
     source: Blob,
     settings: NativeMediaSettings,
   ) => void;
-  onGrantRpcConsent?: () => void;
   onNextNativeLibraryPage?: () => void;
   onPreviousNativeLibraryPage?: () => void;
   onRetryNativeLibrary?: () => void;
@@ -90,10 +87,8 @@ export function CreatorStudio({
   nativeSettings,
   nativeState,
   nativeLibrary,
-  rpcConsent,
   onNativeSettingsChange,
   onNativeSourceSelected,
-  onGrantRpcConsent,
   onNextNativeLibraryPage,
   onPreviousNativeLibraryPage,
   onRetryNativeLibrary,
@@ -261,7 +256,6 @@ export function CreatorStudio({
             nativeSettings={nativeSettings}
             nativeState={nativeState}
             onArtChange={onArtChange}
-            onGrantRpcConsent={onGrantRpcConsent}
             onMediaChange={onMediaChange}
             onNextNativeLibraryPage={onNextNativeLibraryPage}
             onNativeSourceSelected={onNativeSourceSelected}
@@ -270,7 +264,6 @@ export function CreatorStudio({
             onRetryNativeLibrary={onRetryNativeLibrary}
             onSelectNativeStore={onSelectNativeStore}
             onToggleLock={toggleLock}
-            rpcConsent={rpcConsent}
           />
         </aside>
       </div>
