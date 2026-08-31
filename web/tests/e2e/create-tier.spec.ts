@@ -86,25 +86,23 @@ test("@anvil rediscovers and revalidates the connected creator's permanent media
 
   await expect(
     page.getByRole("heading", {
-      name: "Choose a saved image",
+      name: "Saved images",
     }),
   ).toBeVisible();
-  await expect(page.getByText("1 saved")).toBeVisible();
-  await page.getByRole("button", { name: /Use .* image/i }).click();
-
-  await expect(
-    page.getByText("Stored image selected for this membership."),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", {
-      name: "Image stored",
-    }),
-  ).toBeVisible();
+  const savedImage = page.getByRole("button", {
+    name: "Select saved image 1",
+  });
+  await expect(savedImage.locator("img")).toBeVisible();
+  await savedImage.click();
   await expect(
     page.getByRole("button", {
-      name: /Selected for this membership/i,
+      name: "Selected saved image 1",
     }),
   ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByAltText("Selected saved image")).toBeVisible();
+  await expect(
+    page.getByText("Stored image selected for this membership."),
+  ).toHaveCount(0);
 });
 
 test("@anvil deliberately continues in memory when creative autosave is inaccessible", async ({

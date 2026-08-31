@@ -1,5 +1,10 @@
-import { useState, type ChangeEvent, type ClipboardEvent } from "react";
-import type { Address } from "viem";
+import {
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type ClipboardEvent,
+} from "react";
+import { hexToBytes, type Address } from "viem";
 
 import {
   globalControlDefinitions,
@@ -92,6 +97,40 @@ function formatBytes(bytes: number) {
   }).format(bytes / 1_000);
 }
 
+function StoredMediaImage({
+  record,
+  alt,
+}: {
+  record: CreatorMediaRecord;
+  alt: string;
+}) {
+  const source = useMemo(() => {
+    const bytes = Uint8Array.from(hexToBytes(record.payload));
+    const alphabet =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let base64 = "";
+    for (let index = 0; index < bytes.length; index += 3) {
+      const first = bytes[index] ?? 0;
+      const second = bytes[index + 1] ?? 0;
+      const third = bytes[index + 2] ?? 0;
+      base64 += alphabet.charAt(first >> 2);
+      base64 += alphabet.charAt(((first & 3) << 4) | (second >> 4));
+      base64 +=
+        index + 1 < bytes.length
+          ? alphabet.charAt(((second & 15) << 2) | (third >> 6))
+          : "=";
+      base64 += index + 2 < bytes.length ? alphabet.charAt(third & 63) : "=";
+    }
+    const mime = record.mime === 2 ? "image/png" : "image/jpeg";
+    return `data:${mime};base64,${base64}`;
+  }, [record.mime, record.payload]);
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img alt={alt} src={source} />
+  );
+}
+
 export function MediaEditor({
   media,
   art,
@@ -133,6 +172,13 @@ export function MediaEditor({
   const { detailsRef, isWide } = useWideStudioDisclosure();
   const [pasteMessage, setPasteMessage] = useState<string>();
   const hasMedia = media.mode !== "none";
+  const selectedStore = nativeLibrary?.selectedStore;
+  const selectedSavedImage =
+    nativeLibrary?.status === "ready" && selectedStore
+      ? nativeLibrary.records.find((record) =>
+          isSameAddress(record.store, selectedStore),
+        )
+      : undefined;
 
   function chooseMode(mode: (typeof mediaModes)[number]["mode"]) {
     if (mode === media.mode) return;
@@ -248,6 +294,11 @@ export function MediaEditor({
                   <img
                     alt="Processed creator media candidate"
                     src={nativeState.candidate?.objectURL}
+                  />
+                ) : selectedSavedImage ? (
+                  <StoredMediaImage
+                    alt="Selected saved image"
+                    record={selectedSavedImage}
                   />
                 ) : (
                   <div className={styles.candidateEmpty}>
@@ -408,7 +459,9 @@ export function MediaEditor({
                   {formatBytes(nativeState.candidate.byteLength)}.
                 </p>
               ) : null}
-              {nativeState.status === "stored" ? <p>Image stored.</p> : null}
+              {nativeState.status === "stored" && nativeState.candidate ? (
+                <p>Image stored.</p>
+              ) : null}
               {nativeState.status === "error" ? (
                 <p className={styles.errorText} role="alert">
                   {nativeState.message}
@@ -421,22 +474,7 @@ export function MediaEditor({
                 aria-labelledby="studio-native-library-heading"
                 className={styles.nativeLibrary}
               >
-                <div className={styles.nativeLibraryHeading}>
-                  <div>
-                    <p className={styles.kicker}>Saved images</p>
-                    <h4 id="studio-native-library-heading">
-                      Choose a saved image
-                    </h4>
-                  </div>
-                  {nativeLibrary.status === "ready" ? (
-                    <span>
-                      {nativeLibrary.total.toLocaleString("en-US")} saved
-                    </span>
-                  ) : null}
-                </div>
-                <p className={styles.sectionHint}>
-                  Choose an image you already saved.
-                </p>
+                <h4 id="studio-native-library-heading">Saved images</h4>
 
                 {nativeLibrary.status === "loading" ? (
                   <p className={styles.libraryStatus} role="status">
@@ -470,7 +508,7 @@ export function MediaEditor({
                 {nativeLibrary.status === "ready" &&
                 nativeLibrary.records.length > 0 ? (
                   <ul className={styles.nativeLibraryList}>
-                    {nativeLibrary.records.map((record) => {
+                    {nativeLibrary.records.map((record, index) => {
                       const selected =
                         nativeLibrary.selectedStore !== undefined &&
                         isSameAddress(
@@ -486,6 +524,7 @@ export function MediaEditor({
                       return (
                         <li key={record.store}>
                           <button
+                            aria-label={`${selected ? "Selected" : "Select"} saved image ${nativeLibrary.offset + BigInt(index) + 1n}`}
                             aria-pressed={selected}
                             className={styles.nativeLibraryItem}
                             data-selected={selected}
@@ -497,38 +536,30 @@ export function MediaEditor({
                             onClick={() => onSelectNativeStore?.(record.store)}
                             type="button"
                           >
-                            <span className={styles.libraryFormat}>
-                              {record.mime === 2 ? "PNG" : "JPEG"}
-                            </span>
-                            <span>
-                              <strong>
-                                {selecting
-                                  ? "Loading image..."
-                                  : selected
-                                    ? "Selected for this membership"
-                                    : "Use " +
-                                      formatBytes(record.length) +
-                                      " image"}
-                              </strong>
-                              <code>{record.store}</code>
-                            </span>
+                            <StoredMediaImage alt="" record={record} />
+                            {selected ? (
+                              <span
+                                aria-hidden="true"
+                                className={styles.librarySelected}
+                              >
+                                ✓
+                              </span>
+                            ) : null}
+                            {selecting ? (
+                              <span className={styles.libraryLoading}>
+                                Loading…
+                              </span>
+                            ) : null}
                           </button>
                         </li>
                       );
                     })}
                   </ul>
                 ) : null}
-                {nativeLibrary.message && nativeLibrary.status === "ready" ? (
-                  <p
-                    className={
-                      nativeLibrary.messageTone === "error"
-                        ? styles.errorText
-                        : styles.verifiedLine
-                    }
-                    role={
-                      nativeLibrary.messageTone === "error" ? "alert" : "status"
-                    }
-                  >
+                {nativeLibrary.message &&
+                nativeLibrary.messageTone === "error" &&
+                nativeLibrary.status === "ready" ? (
+                  <p className={styles.errorText} role="alert">
                     {nativeLibrary.message}
                   </p>
                 ) : null}

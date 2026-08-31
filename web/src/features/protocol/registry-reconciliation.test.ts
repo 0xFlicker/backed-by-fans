@@ -46,6 +46,8 @@ const tierIdentity = `0x${"02".repeat(32)}` as Hex;
 const rendererSchema = `0x${"03".repeat(32)}` as Hex;
 const rendererRuntimeCodehash = `0x${"04".repeat(32)}` as Hex;
 const mediaStore = getAddress("0x8888888888888888888888888888888888888888");
+const creatorMediaPayload = `0x${"09".repeat(10)}` as Hex;
+const creatorMediaRuntime = `0x00${creatorMediaPayload.slice(2)}` as Hex;
 const art: TierArtConfig = {
   engine: 0,
   collectionSeed: 77n,
@@ -217,9 +219,12 @@ function mediaReconciliationClient(
   } as unknown as PublicClient;
 }
 
-function creatorMediaClient(input: { recordCreator?: Address } = {}) {
+function creatorMediaClient(
+  input: { recordCreator?: Address; runtimeCode?: Hex } = {},
+) {
   return {
     getBlockNumber: vi.fn(async () => 50n),
+    getBytecode: vi.fn(async () => input.runtimeCode ?? creatorMediaRuntime),
     readContract: vi.fn(async ({ functionName }: { functionName: string }) => {
       if (functionName === "creatorMediaCount") return 7n;
       if (functionName === "creatorMedia") {
@@ -229,8 +234,8 @@ function creatorMediaClient(input: { recordCreator?: Address } = {}) {
             creator: input.recordCreator ?? creator,
             mime: 1,
             length: 10,
-            digest: `0x${"09".repeat(32)}` as Hex,
-            runtimeCodehash: `0x${"0a".repeat(32)}` as Hex,
+            digest: keccak256(creatorMediaPayload),
+            runtimeCodehash: keccak256(creatorMediaRuntime),
           },
         ];
       }
@@ -602,8 +607,9 @@ describe("creator media discovery", () => {
           creator,
           mime: 1,
           length: 10,
-          digest: `0x${"09".repeat(32)}`,
-          runtimeCodehash: `0x${"0a".repeat(32)}`,
+          digest: keccak256(creatorMediaPayload),
+          runtimeCodehash: keccak256(creatorMediaRuntime),
+          payload: creatorMediaPayload,
         },
       ],
       total: 7n,
@@ -617,6 +623,20 @@ describe("creator media discovery", () => {
         blockNumber: 50n,
       }),
     );
+    expect(client.getBytecode).toHaveBeenCalledWith({
+      address: mediaStore,
+      blockNumber: 50n,
+    });
+  });
+
+  it("rejects a saved image whose stored payload no longer matches its record", async () => {
+    await expect(
+      readCreatorMediaPage(creatorMediaClient({ runtimeCode: "0x00ff" }), {
+        protocolDependencies,
+        creator,
+        offset: 6n,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it("rejects a page containing media attributed to another creator", async () => {

@@ -222,6 +222,7 @@ describe("MediaEditor", () => {
               length: 12_500,
               digest: ("0x" + "03".repeat(32)) as Hex,
               runtimeCodehash: ("0x" + "04".repeat(32)) as Hex,
+              payload: "0x89504e47",
             },
           ],
           total: 8n,
@@ -236,11 +237,16 @@ describe("MediaEditor", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /choose a saved image/i,
+        name: /saved images/i,
       }),
     ).toBeVisible();
-    expect(screen.getByText("8 saved")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: /Use 13 kB image/i }));
+    expect(screen.queryByText("8 saved")).toBeNull();
+    expect(screen.queryByText(store)).toBeNull();
+    const savedImage = screen.getByRole("button", {
+      name: "Select saved image 1",
+    });
+    expect(savedImage.querySelector("img")).toBeVisible();
+    await user.click(savedImage);
     expect(onSelectNativeStore).toHaveBeenCalledWith(store);
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(onNextNativeLibraryPage).toHaveBeenCalledOnce();

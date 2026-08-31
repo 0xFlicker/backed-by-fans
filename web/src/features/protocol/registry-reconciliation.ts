@@ -56,6 +56,7 @@ export type CreatorMediaRecord = {
   length: number;
   digest: Hex;
   runtimeCodehash: Hex;
+  payload: Hex;
 };
 
 export type CreatorMediaPage = {
@@ -142,12 +143,7 @@ function sameImmutableProtocolDependencies(
   );
 }
 
-/**
- * Reads one bounded page from the connected creator's permanent registry.
- * Entries are lightweight discovery records; selecting one still requires the
- * full runtime-byte proof in `readConfirmedOnchainMedia` before it can render or
- * become publishable.
- */
+/** Reads one bounded page from the connected creator's permanent registry. */
 export async function readCreatorMediaPage(
   client: PublicClient,
   input: {
@@ -209,7 +205,7 @@ export async function readCreatorMediaPage(
   const remaining = total > input.offset ? total - input.offset : 0n;
   const expectedLength = remaining > BigInt(limit) ? limit : Number(remaining);
   if (page.length !== expectedLength) return undefined;
-  const records: CreatorMediaRecord[] = [];
+  const records: Omit<CreatorMediaRecord, "payload">[] = [];
   for (const record of page) {
     if (
       !isSameAddress(record.creator, input.creator) ||
@@ -229,7 +225,33 @@ export async function readCreatorMediaPage(
     });
   }
 
-  return { records, total, offset: input.offset, limit };
+  const recordsWithPayload = await Promise.all(
+    records.map(async (record): Promise<CreatorMediaRecord | undefined> => {
+      const code = await client.getBytecode({
+        address: record.store,
+        blockNumber,
+      });
+      if (
+        !code ||
+        !code.startsWith("0x00") ||
+        size(code) !== record.length + 1 ||
+        keccak256(code) !== record.runtimeCodehash
+      ) {
+        return undefined;
+      }
+      const payload = sliceHex(code, 1);
+      if (keccak256(payload) !== record.digest) return undefined;
+      return { ...record, payload };
+    }),
+  );
+  if (recordsWithPayload.some((record) => !record)) return undefined;
+
+  return {
+    records: recordsWithPayload as CreatorMediaRecord[],
+    total,
+    offset: input.offset,
+    limit,
+  };
 }
 
 export async function reconcileStoredMedia(
