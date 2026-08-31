@@ -250,6 +250,29 @@ env \
 assert_contains "$test_dir/stderr" "status is validating promoted addresses and runtimes"
 assert_contains "$mock_log" "cast code $MOCK_MEDIA_ADDRESS --rpc-url"
 
+# A promoted journal is complete relative to the plan it recorded. Preserve the
+# valid three-component shape used by the preceding protocol release so adding a
+# fourth component to a later release does not strand its recovery journal.
+previous_timestamped=""
+for historical_active in "$(dirname "$active")"/run-[0-9]*.json; do
+  if cmp -s "$active" "$historical_active"; then
+    previous_timestamped="$historical_active"
+    break
+  fi
+done
+[[ -n "$previous_timestamped" ]] \
+  || fail "initial active broadcast has no timestamped history record"
+jq \
+  '.components = .components[:3] | .currentPrefix = 3' \
+  "$candidate" >"${candidate}.tmp"
+mv "${candidate}.tmp" "$candidate"
+jq \
+  '.transactions = .transactions[:3]
+   | .deploymentPlan.components = .deploymentPlan.components[:3]' \
+  "$active" >"${active}.tmp"
+mv "${active}.tmp" "$active"
+cp "$active" "$previous_timestamped"
+
 previous_active="$test_dir/previous-active.json"
 cp "$active" "$previous_active"
 : >"$mock_log"
@@ -260,7 +283,10 @@ env \
 promoted_archive="$contracts_dir/deployments/protocol/46630/candidate-111111111111-promoted.json"
 [[ -f "$promoted_archive" ]] || fail "superseded promoted journal was not archived"
 assert_jq "$promoted_archive" \
-  '.status == "promoted" and .sourceCommit == "1111111111111111111111111111111111111111"'
+  '.status == "promoted"
+   and .sourceCommit == "1111111111111111111111111111111111111111"
+   and .currentPrefix == 3
+   and (.components | length) == 3'
 assert_jq "$candidate" \
   '.status == "promoted" and .sourceCommit == "3333333333333333333333333333333333333333"'
 assert_jq "$active" \

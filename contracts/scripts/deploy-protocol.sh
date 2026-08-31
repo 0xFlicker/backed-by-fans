@@ -212,8 +212,8 @@ prepare_broadcast_journal_slot() {
     fail "unfinished recovery journal belongs to source commit $recorded_commit, not $source_commit"
   fi
   jq -e --arg active "$active" '
-    .currentPrefix == 4
-    and (.components | length == 4)
+    (.components | length) > 0
+    and .currentPrefix == (.components | length)
     and all(.components[];
       (.status == "deployed" or .status == "validated-existing")
       and .sourceVerified == true)
