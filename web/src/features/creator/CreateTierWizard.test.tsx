@@ -1,7 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { getAddress, zeroAddress, type Address } from "viem";
+import {
+  getAddress,
+  keccak256,
+  zeroAddress,
+  type Address,
+  type Hex,
+} from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let walletAddress: Address | undefined;
@@ -9,6 +15,7 @@ let walletChainId = 46_630;
 const readProtocolDependencies = vi.hoisted(() => vi.fn());
 const simulateContract = vi.hoisted(() => vi.fn());
 const writeContractAsync = vi.hoisted(() => vi.fn());
+const processImageSource = vi.hoisted(() => vi.fn());
 const activeClient = vi.hoisted(() => ({
   call: vi
     .fn()
@@ -17,11 +24,21 @@ const activeClient = vi.hoisted(() => ({
   estimateContractGas: vi.fn().mockResolvedValue(1n),
   getBlockNumber: vi.fn().mockResolvedValue(10n),
   getGasPrice: vi.fn().mockResolvedValue(1n),
+  getBytecode: vi.fn(),
   readContract: vi.fn().mockResolvedValue(`0x${"66".repeat(32)}`),
   waitForTransactionReceipt: vi.fn(),
 }));
 
 vi.mock("@wagmi/core", () => ({ simulateContract }));
+vi.mock(
+  "@/features/creator-studio/image-processing",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("@/features/creator-studio/image-processing")
+    >()),
+    processImageSource,
+  }),
+);
 vi.mock("wagmi", () => ({
   useAccount: () => ({
     address: walletAddress,
@@ -92,9 +109,24 @@ describe("creator setup component", () => {
     activeClient.estimateContractGas.mockResolvedValue(1n);
     activeClient.getBlockNumber.mockResolvedValue(10n);
     activeClient.getGasPrice.mockResolvedValue(1n);
+    activeClient.getBytecode.mockReset();
     activeClient.waitForTransactionReceipt.mockReset();
     simulateContract.mockReset();
     writeContractAsync.mockReset();
+    processImageSource.mockReset();
+    processImageSource.mockResolvedValue({
+      mime: "image/jpeg",
+      dimension: 512,
+      quality: 0.84,
+      byteLength: 4,
+      bytes: new Uint8Array([1, 2, 3, 4]),
+      previewBytes: new Uint8Array([1, 2, 3, 4]),
+      rendererCallBytes: new Uint8Array([1, 2, 3, 4]),
+      gasEstimateBytes: new Uint8Array([1, 2, 3, 4]),
+      writeBytes: new Uint8Array([1, 2, 3, 4]),
+      objectURL: "blob:prepared-image",
+      dispose: vi.fn(),
+    });
     activeClient.readContract.mockImplementation(
       ({ functionName }: { functionName: string }) =>
         Promise.resolve(
@@ -334,6 +366,96 @@ describe("creator setup component", () => {
     await user.click(screen.getByRole("button", { name: /check again/i }));
     await waitFor(() => expect(writeContractAsync).toHaveBeenCalledOnce());
     expect(activeClient.waitForTransactionReceipt).toHaveBeenCalledOnce();
+    expect(activeClient.waitForTransactionReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmations: 3 }),
+    );
+  });
+
+  it("waits for three image confirmations, then submits the membership", async () => {
+    const user = userEvent.setup();
+    const imageHash = `0x${"88".repeat(32)}`;
+    const membershipHash = `0x${"99".repeat(32)}`;
+    const creator = getAddress("0x1111111111111111111111111111111111111111");
+    const store = getAddress("0x5555555555555555555555555555555555555555");
+    const payload = "0x01020304";
+    const runtimeCode = `0x00${payload.slice(2)}` as Hex;
+    const digest = keccak256(payload);
+    const runtimeCodehash = keccak256(runtimeCode);
+
+    walletAddress = creator;
+    activeClient.getBalance.mockResolvedValue(10n);
+    simulateContract.mockResolvedValue({ request: {} });
+    writeContractAsync
+      .mockResolvedValueOnce(imageHash)
+      .mockResolvedValueOnce(membershipHash);
+    activeClient.waitForTransactionReceipt
+      .mockResolvedValueOnce({
+        status: "success",
+        transactionHash: imageHash,
+        blockNumber: 10n,
+        logs: [],
+      })
+      .mockImplementationOnce(() => new Promise(() => {}));
+    activeClient.getBytecode.mockResolvedValue(runtimeCode);
+    activeClient.readContract.mockImplementation(
+      ({ functionName }: { functionName: string }) => {
+        if (functionName === "tierForIdentity")
+          return Promise.resolve(zeroAddress);
+        if (functionName === "previewTokenURI") {
+          return Promise.resolve(rendererTokenURI());
+        }
+        if (functionName === "mediaStore" || functionName === "predictStore") {
+          return Promise.resolve(store);
+        }
+        if (functionName === "isRegisteredMedia") return Promise.resolve(true);
+        if (functionName === "mediaRecord") {
+          return Promise.resolve({
+            store,
+            creator,
+            mime: 1,
+            length: 4,
+            digest,
+            runtimeCodehash,
+          });
+        }
+        return Promise.resolve(`0x${"66".repeat(32)}`);
+      },
+    );
+    renderWizard();
+
+    await user.type(screen.getByLabelText("Membership name"), "After Hours");
+    await user.type(screen.getByLabelText("Symbol"), "NITE");
+    await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+    await user.click(screen.getByText("Add an image", { exact: true }));
+    await user.click(screen.getByRole("radio", { name: /add your image/i }));
+    await user.upload(
+      screen.getByLabelText("Add new image"),
+      new File([new Uint8Array([1, 2, 3, 4])], "cover.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+    await screen.findByAltText("New image");
+    await user.click(screen.getByRole("button", { name: /^risks$/i }));
+    const acknowledgements = screen.getAllByRole("checkbox");
+    await user.click(acknowledgements[0]);
+    await user.click(acknowledgements[1]);
+    await user.click(screen.getByRole("button", { name: /^review$/i }));
+
+    const publish = screen.getByRole("button", {
+      name: /publish this membership/i,
+    });
+    await waitFor(() => expect(publish).toBeEnabled());
+    await user.click(publish);
+
+    await waitFor(() => expect(writeContractAsync).toHaveBeenCalledTimes(2));
+    expect(activeClient.waitForTransactionReceipt).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ confirmations: 3, hash: imageHash }),
+    );
+    expect(activeClient.waitForTransactionReceipt).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ confirmations: 3, hash: membershipHash }),
+    );
   });
 
   it("keeps an empty percentage calm while editing and normalizes it to zero on blur", async () => {

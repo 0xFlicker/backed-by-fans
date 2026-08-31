@@ -122,6 +122,8 @@ const steps = [
 
 type StepId = (typeof steps)[number]["id"];
 
+const publicationConfirmations = 3;
+
 const previewOnlyCreator =
   "0x0000000000000000000000000000000000000bbf" as Address;
 
@@ -1508,6 +1510,7 @@ export function CreateTierWizard() {
       waitingForReceipt = true;
       let cancelled = false;
       const receipt = await client.waitForTransactionReceipt({
+        confirmations: publicationConfirmations,
         hash,
         onReplaced: (replacement) => {
           cancelled ||= replacement.reason === "cancelled";
@@ -1713,6 +1716,7 @@ export function CreateTierWizard() {
       waitingForReceipt = true;
       let cancelled = false;
       const receipt = await client.waitForTransactionReceipt({
+        confirmations: publicationConfirmations,
         hash,
         onReplaced: (replacement) => {
           cancelled ||= replacement.reason === "cancelled";
