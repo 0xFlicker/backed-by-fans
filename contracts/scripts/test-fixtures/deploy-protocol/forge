@@ -45,6 +45,7 @@ case "${1:-}" in
     case "$2:$3" in
       *OnchainMediaStoreFactory:bytecode) printf '%s\n' "${MOCK_MEDIA_BYTECODE:-0x6001}" ;;
       *OnchainMetadataRenderer:bytecode) printf '0x6002\n' ;;
+      *RendererPreviewHarness:bytecode) printf '0x6005\n' ;;
       *MembershipFactory:bytecode)
         if [[ -n "${MOCK_FACTORY_BYTECODE_BYTES:-}" ]]; then
           awk -v bytes="$MOCK_FACTORY_BYTECODE_BYTES" \
@@ -55,6 +56,7 @@ case "${1:-}" in
         ;;
       *OnchainMediaStoreFactory:deployedBytecode) printf '%s\n' "$MOCK_MEDIA_RUNTIME" ;;
       *OnchainMetadataRenderer:deployedBytecode) printf '%s\n' "$MOCK_RENDERER_RUNTIME" ;;
+      *RendererPreviewHarness:deployedBytecode) printf '%s\n' "$MOCK_PREVIEW_RUNTIME" ;;
       *MembershipFactory:deployedBytecode) printf '%s\n' "$MOCK_FACTORY_RUNTIME" ;;
       *TestnetUSDG:bytecode) printf '0x6004\n' ;;
       *TestnetUSDG:deployedBytecode) printf '%s\n' "$MOCK_TESTNET_USDG_RUNTIME" ;;
@@ -67,11 +69,12 @@ case "${1:-}" in
       state_file="$MOCK_LOCAL_STATE"
     fi
     prefix="$(cat "$state_file")"
-    if [[ "$*" == *"ValidateCompletedProtocol"* && "$prefix" != "3" ]]; then
+    if [[ "$*" == *"ValidateCompletedProtocol"* && "$prefix" != "4" ]]; then
       exit 1
     fi
     printf 'Backed By Fans expected media store factory %s\n' "$MOCK_MEDIA_ADDRESS"
     printf 'Backed By Fans expected renderer %s\n' "$MOCK_RENDERER_ADDRESS"
+    printf 'Backed By Fans expected renderer preview harness %s\n' "$MOCK_PREVIEW_ADDRESS"
     printf 'Backed By Fans expected factory %s\n' "$MOCK_FACTORY_ADDRESS"
     ;;
   verify-contract)

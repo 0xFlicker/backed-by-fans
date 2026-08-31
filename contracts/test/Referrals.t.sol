@@ -12,6 +12,7 @@ import {MockUSDG} from "./mocks/MockUSDG.sol";
 contract ReferralsTest is Test {
     MembershipTier private tier;
     MockUSDG private paymentToken;
+    OnchainMetadataRenderer private renderer;
     address private member;
     address private payer;
     address private referrer;
@@ -28,14 +29,11 @@ contract ReferralsTest is Test {
         replacement = makeAddr("replacement");
 
         paymentToken = new MockUSDG();
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
+        renderer = new OnchainMetadataRenderer();
         tier = new MembershipTier(
             address(this),
             paymentToken,
-            1,
-            address(renderer),
-            address(renderer).codehash,
-            MembershipTestConfig.defaultConfig(address(this))
+            MembershipTestConfig.defaultConfig(address(this), address(renderer))
         );
 
         paymentToken.mint(member, 1_000_000_000);
@@ -171,12 +169,10 @@ contract ReferralsTest is Test {
     }
 
     function test_zeroPriceStandardRenewalDoesNotInventAttribution() public {
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(address(this), address(renderer));
         config.pricePerPeriod = 0;
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier zeroTier = new MembershipTier(
-            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
-        );
+        MembershipTier zeroTier = new MembershipTier(address(this), paymentToken, config);
         uint256 tokenId = zeroTier.grantTime(member, 1);
 
         assertTrue(zeroTier.isRenewable(tokenId));

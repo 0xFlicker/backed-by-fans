@@ -97,6 +97,7 @@ export MOCK_LOCAL_STATE="$local_state"
 export MOCK_ANVIL_READY="$anvil_ready"
 export MOCK_MEDIA_RUNTIME=0x600a
 export MOCK_RENDERER_RUNTIME=0x600b
+export MOCK_PREVIEW_RUNTIME=0x600f
 export MOCK_SECOND_RENDERER_RUNTIME=0x600e
 export MOCK_RENDERER_SCHEMA=0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4
 export MOCK_FACTORY_RUNTIME=0x600c
@@ -109,16 +110,17 @@ export MOCK_TIER_DEPLOYER_ADDRESS=0x1111111111111111111111111111111111111111
 create2_deployer=0x4e59b44847b379578588920cA78FbF26c0B4956C
 media_salt="$($real_cast keccak 'Backed By Fans media store factory v4')"
 renderer_salt="$($real_cast keccak 'Backed By Fans renderer v4')"
-factory_salt="$($real_cast keccak 'Backed By Fans factory v4')"
+preview_salt="$($real_cast keccak 'Backed By Fans renderer preview harness v1')"
+factory_salt="$($real_cast keccak 'Backed By Fans factory v5')"
 export MOCK_MEDIA_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$media_salt" --init-code 0x6001)"
 export MOCK_RENDERER_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$renderer_salt" --init-code 0x6002)"
+export MOCK_PREVIEW_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$preview_salt" --init-code 0x6005)"
 export MOCK_SECOND_RENDERER_ADDRESS=0x9999999999999999999999999999999999999999
 testnet_usdg_salt="$($real_cast keccak 'Backed By Fans testnet USDG v1')"
 export MOCK_TESTNET_USDG_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$testnet_usdg_salt" --init-code 0x6004)"
 factory_constructor_args="$($real_cast abi-encode \
-  'constructor(address,address,address,address,address)' \
+  'constructor(address,address,address,address)' \
   "$MOCK_TESTNET_USDG_ADDRESS" \
-  "$MOCK_RENDERER_ADDRESS" \
   "$MOCK_MEDIA_ADDRESS" \
   "$MOCK_SAFE_ADDRESS" \
   "$MOCK_SAFE_ADDRESS")"
@@ -126,6 +128,7 @@ mock_factory_init_code="0x6003${factory_constructor_args#0x}"
 export MOCK_FACTORY_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$factory_salt" --init-code "$mock_factory_init_code")"
 export MOCK_MEDIA_RUNTIME_HASH="$($real_cast keccak "$MOCK_MEDIA_RUNTIME")"
 export MOCK_RENDERER_RUNTIME_HASH="$($real_cast keccak "$MOCK_RENDERER_RUNTIME")"
+export MOCK_PREVIEW_RUNTIME_HASH="$($real_cast keccak "$MOCK_PREVIEW_RUNTIME")"
 export MOCK_SECOND_RENDERER_RUNTIME_HASH="$($real_cast keccak "$MOCK_SECOND_RENDERER_RUNTIME")"
 export MOCK_FACTORY_RUNTIME_HASH="$($real_cast keccak "$MOCK_FACTORY_RUNTIME")"
 export MOCK_TESTNET_USDG_RUNTIME_HASH="$($real_cast keccak "$MOCK_TESTNET_USDG_RUNTIME")"
@@ -140,11 +143,11 @@ jq \
   --arg payment_runtime "$MOCK_TESTNET_USDG_RUNTIME_HASH" \
   --arg media "$MOCK_MEDIA_ADDRESS" \
   --arg media_runtime "$MOCK_MEDIA_RUNTIME_HASH" \
+  --arg preview "$MOCK_PREVIEW_ADDRESS" \
+  --arg preview_runtime "$MOCK_PREVIEW_RUNTIME_HASH" \
   --arg factory "$MOCK_FACTORY_ADDRESS" \
   --arg factory_runtime "$MOCK_FACTORY_RUNTIME_HASH" \
-  '.factory.renderers[0].implementation = $implementation
-   | .factory.renderers[0].runtimeCodehash = $runtime_hash
-   | .deployment.paymentToken = {
+  '.deployment.paymentToken = {
       address: $payment_token,
       runtimeCodehash: $payment_runtime,
       implementation: null,
@@ -152,6 +155,7 @@ jq \
     }
    | .deployment.mediaStoreFactory = {address: $media, runtimeCodehash: $media_runtime}
    | .deployment.renderer = {address: $implementation, runtimeCodehash: $runtime_hash}
+   | .deployment.previewHarness = {address: $preview, runtimeCodehash: $preview_runtime}
    | .deployment.membershipFactory = {address: $factory, runtimeCodehash: $factory_runtime}' \
   "$operational_state" >"${operational_state}.tmp"
 mv "${operational_state}.tmp" "$operational_state"
@@ -180,8 +184,8 @@ reset_project_state
 "$deploy_wrapper" testnet dry-run
 assert_contains "$mock_log" "FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860"
 assert_contains "$mock_log" "anvil --fork-url https://rpc.testnet.chain.robinhood.com --chain-id 46630"
-assert_count "$mock_log" "cast send $create2_deployer --data <raw-create2-calldata> --rpc-url http://127.0.0.1:" 3
-assert_count "$mock_log" "--nonce" 3
+assert_count "$mock_log" "cast send $create2_deployer --data <raw-create2-calldata> --rpc-url http://127.0.0.1:" 4
+assert_count "$mock_log" "--nonce" 4
 assert_not_contains "$mock_log" "cast send $create2_deployer --data <raw-create2-calldata> --rpc-url https://rpc.testnet.chain.robinhood.com"
 assert_not_contains "$mock_log" "cast mktx $create2_deployer"
 assert_not_contains "$mock_log" "cast publish <signed-transaction>"
@@ -189,12 +193,12 @@ assert_contains "$mock_log" "--from 0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027 -
 assert_not_contains "$mock_log" "cast wallet address"
 assert_not_contains "$mock_log" ":DeployProtocol --rpc-url"
 [[ "$(cat "$public_state")" == "0" ]] || fail "dry-run changed public prefix"
-[[ "$(cat "$local_state")" == "3" ]] || fail "dry-run did not deploy all components on Anvil"
+[[ "$(cat "$local_state")" == "4" ]] || fail "dry-run did not deploy all components on Anvil"
 [[ ! -e "$contracts_dir/deployments/protocol/46630/candidate.json" ]] \
   || fail "dry-run wrote a public recovery journal"
 
 reset_project_state
-run_expect_failure env MOCK_FACTORY_BYTECODE_BYTES=94809 "$deploy_wrapper" testnet dry-run
+run_expect_failure env MOCK_FACTORY_BYTECODE_BYTES=94841 "$deploy_wrapper" testnet dry-run
 assert_contains "$test_dir/stderr" \
   "membership factory raw CREATE2 transaction data is 95001 bytes; Robinhood Nitro sequencer limit is 95000"
 assert_not_contains "$mock_log" "cast send $create2_deployer"
@@ -211,11 +215,11 @@ env MOCK_BUN_REQUIRE_PRESERVED_BROADCASTS=1 "$deploy_wrapper" testnet broadcast
 candidate="$contracts_dir/deployments/protocol/46630/candidate.json"
 active="$contracts_dir/broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json"
 assert_contains "$mock_log" "cast wallet address --account backed-by-fans-testnet"
-assert_count "$mock_log" "cast send $create2_deployer --data <raw-create2-calldata> --rpc-url http://127.0.0.1:" 3
-assert_count "$mock_log" "cast mktx $create2_deployer <raw-create2-calldata> --rpc-url https://rpc.testnet.chain.robinhood.com" 3
-assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 3
-assert_count "$mock_log" "--nonce" 6
-assert_count "$mock_log" "forge verify-contract --watch --chain 46630" 3
+assert_count "$mock_log" "cast send $create2_deployer --data <raw-create2-calldata> --rpc-url http://127.0.0.1:" 4
+assert_count "$mock_log" "cast mktx $create2_deployer <raw-create2-calldata> --rpc-url https://rpc.testnet.chain.robinhood.com" 4
+assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 4
+assert_count "$mock_log" "--nonce" 8
+assert_count "$mock_log" "forge verify-contract --watch --chain 46630" 4
 assert_contains "$mock_log" \
   "--constructor-args $factory_constructor_args $MOCK_FACTORY_ADDRESS src/MembershipFactory.sol:MembershipFactory"
 assert_contains "$mock_log" "bun x wagmi generate"
@@ -224,16 +228,16 @@ assert_not_contains "$mock_log" "--password"
 assert_not_contains "$mock_log" "--password-file"
 assert_not_contains "$mock_log" "--private-key"
 assert_not_contains "$mock_log" "forge script script/DeployDirectProtocol.s.sol:DeployProtocol"
-[[ "$(cat "$public_state")" == "3" ]] || fail "broadcast did not deploy the public prefix"
+[[ "$(cat "$public_state")" == "4" ]] || fail "broadcast did not deploy the public prefix"
 [[ -f "$candidate" ]] || fail "broadcast did not persist its recovery journal"
 [[ -f "$active" ]] || fail "broadcast did not promote its active Foundry record"
-assert_jq "$candidate" '.status == "promoted" and .currentPrefix == 3'
-assert_jq "$candidate" '[.components[].status] == ["deployed", "deployed", "deployed"]'
-assert_jq "$candidate" '[.components[].sourceVerified] == [true, true, true]'
-assert_jq "$active" '.chain == 46630 and (.transactions | length) == 3'
-assert_jq "$active" '[.transactions[].transactionType] == ["CALL", "CALL", "CALL"]'
-assert_jq "$active" '[.transactions[].additionalContracts[0].contractName] == ["OnchainMediaStoreFactory", "OnchainMetadataRenderer", "MembershipFactory"]'
-assert_jq "$active" '.deploymentPlan.components[0].allowedPredecessor == "empty" and .deploymentPlan.components[2].allowedPredecessor == "renderer"'
+assert_jq "$candidate" '.status == "promoted" and .currentPrefix == 4'
+assert_jq "$candidate" '[.components[].status] == ["deployed", "deployed", "deployed", "deployed"]'
+assert_jq "$candidate" '[.components[].sourceVerified] == [true, true, true, true]'
+assert_jq "$active" '.chain == 46630 and (.transactions | length) == 4'
+assert_jq "$active" '[.transactions[].transactionType] == ["CALL", "CALL", "CALL", "CALL"]'
+assert_jq "$active" '[.transactions[].additionalContracts[0].contractName] == ["OnchainMediaStoreFactory", "OnchainMetadataRenderer", "RendererPreviewHarness", "MembershipFactory"]'
+assert_jq "$active" '.deploymentPlan.components[0].allowedPredecessor == "empty" and .deploymentPlan.components[3].allowedPredecessor == "renderer preview harness"'
 assert_jq "$active" '.commit == "1111111111111111111111111111111111111111" and .deploymentPlan.schemaVersion == 4 and .deploymentPlan.sourceCommit == .commit and .deploymentPlan.operationalStateBlob == "2222222222222222222222222222222222222222"'
 assert_jq "$candidate" '.buildConfigHash | test("^0x[0-9a-f]{64}$")'
 assert_jq "$candidate" '.forgeVersion == "forge Version: 1.7.1" and .solcVersion == "0.8.36" and .buildConfig.optimizer_runs == 200'
@@ -335,9 +339,9 @@ assert_contains "$test_dir/stderr" \
 
 : >"$mock_log"
 "$deploy_wrapper" testnet broadcast
-assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 2
-[[ "$(cat "$public_state")" == "3" ]] || fail "prefix resume did not finish deployment"
-assert_jq "$candidate" '[.components[].status] == ["deployed", "deployed", "deployed"]'
+assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 3
+[[ "$(cat "$public_state")" == "4" ]] || fail "prefix resume did not finish deployment"
+assert_jq "$candidate" '[.components[].status] == ["deployed", "deployed", "deployed", "deployed"]'
 [[ -f "$active" ]] || fail "resumed deployment did not promote its active record"
 
 reset_project_state
@@ -351,11 +355,11 @@ assert_jq "$candidate" '.currentPrefix == 0 and .components[0].status == "submit
 
 : >"$mock_log"
 env MOCK_CAST_FAIL_PUBLIC_RECEIPT_AT=1 "$deploy_wrapper" testnet broadcast
-assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 2
+assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 3
 first_public_hash="$($real_cast keccak "$(printf '0x%064x' 1001)")"
 assert_not_contains "$mock_log" "cast receipt $first_public_hash"
-[[ "$(cat "$public_state")" == "3" ]] || fail "submitted-hash recovery did not finish deployment"
-assert_jq "$candidate" '[.components[].status] == ["validated-existing", "deployed", "deployed"]'
+[[ "$(cat "$public_state")" == "4" ]] || fail "submitted-hash recovery did not finish deployment"
+assert_jq "$candidate" '[.components[].status] == ["validated-existing", "deployed", "deployed", "deployed"]'
 [[ -f "$active" ]] || fail "submitted-hash recovery did not promote its active record"
 
 reset_project_state
@@ -413,8 +417,8 @@ assert_jq "$candidate" '.components[0].status == "pending" and .components[0].tr
 
 : >"$mock_log"
 "$deploy_wrapper" testnet broadcast
-assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 3
-[[ "$(cat "$public_state")" == "3" ]] || fail "fresh authorization did not resubmit the recovered prefix"
+assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 4
+[[ "$(cat "$public_state")" == "4" ]] || fail "fresh authorization did not resubmit the recovered prefix"
 [[ -f "$active" ]] || fail "recovered deployment did not promote its active record"
 
 reset_project_state
@@ -444,7 +448,7 @@ printf 'export const existingBindings = true;\n' >"$project_root/web/src/contrac
 run_expect_failure env MOCK_BUN_FAIL=1 "$deploy_wrapper" testnet broadcast
 candidate="$contracts_dir/deployments/protocol/46630/candidate.json"
 active="$contracts_dir/broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json"
-[[ "$(cat "$public_state")" == "3" ]] || fail "binding failure lost the deployed public prefix"
+[[ "$(cat "$public_state")" == "4" ]] || fail "binding failure lost the deployed public prefix"
 [[ ! -f "$active" ]] || fail "binding failure left an active deployment pointer"
 assert_contains "$project_root/web/src/contracts.ts" "existingBindings"
 assert_jq "$candidate" '.status == "source-verified" and (has("activeBroadcast") | not)'
@@ -472,7 +476,7 @@ run_expect_failure env \
 candidate="$contracts_dir/deployments/protocol/46630/candidate.json"
 active="$toctou_broadcast_dir/run-latest.json"
 [[ -f "$toctou_marker" ]] || fail "TOCTOU fixture did not dirty the tracked web input"
-[[ "$(cat "$public_state")" == "3" ]] || fail "TOCTOU fixture did not reach staged promotion"
+[[ "$(cat "$public_state")" == "4" ]] || fail "TOCTOU fixture did not reach staged promotion"
 cmp -s "$toctou_timestamped_expected" "$toctou_timestamped" \
   || fail "TOCTOU failure changed the existing timestamped record"
 [[ "$(find "$toctou_broadcast_dir" -maxdepth 1 -type f -name 'run-[0-9]*.json' | wc -l | tr -d ' ')" == "1" ]] \
@@ -485,17 +489,17 @@ assert_contains "$test_dir/stderr" "tracked source inputs differ from recovery c
 assert_contains "$test_dir/stderr" "tracked source changed during staged web binding generation"
 
 reset_project_state
-printf '3\n' >"$public_state"
+printf '4\n' >"$public_state"
 "$deploy_wrapper" testnet resume-verify
 candidate="$contracts_dir/deployments/protocol/46630/candidate.json"
 active="$contracts_dir/broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json"
 assert_not_contains "$mock_log" "cast send"
 assert_not_contains "$mock_log" "anvil --fork-url"
 assert_not_contains "$mock_log" "cast wallet address"
-assert_count "$mock_log" "forge verify-contract --watch --chain 46630" 3
+assert_count "$mock_log" "forge verify-contract --watch --chain 46630" 4
 assert_contains "$mock_log" "bun x wagmi generate"
-assert_jq "$candidate" '[.components[].status] == ["validated-existing", "validated-existing", "validated-existing"]'
-assert_jq "$active" '[.transactions[].hash] == [null, null, null]'
+assert_jq "$candidate" '[.components[].status] == ["validated-existing", "validated-existing", "validated-existing", "validated-existing"]'
+assert_jq "$active" '[.transactions[].hash] == [null, null, null, null]'
 
 reset_project_state
 "$deploy_wrapper" testnet status
@@ -526,96 +530,23 @@ assert_contains "$test_dir/stderr" "requires a clean committed checkout"
 [[ ! -s "$mock_log" ]] || fail "dirty source reached authoritative status tools"
 
 reset_project_state
-printf '3\n' >"$public_state"
-run_expect_failure env MOCK_RENDERER_COUNT=2 "$deploy_wrapper" testnet status
-assert_contains "$test_dir/stderr" "renderer registry count differs from reviewed operational state"
-
-reset_project_state
-printf '3\n' >"$public_state"
-jq \
-  --arg implementation "$MOCK_SECOND_RENDERER_ADDRESS" \
-  --arg runtime_hash "$MOCK_SECOND_RENDERER_RUNTIME_HASH" \
-  '.factory.renderers += [{
-    version: 2,
-    implementation: $implementation,
-    runtimeCodehash: $runtime_hash,
-    enabled: true
-  }]' \
-  "$operational_state" >"${operational_state}.tmp"
-mv "${operational_state}.tmp" "$operational_state"
-env MOCK_RENDERER_COUNT=2 "$deploy_wrapper" testnet status
-assert_contains "$mock_log" "rendererRecord(uint32)((address,bytes32,bool)) 2"
-assert_contains "$mock_log" "rendererVersionOf(address)(uint32) $MOCK_SECOND_RENDERER_ADDRESS"
-
-reset_project_state
-printf '3\n' >"$public_state"
-run_expect_failure env MOCK_RENDERER_ENABLED=false "$deploy_wrapper" testnet status
-assert_contains "$test_dir/stderr" "renderer 1 enabled state differs from reviewed operational state"
-
-reset_project_state
-printf '3\n' >"$public_state"
-jq \
-  --arg implementation "$MOCK_SECOND_RENDERER_ADDRESS" \
-  --arg runtime_hash "$MOCK_SECOND_RENDERER_RUNTIME_HASH" \
-  '.factory.renderers += [{
-    version: 2,
-    implementation: $implementation,
-    runtimeCodehash: $runtime_hash,
-    enabled: false
-  }]' \
-  "$operational_state" >"${operational_state}.tmp"
-mv "${operational_state}.tmp" "$operational_state"
-run_expect_failure env MOCK_RENDERER_COUNT=2 "$deploy_wrapper" testnet status
-assert_contains "$test_dir/stderr" "renderer 2 enabled state differs from reviewed operational state"
-
-reset_project_state
-printf '3\n' >"$public_state"
-jq \
-  --arg implementation "$MOCK_SECOND_RENDERER_ADDRESS" \
-  --arg runtime_hash "$MOCK_SECOND_RENDERER_RUNTIME_HASH" \
-  '.factory.renderers += [{
-    version: 2,
-    implementation: $implementation,
-    runtimeCodehash: $runtime_hash,
-    enabled: true
-  }]' \
-  "$operational_state" >"${operational_state}.tmp"
-mv "${operational_state}.tmp" "$operational_state"
-run_expect_failure env \
-  MOCK_RENDERER_COUNT=2 \
-  MOCK_SECOND_RENDERER_ENABLED=false \
-  "$deploy_wrapper" testnet status
-assert_contains "$test_dir/stderr" "renderer 2 enabled state differs from reviewed operational state"
-
-reset_project_state
-printf '3\n' >"$public_state"
+printf '4\n' >"$public_state"
 reviewed_owner=0x3333333333333333333333333333333333333333
 reviewed_fee_recipient=0x4444444444444444444444444444444444444444
 jq \
   --arg owner "$reviewed_owner" \
   --arg fee_recipient "$reviewed_fee_recipient" \
-  --arg second_renderer "$MOCK_SECOND_RENDERER_ADDRESS" \
-  --arg second_runtime_hash "$MOCK_SECOND_RENDERER_RUNTIME_HASH" \
   '.safe.owners = [$owner]
    | .factory.owner = $owner
-   | .factory.feeRecipient = $fee_recipient
-   | .factory.renderers[0].enabled = false
-   | .factory.renderers += [{
-      version: 2,
-      implementation: $second_renderer,
-      runtimeCodehash: $second_runtime_hash,
-      enabled: true
-    }]' \
+   | .factory.feeRecipient = $fee_recipient' \
   "$operational_state" >"${operational_state}.tmp"
 mv "${operational_state}.tmp" "$operational_state"
 env \
   MOCK_SAFE_OWNERS_JSON="[[\"$reviewed_owner\"]]" \
   MOCK_FACTORY_OWNER="$reviewed_owner" \
   MOCK_FACTORY_FEE_RECIPIENT="$reviewed_fee_recipient" \
-  MOCK_RENDERER_COUNT=2 \
-  MOCK_RENDERER_ENABLED=false \
   "$deploy_wrapper" testnet status
-assert_contains "$mock_log" "rendererRecord(uint32)((address,bytes32,bool)) 2"
+assert_not_contains "$mock_log" "rendererRecord(uint32)"
 
 : >"$mock_log"
 run_expect_failure env ETH_PASSWORD=plaintext "$deploy_wrapper" testnet status

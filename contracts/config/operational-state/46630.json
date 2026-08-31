@@ -9,16 +9,20 @@
       "implementationRuntimeCodehash": null
     },
     "mediaStoreFactory": {
-      "address": "0x2f397e956313420769D406776Ac3037ED4beB827",
-      "runtimeCodehash": "0xd46d0310bac3082245018ae4aea7b22bcc67b9e9308fecf65a7298988edccd05"
+      "address": "0x9Aa414003D5E498E81aEE8A4388b129a7876179c",
+      "runtimeCodehash": "0x4b314ffb8148cbf5035d67fbbc101e17e478a34b09c6cd5303c26ecc9ba88138"
     },
     "renderer": {
-      "address": "0x537CCE4581D6ab2c7D2F5b887e95f5991730238B",
-      "runtimeCodehash": "0xeba10f717236b9a0a4ddde0feb909364b2514cc240c9065c0d11341734014a97"
+      "address": "0x41c9df1Ea7D09Ecbd830b63f4EB7Ec46D6e34631",
+      "runtimeCodehash": "0x54858006577d3aeb1b843d5d741f18ad6eaa9ed6e6a12ec396752e37e5f6701e"
+    },
+    "previewHarness": {
+      "address": "0x35ACe5985a9088699197cd1931fc3083dee229B6",
+      "runtimeCodehash": "0x0a4c43cc7583986bc35eaf86a492341f952567ca2fa6b9fe3eaf62fcefb06604"
     },
     "membershipFactory": {
-      "address": "0xF8D06170092d20C94c36fe20B719C3b93feDdd44",
-      "runtimeCodehash": "0x8883eb556037bb41ffcda71b0b2e64fae5fbeca3dd11f0b2651da2349ab86a5f"
+      "address": "0x2483C7B98e759c4B4b8b76A399108567605e9555",
+      "runtimeCodehash": "0x3483c8ecbad4bc0df004c4f201030dbd797afd57f255825bb4cc491681762206"
     }
   },
   "safe": {
@@ -34,14 +38,6 @@
   "factory": {
     "owner": "0xeAA4B38A99f766117C1D493a21012fec25f70505",
     "pendingOwner": "0x0000000000000000000000000000000000000000",
-    "feeRecipient": "0xeAA4B38A99f766117C1D493a21012fec25f70505",
-    "renderers": [
-      {
-        "version": 1,
-        "implementation": "0x537CCE4581D6ab2c7D2F5b887e95f5991730238B",
-        "runtimeCodehash": "0xeba10f717236b9a0a4ddde0feb909364b2514cc240c9065c0d11341734014a97",
-        "enabled": true
-      }
-    ]
+    "feeRecipient": "0xeAA4B38A99f766117C1D493a21012fec25f70505"
   }
 }

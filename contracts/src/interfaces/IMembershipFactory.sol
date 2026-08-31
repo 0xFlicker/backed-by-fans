@@ -33,31 +33,13 @@ interface IMembershipFactory {
         address mediaStore,
         bytes32 mediaDigest
     );
-    event TierRendererConfigured(
-        address indexed tier,
-        uint32 indexed rendererVersion,
-        address indexed renderer,
-        bytes32 runtimeCodehash
-    );
-    event RendererRegistered(
-        uint32 indexed rendererVersion, address indexed renderer, bytes32 indexed runtimeCodehash
-    );
-    event RendererEnabled(uint32 indexed rendererVersion, bool enabled);
+    event TierRendererConfigured(address indexed tier, address indexed renderer);
     event FeeRecipientUpdated(address indexed previousRecipient, address indexed newRecipient);
     event ProtocolFeesWithdrawn(address indexed recipient, uint256 amount);
 
     function paymentToken() external view returns (IERC20);
 
     function rendererSchema() external view returns (bytes32);
-
-    function rendererCount() external view returns (uint32);
-
-    function rendererVersionOf(address renderer) external view returns (uint32);
-
-    function rendererRecord(uint32 rendererVersion)
-        external
-        view
-        returns (MembershipTypes.RendererRecord memory);
 
     function mediaStoreFactory() external view returns (address);
 
@@ -86,10 +68,6 @@ interface IMembershipFactory {
     function tiers(uint256 offset, uint256 limit) external view returns (address[] memory page);
 
     function setFeeRecipient(address newRecipient) external;
-
-    function registerRenderer(address renderer) external returns (uint32 rendererVersion);
-
-    function setRendererEnabled(uint32 rendererVersion, bool enabled) external;
 
     function withdrawProtocolFees() external returns (uint256 amount);
 }

@@ -13,7 +13,7 @@ contract MembershipTierHarness is MembershipTier {
         IERC20 paymentToken,
         address renderer,
         MembershipTypes.TierConfig memory config
-    ) MembershipTier(factory, paymentToken, 1, renderer, renderer.codehash, config) {}
+    ) MembershipTier(factory, paymentToken, config) {}
 
     function storedTimeState(uint256 tokenId)
         external

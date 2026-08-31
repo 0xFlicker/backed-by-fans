@@ -4,7 +4,7 @@ pragma solidity =0.8.36;
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 
 library MembershipTestConfig {
-    function defaultConfig(address creator)
+    function defaultConfig(address creator, address renderer)
         internal
         pure
         returns (MembershipTypes.TierConfig memory)
@@ -12,7 +12,7 @@ library MembershipTestConfig {
         return MembershipTypes.TierConfig({
             creator: creator,
             tierSalt: keccak256(abi.encode("default-tier", creator)),
-            rendererVersion: 1,
+            renderer: renderer,
             name: "Creator Backers",
             symbol: "BACK",
             pricePerPeriod: 10_000_000,

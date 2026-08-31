@@ -61,10 +61,6 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function renderer() external view returns (address);
 
-    function rendererVersion() external view returns (uint32);
-
-    function rendererRuntimeCodehash() external view returns (bytes32);
-
     function tierIdentity() external view returns (bytes32);
 
     function artConfig() external view returns (MembershipTypes.ArtConfig memory);

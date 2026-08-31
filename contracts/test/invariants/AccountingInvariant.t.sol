@@ -376,14 +376,11 @@ contract AccountingInvariantTest is StdInvariant, Test {
         address creator = makeAddr("invariantCreator");
         address feeRecipient = makeAddr("invariantFeeRecipient");
         _factory = new MembershipFactory(
-            _paymentToken,
-            address(renderer),
-            address(mediaStoreFactory),
-            address(this),
-            feeRecipient
+            _paymentToken, address(mediaStoreFactory), address(this), feeRecipient
         );
 
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(creator);
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(creator, address(renderer));
         config.maxPrepaidPeriods = 0;
         vm.prank(creator);
         _tier = MembershipTier(_factory.createTier(config));

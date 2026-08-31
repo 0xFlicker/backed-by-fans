@@ -13,6 +13,7 @@ import {MockUSDG} from "./mocks/MockUSDG.sol";
 contract PaymentsAndTimeTest is Test {
     MembershipTier private tier;
     MockUSDG private paymentToken;
+    OnchainMetadataRenderer private renderer;
     address private member;
 
     uint64 private constant _PERIOD = 30 days;
@@ -23,10 +24,8 @@ contract PaymentsAndTimeTest is Test {
         member = makeAddr("member");
 
         paymentToken = new MockUSDG();
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(
-            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, _config()
-        );
+        renderer = new OnchainMetadataRenderer();
+        tier = new MembershipTier(address(this), paymentToken, _config());
         paymentToken.mint(member, 1_000_000_000);
         vm.prank(member);
         paymentToken.approve(address(tier), type(uint256).max);
@@ -174,10 +173,7 @@ contract PaymentsAndTimeTest is Test {
     function test_zeroPriceSelfActionAddsOnePeriodWithOrWithoutContribution() public {
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = 0;
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier zeroTier = new MembershipTier(
-            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
-        );
+        MembershipTier zeroTier = new MembershipTier(address(this), paymentToken, config);
         vm.prank(member);
         paymentToken.approve(address(zeroTier), type(uint256).max);
 
@@ -224,10 +220,7 @@ contract PaymentsAndTimeTest is Test {
 
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = 0;
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier zeroTier = new MembershipTier(
-            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
-        );
+        MembershipTier zeroTier = new MembershipTier(address(this), paymentToken, config);
         zeroTier.setPaused(true);
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);
@@ -237,10 +230,7 @@ contract PaymentsAndTimeTest is Test {
     function test_fixedPriceMultiplicationOverflowFailsBeforeCustodyOrTime() public {
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = type(uint256).max;
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier expensiveTier = new MembershipTier(
-            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
-        );
+        MembershipTier expensiveTier = new MembershipTier(address(this), paymentToken, config);
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.PaymentOverflow.selector);
@@ -266,10 +256,7 @@ contract PaymentsAndTimeTest is Test {
         config.pricePerPeriod = 0;
         config.rewardBps = rewardRate;
         config.referralBps = referralRate;
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier fuzzTier = new MembershipTier(
-            address(this), fuzzToken, 1, address(renderer), address(renderer).codehash, config
-        );
+        MembershipTier fuzzTier = new MembershipTier(address(this), fuzzToken, config);
         fuzzToken.mint(member, gross);
         vm.prank(member);
         fuzzToken.approve(address(fuzzTier), gross);
@@ -297,6 +284,6 @@ contract PaymentsAndTimeTest is Test {
     }
 
     function _config() private view returns (MembershipTypes.TierConfig memory) {
-        return MembershipTestConfig.defaultConfig(address(this));
+        return MembershipTestConfig.defaultConfig(address(this), address(renderer));
     }
 }

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://backed-by-fans.example/schemas/renderer-package-v1.json",
+  "title": "Backed By Fans Renderer Package",
+  "description": "Portable local handoff imported by the renderer webpage. The file contains renderer artifacts and representative requests, never creator media, wallet secrets, authorization artifacts, or browser-executable code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formatVersion",
+    "rendererName",
+    "interfaceSchema",
+    "compiler",
+    "artifacts",
+    "deployment",
+    "examples",
+    "skill",
+    "llms"
+  ],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "rendererName": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "interfaceSchema": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "solidity",
+        "evmVersion",
+        "optimizerEnabled",
+        "optimizerRuns"
+      ],
+      "properties": {
+        "solidity": { "const": "0.8.36" },
+        "evmVersion": { "const": "cancun" },
+        "optimizerEnabled": { "const": true },
+        "optimizerRuns": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceRoot",
+        "abi",
+        "creationBytecode",
+        "runtimeBytecode",
+        "artifactFingerprint"
+      ],
+      "properties": {
+        "sourceRoot": { "type": "string", "maxLength": 2048 },
+        "abi": { "type": "string", "maxLength": 200000 },
+        "creationBytecode": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]*$",
+          "maxLength": 352002
+        },
+        "runtimeBytecode": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]*$",
+          "maxLength": 176002
+        },
+        "artifactFingerprint": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        "creationByteLength": { "type": "integer", "maximum": 176000 },
+        "runtimeByteLength": { "type": "integer", "maximum": 88000 }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chainId",
+        "create2Deployer",
+        "salt",
+        "initCodeHash",
+        "predictedAddress",
+        "rawByteLength"
+      ],
+      "properties": {
+        "chainId": { "type": "integer", "const": 46630 },
+        "create2Deployer": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "salt": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+        "initCodeHash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+        "predictedAddress": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "rawByteLength": { "type": "integer", "maximum": 94999 }
+      }
+    },
+    "examples": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requestId",
+          "tokenId",
+          "state",
+          "imageMode",
+          "method",
+          "contextWithoutMedia",
+          "localImageSlot"
+        ],
+        "properties": {
+          "requestId": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "tokenId": { "type": "integer", "enum": [1, 7, 42] },
+          "state": { "type": "string", "enum": ["active", "expired"] },
+          "imageMode": { "type": "string", "enum": ["none", "browser-slot"] },
+          "method": {
+            "type": "string",
+            "enum": ["previewSVG", "previewTokenURI"]
+          },
+          "contextWithoutMedia": { "type": "object" },
+          "localImageSlot": { "type": "boolean" }
+        }
+      }
+    },
+    "skill": { "type": "string", "maxLength": 2048 },
+    "llms": { "type": "string", "maxLength": 2048 }
+  }
+}

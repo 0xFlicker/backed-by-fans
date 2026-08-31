@@ -25,9 +25,7 @@ contract MembershipIdentityTest is Test {
 
         MockUSDG token = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(
-            address(this), token, 1, address(renderer), address(renderer).codehash, _config()
-        );
+        tier = new MembershipTier(address(this), token, _config(address(renderer)));
     }
 
     function test_grantsMintOnePersistentSequentialCredentialPerRecipient() public {
@@ -123,7 +121,7 @@ contract MembershipIdentityTest is Test {
         assertFalse(tier.supportsInterface(0xffffffff));
     }
 
-    function _config() private view returns (MembershipTypes.TierConfig memory) {
-        return MembershipTestConfig.defaultConfig(address(this));
+    function _config(address renderer_) private view returns (MembershipTypes.TierConfig memory) {
+        return MembershipTestConfig.defaultConfig(address(this), renderer_);
     }
 }

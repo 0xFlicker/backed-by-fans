@@ -16,6 +16,7 @@ import {MembershipModel} from "./models/MembershipModel.sol";
 contract FixedPriceRefundsAndOwnershipTest is Test {
     MembershipTier private tier;
     MockUSDG private paymentToken;
+    OnchainMetadataRenderer private renderer;
 
     address private creator;
     address private nextCreator;
@@ -35,16 +36,10 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         referrer = makeAddr("referrer");
 
         paymentToken = new MockUSDG();
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(creator);
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(
-            makeAddr("factory"),
-            paymentToken,
-            1,
-            address(renderer),
-            address(renderer).codehash,
-            config
-        );
+        renderer = new OnchainMetadataRenderer();
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(creator, address(renderer));
+        tier = new MembershipTier(makeAddr("factory"), paymentToken, config);
         _fundAndApprove(member, 100_000_000);
         _fundAndApprove(payer, 100_000_000);
         _fundAndApprove(creator, 100_000_000);
@@ -334,6 +329,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
 contract ZeroPriceRefundsTest is Test {
     MembershipTier private tier;
     MockUSDG private paymentToken;
+    OnchainMetadataRenderer private renderer;
 
     address private creator;
     address private member;
@@ -346,6 +342,7 @@ contract ZeroPriceRefundsTest is Test {
         creator = makeAddr("zeroCreator");
         member = makeAddr("zeroMember");
         paymentToken = new MockUSDG();
+        renderer = new OnchainMetadataRenderer();
         tier = _deployZeroTier();
         paymentToken.mint(member, 1_000_000_000);
         paymentToken.mint(creator, 1_000_000_000);
@@ -488,18 +485,11 @@ contract ZeroPriceRefundsTest is Test {
     }
 
     function _deployZeroTier() private returns (MembershipTier zeroTier) {
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(creator);
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(creator, address(renderer));
         config.pricePerPeriod = 0;
         config.maxPrepaidPeriods = 0;
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        zeroTier = new MembershipTier(
-            makeAddr("zeroFactory"),
-            paymentToken,
-            1,
-            address(renderer),
-            address(renderer).codehash,
-            config
-        );
+        zeroTier = new MembershipTier(makeAddr("zeroFactory"), paymentToken, config);
     }
 
     function _contribute(uint256 gross) private returns (uint256 tokenId) {
@@ -552,10 +542,7 @@ contract AdversarialRefundsTest is Test {
         tier = new MembershipTier(
             makeAddr("adversarialFactory"),
             paymentToken,
-            1,
-            address(renderer),
-            address(renderer).codehash,
-            MembershipTestConfig.defaultConfig(creator)
+            MembershipTestConfig.defaultConfig(creator, address(renderer))
         );
         paymentToken.mint(member, 100_000_000);
         paymentToken.mint(creator, 100_000_000);

@@ -49,14 +49,11 @@ contract LocalLifecycleEvidenceTest is Test {
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
         factory = new MembershipFactory(
-            IERC20(address(paymentToken)),
-            address(renderer),
-            address(mediaStoreFactory),
-            address(this),
-            feeRecipient
+            IERC20(address(paymentToken)), address(mediaStoreFactory), address(this), feeRecipient
         );
 
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(creator);
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(creator, address(renderer));
         bytes memory nativeJPEG = RealImageFixtures.jpeg(0x42);
         vm.prank(creator);
         address mediaStore = mediaStoreFactory.store(nativeJPEG, MembershipTypes.MediaMIME.JPEG);

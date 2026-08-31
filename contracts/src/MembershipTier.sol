@@ -39,9 +39,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     address public immutable override factory;
     IERC20 public immutable override paymentToken;
-    uint32 public immutable override rendererVersion;
     address public immutable override renderer;
-    bytes32 public immutable override rendererRuntimeCodehash;
     bytes32 public immutable override tierIdentity;
     uint256 public immutable override pricePerPeriod;
     uint64 public immutable override periodDuration;
@@ -99,8 +97,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error ReferralChoiceMismatch();
     error ReferralChoiceRequired();
     error ReferralStateMismatch();
-    error RendererCodeChanged(bytes32 expected, bytes32 actual);
-    error RendererVersionMismatch(uint32 expected, uint32 actual);
     error SelfGiftNotAllowed();
     error Soulbound();
     error SupplyCapBelowOccupancy();
@@ -108,28 +104,17 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error TimestampOverflow();
     error TokenOwnerOnly();
 
-    constructor(
-        address factory_,
-        IERC20 paymentToken_,
-        uint32 rendererVersion_,
-        address renderer_,
-        bytes32 rendererRuntimeCodehash_,
-        MembershipTypes.TierConfig memory config
-    ) ERC721(config.name, config.symbol) Ownable(config.creator) {
+    constructor(address factory_, IERC20 paymentToken_, MembershipTypes.TierConfig memory config)
+        ERC721(config.name, config.symbol)
+        Ownable(config.creator)
+    {
         if (
             factory_ == address(0) || address(paymentToken_) == address(0)
-                || renderer_ == address(0) || rendererVersion_ == 0
-                || rendererRuntimeCodehash_ == bytes32(0)
+                || config.renderer == address(0)
         ) {
             revert InvalidAddress();
         }
-        if (config.rendererVersion != rendererVersion_) {
-            revert RendererVersionMismatch(rendererVersion_, config.rendererVersion);
-        }
-        bytes32 actualRendererCodehash = renderer_.codehash;
-        if (actualRendererCodehash != rendererRuntimeCodehash_) {
-            revert RendererCodeChanged(rendererRuntimeCodehash_, actualRendererCodehash);
-        }
+        if (config.renderer.code.length == 0) revert InvalidAddress();
         if (config.tierSalt == bytes32(0)) revert InvalidTierSalt();
         if (config.periodDuration == 0) revert InvalidPeriodDuration();
         if (uint256(config.rewardBps) + config.referralBps + protocolFeeBps > _BPS_DENOMINATOR) {
@@ -140,9 +125,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
         factory = factory_;
         paymentToken = paymentToken_;
-        rendererVersion = rendererVersion_;
-        renderer = renderer_;
-        rendererRuntimeCodehash = rendererRuntimeCodehash_;
+        renderer = config.renderer;
         tierIdentity = TierIdentity.derive(factory_, config.creator, config.tierSalt);
         pricePerPeriod = config.pricePerPeriod;
         periodDuration = config.periodDuration;
@@ -225,7 +208,9 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         if (
             pricePerPeriod != 0
                 && _referralStates[tokenId].status == MembershipTypes.ReferralStatus.Unset
-        ) return false;
+        ) {
+            return false;
+        }
 
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
         if (!state.occupied && supplyCap != 0 && occupiedSupply >= supplyCap) return false;
@@ -514,10 +499,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     /// @inheritdoc ERC721
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
-        bytes32 actualCodehash = renderer.codehash;
-        if (actualCodehash != rendererRuntimeCodehash) {
-            revert RendererCodeChanged(rendererRuntimeCodehash, actualCodehash);
-        }
         return IMembershipRenderer(renderer)
             .renderTokenURI(
                 MembershipTypes.TokenRenderData({

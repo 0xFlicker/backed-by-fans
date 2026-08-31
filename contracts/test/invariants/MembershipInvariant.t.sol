@@ -339,13 +339,13 @@ contract MembershipInvariantTest is StdInvariant, Test {
         address creator = makeAddr("membershipInvariantCreator");
         _factory = new MembershipFactory(
             _paymentToken,
-            address(renderer),
             address(mediaStoreFactory),
             address(this),
             makeAddr("membershipInvariantFees")
         );
 
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(creator);
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(creator, address(renderer));
         config.pricePerPeriod = 0;
         config.supplyCap = 2;
         config.maxPrepaidPeriods = 0;
@@ -425,24 +425,11 @@ contract RewardSettlementIndependenceTest is Test {
     function test_settlementFrequencyDoesNotChangePayoutsOrAssignPriorRewardsToNewShares() public {
         AdversarialERC20 token = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(address(this), address(renderer));
         config.pricePerPeriod = 0;
-        MembershipTier frequent = new MembershipTier(
-            makeAddr("frequentFactory"),
-            token,
-            1,
-            address(renderer),
-            address(renderer).codehash,
-            config
-        );
-        MembershipTier deferred = new MembershipTier(
-            makeAddr("deferredFactory"),
-            token,
-            1,
-            address(renderer),
-            address(renderer).codehash,
-            config
-        );
+        MembershipTier frequent = new MembershipTier(makeAddr("frequentFactory"), token, config);
+        MembershipTier deferred = new MembershipTier(makeAddr("deferredFactory"), token, config);
         address first = makeAddr("settlementFirst");
         address second = makeAddr("settlementSecond");
 
@@ -489,11 +476,10 @@ contract FrozenGiftLifecycleTest is Test {
     {
         AdversarialERC20 token = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(address(this), address(renderer));
         config.supplyCap = 1;
-        MembershipTier tier = new MembershipTier(
-            makeAddr("giftFactory"), token, 1, address(renderer), address(renderer).codehash, config
-        );
+        MembershipTier tier = new MembershipTier(makeAddr("giftFactory"), token, config);
         address payer = makeAddr("giftPayer");
         address recipient = makeAddr("frozenGiftRecipient");
         address competitor = makeAddr("giftCompetitor");

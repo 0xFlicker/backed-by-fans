@@ -31,14 +31,10 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     address public immutable override deployer;
 
     address public override feeRecipient;
-    uint32 public override rendererCount;
-
     address[] private _tiers;
     mapping(address tier => bool registered) public override isRegisteredTier;
     mapping(address creator => mapping(bytes32 tierSalt => bool used)) private _usedTierSalts;
     mapping(bytes32 tierIdentity_ => address tier) public override tierForIdentity;
-    mapping(uint32 rendererVersion => MembershipTypes.RendererRecord record) private _renderers;
-    mapping(address renderer_ => uint32 rendererVersion) public override rendererVersionOf;
 
     error CreatorMustBeCaller();
     error InexactTokenTransfer();
@@ -53,31 +49,19 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     error MediaStoreFactoryCodeChanged(bytes32 expected, bytes32 actual);
     error OnlyFeeRecipient();
     error OwnershipRenunciationDisabled();
-    error RendererAlreadyRegistered(address renderer, uint32 rendererVersion);
-    error RendererCodeChanged(address renderer, bytes32 expected, bytes32 actual);
-    error RendererNotEnabled(uint32 rendererVersion);
-    error RendererStatusUnchanged(uint32 rendererVersion, bool enabled);
-    error UnknownRendererVersion(uint32 rendererVersion);
     error TierIdentityMismatch(bytes32 expected, bytes32 actual);
     error TierSaltAlreadyUsed(address creator, bytes32 tierSalt);
 
     constructor(
         IERC20 paymentToken_,
-        address renderer_,
         address mediaStoreFactory_,
         address initialOwner,
         address initialFeeRecipient
     ) Ownable(initialOwner) {
-        if (
-            address(paymentToken_) == address(0) || renderer_ == address(0)
-                || mediaStoreFactory_ == address(0)
-        ) {
+        if (address(paymentToken_) == address(0) || mediaStoreFactory_ == address(0)) {
             revert InvalidAddress();
         }
-        if (
-            address(paymentToken_).code.length == 0 || renderer_.code.length == 0
-                || mediaStoreFactory_.code.length == 0
-        ) {
+        if (address(paymentToken_).code.length == 0 || mediaStoreFactory_.code.length == 0) {
             revert InvalidContract();
         }
         if (initialFeeRecipient == address(0) || initialFeeRecipient == address(this)) {
@@ -90,7 +74,6 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         feeRecipient = initialFeeRecipient;
         deployer = address(new MembershipTierDeployer(address(this)));
 
-        _registerRenderer(renderer_, true);
         emit FeeRecipientUpdated(address(0), initialFeeRecipient);
     }
 
@@ -110,10 +93,7 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         if (uint256(config.rewardBps) + config.referralBps + protocolFeeBps > _BPS_DENOMINATOR) {
             revert InvalidRateTotal();
         }
-        MembershipTypes.RendererRecord memory rendererRecord_ =
-            _requireRenderer(config.rendererVersion, true);
-        IMembershipRenderer(rendererRecord_.implementation)
-            .validateConfiguration(config.art, config.media);
+        _validateRenderer(config.renderer, config.art, config.media);
         if (config.media.store != address(0)) {
             bytes32 actualMediaFactoryCodehash = mediaStoreFactory.codehash;
             if (actualMediaFactoryCodehash != mediaStoreFactoryRuntimeCodehash) {
@@ -128,14 +108,7 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         bytes32 identity = TierIdentity.derive(address(this), msg.sender, config.tierSalt);
         _usedTierSalts[msg.sender][config.tierSalt] = true;
 
-        tier = MembershipTierDeployer(deployer)
-            .deploy(
-                paymentToken,
-                config.rendererVersion,
-                rendererRecord_.implementation,
-                rendererRecord_.runtimeCodehash,
-                config
-            );
+        tier = MembershipTierDeployer(deployer).deploy(paymentToken, config);
         bytes32 deployedIdentity = IMembershipTier(tier).tierIdentity();
         if (deployedIdentity != identity) revert TierIdentityMismatch(identity, deployedIdentity);
 
@@ -155,12 +128,7 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
             config.maxPrepaidPeriods
         );
         emit TierMetadataConfigured(tier, config.metadata.description, config.metadata.externalURI);
-        emit TierRendererConfigured(
-            tier,
-            config.rendererVersion,
-            rendererRecord_.implementation,
-            rendererRecord_.runtimeCodehash
-        );
+        emit TierRendererConfigured(tier, config.renderer);
         emit TierArtConfigured(
             tier,
             config.art.engine,
@@ -169,37 +137,6 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
             config.media.store,
             config.media.digest
         );
-    }
-
-    /// @inheritdoc IMembershipFactory
-    function rendererRecord(uint32 rendererVersion)
-        external
-        view
-        override
-        returns (MembershipTypes.RendererRecord memory)
-    {
-        return _requireRenderer(rendererVersion, false);
-    }
-
-    /// @inheritdoc IMembershipFactory
-    function registerRenderer(address renderer_)
-        external
-        override
-        onlyOwner
-        returns (uint32 rendererVersion)
-    {
-        rendererVersion = _registerRenderer(renderer_, false);
-    }
-
-    /// @inheritdoc IMembershipFactory
-    function setRendererEnabled(uint32 rendererVersion, bool enabled) external override onlyOwner {
-        MembershipTypes.RendererRecord storage record = _renderers[rendererVersion];
-        if (record.implementation == address(0)) revert UnknownRendererVersion(rendererVersion);
-        if (record.enabled == enabled) revert RendererStatusUnchanged(rendererVersion, enabled);
-        if (enabled) _requireRendererCode(record.implementation, record.runtimeCodehash);
-
-        record.enabled = enabled;
-        emit RendererEnabled(rendererVersion, enabled);
     }
 
     /// @inheritdoc IMembershipFactory
@@ -286,19 +223,17 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         emit ProtocolFeesWithdrawn(recipient, amount);
     }
 
-    function _registerRenderer(address renderer_, bool enabled)
-        private
-        returns (uint32 rendererVersion)
-    {
-        if (renderer_ == address(0)) revert InvalidAddress();
-        if (renderer_.code.length == 0) revert InvalidRenderer();
-        uint32 existingVersion = rendererVersionOf[renderer_];
-        if (existingVersion != 0) {
-            revert RendererAlreadyRegistered(renderer_, existingVersion);
+    function _validateRenderer(
+        address renderer_,
+        MembershipTypes.ArtConfig calldata art,
+        MembershipTypes.MediaConfig calldata media
+    ) private view {
+        if (renderer_ == address(0)) {
+            revert InvalidRenderer();
         }
+        if (renderer_.code.length == 0) revert InvalidRenderer();
 
         bytes32 observedSchema;
-        uint16 engines;
         try IMembershipRenderer(renderer_).rendererSchema() returns (bytes32 schema) {
             observedSchema = schema;
         } catch {
@@ -307,42 +242,15 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         if (observedSchema != rendererSchema) {
             revert InvalidRendererSchema(rendererSchema, observedSchema);
         }
-        try IMembershipRenderer(renderer_).engineCount() returns (uint16 engineTotal) {
-            engines = engineTotal;
-        } catch {
+        try IMembershipRenderer(renderer_).validateConfiguration(art, media) {
+            return;
+        } catch (bytes memory reason) {
+            if (reason.length != 0) {
+                assembly ("memory-safe") {
+                    revert(add(reason, 0x20), mload(reason))
+                }
+            }
             revert InvalidRenderer();
-        }
-        if (engines == 0) revert InvalidRenderer();
-
-        bytes32 runtimeCodehash = renderer_.codehash;
-        rendererVersion = rendererCount + 1;
-        rendererCount = rendererVersion;
-        _renderers[rendererVersion] = MembershipTypes.RendererRecord({
-            implementation: renderer_, runtimeCodehash: runtimeCodehash, enabled: enabled
-        });
-        rendererVersionOf[renderer_] = rendererVersion;
-
-        emit RendererRegistered(rendererVersion, renderer_, runtimeCodehash);
-        if (enabled) emit RendererEnabled(rendererVersion, true);
-    }
-
-    function _requireRenderer(uint32 rendererVersion, bool requireEnabled)
-        private
-        view
-        returns (MembershipTypes.RendererRecord memory record)
-    {
-        record = _renderers[rendererVersion];
-        if (record.implementation == address(0)) revert UnknownRendererVersion(rendererVersion);
-        if (requireEnabled) {
-            if (!record.enabled) revert RendererNotEnabled(rendererVersion);
-            _requireRendererCode(record.implementation, record.runtimeCodehash);
-        }
-    }
-
-    function _requireRendererCode(address renderer_, bytes32 expectedCodehash) private view {
-        bytes32 actualCodehash = renderer_.codehash;
-        if (actualCodehash != expectedCodehash) {
-            revert RendererCodeChanged(renderer_, expectedCodehash, actualCodehash);
         }
     }
 

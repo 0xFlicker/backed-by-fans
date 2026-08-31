@@ -26,9 +26,7 @@ contract GrantsAndCapacityTest is Test {
 
         paymentToken = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(
-            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, _config()
-        );
+        tier = new MembershipTier(address(this), paymentToken, _config(address(renderer)));
         paymentToken.mint(member, 100_000_000);
         vm.prank(member);
         paymentToken.approve(address(tier), type(uint256).max);
@@ -130,8 +128,9 @@ contract GrantsAndCapacityTest is Test {
         assertTrue(tier.isActive(member));
     }
 
-    function _config() private view returns (MembershipTypes.TierConfig memory) {
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
+    function _config(address renderer_) private view returns (MembershipTypes.TierConfig memory) {
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(address(this), renderer_);
         config.supplyCap = 1;
         return config;
     }

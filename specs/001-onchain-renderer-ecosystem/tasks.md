@@ -23,9 +23,9 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 **Purpose**: Establish one runtime package-schema source in the web app and the minimal dependency needed to validate imported packages.
 
-- [ ] T001 Add `ajv` as a direct browser-runtime dependency and update the lockfile in `web/package.json` and `web/bun.lock`
-- [ ] T002 [P] Add the v1 renderer package schema from `specs/001-onchain-renderer-ecosystem/contracts/renderer-package.schema.json` to `web/src/features/renderer-lab/renderer-package.schema.json`
-- [ ] T003 Add a schema drift check and package script in `web/scripts/check-renderer-package-schema.ts` and `web/package.json` that compare the runtime schema with `specs/001-onchain-renderer-ecosystem/contracts/renderer-package.schema.json`
+- [X] T001 Add `ajv` as a direct browser-runtime dependency and update the lockfile in `web/package.json` and `web/bun.lock`
+- [X] T002 [P] Add the v1 renderer package schema from `specs/001-onchain-renderer-ecosystem/contracts/renderer-package.schema.json` to `web/src/features/renderer-lab/renderer-package.schema.json`
+- [X] T003 Add a schema drift check and package script in `web/scripts/check-renderer-package-schema.ts` and `web/package.json` that compare the runtime schema with `specs/001-onchain-renderer-ecosystem/contracts/renderer-package.schema.json`
 
 ---
 
@@ -37,18 +37,18 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 ### Tests for the foundation
 
-- [ ] T004 [P] Write failing direct-address protocol tests covering unregistered compatible renderers, zero/non-contract addresses, tier renderer exposure, and unchanged membership economics in `contracts/test/CustomRendererAddress.t.sol`
-- [ ] T005 [P] Write failing `eth_call`-only preview harness tests covering create-and-call success, empty inputs, creation failure, bounded call failure, and discarded state in `contracts/test/RendererPreviewHarness.t.sol`
-- [ ] T006 [P] Update deployment tests first to require the preview harness, direct-renderer factory constructor, generated addresses, complete final initcode measurements, and the 95,000-byte raw CREATE2 limit in `contracts/test/deployment/DeploymentScripts.t.sol`
+- [X] T004 [P] Write failing direct-address protocol tests covering unregistered compatible renderers, zero/non-contract addresses, tier renderer exposure, and unchanged membership economics in `contracts/test/CustomRendererAddress.t.sol`
+- [X] T005 [P] Write failing `eth_call`-only preview harness tests covering create-and-call success, empty inputs, creation failure, bounded call failure, and discarded state in `contracts/test/RendererPreviewHarness.t.sol`
+- [X] T006 [P] Update deployment tests first to require the preview harness, direct-renderer factory constructor, generated addresses, complete final initcode measurements, and the 95,000-byte raw CREATE2 limit in `contracts/test/deployment/DeploymentScripts.t.sol`
 
 ### Implementation for the foundation
 
-- [ ] T007 Replace `RendererRecord` and `TierConfig.rendererVersion` with a direct renderer address, and remove renderer registry/version/codehash methods and events in `contracts/src/types/MembershipTypes.sol`, `contracts/src/interfaces/IMembershipFactory.sol`, and `contracts/src/interfaces/IMembershipTier.sol`
-- [ ] T008 Implement the transient create-and-call contract exactly as specified in `contracts/src/RendererPreviewHarness.sol`
-- [ ] T009 Remove renderer registration, enablement, reverse-index, and runtime-codehash coupling while preserving renderer schema/configuration checks at tier creation in `contracts/src/MembershipFactory.sol`, `contracts/src/MembershipTierDeployer.sol`, and `contracts/src/MembershipTier.sol`
-- [ ] T010 Update shared fixtures and existing protocol assertions for direct renderer addresses without compatibility shims in `contracts/test/helpers/MembershipTestConfig.sol`, `contracts/test/FactoryAndFees.t.sol`, `contracts/test/MetadataAndStandards.t.sol`, and `contracts/test/RendererBudget.t.sol`
-- [ ] T011 Add the preview-harness salt/address and direct-factory constructor to canonical deployment prediction, deployment checks, and logs in `contracts/src/RobinhoodProtocolConfig.sol` and `contracts/script/DeployDirectProtocol.s.sol`
-- [ ] T012 Update raw CREATE2 preflight, runtime verification, output parsing, and deterministic deployment fixtures for the new protocol components in `contracts/scripts/deploy-protocol.sh`, `contracts/scripts/test-deploy-protocol.sh`, and `contracts/scripts/test-fixtures/deploy-protocol/`
+- [X] T007 Replace `RendererRecord` and `TierConfig.rendererVersion` with a direct renderer address, and remove renderer registry/version/codehash methods and events in `contracts/src/types/MembershipTypes.sol`, `contracts/src/interfaces/IMembershipFactory.sol`, and `contracts/src/interfaces/IMembershipTier.sol`
+- [X] T008 Implement the transient create-and-call contract exactly as specified in `contracts/src/RendererPreviewHarness.sol`
+- [X] T009 Remove renderer registration, enablement, reverse-index, and runtime-codehash coupling while preserving renderer schema/configuration checks at tier creation in `contracts/src/MembershipFactory.sol`, `contracts/src/MembershipTierDeployer.sol`, and `contracts/src/MembershipTier.sol`
+- [X] T010 Update shared fixtures and existing protocol assertions for direct renderer addresses without compatibility shims in `contracts/test/helpers/MembershipTestConfig.sol`, `contracts/test/FactoryAndFees.t.sol`, `contracts/test/MetadataAndStandards.t.sol`, and `contracts/test/RendererBudget.t.sol`
+- [X] T011 Add the preview-harness salt/address and direct-factory constructor to canonical deployment prediction, deployment checks, and logs in `contracts/src/RobinhoodProtocolConfig.sol` and `contracts/script/DeployDirectProtocol.s.sol`
+- [X] T012 Update raw CREATE2 preflight, runtime verification, output parsing, and deterministic deployment fixtures for the new protocol components in `contracts/scripts/deploy-protocol.sh`, `contracts/scripts/test-deploy-protocol.sh`, and `contracts/scripts/test-fixtures/deploy-protocol/`
 - [ ] T013 Include `RendererPreviewHarness.sol/**` in Foundry-driven generation and regenerate ABI-only bindings without hand-editing them in `web/wagmi.config.ts` and `web/src/contracts.ts`
 - [ ] T014 Add Robinhood testnet (`46630`) as the only public renderer-chain setting plus generated canonical renderer and preview-harness addresses, including Anvil (`31337`) evidence injection and validation tests, in `web/.env.example`, `web/src/lib/config.ts`, and `web/src/lib/config.test.ts`
 - [ ] T015 Replace renderer registry collections with direct renderer and preview-harness dependencies in `web/src/contracts/types.ts`, `web/src/features/protocol/protocol-read.ts`, and `web/src/features/protocol/protocol-read.test.ts`

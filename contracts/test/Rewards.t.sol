@@ -13,6 +13,7 @@ import {MockUSDG} from "./mocks/MockUSDG.sol";
 contract RewardsTest is Test {
     MembershipTier private tier;
     MockUSDG private paymentToken;
+    OnchainMetadataRenderer private renderer;
     address private firstMember;
     address private secondMember;
     address private payer;
@@ -27,14 +28,11 @@ contract RewardsTest is Test {
         payer = makeAddr("payer");
 
         paymentToken = new MockUSDG();
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
+        renderer = new OnchainMetadataRenderer();
         tier = new MembershipTier(
             address(this),
             paymentToken,
-            1,
-            address(renderer),
-            address(renderer).codehash,
-            MembershipTestConfig.defaultConfig(address(this))
+            MembershipTestConfig.defaultConfig(address(this), address(renderer))
         );
 
         _fundAndApprove(firstMember, 1_000_000_000);
@@ -140,17 +138,10 @@ contract RewardsTest is Test {
 
     function test_nearUintRangeContributionSettlesRewardWithoutIntermediateOverflow() public {
         MockUSDG largeSupplyToken = new MockUSDG();
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(address(this), address(renderer));
         config.pricePerPeriod = 0;
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier largeTier = new MembershipTier(
-            address(this),
-            largeSupplyToken,
-            1,
-            address(renderer),
-            address(renderer).codehash,
-            config
-        );
+        MembershipTier largeTier = new MembershipTier(address(this), largeSupplyToken, config);
         address largeHolder = makeAddr("largeHolder");
         uint256 gross = type(uint256).max;
         largeSupplyToken.mint(largeHolder, gross);
@@ -209,12 +200,10 @@ contract RewardsTest is Test {
     }
 
     function _deployZeroTier() private returns (MembershipTier zeroTier) {
-        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(address(this), address(renderer));
         config.pricePerPeriod = 0;
-        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        zeroTier = new MembershipTier(
-            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
-        );
+        zeroTier = new MembershipTier(address(this), paymentToken, config);
         vm.prank(firstMember);
         paymentToken.approve(address(zeroTier), type(uint256).max);
     }

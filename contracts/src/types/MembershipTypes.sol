@@ -59,13 +59,6 @@ library MembershipTypes {
         bytes32 runtimeCodehash;
     }
 
-    /// @notice One append-only renderer record. Enablement gates only future tier creation.
-    struct RendererRecord {
-        address implementation;
-        bytes32 runtimeCodehash;
-        bool enabled;
-    }
-
     /// @notice Public provenance and integrity record for one native media store.
     struct MediaRecord {
         address store;
@@ -80,7 +73,7 @@ library MembershipTypes {
     struct TierConfig {
         address creator;
         bytes32 tierSalt;
-        uint32 rendererVersion;
+        address renderer;
         string name;
         string symbol;
         uint256 pricePerPeriod;

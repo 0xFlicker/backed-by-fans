@@ -49,13 +49,10 @@ contract MembershipTierDeployer {
         tierCreationCodeHash = keccak256(creationCode);
     }
 
-    function deploy(
-        IERC20 paymentToken,
-        uint32 rendererVersion,
-        address renderer,
-        bytes32 rendererRuntimeCodehash,
-        MembershipTypes.TierConfig calldata config
-    ) external returns (address tier) {
+    function deploy(IERC20 paymentToken, MembershipTypes.TierConfig calldata config)
+        external
+        returns (address tier)
+    {
         if (msg.sender != factory) revert OnlyFactory();
 
         address firstStore = creationCodeStoreA;
@@ -64,9 +61,7 @@ contract MembershipTierDeployer {
         uint256 firstLength = codeLength / 2;
         uint256 secondLength = codeLength - firstLength;
 
-        bytes memory constructorArgs = abi.encode(
-            factory, paymentToken, rendererVersion, renderer, rendererRuntimeCodehash, config
-        );
+        bytes memory constructorArgs = abi.encode(factory, paymentToken, config);
         bytes memory initCode = new bytes(codeLength + constructorArgs.length);
         bytes32 reconstructedHash;
         assembly ("memory-safe") {

@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 import {OnchainMetadataRenderer} from "./OnchainMetadataRenderer.sol";
+import {RendererPreviewHarness} from "./RendererPreviewHarness.sol";
 import {RobinhoodProtocolAuthority} from "./RobinhoodProtocolAuthority.sol";
 import {TestnetUSDG} from "./TestnetUSDG.sol";
 import {OnchainMediaStoreFactory} from "./media/OnchainMediaStoreFactory.sol";
@@ -21,7 +22,9 @@ library RobinhoodProtocolConfig {
     bytes32 internal constant MEDIA_STORE_FACTORY_SALT =
         keccak256("Backed By Fans media store factory v4");
     bytes32 internal constant INITIAL_RENDERER_SALT = keccak256("Backed By Fans renderer v4");
-    bytes32 internal constant FACTORY_SALT = keccak256("Backed By Fans factory v4");
+    bytes32 internal constant PREVIEW_HARNESS_SALT =
+        keccak256("Backed By Fans renderer preview harness v1");
+    bytes32 internal constant FACTORY_SALT = keccak256("Backed By Fans factory v5");
     address internal constant APPROVED_DEPLOYER = RobinhoodProtocolAuthority.APPROVED_DEPLOYER;
     address internal constant INITIAL_PROTOCOL_AUTHORITY =
         RobinhoodProtocolAuthority.INITIAL_PROTOCOL_AUTHORITY;
@@ -49,6 +52,13 @@ library RobinhoodProtocolConfig {
         return create2Address(
             MEDIA_STORE_FACTORY_SALT, keccak256(type(OnchainMediaStoreFactory).creationCode)
         );
+    }
+
+    function previewHarness() internal pure returns (address) {
+        return
+            create2Address(
+                PREVIEW_HARNESS_SALT, keccak256(type(RendererPreviewHarness).creationCode)
+            );
     }
 
     function create2Address(bytes32 salt, bytes32 initCodeHash) internal pure returns (address) {

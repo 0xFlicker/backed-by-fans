@@ -18,23 +18,26 @@ readonly BBF_SAFE_FALLBACK_HANDLER_SLOT="0x6c9a6c4a39284e37ed1cf53d337577d14212a
 readonly BBF_SAFE_GUARD_SLOT="0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8"
 readonly BBF_SENTINEL_MODULES="0x0000000000000000000000000000000000000001"
 
-component_labels=("media store factory" "renderer" "membership factory")
+component_labels=("media store factory" "renderer" "renderer preview harness" "membership factory")
 component_contracts=(
   "OnchainMediaStoreFactory"
   "OnchainMetadataRenderer"
+  "RendererPreviewHarness"
   "MembershipFactory"
 )
 component_artifacts=(
   "src/media/OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory"
   "src/OnchainMetadataRenderer.sol:OnchainMetadataRenderer"
+  "src/RendererPreviewHarness.sol:RendererPreviewHarness"
   "src/MembershipFactory.sol:MembershipFactory"
 )
 component_salt_preimages=(
   "Backed By Fans media store factory v4"
   "Backed By Fans renderer v4"
-  "Backed By Fans factory v4"
+  "Backed By Fans renderer preview harness v1"
+  "Backed By Fans factory v5"
 )
-component_predecessors=("empty" "media store factory" "renderer")
+component_predecessors=("empty" "media store factory" "renderer" "renderer preview harness")
 component_salts=()
 component_init_codes=()
 component_init_hashes=()
@@ -269,15 +272,14 @@ build_deployment_plan() {
 
   local index artifact init_code runtime_code raw_create2_bytes
   local init_bytes runtime_bytes salt init_hash runtime_hash address
-  for index in 0 1 2; do
+  for index in 0 1 2 3; do
     artifact="${component_artifacts[$index]}"
     init_code="$(FOUNDRY_PROFILE=robinhood forge inspect "$artifact" bytecode)"
     runtime_code="$(FOUNDRY_PROFILE=robinhood forge inspect "$artifact" deployedBytecode)"
-    if [[ "$index" == "2" ]]; then
+    if [[ "$index" == "3" ]]; then
       factory_constructor_args="$(cast abi-encode \
-        'constructor(address,address,address,address,address)' \
+        'constructor(address,address,address,address)' \
         "$payment_token_address" \
-        "${component_addresses[1]}" \
         "${component_addresses[0]}" \
         "$BBF_INITIAL_PROTOCOL_AUTHORITY" \
         "$BBF_INITIAL_PROTOCOL_AUTHORITY")"
@@ -321,15 +323,19 @@ validate_plan_against_solidity() {
   if ! output="$(BBF_RELEASE_CHAIN_ID="$expected_chain_id" \
     BBF_RELEASE_MEDIA_SALT="${component_salts[0]}" \
     BBF_RELEASE_RENDERER_SALT="${component_salts[1]}" \
-    BBF_RELEASE_FACTORY_SALT="${component_salts[2]}" \
+    BBF_RELEASE_PREVIEW_HARNESS_SALT="${component_salts[2]}" \
+    BBF_RELEASE_FACTORY_SALT="${component_salts[3]}" \
     BBF_RELEASE_MEDIA_INIT_HASH="${component_init_hashes[0]}" \
     BBF_RELEASE_RENDERER_INIT_HASH="${component_init_hashes[1]}" \
-    BBF_RELEASE_FACTORY_INIT_HASH="${component_init_hashes[2]}" \
+    BBF_RELEASE_PREVIEW_HARNESS_INIT_HASH="${component_init_hashes[2]}" \
+    BBF_RELEASE_FACTORY_INIT_HASH="${component_init_hashes[3]}" \
     BBF_RELEASE_MEDIA_RUNTIME_HASH="${component_runtime_hashes[0]}" \
     BBF_RELEASE_RENDERER_RUNTIME_HASH="${component_runtime_hashes[1]}" \
+    BBF_RELEASE_PREVIEW_HARNESS_RUNTIME_HASH="${component_runtime_hashes[2]}" \
     BBF_RELEASE_MEDIA_ADDRESS="${component_addresses[0]}" \
     BBF_RELEASE_RENDERER_ADDRESS="${component_addresses[1]}" \
-    BBF_RELEASE_FACTORY_ADDRESS="${component_addresses[2]}" \
+    BBF_RELEASE_PREVIEW_HARNESS_ADDRESS="${component_addresses[2]}" \
+    BBF_RELEASE_FACTORY_ADDRESS="${component_addresses[3]}" \
     FOUNDRY_PROFILE=robinhood forge test \
       --match-contract DeploymentScriptsTest \
       --match-test test_releaseWrapperPlanMatchesSolidityConfig \
@@ -345,7 +351,7 @@ validate_plan_against_solidity() {
     || fail "Solidity release-plan test did not report the factory runtime hash"
   require_hex "membership factory runtime hash" "$factory_runtime_hash"
   [[ ${#factory_runtime_hash} -eq 66 ]] || fail "membership factory runtime hash has the wrong length"
-  component_runtime_hashes[2]="$factory_runtime_hash"
+  component_runtime_hashes[3]="$factory_runtime_hash"
 }
 
 rpc_call_json() {
@@ -417,6 +423,7 @@ validate_operational_state_manifest() {
       .deployment.paymentToken,
       .deployment.mediaStoreFactory,
       .deployment.renderer,
+      .deployment.previewHarness,
       .deployment.membershipFactory
     ][];
       (.address | test("^0x[0-9a-fA-F]{40}$"))
@@ -443,19 +450,6 @@ validate_operational_state_manifest() {
     and (.factory.owner | test("^0x[0-9a-fA-F]{40}$"))
     and (.factory.pendingOwner | test("^0x[0-9a-fA-F]{40}$"))
     and (.factory.feeRecipient | test("^0x[0-9a-fA-F]{40}$"))
-    and ($state.factory.renderers | type == "array" and length >= 1)
-    and all($state.factory.renderers[];
-      (.version | type == "number" and . >= 1)
-      and (.implementation | test("^0x[0-9a-fA-F]{40}$"))
-      and (.runtimeCodehash | test("^0x[0-9a-fA-F]{64}$"))
-      and (.enabled | type == "boolean"))
-    and ([$state.factory.renderers[].version]
-      == [range(1; ($state.factory.renderers | length) + 1)])
-    and any($state.factory.renderers[]; .enabled == true)
-    and (($state.factory.renderers[0].implementation | ascii_downcase)
-      == ($state.deployment.renderer.address | ascii_downcase))
-    and (($state.factory.renderers[0].runtimeCodehash | ascii_downcase)
-      == ($state.deployment.renderer.runtimeCodehash | ascii_downcase))
   ' "$operational_state_file" >/dev/null \
     || fail "reviewed operational state is malformed at $operational_state_file"
 
@@ -474,8 +468,8 @@ validate_plan_against_operational_state() {
   [[ "$(lowercase "$payment_token_runtime_hash")" == "$(lowercase "$expected")" ]] \
     || fail "payment token runtime hash differs from reviewed operational state"
 
-  local keys=(mediaStoreFactory renderer membershipFactory)
-  for index in 0 1 2; do
+  local keys=(mediaStoreFactory renderer previewHarness membershipFactory)
+  for index in 0 1 2 3; do
     key="${keys[$index]}"
     expected="$(jq -er --arg key "$key" '.deployment[$key].address' "$operational_state_file")"
     require_address_match "reviewed ${component_labels[$index]}" \
@@ -631,11 +625,8 @@ validate_payment_token() {
 
 validate_factory_dependencies() {
   local target_rpc="$1"
-  local factory="${component_addresses[2]}"
-  local output observed tier_deployer renderer_count version renderer_address
-  local renderer_runtime_hash renderer_code renderer_schema reverse_version
-  local renderer_enabled enabled_count=0 expected_renderer_count
-  local expected_renderer_address expected_renderer_hash expected_renderer_enabled
+  local factory="${component_addresses[3]}"
+  local output observed tier_deployer renderer_schema
 
   output="$(rpc_call_json "$target_rpc" "factory payment token" \
     "$factory" "paymentToken()(address)")"
@@ -653,65 +644,11 @@ validate_factory_dependencies() {
   [[ "$(lowercase "$observed")" == "$(lowercase "$BBF_RENDERER_SCHEMA")" ]] \
     || fail "factory renderer schema is wrong"
 
-  output="$(rpc_call_json "$target_rpc" "factory renderer count" \
-    "$factory" "rendererCount()(uint32)")"
-  renderer_count="$(printf '%s' "$output" | jq -er '.[0]')"
-  [[ "$renderer_count" =~ ^[0-9]+$ && "$renderer_count" -ge 1 ]] \
-    || fail "factory renderer registry is empty or malformed"
-  expected_renderer_count="$(jq -er '.factory.renderers | length' "$operational_state_file")"
-  [[ "$renderer_count" == "$expected_renderer_count" ]] \
-    || fail "renderer registry count differs from reviewed operational state"
-
-  for ((version = 1; version <= renderer_count; version++)); do
-    output="$(rpc_call_json "$target_rpc" "renderer $version record" \
-      "$factory" "rendererRecord(uint32)((address,bytes32,bool))" "$version")"
-    renderer_address="$(printf '%s' "$output" | jq -er '.[0][0]')"
-    renderer_runtime_hash="$(printf '%s' "$output" | jq -er '.[0][1]')"
-    renderer_enabled="$(printf '%s' "$output" | jq -r '.[0][2]')"
-    expected_renderer_address="$(jq -er --argjson index "$((version - 1))" \
-      '.factory.renderers[$index].implementation' "$operational_state_file")"
-    expected_renderer_hash="$(jq -er --argjson index "$((version - 1))" \
-      '.factory.renderers[$index].runtimeCodehash' "$operational_state_file")"
-    expected_renderer_enabled="$(jq -r --argjson index "$((version - 1))" \
-      '.factory.renderers[$index].enabled' "$operational_state_file")"
-    require_address_match "renderer $version reviewed address" \
-      "$renderer_address" "$expected_renderer_address"
-    [[ "$(lowercase "$renderer_runtime_hash")" == "$(lowercase "$expected_renderer_hash")" ]] \
-      || fail "renderer $version runtime hash differs from reviewed operational state"
-    [[ "$renderer_enabled" == "$expected_renderer_enabled" ]] \
-      || fail "renderer $version enabled state differs from reviewed operational state"
-    if [[ "$version" == "1" ]]; then
-      require_address_match "initial renderer record address" \
-        "$renderer_address" "${component_addresses[1]}"
-      [[ "$(lowercase "$renderer_runtime_hash")" == "$(lowercase "${component_runtime_hashes[1]}")" ]] \
-        || fail "initial renderer record runtime hash is wrong"
-    fi
-    [[ "$renderer_enabled" == "true" || "$renderer_enabled" == "false" ]] \
-      || fail "renderer $version enabled state is malformed"
-    if [[ "$renderer_enabled" == "true" ]]; then
-      enabled_count=$((enabled_count + 1))
-    fi
-
-    renderer_code="$(rpc_code "$target_rpc" "renderer $version" "$renderer_address")"
-    [[ "$renderer_code" != "0x" && "$renderer_code" != "0x0" && -n "$renderer_code" ]] \
-      || fail "renderer $version has no runtime"
-    observed="$(cast keccak "$renderer_code")"
-    [[ "$(lowercase "$observed")" == "$(lowercase "$renderer_runtime_hash")" ]] \
-      || fail "renderer $version runtime hash does not match its registry record"
-
-    output="$(rpc_call_json "$target_rpc" "renderer $version schema" \
-      "$renderer_address" "rendererSchema()(bytes32)")"
-    renderer_schema="$(printf '%s' "$output" | jq -er '.[0]')"
-    [[ "$(lowercase "$renderer_schema")" == "$(lowercase "$BBF_RENDERER_SCHEMA")" ]] \
-      || fail "renderer $version schema is wrong"
-
-    output="$(rpc_call_json "$target_rpc" "renderer $version reverse index" \
-      "$factory" "rendererVersionOf(address)(uint32)" "$renderer_address")"
-    reverse_version="$(printf '%s' "$output" | jq -er '.[0]')"
-    [[ "$reverse_version" == "$version" ]] \
-      || fail "renderer $version reverse registry index is wrong"
-  done
-  ((enabled_count >= 1)) || fail "reviewed renderer registry has no enabled renderer"
+  output="$(rpc_call_json "$target_rpc" "canonical renderer schema" \
+    "${component_addresses[1]}" "rendererSchema()(bytes32)")"
+  renderer_schema="$(printf '%s' "$output" | jq -er '.[0]')"
+  [[ "$(lowercase "$renderer_schema")" == "$(lowercase "$BBF_RENDERER_SCHEMA")" ]] \
+    || fail "canonical renderer schema is wrong"
 
   output="$(rpc_call_json "$target_rpc" "factory media runtime hash" \
     "$factory" "mediaStoreFactoryRuntimeCodehash()(bytes32)")"
@@ -763,10 +700,10 @@ validate_chain_state() {
   validate_protocol_safe "$target_rpc"
   validate_payment_token "$target_rpc"
   inspect_prefix "$target_rpc"
-  if [[ "${component_present[2]}" == "1" ]]; then
+  if [[ "${component_present[3]}" == "1" ]]; then
     validate_factory_dependencies "$target_rpc"
   fi
-  if [[ "$require_complete" == "true" && "$deployment_prefix_count" -ne 3 ]]; then
+  if [[ "$require_complete" == "true" && "$deployment_prefix_count" -ne 4 ]]; then
     fail "protocol deployment is incomplete at prefix $deployment_prefix_count"
   fi
 }
@@ -775,9 +712,9 @@ inspect_prefix() {
   local target_rpc="$1"
   local index code observed_runtime_hash
   deployment_prefix_count=0
-  component_present=(0 0 0)
+  component_present=(0 0 0 0)
 
-  for index in 0 1 2; do
+  for index in 0 1 2 3; do
     if ! code="$(cast code "${component_addresses[$index]}" \
       --rpc-url "$target_rpc" 2>/dev/null)"; then
       fail "RPC code query failed for ${component_labels[$index]}"
@@ -797,10 +734,15 @@ inspect_prefix() {
   fi
   if [[ "${component_present[2]}" == "1" \
     && ("${component_present[0]}" != "1" || "${component_present[1]}" != "1") ]]; then
-    fail "membership factory exists without both predecessors"
+    fail "renderer preview harness exists without both predecessors"
+  fi
+  if [[ "${component_present[3]}" == "1" \
+    && ("${component_present[0]}" != "1" || "${component_present[1]}" != "1" \
+      || "${component_present[2]}" != "1") ]]; then
+    fail "membership factory exists without all predecessors"
   fi
 
-  for index in 0 1 2; do
+  for index in 0 1 2 3; do
     if [[ "${component_present[$index]}" == "1" ]]; then
       deployment_prefix_count=$((deployment_prefix_count + 1))
     else
@@ -813,7 +755,7 @@ print_recovery_table() {
   local index status
   printf '\n%-22s %-42s %-66s %-66s %-20s %s\n' \
     "COMPONENT" "EXPECTED ADDRESS" "INITCODE HASH" "RUNTIME HASH" "PREDECESSOR" "STATE"
-  for index in 0 1 2; do
+  for index in 0 1 2 3; do
     status="missing"
     [[ "${component_present[$index]:-0}" == "1" ]] && status="validated"
     printf '%-22s %-42s %-66s %-66s %-20s %s\n' \
@@ -857,12 +799,18 @@ plan_json() {
     --arg r_init "${component_init_hashes[1]}" \
     --arg r_runtime "${component_runtime_hashes[1]}" \
     --arg r_address "${component_addresses[1]}" \
-    --arg f_contract "${component_contracts[2]}" \
-    --arg f_artifact "${component_artifacts[2]}" \
-    --arg f_salt "${component_salts[2]}" \
-    --arg f_init "${component_init_hashes[2]}" \
-    --arg f_runtime "${component_runtime_hashes[2]}" \
-    --arg f_address "${component_addresses[2]}" \
+    --arg h_contract "${component_contracts[2]}" \
+    --arg h_artifact "${component_artifacts[2]}" \
+    --arg h_salt "${component_salts[2]}" \
+    --arg h_init "${component_init_hashes[2]}" \
+    --arg h_runtime "${component_runtime_hashes[2]}" \
+    --arg h_address "${component_addresses[2]}" \
+    --arg f_contract "${component_contracts[3]}" \
+    --arg f_artifact "${component_artifacts[3]}" \
+    --arg f_salt "${component_salts[3]}" \
+    --arg f_init "${component_init_hashes[3]}" \
+    --arg f_runtime "${component_runtime_hashes[3]}" \
+    --arg f_address "${component_addresses[3]}" \
     '{
       schemaVersion: 4,
       chainId: $chain_id,
@@ -899,10 +847,17 @@ plan_json() {
           transactionHash: null, receipt: null, sourceVerified: false
         },
         {
-          order: 2, label: "membership factory", contractName: $f_contract,
+          order: 2, label: "renderer preview harness", contractName: $h_contract,
+          artifact: $h_artifact, salt: $h_salt, initCodeHash: $h_init,
+          runtimeCodeHash: $h_runtime, expectedAddress: $h_address,
+          allowedPredecessor: "renderer", status: "pending",
+          transactionHash: null, receipt: null, sourceVerified: false
+        },
+        {
+          order: 3, label: "membership factory", contractName: $f_contract,
           artifact: $f_artifact, salt: $f_salt, initCodeHash: $f_init,
           runtimeCodeHash: $f_runtime, expectedAddress: $f_address,
-          allowedPredecessor: "renderer", status: "pending", transactionHash: null,
+          allowedPredecessor: "renderer preview harness", status: "pending", transactionHash: null,
           receipt: null, sourceVerified: false
         }
       ]
@@ -943,7 +898,7 @@ load_promoted_plan_for_status() {
     and .deploymentPlan.chainId == $chain_id
     and (.deploymentPlan.paymentToken.address | test("^0x[0-9a-fA-F]{40}$"))
     and (.deploymentPlan.paymentToken.runtimeCodeHash | test("^0x[0-9a-fA-F]{64}$"))
-    and (.deploymentPlan.components | length == 3)
+    and (.deploymentPlan.components | length == 4)
   ' "$active" >/dev/null \
     || fail "active broadcast $active has no valid promoted deployment plan"
 
@@ -961,7 +916,7 @@ load_promoted_plan_for_status() {
   if [[ "$expected_chain_id" == "46630" ]]; then
     testnet_payment_token_runtime_hash="$payment_token_runtime_hash"
   fi
-  for index in 0 1 2; do
+  for index in 0 1 2 3; do
     component_salts[$index]="$(jq -er --argjson index "$index" '.deploymentPlan.components[$index].salt' "$active")"
     component_init_hashes[$index]="$(jq -er --argjson index "$index" '.deploymentPlan.components[$index].initCodeHash' "$active")"
     component_runtime_hashes[$index]="$(jq -er --argjson index "$index" '.deploymentPlan.components[$index].runtimeCodeHash' "$active")"
@@ -1010,7 +965,7 @@ prepare_journal() {
   inspect_prefix "$target_rpc"
   observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  for index in 0 1 2; do
+  for index in 0 1 2 3; do
     status="$(jq -r --argjson index "$index" '.components[$index].status' "$journal")"
     if [[ "$status" == "submitted" ]]; then
       if [[ "${component_present[$index]}" == "1" ]]; then
@@ -1045,7 +1000,7 @@ prepare_journal() {
   inspect_prefix "$target_rpc"
 
   observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  for index in 0 1 2; do
+  for index in 0 1 2 3; do
     status="$(jq -r --argjson index "$index" '.components[$index].status' "$journal")"
     if [[ "${component_present[$index]}" == "1" ]]; then
       atomic_jq "$journal" \
@@ -1291,14 +1246,14 @@ deploy_missing_prefix() {
 
   validate_chain_state "$target_rpc" false
   prepare_journal "$journal" "$target_rpc"
-  for index in 0 1 2; do
+  for index in 0 1 2 3; do
     submit_component "$target_rpc" "$signer_mode" "$journal" "$index"
     validate_chain_state "$target_rpc" false
   done
 
   validate_chain_state "$target_rpc" true
-  [[ "$deployment_prefix_count" -eq 3 ]] || fail "completed validator returned without a full prefix"
-  atomic_jq "$journal" '.status = "deployed" | .currentPrefix = 3'
+  [[ "$deployment_prefix_count" -eq 4 ]] || fail "completed validator returned without a full prefix"
+  atomic_jq "$journal" '.status = "deployed" | .currentPrefix = 4'
 }
 
 cleanup_anvil() {
@@ -1377,7 +1332,7 @@ verify_sources() {
   local journal="$1"
   local index verified_at output safe_output
   local -a verify_command
-  for index in 0 1 2; do
+  for index in 0 1 2 3; do
     require_recorded_source_checkout "$journal"
     verify_command=(
       forge verify-contract
@@ -1387,7 +1342,7 @@ verify_sources() {
       --verifier blockscout
       --verifier-url "$verifier_url"
     )
-    if [[ "$index" == "2" ]]; then
+    if [[ "$index" == "3" ]]; then
       verify_command+=(--constructor-args "$factory_constructor_args")
     fi
     verify_command+=("${component_addresses[$index]}" "${component_artifacts[$index]}")
@@ -1429,7 +1384,7 @@ render_broadcast_record() {
   local verified_count complete_count
   verified_count="$(jq '[.components[] | select(.sourceVerified == true)] | length' "$journal")"
   complete_count="$(jq '[.components[] | select(.status == "deployed" or .status == "validated-existing")] | length' "$journal")"
-  [[ "$verified_count" == "3" && "$complete_count" == "3" ]] \
+  [[ "$verified_count" == "4" && "$complete_count" == "4" ]] \
     || fail "deployment cannot become a public broadcast until all runtimes and sources are verified"
 
   timestamp="$(date +%s)"
@@ -1469,9 +1424,13 @@ render_broadcast_record() {
           internal_type: "contract OnchainMetadataRenderer",
           value: .components[1].expectedAddress
         },
+        previewHarness: {
+          internal_type: "contract RendererPreviewHarness",
+          value: .components[2].expectedAddress
+        },
         factory: {
           internal_type: "contract MembershipFactory",
-          value: .components[2].expectedAddress
+          value: .components[3].expectedAddress
         }
       },
       timestamp: $timestamp,

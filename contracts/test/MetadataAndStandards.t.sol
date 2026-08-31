@@ -266,20 +266,13 @@ contract MetadataAndStandardsTest is Test {
     }
 
     function _config() private view returns (MembershipTypes.TierConfig memory) {
-        return MembershipTestConfig.defaultConfig(address(this));
+        return MembershipTestConfig.defaultConfig(address(this), address(renderer));
     }
 
     function _deployTier(MembershipTypes.TierConfig memory config)
         private
         returns (MembershipTier deployed)
     {
-        deployed = new MembershipTier(
-            address(this),
-            token,
-            config.rendererVersion,
-            address(renderer),
-            address(renderer).codehash,
-            config
-        );
+        deployed = new MembershipTier(address(this), token, config);
     }
 }

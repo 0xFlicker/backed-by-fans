@@ -31,10 +31,7 @@ contract ClaimsAndWithdrawalsTest is Test {
         tier = new MembershipTier(
             address(this),
             paymentToken,
-            1,
-            address(renderer),
-            address(renderer).codehash,
-            MembershipTestConfig.defaultConfig(address(this))
+            MembershipTestConfig.defaultConfig(address(this), address(renderer))
         );
         paymentToken.mint(member, 100_000_000);
         vm.prank(member);
@@ -162,7 +159,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
             feeVault,
             paymentToken,
             address(renderer),
-            MembershipTestConfig.defaultConfig(address(this))
+            MembershipTestConfig.defaultConfig(address(this), address(renderer))
         );
         paymentToken.mint(member, 100_000_000);
         vm.prank(member);

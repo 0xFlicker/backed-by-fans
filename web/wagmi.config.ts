@@ -47,6 +47,7 @@ export default defineConfig({
         "MembershipTier.sol/**",
         "OnchainMediaStoreFactory.sol/**",
         "OnchainMetadataRenderer.sol/**",
+        "RendererPreviewHarness.sol/**",
         "MembershipFactory.sol/**",
         "TestnetUSDG.sol/**",
       ],
