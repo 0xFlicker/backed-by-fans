@@ -4,7 +4,8 @@
 `<chain-id>/candidate.json` before the first public transaction. The file is an append-by-state
 recovery journal for one exact compiler-artifact fingerprint; it is not a deployment address source.
 
-The journal records, in order, the media-store factory, renderer, and membership factory:
+The journal records, in order, the media-store factory, renderer, renderer preview harness, and
+membership factory:
 
 - contract/artifact identity;
 - CREATE2 salt and initcode hash;
@@ -27,6 +28,12 @@ to make a new build appear resumable.
 Failed candidates are renamed with their source commit and failure reason, with an adjacent incident
 record containing the chain and nonce evidence. A corrected release always starts a fresh
 `candidate.json`; an archived journal is never rewritten to describe different bytecode.
+
+When a newer committed release starts, the wrapper automatically moves a complete promoted journal
+to `candidate-<source-commit>-promoted.json` after proving that it matches the active broadcast.
+Pending, submitted, failed, incomplete, or mismatched journals are never moved automatically. The
+active `run-latest.json` pointer may advance only when its prior contents already have an identical
+timestamped history record.
 
 The release wrapper also rejects any `salt || initcode` payload above Robinhood Nitro's 95,000-byte
 sequencer transaction-data limit before local preflight or signing. Anvil validates the exact chain

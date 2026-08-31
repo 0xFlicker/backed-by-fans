@@ -188,6 +188,56 @@ require_recorded_source_checkout() {
   done <<<"$untracked"
 }
 
+prepare_broadcast_journal_slot() {
+  local journal="$1"
+  local active="$2"
+  local recorded_commit status archived active_commit active_plan journal_plan
+
+  if [[ ! -f "$journal" ]]; then
+    require_clean_initial_broadcast
+    return
+  fi
+
+  recorded_commit="$(jq -er '.sourceCommit' "$journal" 2>/dev/null)" \
+    || fail "recovery journal $journal does not identify its source commit"
+  if [[ "$recorded_commit" == "$source_commit" ]]; then
+    require_recorded_source_checkout "$journal"
+    return
+  fi
+
+  require_clean_initial_broadcast
+  status="$(jq -er '.status' "$journal" 2>/dev/null)" \
+    || fail "recovery journal $journal has no valid status"
+  if [[ "$status" != "promoted" ]]; then
+    fail "unfinished recovery journal belongs to source commit $recorded_commit, not $source_commit"
+  fi
+  jq -e --arg active "$active" '
+    .currentPrefix == 4
+    and (.components | length == 4)
+    and all(.components[];
+      (.status == "deployed" or .status == "validated-existing")
+      and .sourceVerified == true)
+    and .activeBroadcast == $active
+  ' "$journal" >/dev/null \
+    || fail "promoted recovery journal $journal is incomplete and cannot be archived automatically"
+  [[ -f "$active" ]] \
+    || fail "promoted recovery journal $journal references missing active broadcast $active"
+  active_commit="$(jq -er '.commit' "$active" 2>/dev/null)" \
+    || fail "active broadcast $active does not identify its source commit"
+  [[ "$active_commit" == "$recorded_commit" ]] \
+    || fail "promoted recovery journal $journal and active broadcast $active disagree on source commit"
+  active_plan="$(jq -S -c '.deploymentPlan // null' "$active")"
+  journal_plan="$(journal_fingerprint "$journal")"
+  [[ "$active_plan" == "$journal_plan" ]] \
+    || fail "promoted recovery journal $journal and active broadcast $active describe different deployments"
+
+  archived="${journal%.json}-${recorded_commit:0:12}-promoted.json"
+  [[ ! -e "$archived" ]] \
+    || fail "completed deployment archive already exists at $archived; preserve both records and resolve explicitly"
+  mv "$journal" "$archived"
+  echo "Protocol deployment: archived completed recovery journal at $archived"
+}
+
 reject_build_environment_overrides() {
   local variable
   while IFS='=' read -r variable _; do
@@ -1368,13 +1418,19 @@ verify_sources() {
 ensure_no_conflicting_active_broadcast() {
   local active="$1"
   local journal="$2"
-  local active_plan journal_plan
+  local active_plan journal_plan historical
   [[ -f "$active" ]] || return 0
   active_plan="$(jq -S -c '.deploymentPlan // null' "$active")"
   journal_plan="$(journal_fingerprint "$journal")"
-  if [[ "$active_plan" != "$journal_plan" ]]; then
-    fail "active broadcast $active belongs to another deployment; archive and remove it before promotion"
-  fi
+  [[ "$active_plan" != "$journal_plan" ]] || return 0
+
+  for historical in "$(dirname "$active")"/run-[0-9]*.json; do
+    [[ -f "$historical" ]] || continue
+    if cmp -s "$active" "$historical"; then
+      return 0
+    fi
+  done
+  fail "active broadcast $active belongs to another deployment and has no identical timestamped history record"
 }
 
 render_broadcast_record() {
@@ -1491,6 +1547,10 @@ promote_with_bindings() {
   mkdir -p "$broadcast_directory"
   timestamp="$(date +%s)"
   timestamped="$broadcast_directory/run-$timestamp.json"
+  while [[ -e "$timestamped" ]]; do
+    timestamp=$((timestamp + 1))
+    timestamped="$broadcast_directory/run-$timestamp.json"
+  done
 
   if ! (require_recorded_source_checkout "$journal"); then
     rm -rf "$stage_directory"
@@ -1546,17 +1606,21 @@ journal="deployments/protocol/$expected_chain_id/candidate.json"
 active_broadcast="broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/run-latest.json"
 if [[ "$action" == "broadcast" || "$action" == "resume-verify" \
   || "$action" == "recover-dropped" ]]; then
+  acquire_deployment_lock
+fi
+if [[ "$action" == "broadcast" ]]; then
+  prepare_broadcast_journal_slot "$journal" "$active_broadcast"
+elif [[ "$action" == "resume-verify" ]]; then
   if [[ -f "$journal" ]]; then
     require_recorded_source_checkout "$journal"
   else
     require_clean_initial_broadcast
   fi
+elif [[ "$action" == "recover-dropped" ]]; then
+  [[ -f "$journal" ]] || fail "recover-dropped requires an existing recovery journal at $journal"
+  require_recorded_source_checkout "$journal"
 elif [[ "$action" == "status" ]]; then
   require_clean_initial_broadcast
-fi
-if [[ "$action" == "broadcast" || "$action" == "resume-verify" \
-  || "$action" == "recover-dropped" ]]; then
-  acquire_deployment_lock
 fi
 reject_build_environment_overrides
 validate_build_environment

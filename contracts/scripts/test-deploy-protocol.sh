@@ -250,6 +250,32 @@ env \
 assert_contains "$test_dir/stderr" "status is validating promoted addresses and runtimes"
 assert_contains "$mock_log" "cast code $MOCK_MEDIA_ADDRESS --rpc-url"
 
+previous_active="$test_dir/previous-active.json"
+cp "$active" "$previous_active"
+: >"$mock_log"
+env \
+  MOCK_GIT_HEAD=3333333333333333333333333333333333333333 \
+  MOCK_OPERATIONAL_BLOB=3333333333333333333333333333333333333333 \
+  "$deploy_wrapper" testnet broadcast
+promoted_archive="$contracts_dir/deployments/protocol/46630/candidate-111111111111-promoted.json"
+[[ -f "$promoted_archive" ]] || fail "superseded promoted journal was not archived"
+assert_jq "$promoted_archive" \
+  '.status == "promoted" and .sourceCommit == "1111111111111111111111111111111111111111"'
+assert_jq "$candidate" \
+  '.status == "promoted" and .sourceCommit == "3333333333333333333333333333333333333333"'
+assert_jq "$active" \
+  '.commit == "3333333333333333333333333333333333333333"'
+assert_count "$mock_log" "cast publish <signed-transaction>" 0
+previous_active_preserved=0
+for historical_active in "$(dirname "$active")"/run-[0-9]*.json; do
+  if cmp -s "$previous_active" "$historical_active"; then
+    previous_active_preserved=1
+    break
+  fi
+done
+[[ "$previous_active_preserved" == "1" ]] \
+  || fail "superseded active broadcast lost its timestamped history record"
+
 reviewed_owner=0x3333333333333333333333333333333333333333
 jq \
   --arg owner "$reviewed_owner" \
@@ -307,6 +333,17 @@ active="$contracts_dir/broadcast/DeployDirectProtocol.s.sol/46630/run-latest.jso
 [[ -f "$candidate" ]] || fail "failed broadcast did not preserve recovery evidence"
 [[ ! -f "$active" ]] || fail "partial deployment became an active broadcast"
 assert_jq "$candidate" '.currentPrefix == 1 and .components[0].status == "deployed" and .components[1].status == "pending"'
+
+: >"$mock_log"
+run_expect_failure env \
+  MOCK_GIT_HEAD=3333333333333333333333333333333333333333 \
+  "$deploy_wrapper" testnet broadcast
+assert_contains "$test_dir/stderr" \
+  "unfinished recovery journal belongs to source commit 1111111111111111111111111111111111111111"
+assert_not_contains "$mock_log" "cast wallet address"
+assert_not_contains "$mock_log" "cast publish <signed-transaction>"
+assert_jq "$candidate" \
+  '.currentPrefix == 1 and .components[0].status == "deployed" and .components[1].status == "pending"'
 
 : >"$mock_log"
 run_expect_failure env MOCK_GIT_DIRTY_WEB=1 "$deploy_wrapper" testnet broadcast
