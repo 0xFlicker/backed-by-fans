@@ -96,7 +96,7 @@ and independent [verification runbook](../docs/runbooks/verification.md).
 
 ```sh
 ./scripts/check-clean-room.sh
-forge fmt --check
+forge fmt --check src script test
 forge build --sizes
 forge test --code-size-limit 1000000 --gas-limit 1000000000 -vvv
 forge test --match-path "test/deployment/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv

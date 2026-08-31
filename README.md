@@ -64,7 +64,7 @@ bun run build
 
 ```sh
 cd contracts
-forge fmt --check
+forge fmt --check src script test
 forge build
 forge test
 ```

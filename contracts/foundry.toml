@@ -47,4 +47,9 @@ quote_style = "double"
 number_underscore = "thousands"
 sort_imports = true
 # The deployed testnet USDG CREATE2 identity includes both source files in Solidity metadata.
-ignore = ["src/TestnetUSDG.sol", "src/RobinhoodProtocolAuthority.sol"]
+# Vendored dependencies are immutable inputs and must never be rewritten by a broad formatter run.
+ignore = [
+  "src/TestnetUSDG.sol",
+  "src/RobinhoodProtocolAuthority.sol",
+  "lib/**",
+]
