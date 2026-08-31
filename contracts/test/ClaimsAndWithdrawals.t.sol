@@ -31,7 +31,9 @@ contract ClaimsAndWithdrawalsTest is Test {
         tier = new MembershipTier(
             address(this),
             paymentToken,
+            1,
             address(renderer),
+            address(renderer).codehash,
             MembershipTestConfig.defaultConfig(address(this))
         );
         paymentToken.mint(member, 100_000_000);

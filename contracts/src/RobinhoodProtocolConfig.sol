@@ -7,6 +7,7 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {OnchainMetadataRenderer} from "./OnchainMetadataRenderer.sol";
 import {RobinhoodProtocolAuthority} from "./RobinhoodProtocolAuthority.sol";
 import {TestnetUSDG} from "./TestnetUSDG.sol";
+import {OnchainMediaStoreFactory} from "./media/OnchainMediaStoreFactory.sol";
 
 /// @notice Compile-time public deployment configuration shared by scripts and creation code.
 library RobinhoodProtocolConfig {
@@ -17,10 +18,13 @@ library RobinhoodProtocolConfig {
     bytes32 internal constant CREATE2_DEPLOYER_CODE_HASH =
         0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989;
     bytes32 internal constant TESTNET_USDG_SALT = keccak256("Backed By Fans testnet USDG v1");
-    bytes32 internal constant RENDERER_SALT = keccak256("Backed By Fans renderer v2");
-    bytes32 internal constant FACTORY_SALT = keccak256("Backed By Fans factory v2");
+    bytes32 internal constant MEDIA_STORE_FACTORY_SALT =
+        keccak256("Backed By Fans media store factory v4");
+    bytes32 internal constant INITIAL_RENDERER_SALT = keccak256("Backed By Fans renderer v4");
+    bytes32 internal constant FACTORY_SALT = keccak256("Backed By Fans factory v4");
     address internal constant APPROVED_DEPLOYER = RobinhoodProtocolAuthority.APPROVED_DEPLOYER;
-    address internal constant INITIAL_PROTOCOL_AUTHORITY = RobinhoodProtocolAuthority.INITIAL_PROTOCOL_AUTHORITY;
+    address internal constant INITIAL_PROTOCOL_AUTHORITY =
+        RobinhoodProtocolAuthority.INITIAL_PROTOCOL_AUTHORITY;
     address internal constant SAFE_L2_SINGLETON = 0xEdd160fEBBD92E350D4D398fb636302fccd67C7e;
 
     error UnsupportedRobinhoodChain(uint256 chainId);
@@ -35,8 +39,16 @@ library RobinhoodProtocolConfig {
         return create2Address(TESTNET_USDG_SALT, keccak256(type(TestnetUSDG).creationCode));
     }
 
-    function renderer() internal pure returns (address) {
-        return create2Address(RENDERER_SALT, keccak256(type(OnchainMetadataRenderer).creationCode));
+    function initialRenderer() internal pure returns (address) {
+        return create2Address(
+            INITIAL_RENDERER_SALT, keccak256(type(OnchainMetadataRenderer).creationCode)
+        );
+    }
+
+    function mediaStoreFactory() internal pure returns (address) {
+        return create2Address(
+            MEDIA_STORE_FACTORY_SALT, keccak256(type(OnchainMediaStoreFactory).creationCode)
+        );
     }
 
     function create2Address(bytes32 salt, bytes32 initCodeHash) internal pure returns (address) {

@@ -3,22 +3,84 @@ pragma solidity =0.8.36;
 
 /// @notice Shared constructor and rendering value types for the membership protocol.
 library MembershipTypes {
+    enum ImageFit {
+        Cover,
+        Contain,
+        Tile
+    }
+
+    enum MediaMIME {
+        None,
+        JPEG,
+        PNG
+    }
+
     enum ReferralStatus {
         Unset,
         LockedNone,
         LockedAddress
     }
 
-    /// @notice Bounded creator-controlled presentation fields.
+    /// @notice Mutable creator-controlled metadata that does not change the artwork.
     struct TierMetadata {
         string description;
-        string imageURI;
         string externalURI;
+    }
+
+    /// @notice Immutable, bounded art direction shared by every token in a tier.
+    /// @dev Engine-specific fields are interpreted by the selected engine and remain inert elsewhere.
+    struct ArtConfig {
+        uint16 engine;
+        uint128 collectionSeed;
+        uint8 palette;
+        uint8 intensity;
+        uint8 density;
+        uint8 symmetry;
+        uint8 typographyScale;
+        uint8 typographyStyle;
+        uint8 textVisibility;
+        ImageFit imageFit;
+        uint8 focalX;
+        uint8 focalY;
+        uint8 grain;
+        uint8 mediaMix;
+        uint8 primary;
+        uint8 secondary;
+        uint8 tertiary;
+    }
+
+    /// @notice Immutable onchain media identity approved with the tier artwork.
+    /// @dev Every field is zero for generated-only artwork. Otherwise every field is required.
+    struct MediaConfig {
+        MediaMIME mime;
+        address store;
+        uint32 length;
+        bytes32 digest;
+        bytes32 runtimeCodehash;
+    }
+
+    /// @notice One append-only renderer record. Enablement gates only future tier creation.
+    struct RendererRecord {
+        address implementation;
+        bytes32 runtimeCodehash;
+        bool enabled;
+    }
+
+    /// @notice Public provenance and integrity record for one native media store.
+    struct MediaRecord {
+        address store;
+        address creator;
+        MediaMIME mime;
+        uint32 length;
+        bytes32 digest;
+        bytes32 runtimeCodehash;
     }
 
     /// @notice Creator-selected values supplied when a tier is deployed.
     struct TierConfig {
         address creator;
+        bytes32 tierSalt;
+        uint32 rendererVersion;
         string name;
         string symbol;
         uint256 pricePerPeriod;
@@ -28,6 +90,8 @@ library MembershipTypes {
         uint64 supplyCap;
         uint64 maxPrepaidPeriods;
         TierMetadata metadata;
+        ArtConfig art;
+        MediaConfig media;
     }
 
     /// @notice Lazy paid-first time checkpoint and separately cached occupancy.
@@ -54,10 +118,18 @@ library MembershipTypes {
     struct TokenRenderData {
         string tierName;
         string description;
-        string imageURI;
         string externalURI;
+        bytes32 tierIdentity;
+        ArtConfig art;
+        MediaConfig media;
         uint256 tokenId;
         uint64 expiration;
         bool active;
+    }
+
+    /// @notice Complete deterministic renderer input used before tier publication.
+    struct PreviewContext {
+        TokenRenderData token;
+        bytes nativeMedia;
     }
 }

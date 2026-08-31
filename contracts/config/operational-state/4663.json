@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "chainId": 4663,
+  "deployment": {
+    "paymentToken": {
+      "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",
+      "implementation": "0x68184C449E1a8f34fA18d289737129FD27B66f8F",
+      "implementationRuntimeCodehash": "0x3a551ac5c744af57e68a1d1431ac403c0f516ffd7d224a75746aee11fc4f3baf"
+    },
+    "mediaStoreFactory": {
+      "address": "0x2f397e956313420769D406776Ac3037ED4beB827",
+      "runtimeCodehash": "0xd46d0310bac3082245018ae4aea7b22bcc67b9e9308fecf65a7298988edccd05"
+    },
+    "renderer": {
+      "address": "0x537CCE4581D6ab2c7D2F5b887e95f5991730238B",
+      "runtimeCodehash": "0xeba10f717236b9a0a4ddde0feb909364b2514cc240c9065c0d11341734014a97"
+    },
+    "membershipFactory": {
+      "address": "0xc43f13678aED3402f3653dB696275eb2eF069681",
+      "runtimeCodehash": "0xf7776a0eaf97190e50a0547bb3f7f80f8164045477d61830ae8b053b7f2656b0"
+    }
+  },
+  "safe": {
+    "address": "0xeAA4B38A99f766117C1D493a21012fec25f70505",
+    "singleton": "0xEdd160fEBBD92E350D4D398fb636302fccd67C7e",
+    "version": "1.5.0",
+    "owners": ["0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"],
+    "threshold": 1,
+    "modules": [],
+    "guard": "0x0000000000000000000000000000000000000000",
+    "fallbackHandler": "0x3EfCBb83A4A7AfcB4F68D501E2c2203a38be77f4"
+  },
+  "factory": {
+    "owner": "0xeAA4B38A99f766117C1D493a21012fec25f70505",
+    "pendingOwner": "0x0000000000000000000000000000000000000000",
+    "feeRecipient": "0xeAA4B38A99f766117C1D493a21012fec25f70505",
+    "renderers": [
+      {
+        "version": 1,
+        "implementation": "0x537CCE4581D6ab2c7D2F5b887e95f5991730238B",
+        "runtimeCodehash": "0xeba10f717236b9a0a4ddde0feb909364b2514cc240c9065c0d11341734014a97",
+        "enabled": true
+      }
+    ]
+  }
+}

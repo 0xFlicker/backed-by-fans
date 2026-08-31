@@ -6,6 +6,7 @@ import {
   managementPermissions,
   parseTokenId,
   validateAddressInput,
+  validateMutableMetadata,
   validateSupplyCap,
 } from "@/features/creator/management";
 
@@ -57,5 +58,23 @@ describe("creator management constraints", () => {
   it("rejects the zero address before an admin write is enabled", () => {
     expect(validateAddressInput(zeroAddress)).toMatch(/nonzero/i);
     expect(validateAddressInput(owner)).toBeUndefined();
+  });
+
+  it("limits only the remaining mutable description and website metadata", () => {
+    expect(
+      validateMutableMetadata({ description: "A room", externalURI: "" }),
+    ).toBeUndefined();
+    expect(
+      validateMutableMetadata({
+        description: "A room",
+        externalURI: "x".repeat(2_049),
+      }),
+    ).toMatch(/website URI/i);
+    expect(
+      validateMutableMetadata({
+        description: "bad\u0001text",
+        externalURI: "",
+      }),
+    ).toMatch(/unsupported/i);
   });
 });

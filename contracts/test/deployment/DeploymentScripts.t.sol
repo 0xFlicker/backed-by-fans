@@ -16,6 +16,8 @@ import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
 import {RobinhoodMembershipFactory} from "../../src/RobinhoodMembershipFactory.sol";
 import {RobinhoodProtocolConfig} from "../../src/RobinhoodProtocolConfig.sol";
 import {TestnetUSDG} from "../../src/TestnetUSDG.sol";
+import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory.sol";
+import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MockUSDG} from "../mocks/MockUSDG.sol";
 
 contract WrongDecimalsUSDG is ERC20 {
@@ -29,31 +31,52 @@ contract DeployProtocolHarness is DeployProtocol {
     function validatedDeploymentState(address paymentToken)
         external
         view
-        returns (address renderer, address factory)
+        returns (address mediaStoreFactory, address renderer, address factory)
     {
-        (OnchainMetadataRenderer deployedRenderer, MembershipFactory deployedFactory) =
-            _validatedDeploymentState(paymentToken);
-        return (address(deployedRenderer), address(deployedFactory));
+        (
+            OnchainMediaStoreFactory deployedMediaStoreFactory,
+            OnchainMetadataRenderer deployedRenderer,
+            MembershipFactory deployedFactory
+        ) = _validatedDeploymentState(paymentToken);
+        return
+            (
+                address(deployedMediaStoreFactory),
+                address(deployedRenderer),
+                address(deployedFactory)
+            );
     }
 
     function validatedCompletedDeployment(address paymentToken)
         external
         view
-        returns (address renderer, address factory)
+        returns (address mediaStoreFactory, address renderer, address factory)
     {
-        (OnchainMetadataRenderer deployedRenderer, MembershipFactory deployedFactory) =
-            _validatedCompletedDeployment(paymentToken);
-        return (address(deployedRenderer), address(deployedFactory));
+        (
+            OnchainMediaStoreFactory deployedMediaStoreFactory,
+            OnchainMetadataRenderer deployedRenderer,
+            MembershipFactory deployedFactory
+        ) = _validatedCompletedDeployment(paymentToken);
+        return
+            (
+                address(deployedMediaStoreFactory),
+                address(deployedRenderer),
+                address(deployedFactory)
+            );
     }
 }
 
 contract DeploymentScriptsTest is Test {
+    struct PredictedDeployment {
+        address mediaStoreFactory;
+        address renderer;
+        address factory;
+    }
+
     uint256 private constant _MAINNET_CHAIN_ID = 4663;
     uint256 private constant _TESTNET_CHAIN_ID = 46_630;
     uint256 private constant _ANVIL_CHAIN_ID = 31_337;
+    uint256 private constant _ROBINHOOD_INITCODE_LIMIT = 196_608;
     address private constant _EXPECTED_TESTNET_USDG = 0xAB97dbB8f4ae0B4a3cc0D6963D75334B1c40da09;
-    address private constant _EXPECTED_RENDERER = 0x2cA28c2996E264a24b59A76b3D58F164112AebD7;
-    address private constant _EXPECTED_FACTORY = 0xC902F211a6346325B0b50e2B7942C952dCaa5038;
     bytes private constant _CREATE2_DEPLOYER_RUNTIME =
         hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3";
 
@@ -72,59 +95,104 @@ contract DeploymentScriptsTest is Test {
     function test_publicDeploymentUsesDirectCreate2AndChecksAllBindings() public {
         assertEq(_publicDeployment.validateInputs(), _publicDeployment.ROBINHOOD_MAINNET_USDG());
 
-        (OnchainMetadataRenderer renderer, MembershipFactory factory) = _deployProtocol();
-        _assertExpectedDeployment(renderer, factory, _publicDeployment.ROBINHOOD_MAINNET_USDG());
+        (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        ) = _deployProtocol();
+        _assertExpectedDeployment(
+            mediaStoreFactory, renderer, factory, _publicDeployment.ROBINHOOD_MAINNET_USDG()
+        );
     }
 
     function test_directFactoryInitcodeAndAddressesMatchAcrossChains() public {
         bytes32 mainnetInitcodeHash = keccak256(type(RobinhoodMembershipFactory).creationCode);
-        (address mainnetRenderer, address mainnetFactory) = _publicDeployment.predictedAddresses();
+        PredictedDeployment memory mainnet = _predictedDeployment();
         assertEq(_publicDeployment.ROBINHOOD_TESTNET_USDG(), _EXPECTED_TESTNET_USDG);
-        assertEq(mainnetRenderer, _EXPECTED_RENDERER);
-        assertEq(mainnetFactory, _EXPECTED_FACTORY);
+        assertTrue(mainnet.mediaStoreFactory != address(0));
+        assertTrue(mainnet.renderer != address(0));
+        assertTrue(mainnet.factory != address(0));
 
         uint256 snapshot = vm.snapshotState();
-        (
-            OnchainMetadataRenderer deployedMainnetRenderer,
-            MembershipFactory deployedMainnetFactory
-        ) = _deployProtocol();
-        assertEq(address(deployedMainnetRenderer), mainnetRenderer);
-        assertEq(address(deployedMainnetFactory), mainnetFactory);
-        assertEq(
-            address(deployedMainnetFactory.paymentToken()),
-            _publicDeployment.ROBINHOOD_MAINNET_USDG()
-        );
+        _deployAndAssertPredicted(mainnet, _publicDeployment.ROBINHOOD_MAINNET_USDG());
         vm.revertToState(snapshot);
 
         vm.chainId(_TESTNET_CHAIN_ID);
         _deployTestnetUSDG();
         bytes32 testnetInitcodeHash = keccak256(type(RobinhoodMembershipFactory).creationCode);
-        (address testnetRenderer, address testnetFactory) = _publicDeployment.predictedAddresses();
-        (
-            OnchainMetadataRenderer deployedTestnetRenderer,
-            MembershipFactory deployedTestnetFactory
-        ) = _deployProtocol();
+        PredictedDeployment memory testnet = _predictedDeployment();
 
         assertEq(testnetInitcodeHash, mainnetInitcodeHash);
-        assertEq(testnetRenderer, mainnetRenderer);
-        assertEq(testnetFactory, mainnetFactory);
-        assertEq(address(deployedTestnetRenderer), mainnetRenderer);
-        assertEq(address(deployedTestnetFactory), mainnetFactory);
-        assertEq(
-            address(deployedTestnetFactory.paymentToken()),
-            _publicDeployment.ROBINHOOD_TESTNET_USDG()
-        );
+        assertEq(testnet.mediaStoreFactory, mainnet.mediaStoreFactory);
+        assertEq(testnet.renderer, mainnet.renderer);
+        assertEq(testnet.factory, mainnet.factory);
+        _deployAndAssertPredicted(testnet, _publicDeployment.ROBINHOOD_TESTNET_USDG());
         assertTrue(
-            address(deployedTestnetFactory.paymentToken())
-                != _publicDeployment.ROBINHOOD_MAINNET_USDG()
+            _publicDeployment.ROBINHOOD_TESTNET_USDG() != _publicDeployment.ROBINHOOD_MAINNET_USDG()
         );
     }
 
-    function test_directFactoryInitcodeFitsTheCreate2ProtocolLimit() public pure {
-        assertLt(type(RobinhoodMembershipFactory).creationCode.length, 49_152);
+    function test_directFactoryInitcodeFitsRobinhoodProtocolLimit() public pure {
+        assertLt(type(RobinhoodMembershipFactory).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
+    }
+
+    function test_releaseWrapperPlanMatchesSolidityConfig() public {
+        uint256 releaseChainId = vm.envOr("BBF_RELEASE_CHAIN_ID", uint256(0));
+        if (releaseChainId == 0) return;
+        if (releaseChainId == _TESTNET_CHAIN_ID) {
+            vm.chainId(_TESTNET_CHAIN_ID);
+            _deployTestnetUSDG();
+        } else {
+            assertEq(releaseChainId, _MAINNET_CHAIN_ID);
+        }
+
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_MEDIA_SALT"), _publicDeployment.MEDIA_STORE_FACTORY_SALT()
+        );
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_RENDERER_SALT"), _publicDeployment.INITIAL_RENDERER_SALT()
+        );
+        assertEq(vm.envBytes32("BBF_RELEASE_FACTORY_SALT"), _publicDeployment.FACTORY_SALT());
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_MEDIA_INIT_HASH"),
+            keccak256(type(OnchainMediaStoreFactory).creationCode)
+        );
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_RENDERER_INIT_HASH"),
+            keccak256(type(OnchainMetadataRenderer).creationCode)
+        );
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_FACTORY_INIT_HASH"),
+            keccak256(type(RobinhoodMembershipFactory).creationCode)
+        );
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_MEDIA_RUNTIME_HASH"),
+            keccak256(type(OnchainMediaStoreFactory).runtimeCode)
+        );
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_RENDERER_RUNTIME_HASH"),
+            keccak256(type(OnchainMetadataRenderer).runtimeCode)
+        );
+
+        PredictedDeployment memory predicted = _predictedDeployment();
+        assertEq(vm.envAddress("BBF_RELEASE_MEDIA_ADDRESS"), predicted.mediaStoreFactory);
+        assertEq(vm.envAddress("BBF_RELEASE_RENDERER_ADDRESS"), predicted.renderer);
+        assertEq(vm.envAddress("BBF_RELEASE_FACTORY_ADDRESS"), predicted.factory);
+
+        (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        ) = _deployProtocol();
+        address paymentToken = releaseChainId == _TESTNET_CHAIN_ID
+            ? _publicDeployment.ROBINHOOD_TESTNET_USDG()
+            : _publicDeployment.ROBINHOOD_MAINNET_USDG();
+        _assertExpectedDeployment(mediaStoreFactory, renderer, factory, paymentToken);
+        emit log_named_bytes32("BBF_RELEASE_FACTORY_RUNTIME_HASH", address(factory).codehash);
     }
 
     function test_unauthorizedOriginCannotReserveFactoryAddress() public {
+        _deployMediaStoreFactory();
         _deployRenderer();
         address unauthorized = makeAddr("unauthorized");
         bytes32 salt = _publicDeployment.FACTORY_SALT();
@@ -132,24 +200,36 @@ contract DeploymentScriptsTest is Test {
             _rawCreate2(salt, type(RobinhoodMembershipFactory).creationCode, unauthorized);
         assertFalse(success);
         assertEq(result.length, 0);
-        (, address expectedFactory) = _publicDeployment.predictedAddresses();
+        (,, address expectedFactory) = _publicDeployment.predictedAddresses();
         assertEq(expectedFactory.code.length, 0);
     }
 
     function test_existingDeploymentIsValidatedAtEachDirectStep() public {
         address paymentToken = _publicDeployment.ROBINHOOD_MAINNET_USDG();
-        (address renderer, address factory) =
+        (address mediaStoreFactory, address renderer, address factory) =
             _publicDeployment.validatedDeploymentState(paymentToken);
+        assertEq(mediaStoreFactory, address(0));
+        assertEq(renderer, address(0));
+        assertEq(factory, address(0));
+
+        OnchainMediaStoreFactory deployedMediaStoreFactory = _deployMediaStoreFactory();
+        (mediaStoreFactory, renderer, factory) =
+            _publicDeployment.validatedDeploymentState(paymentToken);
+        assertEq(mediaStoreFactory, address(deployedMediaStoreFactory));
         assertEq(renderer, address(0));
         assertEq(factory, address(0));
 
         OnchainMetadataRenderer deployedRenderer = _deployRenderer();
-        (renderer, factory) = _publicDeployment.validatedDeploymentState(paymentToken);
+        (mediaStoreFactory, renderer, factory) =
+            _publicDeployment.validatedDeploymentState(paymentToken);
+        assertEq(mediaStoreFactory, address(deployedMediaStoreFactory));
         assertEq(renderer, address(deployedRenderer));
         assertEq(factory, address(0));
 
         MembershipFactory deployedFactory = _deployFactory();
-        (renderer, factory) = _publicDeployment.validatedDeploymentState(paymentToken);
+        (mediaStoreFactory, renderer, factory) =
+            _publicDeployment.validatedDeploymentState(paymentToken);
+        assertEq(mediaStoreFactory, address(deployedMediaStoreFactory));
         assertEq(renderer, address(deployedRenderer));
         assertEq(factory, address(deployedFactory));
     }
@@ -160,21 +240,28 @@ contract DeploymentScriptsTest is Test {
         vm.expectRevert(RobinhoodDeploymentGuard.ProtocolDeploymentIncomplete.selector);
         _publicDeployment.validatedCompletedDeployment(paymentToken);
 
+        _deployMediaStoreFactory();
+        vm.expectRevert(RobinhoodDeploymentGuard.ProtocolDeploymentIncomplete.selector);
+        _publicDeployment.validatedCompletedDeployment(paymentToken);
+
         _deployRenderer();
         vm.expectRevert(RobinhoodDeploymentGuard.ProtocolDeploymentIncomplete.selector);
         _publicDeployment.validatedCompletedDeployment(paymentToken);
 
         _deployFactory();
-        (address renderer, address factory) =
+        (address mediaStoreFactory, address renderer, address factory) =
             _publicDeployment.validatedCompletedDeployment(paymentToken);
-        (address expectedRenderer, address expectedFactory) = _publicDeployment.predictedAddresses();
+        (address expectedMediaStoreFactory, address expectedRenderer, address expectedFactory) =
+            _publicDeployment.predictedAddresses();
+        assertEq(mediaStoreFactory, expectedMediaStoreFactory);
         assertEq(renderer, expectedRenderer);
         assertEq(factory, expectedFactory);
     }
 
     function test_existingArbitraryRendererRuntimeIsNeverAdopted() public {
         address paymentToken = _publicDeployment.ROBINHOOD_MAINNET_USDG();
-        (address expectedRenderer,) = _publicDeployment.predictedAddresses();
+        _deployMediaStoreFactory();
+        (, address expectedRenderer,) = _publicDeployment.predictedAddresses();
         vm.etch(expectedRenderer, hex"00");
 
         vm.expectRevert(
@@ -291,11 +378,19 @@ contract DeploymentScriptsTest is Test {
         address protocolOwner = makeAddr("deploymentProtocolOwner");
         address feeRecipient = makeAddr("deploymentFeeRecipient");
 
-        (OnchainMetadataRenderer renderer, MembershipFactory factory) =
-            localDeployment.deploy(address(localUSDG), protocolOwner, feeRecipient);
+        (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        ) = localDeployment.deploy(address(localUSDG), protocolOwner, feeRecipient);
 
         assertEq(address(factory.paymentToken()), address(localUSDG));
-        assertEq(factory.renderer(), address(renderer));
+        MembershipTypes.RendererRecord memory initialRenderer = factory.rendererRecord(1);
+        assertEq(factory.rendererCount(), 1);
+        assertEq(initialRenderer.implementation, address(renderer));
+        assertEq(initialRenderer.runtimeCodehash, address(renderer).codehash);
+        assertTrue(initialRenderer.enabled);
+        assertEq(factory.mediaStoreFactory(), address(mediaStoreFactory));
 
         vm.chainId(_MAINNET_CHAIN_ID);
         vm.expectRevert(
@@ -308,24 +403,63 @@ contract DeploymentScriptsTest is Test {
 
     function _deployProtocol()
         private
-        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
+        returns (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        )
     {
+        mediaStoreFactory = _deployMediaStoreFactory();
         renderer = _deployRenderer();
         factory = _deployFactory();
     }
 
+    function _predictedDeployment() private view returns (PredictedDeployment memory predicted) {
+        (predicted.mediaStoreFactory, predicted.renderer, predicted.factory) =
+            _publicDeployment.predictedAddresses();
+    }
+
+    function _deployAndAssertPredicted(PredictedDeployment memory predicted, address paymentToken)
+        private
+    {
+        (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        ) = _deployProtocol();
+        assertEq(address(mediaStoreFactory), predicted.mediaStoreFactory);
+        assertEq(address(renderer), predicted.renderer);
+        assertEq(address(factory), predicted.factory);
+        assertEq(address(factory.paymentToken()), paymentToken);
+    }
+
+    function _deployMediaStoreFactory()
+        private
+        returns (OnchainMediaStoreFactory mediaStoreFactory)
+    {
+        (address expectedMediaStoreFactory,,) = _publicDeployment.predictedAddresses();
+        if (expectedMediaStoreFactory.code.length == 0) {
+            _callCreate2(
+                _publicDeployment.MEDIA_STORE_FACTORY_SALT(),
+                type(OnchainMediaStoreFactory).creationCode
+            );
+        }
+        mediaStoreFactory = OnchainMediaStoreFactory(expectedMediaStoreFactory);
+    }
+
     function _deployRenderer() private returns (OnchainMetadataRenderer renderer) {
-        (address expectedRenderer,) = _publicDeployment.predictedAddresses();
+        (, address expectedRenderer,) = _publicDeployment.predictedAddresses();
         if (expectedRenderer.code.length == 0) {
             _callCreate2(
-                _publicDeployment.RENDERER_SALT(), type(OnchainMetadataRenderer).creationCode
+                _publicDeployment.INITIAL_RENDERER_SALT(),
+                type(OnchainMetadataRenderer).creationCode
             );
         }
         renderer = OnchainMetadataRenderer(expectedRenderer);
     }
 
     function _deployFactory() private returns (MembershipFactory factory) {
-        (, address expectedFactory) = _publicDeployment.predictedAddresses();
+        (,, address expectedFactory) = _publicDeployment.predictedAddresses();
         if (expectedFactory.code.length == 0) {
             _callCreate2(
                 _publicDeployment.FACTORY_SALT(), type(RobinhoodMembershipFactory).creationCode
@@ -369,15 +503,26 @@ contract DeploymentScriptsTest is Test {
     }
 
     function _assertExpectedDeployment(
+        OnchainMediaStoreFactory mediaStoreFactory,
         OnchainMetadataRenderer renderer,
         MembershipFactory factory,
         address paymentToken
     ) private view {
-        (address expectedRenderer, address expectedFactory) = _publicDeployment.predictedAddresses();
+        (address expectedMediaStoreFactory, address expectedRenderer, address expectedFactory) =
+            _publicDeployment.predictedAddresses();
+        assertEq(address(mediaStoreFactory), expectedMediaStoreFactory);
         assertEq(address(renderer), expectedRenderer);
         assertEq(address(factory), expectedFactory);
         assertEq(address(factory.paymentToken()), paymentToken);
-        assertEq(factory.renderer(), address(renderer));
+        MembershipTypes.RendererRecord memory initialRenderer = factory.rendererRecord(1);
+        assertEq(factory.rendererCount(), 1);
+        assertEq(factory.rendererVersionOf(address(renderer)), 1);
+        assertEq(initialRenderer.implementation, address(renderer));
+        assertEq(initialRenderer.runtimeCodehash, address(renderer).codehash);
+        assertTrue(initialRenderer.enabled);
+        assertEq(factory.rendererSchema(), renderer.rendererSchema());
+        assertEq(factory.mediaStoreFactory(), address(mediaStoreFactory));
+        assertEq(factory.mediaStoreFactoryRuntimeCodehash(), address(mediaStoreFactory).codehash);
         assertEq(factory.owner(), _publicDeployment.INITIAL_PROTOCOL_AUTHORITY());
         assertEq(factory.pendingOwner(), address(0));
         assertEq(factory.feeRecipient(), _publicDeployment.INITIAL_PROTOCOL_AUTHORITY());
@@ -385,7 +530,6 @@ contract DeploymentScriptsTest is Test {
         MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
         assertTrue(address(tierDeployer).code.length != 0);
         assertEq(tierDeployer.factory(), address(factory));
-        assertEq(tierDeployer.renderer(), address(renderer));
     }
 
     function _installCanonicalUSDG(address token) private {

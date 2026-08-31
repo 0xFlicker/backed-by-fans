@@ -1,7 +1,7 @@
 import type { Address } from "viem";
 
 import type { TierManagementSnapshot } from "@/contracts/types";
-import { uint64Max } from "@/features/creator/config";
+import { isValidOnchainText, uint64Max } from "@/features/creator/config";
 import { isNonZeroAddress, isSameAddress } from "@/lib/address";
 
 const uint256Max = (1n << 256n) - 1n;
@@ -36,16 +36,19 @@ export function validateSupplyCap(value: string, occupiedSupply: bigint) {
 
 export function validateMutableMetadata(input: {
   description: string;
-  imageURI: string;
   externalURI: string;
 }) {
   const bytes = (value: string) => new TextEncoder().encode(value).length;
   if (bytes(input.description) > 500)
     return "Description exceeds 500 UTF-8 bytes.";
-  if (bytes(input.imageURI) > 2_048)
-    return "Image URI exceeds 2,048 UTF-8 bytes.";
+  if (!isValidOnchainText(input.description)) {
+    return "Description contains unsupported control or text characters.";
+  }
   if (bytes(input.externalURI) > 2_048) {
     return "Website URI exceeds 2,048 UTF-8 bytes.";
+  }
+  if (!isValidOnchainText(input.externalURI)) {
+    return "Website URI contains unsupported control or text characters.";
   }
   return undefined;
 }

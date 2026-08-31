@@ -24,6 +24,7 @@ export type TransactionState = {
 };
 
 export type TransactionEvent =
+  | { type: "RESET" }
   | { type: "SIMULATE" }
   | { type: "SIMULATED"; approvalRequired: boolean }
   | { type: "APPROVED" }
@@ -66,6 +67,8 @@ export function transactionReducer(
   event: TransactionEvent,
 ): TransactionState {
   switch (event.type) {
+    case "RESET":
+      return initialTransactionState;
     case "SIMULATE":
       return { phase: "simulation", message: "Checking the transaction." };
     case "SIMULATED":

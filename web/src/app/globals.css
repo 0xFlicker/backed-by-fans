@@ -1002,6 +1002,117 @@ dd {
   min-width: 0;
 }
 
+.creator-workspace-studio {
+  grid-template-columns: 1fr;
+}
+
+.creator-workspace-studio .creator-steps {
+  position: static;
+}
+
+.creator-workspace-studio .creator-steps ol {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.creator-workspace-studio .creator-steps li {
+  border-right: 1px solid var(--line);
+}
+
+.creator-studio-step {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.studio-commit-panel,
+.studio-stored-panel {
+  border: 2px solid var(--backstage);
+  border-radius: var(--radius-large);
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.studio-commit-panel {
+  align-items: start;
+  background: var(--backstage);
+  color: white;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(15rem, 0.65fr);
+}
+
+.studio-commit-panel h2,
+.studio-stored-panel h2,
+.final-art-review h3 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  margin: 0;
+}
+
+.studio-commit-panel h2 {
+  font-size: clamp(2.2rem, 4vw, 3.6rem);
+  max-width: 14ch;
+}
+
+.studio-commit-panel p:not(.eyebrow) {
+  color: #d9dbe3;
+  line-height: 1.55;
+  max-width: 46rem;
+}
+
+.studio-commit-facts,
+.final-art-copy dl {
+  margin: 1.4rem 0 0;
+}
+
+.studio-commit-facts > div,
+.final-art-copy dl > div {
+  align-items: baseline;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.7rem 0;
+}
+
+.studio-commit-facts dt,
+.final-art-copy dt {
+  color: #b9bdca;
+}
+
+.studio-commit-facts dd,
+.final-art-copy dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.studio-commit-action {
+  align-content: start;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.studio-commit-panel .transaction-flow {
+  grid-column: 1 / -1;
+}
+
+.studio-stored-panel {
+  background: var(--encore);
+}
+
+.studio-stored-panel h2 {
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.studio-stored-panel code {
+  display: block;
+  margin-top: 1rem;
+  overflow-wrap: anywhere;
+}
+
 .creator-step-panel {
   background: var(--paper);
   border: 2px solid var(--backstage);
@@ -1184,6 +1295,57 @@ dd {
 
 .terms-review section:last-child dl > div {
   border-color: rgba(17, 19, 26, 0.25);
+}
+
+.final-art-review {
+  background: var(--backstage);
+  border: 2px solid var(--backstage);
+  border-radius: var(--radius-large);
+  color: white;
+  display: grid;
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  grid-template-columns: minmax(0, 1.05fr) minmax(17rem, 0.95fr);
+  margin: 2rem 0;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.final-art-review h3 {
+  font-size: clamp(2.25rem, 4vw, 3.5rem);
+}
+
+.final-art-copy > p:not(.eyebrow) {
+  color: #d9dbe3;
+  line-height: 1.55;
+}
+
+.final-art-copy code {
+  color: var(--encore);
+}
+
+.final-art-frame {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #08090d;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius);
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.final-art-frame img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.final-art-frame p {
+  color: #d9dbe3;
+  line-height: 1.5;
+  max-width: 24rem;
+  padding: 1.5rem;
+  text-align: center;
 }
 
 .terms-review dt {
@@ -1484,6 +1646,91 @@ dd {
 .account-workspace {
   display: grid;
   gap: clamp(2rem, 4vw, 4rem);
+}
+
+.membership-artwork {
+  align-items: center;
+  display: grid;
+  gap: clamp(2rem, 5vw, 5.5rem);
+  grid-template-columns: minmax(0, 1.5fr) minmax(17rem, 0.58fr);
+}
+
+.membership-artwork-stage {
+  background: var(--backstage);
+  border: 1px solid rgba(17, 19, 26, 0.65);
+  border-radius: var(--radius-small);
+  box-shadow: var(--shadow);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.membership-artwork-image {
+  aspect-ratio: 1;
+  display: block;
+  height: auto;
+  object-fit: cover;
+  width: 100%;
+}
+
+.membership-artwork-placeholder {
+  align-content: end;
+  aspect-ratio: 1;
+  background:
+    linear-gradient(145deg, rgba(98, 91, 255, 0.3), transparent 47%),
+    linear-gradient(315deg, rgba(255, 106, 77, 0.28), transparent 52%),
+    var(--backstage);
+  color: var(--house-light);
+  display: grid;
+  gap: 0.55rem;
+  padding: clamp(1.25rem, 4vw, 3rem);
+}
+
+.membership-artwork-placeholder span {
+  color: rgba(247, 242, 232, 0.72);
+  max-width: 34rem;
+}
+
+.membership-artwork-copy {
+  border-top: 2px solid var(--backstage);
+  display: grid;
+  gap: 1.2rem;
+  padding-top: 1.5rem;
+}
+
+.membership-artwork-copy h2 {
+  font-size: clamp(2.5rem, 5vw, 5rem);
+  line-height: 0.92;
+  margin: 0;
+}
+
+.membership-artwork-copy > p:not(.eyebrow, .membership-artwork-error) {
+  color: var(--muted-ink);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.membership-artwork-copy .button {
+  justify-self: start;
+  margin-top: 0.35rem;
+}
+
+.membership-artwork-state {
+  align-items: center;
+  display: flex;
+  font-size: 0.78rem;
+  font-weight: 760;
+  gap: 0.55rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.membership-artwork-state::before {
+  background: var(--encore);
+  border: 1px solid var(--backstage);
+  border-radius: 50%;
+  content: "";
+  height: 0.7rem;
+  width: 0.7rem;
 }
 
 .tier-identity {
@@ -1884,9 +2131,16 @@ dd {
   }
 
   .creator-workspace,
+  .studio-commit-panel,
+  .final-art-review,
   .management-columns,
+  .membership-artwork,
   .supporter-columns {
     grid-template-columns: 1fr;
+  }
+
+  .membership-artwork-copy {
+    max-width: 42rem;
   }
 
   .direct-tier-access-body,
@@ -1903,6 +2157,10 @@ dd {
 
   .creator-steps ol {
     display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .creator-workspace-studio .creator-steps ol {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -2028,6 +2286,10 @@ dd {
   .protocol-facts,
   .refund-preview,
   .protocol-workspace .operator-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .creator-workspace-studio .creator-steps ol {
     grid-template-columns: 1fr;
   }
 

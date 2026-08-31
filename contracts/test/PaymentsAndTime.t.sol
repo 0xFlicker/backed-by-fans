@@ -24,7 +24,9 @@ contract PaymentsAndTimeTest is Test {
 
         paymentToken = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(address(this), paymentToken, address(renderer), _config());
+        tier = new MembershipTier(
+            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, _config()
+        );
         paymentToken.mint(member, 1_000_000_000);
         vm.prank(member);
         paymentToken.approve(address(tier), type(uint256).max);
@@ -173,8 +175,9 @@ contract PaymentsAndTimeTest is Test {
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = 0;
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier zeroTier =
-            new MembershipTier(address(this), paymentToken, address(renderer), config);
+        MembershipTier zeroTier = new MembershipTier(
+            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
+        );
         vm.prank(member);
         paymentToken.approve(address(zeroTier), type(uint256).max);
 
@@ -222,8 +225,9 @@ contract PaymentsAndTimeTest is Test {
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = 0;
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier zeroTier =
-            new MembershipTier(address(this), paymentToken, address(renderer), config);
+        MembershipTier zeroTier = new MembershipTier(
+            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
+        );
         zeroTier.setPaused(true);
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);
@@ -234,8 +238,9 @@ contract PaymentsAndTimeTest is Test {
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = type(uint256).max;
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier expensiveTier =
-            new MembershipTier(address(this), paymentToken, address(renderer), config);
+        MembershipTier expensiveTier = new MembershipTier(
+            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
+        );
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.PaymentOverflow.selector);
@@ -262,8 +267,9 @@ contract PaymentsAndTimeTest is Test {
         config.rewardBps = rewardRate;
         config.referralBps = referralRate;
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier fuzzTier =
-            new MembershipTier(address(this), fuzzToken, address(renderer), config);
+        MembershipTier fuzzTier = new MembershipTier(
+            address(this), fuzzToken, 1, address(renderer), address(renderer).codehash, config
+        );
         fuzzToken.mint(member, gross);
         vm.prank(member);
         fuzzToken.approve(address(fuzzTier), gross);

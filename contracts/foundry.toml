@@ -24,6 +24,11 @@ always_use_create_2_factory = true
 create2_deployer = "0x4e59b44847b379578588920cA78FbF26c0B4956C"
 fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
+[profile.robinhood]
+code_size_limit = 98_304
+gas_limit = 100_000_000
+block_gas_limit = 100_000_000
+
 [profile.default.fuzz]
 runs = 256
 fail_on_revert = true
@@ -41,3 +46,5 @@ int_types = "long"
 quote_style = "double"
 number_underscore = "thousands"
 sort_imports = true
+# The deployed testnet USDG CREATE2 identity includes both source files in Solidity metadata.
+ignore = ["src/TestnetUSDG.sol", "src/RobinhoodProtocolAuthority.sol"]

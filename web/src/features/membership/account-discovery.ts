@@ -1,7 +1,9 @@
 import { getAddress, isAddress, type Address, type PublicClient } from "viem";
 
 import { membershipTierAbi, robinhoodMembershipFactoryAbi } from "@/contracts";
+import type { ProtocolDependencySnapshot } from "@/contracts/types";
 import type { AccountTierResult } from "@/features/membership/account-cache";
+import { readProtocolDependencies } from "@/features/protocol/protocol-read";
 import {
   tierBindingFailures,
   verifyTierAuthenticity,
@@ -149,6 +151,7 @@ async function inspectTiersWithMulticall(
   input: {
     tiers: Address[];
     deployment: ReadyDeployment;
+    protocolDependencies: ProtocolDependencySnapshot;
     wallet: Address;
     blockNumber: bigint;
   },
@@ -170,6 +173,21 @@ async function inspectTiersWithMulticall(
       address: tier,
       abi: membershipTierAbi,
       functionName: "paymentToken" as const,
+    },
+    {
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "renderer" as const,
+    },
+    {
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "rendererVersion" as const,
+    },
+    {
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "rendererRuntimeCodehash" as const,
     },
     ...interfaceIds.map((interfaceId) => ({
       address: tier,
@@ -198,7 +216,7 @@ async function inspectTiersWithMulticall(
     blockNumber: input.blockNumber,
     multicallAddress: multicall3Address,
   })) as MulticallResult[];
-  const groupSize = 7 + interfaceIds.length;
+  const groupSize = 10 + interfaceIds.length;
   const candidates: BatchCandidate[] = [];
   const skipped: string[] = [];
 
@@ -217,9 +235,12 @@ async function inspectTiersWithMulticall(
     const registered = values[0];
     const tierFactory = values[1];
     const tierToken = values[2];
-    const supported = values.slice(3, 3 + interfaceIds.length);
+    const tierRenderer = values[3];
+    const tierRendererVersion = values[4];
+    const tierRendererRuntimeCodehash = values[5];
+    const supported = values.slice(6, 6 + interfaceIds.length);
     const [name, tokenId, claimableReferral, owner] = values.slice(
-      3 + interfaceIds.length,
+      6 + interfaceIds.length,
     );
     const bindingFailures = tierBindingFailures({
       registered,
@@ -228,6 +249,10 @@ async function inspectTiersWithMulticall(
       supportedInterfaces: supported,
       factory: input.deployment.factoryAddress,
       paymentToken: input.deployment.usdgAddress,
+      tierRenderer,
+      tierRendererVersion,
+      tierRendererRuntimeCodehash,
+      renderers: input.protocolDependencies.renderers,
     });
     if (
       bindingFailures.length > 0 ||
@@ -378,11 +403,20 @@ export async function discoverAccountPage(
   ]);
   const batch =
     multicallStatus === "verified"
-      ? await inspectTiersWithMulticall(client, {
-          ...input,
-          tiers: page.addresses,
-          blockNumber: page.capturedBlock,
-        })
+      ? await readProtocolDependencies(
+          client,
+          input.deployment,
+          page.capturedBlock,
+        ).then((protocol) =>
+          protocol.status === "valid"
+            ? inspectTiersWithMulticall(client, {
+                ...input,
+                protocolDependencies: protocol.data,
+                tiers: page.addresses,
+                blockNumber: page.capturedBlock,
+              })
+            : undefined,
+        )
       : undefined;
   const inspected: Awaited<ReturnType<typeof inspectTier>>[] = [];
   if (!batch) {

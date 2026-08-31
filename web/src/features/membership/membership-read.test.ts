@@ -8,6 +8,11 @@ vi.mock("@/lib/direct-read", () => ({
 }));
 
 import { readTierSupporterState } from "@/features/membership/membership-read";
+import type {
+  ProtocolDependencySnapshot,
+  TierArtConfig,
+  TierMediaConfig,
+} from "@/contracts/types";
 import { readTierSnapshotState, verifyMulticall3 } from "@/lib/direct-read";
 
 const tier = getAddress("0x1111111111111111111111111111111111111111");
@@ -19,14 +24,55 @@ const deployment = {
   chainId: 46630 as const,
   factoryAddress: factory,
   usdgAddress: token,
-  factoryRuntimeCodeHash: `0x${"01".repeat(32)}` as const,
-  rendererRuntimeCodeHash: `0x${"02".repeat(32)}` as const,
-  deployerRuntimeCodeHash: `0x${"03".repeat(32)}` as const,
-  usdgRuntimeCodeHash: `0x${"04".repeat(32)}` as const,
-  usdgImplementationAddress:
-    "0x5555555555555555555555555555555555555555" as const,
-  usdgImplementationRuntimeCodeHash: `0x${"05".repeat(32)}` as const,
 };
+const renderer = getAddress("0x4444444444444444444444444444444444444444");
+const rendererRuntimeCodehash = `0x${"01".repeat(32)}` as const;
+const protocolDependencies: ProtocolDependencySnapshot = {
+  chainId: 46630,
+  factory,
+  paymentToken: token,
+  rendererSchema: `0x${"03".repeat(32)}`,
+  rendererCount: 1,
+  renderers: [
+    {
+      version: 1,
+      implementation: renderer,
+      runtimeCodehash: rendererRuntimeCodehash,
+      enabled: true,
+      name: "Founding Six",
+    },
+  ],
+  defaultRendererVersion: 1,
+  mediaStoreFactory: getAddress("0x5555555555555555555555555555555555555555"),
+  mediaStoreFactoryRuntimeCodehash: `0x${"02".repeat(32)}`,
+};
+const art: TierArtConfig = {
+  engine: 0,
+  collectionSeed: 1n,
+  palette: 0,
+  intensity: 50,
+  density: 50,
+  symmetry: 50,
+  typographyScale: 50,
+  typographyStyle: 0,
+  textVisibility: 1,
+  imageFit: 0,
+  focalX: 50,
+  focalY: 50,
+  grain: 50,
+  mediaMix: 50,
+  primary: 50,
+  secondary: 50,
+  tertiary: 50,
+};
+const media: TierMediaConfig = {
+  mime: 0,
+  store: zeroAddress,
+  length: 0,
+  digest: `0x${"00".repeat(32)}`,
+  runtimeCodehash: `0x${"00".repeat(32)}`,
+};
+const tierIdentity = `0x${"ab".repeat(32)}` as const;
 
 describe("supporter direct reads", () => {
   beforeEach(() => {
@@ -45,8 +91,10 @@ describe("supporter direct reads", () => {
         name: "Room",
         symbol: "ROOM",
         description: "",
-        imageURI: "",
         externalURI: "",
+        tierIdentity,
+        art,
+        media,
         pricePerPeriod: 1n,
         periodDuration: 30n,
         rewardBps: 0,
@@ -55,6 +103,10 @@ describe("supporter direct reads", () => {
         occupiedSupply: 0n,
         maxPrepaidPeriods: 0n,
         paused: false,
+        rendererVersion: 1,
+        renderer,
+        rendererRuntimeCodehash,
+        protocolDependencies,
       },
     });
     const readContract = vi.fn(({ functionName }: { functionName: string }) => {
@@ -101,8 +153,10 @@ describe("supporter direct reads", () => {
         name: "Room",
         symbol: "ROOM",
         description: "",
-        imageURI: "",
         externalURI: "",
+        tierIdentity,
+        art,
+        media,
         pricePerPeriod: 1n,
         periodDuration: 30n,
         rewardBps: 0,
@@ -111,6 +165,10 @@ describe("supporter direct reads", () => {
         occupiedSupply: 0n,
         maxPrepaidPeriods: 0n,
         paused: false,
+        rendererVersion: 1,
+        renderer,
+        rendererRuntimeCodehash,
+        protocolDependencies,
       },
     });
     vi.mocked(verifyMulticall3).mockResolvedValue("verified");

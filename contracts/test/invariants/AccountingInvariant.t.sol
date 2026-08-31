@@ -8,6 +8,7 @@ import {Test} from "forge-std/Test.sol";
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTier} from "../../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
+import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {AdversarialERC20} from "../mocks/AdversarialERC20.sol";
@@ -371,10 +372,16 @@ contract AccountingInvariantTest is StdInvariant, Test {
     function setUp() public {
         _paymentToken = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
+        OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
         address creator = makeAddr("invariantCreator");
         address feeRecipient = makeAddr("invariantFeeRecipient");
-        _factory =
-            new MembershipFactory(_paymentToken, address(renderer), address(this), feeRecipient);
+        _factory = new MembershipFactory(
+            _paymentToken,
+            address(renderer),
+            address(mediaStoreFactory),
+            address(this),
+            feeRecipient
+        );
 
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(creator);
         config.maxPrepaidPeriods = 0;

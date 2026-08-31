@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
-    "generate": "wagmi generate && prettier --write src/contracts.ts",
+    "generate": "bash scripts/generate-contracts.sh",
     "generate:check": "bun run generate && git diff --exit-code -- src/contracts.ts",
+    "gallery:render": "bun scripts/render-renderer-gallery.ts",
     "start": "next start",
     "format": "prettier --check .",
     "format:write": "prettier --write .",

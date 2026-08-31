@@ -1,17 +1,35 @@
-import { getAddress, parseUnits } from "viem";
+import { getAddress, parseUnits, zeroAddress, zeroHash } from "viem";
 import { describe, expect, it } from "vitest";
 
 import {
   defaultCreatorForm,
   evaluateCreatorForm,
+  isValidOnchainText,
   previewPaymentSplit,
 } from "@/features/creator/config";
+import {
+  createDefaultArtConfig,
+  toContractArtConfig,
+} from "@/features/creator-studio/art-config";
 
 const creator = getAddress("0x1111111111111111111111111111111111111111");
 const validCreatorForm = {
   ...defaultCreatorForm,
   name: "Creator membership",
   symbol: "FANS",
+};
+const creative = {
+  tierSalt:
+    "0x0000000000000000000000000000000000000000000000000000000000000001" as const,
+  rendererVersion: 1,
+  art: toContractArtConfig(createDefaultArtConfig()),
+  media: {
+    mime: 0,
+    store: zeroAddress,
+    length: 0,
+    digest: zeroHash,
+    runtimeCodehash: zeroHash,
+  },
 };
 
 describe("creator tier configuration", () => {
@@ -21,7 +39,7 @@ describe("creator tier configuration", () => {
   });
 
   it("produces the confirmed default economic terms with an identity", () => {
-    const result = evaluateCreatorForm(validCreatorForm, creator);
+    const result = evaluateCreatorForm(validCreatorForm, creator, creative);
 
     expect(result.errors).toEqual({});
     expect(result.config).toMatchObject({
@@ -32,6 +50,10 @@ describe("creator tier configuration", () => {
       referralBps: 100,
       supplyCap: 0n,
       maxPrepaidPeriods: 12n,
+      tierSalt: creative.tierSalt,
+      rendererVersion: 1,
+      art: creative.art,
+      media: creative.media,
     });
   });
 
@@ -43,6 +65,7 @@ describe("creator tier configuration", () => {
         referralPercent: "65.67",
       },
       creator,
+      creative,
     );
 
     expect(result.config?.rewardBps).toBe(3_333);
@@ -60,6 +83,7 @@ describe("creator tier configuration", () => {
         referralPercent: "   ",
       },
       creator,
+      creative,
     );
 
     expect(result.errors.rewardPercent).toBeUndefined();
@@ -76,6 +100,7 @@ describe("creator tier configuration", () => {
         referralPercent: "40",
       },
       creator,
+      creative,
     );
 
     expect(result.config).toBeUndefined();
@@ -91,6 +116,7 @@ describe("creator tier configuration", () => {
         maxPrepaidPeriods: "0",
       },
       creator,
+      creative,
     );
 
     expect(result.warnings).toEqual([
@@ -98,6 +124,43 @@ describe("creator tier configuration", () => {
       expect.stringMatching(/permissionless gifts/i),
       expect.stringMatching(/unlimited prepayment/i),
     ]);
+  });
+
+  it("requires a non-zero permanent tier identity and creative configuration", () => {
+    expect(
+      evaluateCreatorForm(validCreatorForm, creator).config,
+    ).toBeUndefined();
+    const result = evaluateCreatorForm(validCreatorForm, creator, {
+      ...creative,
+      tierSalt: zeroHash,
+    });
+
+    expect(result.config).toBeUndefined();
+    expect(result.creativeError).toMatch(/valid permanent tier identity/i);
+  });
+
+  it("requires an enabled renderer version to be selected", () => {
+    const result = evaluateCreatorForm(validCreatorForm, creator, {
+      ...creative,
+      rendererVersion: 0,
+    });
+
+    expect(result.config).toBeUndefined();
+    expect(result.creativeError).toMatch(/enabled artwork renderer/i);
+  });
+
+  it("matches the renderer's XML-safe text boundary before simulation", () => {
+    expect(isValidOnchainText("Encore ✦\nMembers")).toBe(true);
+    expect(isValidOnchainText("bad\u0000text")).toBe(false);
+    expect(isValidOnchainText("unpaired \ud800 surrogate")).toBe(false);
+
+    const result = evaluateCreatorForm(
+      { ...validCreatorForm, description: "bad\u0001text" },
+      creator,
+      creative,
+    );
+    expect(result.config).toBeUndefined();
+    expect(result.errors.description).toMatch(/unsupported/i);
   });
 
   it("conserves gross in referred and unreferred split previews", () => {

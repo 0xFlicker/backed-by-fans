@@ -11,6 +11,8 @@ import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {RobinhoodMembershipFactory} from "../src/RobinhoodMembershipFactory.sol";
 import {RobinhoodProtocolConfig} from "../src/RobinhoodProtocolConfig.sol";
 import {TestnetUSDG} from "../src/TestnetUSDG.sol";
+import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
+import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 
 interface IMainnetUSDGDeploymentTarget {
     function paused() external view returns (bool);
@@ -66,15 +68,25 @@ abstract contract ProtocolDeployment is Script {
 
     function _deployLocal(address paymentToken, address protocolOwner, address feeRecipient)
         internal
-        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
+        returns (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        )
     {
+        mediaStoreFactory = new OnchainMediaStoreFactory();
         renderer = new OnchainMetadataRenderer();
         factory = new MembershipFactory(
-            IERC20Metadata(paymentToken), address(renderer), protocolOwner, feeRecipient
+            IERC20Metadata(paymentToken),
+            address(renderer),
+            address(mediaStoreFactory),
+            protocolOwner,
+            feeRecipient
         );
     }
 
     function _checkDeployment(
+        OnchainMediaStoreFactory mediaStoreFactory,
         OnchainMetadataRenderer renderer,
         MembershipFactory factory,
         address paymentToken,
@@ -82,22 +94,31 @@ abstract contract ProtocolDeployment is Script {
         address feeRecipient
     ) internal view {
         address tierDeployer = factory.deployer();
+        MembershipTypes.RendererRecord memory initialRenderer = factory.rendererRecord(1);
         if (
-            address(renderer).code.length == 0 || address(factory).code.length == 0
-                || tierDeployer.code.length == 0 || address(factory.paymentToken()) != paymentToken
-                || factory.renderer() != address(renderer) || factory.owner() != protocolOwner
+            address(mediaStoreFactory).code.length == 0 || address(renderer).code.length == 0
+                || address(factory).code.length == 0 || tierDeployer.code.length == 0
+                || address(factory.paymentToken()) != paymentToken
+                || factory.owner() != protocolOwner || factory.rendererCount() != 1
+                || factory.rendererVersionOf(address(renderer)) != 1
+                || initialRenderer.implementation != address(renderer) || !initialRenderer.enabled
+                || initialRenderer.runtimeCodehash != address(renderer).codehash
+                || factory.rendererSchema() != renderer.rendererSchema()
+                || factory.mediaStoreFactory() != address(mediaStoreFactory)
+                || factory.mediaStoreFactoryRuntimeCodehash() != address(mediaStoreFactory).codehash
                 || factory.pendingOwner() != address(0) || factory.feeRecipient() != feeRecipient
                 || MembershipTierDeployer(tierDeployer).factory() != address(factory)
-                || MembershipTierDeployer(tierDeployer).renderer() != address(renderer)
         ) {
             revert DeploymentInvariantFailed();
         }
     }
 
-    function _logDeployment(OnchainMetadataRenderer renderer, MembershipFactory factory)
-        internal
-        view
-    {
+    function _logDeployment(
+        OnchainMediaStoreFactory mediaStoreFactory,
+        OnchainMetadataRenderer renderer,
+        MembershipFactory factory
+    ) internal view {
+        console2.log("Backed By Fans media store factory", address(mediaStoreFactory));
         console2.log("Backed By Fans renderer", address(renderer));
         console2.log("Backed By Fans factory", address(factory));
         console2.log("Backed By Fans tier deployer", factory.deployer());
@@ -115,7 +136,9 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     address public constant APPROVED_DEPLOYER = RobinhoodProtocolConfig.APPROVED_DEPLOYER;
     address public constant CREATE2_DEPLOYER = RobinhoodProtocolConfig.CREATE2_DEPLOYER;
     bytes32 public constant TESTNET_USDG_SALT = RobinhoodProtocolConfig.TESTNET_USDG_SALT;
-    bytes32 public constant RENDERER_SALT = RobinhoodProtocolConfig.RENDERER_SALT;
+    bytes32 public constant MEDIA_STORE_FACTORY_SALT =
+        RobinhoodProtocolConfig.MEDIA_STORE_FACTORY_SALT;
+    bytes32 public constant INITIAL_RENDERER_SALT = RobinhoodProtocolConfig.INITIAL_RENDERER_SALT;
     bytes32 public constant FACTORY_SALT = RobinhoodProtocolConfig.FACTORY_SALT;
 
     bytes32 public constant CREATE2_DEPLOYER_CODE_HASH =
@@ -139,7 +162,6 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
 
     error CanonicalCreate2DeployerMismatch(bytes32 expected, bytes32 observed);
     error DeploymentStateMismatch();
-    error DeterministicAddressMismatch();
     error ExistingDeploymentCodeMismatch(address target, bytes32 expected, bytes32 observed);
     error InvalidProtocolSafe();
     error ProtocolDeploymentIncomplete();
@@ -148,8 +170,13 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
         return RobinhoodProtocolConfig.testnetPaymentToken();
     }
 
-    function predictedAddresses() public pure returns (address renderer, address factory) {
-        renderer = RobinhoodProtocolConfig.renderer();
+    function predictedAddresses()
+        public
+        pure
+        returns (address mediaStoreFactory, address renderer, address factory)
+    {
+        mediaStoreFactory = RobinhoodProtocolConfig.mediaStoreFactory();
+        renderer = RobinhoodProtocolConfig.initialRenderer();
         factory = RobinhoodProtocolConfig.create2Address(
             FACTORY_SALT, keccak256(type(RobinhoodMembershipFactory).creationCode)
         );
@@ -249,11 +276,31 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     function _validatedDeploymentState(address paymentToken)
         internal
         view
-        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
+        returns (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        )
     {
-        (address expectedRenderer, address expectedFactory) = predictedAddresses();
+        (address expectedMediaStoreFactory, address expectedRenderer, address expectedFactory) =
+            predictedAddresses();
+
+        if (expectedMediaStoreFactory.code.length != 0) {
+            bytes32 expectedMediaStoreFactoryCodeHash =
+                keccak256(type(OnchainMediaStoreFactory).runtimeCode);
+            bytes32 observedMediaStoreFactoryCodeHash = expectedMediaStoreFactory.codehash;
+            if (observedMediaStoreFactoryCodeHash != expectedMediaStoreFactoryCodeHash) {
+                revert ExistingDeploymentCodeMismatch(
+                    expectedMediaStoreFactory,
+                    expectedMediaStoreFactoryCodeHash,
+                    observedMediaStoreFactoryCodeHash
+                );
+            }
+            mediaStoreFactory = OnchainMediaStoreFactory(expectedMediaStoreFactory);
+        }
 
         if (expectedRenderer.code.length != 0) {
+            if (address(mediaStoreFactory) == address(0)) revert DeploymentStateMismatch();
             bytes32 expectedRendererCodeHash = keccak256(type(OnchainMetadataRenderer).runtimeCode);
             bytes32 observedRendererCodeHash = expectedRenderer.codehash;
             if (observedRendererCodeHash != expectedRendererCodeHash) {
@@ -265,9 +312,12 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
         }
 
         if (expectedFactory.code.length != 0) {
-            if (address(renderer) == address(0)) revert DeploymentStateMismatch();
+            if (address(mediaStoreFactory) == address(0) || address(renderer) == address(0)) {
+                revert DeploymentStateMismatch();
+            }
             factory = MembershipFactory(expectedFactory);
             _checkDeployment(
+                mediaStoreFactory,
                 renderer,
                 factory,
                 paymentToken,
@@ -280,46 +330,28 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     function _validatedCompletedDeployment(address paymentToken)
         internal
         view
-        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
+        returns (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        )
     {
-        (renderer, factory) = _validatedDeploymentState(paymentToken);
-        if (address(renderer) == address(0) || address(factory) == address(0)) {
+        (mediaStoreFactory, renderer, factory) = _validatedDeploymentState(paymentToken);
+        if (
+            address(mediaStoreFactory) == address(0) || address(renderer) == address(0)
+                || address(factory) == address(0)
+        ) {
             revert ProtocolDeploymentIncomplete();
         }
     }
 }
 
-/// @notice Resumable direct CREATE2 deployment for Robinhood mainnet and testnet.
+/// @notice Public deployment-input validation used by the raw CREATE2 release wrapper.
+/// @dev The release wrapper deliberately submits canonical CREATE2 calldata with Cast. Keeping
+///      transaction construction out of Forge's script executor avoids its Ethereum initcode cap,
+///      which is lower than Robinhood Chain's reviewed deployment envelope.
 contract DeployProtocol is RobinhoodDeploymentGuard {
     error MainnetConfirmationRequired(uint256 provided);
-
-    function run() external returns (OnchainMetadataRenderer renderer, MembershipFactory factory) {
-        address paymentToken = _validatePublicInputs();
-        validateMainnetConfirmation(vm.envOr("CONFIRM_MAINNET_DEPLOYMENT", uint256(0)));
-        (renderer, factory) = _validatedDeploymentState(paymentToken);
-        (address expectedRenderer, address expectedFactory) = predictedAddresses();
-
-        if (address(renderer) == address(0)) {
-            vm.startBroadcast();
-            renderer = new OnchainMetadataRenderer{salt: RENDERER_SALT}();
-            vm.stopBroadcast();
-            if (address(renderer) != expectedRenderer) revert DeterministicAddressMismatch();
-        }
-
-        if (address(factory) == address(0)) {
-            vm.startBroadcast();
-            RobinhoodMembershipFactory deployedFactory =
-                new RobinhoodMembershipFactory{salt: FACTORY_SALT}();
-            vm.stopBroadcast();
-            factory = MembershipFactory(address(deployedFactory));
-            if (address(factory) != expectedFactory) revert DeterministicAddressMismatch();
-        }
-
-        _checkDeployment(
-            renderer, factory, paymentToken, INITIAL_PROTOCOL_AUTHORITY, INITIAL_PROTOCOL_AUTHORITY
-        );
-        _logDeployment(renderer, factory);
-    }
 
     function validateInputs() external view returns (address paymentToken) {
         return _validatePublicInputs();
@@ -332,71 +364,50 @@ contract DeployProtocol is RobinhoodDeploymentGuard {
     }
 }
 
-/// @notice Read-only public deployment preflight and status validation.
-contract ValidateProtocol is RobinhoodDeploymentGuard {
-    function run()
-        external
-        view
-        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
-    {
-        address paymentToken = _validatePublicInputs();
-        (renderer, factory) = _validatedDeploymentState(paymentToken);
-        (address expectedRenderer, address expectedFactory) = predictedAddresses();
-
-        console2.log("Backed By Fans expected renderer", expectedRenderer);
-        console2.log("Backed By Fans expected factory", expectedFactory);
-        if (address(renderer) == address(0)) {
-            console2.log("Backed By Fans deployment status: not deployed");
-        } else if (address(factory) == address(0)) {
-            console2.log("Backed By Fans deployment status: renderer only");
-        } else {
-            console2.log("Backed By Fans deployment status: complete");
-            _logDeployment(renderer, factory);
-        }
-    }
-}
-
-/// @notice Signer-free gate proving no deployment transaction remains before verification resume.
-contract ValidateCompletedProtocol is RobinhoodDeploymentGuard {
-    function run()
-        external
-        view
-        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
-    {
-        address paymentToken = _validatePublicInputs();
-        (renderer, factory) = _validatedCompletedDeployment(paymentToken);
-        console2.log("Backed By Fans deployment status: complete");
-        _logDeployment(renderer, factory);
-    }
-}
-
 /// @notice Disposable Anvil deployment kept distinct from public Robinhood deployments.
 contract DeployLocalProtocol is ProtocolDeployment {
     uint256 public constant ANVIL_CHAIN_ID = 31_337;
 
     error UnexpectedLocalChain(uint256 chainId);
 
-    function run() external returns (OnchainMetadataRenderer renderer, MembershipFactory factory) {
+    function run()
+        external
+        returns (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        )
+    {
         address paymentToken = vm.envAddress("LOCAL_USDG_ADDRESS");
         address protocolOwner = vm.envAddress("PROTOCOL_OWNER");
         address feeRecipient = vm.envAddress("FEE_RECIPIENT");
         _validateLocalInputs(paymentToken, protocolOwner, feeRecipient);
 
         vm.startBroadcast();
-        (renderer, factory) = _deployLocal(paymentToken, protocolOwner, feeRecipient);
+        (mediaStoreFactory, renderer, factory) =
+            _deployLocal(paymentToken, protocolOwner, feeRecipient);
         vm.stopBroadcast();
 
-        _checkDeployment(renderer, factory, paymentToken, protocolOwner, feeRecipient);
-        _logDeployment(renderer, factory);
+        _checkDeployment(
+            mediaStoreFactory, renderer, factory, paymentToken, protocolOwner, feeRecipient
+        );
+        _logDeployment(mediaStoreFactory, renderer, factory);
     }
 
     function deploy(address paymentToken, address protocolOwner, address feeRecipient)
         external
-        returns (OnchainMetadataRenderer renderer, MembershipFactory factory)
+        returns (
+            OnchainMediaStoreFactory mediaStoreFactory,
+            OnchainMetadataRenderer renderer,
+            MembershipFactory factory
+        )
     {
         _validateLocalInputs(paymentToken, protocolOwner, feeRecipient);
-        (renderer, factory) = _deployLocal(paymentToken, protocolOwner, feeRecipient);
-        _checkDeployment(renderer, factory, paymentToken, protocolOwner, feeRecipient);
+        (mediaStoreFactory, renderer, factory) =
+            _deployLocal(paymentToken, protocolOwner, feeRecipient);
+        _checkDeployment(
+            mediaStoreFactory, renderer, factory, paymentToken, protocolOwner, feeRecipient
+        );
     }
 
     function validateInputs(address paymentToken, address protocolOwner, address feeRecipient)

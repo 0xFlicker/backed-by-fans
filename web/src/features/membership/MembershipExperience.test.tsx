@@ -2,17 +2,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getAddress, zeroAddress } from "viem";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { TierSupporterSnapshot } from "@/contracts/types";
+import type {
+  ProtocolDependencySnapshot,
+  TierArtConfig,
+  TierMediaConfig,
+  TierSupporterSnapshot,
+} from "@/contracts/types";
 
 const wallet = getAddress("0x1111111111111111111111111111111111111111");
+const readContract = vi.hoisted(() => vi.fn());
 
 vi.mock("wagmi", () => ({
   useAccount: () => ({ address: wallet, chainId: 46_630, isConnected: true }),
   useChainId: () => 46_630,
   useConfig: () => ({}),
-  usePublicClient: () => ({}),
+  usePublicClient: () => ({ readContract }),
   useWriteContract: () => ({ isPending: false, writeContractAsync: vi.fn() }),
 }));
 vi.mock("@/components/WalletControl", () => ({
@@ -24,15 +30,72 @@ vi.mock("@/components/WalletReadiness", () => ({
 
 import { MembershipExperience } from "@/features/membership/MembershipExperience";
 
+const factory = getAddress("0x4444444444444444444444444444444444444444");
+const paymentToken = getAddress("0x5555555555555555555555555555555555555555");
+const renderer = getAddress("0x6666666666666666666666666666666666666666");
+const rendererRuntimeCodehash = `0x${"01".repeat(32)}` as const;
+const protocolDependencies: ProtocolDependencySnapshot = {
+  chainId: 46630,
+  factory,
+  paymentToken,
+  rendererSchema: `0x${"03".repeat(32)}`,
+  rendererCount: 1,
+  renderers: [
+    {
+      version: 1,
+      implementation: renderer,
+      runtimeCodehash: rendererRuntimeCodehash,
+      enabled: true,
+      name: "Founding Six",
+    },
+  ],
+  defaultRendererVersion: 1,
+  mediaStoreFactory: getAddress("0x7777777777777777777777777777777777777777"),
+  mediaStoreFactoryRuntimeCodehash: `0x${"02".repeat(32)}`,
+};
+const art: TierArtConfig = {
+  engine: 0,
+  collectionSeed: 1n,
+  palette: 0,
+  intensity: 50,
+  density: 50,
+  symmetry: 50,
+  typographyScale: 50,
+  typographyStyle: 0,
+  textVisibility: 1,
+  imageFit: 0,
+  focalX: 50,
+  focalY: 50,
+  grain: 50,
+  mediaMix: 50,
+  primary: 50,
+  secondary: 50,
+  tertiary: 50,
+};
+const media: TierMediaConfig = {
+  mime: 0,
+  store: zeroAddress,
+  length: 0,
+  digest: `0x${"00".repeat(32)}`,
+  runtimeCodehash: `0x${"00".repeat(32)}`,
+};
+const tierIdentity = `0x${"ab".repeat(32)}` as const;
+
 const snapshot: TierSupporterSnapshot = {
   address: getAddress("0x2222222222222222222222222222222222222222"),
   creator: getAddress("0x3333333333333333333333333333333333333333"),
-  factory: getAddress("0x4444444444444444444444444444444444444444"),
-  paymentToken: getAddress("0x5555555555555555555555555555555555555555"),
+  factory,
+  paymentToken,
+  rendererVersion: 1,
+  renderer,
+  rendererRuntimeCodehash,
+  protocolDependencies,
+  tierIdentity,
+  art,
+  media,
   name: "The listening room",
   symbol: "ROOM",
   description: "Closer support, held directly.",
-  imageURI: "",
   externalURI: "",
   pricePerPeriod: 10_000_000n,
   periodDuration: 30n * 86_400n,
@@ -50,6 +113,17 @@ const snapshot: TierSupporterSnapshot = {
   claimableReferral: 0n,
 };
 
+const canonicalSVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200"><title>The listening room</title><rect width="1200" height="1200" fill="#11131a"/></svg>';
+const canonicalTokenURI = `data:application/json;base64,${btoa(
+  JSON.stringify({
+    name: "The listening room #1",
+    description: "Closer support, held directly.",
+    image: `data:image/svg+xml;base64,${btoa(canonicalSVG)}`,
+    external_url: "",
+    attributes: [],
+  }),
+)}`;
 function credential(
   overrides: Partial<NonNullable<TierSupporterSnapshot["credential"]>> = {},
 ) {
@@ -70,7 +144,7 @@ function credential(
   };
 }
 
-function renderExperience(value: TierSupporterSnapshot) {
+function renderExperience(value: TierSupporterSnapshot, capturedBlock = 100n) {
   return render(
     <QueryClientProvider
       client={
@@ -78,7 +152,7 @@ function renderExperience(value: TierSupporterSnapshot) {
       }
     >
       <MembershipExperience
-        capturedBlock={100n}
+        capturedBlock={capturedBlock}
         expectedChainId={46630}
         fresh
         onRefresh={async () => undefined}
@@ -89,6 +163,18 @@ function renderExperience(value: TierSupporterSnapshot) {
 }
 
 describe("supporter membership experience", () => {
+  beforeEach(() => {
+    readContract.mockReset();
+    readContract.mockImplementation(
+      async ({ functionName }: { functionName: string }) => {
+        if (functionName === "tokenURI" || functionName === "previewTokenURI") {
+          return canonicalTokenURI;
+        }
+        throw new Error(`Unexpected read ${functionName}`);
+      },
+    );
+  });
+
   it("presents join, active renewal, held-expiry, and synchronized history distinctly", () => {
     const view = renderExperience(snapshot);
     expect(screen.getAllByText("Join this membership").length).toBeGreaterThan(
@@ -200,6 +286,56 @@ describe("supporter membership experience", () => {
     expect(
       screen.getByRole("button", { name: "Renew active membership" }),
     ).toBeDisabled();
+  });
+
+  it("shows only the canonical self-contained SVG", async () => {
+    renderExperience({ ...snapshot, credential: credential() }, 321n);
+
+    expect(
+      await screen.findByRole("img", {
+        name: "The listening room membership #1",
+      }),
+    ).toHaveAttribute("src", expect.stringMatching(/^data:image\/svg\+xml/));
+    expect(readContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: snapshot.address,
+        functionName: "tokenURI",
+        args: [1n],
+        blockNumber: 321n,
+      }),
+    );
+    expect(
+      readContract.mock.calls.some(
+        ([request]) => request.functionName === "previewTokenURI",
+      ),
+    ).toBe(false);
+    expect(
+      screen.getByRole("region", { name: "Current membership status" }),
+    ).toHaveTextContent("Membership active");
+    expect(screen.queryByRole("button", { name: /interactive/i })).toBeNull();
+    expect(screen.queryByTitle(/interactive membership art/i)).toBeNull();
+  });
+
+  it("uses canonical renderer metadata for the unminted collection preview", async () => {
+    renderExperience(snapshot, 654n);
+
+    expect(
+      await screen.findByRole("img", {
+        name: "The listening room membership collection preview",
+      }),
+    ).toHaveAttribute("src", expect.stringMatching(/^data:image\/svg\+xml/));
+    expect(readContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: renderer,
+        functionName: "previewTokenURI",
+        blockNumber: 654n,
+      }),
+    );
+    expect(
+      readContract.mock.calls.some(
+        ([request]) => request.functionName === "tokenURI",
+      ),
+    ).toBe(false);
   });
 
   it("keeps referrals implicit and hides claims that are not available", () => {

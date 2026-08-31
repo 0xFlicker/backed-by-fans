@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+args=("$@")
+if [[ "${args[0]:-}" == "-C" ]]; then
+  args=("${args[@]:2}")
+fi
+
+case "${args[0]:-}" in
+  rev-parse)
+    if [[ "${args[*]}" == *"--show-toplevel"* ]]; then
+      printf '%s\n' "$MOCK_GIT_ROOT"
+    elif [[ "${args[*]}" == *"HEAD:contracts/config/operational-state/"* ]]; then
+      printf '%s\n' "${MOCK_OPERATIONAL_BLOB:-2222222222222222222222222222222222222222}"
+    else
+      printf '%s\n' "${MOCK_GIT_HEAD:-1111111111111111111111111111111111111111}"
+    fi
+    ;;
+  status)
+    if [[ "${MOCK_GIT_DIRTY:-0}" == "1" ]]; then
+      printf '%s\n' " M contracts/src/MembershipFactory.sol"
+    elif [[ "${MOCK_GIT_DIRTY_WEB:-0}" == "1" ]]; then
+      printf '%s\n' " M web/wagmi.config.ts"
+    elif [[ "${MOCK_GIT_DIRTY_MAINNET_BROADCAST:-0}" == "1" ]]; then
+      printf '%s\n' " M contracts/broadcast/DeployDirectProtocol.s.sol/4663/run-latest.json"
+    elif [[ "${MOCK_GIT_UNTRACKED_WEB:-0}" == "1" ]]; then
+      printf '%s\n' "?? web/scripts/untracked-generator.ts"
+    elif [[ "${MOCK_GIT_UNTRACKED_MAINNET_BROADCAST:-0}" == "1" ]]; then
+      printf '%s\n' "?? contracts/broadcast/DeployDirectProtocol.s.sol/4663/run-latest.json"
+    fi
+    ;;
+  diff)
+    if [[ "${args[*]}" == *"contracts/config/operational-state/"* ]]; then
+      [[ "${MOCK_GIT_DIRTY_OPERATIONAL:-0}" != "1" ]]
+    else
+      [[ "${MOCK_GIT_DIRTY:-0}" != "1" && "${MOCK_GIT_DIRTY_WEB:-0}" != "1" \
+        && "${MOCK_GIT_DIRTY_MAINNET_BROADCAST:-0}" != "1" ]]
+    fi
+    ;;
+  ls-files)
+    if [[ "${MOCK_GIT_UNTRACKED_WEB:-0}" == "1" ]]; then
+      printf '%s\n' "web/scripts/untracked-generator.ts"
+    elif [[ "${MOCK_GIT_UNTRACKED_MAINNET_BROADCAST:-0}" == "1" ]]; then
+      printf '%s\n' "contracts/broadcast/DeployDirectProtocol.s.sol/4663/run-latest.json"
+    fi
+    ;;
+  *)
+    echo "unexpected mock git invocation: $*" >&2
+    exit 1
+    ;;
+esac

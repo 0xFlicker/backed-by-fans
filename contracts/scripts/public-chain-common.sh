@@ -72,7 +72,10 @@ bbf_verify_public_chain() {
   local label="$1"
   local observed_chain_id
 
-  observed_chain_id="$(cast chain-id --rpc-url "$rpc_url")"
+  if ! observed_chain_id="$(cast chain-id --rpc-url "$rpc_url" 2>/dev/null)"; then
+    echo "$label: RPC chain-id query failed" >&2
+    return 1
+  fi
   if [[ "$observed_chain_id" != "$expected_chain_id" ]]; then
     echo "$label: expected chain $expected_chain_id, RPC returned $observed_chain_id" >&2
     return 1

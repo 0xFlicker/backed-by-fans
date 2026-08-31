@@ -15,8 +15,10 @@ test("keeps direct membership access independent of discovery configuration", as
     }),
   ).toBeVisible();
   await expect(page.getByText(/manage the ones you create/i)).toBeVisible();
+  const discoveryState = page.locator("[data-read-state='unavailable']");
+  await expect(discoveryState).toBeVisible();
   await expect(
-    page.getByText("Your memberships", { exact: true }),
+    discoveryState.getByText(/^(Your memberships|Memberships unavailable)$/),
   ).toBeVisible();
 
   await page.getByText("Already have a membership link?").click();

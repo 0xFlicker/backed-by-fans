@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'anvil %s\n' "$*" >>"$MOCK_LOG"
+cp "$MOCK_PUBLIC_STATE" "$MOCK_LOCAL_STATE"
+touch "$MOCK_ANVIL_READY"
+trap 'exit 0' TERM INT
+while true; do
+  sleep 1
+done

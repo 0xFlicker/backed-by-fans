@@ -49,4 +49,27 @@ describe("successful write reconciliation", () => {
     );
     expect(dispatch).not.toHaveBeenCalledWith({ type: "RECONCILED" });
   });
+
+  it("can retry only the domain verification with the same successful receipt", async () => {
+    const dispatch = vi.fn();
+    const reconcile = vi
+      .fn<(receipt: SuccessfulWriteReceipt) => Promise<string | undefined>>()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce("visible after a fresh canonical read");
+
+    await expect(
+      reconcileSuccessfulWrite({ receipt, reconcile, dispatch }),
+    ).resolves.toBeUndefined();
+    await expect(
+      reconcileSuccessfulWrite({ receipt, reconcile, dispatch }),
+    ).resolves.toBe("visible after a fresh canonical read");
+
+    expect(reconcile.mock.calls).toEqual([[receipt], [receipt]]);
+    expect(dispatch.mock.calls.map(([event]) => event.type)).toEqual([
+      "RECONCILE",
+      "UNCERTAIN",
+      "RECONCILE",
+      "RECONCILED",
+    ]);
+  });
 });

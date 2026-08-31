@@ -25,7 +25,9 @@ contract MembershipIdentityTest is Test {
 
         MockUSDG token = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(address(this), token, address(renderer), _config());
+        tier = new MembershipTier(
+            address(this), token, 1, address(renderer), address(renderer).codehash, _config()
+        );
     }
 
     function test_grantsMintOnePersistentSequentialCredentialPerRecipient() public {

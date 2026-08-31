@@ -20,7 +20,7 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     event PauseUpdated(bool paused);
     event SupplyCapUpdated(uint64 previousCap, uint64 newCap);
     event MaxPrepaidPeriodsUpdated(uint64 previousMaximum, uint64 newMaximum);
-    event TierMetadataUpdated(string description, string imageURI, string externalURI);
+    event TierMetadataUpdated(string description, string externalURI);
     event PaymentProcessed(
         address indexed payer,
         address indexed recipient,
@@ -61,6 +61,16 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function renderer() external view returns (address);
 
+    function rendererVersion() external view returns (uint32);
+
+    function rendererRuntimeCodehash() external view returns (bytes32);
+
+    function tierIdentity() external view returns (bytes32);
+
+    function artConfig() external view returns (MembershipTypes.ArtConfig memory);
+
+    function mediaConfig() external view returns (MembershipTypes.MediaConfig memory);
+
     function pricePerPeriod() external view returns (uint256);
 
     function periodDuration() external view returns (uint64);
@@ -76,8 +86,6 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     function maxPrepaidPeriods() external view returns (uint64);
 
     function description() external view returns (string memory);
-
-    function imageURI() external view returns (string memory);
 
     function externalURI() external view returns (string memory);
 

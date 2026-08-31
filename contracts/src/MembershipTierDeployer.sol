@@ -13,7 +13,6 @@ contract MembershipTierDeployer {
     uint256 private constant _RUNTIME_LIMIT = 24_576;
 
     address public immutable factory;
-    address public immutable renderer;
     address public immutable creationCodeStoreA;
     address public immutable creationCodeStoreB;
     uint256 public immutable tierCreationCodeLength;
@@ -25,10 +24,9 @@ contract MembershipTierDeployer {
     error InvalidAddress();
     error OnlyFactory();
 
-    constructor(address factory_, address renderer_) {
-        if (factory_ == address(0) || renderer_ == address(0)) revert InvalidAddress();
+    constructor(address factory_) {
+        if (factory_ == address(0)) revert InvalidAddress();
         factory = factory_;
-        renderer = renderer_;
 
         bytes memory creationCode = type(MembershipTier).creationCode;
         uint256 codeLength = creationCode.length;
@@ -51,10 +49,13 @@ contract MembershipTierDeployer {
         tierCreationCodeHash = keccak256(creationCode);
     }
 
-    function deploy(IERC20 paymentToken, MembershipTypes.TierConfig calldata config)
-        external
-        returns (address tier)
-    {
+    function deploy(
+        IERC20 paymentToken,
+        uint32 rendererVersion,
+        address renderer,
+        bytes32 rendererRuntimeCodehash,
+        MembershipTypes.TierConfig calldata config
+    ) external returns (address tier) {
         if (msg.sender != factory) revert OnlyFactory();
 
         address firstStore = creationCodeStoreA;
@@ -63,7 +64,9 @@ contract MembershipTierDeployer {
         uint256 firstLength = codeLength / 2;
         uint256 secondLength = codeLength - firstLength;
 
-        bytes memory constructorArgs = abi.encode(factory, paymentToken, renderer, config);
+        bytes memory constructorArgs = abi.encode(
+            factory, paymentToken, rendererVersion, renderer, rendererRuntimeCodehash, config
+        );
         bytes memory initCode = new bytes(codeLength + constructorArgs.length);
         bytes32 reconstructedHash;
         assembly ("memory-safe") {

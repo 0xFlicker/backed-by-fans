@@ -7,6 +7,7 @@ import {Test} from "forge-std/Test.sol";
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTier} from "../../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
+import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {AdversarialERC20} from "../mocks/AdversarialERC20.sol";
@@ -334,9 +335,14 @@ contract MembershipInvariantTest is StdInvariant, Test {
     function setUp() public {
         _paymentToken = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
+        OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
         address creator = makeAddr("membershipInvariantCreator");
         _factory = new MembershipFactory(
-            _paymentToken, address(renderer), address(this), makeAddr("membershipInvariantFees")
+            _paymentToken,
+            address(renderer),
+            address(mediaStoreFactory),
+            address(this),
+            makeAddr("membershipInvariantFees")
         );
 
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(creator);
@@ -421,10 +427,22 @@ contract RewardSettlementIndependenceTest is Test {
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
         config.pricePerPeriod = 0;
-        MembershipTier frequent =
-            new MembershipTier(makeAddr("frequentFactory"), token, address(renderer), config);
-        MembershipTier deferred =
-            new MembershipTier(makeAddr("deferredFactory"), token, address(renderer), config);
+        MembershipTier frequent = new MembershipTier(
+            makeAddr("frequentFactory"),
+            token,
+            1,
+            address(renderer),
+            address(renderer).codehash,
+            config
+        );
+        MembershipTier deferred = new MembershipTier(
+            makeAddr("deferredFactory"),
+            token,
+            1,
+            address(renderer),
+            address(renderer).codehash,
+            config
+        );
         address first = makeAddr("settlementFirst");
         address second = makeAddr("settlementSecond");
 
@@ -473,8 +491,9 @@ contract FrozenGiftLifecycleTest is Test {
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
         config.supplyCap = 1;
-        MembershipTier tier =
-            new MembershipTier(makeAddr("giftFactory"), token, address(renderer), config);
+        MembershipTier tier = new MembershipTier(
+            makeAddr("giftFactory"), token, 1, address(renderer), address(renderer).codehash, config
+        );
         address payer = makeAddr("giftPayer");
         address recipient = makeAddr("frozenGiftRecipient");
         address competitor = makeAddr("giftCompetitor");

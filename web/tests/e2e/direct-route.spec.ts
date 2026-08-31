@@ -59,6 +59,6 @@ test("renders complete creator setup while unavailable writes fail closed", asyn
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /simulate and deploy/i }),
+    page.getByRole("button", { name: /publish this membership/i }),
   ).toBeDisabled();
 });

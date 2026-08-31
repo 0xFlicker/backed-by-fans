@@ -108,16 +108,20 @@ function ManagementControls({
   const refundPreviewVersion = useRef(0);
   const operationInFlight = useRef(false);
   const [description, setDescription] = useState(snapshot.description);
-  const [imageURI, setImageURI] = useState(snapshot.imageURI);
   const [externalURI, setExternalURI] = useState(snapshot.externalURI);
   const [newOwner, setNewOwner] = useState("");
   const permissions = managementPermissions(snapshot, account.address);
   const authenticity: AuthenticityResult = {
     status: "verified",
     capturedBlock,
-    factory: snapshot.factory,
     tier: snapshot.address,
-    paymentToken: snapshot.paymentToken,
+    tierIdentity: snapshot.tierIdentity,
+    rendererVersion: snapshot.rendererVersion,
+    renderer: snapshot.renderer,
+    rendererRuntimeCodehash: snapshot.rendererRuntimeCodehash,
+    art: snapshot.art,
+    media: snapshot.media,
+    protocolDependencies: snapshot.protocolDependencies,
   };
   const guard = getWriteGuard({
     deployment: getDeployment(publicConfig, expectedChainId),
@@ -569,7 +573,6 @@ function ManagementControls({
       : undefined;
   const metadataError = validateMutableMetadata({
     description,
-    imageURI,
     externalURI,
   });
   const recipientError = grantRecipient
@@ -915,11 +918,6 @@ function ManagementControls({
                 rows={4}
                 value={description}
               />
-              <span>Creator image URI</span>
-              <input
-                onChange={(event) => setImageURI(event.target.value)}
-                value={imageURI}
-              />
               <span>Website URI</span>
               <input
                 onChange={(event) => setExternalURI(event.target.value)}
@@ -933,20 +931,16 @@ function ManagementControls({
                 !canOwnerWrite ||
                 Boolean(metadataError) ||
                 (description === snapshot.description &&
-                  imageURI === snapshot.imageURI &&
                   externalURI === snapshot.externalURI)
               }
               onClick={() =>
                 void perform(
                   "Update tier presentation",
-                  tierWrite("setTierMetadata", [
-                    { description, imageURI, externalURI },
-                  ]),
+                  tierWrite("setTierMetadata", [{ description, externalURI }]),
                   () =>
                     reconcileSnapshot(
                       (next) =>
                         next.description === description &&
-                        next.imageURI === imageURI &&
                         next.externalURI === externalURI,
                     ),
                 )

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'bun %s\n' "$*" >>"$MOCK_LOG"
+[[ "${MOCK_BUN_FAIL:-0}" != "1" ]] || exit 1
+
+if [[ "$*" == "x wagmi generate" ]]; then
+  [[ -n "${BBF_WAGMI_FOUNDRY_PROJECT:-}" ]]
+  [[ -n "${BBF_WAGMI_OUTPUT:-}" ]]
+  if [[ "${MOCK_BUN_REQUIRE_PRESERVED_BROADCASTS:-0}" == "1" ]]; then
+    [[ -f "$BBF_WAGMI_FOUNDRY_PROJECT/broadcast/TestnetUSDG.s.sol/46630/run-latest.json" ]]
+    [[ -f "$BBF_WAGMI_FOUNDRY_PROJECT/broadcast/DeployDirectProtocol.s.sol/4663/run-latest.json" ]]
+  fi
+  mkdir -p "$(dirname "$BBF_WAGMI_OUTPUT")"
+  printf 'export const stagedProtocolBindings = true;\n' >"$BBF_WAGMI_OUTPUT"
+fi

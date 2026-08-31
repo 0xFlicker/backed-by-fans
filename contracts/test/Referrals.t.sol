@@ -32,7 +32,9 @@ contract ReferralsTest is Test {
         tier = new MembershipTier(
             address(this),
             paymentToken,
+            1,
             address(renderer),
+            address(renderer).codehash,
             MembershipTestConfig.defaultConfig(address(this))
         );
 
@@ -172,8 +174,9 @@ contract ReferralsTest is Test {
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
         config.pricePerPeriod = 0;
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTier zeroTier =
-            new MembershipTier(address(this), paymentToken, address(renderer), config);
+        MembershipTier zeroTier = new MembershipTier(
+            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
+        );
         uint256 tokenId = zeroTier.grantTime(member, 1);
 
         assertTrue(zeroTier.isRenewable(tokenId));

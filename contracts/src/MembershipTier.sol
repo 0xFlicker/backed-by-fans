@@ -12,10 +12,13 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import {OnchainMetadataRenderer} from "./OnchainMetadataRenderer.sol";
+import {TierIdentity} from "./TierIdentity.sol";
 import {IERC5192} from "./interfaces/IERC5192.sol";
 import {IERC5643} from "./interfaces/IERC5643.sol";
+import {IMembershipRenderer} from "./interfaces/IMembershipRenderer.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
+import {RendererPrimitives} from "./renderer/RendererPrimitives.sol";
+import {TextValidation} from "./renderer/TextValidation.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 
 /// @notice One immutable-economic creator membership tier with persistent credentials.
@@ -28,13 +31,18 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     uint256 public constant MAX_SYMBOL_BYTES = 16;
     uint256 public constant MAX_DESCRIPTION_BYTES = 500;
     uint256 public constant MAX_URI_BYTES = 2048;
+    uint256 public constant MAX_RENDERABLE_MEDIA_BYTES =
+        RendererPrimitives.MAX_RENDERABLE_MEDIA_BYTES;
 
     uint16 private constant _BPS_DENOMINATOR = 10_000;
     uint256 private constant _REWARD_SCALE = 1e27;
 
     address public immutable override factory;
     IERC20 public immutable override paymentToken;
+    uint32 public immutable override rendererVersion;
     address public immutable override renderer;
+    bytes32 public immutable override rendererRuntimeCodehash;
+    bytes32 public immutable override tierIdentity;
     uint256 public immutable override pricePerPeriod;
     uint64 public immutable override periodDuration;
     uint16 public immutable override rewardBps;
@@ -47,8 +55,10 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     bool public override paused;
 
     string public override description;
-    string public override imageURI;
     string public override externalURI;
+
+    MembershipTypes.ArtConfig private _art;
+    MembershipTypes.MediaConfig private _media;
 
     mapping(address recipient => uint256 tokenId) public override tokenOf;
     mapping(uint256 tokenId => MembershipTypes.MembershipState state) internal _membershipStates;
@@ -71,10 +81,12 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error DurationOverflow();
     error InvalidAddress();
     error InvalidMetadata();
+    error InvalidMediaConfig();
     error InvalidPaidDuration();
     error InvalidPeriodDuration();
     error InvalidPeriods();
     error InvalidRateTotal();
+    error InvalidTierSalt();
     error InexactTokenTransfer();
     error IncorrectPricingMode();
     error NativeValueRejected();
@@ -87,6 +99,8 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error ReferralChoiceMismatch();
     error ReferralChoiceRequired();
     error ReferralStateMismatch();
+    error RendererCodeChanged(bytes32 expected, bytes32 actual);
+    error RendererVersionMismatch(uint32 expected, uint32 actual);
     error SelfGiftNotAllowed();
     error Soulbound();
     error SupplyCapBelowOccupancy();
@@ -97,24 +111,39 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     constructor(
         address factory_,
         IERC20 paymentToken_,
+        uint32 rendererVersion_,
         address renderer_,
+        bytes32 rendererRuntimeCodehash_,
         MembershipTypes.TierConfig memory config
     ) ERC721(config.name, config.symbol) Ownable(config.creator) {
         if (
             factory_ == address(0) || address(paymentToken_) == address(0)
-                || renderer_ == address(0)
+                || renderer_ == address(0) || rendererVersion_ == 0
+                || rendererRuntimeCodehash_ == bytes32(0)
         ) {
             revert InvalidAddress();
         }
+        if (config.rendererVersion != rendererVersion_) {
+            revert RendererVersionMismatch(rendererVersion_, config.rendererVersion);
+        }
+        bytes32 actualRendererCodehash = renderer_.codehash;
+        if (actualRendererCodehash != rendererRuntimeCodehash_) {
+            revert RendererCodeChanged(rendererRuntimeCodehash_, actualRendererCodehash);
+        }
+        if (config.tierSalt == bytes32(0)) revert InvalidTierSalt();
         if (config.periodDuration == 0) revert InvalidPeriodDuration();
         if (uint256(config.rewardBps) + config.referralBps + protocolFeeBps > _BPS_DENOMINATOR) {
             revert InvalidRateTotal();
         }
         _validateMetadata(config.name, config.symbol, config.metadata);
+        _validateMedia(config.media);
 
         factory = factory_;
         paymentToken = paymentToken_;
+        rendererVersion = rendererVersion_;
         renderer = renderer_;
+        rendererRuntimeCodehash = rendererRuntimeCodehash_;
+        tierIdentity = TierIdentity.derive(factory_, config.creator, config.tierSalt);
         pricePerPeriod = config.pricePerPeriod;
         periodDuration = config.periodDuration;
         rewardBps = config.rewardBps;
@@ -122,8 +151,19 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         supplyCap = config.supplyCap;
         maxPrepaidPeriods = config.maxPrepaidPeriods;
         description = config.metadata.description;
-        imageURI = config.metadata.imageURI;
         externalURI = config.metadata.externalURI;
+        _art = config.art;
+        _media = config.media;
+    }
+
+    /// @inheritdoc IMembershipTier
+    function artConfig() external view override returns (MembershipTypes.ArtConfig memory) {
+        return _art;
+    }
+
+    /// @inheritdoc IMembershipTier
+    function mediaConfig() external view override returns (MembershipTypes.MediaConfig memory) {
+        return _media;
     }
 
     /// @inheritdoc IERC5192
@@ -465,23 +505,28 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     {
         _validateMutableMetadata(newMetadata);
         description = newMetadata.description;
-        imageURI = newMetadata.imageURI;
         externalURI = newMetadata.externalURI;
 
-        emit TierMetadataUpdated(description, imageURI, externalURI);
+        emit TierMetadataUpdated(description, externalURI);
         if (totalMinted != 0) emit BatchMetadataUpdate(1, totalMinted);
     }
 
     /// @inheritdoc ERC721
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
-        return OnchainMetadataRenderer(renderer)
+        bytes32 actualCodehash = renderer.codehash;
+        if (actualCodehash != rendererRuntimeCodehash) {
+            revert RendererCodeChanged(rendererRuntimeCodehash, actualCodehash);
+        }
+        return IMembershipRenderer(renderer)
             .renderTokenURI(
                 MembershipTypes.TokenRenderData({
                 tierName: name(),
                 description: description,
-                imageURI: imageURI,
                 externalURI: externalURI,
+                tierIdentity: tierIdentity,
+                art: _art,
+                media: _media,
                 tokenId: tokenId,
                 expiration: _storedExpiration(_membershipStates[tokenId]),
                 active: _isActiveToken(tokenId)
@@ -949,17 +994,36 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         ) {
             revert InvalidMetadata();
         }
+        TextValidation.validate(tierName);
+        TextValidation.validate(tierSymbol);
         _validateMutableMetadata(metadata);
     }
 
     function _validateMutableMetadata(MembershipTypes.TierMetadata memory metadata) internal pure {
         if (
             bytes(metadata.description).length > MAX_DESCRIPTION_BYTES
-                || bytes(metadata.imageURI).length > MAX_URI_BYTES
                 || bytes(metadata.externalURI).length > MAX_URI_BYTES
         ) {
             revert InvalidMetadata();
         }
+        TextValidation.validate(metadata.description);
+        TextValidation.validate(metadata.externalURI);
+    }
+
+    function _validateMedia(MembershipTypes.MediaConfig memory media) private pure {
+        bool hasOnchainFields = media.mime != MembershipTypes.MediaMIME.None
+            || media.store != address(0) || media.length != 0 || media.digest != bytes32(0)
+            || media.runtimeCodehash != bytes32(0);
+        if (!hasOnchainFields) {
+            return;
+        }
+        if (
+            media.store == address(0) || media.length == 0
+                || media.length > MAX_RENDERABLE_MEDIA_BYTES || media.digest == bytes32(0)
+                || media.runtimeCodehash == bytes32(0)
+                || (media.mime != MembershipTypes.MediaMIME.JPEG
+                    && media.mime != MembershipTypes.MediaMIME.PNG)
+        ) revert InvalidMediaConfig();
     }
 
     /// @dev Existing credentials cannot move or burn. A future mint still uses the ERC-721 path.

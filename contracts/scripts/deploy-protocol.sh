@@ -4,21 +4,1530 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/public-chain-common.sh"
 
+readonly BBF_ROBINHOOD_RUNTIME_LIMIT=98304
+readonly BBF_ROBINHOOD_INITCODE_LIMIT=196608
+readonly BBF_ROBINHOOD_GAS_LIMIT=100000000
+readonly BBF_MAINNET_USDG="0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+readonly BBF_INITIAL_PROTOCOL_AUTHORITY="0xeAA4B38A99f766117C1D493a21012fec25f70505"
+readonly BBF_CREATE2_DEPLOYER_CODE_HASH="0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989"
+readonly BBF_MAINNET_USDG_PROXY_RUNTIME_HASH="0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6"
+readonly BBF_RENDERER_SCHEMA="0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4"
+readonly BBF_EIP1967_IMPLEMENTATION_SLOT="0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+readonly BBF_SAFE_FALLBACK_HANDLER_SLOT="0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5"
+readonly BBF_SAFE_GUARD_SLOT="0x4a204f620c8c5ccdca3fd54d003badd85ba500436a431f0cbda4f558c93c34c8"
+readonly BBF_SENTINEL_MODULES="0x0000000000000000000000000000000000000001"
+
+component_labels=("media store factory" "renderer" "membership factory")
+component_contracts=(
+  "OnchainMediaStoreFactory"
+  "OnchainMetadataRenderer"
+  "RobinhoodMembershipFactory"
+)
+component_artifacts=(
+  "src/media/OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory"
+  "src/OnchainMetadataRenderer.sol:OnchainMetadataRenderer"
+  "src/RobinhoodMembershipFactory.sol:RobinhoodMembershipFactory"
+)
+component_salt_preimages=(
+  "Backed By Fans media store factory v4"
+  "Backed By Fans renderer v4"
+  "Backed By Fans factory v4"
+)
+component_predecessors=("empty" "media store factory" "renderer")
+component_salts=()
+component_init_codes=()
+component_init_hashes=()
+component_runtime_hashes=()
+component_addresses=()
+component_present=()
+deployment_prefix_count=0
+payment_token_address=""
+testnet_payment_token_runtime_hash=""
+payment_token_runtime_hash=""
+source_commit=""
+build_config_json=""
+build_config_hash=""
+forge_version=""
+configured_solc_version=""
+repo_root=""
+operational_state_file=""
+operational_state_relative=""
+operational_state_blob=""
+deployment_lock_directory=""
+
 usage() {
   cat <<'EOF'
-Usage: ./scripts/deploy-protocol.sh <testnet|mainnet> [dry-run|broadcast|status|resume-verify]
+Usage: ./scripts/deploy-protocol.sh <testnet|mainnet> [dry-run|broadcast|status|resume-verify|recover-dropped]
 
-Deploys Backed By Fans deterministically through Foundry's canonical CREATE2 deployer.
-Dry-run is the default. Broadcast uses the matching encrypted Foundry account,
-writes the public broadcast artifact, and requests Blockscout source verification.
-Status validates deployment state without loading an account. Resume-verify uses
-Foundry's durable broadcast artifact to resume its native verification workflow.
+Deploys Backed By Fans deterministically through the canonical CREATE2 deployer.
+
+  dry-run       Build the exact Robinhood artifacts and deploy their raw CREATE2
+                calldata on an exact-chain-id Anvil fork. This is the default.
+  broadcast     Require the encrypted Foundry account, repeat the Anvil-fork
+                preflight, then submit raw CREATE2 calls in protocol order.
+  status        Validate the chain, deterministic plan, runtime hashes, and prefix.
+  resume-verify Require a complete deployment, retry Blockscout source verification,
+                promote the durable broadcast record, and regenerate web bindings.
+  recover-dropped
+                Prove one submitted transaction was dropped or reverted, then
+                return only that component to pending. A later broadcast performs
+                the fresh, separately authorized submission.
 
 Optional overrides:
-  ACCOUNT                 Foundry encrypted-keystore account name for dry-run/broadcast
+  ACCOUNT                 Encrypted Foundry keystore account name for broadcast
+  BBF_ANVIL_PORT          Port for the local fork (random high port by default)
+  RECOVER_DROPPED_TRANSACTION_HASH
+                          Exact journaled hash authorized for recover-dropped
 
-Every mainnet run also requires CONFIRM_MAINNET_DEPLOYMENT=4663.
+The keystore password is read only by Cast's terminal prompt. Password arguments,
+password files, private keys, mnemonics, and password environment variables are
+not accepted. Every mainnet action also requires CONFIRM_MAINNET_DEPLOYMENT=4663.
 EOF
+}
+
+fail() {
+  echo "Protocol deployment: $*" >&2
+  exit 1
+}
+
+release_deployment_lock() {
+  [[ -n "$deployment_lock_directory" ]] || return 0
+  rm -f "$deployment_lock_directory/owner"
+  rmdir "$deployment_lock_directory" 2>/dev/null || true
+  deployment_lock_directory=""
+}
+
+acquire_deployment_lock() {
+  local lock_key owner
+  lock_key="$(printf '%s' "$repo_root" | shasum -a 256 | awk '{print $1}')"
+  deployment_lock_directory="/tmp/bbf-protocol-deployment-${lock_key}.lock"
+  if ! mkdir "$deployment_lock_directory" 2>/dev/null; then
+    owner="$(cat "$deployment_lock_directory/owner" 2>/dev/null || printf 'owner details unavailable')"
+    deployment_lock_directory=""
+    fail "another protocol deployment operation holds the repo-wide lock ($owner); resolve that process or remove its stale lock explicitly"
+  fi
+  printf 'pid=%s action=%s network=%s started=%s\n' \
+    "$$" "$action" "$network" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    >"$deployment_lock_directory/owner"
+  trap release_deployment_lock EXIT
+  trap 'release_deployment_lock; exit 130' INT
+  trap 'release_deployment_lock; exit 143' TERM
+}
+
+lowercase() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+require_hex() {
+  local label="$1"
+  local value="$2"
+  if [[ ! "$value" =~ ^0x[0-9a-fA-F]+$ || $(((${#value} - 2) % 2)) -ne 0 ]]; then
+    fail "$label is not even-length hex"
+  fi
+}
+
+reject_plaintext_signer_inputs() {
+  local variable
+  for variable in ETH_PASSWORD PRIVATE_KEY ETH_PRIVATE_KEY CAST_PRIVATE_KEY MNEMONIC MNEMONIC_PATH; do
+    if [[ "${!variable+x}" == "x" ]]; then
+      fail "unset $variable; public signing must use the encrypted keystore terminal prompt"
+    fi
+  done
+}
+
+resolve_source_commit() {
+  if ! repo_root="$(git -C "$project_dir" rev-parse --show-toplevel 2>/dev/null)"; then
+    fail "deployment source is not a Git checkout"
+  fi
+  repo_root="$(cd "$repo_root" && pwd -P)"
+  if ! source_commit="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)"; then
+    fail "deployment source is not a committed Git checkout"
+  fi
+  [[ "$source_commit" =~ ^[0-9a-fA-F]{40}$ ]] \
+    || fail "deployment source commit is not a full Git SHA"
+}
+
+require_clean_initial_broadcast() {
+  local changes
+  if ! changes="$(git -C "$repo_root" status --porcelain --untracked-files=all)"; then
+    fail "could not inspect deployment source status"
+  fi
+  [[ -z "$changes" ]] \
+    || fail "public deployment requires a clean committed checkout; commit or remove every change first"
+}
+
+require_recorded_source_checkout() {
+  local journal="$1"
+  local recorded_commit untracked path
+  if ! recorded_commit="$(jq -er '.sourceCommit' "$journal" 2>/dev/null)"; then
+    fail "recovery journal $journal does not identify its source commit"
+  fi
+  [[ "$recorded_commit" == "$source_commit" ]] \
+    || fail "recovery journal $journal belongs to source commit $recorded_commit, not $source_commit"
+  git -C "$repo_root" diff --quiet "$recorded_commit" -- . \
+    ":(exclude)contracts/deployments/protocol/$expected_chain_id/**" \
+    ":(exclude)contracts/broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/**" \
+    ':(exclude)web/src/contracts.ts' \
+    || fail "tracked source inputs differ from recovery commit $recorded_commit"
+
+  if ! untracked="$(git -C "$repo_root" ls-files --others --exclude-standard -- .)"; then
+    fail "could not inspect untracked recovery inputs"
+  fi
+  while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    if [[ "$path" == "contracts/deployments/protocol/$expected_chain_id/"* \
+      || "$path" == "contracts/broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/"* ]]; then
+      continue
+    fi
+    fail "untracked source input $path is not part of recovery commit $recorded_commit"
+  done <<<"$untracked"
+}
+
+reject_build_environment_overrides() {
+  local variable
+  while IFS='=' read -r variable _; do
+    case "$variable" in
+      FOUNDRY_* | DAPP_*)
+        fail "unset $variable; public artifacts must use the committed Foundry configuration"
+        ;;
+    esac
+  done < <(env)
+}
+
+validate_build_environment() {
+  local config
+  if ! config="$(FOUNDRY_PROFILE=robinhood forge config --json)"; then
+    fail "could not resolve the Robinhood Foundry configuration"
+  fi
+  if ! printf '%s' "$config" | jq -e '
+    .src == "src" and .test == "test" and .script == "script" and .out == "out"
+    and .libs == ["lib"]
+    and .remappings == [
+      "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+      "forge-std/=lib/forge-std/src/"
+    ]
+    and .auto_detect_remappings == false
+    and .solc == "0.8.36" and .auto_detect_solc == false
+    and .evm_version == "cancun"
+    and .optimizer == true and .optimizer_runs == 200 and .optimizer_details == null
+    and .via_ir == false and .bytecode_hash == "ipfs" and .cbor_metadata == true
+    and .use_literal_content == false and .revert_strings == null
+    and .libraries == [] and .additional_compiler_profiles == []
+    and .compilation_restrictions == [] and .dynamic_test_linking == false
+    and .sparse_mode == false and .build_info == true
+    and .always_use_create_2_factory == true
+    and (.create2_deployer | ascii_downcase) == "0x4e59b44847b379578588920ca78fbf26c0b4956c"
+    and .create2_library_salt == "0x0000000000000000000000000000000000000000000000000000000000000000"
+    and .code_size_limit == 98304 and .gas_limit == 100000000
+    and .block_gas_limit == 100000000
+  ' >/dev/null; then
+    fail "Robinhood Foundry configuration differs from the reviewed release profile"
+  fi
+
+  build_config_json="$(printf '%s' "$config" | jq -S -c '{
+    src, test, script, out, libs, remappings, auto_detect_remappings,
+    solc, auto_detect_solc, evm_version, optimizer, optimizer_runs,
+    optimizer_details, via_ir, bytecode_hash, cbor_metadata,
+    use_literal_content, revert_strings, libraries,
+    additional_compiler_profiles, compilation_restrictions,
+    dynamic_test_linking, sparse_mode, build_info,
+    always_use_create_2_factory, create2_deployer, create2_library_salt,
+    code_size_limit, gas_limit, block_gas_limit
+  }')"
+  build_config_hash="0x$(printf '%s' "$build_config_json" | shasum -a 256 | awk '{print $1}')"
+  forge_version="$(forge --version | sed -n '1p')"
+  [[ "$forge_version" == "forge Version: 1.7.1" ]] \
+    || fail "Forge 1.7.1 is required for reviewed public artifacts; observed ${forge_version:-unknown}"
+  configured_solc_version="$(printf '%s' "$config" | jq -er '.solc')"
+}
+
+build_deployment_plan() {
+  FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
+
+  local index artifact init_code runtime_code init_bytes runtime_bytes salt init_hash
+  local runtime_hash address
+  for index in 0 1 2; do
+    artifact="${component_artifacts[$index]}"
+    init_code="$(FOUNDRY_PROFILE=robinhood forge inspect "$artifact" bytecode)"
+    runtime_code="$(FOUNDRY_PROFILE=robinhood forge inspect "$artifact" deployedBytecode)"
+    require_hex "${component_labels[$index]} initcode" "$init_code"
+    require_hex "${component_labels[$index]} runtime" "$runtime_code"
+
+    init_bytes=$(((${#init_code} - 2) / 2))
+    runtime_bytes=$(((${#runtime_code} - 2) / 2))
+    if ((init_bytes > BBF_ROBINHOOD_INITCODE_LIMIT)); then
+      fail "${component_labels[$index]} initcode is $init_bytes bytes; Robinhood limit is $BBF_ROBINHOOD_INITCODE_LIMIT"
+    fi
+    if ((runtime_bytes > BBF_ROBINHOOD_RUNTIME_LIMIT)); then
+      fail "${component_labels[$index]} runtime is $runtime_bytes bytes; Robinhood limit is $BBF_ROBINHOOD_RUNTIME_LIMIT"
+    fi
+
+    salt="$(cast keccak "${component_salt_preimages[$index]}")"
+    init_hash="$(cast keccak "$init_code")"
+    runtime_hash="$(cast keccak "$runtime_code")"
+    address="$(cast create2 \
+      --deployer "$BBF_CREATE2_DEPLOYER" \
+      --salt "$salt" \
+      --init-code-hash "$init_hash")"
+
+    component_salts[$index]="$salt"
+    component_init_codes[$index]="$init_code"
+    component_init_hashes[$index]="$init_hash"
+    component_runtime_hashes[$index]="$runtime_hash"
+    component_addresses[$index]="$address"
+  done
+
+  if [[ "$expected_chain_id" == "46630" ]]; then
+    local token_init_code token_runtime_code token_salt token_init_hash
+    token_init_code="$(FOUNDRY_PROFILE=robinhood forge inspect \
+      src/TestnetUSDG.sol:TestnetUSDG bytecode)"
+    token_runtime_code="$(FOUNDRY_PROFILE=robinhood forge inspect \
+      src/TestnetUSDG.sol:TestnetUSDG deployedBytecode)"
+    require_hex "testnet USDG initcode" "$token_init_code"
+    require_hex "testnet USDG runtime" "$token_runtime_code"
+    token_salt="$(cast keccak "Backed By Fans testnet USDG v1")"
+    token_init_hash="$(cast keccak "$token_init_code")"
+    payment_token_address="$(cast create2 \
+      --deployer "$BBF_CREATE2_DEPLOYER" \
+      --salt "$token_salt" \
+      --init-code-hash "$token_init_hash")"
+    testnet_payment_token_runtime_hash="$(cast keccak "$token_runtime_code")"
+    payment_token_runtime_hash="$testnet_payment_token_runtime_hash"
+  else
+    payment_token_address="$BBF_MAINNET_USDG"
+    payment_token_runtime_hash="$BBF_MAINNET_USDG_PROXY_RUNTIME_HASH"
+  fi
+}
+
+validate_plan_against_solidity() {
+  local output factory_runtime_hash
+  if ! output="$(BBF_RELEASE_CHAIN_ID="$expected_chain_id" \
+    BBF_RELEASE_MEDIA_SALT="${component_salts[0]}" \
+    BBF_RELEASE_RENDERER_SALT="${component_salts[1]}" \
+    BBF_RELEASE_FACTORY_SALT="${component_salts[2]}" \
+    BBF_RELEASE_MEDIA_INIT_HASH="${component_init_hashes[0]}" \
+    BBF_RELEASE_RENDERER_INIT_HASH="${component_init_hashes[1]}" \
+    BBF_RELEASE_FACTORY_INIT_HASH="${component_init_hashes[2]}" \
+    BBF_RELEASE_MEDIA_RUNTIME_HASH="${component_runtime_hashes[0]}" \
+    BBF_RELEASE_RENDERER_RUNTIME_HASH="${component_runtime_hashes[1]}" \
+    BBF_RELEASE_MEDIA_ADDRESS="${component_addresses[0]}" \
+    BBF_RELEASE_RENDERER_ADDRESS="${component_addresses[1]}" \
+    BBF_RELEASE_FACTORY_ADDRESS="${component_addresses[2]}" \
+    FOUNDRY_PROFILE=robinhood forge test \
+      --match-contract DeploymentScriptsTest \
+      --match-test test_releaseWrapperPlanMatchesSolidityConfig \
+      --code-size-limit 1000000 \
+      --gas-limit 1000000000 \
+      -vv 2>&1)"; then
+    printf '%s\n' "$output" >&2
+    fail "Solidity release-plan parity test failed"
+  fi
+  printf '%s\n' "$output"
+  factory_runtime_hash="$(printf '%s\n' "$output" | awk \
+    '/BBF_RELEASE_FACTORY_RUNTIME_HASH/ { print $NF; found = 1; exit } END { if (!found) exit 1 }')" \
+    || fail "Solidity release-plan test did not report the factory runtime hash"
+  require_hex "membership factory runtime hash" "$factory_runtime_hash"
+  [[ ${#factory_runtime_hash} -eq 66 ]] || fail "membership factory runtime hash has the wrong length"
+  component_runtime_hashes[2]="$factory_runtime_hash"
+}
+
+rpc_call_json() {
+  local target_rpc="$1"
+  local label="$2"
+  local address="$3"
+  local signature="$4"
+  shift 4
+  local output
+  if ! output="$(cast call "$address" "$signature" "$@" \
+    --rpc-url "$target_rpc" \
+    --json 2>/dev/null)"; then
+    fail "$label RPC call failed"
+  fi
+  printf '%s\n' "$output"
+}
+
+rpc_code() {
+  local target_rpc="$1"
+  local label="$2"
+  local address="$3"
+  local output
+  if ! output="$(cast code "$address" --rpc-url "$target_rpc" 2>/dev/null)"; then
+    fail "$label code query failed"
+  fi
+  printf '%s\n' "$output"
+}
+
+require_address_match() {
+  local label="$1"
+  local observed="$2"
+  local expected="$3"
+  if [[ "$(lowercase "$observed")" != "$(lowercase "$expected")" ]]; then
+    fail "$label is $observed; expected $expected"
+  fi
+}
+
+require_runtime_hash() {
+  local target_rpc="$1"
+  local label="$2"
+  local address="$3"
+  local expected_hash="$4"
+  local code observed_hash
+  code="$(rpc_code "$target_rpc" "$label" "$address")"
+  if [[ "$code" == "0x" || "$code" == "0x0" || -z "$code" ]]; then
+    fail "$label has no runtime at $address"
+  fi
+  observed_hash="$(cast keccak "$code")"
+  if [[ "$(lowercase "$observed_hash")" != "$(lowercase "$expected_hash")" ]]; then
+    fail "$label runtime hash is $observed_hash; expected $expected_hash"
+  fi
+}
+
+validate_canonical_create2_deployer() {
+  require_runtime_hash \
+    "$1" \
+    "canonical CREATE2 deployer" \
+    "$BBF_CREATE2_DEPLOYER" \
+    "$BBF_CREATE2_DEPLOYER_CODE_HASH"
+}
+
+validate_operational_state_manifest() {
+  [[ -f "$operational_state_file" ]] \
+    || fail "reviewed operational state is missing at $operational_state_file"
+  jq -e --argjson chain_id "$expected_chain_id" '
+    . as $state
+    | .schemaVersion == 1 and .chainId == $chain_id
+    and all([
+      .deployment.paymentToken,
+      .deployment.mediaStoreFactory,
+      .deployment.renderer,
+      .deployment.membershipFactory
+    ][];
+      (.address | test("^0x[0-9a-fA-F]{40}$"))
+      and (.runtimeCodehash | test("^0x[0-9a-fA-F]{64}$")))
+    and (if $chain_id == 4663 then
+      (.deployment.paymentToken.implementation | test("^0x[0-9a-fA-F]{40}$"))
+      and (.deployment.paymentToken.implementationRuntimeCodehash
+        | test("^0x[0-9a-fA-F]{64}$"))
+    else
+      .deployment.paymentToken.implementation == null
+      and .deployment.paymentToken.implementationRuntimeCodehash == null
+    end)
+    and (.safe.address | test("^0x[0-9a-fA-F]{40}$"))
+    and (.safe.singleton | test("^0x[0-9a-fA-F]{40}$"))
+    and (.safe.version | type == "string" and length > 0 and length <= 32)
+    and (.safe.owners | type == "array" and length > 0
+      and all(.[]; test("^0x[0-9a-fA-F]{40}$")))
+    and (.safe.threshold | type == "number" and . >= 1)
+    and ($state.safe.threshold <= ($state.safe.owners | length))
+    and (.safe.modules | type == "array"
+      and all(.[]; test("^0x[0-9a-fA-F]{40}$")))
+    and (.safe.guard | test("^0x[0-9a-fA-F]{40}$"))
+    and (.safe.fallbackHandler | test("^0x[0-9a-fA-F]{40}$"))
+    and (.factory.owner | test("^0x[0-9a-fA-F]{40}$"))
+    and (.factory.pendingOwner | test("^0x[0-9a-fA-F]{40}$"))
+    and (.factory.feeRecipient | test("^0x[0-9a-fA-F]{40}$"))
+    and ($state.factory.renderers | type == "array" and length >= 1)
+    and all($state.factory.renderers[];
+      (.version | type == "number" and . >= 1)
+      and (.implementation | test("^0x[0-9a-fA-F]{40}$"))
+      and (.runtimeCodehash | test("^0x[0-9a-fA-F]{64}$"))
+      and (.enabled | type == "boolean"))
+    and ([$state.factory.renderers[].version]
+      == [range(1; ($state.factory.renderers | length) + 1)])
+    and any($state.factory.renderers[]; .enabled == true)
+    and (($state.factory.renderers[0].implementation | ascii_downcase)
+      == ($state.deployment.renderer.address | ascii_downcase))
+    and (($state.factory.renderers[0].runtimeCodehash | ascii_downcase)
+      == ($state.deployment.renderer.runtimeCodehash | ascii_downcase))
+  ' "$operational_state_file" >/dev/null \
+    || fail "reviewed operational state is malformed at $operational_state_file"
+
+  local expected_safe
+  expected_safe="$(jq -er '.safe.address' "$operational_state_file")"
+  require_address_match "reviewed protocol Safe" \
+    "$expected_safe" "$BBF_INITIAL_PROTOCOL_AUTHORITY"
+}
+
+validate_plan_against_operational_state() {
+  local expected observed index key
+
+  expected="$(jq -er '.deployment.paymentToken.address' "$operational_state_file")"
+  require_address_match "reviewed payment token" "$payment_token_address" "$expected"
+  expected="$(jq -er '.deployment.paymentToken.runtimeCodehash' "$operational_state_file")"
+  [[ "$(lowercase "$payment_token_runtime_hash")" == "$(lowercase "$expected")" ]] \
+    || fail "payment token runtime hash differs from reviewed operational state"
+
+  local keys=(mediaStoreFactory renderer membershipFactory)
+  for index in 0 1 2; do
+    key="${keys[$index]}"
+    expected="$(jq -er --arg key "$key" '.deployment[$key].address' "$operational_state_file")"
+    require_address_match "reviewed ${component_labels[$index]}" \
+      "${component_addresses[$index]}" "$expected"
+    expected="$(jq -er --arg key "$key" '.deployment[$key].runtimeCodehash' "$operational_state_file")"
+    observed="${component_runtime_hashes[$index]}"
+    [[ "$(lowercase "$observed")" == "$(lowercase "$expected")" ]] \
+      || fail "${component_labels[$index]} runtime hash differs from reviewed operational state"
+  done
+}
+
+require_committed_operational_state() {
+  case "$operational_state_file" in
+    "$repo_root"/*)
+      operational_state_relative="${operational_state_file:$(( ${#repo_root} + 1 ))}"
+      ;;
+    *) fail "reviewed operational state is outside the deployment source checkout" ;;
+  esac
+  git -C "$repo_root" ls-files --error-unmatch -- "$operational_state_relative" >/dev/null 2>&1 \
+    || fail "reviewed operational state must be tracked at $operational_state_relative"
+  git -C "$repo_root" diff --quiet HEAD -- "$operational_state_relative" \
+    || fail "reviewed operational state has uncommitted changes at $operational_state_relative"
+  operational_state_blob="$(git -C "$repo_root" rev-parse \
+    "HEAD:$operational_state_relative" 2>/dev/null)" \
+    || fail "could not resolve the reviewed operational-state blob"
+  [[ "$operational_state_blob" =~ ^[0-9a-fA-F]{40,64}$ ]] \
+    || fail "reviewed operational-state blob hash is malformed"
+  echo "Protocol deployment: reviewed operational state $operational_state_relative at $source_commit blob $operational_state_blob"
+}
+
+validate_protocol_safe() {
+  local target_rpc="$1"
+  local output observed expected_storage safe_code safe_address
+  local expected_owners observed_owners expected_threshold
+  local expected_modules observed_modules expected_handler expected_guard
+
+  safe_address="$(jq -er '.safe.address' "$operational_state_file")"
+
+  safe_code="$(rpc_code "$target_rpc" "protocol Safe" "$safe_address")"
+  [[ "$safe_code" != "0x" && "$safe_code" != "0x0" && -n "$safe_code" ]] \
+    || fail "protocol Safe has no runtime"
+
+  output="$(rpc_call_json "$target_rpc" "Safe masterCopy" \
+    "$safe_address" "masterCopy()(address)")"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  require_address_match "Safe singleton" "$observed" \
+    "$(jq -er '.safe.singleton' "$operational_state_file")"
+
+  output="$(rpc_call_json "$target_rpc" "Safe VERSION" \
+    "$safe_address" "VERSION()(string)")"
+  [[ "$(printf '%s' "$output" | jq -er '.[0]')" == \
+    "$(jq -er '.safe.version' "$operational_state_file")" ]] \
+    || fail "protocol Safe version differs from reviewed operational state"
+
+  output="$(rpc_call_json "$target_rpc" "Safe owners" \
+    "$safe_address" "getOwners()(address[])")"
+  expected_owners="$(jq -c '.safe.owners | map(ascii_downcase)' "$operational_state_file")"
+  observed_owners="$(printf '%s' "$output" | jq -ec '.[0] | map(ascii_downcase)')" \
+    || fail "protocol Safe owners response is malformed"
+  [[ "$observed_owners" == "$expected_owners" ]] \
+    || fail "protocol Safe owners differ from reviewed operational state"
+
+  output="$(rpc_call_json "$target_rpc" "Safe threshold" \
+    "$safe_address" "getThreshold()(uint256)")"
+  expected_threshold="$(jq -er '.safe.threshold' "$operational_state_file")"
+  [[ "$(printf '%s' "$output" | jq -er '.[0]')" == "$expected_threshold" ]] \
+    || fail "protocol Safe threshold differs from reviewed operational state"
+
+  output="$(rpc_call_json "$target_rpc" "Safe modules" \
+    "$safe_address" \
+    "getModulesPaginated(address,uint256)(address[],address)" \
+    "$BBF_SENTINEL_MODULES" 128)"
+  expected_modules="$(jq -c '.safe.modules | map(ascii_downcase)' "$operational_state_file")"
+  observed_modules="$(printf '%s' "$output" | jq -ec '.[0] | map(ascii_downcase)')" \
+    || fail "protocol Safe modules response is malformed"
+  [[ "$observed_modules" == "$expected_modules" ]] \
+    || fail "protocol Safe modules differ from reviewed operational state"
+  observed="$(printf '%s' "$output" | jq -er '.[1]')"
+  require_address_match "Safe module sentinel" "$observed" "$BBF_SENTINEL_MODULES"
+
+  output="$(rpc_call_json "$target_rpc" "Safe fallback handler" \
+    "$safe_address" "getStorageAt(uint256,uint256)(bytes)" \
+    "$BBF_SAFE_FALLBACK_HANDLER_SLOT" 1)"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  expected_handler="$(jq -er '.safe.fallbackHandler' "$operational_state_file")"
+  expected_storage="0x000000000000000000000000${expected_handler#0x}"
+  [[ "$(lowercase "$observed")" == "$(lowercase "$expected_storage")" ]] \
+    || fail "protocol Safe fallback handler differs from reviewed operational state"
+
+  output="$(rpc_call_json "$target_rpc" "Safe guard" \
+    "$safe_address" "getStorageAt(uint256,uint256)(bytes)" \
+    "$BBF_SAFE_GUARD_SLOT" 1)"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  expected_guard="$(jq -er '.safe.guard' "$operational_state_file")"
+  expected_storage="0x000000000000000000000000${expected_guard#0x}"
+  [[ "$(lowercase "$observed")" == "$(lowercase "$expected_storage")" ]] \
+    || fail "protocol Safe guard differs from reviewed operational state"
+}
+
+validate_payment_token() {
+  local target_rpc="$1"
+  local output observed code observed_hash implementation_slot implementation
+
+  code="$(rpc_code "$target_rpc" "USDG" "$payment_token_address")"
+  if [[ "$code" == "0x" || "$code" == "0x0" || -z "$code" ]]; then
+    fail "USDG has no runtime at $payment_token_address"
+  fi
+
+  output="$(rpc_call_json "$target_rpc" "USDG decimals" \
+    "$payment_token_address" "decimals()(uint8)")"
+  [[ "$(printf '%s' "$output" | jq -er '.[0]')" == "6" ]] \
+    || fail "USDG decimals are not six"
+  output="$(rpc_call_json "$target_rpc" "USDG symbol" \
+    "$payment_token_address" "symbol()(string)")"
+  [[ "$(printf '%s' "$output" | jq -er '.[0]')" == "USDG" ]] \
+    || fail "payment token symbol is not USDG"
+  output="$(rpc_call_json "$target_rpc" "USDG name" \
+    "$payment_token_address" "name()(string)")"
+  [[ -n "$(printf '%s' "$output" | jq -er '.[0]')" ]] || fail "USDG name is empty"
+
+  observed_hash="$(cast keccak "$code")"
+  if [[ "$expected_chain_id" == "46630" ]]; then
+    [[ "$(lowercase "$observed_hash")" == "$(lowercase "$testnet_payment_token_runtime_hash")" ]] \
+      || fail "testnet USDG runtime hash does not match the compiler artifact"
+    output="$(rpc_call_json "$target_rpc" "testnet USDG owner" \
+      "$payment_token_address" "owner()(address)")"
+    observed="$(printf '%s' "$output" | jq -er '.[0]')"
+    require_address_match "testnet USDG owner" "$observed" "$BBF_APPROVED_DEPLOYER"
+    return
+  fi
+
+  [[ "$(lowercase "$observed_hash")" == "$(lowercase "$payment_token_runtime_hash")" ]] \
+    || fail "mainnet USDG proxy runtime hash is not the reviewed value"
+  if ! implementation_slot="$(cast storage "$payment_token_address" \
+    "$BBF_EIP1967_IMPLEMENTATION_SLOT" \
+    --rpc-url "$target_rpc" 2>/dev/null)"; then
+    fail "mainnet USDG implementation-slot query failed"
+  fi
+  implementation="0x${implementation_slot: -40}"
+  local reviewed_implementation reviewed_implementation_hash
+  reviewed_implementation="$(jq -er '.deployment.paymentToken.implementation' "$operational_state_file")"
+  reviewed_implementation_hash="$(jq -er '.deployment.paymentToken.implementationRuntimeCodehash' "$operational_state_file")"
+  require_address_match "mainnet USDG implementation" \
+    "$implementation" "$reviewed_implementation"
+  require_runtime_hash "$target_rpc" "mainnet USDG implementation" \
+    "$reviewed_implementation" \
+    "$reviewed_implementation_hash"
+  output="$(rpc_call_json "$target_rpc" "mainnet USDG pause state" \
+    "$payment_token_address" "paused()(bool)")"
+  [[ "$(printf '%s' "$output" | jq -er '.[0]')" == "false" ]] \
+    || fail "mainnet USDG is paused"
+}
+
+validate_factory_dependencies() {
+  local target_rpc="$1"
+  local factory="${component_addresses[2]}"
+  local output observed tier_deployer renderer_count version renderer_address
+  local renderer_runtime_hash renderer_code renderer_schema reverse_version
+  local renderer_enabled enabled_count=0 expected_renderer_count
+  local expected_renderer_address expected_renderer_hash expected_renderer_enabled
+
+  output="$(rpc_call_json "$target_rpc" "factory payment token" \
+    "$factory" "paymentToken()(address)")"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  require_address_match "factory payment token" "$observed" "$payment_token_address"
+
+  output="$(rpc_call_json "$target_rpc" "factory media store" \
+    "$factory" "mediaStoreFactory()(address)")"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  require_address_match "factory media store" "$observed" "${component_addresses[0]}"
+
+  output="$(rpc_call_json "$target_rpc" "factory renderer schema" \
+    "$factory" "rendererSchema()(bytes32)")"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  [[ "$(lowercase "$observed")" == "$(lowercase "$BBF_RENDERER_SCHEMA")" ]] \
+    || fail "factory renderer schema is wrong"
+
+  output="$(rpc_call_json "$target_rpc" "factory renderer count" \
+    "$factory" "rendererCount()(uint32)")"
+  renderer_count="$(printf '%s' "$output" | jq -er '.[0]')"
+  [[ "$renderer_count" =~ ^[0-9]+$ && "$renderer_count" -ge 1 ]] \
+    || fail "factory renderer registry is empty or malformed"
+  expected_renderer_count="$(jq -er '.factory.renderers | length' "$operational_state_file")"
+  [[ "$renderer_count" == "$expected_renderer_count" ]] \
+    || fail "renderer registry count differs from reviewed operational state"
+
+  for ((version = 1; version <= renderer_count; version++)); do
+    output="$(rpc_call_json "$target_rpc" "renderer $version record" \
+      "$factory" "rendererRecord(uint32)((address,bytes32,bool))" "$version")"
+    renderer_address="$(printf '%s' "$output" | jq -er '.[0][0]')"
+    renderer_runtime_hash="$(printf '%s' "$output" | jq -er '.[0][1]')"
+    renderer_enabled="$(printf '%s' "$output" | jq -r '.[0][2]')"
+    expected_renderer_address="$(jq -er --argjson index "$((version - 1))" \
+      '.factory.renderers[$index].implementation' "$operational_state_file")"
+    expected_renderer_hash="$(jq -er --argjson index "$((version - 1))" \
+      '.factory.renderers[$index].runtimeCodehash' "$operational_state_file")"
+    expected_renderer_enabled="$(jq -r --argjson index "$((version - 1))" \
+      '.factory.renderers[$index].enabled' "$operational_state_file")"
+    require_address_match "renderer $version reviewed address" \
+      "$renderer_address" "$expected_renderer_address"
+    [[ "$(lowercase "$renderer_runtime_hash")" == "$(lowercase "$expected_renderer_hash")" ]] \
+      || fail "renderer $version runtime hash differs from reviewed operational state"
+    [[ "$renderer_enabled" == "$expected_renderer_enabled" ]] \
+      || fail "renderer $version enabled state differs from reviewed operational state"
+    if [[ "$version" == "1" ]]; then
+      require_address_match "initial renderer record address" \
+        "$renderer_address" "${component_addresses[1]}"
+      [[ "$(lowercase "$renderer_runtime_hash")" == "$(lowercase "${component_runtime_hashes[1]}")" ]] \
+        || fail "initial renderer record runtime hash is wrong"
+    fi
+    [[ "$renderer_enabled" == "true" || "$renderer_enabled" == "false" ]] \
+      || fail "renderer $version enabled state is malformed"
+    if [[ "$renderer_enabled" == "true" ]]; then
+      enabled_count=$((enabled_count + 1))
+    fi
+
+    renderer_code="$(rpc_code "$target_rpc" "renderer $version" "$renderer_address")"
+    [[ "$renderer_code" != "0x" && "$renderer_code" != "0x0" && -n "$renderer_code" ]] \
+      || fail "renderer $version has no runtime"
+    observed="$(cast keccak "$renderer_code")"
+    [[ "$(lowercase "$observed")" == "$(lowercase "$renderer_runtime_hash")" ]] \
+      || fail "renderer $version runtime hash does not match its registry record"
+
+    output="$(rpc_call_json "$target_rpc" "renderer $version schema" \
+      "$renderer_address" "rendererSchema()(bytes32)")"
+    renderer_schema="$(printf '%s' "$output" | jq -er '.[0]')"
+    [[ "$(lowercase "$renderer_schema")" == "$(lowercase "$BBF_RENDERER_SCHEMA")" ]] \
+      || fail "renderer $version schema is wrong"
+
+    output="$(rpc_call_json "$target_rpc" "renderer $version reverse index" \
+      "$factory" "rendererVersionOf(address)(uint32)" "$renderer_address")"
+    reverse_version="$(printf '%s' "$output" | jq -er '.[0]')"
+    [[ "$reverse_version" == "$version" ]] \
+      || fail "renderer $version reverse registry index is wrong"
+  done
+  ((enabled_count >= 1)) || fail "reviewed renderer registry has no enabled renderer"
+
+  output="$(rpc_call_json "$target_rpc" "factory media runtime hash" \
+    "$factory" "mediaStoreFactoryRuntimeCodehash()(bytes32)")"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  [[ "$(lowercase "$observed")" == "$(lowercase "${component_runtime_hashes[0]}")" ]] \
+    || fail "factory media runtime hash binding is wrong"
+
+  output="$(rpc_call_json "$target_rpc" "factory owner" "$factory" "owner()(address)")"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  require_address_match "factory owner" "$observed" \
+    "$(jq -er '.factory.owner' "$operational_state_file")"
+
+  output="$(rpc_call_json "$target_rpc" "factory pending owner" \
+    "$factory" "pendingOwner()(address)")"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  require_address_match "factory pending owner" "$observed" \
+    "$(jq -er '.factory.pendingOwner' "$operational_state_file")"
+
+  output="$(rpc_call_json "$target_rpc" "factory fee recipient" \
+    "$factory" "feeRecipient()(address)")"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  require_address_match "factory fee recipient" "$observed" \
+    "$(jq -er '.factory.feeRecipient' "$operational_state_file")"
+
+  output="$(rpc_call_json "$target_rpc" "factory tier deployer" \
+    "$factory" "deployer()(address)")"
+  tier_deployer="$(printf '%s' "$output" | jq -er '.[0]')"
+  output="$(rpc_code "$target_rpc" "tier deployer" "$tier_deployer")"
+  [[ "$output" != "0x" && "$output" != "0x0" && -n "$output" ]] \
+    || fail "factory tier deployer has no runtime"
+
+  output="$(rpc_call_json "$target_rpc" "tier deployer factory" \
+    "$tier_deployer" "factory()(address)")"
+  observed="$(printf '%s' "$output" | jq -er '.[0]')"
+  require_address_match "tier deployer factory" "$observed" "$factory"
+}
+
+validate_chain_state() {
+  local target_rpc="$1"
+  local require_complete="${2:-false}"
+  local observed_chain
+  if ! observed_chain="$(cast chain-id --rpc-url "$target_rpc" 2>/dev/null)"; then
+    fail "RPC chain-id query failed"
+  fi
+  [[ "$observed_chain" == "$expected_chain_id" ]] \
+    || fail "expected chain $expected_chain_id, RPC returned $observed_chain"
+
+  validate_canonical_create2_deployer "$target_rpc"
+  validate_protocol_safe "$target_rpc"
+  validate_payment_token "$target_rpc"
+  inspect_prefix "$target_rpc"
+  if [[ "${component_present[2]}" == "1" ]]; then
+    validate_factory_dependencies "$target_rpc"
+  fi
+  if [[ "$require_complete" == "true" && "$deployment_prefix_count" -ne 3 ]]; then
+    fail "protocol deployment is incomplete at prefix $deployment_prefix_count"
+  fi
+}
+
+inspect_prefix() {
+  local target_rpc="$1"
+  local index code observed_runtime_hash
+  deployment_prefix_count=0
+  component_present=(0 0 0)
+
+  for index in 0 1 2; do
+    if ! code="$(cast code "${component_addresses[$index]}" \
+      --rpc-url "$target_rpc" 2>/dev/null)"; then
+      fail "RPC code query failed for ${component_labels[$index]}"
+    fi
+    if [[ "$code" != "0x" && "$code" != "0x0" && -n "$code" ]]; then
+      require_hex "observed ${component_labels[$index]} runtime" "$code"
+      observed_runtime_hash="$(cast keccak "$code")"
+      if [[ "$(lowercase "$observed_runtime_hash")" != "$(lowercase "${component_runtime_hashes[$index]}")" ]]; then
+        fail "${component_labels[$index]} at ${component_addresses[$index]} has runtime hash $observed_runtime_hash; expected ${component_runtime_hashes[$index]}"
+      fi
+      component_present[$index]=1
+    fi
+  done
+
+  if [[ "${component_present[1]}" == "1" && "${component_present[0]}" != "1" ]]; then
+    fail "renderer exists without its media store factory predecessor"
+  fi
+  if [[ "${component_present[2]}" == "1" \
+    && ("${component_present[0]}" != "1" || "${component_present[1]}" != "1") ]]; then
+    fail "membership factory exists without both predecessors"
+  fi
+
+  for index in 0 1 2; do
+    if [[ "${component_present[$index]}" == "1" ]]; then
+      deployment_prefix_count=$((deployment_prefix_count + 1))
+    else
+      break
+    fi
+  done
+}
+
+print_recovery_table() {
+  local index status
+  printf '\n%-22s %-42s %-66s %-66s %-20s %s\n' \
+    "COMPONENT" "EXPECTED ADDRESS" "INITCODE HASH" "RUNTIME HASH" "PREDECESSOR" "STATE"
+  for index in 0 1 2; do
+    status="missing"
+    [[ "${component_present[$index]:-0}" == "1" ]] && status="validated"
+    printf '%-22s %-42s %-66s %-66s %-20s %s\n' \
+      "${component_labels[$index]}" \
+      "${component_addresses[$index]}" \
+      "${component_init_hashes[$index]}" \
+      "${component_runtime_hashes[$index]}" \
+      "${component_predecessors[$index]}" \
+      "$status"
+  done
+  printf '\n'
+}
+
+plan_json() {
+  local created_at
+  created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  jq -n \
+    --argjson chain_id "$expected_chain_id" \
+    --arg network "$network" \
+    --arg created_at "$created_at" \
+    --arg source_commit "$source_commit" \
+    --arg operational_state_path "$operational_state_relative" \
+    --arg operational_state_blob "$operational_state_blob" \
+    --arg build_config_hash "$build_config_hash" \
+    --argjson build_config "$build_config_json" \
+    --arg forge_version "$forge_version" \
+    --arg solc_version "$configured_solc_version" \
+    --arg deployer "$BBF_APPROVED_DEPLOYER" \
+    --arg create2_deployer "$BBF_CREATE2_DEPLOYER" \
+    --arg payment_token_address "$payment_token_address" \
+    --arg payment_token_runtime_hash "$payment_token_runtime_hash" \
+    --arg m_contract "${component_contracts[0]}" \
+    --arg m_artifact "${component_artifacts[0]}" \
+    --arg m_salt "${component_salts[0]}" \
+    --arg m_init "${component_init_hashes[0]}" \
+    --arg m_runtime "${component_runtime_hashes[0]}" \
+    --arg m_address "${component_addresses[0]}" \
+    --arg r_contract "${component_contracts[1]}" \
+    --arg r_artifact "${component_artifacts[1]}" \
+    --arg r_salt "${component_salts[1]}" \
+    --arg r_init "${component_init_hashes[1]}" \
+    --arg r_runtime "${component_runtime_hashes[1]}" \
+    --arg r_address "${component_addresses[1]}" \
+    --arg f_contract "${component_contracts[2]}" \
+    --arg f_artifact "${component_artifacts[2]}" \
+    --arg f_salt "${component_salts[2]}" \
+    --arg f_init "${component_init_hashes[2]}" \
+    --arg f_runtime "${component_runtime_hashes[2]}" \
+    --arg f_address "${component_addresses[2]}" \
+    '{
+      schemaVersion: 4,
+      chainId: $chain_id,
+      network: $network,
+      sourceCommit: $source_commit,
+      operationalStatePath: $operational_state_path,
+      operationalStateBlob: $operational_state_blob,
+      buildConfigHash: $build_config_hash,
+      buildConfig: $build_config,
+      forgeVersion: $forge_version,
+      solcVersion: $solc_version,
+      deployer: $deployer,
+      create2Deployer: $create2_deployer,
+      paymentToken: {
+        address: $payment_token_address,
+        runtimeCodeHash: $payment_token_runtime_hash
+      },
+      createdAt: $created_at,
+      status: "prepared",
+      currentPrefix: 0,
+      components: [
+        {
+          order: 0, label: "media store factory", contractName: $m_contract,
+          artifact: $m_artifact, salt: $m_salt, initCodeHash: $m_init,
+          runtimeCodeHash: $m_runtime, expectedAddress: $m_address,
+          allowedPredecessor: "empty", status: "pending", transactionHash: null,
+          receipt: null, sourceVerified: false
+        },
+        {
+          order: 1, label: "renderer", contractName: $r_contract,
+          artifact: $r_artifact, salt: $r_salt, initCodeHash: $r_init,
+          runtimeCodeHash: $r_runtime, expectedAddress: $r_address,
+          allowedPredecessor: "media store factory", status: "pending",
+          transactionHash: null, receipt: null, sourceVerified: false
+        },
+        {
+          order: 2, label: "membership factory", contractName: $f_contract,
+          artifact: $f_artifact, salt: $f_salt, initCodeHash: $f_init,
+          runtimeCodeHash: $f_runtime, expectedAddress: $f_address,
+          allowedPredecessor: "renderer", status: "pending", transactionHash: null,
+          receipt: null, sourceVerified: false
+        }
+      ]
+    }'
+}
+
+journal_fingerprint() {
+  jq -S -c '{
+    schemaVersion, chainId, sourceCommit, operationalStatePath,
+    operationalStateBlob, buildConfigHash, buildConfig,
+    forgeVersion, solcVersion, deployer, create2Deployer, paymentToken,
+    components: [.components[] | {
+      order, contractName, artifact, salt, initCodeHash, runtimeCodeHash,
+      expectedAddress, allowedPredecessor
+    }]
+  }' "$1"
+}
+
+immutable_plan_fingerprint() {
+  jq -S -c '
+    (if has("deploymentPlan") then .deploymentPlan else . end)
+    | {
+        schemaVersion, chainId, buildConfigHash, forgeVersion, solcVersion,
+        create2Deployer, paymentToken,
+        components: [.components[] | {
+          order, contractName, artifact, salt, initCodeHash, runtimeCodeHash,
+          expectedAddress, allowedPredecessor
+        }]
+      }
+  ' "$1"
+}
+
+load_promoted_plan_for_status() {
+  local active="$1"
+  local current_plan current_immutable active_immutable index
+  jq -e --argjson chain_id "$expected_chain_id" '
+    .deploymentPlan.schemaVersion == 4
+    and .deploymentPlan.chainId == $chain_id
+    and (.deploymentPlan.paymentToken.address | test("^0x[0-9a-fA-F]{40}$"))
+    and (.deploymentPlan.paymentToken.runtimeCodeHash | test("^0x[0-9a-fA-F]{64}$"))
+    and (.deploymentPlan.components | length == 3)
+  ' "$active" >/dev/null \
+    || fail "active broadcast $active has no valid promoted deployment plan"
+
+  current_plan="$(mktemp "${TMPDIR:-/tmp}/bbf-current-plan.XXXXXX")"
+  plan_json >"$current_plan"
+  current_immutable="$(immutable_plan_fingerprint "$current_plan")"
+  active_immutable="$(immutable_plan_fingerprint "$active")"
+  rm -f "$current_plan"
+  if [[ "$current_immutable" != "$active_immutable" ]]; then
+    echo "Protocol deployment: current checkout artifacts differ from the promoted plan; status is validating promoted addresses and runtimes" >&2
+  fi
+
+  payment_token_address="$(jq -er '.deploymentPlan.paymentToken.address' "$active")"
+  payment_token_runtime_hash="$(jq -er '.deploymentPlan.paymentToken.runtimeCodeHash' "$active")"
+  if [[ "$expected_chain_id" == "46630" ]]; then
+    testnet_payment_token_runtime_hash="$payment_token_runtime_hash"
+  fi
+  for index in 0 1 2; do
+    component_salts[$index]="$(jq -er --argjson index "$index" '.deploymentPlan.components[$index].salt' "$active")"
+    component_init_hashes[$index]="$(jq -er --argjson index "$index" '.deploymentPlan.components[$index].initCodeHash' "$active")"
+    component_runtime_hashes[$index]="$(jq -er --argjson index "$index" '.deploymentPlan.components[$index].runtimeCodeHash' "$active")"
+    component_addresses[$index]="$(jq -er --argjson index "$index" '.deploymentPlan.components[$index].expectedAddress' "$active")"
+  done
+  validate_plan_against_operational_state
+}
+
+atomic_jq() {
+  local journal="$1"
+  shift
+  local temporary="${journal}.tmp.$$"
+  jq "$@" "$journal" >"$temporary"
+  mv "$temporary" "$journal"
+}
+
+require_journal_plan_match() {
+  local journal="$1"
+  local generated temporary existing_fingerprint expected_fingerprint
+  [[ -f "$journal" ]] || fail "recovery journal $journal does not exist"
+  generated="$(plan_json)"
+  temporary="${journal}.plan.$$"
+  printf '%s\n' "$generated" >"$temporary"
+  existing_fingerprint="$(journal_fingerprint "$journal")"
+  expected_fingerprint="$(journal_fingerprint "$temporary")"
+  rm -f "$temporary"
+  if [[ "$existing_fingerprint" != "$expected_fingerprint" ]]; then
+    fail "recovery journal $journal belongs to different source artifacts; preserve it and resolve explicitly"
+  fi
+}
+
+prepare_journal() {
+  local journal="$1"
+  local target_rpc="$2"
+  local generated index status observed_at
+  local receipt receipt_status transaction_hash
+  generated="$(plan_json)"
+  mkdir -p "$(dirname "$journal")"
+
+  if [[ -f "$journal" ]]; then
+    require_journal_plan_match "$journal"
+  else
+    printf '%s\n' "$generated" >"$journal"
+  fi
+
+  inspect_prefix "$target_rpc"
+  observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  for index in 0 1 2; do
+    status="$(jq -r --argjson index "$index" '.components[$index].status' "$journal")"
+    if [[ "$status" == "submitted" ]]; then
+      if [[ "${component_present[$index]}" == "1" ]]; then
+        atomic_jq "$journal" \
+          --argjson index "$index" \
+          --arg observed_at "$observed_at" \
+          --arg runtime_hash "${component_runtime_hashes[$index]}" \
+          '.components[$index].status = "validated-existing"
+           | .components[$index].observedAt = $observed_at
+           | .components[$index].observedRuntimeCodeHash = $runtime_hash'
+        continue
+      fi
+      transaction_hash="$(jq -r --argjson index "$index" '.components[$index].transactionHash' "$journal")"
+      if ! receipt="$(cast receipt "$transaction_hash" \
+        --rpc-url "$target_rpc" \
+        --confirmations 1 \
+        --json 2>/dev/null)"; then
+        fail "submitted ${component_labels[$index]} transaction $transaction_hash is not confirmed; do not rebroadcast it. Inspect that exact hash, then use recover-dropped with RECOVER_DROPPED_TRANSACTION_HASH only when the RPC evidence proves recovery is safe"
+      fi
+      receipt_status="$(printf '%s' "$receipt" | jq -r '.status')"
+      if [[ "$receipt_status" != "0x1" && "$receipt_status" != "1" ]]; then
+        fail "submitted ${component_labels[$index]} transaction $transaction_hash reverted"
+      fi
+      inspect_prefix "$target_rpc"
+      if [[ "${component_present[$index]}" != "1" ]]; then
+        fail "submitted ${component_labels[$index]} transaction mined without the exact runtime"
+      fi
+      record_receipt "$journal" "$index" "$receipt"
+    fi
+  done
+
+  inspect_prefix "$target_rpc"
+
+  observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  for index in 0 1 2; do
+    status="$(jq -r --argjson index "$index" '.components[$index].status' "$journal")"
+    if [[ "${component_present[$index]}" == "1" ]]; then
+      atomic_jq "$journal" \
+        --argjson index "$index" \
+        --arg observed_at "$observed_at" \
+        --arg runtime_hash "${component_runtime_hashes[$index]}" \
+        '.components[$index].status =
+          (if .components[$index].status == "pending" then "validated-existing"
+           else .components[$index].status end)
+         | .components[$index].observedAt = $observed_at
+         | .components[$index].observedRuntimeCodeHash = $runtime_hash'
+    elif [[ "$status" != "pending" ]]; then
+      fail "recovery journal says ${component_labels[$index]} is $status, but its exact runtime is absent"
+    fi
+  done
+  atomic_jq "$journal" --argjson prefix "$deployment_prefix_count" '.currentPrefix = $prefix'
+}
+
+recover_dropped_submission() {
+  local journal="$1"
+  local target_rpc="$2"
+  local authorized_hash="${RECOVER_DROPPED_TRANSACTION_HASH:-}"
+  local submitted_count index transaction_hash submitted_nonce
+  local receipt receipt_status evidence latest_nonce pending_nonce recovered_at
+
+  [[ "$authorized_hash" =~ ^0x[0-9a-fA-F]{64}$ ]] \
+    || fail "recover-dropped requires RECOVER_DROPPED_TRANSACTION_HASH with the exact journaled hash"
+  require_journal_plan_match "$journal"
+  inspect_prefix "$target_rpc"
+
+  submitted_count="$(jq '[.components[] | select(.status == "submitted")] | length' "$journal")"
+  [[ "$submitted_count" == "1" ]] \
+    || fail "recover-dropped requires exactly one submitted journal component"
+  index="$(jq -er '.components | map(.status == "submitted") | index(true)' "$journal")"
+  [[ "${component_present[$index]}" != "1" ]] \
+    || fail "journaled component already has its exact runtime; use broadcast to reconcile it"
+  transaction_hash="$(jq -er --argjson index "$index" '.components[$index].transactionHash' "$journal")"
+  [[ "$(lowercase "$transaction_hash")" == "$(lowercase "$authorized_hash")" ]] \
+    || fail "authorized recovery hash does not match the submitted journal transaction"
+  submitted_nonce="$(jq -er --argjson index "$index" '.components[$index].submittedNonce' "$journal")" \
+    || fail "submitted journal component has no recorded pre-submission nonce"
+  [[ "$submitted_nonce" =~ ^[0-9]+$ ]] \
+    || fail "submitted journal nonce is malformed"
+
+  if receipt="$(cast receipt "$transaction_hash" \
+    --rpc-url "$target_rpc" \
+    --confirmations 1 \
+    --json 2>/dev/null)"; then
+    receipt_status="$(printf '%s' "$receipt" | jq -er '.status')"
+    if [[ "$receipt_status" == "0x1" || "$receipt_status" == "1" ]]; then
+      fail "submitted transaction succeeded but the exact runtime is absent; refusing automatic recovery"
+    fi
+    [[ "$receipt_status" == "0x0" || "$receipt_status" == "0" ]] \
+      || fail "submitted transaction receipt status is malformed"
+    evidence="confirmed-revert"
+  else
+    if cast tx "$transaction_hash" --rpc-url "$target_rpc" --json >/dev/null 2>&1; then
+      fail "submitted transaction is still known by the RPC; refusing dropped-transaction recovery"
+    fi
+    evidence="absent-from-rpc"
+  fi
+
+  latest_nonce="$(cast nonce "$BBF_APPROVED_DEPLOYER" \
+    --block latest \
+    --rpc-url "$target_rpc" 2>/dev/null)" \
+    || fail "could not read deployer latest nonce for recovery"
+  pending_nonce="$(cast nonce "$BBF_APPROVED_DEPLOYER" \
+    --block pending \
+    --rpc-url "$target_rpc" 2>/dev/null)" \
+    || fail "could not read deployer pending nonce for recovery"
+  [[ "$latest_nonce" =~ ^[0-9]+$ && "$pending_nonce" =~ ^[0-9]+$ ]] \
+    || fail "deployer nonce evidence is malformed"
+
+  if [[ "$evidence" == "absent-from-rpc" ]]; then
+    if [[ "$latest_nonce" == "$submitted_nonce" && "$pending_nonce" == "$submitted_nonce" ]]; then
+      evidence="dropped"
+    elif ((latest_nonce > submitted_nonce && pending_nonce >= latest_nonce)); then
+      evidence="nonce-consumed"
+    else
+      fail "absent transaction nonce remains reserved or is inconsistent; refusing recovery"
+    fi
+  else
+    ((latest_nonce > submitted_nonce && pending_nonce >= latest_nonce)) \
+      || fail "reverted transaction nonce evidence is inconsistent; refusing recovery"
+  fi
+
+  recovered_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  atomic_jq "$journal" \
+    --argjson index "$index" \
+    --arg transaction_hash "$transaction_hash" \
+    --argjson submitted_nonce "$submitted_nonce" \
+    --argjson latest_nonce "$latest_nonce" \
+    --argjson pending_nonce "$pending_nonce" \
+    --arg evidence "$evidence" \
+    --arg recovered_at "$recovered_at" \
+    '.components[$index].recoveryHistory =
+      ((.components[$index].recoveryHistory // []) + [{
+        transactionHash: $transaction_hash,
+        submittedNonce: $submitted_nonce,
+        observedLatestNonce: $latest_nonce,
+        observedPendingNonce: $pending_nonce,
+        evidence: $evidence,
+        recoveredAt: $recovered_at
+      }])
+     | .components[$index].status = "pending"
+     | .components[$index].transactionHash = null
+     | .components[$index].receipt = null
+     | del(.components[$index].submittedAt, .components[$index].submittedNonce)'
+  echo "Protocol deployment: recovered dropped submission evidence; run broadcast for a fresh authorized transaction"
+}
+
+record_submission() {
+  local journal="$1"
+  local index="$2"
+  local transaction_hash="$3"
+  local submitted_nonce="$4"
+  local submitted_at
+  submitted_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  atomic_jq "$journal" \
+    --argjson index "$index" \
+    --arg transaction_hash "$transaction_hash" \
+    --argjson submitted_nonce "$submitted_nonce" \
+    --arg submitted_at "$submitted_at" \
+    '.components[$index].status = "submitted"
+     | .components[$index].transactionHash = $transaction_hash
+     | .components[$index].submittedNonce = $submitted_nonce
+     | .components[$index].submittedAt = $submitted_at'
+}
+
+record_receipt() {
+  local journal="$1"
+  local index="$2"
+  local receipt="$3"
+  local confirmed_at
+  confirmed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  atomic_jq "$journal" \
+    --argjson index "$index" \
+    --argjson receipt "$receipt" \
+    --arg confirmed_at "$confirmed_at" \
+    --arg runtime_hash "${component_runtime_hashes[$index]}" \
+    '.components[$index].status = "deployed"
+     | .components[$index].receipt = $receipt
+     | .components[$index].confirmedAt = $confirmed_at
+     | .components[$index].observedRuntimeCodeHash = $runtime_hash'
+}
+
+submit_component() {
+  local target_rpc="$1"
+  local signer_mode="$2"
+  local journal="$3"
+  local index="$4"
+  local raw_data transaction_hash receipt status submitted_nonce
+  local signed_transaction published_hash
+  local send_args mktx_args
+
+  inspect_prefix "$target_rpc"
+  if [[ "${component_present[$index]}" == "1" ]]; then
+    echo "Protocol deployment: ${component_labels[$index]} already validated at ${component_addresses[$index]}"
+    return
+  fi
+  if [[ "$deployment_prefix_count" -ne "$index" ]]; then
+    fail "${component_labels[$index]} cannot deploy from prefix $deployment_prefix_count"
+  fi
+
+  raw_data="0x${component_salts[$index]#0x}${component_init_codes[$index]#0x}"
+  if [[ "$signer_mode" != "keystore" ]]; then
+    send_args=(
+      send "$BBF_CREATE2_DEPLOYER"
+      --data "$raw_data"
+      --rpc-url "$target_rpc"
+      --async
+    )
+    send_args+=(--from "$BBF_APPROVED_DEPLOYER" --unlocked)
+  fi
+
+  echo "Protocol deployment: submitting ${component_labels[$index]} to the canonical CREATE2 deployer"
+  if ! submitted_nonce="$(cast nonce "$BBF_APPROVED_DEPLOYER" \
+    --block pending \
+    --rpc-url "$target_rpc" 2>/dev/null)"; then
+    fail "could not read the deployer pending nonce before ${component_labels[$index]} submission"
+  fi
+  [[ "$submitted_nonce" =~ ^[0-9]+$ ]] \
+    || fail "deployer pending nonce is malformed before ${component_labels[$index]} submission"
+  if [[ "$signer_mode" == "keystore" ]]; then
+    mktx_args=(
+      mktx "$BBF_CREATE2_DEPLOYER"
+      "$raw_data"
+      --rpc-url "$target_rpc"
+      --nonce "$submitted_nonce"
+      --account "$account"
+    )
+    signed_transaction="$(cast "${mktx_args[@]}")"
+    signed_transaction="$(printf '%s' "$signed_transaction" | tr -d '"[:space:]')"
+    if [[ ! "$signed_transaction" =~ ^0x([0-9a-fA-F]{2})+$ ]]; then
+      fail "Cast did not return a signed transaction for ${component_labels[$index]}"
+    fi
+    transaction_hash="$(cast keccak "$signed_transaction")"
+    [[ "$transaction_hash" =~ ^0x[0-9a-fA-F]{64}$ ]] \
+      || fail "could not compute the signed transaction hash for ${component_labels[$index]}"
+
+    # Persist the exact signed transaction identity before publication. If the
+    # process dies after the RPC accepts it, recovery can reconcile this hash
+    # and nonce without ever sending a second transaction.
+    record_submission "$journal" "$index" "$transaction_hash" "$submitted_nonce"
+    published_hash="$(cast publish "$signed_transaction" --rpc-url "$target_rpc" --async)"
+    published_hash="$(printf '%s' "$published_hash" | tr -d '"[:space:]')"
+    [[ "$(lowercase "$published_hash")" == "$(lowercase "$transaction_hash")" ]] \
+      || fail "published transaction hash differs from the signed ${component_labels[$index]} transaction"
+  else
+    send_args+=(--nonce "$submitted_nonce")
+    transaction_hash="$(cast "${send_args[@]}")"
+    transaction_hash="$(printf '%s' "$transaction_hash" | tr -d '"[:space:]')"
+    if [[ ! "$transaction_hash" =~ ^0x[0-9a-fA-F]{64}$ ]]; then
+      fail "Cast did not return a transaction hash for ${component_labels[$index]}"
+    fi
+    record_submission "$journal" "$index" "$transaction_hash" "$submitted_nonce"
+  fi
+
+  if ! receipt="$(cast receipt "$transaction_hash" \
+    --rpc-url "$target_rpc" \
+    --confirmations 1 \
+    --json 2>/dev/null)"; then
+    fail "receipt query failed for ${component_labels[$index]} transaction $transaction_hash"
+  fi
+  status="$(printf '%s' "$receipt" | jq -r '.status')"
+  if [[ "$status" != "0x1" && "$status" != "1" ]]; then
+    fail "${component_labels[$index]} transaction $transaction_hash did not succeed"
+  fi
+
+  inspect_prefix "$target_rpc"
+  if [[ "$deployment_prefix_count" -lt $((index + 1)) ]]; then
+    fail "${component_labels[$index]} transaction mined but exact runtime validation failed"
+  fi
+  record_receipt "$journal" "$index" "$receipt"
+  atomic_jq "$journal" --argjson prefix "$deployment_prefix_count" '.currentPrefix = $prefix'
+}
+
+deploy_missing_prefix() {
+  local target_rpc="$1"
+  local signer_mode="$2"
+  local journal="$3"
+  local index
+
+  validate_chain_state "$target_rpc" false
+  prepare_journal "$journal" "$target_rpc"
+  for index in 0 1 2; do
+    submit_component "$target_rpc" "$signer_mode" "$journal" "$index"
+    validate_chain_state "$target_rpc" false
+  done
+
+  validate_chain_state "$target_rpc" true
+  [[ "$deployment_prefix_count" -eq 3 ]] || fail "completed validator returned without a full prefix"
+  atomic_jq "$journal" '.status = "deployed" | .currentPrefix = 3'
+}
+
+cleanup_anvil() {
+  if [[ -n "${anvil_pid:-}" ]]; then
+    kill "$anvil_pid" 2>/dev/null || true
+    wait "$anvil_pid" 2>/dev/null || true
+    anvil_pid=""
+  fi
+  if [[ -n "${anvil_directory:-}" && -d "$anvil_directory" ]]; then
+    rm -rf "$anvil_directory"
+    anvil_directory=""
+  fi
+}
+
+run_anvil_preflight() {
+  local port local_rpc attempts observed_chain local_journal
+  anvil_directory="$(mktemp -d "${TMPDIR:-/tmp}/bbf-protocol-preflight.XXXXXX")"
+  port="${BBF_ANVIL_PORT:-$((20000 + RANDOM % 20000))}"
+  local_rpc="http://127.0.0.1:$port"
+
+  anvil \
+    --fork-url "$rpc_url" \
+    --chain-id "$expected_chain_id" \
+    --host 127.0.0.1 \
+    --port "$port" \
+    --code-size-limit "$BBF_ROBINHOOD_RUNTIME_LIMIT" \
+    --gas-limit "$BBF_ROBINHOOD_GAS_LIMIT" \
+    --silent \
+    >"$anvil_directory/anvil.log" 2>&1 &
+  anvil_pid=$!
+  if [[ -n "$deployment_lock_directory" ]]; then
+    trap 'cleanup_anvil; release_deployment_lock' EXIT
+    trap 'cleanup_anvil; release_deployment_lock; exit 130' INT
+    trap 'cleanup_anvil; release_deployment_lock; exit 143' TERM
+  else
+    trap cleanup_anvil EXIT
+    trap 'cleanup_anvil; exit 130' INT
+    trap 'cleanup_anvil; exit 143' TERM
+  fi
+
+  observed_chain=""
+  for attempts in $(seq 1 100); do
+    if observed_chain="$(cast chain-id --rpc-url "$local_rpc" 2>/dev/null)"; then
+      break
+    fi
+    if ! kill -0 "$anvil_pid" 2>/dev/null; then
+      fail "Anvil fork exited before its RPC became ready"
+    fi
+    sleep 0.1
+  done
+  if [[ "$observed_chain" != "$expected_chain_id" ]]; then
+    fail "Anvil preflight expected chain $expected_chain_id, got ${observed_chain:-no response}"
+  fi
+
+  cast rpc anvil_impersonateAccount "$BBF_APPROVED_DEPLOYER" --rpc-url "$local_rpc" >/dev/null
+  cast rpc anvil_setBalance \
+    "$BBF_APPROVED_DEPLOYER" \
+    0x21e19e0c9bab2400000 \
+    --rpc-url "$local_rpc" \
+    >/dev/null
+
+  local_journal="$anvil_directory/deployment.json"
+  deploy_missing_prefix "$local_rpc" unlocked "$local_journal"
+  echo "Protocol deployment: exact chain-$expected_chain_id Anvil-fork raw CREATE2 preflight passed"
+  cleanup_anvil
+  if [[ -n "$deployment_lock_directory" ]]; then
+    trap release_deployment_lock EXIT
+    trap 'release_deployment_lock; exit 130' INT
+    trap 'release_deployment_lock; exit 143' TERM
+  else
+    trap - EXIT INT TERM
+  fi
+}
+
+verify_sources() {
+  local journal="$1"
+  local index verified_at output safe_output
+  for index in 0 1 2; do
+    require_recorded_source_checkout "$journal"
+    if ! output="$(forge verify-contract \
+      --watch \
+      --chain "$expected_chain_id" \
+      --rpc-url "$rpc_url" \
+      --verifier blockscout \
+      --verifier-url "$verifier_url" \
+      "${component_addresses[$index]}" \
+      "${component_artifacts[$index]}" 2>&1)"; then
+      safe_output="${output//$rpc_url/<rpc-url>}"
+      printf '%s\n' "$safe_output" >&2
+      fail "Blockscout source verification failed for ${component_labels[$index]}"
+    fi
+    require_recorded_source_checkout "$journal"
+    safe_output="${output//$rpc_url/<rpc-url>}"
+    printf '%s\n' "$safe_output"
+    verified_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    atomic_jq "$journal" \
+      --argjson index "$index" \
+      --arg verified_at "$verified_at" \
+      '.components[$index].sourceVerified = true
+       | .components[$index].sourceVerifiedAt = $verified_at'
+  done
+  require_recorded_source_checkout "$journal"
+  atomic_jq "$journal" '.status = "source-verified"'
+}
+
+ensure_no_conflicting_active_broadcast() {
+  local active="$1"
+  local journal="$2"
+  local active_plan journal_plan
+  [[ -f "$active" ]] || return 0
+  active_plan="$(jq -S -c '.deploymentPlan // null' "$active")"
+  journal_plan="$(journal_fingerprint "$journal")"
+  if [[ "$active_plan" != "$journal_plan" ]]; then
+    fail "active broadcast $active belongs to another deployment; archive and remove it before promotion"
+  fi
+}
+
+render_broadcast_record() {
+  local journal="$1"
+  local target="$2"
+  local temporary timestamp commit
+  local verified_count complete_count
+  verified_count="$(jq '[.components[] | select(.sourceVerified == true)] | length' "$journal")"
+  complete_count="$(jq '[.components[] | select(.status == "deployed" or .status == "validated-existing")] | length' "$journal")"
+  [[ "$verified_count" == "3" && "$complete_count" == "3" ]] \
+    || fail "deployment cannot become a public broadcast until all runtimes and sources are verified"
+
+  timestamp="$(date +%s)"
+  temporary="${target}.tmp.$$"
+  commit="$(jq -er '.sourceCommit' "$journal")" \
+    || fail "recovery journal $journal does not identify its source commit"
+  [[ "$commit" =~ ^[0-9a-fA-F]{40}$ ]] \
+    || fail "recovery journal $journal has an invalid source commit"
+
+  jq \
+    --arg commit "$commit" \
+    --argjson timestamp "$((timestamp * 1000))" \
+    --argjson deployment_plan "$(journal_fingerprint "$journal")" \
+    --arg create2 "$BBF_CREATE2_DEPLOYER" \
+    --arg journal "$journal" \
+    '{
+      transactions: [.components[] | {
+        hash: .transactionHash,
+        transactionType: "CALL",
+        contractName: null,
+        contractAddress: $create2,
+        additionalContracts: [{
+          transactionType: "CREATE2",
+          contractName: .contractName,
+          address: .expectedAddress
+        }]
+      }],
+      receipts: [.components[] | select(.receipt != null) | .receipt],
+      libraries: [],
+      pending: [],
+      returns: {
+        mediaStoreFactory: {
+          internal_type: "contract OnchainMediaStoreFactory",
+          value: .components[0].expectedAddress
+        },
+        renderer: {
+          internal_type: "contract OnchainMetadataRenderer",
+          value: .components[1].expectedAddress
+        },
+        factory: {
+          internal_type: "contract RobinhoodMembershipFactory",
+          value: .components[2].expectedAddress
+        }
+      },
+      timestamp: $timestamp,
+      chain: .chainId,
+      commit: $commit,
+      deploymentPlan: $deployment_plan,
+      recoveryJournal: $journal
+    }' \
+    "$journal" >"$temporary"
+  mv "$temporary" "$target"
+}
+
+generate_web_bindings() {
+  local staged_project="$1"
+  local staged_output="$2"
+  local web_dir
+  web_dir="$project_dir/../web"
+  [[ -d "$web_dir" ]] || fail "web project not found at $web_dir"
+  if ! (cd "$web_dir" && \
+    BBF_WAGMI_FOUNDRY_PROJECT="$staged_project" \
+    BBF_WAGMI_OUTPUT="$staged_output" \
+    bun x wagmi generate && \
+    bun x prettier --write "$staged_output"); then
+    return 1
+  fi
+  [[ -s "$staged_output" ]] || return 1
+}
+
+promote_with_bindings() {
+  local journal="$1"
+  local stage_directory staged_project staged_active staged_bindings
+  local broadcast_directory timestamped timestamp web_bindings
+  stage_directory="$(mktemp -d "${TMPDIR:-/tmp}/bbf-protocol-promotion.XXXXXX")"
+  staged_project="$stage_directory/contracts"
+  staged_active="$staged_project/broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/run-latest.json"
+  staged_bindings="$stage_directory/contracts.ts"
+  web_bindings="$repo_root/web/src/contracts.ts"
+
+  require_recorded_source_checkout "$journal"
+  ensure_no_conflicting_active_broadcast "$active_broadcast" "$journal"
+  mkdir -p "$staged_project"
+  ln -s "$project_dir/out" "$staged_project/out"
+  if [[ -d "$project_dir/broadcast" ]]; then
+    cp -R "$project_dir/broadcast" "$staged_project/broadcast"
+  fi
+  mkdir -p "$(dirname "$staged_active")"
+  render_broadcast_record "$journal" "$staged_active"
+  if ! generate_web_bindings "$staged_project" "$staged_bindings"; then
+    rm -rf "$stage_directory"
+    fail "web binding generation failed before active deployment promotion"
+  fi
+  if ! (require_recorded_source_checkout "$journal"); then
+    rm -rf "$stage_directory"
+    fail "tracked source changed during staged web binding generation"
+  fi
+
+  broadcast_directory="$(dirname "$active_broadcast")"
+  mkdir -p "$broadcast_directory"
+  timestamp="$(date +%s)"
+  timestamped="$broadcast_directory/run-$timestamp.json"
+
+  if ! (require_recorded_source_checkout "$journal"); then
+    rm -rf "$stage_directory"
+    fail "tracked source changed before active deployment promotion"
+  fi
+  cp "$staged_active" "${timestamped}.tmp.$$"
+  mv "${timestamped}.tmp.$$" "$timestamped"
+  cp "$staged_bindings" "${web_bindings}.tmp.$$"
+  mv "${web_bindings}.tmp.$$" "$web_bindings"
+
+  # The active pointer is the release gate and is installed last. A generator
+  # failure or machine interruption before this point cannot expose the staged
+  # deployment to ordinary binding generation.
+  cp "$staged_active" "${active_broadcast}.tmp.$$"
+  mv "${active_broadcast}.tmp.$$" "$active_broadcast"
+  atomic_jq "$journal" \
+    --arg active "$active_broadcast" \
+    '.status = "promoted" | .activeBroadcast = $active'
+  rm -rf "$stage_directory"
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -28,78 +1537,85 @@ fi
 
 network="${1:-}"
 action="${2:-dry-run}"
-project_dir="$(cd "$script_dir/.." && pwd)"
+project_dir="$(cd "$script_dir/.." && pwd -P)"
 bbf_load_dotenv "$project_dir/.env"
 
 if ! bbf_configure_public_network "$network"; then
   usage >&2
   exit 2
 fi
-
-if [[ "$action" != "dry-run" && "$action" != "broadcast" && "$action" != "status" && "$action" != "resume-verify" ]]; then
+operational_state_file="$project_dir/config/operational-state/$expected_chain_id.json"
+if [[ "$action" != "dry-run" && "$action" != "broadcast" \
+  && "$action" != "status" && "$action" != "resume-verify" \
+  && "$action" != "recover-dropped" ]]; then
   usage >&2
   exit 2
 fi
 
 bbf_require_mainnet_confirmation "$network" CONFIRM_MAINNET_DEPLOYMENT "Protocol deployment"
 bbf_reject_broadcast_override "Protocol deployment"
+reject_plaintext_signer_inputs
 
 cd "$project_dir"
-
-if [[ "$action" == "resume-verify" ]]; then
-  broadcast_artifact="broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/run-latest.json"
-  if [[ ! -f "$broadcast_artifact" ]]; then
-    echo "Protocol deployment: missing durable Foundry broadcast artifact: $broadcast_artifact" >&2
-    exit 1
+resolve_source_commit
+require_committed_operational_state
+validate_operational_state_manifest
+journal="deployments/protocol/$expected_chain_id/candidate.json"
+active_broadcast="broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/run-latest.json"
+if [[ "$action" == "broadcast" || "$action" == "resume-verify" \
+  || "$action" == "recover-dropped" ]]; then
+  if [[ -f "$journal" ]]; then
+    require_recorded_source_checkout "$journal"
+  else
+    require_clean_initial_broadcast
   fi
+elif [[ "$action" == "status" ]]; then
+  require_clean_initial_broadcast
 fi
-
+if [[ "$action" == "broadcast" || "$action" == "resume-verify" \
+  || "$action" == "recover-dropped" ]]; then
+  acquire_deployment_lock
+fi
+reject_build_environment_overrides
+validate_build_environment
 bbf_verify_public_chain "Protocol deployment"
+build_deployment_plan
+validate_plan_against_solidity
+if [[ "$action" == "status" && -f "$active_broadcast" ]]; then
+  load_promoted_plan_for_status "$active_broadcast"
+else
+  validate_plan_against_operational_state
+fi
+validate_chain_state "$rpc_url" false
+print_recovery_table
 
 if [[ "$action" == "status" ]]; then
-  forge script \
-    script/DeployDirectProtocol.s.sol:ValidateProtocol \
-    --rpc-url "$rpc_url" \
-    -vvv
   exit 0
 fi
 
 if [[ "$action" == "resume-verify" ]]; then
-  forge script \
-    script/DeployDirectProtocol.s.sol:ValidateCompletedProtocol \
-    --rpc-url "$rpc_url" \
-    -vvv
-
-  forge script \
-    script/DeployDirectProtocol.s.sol:DeployProtocol \
-    --rpc-url "$rpc_url" \
-    --resume \
-    --verify \
-    --verifier blockscout \
-    --verifier-url "$verifier_url" \
-    -vvvv
+  validate_chain_state "$rpc_url" true
+  prepare_journal "$journal" "$rpc_url"
+  ensure_no_conflicting_active_broadcast "$active_broadcast" "$journal"
+  verify_sources "$journal"
+  promote_with_bindings "$journal"
   exit 0
 fi
 
-forge_args=(
-  script/DeployDirectProtocol.s.sol:DeployProtocol
-  --rpc-url "$rpc_url"
-  --sender "$BBF_APPROVED_DEPLOYER"
-  --always-use-create-2-factory
-  --create2-deployer "$BBF_CREATE2_DEPLOYER"
-  -vvvv
-)
-
-if [[ "$action" == "broadcast" ]]; then
-  account="${ACCOUNT:-$default_account}"
-  bbf_verify_public_account "Protocol deployment" "$account" "$BBF_APPROVED_DEPLOYER"
-  forge_args+=(
-    --account "$account"
-    --broadcast
-    --verify
-    --verifier blockscout
-    --verifier-url "$verifier_url"
-  )
+run_anvil_preflight
+if [[ "$action" == "dry-run" ]]; then
+  exit 0
 fi
 
-forge script "${forge_args[@]}"
+account="${ACCOUNT:-$default_account}"
+bbf_verify_public_account "Protocol deployment" "$account" "$BBF_APPROVED_DEPLOYER"
+validate_chain_state "$rpc_url" false
+if [[ "$action" == "recover-dropped" ]]; then
+  recover_dropped_submission "$journal" "$rpc_url"
+  exit 0
+fi
+prepare_journal "$journal" "$rpc_url"
+ensure_no_conflicting_active_broadcast "$active_broadcast" "$journal"
+deploy_missing_prefix "$rpc_url" keystore "$journal"
+verify_sources "$journal"
+promote_with_bindings "$journal"

@@ -26,7 +26,9 @@ contract GrantsAndCapacityTest is Test {
 
         paymentToken = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(address(this), paymentToken, address(renderer), _config());
+        tier = new MembershipTier(
+            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, _config()
+        );
         paymentToken.mint(member, 100_000_000);
         vm.prank(member);
         paymentToken.approve(address(tier), type(uint256).max);

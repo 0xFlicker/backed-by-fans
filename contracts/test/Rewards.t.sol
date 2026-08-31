@@ -31,7 +31,9 @@ contract RewardsTest is Test {
         tier = new MembershipTier(
             address(this),
             paymentToken,
+            1,
             address(renderer),
+            address(renderer).codehash,
             MembershipTestConfig.defaultConfig(address(this))
         );
 
@@ -140,8 +142,14 @@ contract RewardsTest is Test {
         MockUSDG largeSupplyToken = new MockUSDG();
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
         config.pricePerPeriod = 0;
+        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         MembershipTier largeTier = new MembershipTier(
-            address(this), largeSupplyToken, address(new OnchainMetadataRenderer()), config
+            address(this),
+            largeSupplyToken,
+            1,
+            address(renderer),
+            address(renderer).codehash,
+            config
         );
         address largeHolder = makeAddr("largeHolder");
         uint256 gross = type(uint256).max;
@@ -204,7 +212,9 @@ contract RewardsTest is Test {
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(address(this));
         config.pricePerPeriod = 0;
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        zeroTier = new MembershipTier(address(this), paymentToken, address(renderer), config);
+        zeroTier = new MembershipTier(
+            address(this), paymentToken, 1, address(renderer), address(renderer).codehash, config
+        );
         vm.prank(firstMember);
         paymentToken.approve(address(zeroTier), type(uint256).max);
     }

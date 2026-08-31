@@ -37,7 +37,9 @@ contract TestnetUSDGTest is Test {
         address unauthorized = makeAddr("unauthorized");
 
         vm.prank(unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, unauthorized));
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, unauthorized)
+        );
         token.mint(unauthorized, 1);
     }
 
@@ -50,7 +52,9 @@ contract TestnetUSDGTest is Test {
         vm.chainId(_TESTNET_CHAIN_ID);
         address unauthorized = makeAddr("unauthorized");
         vm.prank(unauthorized, unauthorized);
-        vm.expectRevert(abi.encodeWithSelector(TestnetUSDG.UnauthorizedDeploymentOrigin.selector, unauthorized));
+        vm.expectRevert(
+            abi.encodeWithSelector(TestnetUSDG.UnauthorizedDeploymentOrigin.selector, unauthorized)
+        );
         new TestnetUSDG();
     }
 }

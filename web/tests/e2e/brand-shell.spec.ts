@@ -70,8 +70,15 @@ test("has no automatically detectable accessibility violations", async ({
 }) => {
   await page.goto("/");
   await page.evaluate(() =>
-    Promise.all(
-      document.getAnimations().map((animation) => animation.finished),
+    Promise.allSettled(
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.timeline === document.timeline &&
+            animation.effect?.getTiming().iterations !== Infinity,
+        )
+        .map((animation) => animation.finished),
     ),
   );
   const results = await new AxeBuilder({ page }).analyze();

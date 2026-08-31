@@ -29,68 +29,69 @@ contract MetadataAndStandardsTest is Test {
         member = makeAddr("member");
         token = new MockUSDG();
         renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(address(this), token, address(renderer), _config());
+        tier = _deployTier(_config());
     }
 
-    function test_rendererProducesSelfContainedEscapedMetadataFromOneWayInput() public {
-        MembershipTypes.TierConfig memory config = _config();
-        config.name = "A Creator";
-        config.metadata.description = "Support \"independent\" creators\nmonthly";
-        config.metadata.imageURI = "ipfs://image";
-        config.metadata.externalURI = "https://example.com/tier";
-        MembershipTier renderedTier =
-            new MembershipTier(address(this), token, address(renderer), config);
-        uint256 tokenId = renderedTier.grantTime(member, 1);
-
-        string memory json = _decodeTokenURI(renderedTier.tokenURI(tokenId));
-
-        assertEq(
-            json,
-            string.concat(
-                '{"name":"A Creator #1","description":"Support \\"independent\\" creators\\nmonthly",',
-                '"image":"ipfs://image","external_url":"https://example.com/tier",',
-                '"attributes":[{"trait_type":"Active","value":"Yes"},',
-                '{"display_type":"date","trait_type":"Expiration","value":',
-                vm.toString(_START + _PERIOD),
-                "}]}"
-            )
-        );
-    }
-
-    function test_tokenMetadataReflectsPassiveExpirationWithoutAuthorizationWrites() public {
+    function test_tokenMetadataContainsOneSelfContainedSVGArtwork() public {
         uint256 tokenId = tier.grantTime(member, 1);
-        string memory activeJSON = _decodeTokenURI(tier.tokenURI(tokenId));
+        string memory json = _decodeDataURI(tier.tokenURI(tokenId), "data:application/json;base64,");
+        string memory image = vm.parseJsonString(json, ".image");
+        string memory svg = _decodeDataURI(image, "data:image/svg+xml;base64,");
+
+        assertTrue(_contains(json, '"value":"STACK"'));
+        assertTrue(_contains(json, '"value":"ACTIVE"'));
+        assertFalse(_contains(json, "animation_url"));
+        assertTrue(_contains(svg, '<svg xmlns="http://www.w3.org/2000/svg"'));
+        assertTrue(_contains(svg, 'data-state="active"'));
+        assertTrue(_contains(svg, "BACKED BY FANS"));
+        assertTrue(_contains(svg, "Creator Backers"));
+        assertFalse(_contains(svg, "<script"));
+        assertFalse(_contains(svg, "example.com"));
+    }
+
+    function test_tokenMetadataReflectsPassiveExpirationWithStableGeometry() public {
+        uint256 tokenId = tier.grantTime(member, 1);
+        string memory activeSVG = _svgFromTier(tokenId);
+        string memory activeGeometry = _attribute(activeSVG, "data-geometry");
 
         vm.warp(tier.expiresAt(tokenId));
-        string memory expiredJSON = _decodeTokenURI(tier.tokenURI(tokenId));
+        string memory afterglowSVG = _svgFromTier(tokenId);
+        string memory afterglowGeometry = _attribute(afterglowSVG, "data-geometry");
 
-        assertTrue(_contains(activeJSON, '"value":"Yes"'));
-        assertTrue(_contains(expiredJSON, '"value":"No"'));
+        assertEq(activeGeometry, afterglowGeometry);
+        assertTrue(_contains(activeSVG, 'data-state="active"'));
+        assertTrue(_contains(afterglowSVG, 'data-state="afterglow"'));
+        assertTrue(_contains(afterglowSVG, "ARCHIVAL AFTERGLOW"));
         assertFalse(tier.isActive(member));
         assertTrue(tier.isOccupied(tokenId));
     }
 
-    function test_metadataUpdateIsBoundedAndSignalsAllMintedCredentials() public {
+    function test_mutableMetadataSignalsRefreshWithoutChangingImmutableArt() public {
         tier.grantTime(member, 1);
         tier.grantTime(makeAddr("other"), 1);
+        bytes32 artBefore = keccak256(abi.encode(tier.artConfig()));
+        bytes32 mediaBefore = keccak256(abi.encode(tier.mediaConfig()));
+        bytes32 identityBefore = tier.tierIdentity();
         MembershipTypes.TierMetadata memory updated = MembershipTypes.TierMetadata({
-            description: "Updated membership",
-            imageURI: "ipfs://updated-image",
-            externalURI: "https://example.com/updated"
+            description: "Updated membership", externalURI: "https://example.com/updated"
         });
         vm.recordLogs();
 
         tier.setTierMetadata(updated);
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        assertEq(_countLogs(logs, keccak256("TierMetadataUpdated(string,string,string)")), 1);
+        assertEq(_countLogs(logs, keccak256("TierMetadataUpdated(string,string)")), 1);
         assertEq(_countLogs(logs, keccak256("BatchMetadataUpdate(uint256,uint256)")), 1);
         assertEq(tier.description(), updated.description);
-        assertEq(tier.imageURI(), updated.imageURI);
         assertEq(tier.externalURI(), updated.externalURI);
+        assertEq(keccak256(abi.encode(tier.artConfig())), artBefore);
+        assertEq(keccak256(abi.encode(tier.mediaConfig())), mediaBefore);
+        assertEq(tier.tierIdentity(), identityBefore);
 
-        MembershipTypes.TierMetadata memory invalid = updated;
-        invalid.description = string(new bytes(tier.MAX_DESCRIPTION_BYTES() + 1));
+        string memory invalidDescription = string(new bytes(tier.MAX_DESCRIPTION_BYTES() + 1));
+        MembershipTypes.TierMetadata memory invalid = MembershipTypes.TierMetadata({
+            description: invalidDescription, externalURI: updated.externalURI
+        });
         vm.expectRevert(MembershipTier.InvalidMetadata.selector);
         tier.setTierMetadata(invalid);
         assertEq(tier.description(), "Updated membership");
@@ -98,27 +99,26 @@ contract MetadataAndStandardsTest is Test {
 
     function test_constructorMetadataBoundsAcceptLimitsAndRejectOverflow() public {
         MembershipTypes.TierConfig memory config = _config();
-        config.name = string(new bytes(tier.MAX_NAME_BYTES()));
-        config.symbol = string(new bytes(tier.MAX_SYMBOL_BYTES()));
-        config.metadata.description = string(new bytes(tier.MAX_DESCRIPTION_BYTES()));
-        config.metadata.imageURI = string(new bytes(tier.MAX_URI_BYTES()));
-        config.metadata.externalURI = string(new bytes(tier.MAX_URI_BYTES()));
-        new MembershipTier(address(this), token, address(renderer), config);
+        config.name = _ascii(tier.MAX_NAME_BYTES());
+        config.symbol = _ascii(tier.MAX_SYMBOL_BYTES());
+        config.metadata.description = _ascii(tier.MAX_DESCRIPTION_BYTES());
+        config.metadata.externalURI = _ascii(tier.MAX_URI_BYTES());
+        _deployTier(config);
 
         config = _config();
         config.name = "";
         vm.expectRevert(MembershipTier.InvalidMetadata.selector);
-        new MembershipTier(address(this), token, address(renderer), config);
+        _deployTier(config);
 
         config = _config();
-        config.symbol = string(new bytes(tier.MAX_SYMBOL_BYTES() + 1));
+        config.symbol = _ascii(tier.MAX_SYMBOL_BYTES() + 1);
         vm.expectRevert(MembershipTier.InvalidMetadata.selector);
-        new MembershipTier(address(this), token, address(renderer), config);
+        _deployTier(config);
 
         config = _config();
-        config.metadata.externalURI = string(new bytes(tier.MAX_URI_BYTES() + 1));
+        config.metadata.externalURI = _ascii(tier.MAX_URI_BYTES() + 1);
         vm.expectRevert(MembershipTier.InvalidMetadata.selector);
-        new MembershipTier(address(this), token, address(renderer), config);
+        _deployTier(config);
     }
 
     function test_lifecycleMutationsEmitPublishedStandardsEvents() public {
@@ -176,36 +176,66 @@ contract MetadataAndStandardsTest is Test {
         assertTrue(tier.isRenewable(tokenId));
     }
 
-    function _decodeTokenURI(string memory uri) private pure returns (string memory json) {
+    function _svgFromTier(uint256 tokenId) private view returns (string memory) {
+        string memory json = _decodeDataURI(tier.tokenURI(tokenId), "data:application/json;base64,");
+        return _decodeDataURI(vm.parseJsonString(json, ".image"), "data:image/svg+xml;base64,");
+    }
+
+    function _decodeDataURI(string memory uri, string memory expectedPrefix)
+        private
+        pure
+        returns (string memory decoded)
+    {
         bytes memory encodedURI = bytes(uri);
-        bytes memory prefix = bytes("data:application/json;base64,");
+        bytes memory prefix = bytes(expectedPrefix);
         require(encodedURI.length >= prefix.length, "short URI");
-        for (uint256 i; i < prefix.length; ++i) {
-            require(encodedURI[i] == prefix[i], "invalid URI prefix");
+        for (uint256 index; index < prefix.length; ++index) {
+            require(encodedURI[index] == prefix[index], "invalid URI prefix");
         }
 
-        bytes memory encodedJSON = new bytes(encodedURI.length - prefix.length);
-        for (uint256 i; i < encodedJSON.length; ++i) {
-            encodedJSON[i] = encodedURI[i + prefix.length];
+        bytes memory payload = new bytes(encodedURI.length - prefix.length);
+        for (uint256 index; index < payload.length; ++index) {
+            payload[index] = encodedURI[index + prefix.length];
         }
-        json = string(Base64.decode(string(encodedJSON)));
+        decoded = string(Base64.decode(string(payload)));
+    }
+
+    function _attribute(string memory document, string memory name)
+        private
+        pure
+        returns (string memory)
+    {
+        bytes memory source = bytes(document);
+        bytes memory prefix = bytes(string.concat(name, "=\""));
+        uint256 start = _indexOf(source, prefix) + prefix.length;
+        uint256 end = start;
+        while (source[end] != '"') ++end;
+        bytes memory value = new bytes(end - start);
+        for (uint256 index; index < value.length; ++index) {
+            value[index] = source[start + index];
+        }
+        return string(value);
     }
 
     function _contains(string memory value, string memory needle) private pure returns (bool) {
-        bytes memory haystack = bytes(value);
         bytes memory search = bytes(needle);
-        if (search.length > haystack.length) return false;
-        for (uint256 i; i <= haystack.length - search.length; ++i) {
+        if (search.length > bytes(value).length) return false;
+        return _indexOf(bytes(value), search) != type(uint256).max;
+    }
+
+    function _indexOf(bytes memory source, bytes memory search) private pure returns (uint256) {
+        if (search.length > source.length) return type(uint256).max;
+        for (uint256 index; index <= source.length - search.length; ++index) {
             bool matches = true;
-            for (uint256 j; j < search.length; ++j) {
-                if (haystack[i + j] != search[j]) {
+            for (uint256 offset; offset < search.length; ++offset) {
+                if (source[index + offset] != search[offset]) {
                     matches = false;
                     break;
                 }
             }
-            if (matches) return true;
+            if (matches) return index;
         }
-        return false;
+        return type(uint256).max;
     }
 
     function _countLogs(Vm.Log[] memory logs, bytes32 signature)
@@ -213,12 +243,34 @@ contract MetadataAndStandardsTest is Test {
         pure
         returns (uint256 count)
     {
-        for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].topics.length != 0 && logs[i].topics[0] == signature) ++count;
+        for (uint256 index; index < logs.length; ++index) {
+            if (logs[index].topics.length != 0 && logs[index].topics[0] == signature) ++count;
         }
+    }
+
+    function _ascii(uint256 length) private pure returns (string memory) {
+        bytes memory value = new bytes(length);
+        for (uint256 index; index < length; ++index) {
+            value[index] = "a";
+        }
+        return string(value);
     }
 
     function _config() private view returns (MembershipTypes.TierConfig memory) {
         return MembershipTestConfig.defaultConfig(address(this));
+    }
+
+    function _deployTier(MembershipTypes.TierConfig memory config)
+        private
+        returns (MembershipTier deployed)
+    {
+        deployed = new MembershipTier(
+            address(this),
+            token,
+            config.rendererVersion,
+            address(renderer),
+            address(renderer).codehash,
+            config
+        );
     }
 }

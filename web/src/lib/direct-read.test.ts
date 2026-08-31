@@ -10,6 +10,11 @@ vi.mock("@/lib/authenticity", () => ({
 }));
 
 import { verifyTierAuthenticity } from "@/lib/authenticity";
+import type {
+  ProtocolDependencySnapshot,
+  TierArtConfig,
+  TierMediaConfig,
+} from "@/contracts/types";
 
 import {
   maxCatalogPageLimit,
@@ -29,14 +34,55 @@ const deployment = {
   chainId: 46630 as const,
   factoryAddress: factory,
   usdgAddress: tierB,
-  factoryRuntimeCodeHash: `0x${"01".repeat(32)}` as const,
-  rendererRuntimeCodeHash: `0x${"02".repeat(32)}` as const,
-  deployerRuntimeCodeHash: `0x${"03".repeat(32)}` as const,
-  usdgRuntimeCodeHash: `0x${"04".repeat(32)}` as const,
-  usdgImplementationAddress:
-    "0x5555555555555555555555555555555555555555" as const,
-  usdgImplementationRuntimeCodeHash: `0x${"05".repeat(32)}` as const,
 };
+const renderer = getAddress("0x4444444444444444444444444444444444444444");
+const rendererRuntimeCodehash = `0x${"02".repeat(32)}` as const;
+const protocolDependencies: ProtocolDependencySnapshot = {
+  chainId: 46630,
+  factory,
+  paymentToken: tierB,
+  rendererSchema: `0x${"01".repeat(32)}`,
+  rendererCount: 1,
+  renderers: [
+    {
+      version: 1,
+      implementation: renderer,
+      runtimeCodehash: rendererRuntimeCodehash,
+      enabled: true,
+      name: "Founding Six",
+    },
+  ],
+  defaultRendererVersion: 1,
+  mediaStoreFactory: getAddress("0x5555555555555555555555555555555555555555"),
+  mediaStoreFactoryRuntimeCodehash: `0x${"03".repeat(32)}`,
+};
+const art: TierArtConfig = {
+  engine: 0,
+  collectionSeed: 1n,
+  palette: 0,
+  intensity: 50,
+  density: 50,
+  symmetry: 50,
+  typographyScale: 50,
+  typographyStyle: 0,
+  textVisibility: 1,
+  imageFit: 0,
+  focalX: 50,
+  focalY: 50,
+  grain: 50,
+  mediaMix: 50,
+  primary: 50,
+  secondary: 50,
+  tertiary: 50,
+};
+const media: TierMediaConfig = {
+  mime: 0,
+  store: "0x0000000000000000000000000000000000000000",
+  length: 0,
+  digest: `0x${"00".repeat(32)}`,
+  runtimeCodehash: `0x${"00".repeat(32)}`,
+};
+const tierIdentity = `0x${"ab".repeat(32)}` as const;
 
 function client(value: Partial<PublicClient>) {
   return value as PublicClient;
@@ -152,9 +198,14 @@ describe("direct reads", () => {
     vi.mocked(verifyTierAuthenticity).mockResolvedValue({
       status: "verified",
       capturedBlock: 12n,
-      factory,
       tier: tierA,
-      paymentToken: tierB,
+      tierIdentity,
+      rendererVersion: 1,
+      renderer,
+      rendererRuntimeCodehash,
+      art,
+      media,
+      protocolDependencies,
     });
     vi.mocked(keccak256).mockReturnValueOnce(multicall3RuntimeHash);
     const success = (result: unknown) => ({ status: "success", result });
@@ -166,15 +217,12 @@ describe("direct reads", () => {
       2_592_000n,
       false,
       "Description",
-      "ipfs://image",
       "https://example.com",
       500,
       250,
       100n,
       2n,
       12n,
-      tierB,
-      factory,
     ];
     const multicall = vi
       .fn()
@@ -193,7 +241,17 @@ describe("direct reads", () => {
     expect(result).toMatchObject({
       status: "valid",
       capturedBlock: 12n,
-      data: { name: "Front Row", creator: factory, occupiedSupply: 2n },
+      data: {
+        name: "Front Row",
+        creator: factory,
+        occupiedSupply: 2n,
+        tierIdentity,
+        rendererVersion: 1,
+        renderer,
+        rendererRuntimeCodehash,
+        art,
+        media,
+      },
     });
     expect(multicall).toHaveBeenCalledTimes(1);
     expect(readContract).not.toHaveBeenCalled();

@@ -1,4 +1,41 @@
-import type { Address } from "viem";
+import type { Address, ContractFunctionReturnType, Hex } from "viem";
+
+import type { membershipTierAbi } from "@/contracts";
+
+export type RendererRegistryEntry = {
+  version: number;
+  implementation: Address;
+  runtimeCodehash: Hex;
+  enabled: boolean;
+  name: string | undefined;
+  engineCount?: number;
+  engineNames?: readonly string[];
+};
+
+export type ProtocolDependencySnapshot = {
+  chainId: 4663 | 46630 | 31337;
+  factory: Address;
+  paymentToken: Address;
+  rendererSchema: Hex;
+  rendererCount: number;
+  renderers: readonly RendererRegistryEntry[];
+  /** Present only when exactly one registered renderer is enabled. */
+  defaultRendererVersion: number | undefined;
+  mediaStoreFactory: Address;
+  mediaStoreFactoryRuntimeCodehash: Hex;
+};
+
+export type TierArtConfig = ContractFunctionReturnType<
+  typeof membershipTierAbi,
+  "view",
+  "artConfig"
+>;
+
+export type TierMediaConfig = ContractFunctionReturnType<
+  typeof membershipTierAbi,
+  "view",
+  "mediaConfig"
+>;
 
 export type TierSummary = {
   address: Address;
@@ -12,8 +49,10 @@ export type TierSummary = {
 
 export type TierSnapshot = TierSummary & {
   description: string;
-  imageURI: string;
   externalURI: string;
+  tierIdentity: Hex;
+  art: TierArtConfig;
+  media: TierMediaConfig;
   rewardBps: number;
   referralBps: number;
   supplyCap: bigint;
@@ -21,6 +60,10 @@ export type TierSnapshot = TierSummary & {
   maxPrepaidPeriods: bigint;
   paymentToken: Address;
   factory: Address;
+  rendererVersion: number;
+  renderer: Address;
+  rendererRuntimeCodehash: Hex;
+  protocolDependencies: ProtocolDependencySnapshot;
 };
 
 export type TierManagementSnapshot = TierSnapshot & {

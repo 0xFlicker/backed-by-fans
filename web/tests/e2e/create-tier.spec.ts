@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { resolve } from "node:path";
 
 import { robinhoodMembershipFactoryAbi } from "../../src/contracts";
 import {
@@ -34,7 +35,7 @@ test("@anvil deploys and shares a creator-owned tier through the production UI",
     await page.getByRole("button", { name: /^review$/i }).click();
 
     const deploy = page.getByRole("button", {
-      name: "Simulate and deploy membership",
+      name: "Publish this membership",
     });
     await expect(deploy).toBeEnabled();
     await deploy.click();
@@ -61,6 +62,137 @@ test("@anvil deploys and shares a creator-owned tier through the production UI",
   } finally {
     await revertAnvil(snapshot);
   }
+});
+
+test("@anvil rediscovers and revalidates the connected creator's permanent media", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
+  test.skip(
+    testInfo.project.name !== "desktop",
+    "One registry read is sufficient.",
+  );
+  const creator = requiredAnvilAddress("creator");
+
+  await installAnvilWallet(page, creator);
+  await page.goto("/create");
+  await connectAnvilWallet(page, creator);
+  await page.getByRole("button", { name: /^art studio$/i }).click();
+  const nativeMode = page.getByRole("radio", { name: /Add an onchain image/i });
+  await expect(nativeMode).toBeEnabled();
+  await nativeMode.check();
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Reuse an image you already stored",
+    }),
+  ).toBeVisible();
+  await expect(page.getByText("1 onchain")).toBeVisible();
+  await page.getByRole("button", { name: /Use .* image/i }).click();
+
+  await expect(page.getByText(/Immutable bytes verified/i)).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "The image is ready for this membership.",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: /Selected for this membership/i,
+    }),
+  ).toHaveAttribute("aria-pressed", "true");
+});
+
+test("@anvil deliberately continues in memory when creative autosave is inaccessible", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
+  test.skip(
+    testInfo.project.name !== "desktop",
+    "One browser-storage recovery pass is sufficient.",
+  );
+  const creator = requiredAnvilAddress("creator");
+
+  await installAnvilWallet(page, creator);
+  await page.addInitScript(() => {
+    const originalSetItem = Storage.prototype.setItem;
+    const isStudioKey = (key: string) =>
+      key.startsWith("backed-by-fans-creative-draft:");
+    Storage.prototype.setItem = function setItem(key: string, value: string) {
+      if (isStudioKey(key)) throw new Error("Studio storage denied");
+      return originalSetItem.call(this, key, value);
+    };
+  });
+  await page.goto("/create");
+  await connectAnvilWallet(page, creator);
+  await page.getByRole("button", { name: /^art studio$/i }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Creative recovery is paused." }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Continue without browser autosave" })
+    .click();
+  await expect(
+    page.getByText(
+      "Continuing for this creator without browser autosave. This in-memory draft will not survive a reload.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("radio", { name: /Generated onchain art/i }),
+  ).toBeEnabled();
+});
+
+test("@anvil cancels stale local image work when the creator changes media mode", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
+  test.skip(
+    testInfo.project.name !== "desktop",
+    "One local image cancellation pass is sufficient.",
+  );
+  const creator = requiredAnvilAddress("creator");
+
+  await installAnvilWallet(page, creator);
+  await page.addInitScript(() => {
+    const decode = window.createImageBitmap.bind(window);
+    Object.defineProperty(window, "createImageBitmap", {
+      configurable: true,
+      value: async (source: ImageBitmapSource) => {
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000));
+        return decode(source);
+      },
+    });
+  });
+  await page.goto("/create");
+  await connectAnvilWallet(page, creator);
+  await page.getByRole("button", { name: /^art studio$/i }).click();
+
+  await page.getByRole("radio", { name: /Add an onchain image/i }).check();
+  await page
+    .getByLabel("Choose JPEG or PNG from your device")
+    .setInputFiles(
+      resolve(process.cwd(), "public/brand/backstage-membership-hero-v1.png"),
+    );
+  await expect(page.getByText(/Cropping and encoding locally/i)).toBeVisible();
+
+  await page.getByRole("radio", { name: /Generated onchain art/i }).check();
+  await page.getByRole("radio", { name: /Add an onchain image/i }).check();
+
+  await expect(
+    page.getByLabel("Choose JPEG or PNG from your device"),
+  ).toBeEnabled();
+  await expect(page.getByText(/Cropping and encoding locally/i)).toHaveCount(0);
+  await page.waitForTimeout(1_100);
+  await expect(
+    page.getByAltText("Processed creator media candidate"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByLabel("Choose JPEG or PNG from your device"),
+  ).toBeEnabled();
 });
 
 test("walks through defaults, arbitrary splits, risks, and immutable review", async ({
@@ -102,7 +234,7 @@ test("walks through defaults, arbitrary splits, risks, and immutable review", as
     page.getByText("33.33% / 65.67%", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /simulate and deploy/i }),
+    page.getByRole("button", { name: /publish this membership/i }),
   ).toBeDisabled();
   await expect(page.getByText(/writes are unavailable/i)).toBeVisible();
 });

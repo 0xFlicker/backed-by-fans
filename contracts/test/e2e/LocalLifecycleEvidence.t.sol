@@ -7,8 +7,10 @@ import {Test} from "forge-std/Test.sol";
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTier} from "../../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
+import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
+import {RealImageFixtures} from "../helpers/RealImageFixtures.sol";
 import {MockUSDG} from "../mocks/MockUSDG.sol";
 
 /// @notice Local-only lifecycle evidence. This is neither a public-testnet pilot nor an audit.
@@ -45,11 +47,27 @@ contract LocalLifecycleEvidenceTest is Test {
 
         paymentToken = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
+        OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
         factory = new MembershipFactory(
-            IERC20(address(paymentToken)), address(renderer), address(this), feeRecipient
+            IERC20(address(paymentToken)),
+            address(renderer),
+            address(mediaStoreFactory),
+            address(this),
+            feeRecipient
         );
 
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(creator);
+        bytes memory nativeJPEG = RealImageFixtures.jpeg(0x42);
+        vm.prank(creator);
+        address mediaStore = mediaStoreFactory.store(nativeJPEG, MembershipTypes.MediaMIME.JPEG);
+        MembershipTypes.MediaRecord memory mediaRecord = mediaStoreFactory.mediaRecord(mediaStore);
+        config.media = MembershipTypes.MediaConfig({
+            mime: mediaRecord.mime,
+            store: mediaRecord.store,
+            length: mediaRecord.length,
+            digest: mediaRecord.digest,
+            runtimeCodehash: mediaRecord.runtimeCodehash
+        });
         vm.prank(creator);
         tier = MembershipTier(factory.createTier(config));
 
@@ -68,6 +86,8 @@ contract LocalLifecycleEvidenceTest is Test {
 
         vm.prank(member);
         uint256 memberToken = tier.purchase(1, referrer);
+        string memory activeTokenURI = tier.tokenURI(memberToken);
+        assertGt(bytes(activeTokenURI).length, 0);
         vm.prank(giftPayer);
         uint256 giftToken =
             tier.gift(giftRecipient, 1, MembershipTypes.ReferralStatus.Unset, address(0));
@@ -130,6 +150,8 @@ contract LocalLifecycleEvidenceTest is Test {
         _assertTierCustody(0);
 
         vm.warp(_START + 31 days);
+        string memory afterglowTokenURI = tier.tokenURI(memberToken);
+        assertNotEq(keccak256(bytes(activeTokenURI)), keccak256(bytes(afterglowTokenURI)));
         assertFalse(tier.isActive(giftRecipient));
         assertEq(tier.activeBalanceOf(giftRecipient), 0);
         assertTrue(tier.isOccupied(giftToken));

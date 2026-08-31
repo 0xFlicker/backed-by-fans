@@ -11,7 +11,8 @@ contract RobinhoodMembershipFactory is MembershipFactory {
     constructor()
         MembershipFactory(
             RobinhoodProtocolConfig.canonicalPaymentToken(),
-            RobinhoodProtocolConfig.renderer(),
+            RobinhoodProtocolConfig.initialRenderer(),
+            RobinhoodProtocolConfig.mediaStoreFactory(),
             RobinhoodProtocolConfig.INITIAL_PROTOCOL_AUTHORITY,
             RobinhoodProtocolConfig.INITIAL_PROTOCOL_AUTHORITY
         )

@@ -10,8 +10,11 @@ cd "$repo_root/contracts"
 ./scripts/test-deploy-protocol.sh
 ./scripts/test-testnet-usdg.sh
 forge fmt --check
-forge build --sizes
-forge test -vvv
+FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
+FOUNDRY_PROFILE=robinhood forge test \
+  --code-size-limit 1000000 \
+  --gas-limit 1000000000 \
+  -vvv
 
 if ! command -v slither >/dev/null 2>&1; then
   echo "Slither 0.11.6 is required for complete local verification." >&2

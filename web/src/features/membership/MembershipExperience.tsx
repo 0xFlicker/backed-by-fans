@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import { useLayoutEffect, useReducer, useRef, useState } from "react";
@@ -16,9 +17,15 @@ import {
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 
 import { WalletControl } from "@/components/WalletControl";
-import { membershipTierAbi, usdgAbi } from "@/contracts";
+import {
+  membershipTierAbi,
+  onchainMetadataRendererAbi,
+  usdgAbi,
+} from "@/contracts";
 import type { TierSupporterSnapshot } from "@/contracts/types";
 import { parseUint64Input } from "@/features/creator/management";
+import { decodeRendererTokenURI } from "@/features/creator-studio/renderer-preview";
+import { svgPreviewDataURI } from "@/features/creator-studio/PreviewGallery";
 import { readGiftRecipientState } from "@/features/membership/membership-read";
 import { formatMembershipDate } from "@/features/membership/date";
 import {
@@ -171,7 +178,52 @@ export function MembershipExperience({
   const [giftRecipient, setGiftRecipient] = useState("");
   const [giftPeriods, setGiftPeriods] = useState("1");
   const [preparedAction, setPreparedAction] = useState("");
-
+  const artworkTokenId = snapshot.credential?.tokenId ?? 1n;
+  const artworkContext = {
+    token: {
+      tierName: snapshot.name,
+      description: snapshot.description,
+      externalURI: snapshot.externalURI,
+      tierIdentity: snapshot.tierIdentity,
+      art: snapshot.art,
+      media: snapshot.media,
+      tokenId: artworkTokenId,
+      expiration:
+        snapshot.credential?.expiration ??
+        snapshot.capturedTimestamp + snapshot.periodDuration,
+      active: snapshot.credential?.active ?? true,
+    },
+    nativeMedia: "0x" as const,
+  };
+  const artwork = useQuery({
+    queryKey: [
+      "membership-artwork",
+      expectedChainId,
+      snapshot.address,
+      snapshot.credential ? "minted-token-uri" : "preview-token-uri",
+      artworkTokenId.toString(),
+      capturedBlock.toString(),
+    ],
+    queryFn: async () => {
+      const tokenURI = snapshot.credential
+        ? await client.readContract({
+            address: snapshot.address,
+            abi: membershipTierAbi,
+            functionName: "tokenURI",
+            args: [artworkTokenId],
+            blockNumber: capturedBlock,
+          })
+        : await client.readContract({
+            address: snapshot.renderer,
+            abi: onchainMetadataRendererAbi,
+            functionName: "previewTokenURI",
+            args: [artworkContext],
+            blockNumber: capturedBlock,
+          });
+      return decodeRendererTokenURI(tokenURI).svg;
+    },
+    staleTime: Infinity,
+  });
   useLayoutEffect(() => {
     const captured = captureSharedReferrer({
       chainId: expectedChainId,
@@ -184,12 +236,18 @@ export function MembershipExperience({
       window.history.replaceState(window.history.state, "", captured.cleanPath);
     }
   }, [expectedChainId, snapshot.address]);
+
   const authenticity: AuthenticityResult = {
     status: "verified",
     capturedBlock,
-    factory: snapshot.factory,
     tier: snapshot.address,
-    paymentToken: snapshot.paymentToken,
+    tierIdentity: snapshot.tierIdentity,
+    rendererVersion: snapshot.rendererVersion,
+    renderer: snapshot.renderer,
+    rendererRuntimeCodehash: snapshot.rendererRuntimeCodehash,
+    art: snapshot.art,
+    media: snapshot.media,
+    protocolDependencies: snapshot.protocolDependencies,
   };
   const guard = getWriteGuard({
     deployment,
@@ -606,6 +664,62 @@ export function MembershipExperience({
 
   return (
     <div className="membership-experience">
+      <section className="membership-artwork" aria-label="Membership artwork">
+        <div className="membership-artwork-stage">
+          {artwork.isPending && (
+            <div className="membership-artwork-placeholder" role="status">
+              <span>Reading canonical art from the membership contract…</span>
+            </div>
+          )}
+          {artwork.isError && (
+            <div className="membership-artwork-placeholder" role="alert">
+              <strong>Canonical art is temporarily unavailable.</strong>
+              <span>
+                Refresh the membership to read it again from captured block{" "}
+                {capturedBlock.toString()}.
+              </span>
+            </div>
+          )}
+          {artwork.data && (
+            <Image
+              alt={`${snapshot.name} membership ${
+                snapshot.credential
+                  ? `#${snapshot.credential.tokenId.toString()}`
+                  : "collection preview"
+              }`}
+              className="membership-artwork-image"
+              height={1200}
+              sizes="(max-width: 960px) 100vw, 62vw"
+              src={svgPreviewDataURI(artwork.data)}
+              unoptimized
+              width={1200}
+            />
+          )}
+        </div>
+        <div className="membership-artwork-copy">
+          <p className="eyebrow">
+            {snapshot.credential ? "Your collectible" : "Collection preview"}
+          </p>
+          <h2 className="font-display">
+            {snapshot.credential
+              ? `Membership #${snapshot.credential.tokenId.toString()}`
+              : "Born entirely onchain"}
+          </h2>
+          <p>
+            {snapshot.credential
+              ? "The contract returns this self-contained SVG directly, including any creator image bytes stored on Robinhood Chain."
+              : "A deterministic first-token composition from this membership’s permanent art direction."}
+          </p>
+          {snapshot.credential && (
+            <span className="membership-artwork-state">
+              {snapshot.credential.active
+                ? "Active composition"
+                : "Afterglow composition"}
+            </span>
+          )}
+        </div>
+      </section>
+
       <div className="tier-identity">
         <div>
           <p className="eyebrow">Membership</p>

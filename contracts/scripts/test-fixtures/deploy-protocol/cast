@@ -1,0 +1,278 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+logged=()
+skip_data=0
+for argument in "$@"; do
+  if [[ "$skip_data" == "1" ]]; then
+    logged+=("<raw-create2-calldata>")
+    skip_data=0
+  else
+    logged+=("$argument")
+    [[ "$argument" == "--data" ]] && skip_data=1
+  fi
+done
+if [[ "${logged[0]:-}" == "mktx" && ${#logged[@]} -ge 3 ]]; then
+  logged[2]="<raw-create2-calldata>"
+elif [[ "${logged[0]:-}" == "publish" && ${#logged[@]} -ge 2 ]]; then
+  logged[1]="<signed-transaction>"
+fi
+printf 'cast %s\n' "${logged[*]}" >>"$MOCK_LOG"
+
+mock_public_signed_transaction() {
+  printf '0x%064x' "$((1000 + $1))"
+}
+
+mock_public_transaction_hash() {
+  "$REAL_CAST" keccak "$(mock_public_signed_transaction "$1")"
+}
+
+case "${1:-}" in
+  keccak|create2)
+    exec "$REAL_CAST" "$@"
+    ;;
+  chain-id)
+    if [[ "$*" == *"http://127.0.0.1:"* && ! -f "$MOCK_ANVIL_READY" ]]; then
+      exit 1
+    fi
+    printf '%s\n' "$MOCK_CHAIN_ID"
+    ;;
+  wallet)
+    [[ "${2:-}" == "address" ]] || exit 2
+    printf '%s\n' "$MOCK_DEPLOYER"
+    ;;
+  mktx)
+    nonce=""
+    args=("$@")
+    for ((index = 0; index < ${#args[@]}; index++)); do
+      if [[ "${args[$index]}" == "--nonce" ]]; then
+        nonce="${args[$((index + 1))]:-}"
+        break
+      fi
+    done
+    [[ "$nonce" =~ ^[0-9]+$ ]]
+    next=$((nonce + 1))
+    if [[ "${MOCK_CAST_FAIL_PUBLIC_AT:-}" == "$next" ]]; then
+      echo "mock public signing failure at component $next" >&2
+      exit 1
+    fi
+    mock_public_signed_transaction "$next"
+    printf '\n'
+    ;;
+  publish)
+    state_file="$MOCK_PUBLIC_STATE"
+    prefix="$(cat "$state_file")"
+    next=$((prefix + 1))
+    transaction_hash="$("$REAL_CAST" keccak "${2:-}")"
+    if [[ "${MOCK_CAST_DROP_PUBLIC_AT:-}" == "$next" \
+      || "${MOCK_CAST_REVERT_PUBLIC_AT:-}" == "$next" ]]; then
+      printf '%s\n' "$transaction_hash"
+      exit 0
+    fi
+    if [[ "${MOCK_CAST_TERMINATE_AFTER_PUBLIC_AT:-}" == "$next" ]]; then
+      [[ -n "${MOCK_PENDING_NONCE_STATE:-}" ]]
+      printf '%s\n' "$next" >"$MOCK_PENDING_NONCE_STATE"
+      kill -TERM "$PPID"
+      printf '%s\n' "$transaction_hash"
+      exit 0
+    fi
+    printf '%s\n' "$next" >"$state_file"
+    printf '%s\n' "$transaction_hash"
+    ;;
+  rpc)
+    exit 0
+    ;;
+  nonce)
+    state_file="$MOCK_PUBLIC_STATE"
+    if [[ "$*" == *"http://127.0.0.1:"* ]]; then
+      state_file="$MOCK_LOCAL_STATE"
+    fi
+    if [[ "$state_file" == "$MOCK_PUBLIC_STATE" && "$*" == *"--block latest"* \
+      && -n "${MOCK_LATEST_NONCE:-}" ]]; then
+      printf '%s\n' "$MOCK_LATEST_NONCE"
+    elif [[ "$state_file" == "$MOCK_PUBLIC_STATE" && "$*" == *"--block pending"* \
+      && -n "${MOCK_PENDING_NONCE_STATE:-}" ]]; then
+      cat "$MOCK_PENDING_NONCE_STATE"
+    elif [[ "$state_file" == "$MOCK_PUBLIC_STATE" && "$*" == *"--block pending"* \
+      && -n "${MOCK_PENDING_NONCE:-}" ]]; then
+      printf '%s\n' "$MOCK_PENDING_NONCE"
+    else
+      cat "$state_file"
+    fi
+    ;;
+  call)
+    address="$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')"
+    signature="${3:-}"
+    case "$signature" in
+      "masterCopy()(address)")
+        printf '["0xEdd160fEBBD92E350D4D398fb636302fccd67C7e"]\n'
+        ;;
+      "VERSION()(string)")
+        printf '["1.5.0"]\n'
+        ;;
+      "getOwners()(address[])")
+        printf '%s\n' "${MOCK_SAFE_OWNERS_JSON:-[[\"$MOCK_PROTOCOL_OWNER\"]]}"
+        ;;
+      "getThreshold()(uint256)")
+        printf '[%s]\n' "${MOCK_SAFE_THRESHOLD:-1}"
+        ;;
+      "getModulesPaginated(address,uint256)(address[],address)")
+        printf '[[],"0x0000000000000000000000000000000000000001"]\n'
+        ;;
+      "getStorageAt(uint256,uint256)(bytes)")
+        if [[ "${4:-}" == "0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5" ]]; then
+          printf '["0x0000000000000000000000003efcbb83a4a7afcb4f68d501e2c2203a38be77f4"]\n'
+        else
+          printf '["0x0000000000000000000000000000000000000000000000000000000000000000"]\n'
+        fi
+        ;;
+      "decimals()(uint8)") printf '[6]\n' ;;
+      "symbol()(string)") printf '["USDG"]\n' ;;
+      "name()(string)") printf '["LOL Dollar"]\n' ;;
+      "owner()(address)")
+        if [[ "$address" == "$(printf '%s' "$MOCK_TESTNET_USDG_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
+          printf '["%s"]\n' "$MOCK_PROTOCOL_OWNER"
+        else
+          printf '["%s"]\n' "${MOCK_FACTORY_OWNER:-0xeAA4B38A99f766117C1D493a21012fec25f70505}"
+        fi
+        ;;
+      "paymentToken()(address)") printf '["%s"]\n' "$MOCK_TESTNET_USDG_ADDRESS" ;;
+      "mediaStoreFactory()(address)") printf '["%s"]\n' "$MOCK_MEDIA_ADDRESS" ;;
+      "rendererSchema()(bytes32)") printf '["%s"]\n' "$MOCK_RENDERER_SCHEMA" ;;
+      "rendererCount()(uint32)") printf '[%s]\n' "${MOCK_RENDERER_COUNT:-1}" ;;
+      "rendererVersionOf(address)(uint32)")
+        if [[ "$(printf '%s' "${4:-}" | tr '[:upper:]' '[:lower:]')" == "$(printf '%s' "${MOCK_SECOND_RENDERER_ADDRESS:-}" | tr '[:upper:]' '[:lower:]')" ]]; then
+          printf '[2]\n'
+        else
+          printf '[1]\n'
+        fi
+        ;;
+      "rendererRecord(uint32)((address,bytes32,bool))")
+        if [[ "${4:-1}" == "2" ]]; then
+          printf '[["%s","%s",%s]]\n' "$MOCK_SECOND_RENDERER_ADDRESS" "$MOCK_SECOND_RENDERER_RUNTIME_HASH" "${MOCK_SECOND_RENDERER_ENABLED:-true}"
+        else
+          printf '[["%s","%s",%s]]\n' "$MOCK_RENDERER_ADDRESS" "$MOCK_RENDERER_RUNTIME_HASH" "${MOCK_RENDERER_ENABLED:-true}"
+        fi
+        ;;
+      "mediaStoreFactoryRuntimeCodehash()(bytes32)") printf '["%s"]\n' "$MOCK_MEDIA_RUNTIME_HASH" ;;
+      "pendingOwner()(address)") printf '["%s"]\n' "${MOCK_FACTORY_PENDING_OWNER:-0x0000000000000000000000000000000000000000}" ;;
+      "feeRecipient()(address)") printf '["%s"]\n' "${MOCK_FACTORY_FEE_RECIPIENT:-0xeAA4B38A99f766117C1D493a21012fec25f70505}" ;;
+      "deployer()(address)") printf '["%s"]\n' "$MOCK_TIER_DEPLOYER_ADDRESS" ;;
+      "factory()(address)") printf '["%s"]\n' "$MOCK_FACTORY_ADDRESS" ;;
+      *) echo "unexpected mock cast call invocation: $*" >&2; exit 1 ;;
+    esac
+    ;;
+  code)
+    address="$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')"
+    state_file="$MOCK_PUBLIC_STATE"
+    if [[ "$*" == *"http://127.0.0.1:"* ]]; then
+      state_file="$MOCK_LOCAL_STATE"
+    fi
+    prefix="$(cat "$state_file")"
+    if [[ "$address" == "$(printf '%s' "$MOCK_CREATE2_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
+      printf '%s\n' "$MOCK_CREATE2_RUNTIME"
+    elif [[ "$address" == "$(printf '%s' "$MOCK_SAFE_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
+      printf '0x00\n'
+    elif [[ "$address" == "$(printf '%s' "$MOCK_TESTNET_USDG_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
+      printf '%s\n' "$MOCK_TESTNET_USDG_RUNTIME"
+    elif [[ "$address" == "$(printf '%s' "$MOCK_TIER_DEPLOYER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
+      && "$prefix" -ge 3 ]]; then
+      printf '0x60dd\n'
+    elif [[ "$address" == "$(printf '%s' "$MOCK_MEDIA_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
+      && "$prefix" -ge 1 ]]; then
+      printf '%s\n' "$MOCK_MEDIA_RUNTIME"
+    elif [[ "$address" == "$(printf '%s' "$MOCK_RENDERER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
+      && "$prefix" -ge 2 ]]; then
+      printf '%s\n' "$MOCK_RENDERER_RUNTIME"
+    elif [[ -n "${MOCK_SECOND_RENDERER_ADDRESS:-}" \
+      && "$address" == "$(printf '%s' "$MOCK_SECOND_RENDERER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
+      && "$prefix" -ge 3 ]]; then
+      printf '%s\n' "$MOCK_SECOND_RENDERER_RUNTIME"
+    elif [[ "$address" == "$(printf '%s' "$MOCK_FACTORY_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
+      && "$prefix" -ge 3 ]]; then
+      printf '%s\n' "$MOCK_FACTORY_RUNTIME"
+    else
+      printf '0x\n'
+    fi
+    ;;
+  send)
+    state_file="$MOCK_PUBLIC_STATE"
+    base=200
+    if [[ "$*" == *"http://127.0.0.1:"* ]]; then
+      state_file="$MOCK_LOCAL_STATE"
+      base=100
+    fi
+    prefix="$(cat "$state_file")"
+    next=$((prefix + 1))
+    if [[ "$state_file" == "$MOCK_PUBLIC_STATE" \
+      && "${MOCK_CAST_FAIL_PUBLIC_AT:-}" == "$next" ]]; then
+      echo "mock public submission failure at component $next" >&2
+      exit 1
+    fi
+    if [[ "$state_file" == "$MOCK_PUBLIC_STATE" \
+      && "${MOCK_CAST_DROP_PUBLIC_AT:-}" == "$next" ]]; then
+      printf '0x%064x\n' "$((base + next))"
+      exit 0
+    fi
+    if [[ "$state_file" == "$MOCK_PUBLIC_STATE" \
+      && "${MOCK_CAST_REVERT_PUBLIC_AT:-}" == "$next" ]]; then
+      printf '0x%064x\n' "$((base + next))"
+      exit 0
+    fi
+    printf '%s\n' "$next" >"$state_file"
+    printf '0x%064x\n' "$((base + next))"
+    ;;
+  receipt)
+    if [[ -n "${MOCK_CAST_PENDING_TRANSACTION_HASH:-}" \
+      && "${2:-}" == "$MOCK_CAST_PENDING_TRANSACTION_HASH" ]]; then
+      echo "mock transaction remains pending" >&2
+      exit 1
+    fi
+    if [[ -n "${MOCK_CAST_DROP_PUBLIC_AT:-}" ]]; then
+      dropped_public_hash="$(mock_public_transaction_hash "$MOCK_CAST_DROP_PUBLIC_AT")"
+      if [[ "${2:-}" == "$dropped_public_hash" ]]; then
+        echo "mock dropped public transaction at component $MOCK_CAST_DROP_PUBLIC_AT" >&2
+        exit 1
+      fi
+    fi
+    if [[ -n "${MOCK_CAST_DROPPED_TRANSACTION_HASH:-}" \
+      && "${2:-}" == "$MOCK_CAST_DROPPED_TRANSACTION_HASH" ]]; then
+      echo "mock transaction is absent" >&2
+      exit 1
+    fi
+    if [[ -n "${MOCK_CAST_REVERTED_TRANSACTION_HASH:-}" \
+      && "${2:-}" == "$MOCK_CAST_REVERTED_TRANSACTION_HASH" ]]; then
+      printf '{"status":"0x0","transactionHash":"%s","blockNumber":"0x1","blockHash":"0x%064x"}\n' \
+        "${2:-}" 1
+      exit 0
+    fi
+    if [[ -n "${MOCK_CAST_REVERT_PUBLIC_AT:-}" ]]; then
+      reverted_public_hash="$(mock_public_transaction_hash "$MOCK_CAST_REVERT_PUBLIC_AT")"
+      if [[ "${2:-}" == "$reverted_public_hash" ]]; then
+        printf '{"status":"0x0","transactionHash":"%s","blockNumber":"0x1","blockHash":"0x%064x"}\n' \
+          "${2:-}" 1
+        exit 0
+      fi
+    fi
+    if [[ -n "${MOCK_CAST_FAIL_PUBLIC_RECEIPT_AT:-}" ]]; then
+      failed_public_hash="$(mock_public_transaction_hash "$MOCK_CAST_FAIL_PUBLIC_RECEIPT_AT")"
+      if [[ "${2:-}" == "$failed_public_hash" ]]; then
+        echo "mock public receipt failure at component $MOCK_CAST_FAIL_PUBLIC_RECEIPT_AT" >&2
+        exit 1
+      fi
+    fi
+    printf '{"status":"0x1","transactionHash":"%s","blockNumber":"0x1","blockHash":"0x%064x"}\n' \
+      "${2:-}" 1
+    ;;
+  tx)
+    if [[ -n "${MOCK_CAST_DROPPED_TRANSACTION_HASH:-}" \
+      && "${2:-}" == "$MOCK_CAST_DROPPED_TRANSACTION_HASH" ]]; then
+      exit 1
+    fi
+    printf '{"hash":"%s"}\n' "${2:-}"
+    ;;
+  *)
+    echo "unexpected mock cast invocation: $*" >&2
+    exit 1
+    ;;
+esac

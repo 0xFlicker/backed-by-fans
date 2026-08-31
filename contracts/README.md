@@ -98,11 +98,15 @@ and independent [verification runbook](../docs/runbooks/verification.md).
 ./scripts/check-clean-room.sh
 forge fmt --check
 forge build --sizes
-forge test -vvv
-forge test --match-path "test/deployment/*.t.sol" -vvv
-forge test --match-path "test/e2e/LocalLifecycleEvidence.t.sol" -vvv
+forge test --code-size-limit 1000000 --gas-limit 1000000000 -vvv
+forge test --match-path "test/deployment/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv
+forge test --match-path "test/e2e/LocalLifecycleEvidence.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv
 slither . --config-file slither.config.json --fail-high
 ```
+
+The enlarged Forge-only limits accommodate test harnesses that embed production
+creation code. Deployable runtime, initcode, and transaction gas remain bounded
+by explicit Robinhood limit tests and the guarded deployment preflight.
 
 `FactoryAndFees.t.sol` guards every deployable runtime and initcode against the
 network limits and caps tier creation below 6.5 million gas. The guard is

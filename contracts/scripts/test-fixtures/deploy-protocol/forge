@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf 'FOUNDRY_PROFILE=%s forge %s\n' "${FOUNDRY_PROFILE:-}" "$*" >>"$MOCK_LOG"
+if [[ -n "${MOCK_FORGE_FAIL_ON:-}" && "$*" == *"$MOCK_FORGE_FAIL_ON"* ]]; then
+  exit 1
+fi
+
+case "${1:-}" in
+  --version)
+    printf '%s\n' "${MOCK_FORGE_VERSION:-forge Version: 1.7.1}"
+    ;;
+  config)
+    optimizer_runs=200
+    [[ "${MOCK_FORGE_CONFIG_OVERRIDE:-0}" == "1" ]] && optimizer_runs=999
+    jq -n \
+      --argjson optimizer_runs "$optimizer_runs" \
+      '{
+        src: "src", test: "test", script: "script", out: "out",
+        libs: ["lib"],
+        remappings: [
+          "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+          "forge-std/=lib/forge-std/src/"
+        ],
+        auto_detect_remappings: false,
+        solc: "0.8.36", auto_detect_solc: false, evm_version: "cancun",
+        optimizer: true, optimizer_runs: $optimizer_runs, optimizer_details: null,
+        via_ir: false, bytecode_hash: "ipfs", cbor_metadata: true,
+        use_literal_content: false, revert_strings: null, libraries: [],
+        additional_compiler_profiles: [], compilation_restrictions: [],
+        dynamic_test_linking: false, sparse_mode: false, build_info: true,
+        always_use_create_2_factory: true,
+        create2_deployer: "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+        create2_library_salt: "0x0000000000000000000000000000000000000000000000000000000000000000",
+        code_size_limit: 98304, gas_limit: 100000000, block_gas_limit: 100000000
+      }'
+    ;;
+  build)
+    exit 0
+    ;;
+  test)
+    printf 'BBF_RELEASE_FACTORY_RUNTIME_HASH %s\n' "$MOCK_FACTORY_RUNTIME_HASH"
+    ;;
+  inspect)
+    case "$2:$3" in
+      *OnchainMediaStoreFactory:bytecode) printf '%s\n' "${MOCK_MEDIA_BYTECODE:-0x6001}" ;;
+      *OnchainMetadataRenderer:bytecode) printf '0x6002\n' ;;
+      *RobinhoodMembershipFactory:bytecode) printf '0x6003\n' ;;
+      *OnchainMediaStoreFactory:deployedBytecode) printf '%s\n' "$MOCK_MEDIA_RUNTIME" ;;
+      *OnchainMetadataRenderer:deployedBytecode) printf '%s\n' "$MOCK_RENDERER_RUNTIME" ;;
+      *RobinhoodMembershipFactory:deployedBytecode) printf '%s\n' "$MOCK_FACTORY_RUNTIME" ;;
+      *TestnetUSDG:bytecode) printf '0x6004\n' ;;
+      *TestnetUSDG:deployedBytecode) printf '%s\n' "$MOCK_TESTNET_USDG_RUNTIME" ;;
+      *) echo "unexpected mock forge inspect invocation: $*" >&2; exit 1 ;;
+    esac
+    ;;
+  script)
+    state_file="$MOCK_PUBLIC_STATE"
+    if [[ "$*" == *"http://127.0.0.1:"* ]]; then
+      state_file="$MOCK_LOCAL_STATE"
+    fi
+    prefix="$(cat "$state_file")"
+    if [[ "$*" == *"ValidateCompletedProtocol"* && "$prefix" != "3" ]]; then
+      exit 1
+    fi
+    printf 'Backed By Fans expected media store factory %s\n' "$MOCK_MEDIA_ADDRESS"
+    printf 'Backed By Fans expected renderer %s\n' "$MOCK_RENDERER_ADDRESS"
+    printf 'Backed By Fans expected factory %s\n' "$MOCK_FACTORY_ADDRESS"
+    ;;
+  verify-contract)
+    exit 0
+    ;;
+  *)
+    echo "unexpected mock forge invocation: $*" >&2
+    exit 1
+    ;;
+esac
