@@ -103,10 +103,6 @@ export function CatalogExplorer() {
 
   return (
     <div className="catalog-stack">
-      <ReadStateView
-        onRetry={() => void catalog.refetch()}
-        state={summaryState}
-      />
       <div className="catalog-meta">
         <p>
           {page.total.toString()} membership{page.total === 1n ? "" : "s"}
@@ -116,7 +112,7 @@ export function CatalogExplorer() {
 
       {summaries.length === 0 ? (
         <div className="empty-room">
-          <h2>No memberships are registered at this captured block.</h2>
+          <h2>No memberships.</h2>
         </div>
       ) : (
         <ul className="tier-list">
