@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 4,
+  "chainId": 46630,
+  "network": "testnet",
+  "sourceCommit": "0f2fca35da4300ff377e92e3b38a8fde983b1f99",
+  "operationalStatePath": "contracts/config/operational-state/46630.json",
+  "operationalStateBlob": "1a9272810e66f99944eae617ca642afea177846a",
+  "buildConfigHash": "0x01f31dbcd2da23d2df61c137c49b196699229fa4e8909efee0d85cb33ad0cfc6",
+  "buildConfig": {
+    "additional_compiler_profiles": [],
+    "always_use_create_2_factory": true,
+    "auto_detect_remappings": false,
+    "auto_detect_solc": false,
+    "block_gas_limit": 100000000,
+    "build_info": true,
+    "bytecode_hash": "ipfs",
+    "cbor_metadata": true,
+    "code_size_limit": 98304,
+    "compilation_restrictions": [],
+    "create2_deployer": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+    "create2_library_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "dynamic_test_linking": false,
+    "evm_version": "cancun",
+    "gas_limit": 100000000,
+    "libraries": [],
+    "libs": [
+      "lib"
+    ],
+    "optimizer": true,
+    "optimizer_details": null,
+    "optimizer_runs": 200,
+    "out": "out",
+    "remappings": [
+      "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+      "forge-std/=lib/forge-std/src/"
+    ],
+    "revert_strings": null,
+    "script": "script",
+    "solc": "0.8.36",
+    "sparse_mode": false,
+    "src": "src",
+    "test": "test",
+    "use_literal_content": false,
+    "via_ir": false
+  },
+  "forgeVersion": "forge Version: 1.7.1",
+  "solcVersion": "0.8.36",
+  "deployer": "0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027",
+  "create2Deployer": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "paymentToken": {
+    "address": "0xAB97dbB8f4ae0B4a3cc0D6963D75334B1c40da09",
+    "runtimeCodeHash": "0x0ed781bfa4ba445d2e259aba728764e5ba3fe23e20c0e1e15b1133d331724090"
+  },
+  "createdAt": "2026-08-31T05:05:59Z",
+  "status": "promoted",
+  "currentPrefix": 3,
+  "components": [
+    {
+      "order": 0,
+      "label": "media store factory",
+      "contractName": "OnchainMediaStoreFactory",
+      "artifact": "src/media/OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory",
+      "salt": "0x626b44eb4c7fa0320bb162f35f2da5ab533459a23e078b644720a9dd51301d98",
+      "initCodeHash": "0x8208cb0ea466ef757f345a38059fe7c21650dd0b7a97940629ef6c39f8c5ff60",
+      "runtimeCodeHash": "0xd46d0310bac3082245018ae4aea7b22bcc67b9e9308fecf65a7298988edccd05",
+      "expectedAddress": "0x2f397e956313420769D406776Ac3037ED4beB827",
+      "allowedPredecessor": "empty",
+      "status": "validated-existing",
+      "transactionHash": null,
+      "receipt": null,
+      "sourceVerified": true,
+      "observedAt": "2026-08-31T05:06:12Z",
+      "observedRuntimeCodeHash": "0xd46d0310bac3082245018ae4aea7b22bcc67b9e9308fecf65a7298988edccd05",
+      "sourceVerifiedAt": "2026-08-31T05:07:35Z"
+    },
+    {
+      "order": 1,
+      "label": "renderer",
+      "contractName": "OnchainMetadataRenderer",
+      "artifact": "src/OnchainMetadataRenderer.sol:OnchainMetadataRenderer",
+      "salt": "0xc3791744a16a29cf407cdfa06863b2891e5adb30745c0c981a4552ce05665faa",
+      "initCodeHash": "0x6d9a843c5964f689fd41586cdddff37d23f9dc7ccf1fecc44f649504c3d6bdc1",
+      "runtimeCodeHash": "0xeba10f717236b9a0a4ddde0feb909364b2514cc240c9065c0d11341734014a97",
+      "expectedAddress": "0x537CCE4581D6ab2c7D2F5b887e95f5991730238B",
+      "allowedPredecessor": "media store factory",
+      "status": "validated-existing",
+      "transactionHash": null,
+      "receipt": null,
+      "sourceVerified": true,
+      "observedAt": "2026-08-31T05:06:12Z",
+      "observedRuntimeCodeHash": "0xeba10f717236b9a0a4ddde0feb909364b2514cc240c9065c0d11341734014a97",
+      "sourceVerifiedAt": "2026-08-31T05:07:51Z"
+    },
+    {
+      "order": 2,
+      "label": "membership factory",
+      "contractName": "MembershipFactory",
+      "artifact": "src/MembershipFactory.sol:MembershipFactory",
+      "salt": "0x8af5e4e7050d4e49bd8531a497dbe3228b3c2edea37aee299fc6f8d1071cc89e",
+      "initCodeHash": "0x430be417d757acac38dc2fb7e0ac06aba577c1094f64da17585bcb6ccf1cb8ca",
+      "runtimeCodeHash": "0x8883eb556037bb41ffcda71b0b2e64fae5fbeca3dd11f0b2651da2349ab86a5f",
+      "expectedAddress": "0xF8D06170092d20C94c36fe20B719C3b93feDdd44",
+      "allowedPredecessor": "renderer",
+      "status": "deployed",
+      "transactionHash": "0x0cd5824e95f49619309d390ffd32da3b8a786965eaacc093c374dc4214c79d08",
+      "receipt": {
+        "status": "0x1",
+        "cumulativeGasUsed": "0x9fea75",
+        "logs": [
+          {
+            "address": "0xf8d06170092d20c94c36fe20b719c3b93feddd44",
+            "topics": [
+              "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+              "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "0x000000000000000000000000eaa4b38a99f766117c1d493a21012fec25f70505"
+            ],
+            "data": "0x",
+            "blockHash": "0x0d36558fc27e0bfadf94c50c65c4e395b42608749ad384337b063ad1f7e46c02",
+            "blockNumber": "0x693e73e",
+            "blockTimestamp": "0x6a950be1",
+            "transactionHash": "0x0cd5824e95f49619309d390ffd32da3b8a786965eaacc093c374dc4214c79d08",
+            "transactionIndex": "0x1",
+            "logIndex": "0x0",
+            "removed": false
+          },
+          {
+            "address": "0xf8d06170092d20c94c36fe20b719c3b93feddd44",
+            "topics": [
+              "0x912e46e8a1375c7aa21fcd27538d49b623f208b614f1feb29d3563a988fac7c4",
+              "0x0000000000000000000000000000000000000000000000000000000000000001",
+              "0x000000000000000000000000537cce4581d6ab2c7d2f5b887e95f5991730238b",
+              "0xeba10f717236b9a0a4ddde0feb909364b2514cc240c9065c0d11341734014a97"
+            ],
+            "data": "0x",
+            "blockHash": "0x0d36558fc27e0bfadf94c50c65c4e395b42608749ad384337b063ad1f7e46c02",
+            "blockNumber": "0x693e73e",
+            "blockTimestamp": "0x6a950be1",
+            "transactionHash": "0x0cd5824e95f49619309d390ffd32da3b8a786965eaacc093c374dc4214c79d08",
+            "transactionIndex": "0x1",
+            "logIndex": "0x1",
+            "removed": false
+          },
+          {
+            "address": "0xf8d06170092d20c94c36fe20b719c3b93feddd44",
+            "topics": [
+              "0xbe52de4c54e8237c6ce08128e449207b784cc25ef0f9dc4ed24e0de777644808",
+              "0x0000000000000000000000000000000000000000000000000000000000000001"
+            ],
+            "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "blockHash": "0x0d36558fc27e0bfadf94c50c65c4e395b42608749ad384337b063ad1f7e46c02",
+            "blockNumber": "0x693e73e",
+            "blockTimestamp": "0x6a950be1",
+            "transactionHash": "0x0cd5824e95f49619309d390ffd32da3b8a786965eaacc093c374dc4214c79d08",
+            "transactionIndex": "0x1",
+            "logIndex": "0x2",
+            "removed": false
+          },
+          {
+            "address": "0xf8d06170092d20c94c36fe20b719c3b93feddd44",
+            "topics": [
+              "0xaaebcf1bfa00580e41d966056b48521fa9f202645c86d4ddf28113e617c1b1d3",
+              "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "0x000000000000000000000000eaa4b38a99f766117c1d493a21012fec25f70505"
+            ],
+            "data": "0x",
+            "blockHash": "0x0d36558fc27e0bfadf94c50c65c4e395b42608749ad384337b063ad1f7e46c02",
+            "blockNumber": "0x693e73e",
+            "blockTimestamp": "0x6a950be1",
+            "transactionHash": "0x0cd5824e95f49619309d390ffd32da3b8a786965eaacc093c374dc4214c79d08",
+            "transactionIndex": "0x1",
+            "logIndex": "0x3",
+            "removed": false
+          }
+        ],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000880000000000000800080000000000000000000000000000000000002800000000000000040000000000000000000000000000000000000001000000042000000100000000000000000000020040000000000000100800000000000000000200000008000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000001000000000201000000000000100000000000000000060000000000080000000001040400000000000000000000000000000000000000000",
+        "type": "0x2",
+        "transactionHash": "0x0cd5824e95f49619309d390ffd32da3b8a786965eaacc093c374dc4214c79d08",
+        "transactionIndex": "0x1",
+        "blockHash": "0x0d36558fc27e0bfadf94c50c65c4e395b42608749ad384337b063ad1f7e46c02",
+        "blockNumber": "0x693e73e",
+        "gasUsed": "0x9fea75",
+        "effectiveGasPrice": "0x989680",
+        "from": "0xbe0032fc13718ab554236c3bd9446f6b5c9b9027",
+        "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+        "contractAddress": null,
+        "gasUsedForL1": "0xc709e",
+        "l1BlockNumber": "0xb10e7d"
+      },
+      "sourceVerified": true,
+      "submittedNonce": 15,
+      "submittedAt": "2026-08-31T05:06:41Z",
+      "confirmedAt": "2026-08-31T05:06:42Z",
+      "observedRuntimeCodeHash": "0x8883eb556037bb41ffcda71b0b2e64fae5fbeca3dd11f0b2651da2349ab86a5f",
+      "sourceVerifiedAt": "2026-08-31T05:08:06Z"
+    }
+  ],
+  "activeBroadcast": "broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json"
+}
