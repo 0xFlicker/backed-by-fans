@@ -51,7 +51,7 @@ For the detailed local workflow, read [references/local-testing.md](references/l
 ## Fixed product boundaries
 
 - Robinhood testnet (`46630`) is the only public chain supported by this version.
-- Renderers are shared directly by contract address on that chain. There is no renderer registry or cross-chain lookup.
+- The browser deploys through the chain's renderer registry so the creator can find the renderer again. The registry is an index, not an approval gate; any compatible same-chain renderer address can still be pasted and used directly.
 - A custom renderer replaces the default renderer; it does not change the rest of the Creator Studio or membership economics.
 - `nativeMedia` and onchain media are artistic inputs. The renderer may crop, filter, recolor, transform, combine, reinterpret, or ignore them.
 

@@ -5,14 +5,12 @@ import { join, relative } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 
 import {
-  CANONICAL_CREATE2_DEPLOYER,
   DEFAULT_INTERFACE_SCHEMA,
   buildRendererPackage,
   representativeRendererExamples,
 } from "./build-package";
 import { writeRendererGallery } from "./render-gallery";
 
-const salt = `0x${"11".repeat(32)}`;
 const temporaryDirectories: string[] = [];
 
 const artifact = {
@@ -49,8 +47,7 @@ function makePackage() {
     constructorArgs: "0x1234",
     finalRuntimeBytecode: "0x6001",
     rendererName: "Test Renderer",
-    salt,
-    sourceRoot: "templates/renderer",
+    sourceRoot: "template",
   });
 }
 
@@ -69,7 +66,7 @@ function containsForbiddenImageField(value: unknown): boolean {
 }
 
 describe("renderer package writer", () => {
-  test("packages complete final initcode and independently checkable deployment measurements", () => {
+  test("packages complete final initcode and the registry deployment measurement", () => {
     const rendererPackage = makePackage();
 
     expect(rendererPackage.interfaceSchema).toBe(DEFAULT_INTERFACE_SCHEMA);
@@ -82,12 +79,7 @@ describe("renderer package writer", () => {
     );
     expect(rendererPackage.deployment).toEqual({
       chainId: 46_630,
-      create2Deployer: CANONICAL_CREATE2_DEPLOYER,
-      salt,
-      initCodeHash:
-        "0xbeeab6947c3dc3ca67fbf87e560e698ad870596e7f656fe215494899ed5e3948",
-      predictedAddress: "0xcb927a74aA81d2f792E06bD21C22812Fd75aeb7B",
-      rawByteLength: 36,
+      initCodeByteLength: 4,
     });
     expect(rendererPackage.artifacts.abi).toBe(JSON.stringify(artifact.abi));
   });
@@ -128,7 +120,7 @@ describe("renderer package writer", () => {
 describe("local renderer gallery", () => {
   test("writes one real SVG slot per representative request and a deterministic six-case gallery", async () => {
     const outputDirectory = mkdtempSync(
-      join(tmpdir(), "backed-by-fans-renderer-gallery-"),
+      join(tmpdir(), "onchain-render-skill-gallery-"),
     );
     temporaryDirectories.push(outputDirectory);
     const rendererPackage = makePackage();
@@ -153,13 +145,13 @@ describe("local renderer gallery", () => {
     const html = readFileSync(gallery.htmlPath, "utf8");
     expect(html.match(/<figure/g)).toHaveLength(6);
     expect(html.match(/<img /g)).toHaveLength(6);
-    expect(html).toContain(rendererPackage.deployment.predictedAddress);
+    expect(html).not.toContain("CREATE2");
     expect(html).not.toContain("data:image");
   });
 
   test("keeps package-provided request IDs inside the gallery directory", async () => {
     const outputDirectory = mkdtempSync(
-      join(tmpdir(), "backed-by-fans-renderer-gallery-paths-"),
+      join(tmpdir(), "onchain-render-skill-gallery-paths-"),
     );
     temporaryDirectories.push(outputDirectory);
     const rendererPackage = makePackage();

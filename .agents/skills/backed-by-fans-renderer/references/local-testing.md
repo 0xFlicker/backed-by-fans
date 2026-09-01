@@ -1,148 +1,80 @@
-# Local testing and visual approval
+# Local development and creator preview
 
-Use this workflow while authoring or revising a renderer. It produces local evidence and a portable
-package without a public-chain write or production credential.
+Use this workflow while creating or revising a renderer. It requires no production credential or public-chain write.
 
-## 1. Test the contract locally
+## 1. Check tools
 
-Start from the bundled `templates/renderer/` Foundry project or an equivalent project that imports
-the exact public interface and types described in [interface.md](interface.md). Preserve Solidity
-`0.8.36`, Cancun, and the enabled optimizer profile.
-
-From the renderer project root, run:
+From this repository:
 
 ```sh
-forge fmt --check
-FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
-forge test -vv
+./scripts/check-dependencies.sh
 ```
 
-Use only disposable Forge/Anvil identities. No production private key, mnemonic, keystore, browser
-wallet, deployment password, RPC secret, or paid endpoint is needed.
+Required: Git, Bun, Forge, Cast, and Anvil. Docker is optional.
 
-Focused tests should cover observable renderer behavior:
-
-- the schema, name, engine count/names, and configuration validation;
-- deterministic complete SVG and metadata data-URI output for the same input;
-- token IDs `1`, `7`, and `42` across active and expired states;
-- generated-only output or a clear failure when media is absent;
-- valid JPEG/PNG `nativeMedia` changing, informing, or being deliberately ignored by the output;
-- production-shaped `MediaConfig` resolving a test onchain store when the renderer uses media;
-- invalid or unsupported media failing clearly rather than producing malformed output;
-- full-size and thumbnail legibility.
-
-For media behavior, assert what the renderer promises: for example, that the result is visibly
-duotoned/cropped, that media influences a seed, that generated-only mode is explicit, or that a
-documented ignore policy is deterministic. Do not assert that output bytes, image bytes, dimensions,
-palette, encoding, or visual identity exactly match the input. A matching preview and production
-result verifies the renderer path for that fixture, not universal byte preservation.
-
-## 2. Build the portable package from the final artifact
-
-From a directory where Bun, Forge, and Cast are available:
+If required tools are missing, explain the changes to the user and ask before running:
 
 ```sh
-bun .agents/skills/backed-by-fans-renderer/scripts/build-package.ts \
-  <renderer-project-root> \
-  --output <renderer-project-root>/renderer-package.json
+./scripts/bootstrap.sh --install
 ```
 
-If the renderer constructor has arguments, append their complete ABI-encoded bytes with
-`--constructor-args 0x...`. Do not package artifact bytecode without its constructor arguments.
+The bootstrap installs only missing Bun or Foundry tooling through their official installers. It does not install a wallet, create a key, or modify the renderer.
 
-The existing [package writer](../scripts/build-package.ts) runs `forge build` and derives the package
-from the final Foundry artifact. It embeds the generated ABI and checks:
-
-- Solidity `0.8.36`, Cancun, and enabled optimizer metadata;
-- complete final initcode, including constructor arguments;
-- runtime bytecode and the project ceilings;
-- artifact fingerprint and initcode hash;
-- deterministic salt and CREATE2 predicted address;
-- complete raw `salt || initcode` size below Robinhood Nitro's `95,000`-byte boundary;
-- canonical chain `46630` and the existing canonical CREATE2 deployer;
-- six deterministic representative requests.
-
-Do not replace this with a copied shell snippet, an artifact-only size check, explorer scraping, or a
-second package format. A permissive Anvil deployment does not model Nitro admission.
-
-The package must not contain a source image, wallet secret, signature, authentication artifact,
-paid RPC credential, deployment password, or browser-executable code.
-
-## 3. Render the local gallery
-
-Run the existing [gallery generator](../scripts/render-gallery.ts):
+## 2. Create a renderer project
 
 ```sh
-bun .agents/skills/backed-by-fans-renderer/scripts/render-gallery.ts \
-  <renderer-project-root>/renderer-package.json
+./scripts/new-renderer.sh ./my-renderer
 ```
 
-It starts a loopback-only disposable Anvil instance, evaluates the final initcode, installs the
-returned runtime at a local address, and writes a six-image HTML gallery. It does not publish a
-transaction.
+The command copies the self-contained Foundry template and refuses to overwrite an existing nonempty directory.
 
-Inspect every case:
+Edit `my-renderer/src/CustomRenderer.sol` to implement the art brief. Keep the interface and types unless the Backed By Fans protocol itself changes.
 
-| Token | State | Media case |
-|---:|---|---|
-| 1 | active | generated/no image |
-| 1 | expired | browser image slot |
-| 7 | active | browser image slot |
-| 7 | expired | generated/no image |
-| 42 | active | generated/no image |
-| 42 | expired | browser image slot |
-
-The local gallery leaves browser image slots empty because source media is never embedded in the
-package. Use Forge fixtures to test byte-handling logic and the browser renderer lab to judge real
-temporary media through canonical-RPC previews.
-
-Treat the local gallery as iteration evidence. Confirm composition, contrast, clipping, text,
-active/expired differentiation, determinism, and thumbnail readability. If any example fails or the
-creator rejects the direction, revise the renderer and repeat from contract tests; do not deploy.
-
-## 4. Review canonical-RPC examples in the browser
-
-Use one package and one of two handoffs.
-
-Optional loopback handoff:
+## 3. Run the local workflow
 
 ```sh
-bun .agents/skills/backed-by-fans-renderer/scripts/session-helper.ts \
-  --package <renderer-project-root>/renderer-package.json
+./scripts/test-renderer.sh ./my-renderer
 ```
 
-The [session helper](../scripts/session-helper.ts) binds to `127.0.0.1` on a random high port, keeps
-bounded state in process memory, and prints a renderer-page URL with a short-lived capability in the
-URL fragment. Open that URL and allow local-network access if the browser asks. The helper can
-receive results, failures, approval, prepared deployment details, and the final renderer address;
-it cannot receive the selected source image or authorize a wallet operation.
+This wrapper:
 
-File fallback:
+1. checks dependencies;
+2. runs Forge formatting, compilation, and contract tests;
+3. packages the final artifact;
+4. evaluates six representative calls using disposable local Anvil state;
+5. writes a compact HTML gallery.
 
-- If loopback is blocked, denied, expired, or unavailable, open the public renderer page normally.
-- Drag or select the same `renderer-package.json` file. Do not rebuild, upload it to a relay, or add
-  an authenticated session.
+The six cases are token IDs 1, 7, and 42 across active and expired states, with generated and browser-image slots represented.
 
-Both paths must converge on the same browser behavior:
+The package contains final initcode for the public browser to pass to the renderer registry. It does not contain a deployment salt or predicted address; the registry returns the actual address after the creator signs the deployment transaction.
 
-1. The public page validates the package and recomputes hashes, sizes, chain, and predicted address.
-2. Preview works without an account, SIWE, OAuth, wallet connection, or backend session.
-3. The browser calls the undeployed candidate through the canonical preview harness with `eth_call`;
-   deployed addresses are called directly. Both use the generated ABI and canonical RPC.
-4. A browser-selected JPEG/PNG remains in memory and is injected as `nativeMedia` only for the
-   read-only RPC call. It is neither persisted nor returned through loopback.
-5. Every result or failure is displayed. Generated-only output, intentional transformation, or an
-   intentional media-ignore policy is valid if clearly represented and accepted by the creator.
+A failed call should appear as a failed example and should be fixed before asking the creator to accept the design. A successful call means only that the tested interface call returned a displayable result.
 
-The browser/canonical-RPC gallery is the approval surface. Approval binds the exact canonical chain,
-candidate, representative request set, and displayed result fingerprints. Any candidate, request,
-salt, package, or deployment-input change clears approval and requires another review.
+## 4. Ask the creator
 
-## Evidence boundary
+Open the generated gallery and let the creator inspect the artwork. The local gallery is a mechanical rehearsal. When the creator requested an image, the approval pass must also load that actual image in the public browser preview so the creator can judge its treatment. One selected result may be viewed large; the remaining cases should be compact labeled thumbnails.
 
-- Forge and the generated local gallery prove local source behavior for the tested artifact.
-- Canonical-RPC browser examples prove the displayed read-only results for that candidate and input
-  set.
-- Creator approval records a visual decision, not an audit, safety certification, permanence claim,
-  exact-media proof, or deployment.
-- Only the browser-wallet flow in [deployment.md](deployment.md) can publish the renderer.
+The creator may:
+
+- approve the design and continue to browser preview or deployment;
+- reject it and request changes;
+- stop without deploying.
+
+Do not turn this decision into proof, certification, safety scoring, receipt review, or byte-preservation claims.
+
+## 5. Hand off to the browser
+
+The package can be imported directly into the public renderer preview page.
+
+When local browser access is allowed, the optional helper can hand off the same package:
+
+```sh
+bun ./scripts/session-helper.ts \
+  --package ./my-renderer/renderer-package.json \
+  --image /path/to/creator-image.jpg \
+  --page-url https://HOST/render
+```
+
+Open the printed URL in the creator's regular browser first so their wallet extensions are available. Fall back to an agentic browser only if opening the external browser does not work.
+
+If the agent runs in a cloud, sandbox, or VM—or loopback is blocked—return `renderer-package.json` to the creator as a downloadable file. Instruct them to open `https://HOST/render` in their own browser, upload the package, and choose the source JPEG or PNG there. Do not rebuild the package, upload either file to a storage service, or request wallet secrets.

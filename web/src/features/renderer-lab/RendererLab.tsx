@@ -12,10 +12,8 @@ import {
 import {
   bytesToHex,
   createPublicClient,
-  getAddress,
-  getCreate2Address,
   http,
-  keccak256,
+  zeroAddress,
   type Address,
   type Hex,
   type PublicClient,
@@ -23,10 +21,12 @@ import {
 import { robinhoodTestnet } from "viem/chains";
 import {
   useAccount,
-  useSendTransaction,
+  useConfig,
   useSwitchChain,
   useWaitForTransactionReceipt,
+  useWriteContract,
 } from "wagmi";
+import { simulateContract } from "@wagmi/core";
 
 import { WalletControl } from "@/components/WalletControl";
 import {
@@ -60,9 +60,9 @@ import {
   type RendererPreviewResultInput,
 } from "@/features/renderer-lab/candidate";
 import {
-  canonicalRendererCreate2DeployerCodeHash,
-  prepareUnsignedRendererDeployment,
-  type UnsignedRendererDeployment,
+  prepareRendererDeployment,
+  rendererAddressFromDeploymentLogs,
+  type PreparedRendererDeployment,
 } from "@/features/renderer-lab/deployment";
 import {
   HelperConnectionError,
@@ -71,15 +71,14 @@ import {
   type RendererHelperConnection,
 } from "@/features/renderer-lab/local-helper-client";
 import {
-  canonicalRendererCreate2Deployer,
   canonicalRendererPackageChainId,
   computeRendererArtifactFingerprint,
-  maxRawRendererDeploymentBytes,
   maxRendererInitcodeBytes,
   maxRendererRuntimeBytes,
   parseRendererPackage,
   type ParsedRendererPackage,
 } from "@/features/renderer-lab/package-import";
+import { rendererRegistryAbi } from "@/contracts";
 import { previewRendererRequest } from "@/features/renderer-lab/preview";
 import { readProtocolDependencies } from "@/features/protocol/protocol-read";
 import {
@@ -163,6 +162,10 @@ const configuredPreviewHarness =
   configuredDeployment.status === "ready"
     ? configuredDeployment.previewHarnessAddress
     : undefined;
+const configuredRendererRegistry =
+  configuredDeployment.status === "ready"
+    ? configuredDeployment.rendererRegistryAddress
+    : undefined;
 
 function defaultHelperClientFactory(connection: RendererHelperConnection) {
   return new RendererHelperClient(connection);
@@ -224,14 +227,6 @@ function requiredHex(value: unknown, label: string): Hex {
   return hex as Hex;
 }
 
-function requiredAddress(value: unknown, label: string): Address {
-  try {
-    return getAddress(requiredString(value, label));
-  } catch {
-    throw new Error(`${label} is missing or invalid.`);
-  }
-}
-
 function candidateFromPackage(
   parsed: ParsedRendererPackage,
   candidateId: string,
@@ -243,11 +238,7 @@ function candidateFromPackage(
     interfaceSchema: parsed.interfaceSchema,
     creationBytecode: parsed.artifacts.creationBytecode,
     runtimeBytecode: parsed.artifacts.runtimeBytecode,
-    create2Deployer: parsed.deployment.create2Deployer,
-    salt: parsed.deployment.salt,
-    initCodeHash: parsed.deployment.initCodeHash,
-    predictedAddress: parsed.deployment.predictedAddress,
-    rawByteLength: parsed.deployment.rawByteLength,
+    initCodeByteLength: parsed.deployment.initCodeByteLength,
   };
 }
 
@@ -289,20 +280,10 @@ function helperCandidateInput(value: unknown): {
     manifest.interfaceSchema,
     "Renderer interface schema",
   );
-  const salt = requiredHex(raw.salt, "CREATE2 salt");
   const chainId = requiredNumber(deployment.chainId, "Canonical chain");
-  const create2Deployer = requiredAddress(
-    deployment.create2Deployer,
-    "CREATE2 deployer",
-  );
-  const initCodeHash = requiredHex(deployment.initCodeHash, "Initcode hash");
-  const predictedAddress = requiredAddress(
-    deployment.predictedAddress,
-    "Predicted address",
-  );
-  const rawByteLength = requiredNumber(
-    deployment.rawByteLength,
-    "Raw payload size",
+  const initCodeByteLength = requiredNumber(
+    deployment.initCodeByteLength,
+    "Initcode byte length",
   );
   const compilerProfile = {
     solidity: requiredString(compiler.solidity, "Solidity version"),
@@ -320,10 +301,7 @@ function helperCandidateInput(value: unknown): {
       "The local helper candidate uses an unsupported compiler profile.",
     );
   }
-  if (
-    chainId !== canonicalRendererPackageChainId ||
-    create2Deployer !== canonicalRendererCreate2Deployer
-  ) {
+  if (chainId !== canonicalRendererPackageChainId) {
     throw new Error(
       "The local helper candidate does not target the canonical chain.",
     );
@@ -348,14 +326,6 @@ function helperCandidateInput(value: unknown): {
     },
     interfaceSchema,
   });
-  const recomputedInitCodeHash = keccak256(creationBytecode);
-  const recomputedRawByteLength =
-    byteLength(salt) + byteLength(creationBytecode);
-  const recomputedAddress = getCreate2Address({
-    from: create2Deployer,
-    salt,
-    bytecodeHash: recomputedInitCodeHash,
-  });
   const manifestFingerprint = requiredHex(
     artifacts.artifactFingerprint,
     "Manifest artifact fingerprint",
@@ -365,10 +335,7 @@ function helperCandidateInput(value: unknown): {
       recomputedArtifactFingerprint.toLowerCase() ||
     manifestFingerprint.toLowerCase() !==
       recomputedArtifactFingerprint.toLowerCase() ||
-    initCodeHash.toLowerCase() !== recomputedInitCodeHash.toLowerCase() ||
-    rawByteLength !== recomputedRawByteLength ||
-    rawByteLength >= maxRawRendererDeploymentBytes ||
-    predictedAddress.toLowerCase() !== recomputedAddress.toLowerCase()
+    initCodeByteLength !== byteLength(creationBytecode)
   ) {
     throw new Error(
       "The local helper candidate failed browser-side integrity checks.",
@@ -383,11 +350,7 @@ function helperCandidateInput(value: unknown): {
       interfaceSchema,
       creationBytecode,
       runtimeBytecode,
-      create2Deployer,
-      salt,
-      initCodeHash: recomputedInitCodeHash,
-      predictedAddress: recomputedAddress,
-      rawByteLength: recomputedRawByteLength,
+      initCodeByteLength,
     },
     rendererName: requiredString(manifest.rendererName, "Renderer name"),
     artifactFingerprint,
@@ -519,17 +482,18 @@ export function RendererLab({
   const [review, setReview] = useState<RendererReviewDecision | null>(null);
   const [deployRequested, setDeployRequested] = useState(false);
   const [preparedDeployment, setPreparedDeployment] =
-    useState<UnsignedRendererDeployment | null>(null);
+    useState<PreparedRendererDeployment | null>(null);
   const [deployedAddress, setDeployedAddress] = useState<Address | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const account = useAccount();
+  const wagmiConfig = useConfig();
   const switchChain = useSwitchChain();
-  const sendTransaction = useSendTransaction();
+  const write = useWriteContract();
   const deploymentReceipt = useWaitForTransactionReceipt({
     chainId: canonicalRendererPackageChainId,
-    hash: sendTransaction.data,
-    query: { enabled: Boolean(sendTransaction.data) },
+    hash: write.data,
+    query: { enabled: Boolean(write.data) },
   });
   const results = candidateState.resultSet?.results ?? [];
   const requests = candidateState.requestSet?.requests ?? [];
@@ -540,7 +504,7 @@ export function RendererLab({
     setDeployRequested(false);
     setPreparedDeployment(null);
     setDeployedAddress(null);
-    sendTransaction.reset();
+    write.reset();
   };
 
   const selectImageSource = (
@@ -585,6 +549,7 @@ export function RendererLab({
   useEffect(() => {
     if (
       !deploymentReceipt.isSuccess ||
+      !deploymentReceipt.data ||
       !preparedDeployment ||
       deployedAddress
     ) {
@@ -592,17 +557,32 @@ export function RendererLab({
     }
 
     let cancelled = false;
-    void client
-      .getBytecode({ address: preparedDeployment.predictedAddress })
-      .then((code) => {
+    void Promise.resolve(
+      rendererAddressFromDeploymentLogs({
+        logs: deploymentReceipt.data.logs,
+        registry: preparedDeployment.registry,
+      }),
+    )
+      .then((renderer) => {
+        if (!renderer) {
+          throw new Error(
+            "The deployment succeeded, but no renderer address was returned.",
+          );
+        }
+        return Promise.all([
+          renderer,
+          client.getBytecode({ address: renderer }),
+        ]);
+      })
+      .then(([renderer, bytecode]) => {
         if (cancelled) return;
-        if (!code || code === "0x") {
+        if (!bytecode || bytecode === "0x") {
           setError(
             "The wallet reported success, but the renderer code is not visible yet. Refresh the canonical chain before sharing this address.",
           );
           return;
         }
-        setDeployedAddress(preparedDeployment.predictedAddress);
+        setDeployedAddress(renderer);
         setMessage("Renderer deployed on Robinhood testnet.");
         setError(null);
       })
@@ -621,6 +601,7 @@ export function RendererLab({
   }, [
     client,
     deployedAddress,
+    deploymentReceipt.data,
     deploymentReceipt.isSuccess,
     preparedDeployment,
   ]);
@@ -908,7 +889,7 @@ export function RendererLab({
             const image = await previewRendererRequest({
               client,
               previewHarness,
-              renderer: candidate.predictedAddress,
+              renderer: zeroAddress,
               creationBytecode: candidate.creationBytecode,
               request,
               nativeMedia:
@@ -1006,24 +987,22 @@ export function RendererLab({
           chainId: canonicalRendererPackageChainId,
         });
       }
-      const prepared = await prepareUnsignedRendererDeployment({
-        client,
+      const prepared = prepareRendererDeployment({
+        registry: configuredRendererRegistry,
         state: candidateState,
         approval: review,
-        expectedDeployerCodeHash: canonicalRendererCreate2DeployerCodeHash,
       });
-      const request = {
+      const { request } = await simulateContract(wagmiConfig, {
         account: account.address,
+        address: prepared.registry,
+        abi: rendererRegistryAbi,
         chainId: canonicalRendererPackageChainId,
-        data: prepared.calldata,
-        to: prepared.deployer,
-        value: 0n,
-      } as const;
-
-      await client.call(request);
+        functionName: "deployAndRegister",
+        args: [prepared.initCode],
+      });
       setPreparedDeployment(prepared);
       setMessage("The deployment simulation passed. Review it in your wallet.");
-      await sendTransaction.sendTransactionAsync(request);
+      await write.writeContractAsync(request);
     } catch (caught) {
       setPreparedDeployment(null);
       setError(
@@ -1470,14 +1449,13 @@ export function RendererLab({
             <div>
               <dt>Final payload</dt>
               <dd>
-                {candidateState.candidate.rawByteLength.toLocaleString()} bytes
+                {candidateState.candidate.initCodeByteLength.toLocaleString()}{" "}
+                bytes
               </dd>
             </div>
             <div className={styles.addressSummary}>
               <dt>Reusable renderer address</dt>
-              <dd className="font-mono">
-                {candidateState.candidate.predictedAddress}
-              </dd>
+              <dd>Returned after deployment</dd>
             </div>
             <div>
               <dt>Wallet cost</dt>
@@ -1489,19 +1467,9 @@ export function RendererLab({
             <summary>Technical details</summary>
             <dl>
               <div>
-                <dt>CREATE2 deployer</dt>
+                <dt>Renderer registry</dt>
                 <dd className="font-mono">
-                  {candidateState.candidate.create2Deployer}
-                </dd>
-              </div>
-              <div>
-                <dt>Salt</dt>
-                <dd className="font-mono">{candidateState.candidate.salt}</dd>
-              </div>
-              <div>
-                <dt>Initcode hash</dt>
-                <dd className="font-mono">
-                  {candidateState.candidate.initCodeHash}
+                  {configuredRendererRegistry ?? "Not deployed"}
                 </dd>
               </div>
               <div>
@@ -1542,19 +1510,19 @@ export function RendererLab({
                 </p>
               </div>
               <WalletControl />
-              {account.isConnected && !sendTransaction.data && (
+              {account.isConnected && !write.data && (
                 <button
                   className="button button-dark"
-                  disabled={sendTransaction.isPending}
+                  disabled={write.isPending}
                   onClick={() => void deploy()}
                   type="button"
                 >
-                  {sendTransaction.isPending
+                  {write.isPending
                     ? "Waiting for wallet…"
                     : "Send renderer deployment"}
                 </button>
               )}
-              {sendTransaction.data && deploymentReceipt.isLoading && (
+              {write.data && deploymentReceipt.isLoading && (
                 <p role="status">
                   Deployment submitted. Waiting for your wallet receipt…
                 </p>
@@ -1564,10 +1532,9 @@ export function RendererLab({
                   Renderer deployed: {deployedAddress}
                 </p>
               )}
-              {(sendTransaction.error || deploymentReceipt.error) && (
+              {(write.error || deploymentReceipt.error) && (
                 <p className={styles.errorMessage} role="alert">
-                  {sendTransaction.error?.message ??
-                    deploymentReceipt.error?.message}
+                  {write.error?.message ?? deploymentReceipt.error?.message}
                 </p>
               )}
             </div>

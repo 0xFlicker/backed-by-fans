@@ -5,10 +5,12 @@ import {
   randomUUID,
   timingSafeEqual,
 } from "node:crypto";
+import { basename } from "node:path";
 
 declare const Bun: {
   file(path: string): {
     readonly size: number;
+    arrayBuffer(): Promise<ArrayBuffer>;
     exists(): Promise<boolean>;
     text(): Promise<string>;
   };
@@ -26,9 +28,10 @@ export const LOOPBACK_HOST = "127.0.0.1";
 export const HIGH_PORT_MIN = 49_152;
 export const HIGH_PORT_MAX = 65_535;
 export const MAX_BODY_BYTES = 1_000_000;
+export const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024;
 export const DEFAULT_TTL_MS = 15 * 60 * 1_000;
 export const MAX_TTL_MS = 60 * 60 * 1_000;
-export const DEFAULT_PAGE_URL = "http://localhost:3000/renderer";
+export const DEFAULT_PAGE_URL = "http://localhost:3000/render";
 
 const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 const CORS_METHODS = "GET, PUT, POST, DELETE, OPTIONS";
@@ -36,7 +39,6 @@ const CORS_HEADERS = "Authorization, Content-Type";
 const CHAIN_ID = 46_630;
 const HEX_32_PATTERN = /^0x[0-9a-fA-F]{64}$/;
 const HEX_BYTES_PATTERN = /^0x(?:[0-9a-fA-F]{2})*$/;
-const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 const BODY_METHODS = new Set(["POST", "PUT"]);
 const ALLOWED_CORS_HEADERS = new Set(["authorization", "content-type"]);
 
@@ -49,15 +51,20 @@ interface SessionState {
   exampleRequests: JsonObject | null;
   exampleResults: JsonObject | null;
   approval: JsonObject | null;
-  deploymentRequest: JsonObject | null;
-  deploymentResult: JsonObject | null;
 }
 
 export interface StartRendererSessionHelperOptions {
   pageUrl?: string;
   ttlMs?: number;
   initialPackage?: unknown;
+  initialImage?: RendererSourceImage;
 }
+
+export type RendererSourceImage = {
+  name: string;
+  mime: "image/jpeg" | "image/png";
+  bytes: Uint8Array;
+};
 
 export interface RendererSessionHelper {
   readonly hostname: typeof LOOPBACK_HOST;
@@ -186,7 +193,7 @@ function rejectSourceImageFields(value: unknown): void {
   if (containsSourceImageField(value)) {
     throw new HttpError(
       400,
-      "Source image data is not accepted by the local helper.",
+      "Source image data is not accepted inside JSON renderer state.",
     );
   }
 }
@@ -198,7 +205,6 @@ function validateCandidate(value: unknown): JsonObject {
     "artifactFingerprint",
     "creationBytecode",
     "runtimeBytecode",
-    "salt",
     "manifest",
   ]);
   requireString(candidate.candidateId, "candidateId");
@@ -211,7 +217,6 @@ function validateCandidate(value: unknown): JsonObject {
   requireString(candidate.runtimeBytecode, "runtimeBytecode", {
     pattern: HEX_BYTES_PATTERN,
   });
-  requireString(candidate.salt, "salt", { pattern: HEX_32_PATTERN });
   requireObject(candidate.manifest, "manifest");
   return candidate;
 }
@@ -353,57 +358,6 @@ function validateApproval(value: unknown): JsonObject {
   return approval;
 }
 
-function validateDeploymentRequest(value: unknown): JsonObject {
-  const deployment = requireObject(value, "Deployment request");
-  requireExactKeys(deployment, [
-    "chainId",
-    "deployer",
-    "salt",
-    "initcode",
-    "calldata",
-    "rawByteLength",
-    "predictedAddress",
-    "approvalFingerprint",
-  ]);
-  requireInteger(deployment.chainId, "chainId", { exact: CHAIN_ID });
-  requireString(deployment.deployer, "deployer", { pattern: ADDRESS_PATTERN });
-  requireString(deployment.salt, "salt", { pattern: HEX_32_PATTERN });
-  requireString(deployment.initcode, "initcode", {
-    pattern: HEX_BYTES_PATTERN,
-  });
-  requireString(deployment.calldata, "calldata", {
-    pattern: HEX_BYTES_PATTERN,
-  });
-  requireInteger(deployment.rawByteLength, "rawByteLength", {
-    maximum: 94_999,
-  });
-  requireString(deployment.predictedAddress, "predictedAddress", {
-    pattern: ADDRESS_PATTERN,
-  });
-  requireString(deployment.approvalFingerprint, "approvalFingerprint");
-  return deployment;
-}
-
-function validateDeploymentResult(value: unknown): JsonObject {
-  const result = requireObject(value, "Deployment result");
-  requireExactKeys(
-    result,
-    ["status", "predictedAddress"],
-    ["transactionHash", "message"],
-  );
-  requireEnum(result.status, "status", ["confirmed", "failed"]);
-  requireString(result.predictedAddress, "predictedAddress", {
-    pattern: ADDRESS_PATTERN,
-  });
-  if (result.transactionHash !== undefined) {
-    requireString(result.transactionHash, "transactionHash");
-  }
-  if (result.message !== undefined) {
-    requireString(result.message, "message");
-  }
-  return result;
-}
-
 function secureCapabilityMatches(actual: string, expected: string): boolean {
   const actualBytes = Buffer.from(actual);
   const expectedBytes = Buffer.from(expected);
@@ -448,6 +402,51 @@ function emptyResponse(status: number, allowedOrigin: string): Response {
     status,
     headers: corsHeaders(allowedOrigin),
   });
+}
+
+function imageResponse(
+  image: RendererSourceImage,
+  allowedOrigin: string,
+): Response {
+  return new Response(image.bytes, {
+    status: 200,
+    headers: {
+      ...corsHeaders(allowedOrigin),
+      "content-length": String(image.bytes.byteLength),
+      "content-type": image.mime,
+    },
+  });
+}
+
+function validateSourceImage(image: RendererSourceImage): RendererSourceImage {
+  if (
+    !image.name ||
+    image.name.length > 255 ||
+    image.bytes.byteLength === 0 ||
+    image.bytes.byteLength > MAX_SOURCE_IMAGE_BYTES
+  ) {
+    throw new Error(
+      `Source image must contain 1 to ${MAX_SOURCE_IMAGE_BYTES} bytes and have a short name.`,
+    );
+  }
+  const jpeg =
+    image.bytes.length >= 3 &&
+    image.bytes[0] === 0xff &&
+    image.bytes[1] === 0xd8 &&
+    image.bytes[2] === 0xff;
+  const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+  const png =
+    image.bytes.length >= pngSignature.length &&
+    pngSignature.every((value, index) => image.bytes[index] === value);
+  if (
+    (image.mime === "image/jpeg" && !jpeg) ||
+    (image.mime === "image/png" && !png)
+  ) {
+    throw new Error(
+      "Source image bytes do not match the declared JPEG or PNG type.",
+    );
+  }
+  return { ...image, bytes: Uint8Array.from(image.bytes) };
 }
 
 async function readBoundedJson(request: Request): Promise<unknown> {
@@ -504,26 +503,15 @@ function getCandidateSummary(candidate: JsonObject): JsonObject {
   const deployment = isObject(manifest.deployment)
     ? manifest.deployment
     : manifest;
-  const initCodeHash =
-    typeof deployment.initCodeHash === "string"
-      ? deployment.initCodeHash
-      : candidate.artifactFingerprint;
-  const predictedAddress =
-    typeof deployment.predictedAddress === "string"
-      ? deployment.predictedAddress
-      : "";
   return {
     candidateId: candidate.candidateId,
     artifactFingerprint: candidate.artifactFingerprint,
-    initCodeHash,
-    predictedAddress,
+    initCodeByteLength: deployment.initCodeByteLength,
   };
 }
 
 function clearApprovalAndDeployment(state: SessionState): void {
   state.approval = null;
-  state.deploymentRequest = null;
-  state.deploymentResult = null;
 }
 
 function clearState(state: SessionState): void {
@@ -531,8 +519,6 @@ function clearState(state: SessionState): void {
   state.exampleRequests = null;
   state.exampleResults = null;
   state.approval = null;
-  state.deploymentRequest = null;
-  state.deploymentResult = null;
 }
 
 function sameStringArray(left: unknown[], right: unknown[]): boolean {
@@ -650,7 +636,7 @@ function stateFromPackage(packageValue: unknown): {
   }
   const rendererPackage = requireObject(packageValue, "Renderer package");
   const artifacts = requireObject(rendererPackage.artifacts, "artifacts");
-  const deployment = requireObject(rendererPackage.deployment, "deployment");
+  requireObject(rendererPackage.deployment, "deployment");
   if (!Array.isArray(rendererPackage.examples)) {
     throw new HttpError(400, "examples must be an array.");
   }
@@ -670,7 +656,6 @@ function stateFromPackage(packageValue: unknown): {
     artifactFingerprint: artifacts.artifactFingerprint,
     creationBytecode: artifacts.creationBytecode,
     runtimeBytecode: artifacts.runtimeBytecode,
-    salt: deployment.salt,
     manifest: candidateManifest,
   });
   const requestSetFingerprint = sha256Json(rendererPackage.examples);
@@ -769,9 +754,10 @@ export async function startRendererSessionHelper(
     exampleRequests: null,
     exampleResults: null,
     approval: null,
-    deploymentRequest: null,
-    deploymentResult: null,
   };
+  let sourceImage = options.initialImage
+    ? validateSourceImage(options.initialImage)
+    : undefined;
 
   if (options.initialPackage !== undefined) {
     const initial = stateFromPackage(options.initialPackage);
@@ -783,6 +769,7 @@ export async function startRendererSessionHelper(
   const expire = () => {
     if (closed || state.status === "expired") return;
     clearState(state);
+    sourceImage = undefined;
     state.status = "expired";
   };
 
@@ -823,10 +810,32 @@ export async function startRendererSessionHelper(
     try {
       if (request.method === "GET" && pathname === "/v1/session") {
         return jsonResponse(
-          { sessionId, chainId: CHAIN_ID, expiresAt, status: state.status },
+          {
+            sessionId,
+            chainId: CHAIN_ID,
+            expiresAt,
+            status: state.status,
+            sourceImage: sourceImage
+              ? {
+                  name: sourceImage.name,
+                  mime: sourceImage.mime,
+                  size: sourceImage.bytes.byteLength,
+                }
+              : null,
+          },
           200,
           allowedOrigin,
         );
+      }
+
+      if (request.method === "GET" && pathname === "/v1/source-image") {
+        return sourceImage
+          ? imageResponse(sourceImage, allowedOrigin)
+          : jsonResponse(
+              { error: "No source image is loaded." },
+              404,
+              allowedOrigin,
+            );
       }
 
       if (request.method === "GET" && pathname === "/v1/candidate") {
@@ -893,54 +902,12 @@ export async function startRendererSessionHelper(
         const approval = validateApproval(body);
         assertCurrentApproval(state, approval);
         state.approval = approval;
-        state.deploymentRequest = null;
-        state.deploymentResult = null;
         return jsonResponse(approval, 200, allowedOrigin);
       }
 
       if (request.method === "DELETE" && pathname === "/v1/approval") {
         clearApprovalAndDeployment(state);
         return emptyResponse(204, allowedOrigin);
-      }
-
-      if (request.method === "GET" && pathname === "/v1/deployment-request") {
-        return state.deploymentRequest
-          ? jsonResponse(state.deploymentRequest, 200, allowedOrigin)
-          : jsonResponse(
-              { error: "No deployment request is prepared." },
-              404,
-              allowedOrigin,
-            );
-      }
-
-      if (request.method === "PUT" && pathname === "/v1/deployment-request") {
-        const body = await readBoundedJson(request);
-        rejectSourceImageFields(body);
-        const deployment = validateDeploymentRequest(body);
-        if (
-          !state.approval ||
-          !state.candidate ||
-          deployment.salt !== state.candidate.salt
-        ) {
-          throw new HttpError(409, "Approval or candidate is stale.");
-        }
-        state.deploymentRequest = deployment;
-        state.deploymentResult = null;
-        return jsonResponse(deployment, 200, allowedOrigin);
-      }
-
-      if (request.method === "POST" && pathname === "/v1/deployment-result") {
-        const body = await readBoundedJson(request);
-        rejectSourceImageFields(body);
-        const result = validateDeploymentResult(body);
-        if (
-          !state.deploymentRequest ||
-          result.predictedAddress !== state.deploymentRequest.predictedAddress
-        ) {
-          throw new HttpError(409, "Deployment request is stale.");
-        }
-        state.deploymentResult = result;
-        return jsonResponse(result, 200, allowedOrigin);
       }
 
       if (BODY_METHODS.has(request.method)) {
@@ -993,6 +960,7 @@ export async function startRendererSessionHelper(
       closed = true;
       clearTimeout(expiryTimer);
       clearState(state);
+      sourceImage = undefined;
       state.status = "closed";
       server.stop(true);
     },
@@ -1000,6 +968,7 @@ export async function startRendererSessionHelper(
 }
 
 interface CliOptions {
+  imagePath?: string;
   packagePath?: string;
   pageUrl: string;
   ttlMs: number;
@@ -1016,6 +985,9 @@ function parseCliOptions(arguments_: string[]): CliOptions {
     if (argument === "--package" && value) {
       options.packagePath = value;
       index += 1;
+    } else if (argument === "--image" && value) {
+      options.imagePath = value;
+      index += 1;
     } else if (argument === "--page-url" && value) {
       options.pageUrl = value;
       index += 1;
@@ -1031,6 +1003,32 @@ function parseCliOptions(arguments_: string[]): CliOptions {
     }
   }
   return options;
+}
+
+async function readInitialImage(path: string): Promise<RendererSourceImage> {
+  const file = Bun.file(path);
+  if (!(await file.exists())) {
+    throw new Error(`Source image does not exist: ${path}`);
+  }
+  if (file.size === 0 || file.size > MAX_SOURCE_IMAGE_BYTES) {
+    throw new Error(
+      `Source image must contain 1 to ${MAX_SOURCE_IMAGE_BYTES} bytes.`,
+    );
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+  const mime =
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+      ? "image/jpeg"
+      : bytes.length >= pngSignature.length &&
+          pngSignature.every((value, index) => bytes[index] === value)
+        ? "image/png"
+        : undefined;
+  if (!mime) throw new Error("Source image must be a JPEG or PNG.");
+  return validateSourceImage({ name: basename(path), mime, bytes });
 }
 
 async function readInitialPackage(path: string): Promise<unknown> {
@@ -1053,10 +1051,14 @@ async function main(): Promise<void> {
   const initialPackage = cli.packagePath
     ? await readInitialPackage(cli.packagePath)
     : undefined;
+  const initialImage = cli.imagePath
+    ? await readInitialImage(cli.imagePath)
+    : undefined;
   const helper = await startRendererSessionHelper({
     pageUrl: cli.pageUrl,
     ttlMs: cli.ttlMs,
     initialPackage,
+    initialImage,
   });
 
   console.log(helper.pageUrl);

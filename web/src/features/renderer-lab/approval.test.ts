@@ -1,4 +1,4 @@
-import { getAddress, getCreate2Address, keccak256, type Hex } from "viem";
+import type { Hex } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -17,17 +17,13 @@ import {
   RendererApprovalError,
 } from "@/features/renderer-lab/approval";
 
-const deployer = getAddress("0x4e59b44847b379578588920cA78FbF26c0B4956C");
 const interfaceSchema = `0x${"12".repeat(32)}` as Hex;
 
 function candidateFixture({
   creationBytecode = "0x6000600055",
-  salt = `0x${"34".repeat(32)}` as Hex,
 }: {
   creationBytecode?: Hex;
-  salt?: Hex;
 } = {}): RendererCandidateInput {
-  const initCodeHash = keccak256(creationBytecode);
   return {
     candidateId: "candidate-1",
     chainId: 46_630,
@@ -35,15 +31,7 @@ function candidateFixture({
     interfaceSchema,
     creationBytecode,
     runtimeBytecode: "0x6000",
-    create2Deployer: deployer,
-    salt,
-    initCodeHash,
-    predictedAddress: getCreate2Address({
-      from: deployer,
-      salt,
-      bytecodeHash: initCodeHash,
-    }),
-    rawByteLength: (salt.length - 2) / 2 + (creationBytecode.length - 2) / 2,
+    initCodeByteLength: (creationBytecode.length - 2) / 2,
   };
 }
 
@@ -202,7 +190,7 @@ describe("renderer creator approval", () => {
 
     const changedCandidate = replaceRendererCandidate(
       approvedState,
-      candidateFixture({ salt: `0x${"35".repeat(32)}` }),
+      candidateFixture({ creationBytecode: "0x6001600055" }),
     );
 
     const changedRequests = replaceRendererPreviewRequests(

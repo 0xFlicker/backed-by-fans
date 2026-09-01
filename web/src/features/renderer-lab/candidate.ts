@@ -1,4 +1,4 @@
-import { keccak256, stringToHex, type Address, type Hex } from "viem";
+import { keccak256, stringToHex, type Hex } from "viem";
 
 export type RendererCandidateInput = {
   candidateId: string;
@@ -7,11 +7,7 @@ export type RendererCandidateInput = {
   interfaceSchema: Hex;
   creationBytecode: Hex;
   runtimeBytecode: Hex;
-  create2Deployer: Address;
-  salt: Hex;
-  initCodeHash: Hex;
-  predictedAddress: Address;
-  rawByteLength: number;
+  initCodeByteLength: number;
 };
 
 export type RendererCandidate = RendererCandidateInput & {
@@ -173,11 +169,7 @@ export function fingerprintRendererCandidate(
     interfaceSchema: candidate.interfaceSchema.toLowerCase(),
     creationBytecode: candidate.creationBytecode.toLowerCase(),
     runtimeBytecode: candidate.runtimeBytecode.toLowerCase(),
-    create2Deployer: candidate.create2Deployer.toLowerCase(),
-    salt: candidate.salt.toLowerCase(),
-    initCodeHash: candidate.initCodeHash.toLowerCase(),
-    predictedAddress: candidate.predictedAddress.toLowerCase(),
-    rawByteLength: candidate.rawByteLength,
+    initCodeByteLength: candidate.initCodeByteLength,
   });
 }
 

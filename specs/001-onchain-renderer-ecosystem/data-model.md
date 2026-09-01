@@ -8,11 +8,10 @@ Represents the one chain supported by a product environment.
 |---|---|---|
 | `chainId` | `46630 \| 31337` | `46630` is the only public target in scope; `31337` is local evidence only. |
 | `rpc` | runtime transport | Comes from existing public configuration; never copied into artifacts or logs. |
-| `create2Deployer` | address | Must equal the configured canonical deployer and have the expected code. |
 | `previewHarness` | address | Generated from the promoted deployment record; required for undeployed preview. |
-| `maxRawDeploymentBytes` | integer | `95_000` for Robinhood public admission. |
+| `rendererRegistry` | address | Optional until deployed; required only for browser renderer deployment and creator enumeration. |
 | `maxRendererRuntimeBytes` | integer | Project ceiling `88_000`. |
-| `maxRendererInitcodeBytes` | integer | Project ceiling `176_000`. |
+| `maxRendererInitcodeBytes` | integer | Registry ceiling `94_656`, leaving room for the signed transaction envelope under the chain's 95,000-byte limit. |
 
 ## Renderer Contract
 
@@ -23,7 +22,7 @@ The directly selected membership renderer.
 | `chainId` | canonical chain ID | Inferred from environment, never selected independently. |
 | `address` | address | Must contain code on the canonical chain before use in a tier. |
 | `schema` | bytes32 | Expected `BackedByFans.MembershipRenderer.v1` schema. |
-| `name` | string | Display information only; absence does not create a registry record. |
+| `name` | string | Display information read from the renderer. |
 | `engineManifest` | array | Optional display/configuration aid read directly from the contract. |
 
 **Identity**: `(chainId, address)`. The same hexadecimal address in another environment is a
@@ -39,9 +38,7 @@ A locally built renderer that has not necessarily been deployed.
 | `artifactFingerprint` | bytes32/hex | Hash of final creation bytecode, runtime bytecode, constructor inputs, compiler profile, and interface schema. |
 | `creationBytecode` | hex | Complete final initcode used by preview harness and deployment. |
 | `runtimeBytecode` | hex | Used for size reporting and local tests, not as a registry identity. |
-| `initCodeHash` | bytes32 | `keccak256(creationBytecode)`. |
-| `salt` | bytes32 | Explicit creator/agent-selected deployment salt. |
-| `predictedAddress` | address | Derived from canonical deployer, salt, and `initCodeHash`. |
+| `initCodeByteLength` | integer | Must equal the complete `creationBytecode` length and fit the registry limit. |
 | `sourceRoot` | local path | Remains local; never accepted by a hosted compilation endpoint. |
 | `packageManifest` | object | Conforms to `contracts/renderer-package.schema.json`. |
 | `status` | enum | `building`, `ready`, `previewing`, `approved`, `invalidated`, `deployed`, `failed`. |
@@ -56,7 +53,7 @@ building -> ready -> previewing -> approved -> deployed
                  artifact/config/request change -> ready
 ```
 
-Any bytecode, constructor, salt, configuration, or representative-request change invalidates the
+Any bytecode, constructor, configuration, representative-request, or displayed-result change invalidates the
 current approval and prepared deployment request.
 
 ## Renderer Input
@@ -121,7 +118,7 @@ The agent writes a `*.renderer.json` file and the creator drops or selects it in
 file contains no wallet secret, wallet signature, authentication artifact, local capability, paid
 RPC credential, source image, or rendered output. Import requires no loopback access. The
 browser validates schema and size, requires the environment's canonical chain, and recomputes the
-artifact fingerprint, initcode hash, raw CREATE2 payload size, and predicted address before the
+artifact fingerprint and final initcode/runtime byte lengths before the
 candidate can be previewed. A page refresh or closure discards imported state.
 
 ## Local Renderer Helper Session
@@ -140,7 +137,6 @@ Optional loopback coordination between the public creator page and local agent h
 | `candidate` | Renderer Candidate | At most one current candidate. |
 | `requests/results` | bounded maps | Process memory only; cleared at expiry/close. |
 | `approval` | Creator Approval or null | Cleared on candidate/request/result mutation. |
-| `deployment` | Deployment Request or null | Exists only after approval. |
 
 ### Session transitions
 
@@ -170,12 +166,9 @@ Approval is a temporary UX gate, not platform certification and not an onchain a
 | Field | Type | Rules |
 |---|---|---|
 | `chainId` | canonical chain ID | Must match the package, page environment, and connected wallet at deployment. |
-| `deployer` | address | Existing canonical CREATE2 deployer. |
-| `salt` | bytes32 | Same salt used for prediction. |
+| `registry` | address | Configured onchain renderer registry. |
 | `initcode` | hex | Exact approved final creation payload. |
-| `calldata` | hex | Exact `salt || initcode` expected by configured deployer. |
-| `rawByteLength` | integer | Must be `< 95_000` on Robinhood public chains. |
-| `predictedAddress` | address | Must contain no code before submission. |
+| `initCodeByteLength` | integer | Must be at most `94_656`. |
 | `approvalFingerprint` | hex | Invalidated whenever approved inputs change. |
 | `state` | enum | `prepared`, `awaiting-creator`, `wallet-pending`, `confirmed`, `failed`. |
 
@@ -186,7 +179,7 @@ supplied receipt advances product reconciliation to `confirmed`.
 ## Membership Renderer Reference
 
 The new tier stores and exposes one direct `renderer` address. There is no renderer version,
-enablement status, registry entry, or user-renderer listing in the new protocol path. Membership
+enablement status or renderer registry entry in the membership protocol path. Membership
 views always display a copy action for this address, including when the current renderer call fails.
 
 ## Renderer Package
@@ -196,12 +189,12 @@ and deployment inputs in one JSON file.
 
 | Field | Type | Rules |
 |---|---|---|
-| `formatVersion` | literal | Starts at `1`. |
+| `formatVersion` | literal | Current version is `2`. |
 | `rendererName` | string | Human-readable. |
 | `interfaceSchema` | bytes32/hex | Fixed renderer schema. |
 | `compiler` | object | Solidity version, EVM version, optimizer settings. |
 | `artifacts` | object | Source reference plus complete ABI, creation bytecode, runtime bytecode, and fingerprint. |
-| `deployment` | object | Salt, chain, predicted address, and payload measurements. |
+| `deployment` | object | Canonical chain and final initcode byte length. |
 | `examples` | array | Embedded representative requests without creator image bytes or prior results. |
 | `skill` | string | Inert reference to the renderer skill entrypoint. |
 | `llms` | string | Inert reference to renderer-specific `llms.txt`. |
@@ -209,3 +202,19 @@ and deployment inputs in one JSON file.
 The webpage accepts at most 1,000,000 bytes for the first implementation. It never resolves local
 paths from the package or evaluates imported text as code. The package can be used for the manual
 browser handoff, while runtime sharing after deployment still requires only the contract address.
+
+## Renderer Registry
+
+The registry is a separate permissionless index and deployment surface, not part of tier admission.
+
+| Field | Type | Rules |
+|---|---|---|
+| `creators` | append-only address array | Adds a caller after their first successful registry deployment. |
+| `creatorOf(renderer)` | address | Set only when the registry creates the renderer. |
+| `createdRenderers(owner)` | current address array | Creator-provenance entries; bounded pagination. |
+| `savedRenderers(owner)` | current address array | Directly registered existing addresses; never claims authorship. |
+| `registrationKind(owner, renderer)` | enum | `None`, `Created`, or `Saved`. |
+
+`deployAndRegister(initCode)` creates and validates the renderer, returns and emits the actual
+address, and records it in one transaction. `register(address)` and `unregister(address)` only alter
+the caller's current index. No registry method approves a renderer or controls membership use.

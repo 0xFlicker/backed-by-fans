@@ -42,7 +42,7 @@ export type StudioRenderer = Pick<
   "address" | "name" | "engines"
 >;
 
-export type RendererChoice = "original" | "custom";
+export type RendererChoice = "original" | "created" | "custom";
 
 export type CreatorStudioProps = {
   art: AnyStudioArtConfig;
@@ -51,6 +51,7 @@ export type CreatorStudioProps = {
   preview: PreviewGalleryModel;
   renderer?: StudioRenderer;
   rendererChoice: RendererChoice;
+  createdRenderers: readonly StudioRenderer[];
   styleEngines: readonly string[];
   customRendererAddress: string;
   customRendererState: CustomRendererState;
@@ -58,6 +59,7 @@ export type CreatorStudioProps = {
   onArtChange: (art: AnyStudioArtConfig) => void;
   onEngineChange: (engine: number) => void;
   onRendererChoiceChange: (choice: RendererChoice) => void;
+  onCreatedRendererChange: (renderer: StudioRenderer) => void;
   onCustomRendererAddressChange: (address: string) => void;
   onMediaChange: (media: StudioMediaDraft) => void;
   onSelectionChange: (selection: PreviewSelection) => void;
@@ -86,6 +88,7 @@ export function CreatorStudio({
   preview,
   renderer,
   rendererChoice,
+  createdRenderers,
   styleEngines,
   customRendererAddress,
   customRendererState,
@@ -93,6 +96,7 @@ export function CreatorStudio({
   onArtChange,
   onEngineChange,
   onRendererChoiceChange,
+  onCreatedRendererChange,
   onCustomRendererAddressChange,
   onMediaChange,
   onSelectionChange,
@@ -148,6 +152,20 @@ export function CreatorStudio({
       setEngineUndo(undefined);
       onRendererChoiceChange("custom");
       setStudioAnnouncement("Custom renderer selected.");
+      return;
+    }
+
+    if (typeof selection === "string") {
+      const address = selection.slice("created:".length) as Address;
+      const nextRenderer = createdRenderers.find((candidate) =>
+        isSameAddress(candidate.address, address),
+      );
+      if (!nextRenderer) return;
+      setEngineUndo(undefined);
+      onRendererChoiceChange("created");
+      onCreatedRendererChange(nextRenderer);
+      onEngineChange(0);
+      setStudioAnnouncement(`${nextRenderer.name} selected.`);
       return;
     }
 
@@ -269,11 +287,18 @@ export function CreatorStudio({
           <EnginePicker
             customAddress={customRendererAddress}
             customState={customRendererState}
+            createdRenderers={createdRenderers}
             disabled={disabled}
             engines={styleEngines}
             onChange={changeStyle}
             onCustomAddressChange={onCustomRendererAddressChange}
-            value={rendererChoice === "custom" ? "custom" : selectedEngine}
+            value={
+              rendererChoice === "custom"
+                ? "custom"
+                : rendererChoice === "created" && renderer
+                  ? `created:${renderer.address}`
+                  : selectedEngine
+            }
           />
         </aside>
 

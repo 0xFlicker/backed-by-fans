@@ -3,16 +3,15 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { randomInt } from "node:crypto";
 
 export const CANONICAL_CHAIN_ID = 46_630;
-export const CANONICAL_CREATE2_DEPLOYER =
-  "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 export const DEFAULT_INTERFACE_SCHEMA =
   "0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4";
 export const MAX_RUNTIME_BYTES = 88_000;
-export const MAX_INITCODE_BYTES = 176_000;
-export const MAX_RAW_CREATE2_BYTES = 95_000;
+// Preserves room for ABI and a conservatively large signed EIP-1559 envelope under Nitro's
+// 95,000-byte transaction limit.
+export const MAX_INITCODE_BYTES = 94_656;
 
-const SKILL_REFERENCE = ".agents/skills/backed-by-fans-renderer/SKILL.md";
-const LLMS_REFERENCE = ".agents/skills/backed-by-fans-renderer/llms.txt";
+const SKILL_REFERENCE = "SKILL.md";
+const LLMS_REFERENCE = "llms.txt";
 const ARTIFACT_FINGERPRINT_SIGNATURE =
   "f(bytes,bytes,string,string,bool,uint256,bytes32)";
 const REQUIRED_RENDERER_METHODS = [
@@ -28,7 +27,6 @@ const REQUIRED_RENDERER_METHODS = [
 const LOOPBACK_HOST = "127.0.0.1";
 const HIGH_PORT_MIN = 49_152;
 const HIGH_PORT_MAX = 65_535;
-const LOCAL_TRACE_CALLER = "0x000000000000000000000000000000000000b0bf";
 
 type Hex = `0x${string}`;
 
@@ -99,7 +97,7 @@ export type RendererPackageExample = {
 };
 
 export type RendererPackage = {
-  formatVersion: 1;
+  formatVersion: 2;
   rendererName: string;
   interfaceSchema: Hex;
   compiler: {
@@ -119,11 +117,7 @@ export type RendererPackage = {
   };
   deployment: {
     chainId: typeof CANONICAL_CHAIN_ID;
-    create2Deployer: typeof CANONICAL_CREATE2_DEPLOYER;
-    salt: Hex;
-    initCodeHash: Hex;
-    predictedAddress: Hex;
-    rawByteLength: number;
+    initCodeByteLength: number;
   };
   examples: RendererPackageExample[];
   skill: string;
@@ -135,7 +129,6 @@ type BuildRendererPackageOptions = {
   constructorArgs?: string;
   finalRuntimeBytecode: string;
   rendererName?: string;
-  salt?: string;
   sourceRoot: string;
 };
 
@@ -144,14 +137,9 @@ export type LocalAnvil = {
   rpcUrl: string;
 };
 
-type StateOverride = {
-  code?: Hex;
-  stateDiff?: Record<string, Hex>;
-};
-
 export type SimulatedRendererDeployment = {
+  rendererAddress: Hex;
   runtimeBytecode: Hex;
-  stateOverrides: Record<string, StateOverride>;
 };
 
 type CliOptions = {
@@ -160,7 +148,6 @@ type CliOptions = {
   constructorArgs?: string;
   outputPath?: string;
   rendererName?: string;
-  salt?: string;
 };
 
 function commandOutput(command: string[]): string {
@@ -288,79 +275,57 @@ function concatenateHex(first: Hex, second: Hex): Hex {
   return `${first}${second.slice(2)}` as Hex;
 }
 
-function tracePostValue(value: unknown): string | undefined {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return undefined;
-  const change = value as Record<string, unknown>;
-  if (typeof change["+"] === "string") return change["+"];
-  if (change["-"] !== undefined) return `0x${"00".repeat(32)}`;
-  const replacement = change["*"];
-  if (replacement && typeof replacement === "object") {
-    const to = (replacement as Record<string, unknown>).to;
-    if (typeof to === "string") return to;
-  }
-  return undefined;
-}
-
 export async function simulateRendererDeployment(
   local: LocalAnvil,
-  deployment: {
-    creationBytecode: string;
-    predictedAddress: string;
-    salt: string;
-  },
+  creationBytecodeInput: string,
 ): Promise<SimulatedRendererDeployment> {
   const creationBytecode = normalizeHex(
-    deployment.creationBytecode,
+    creationBytecodeInput,
     "Final renderer initcode",
   );
-  const salt = normalizeBytes32(deployment.salt, "CREATE2 salt");
-  if (!/^0x[0-9a-fA-F]{40}$/.test(deployment.predictedAddress)) {
-    throw new Error("Predicted CREATE2 address is invalid.");
+  const accounts = await anvilRpc(local.rpcUrl, "eth_accounts", []);
+  const deployer = Array.isArray(accounts) ? accounts[0] : undefined;
+  if (typeof deployer !== "string") {
+    throw new Error("Local Anvil returned no unlocked deployment account.");
   }
-  const trace = (await anvilRpc(local.rpcUrl, "debug_traceCall", [
+  const transactionHash = await anvilRpc(local.rpcUrl, "eth_sendTransaction", [
     {
-      data: concatenateHex(salt, creationBytecode),
-      from: LOCAL_TRACE_CALLER,
+      data: creationBytecode,
+      from: deployer,
       gas: "0x3b9aca00",
-      to: CANONICAL_CREATE2_DEPLOYER,
     },
-    "latest",
-    { tracer: "prestateTracer", tracerConfig: { diffMode: true } },
-  ])) as { post?: Record<string, Record<string, unknown>> };
-  if (!trace.post) {
-    throw new Error("Local CREATE2 simulation returned no post-state.");
+  ]);
+  if (typeof transactionHash !== "string") {
+    throw new Error("Local renderer deployment returned no transaction hash.");
   }
-
-  const stateOverrides: Record<string, StateOverride> = {};
-  for (const [address, account] of Object.entries(trace.post)) {
-    const code = tracePostValue(account.code);
-    const storageEntries = Object.entries(
-      (account.storage as Record<string, unknown> | undefined) ?? {},
-    ).flatMap(([slot, change]) => {
-      const value = tracePostValue(change);
-      return value
-        ? [[slot, normalizeHex(value, "Simulated storage value")]]
-        : [];
-    });
-    if (code || storageEntries.length > 0) {
-      stateOverrides[address.toLowerCase()] = {
-        ...(code ? { code: normalizeHex(code, "Simulated account code") } : {}),
-        ...(storageEntries.length > 0
-          ? { stateDiff: Object.fromEntries(storageEntries) }
-          : {}),
-      };
+  let rendererAddress: unknown;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const receipt = (await anvilRpc(local.rpcUrl, "eth_getTransactionReceipt", [
+      transactionHash,
+    ])) as { contractAddress?: unknown; status?: unknown } | null;
+    if (receipt) {
+      if (receipt.status !== "0x1" || typeof receipt.contractAddress !== "string") {
+        throw new Error("Local renderer deployment reverted.");
+      }
+      rendererAddress = receipt.contractAddress;
+      break;
     }
+    await Bun.sleep(25);
   }
-
-  const rendererState =
-    stateOverrides[deployment.predictedAddress.toLowerCase()];
-  if (!rendererState?.code || rendererState.code === "0x") {
-    throw new Error(
-      "Local CREATE2 simulation produced no runtime at the predicted address.",
-    );
+  if (typeof rendererAddress !== "string") {
+    throw new Error("Local renderer deployment receipt did not arrive.");
   }
-  return { runtimeBytecode: rendererState.code, stateOverrides };
+  const runtimeBytecode = normalizeHex(
+    await anvilRpc(local.rpcUrl, "eth_getCode", [rendererAddress, "latest"]),
+    "Local renderer runtime bytecode",
+  );
+  if (runtimeBytecode === "0x") {
+    throw new Error("Local renderer deployment produced no runtime code.");
+  }
+  return {
+    rendererAddress: rendererAddress as Hex,
+    runtimeBytecode,
+  };
 }
 
 function keccakBytes(value: Hex): Hex {
@@ -368,41 +333,6 @@ function keccakBytes(value: Hex): Hex {
     commandOutput(["cast", "keccak", value]),
     "Keccak hash",
   );
-}
-
-function keccakText(value: string): Hex {
-  return normalizeBytes32(
-    commandOutput(["cast", "keccak", value]),
-    "Keccak hash",
-  );
-}
-
-function create2Deployment(creationBytecode: Hex, requestedSalt?: string) {
-  const initCodeHash = keccakBytes(creationBytecode);
-  const salt = normalizeBytes32(
-    requestedSalt ?? keccakText(`BackedByFans.RendererSalt.v1:${initCodeHash}`),
-    "CREATE2 salt",
-  );
-  const rawByteLength = 32 + byteLength(creationBytecode);
-  if (rawByteLength >= MAX_RAW_CREATE2_BYTES) {
-    throw new Error(
-      `Raw salt || initcode is ${rawByteLength} bytes; Robinhood Nitro requires fewer than ${MAX_RAW_CREATE2_BYTES}.`,
-    );
-  }
-  const predictedAddress = commandOutput([
-    "cast",
-    "create2",
-    "--deployer",
-    CANONICAL_CREATE2_DEPLOYER,
-    "--salt",
-    salt,
-    "--init-code-hash",
-    initCodeHash,
-  ]) as Hex;
-  if (!/^0x[0-9a-fA-F]{40}$/.test(predictedAddress)) {
-    throw new Error("Foundry returned an invalid predicted CREATE2 address.");
-  }
-  return { initCodeHash, predictedAddress, rawByteLength, salt };
 }
 
 function artifactContractName(artifact: FoundryRendererArtifact): string {
@@ -571,8 +501,6 @@ export function buildRendererPackage(
     "Encoded artifact fingerprint",
   );
   const artifactFingerprint = keccakBytes(encodedFingerprint);
-  const { initCodeHash, predictedAddress, rawByteLength, salt } =
-    create2Deployment(creationBytecode, options.salt);
   const rendererName = (
     options.rendererName ?? artifactContractName(options.artifact)
   ).trim();
@@ -589,7 +517,7 @@ export function buildRendererPackage(
   }
 
   return {
-    formatVersion: 1,
+    formatVersion: 2,
     rendererName,
     interfaceSchema,
     compiler,
@@ -604,11 +532,7 @@ export function buildRendererPackage(
     },
     deployment: {
       chainId: CANONICAL_CHAIN_ID,
-      create2Deployer: CANONICAL_CREATE2_DEPLOYER,
-      salt,
-      initCodeHash,
-      predictedAddress,
-      rawByteLength,
+      initCodeByteLength: creationByteLength,
     },
     examples: representativeRendererExamples(),
     skill: SKILL_REFERENCE,
@@ -619,6 +543,11 @@ export function buildRendererPackage(
 function artifactImplementsRenderer(
   artifact: FoundryRendererArtifact,
 ): boolean {
+  const creationBytecode = artifact.bytecode.object.replace(/^0x/, "");
+  const runtimeBytecode = artifact.deployedBytecode.object.replace(/^0x/, "");
+  if (creationBytecode.length === 0 || runtimeBytecode.length === 0) {
+    return false;
+  }
   const methods = new Set(
     artifact.abi
       .filter((entry) => entry.type === "function")
@@ -688,7 +617,7 @@ function parseCliOptions(args: string[]): CliOptions {
   const [sourceRootInput, ...rest] = args;
   if (!sourceRootInput || sourceRootInput.startsWith("--")) {
     throw new Error(
-      "Usage: bun build-package.ts <foundry-root> [--artifact path] [--constructor-args 0x...] [--salt 0x...] [--renderer-name name] [--output path]",
+      "Usage: bun build-package.ts <foundry-root> [--artifact path] [--constructor-args 0x...] [--renderer-name name] [--output path]",
     );
   }
   const options: CliOptions = { sourceRoot: resolve(sourceRootInput) };
@@ -708,9 +637,6 @@ function parseCliOptions(args: string[]): CliOptions {
       case "--renderer-name":
         options.rendererName = value;
         break;
-      case "--salt":
-        options.salt = value;
-        break;
       default:
         throw new Error(`Unknown option: ${option}`);
     }
@@ -729,16 +655,11 @@ export async function runBuildPackageCli(args: string[]): Promise<string> {
     artifact,
     options.constructorArgs,
   );
-  const deployment = create2Deployment(creationBytecode, options.salt);
   const local = await startLocalAnvil();
   let finalRuntimeBytecode: Hex;
   try {
     finalRuntimeBytecode = (
-      await simulateRendererDeployment(local, {
-        creationBytecode,
-        predictedAddress: deployment.predictedAddress,
-        salt: deployment.salt,
-      })
+      await simulateRendererDeployment(local, creationBytecode)
     ).runtimeBytecode;
   } finally {
     local.process.kill();
@@ -749,7 +670,6 @@ export async function runBuildPackageCli(args: string[]): Promise<string> {
     constructorArgs: options.constructorArgs,
     finalRuntimeBytecode,
     rendererName: options.rendererName,
-    salt: deployment.salt,
     sourceRoot: options.sourceRoot,
   });
   const outputPath = resolve(

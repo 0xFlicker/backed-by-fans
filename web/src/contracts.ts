@@ -2942,6 +2942,310 @@ export const rendererPreviewHarnessConfig = {
 } as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// RendererRegistry
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const rendererRegistryAbi = [
+  {
+    type: "function",
+    inputs: [{ name: "owner", internalType: "address", type: "address" }],
+    name: "createdRendererCount",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "offset", internalType: "uint256", type: "uint256" },
+      { name: "limit", internalType: "uint256", type: "uint256" },
+    ],
+    name: "createdRenderers",
+    outputs: [{ name: "page", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "creatorCount",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "renderer", internalType: "address", type: "address" }],
+    name: "creatorOf",
+    outputs: [{ name: "creator", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "offset", internalType: "uint256", type: "uint256" },
+      { name: "limit", internalType: "uint256", type: "uint256" },
+    ],
+    name: "creators",
+    outputs: [{ name: "page", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "initCode", internalType: "bytes", type: "bytes" }],
+    name: "deployAndRegister",
+    outputs: [{ name: "renderer", internalType: "address", type: "address" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "creator", internalType: "address", type: "address" }],
+    name: "isCreator",
+    outputs: [{ name: "known", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "maxInitCodeBytes",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "maxPageSize",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "renderer", internalType: "address", type: "address" }],
+    name: "register",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "renderer", internalType: "address", type: "address" },
+    ],
+    name: "registrationKind",
+    outputs: [
+      {
+        name: "kind",
+        internalType: "enum IRendererRegistry.RegistrationKind",
+        type: "uint8",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "rendererSchema",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "owner", internalType: "address", type: "address" }],
+    name: "savedRendererCount",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "offset", internalType: "uint256", type: "uint256" },
+      { name: "limit", internalType: "uint256", type: "uint256" },
+    ],
+    name: "savedRenderers",
+    outputs: [{ name: "page", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "renderer", internalType: "address", type: "address" }],
+    name: "unregister",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "creator",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "creatorIndex",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+    ],
+    name: "CreatorAdded",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "creator",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "renderer",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "initCodeHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: true,
+      },
+      {
+        name: "createdIndex",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "RendererDeployed",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "renderer",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "kind",
+        internalType: "enum IRendererRegistry.RegistrationKind",
+        type: "uint8",
+        indexed: true,
+      },
+      {
+        name: "index",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "RendererRegistered",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "renderer",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "kind",
+        internalType: "enum IRendererRegistry.RegistrationKind",
+        type: "uint8",
+        indexed: true,
+      },
+    ],
+    name: "RendererUnregistered",
+  },
+  { type: "error", inputs: [], name: "DeploymentFailed" },
+  {
+    type: "error",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "renderer", internalType: "address", type: "address" },
+    ],
+    name: "DuplicateRegistration",
+  },
+  { type: "error", inputs: [], name: "EmptyInitCode" },
+  {
+    type: "error",
+    inputs: [
+      { name: "maximum", internalType: "uint256", type: "uint256" },
+      { name: "actual", internalType: "uint256", type: "uint256" },
+    ],
+    name: "InitCodeTooLarge",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "maximum", internalType: "uint256", type: "uint256" },
+      { name: "actual", internalType: "uint256", type: "uint256" },
+    ],
+    name: "InvalidPageSize",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "renderer", internalType: "address", type: "address" }],
+    name: "InvalidRenderer",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "expected", internalType: "bytes32", type: "bytes32" },
+      { name: "actual", internalType: "bytes32", type: "bytes32" },
+    ],
+    name: "InvalidRendererSchema",
+  },
+  { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
+  {
+    type: "error",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "renderer", internalType: "address", type: "address" },
+    ],
+    name: "RendererNotRegistered",
+  },
+] as const;
+
+/**
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const rendererRegistryAddress = {
+  46630: "0x4d421062e1Af4AB12e4f65ba475F169f633d745A",
+} as const;
+
+/**
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const rendererRegistryConfig = {
+  address: rendererRegistryAddress,
+  abi: rendererRegistryAbi,
+} as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // TestnetUSDG
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -5312,6 +5616,312 @@ export const useSimulateRendererPreviewHarnessPreview =
     abi: rendererPreviewHarnessAbi,
     address: rendererPreviewHarnessAddress,
     functionName: "preview",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistry = /*#__PURE__*/ createUseReadContract({
+  abi: rendererRegistryAbi,
+  address: rendererRegistryAddress,
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"createdRendererCount"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryCreatedRendererCount =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "createdRendererCount",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"createdRenderers"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryCreatedRenderers =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "createdRenderers",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"creatorCount"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryCreatorCount =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "creatorCount",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"creatorOf"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryCreatorOf =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "creatorOf",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"creators"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryCreators =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "creators",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"isCreator"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryIsCreator =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "isCreator",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"maxInitCodeBytes"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryMaxInitCodeBytes =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "maxInitCodeBytes",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"maxPageSize"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryMaxPageSize =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "maxPageSize",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"registrationKind"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryRegistrationKind =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "registrationKind",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"rendererSchema"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistryRendererSchema =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "rendererSchema",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"savedRendererCount"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistrySavedRendererCount =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "savedRendererCount",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"savedRenderers"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useReadRendererRegistrySavedRenderers =
+  /*#__PURE__*/ createUseReadContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "savedRenderers",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link rendererRegistryAbi}__
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useWriteRendererRegistry = /*#__PURE__*/ createUseWriteContract({
+  abi: rendererRegistryAbi,
+  address: rendererRegistryAddress,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"deployAndRegister"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useWriteRendererRegistryDeployAndRegister =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "deployAndRegister",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"register"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useWriteRendererRegistryRegister =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "register",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"unregister"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useWriteRendererRegistryUnregister =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "unregister",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link rendererRegistryAbi}__
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useSimulateRendererRegistry =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"deployAndRegister"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useSimulateRendererRegistryDeployAndRegister =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "deployAndRegister",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"register"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useSimulateRendererRegistryRegister =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "register",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"unregister"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useSimulateRendererRegistryUnregister =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    functionName: "unregister",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link rendererRegistryAbi}__
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useWatchRendererRegistryEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link rendererRegistryAbi}__ and `eventName` set to `"CreatorAdded"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useWatchRendererRegistryCreatorAddedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    eventName: "CreatorAdded",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link rendererRegistryAbi}__ and `eventName` set to `"RendererDeployed"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useWatchRendererRegistryRendererDeployedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    eventName: "RendererDeployed",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link rendererRegistryAbi}__ and `eventName` set to `"RendererRegistered"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useWatchRendererRegistryRendererRegisteredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    eventName: "RendererRegistered",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link rendererRegistryAbi}__ and `eventName` set to `"RendererUnregistered"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
+ */
+export const useWatchRendererRegistryRendererUnregisteredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: rendererRegistryAbi,
+    address: rendererRegistryAddress,
+    eventName: "RendererUnregistered",
   });
 
 /**

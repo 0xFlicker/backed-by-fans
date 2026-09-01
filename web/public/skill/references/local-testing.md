@@ -46,6 +46,8 @@ This wrapper:
 
 The six cases are token IDs 1, 7, and 42 across active and expired states, with generated and browser-image slots represented.
 
+The package contains final initcode for the public browser to pass to the renderer registry. It does not contain a deployment salt or predicted address; the registry returns the actual address after the creator signs the deployment transaction.
+
 A failed call should appear as a failed example and should be fixed before asking the creator to accept the design. A successful call means only that the tested interface call returned a displayable result.
 
 ## 4. Ask the creator

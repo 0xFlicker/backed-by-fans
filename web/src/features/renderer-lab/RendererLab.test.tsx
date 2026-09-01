@@ -9,19 +9,20 @@ import userEvent from "@testing-library/user-event";
 import {
   encodeAbiParameters,
   getAddress,
-  getCreate2Address,
   keccak256,
   type Hex,
   type PublicClient,
 } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { rendererRegistryAddress } from "@/contracts";
 import { RendererLab } from "@/features/renderer-lab/RendererLab";
 import { previewRendererRequest } from "@/features/renderer-lab/preview";
 
 const previewMock = vi.hoisted(() => vi.fn());
 const processImageMock = vi.hoisted(() => vi.fn());
 const prepareDeploymentMock = vi.hoisted(() => vi.fn());
+const simulateContractMock = vi.hoisted(() => vi.fn());
 const sendTransactionMock = vi.hoisted(() => vi.fn());
 const resetTransactionMock = vi.hoisted(() => vi.fn());
 const switchChainMock = vi.hoisted(() => vi.fn());
@@ -32,6 +33,7 @@ const wagmiState = vi.hoisted(() => ({
     isConnected: false,
   },
   receipt: {
+    data: undefined as { logs: [] } | undefined,
     error: null as Error | null,
     isLoading: false,
     isSuccess: false,
@@ -56,16 +58,20 @@ vi.mock("@/features/creator-studio/image-processing", () => ({
 }));
 
 vi.mock("@/features/renderer-lab/deployment", () => ({
-  canonicalRendererCreate2DeployerCodeHash: `0x${"99".repeat(32)}`,
-  prepareUnsignedRendererDeployment: prepareDeploymentMock,
+  prepareRendererDeployment: prepareDeploymentMock,
+}));
+
+vi.mock("@wagmi/core", () => ({
+  simulateContract: simulateContractMock,
 }));
 
 vi.mock("wagmi", () => ({
   useAccount: () => wagmiState.account,
-  useSendTransaction: () => ({
+  useConfig: () => ({}),
+  useWriteContract: () => ({
     ...wagmiState.transaction,
     reset: resetTransactionMock,
-    sendTransactionAsync: sendTransactionMock,
+    writeContractAsync: sendTransactionMock,
   }),
   useSwitchChain: () => ({ switchChainAsync: switchChainMock }),
   useWaitForTransactionReceipt: () => wagmiState.receipt,
@@ -75,12 +81,8 @@ vi.mock("@/components/WalletControl", () => ({
   WalletControl: () => <div data-testid="wallet-prompt">Wallet connection</div>,
 }));
 
-const canonicalCreate2Deployer = getAddress(
-  "0x4e59b44847b379578588920cA78FbF26c0B4956C",
-);
 const previewHarness = getAddress("0x2222222222222222222222222222222222222222");
 const interfaceSchema = `0x${"12".repeat(32)}` as Hex;
-const salt = `0x${"34".repeat(32)}` as Hex;
 const svg =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#625bff"/></svg>';
 
@@ -119,15 +121,8 @@ function rendererPackage() {
       ],
     ),
   );
-  const initCodeHash = keccak256(creationBytecode);
-  const predictedAddress = getCreate2Address({
-    from: canonicalCreate2Deployer,
-    salt,
-    bytecodeHash: initCodeHash,
-  });
-
   return {
-    formatVersion: 1 as const,
+    formatVersion: 2 as const,
     rendererName: "Moonlit Memberships",
     interfaceSchema,
     compiler,
@@ -142,11 +137,7 @@ function rendererPackage() {
     },
     deployment: {
       chainId: 46_630,
-      create2Deployer: canonicalCreate2Deployer,
-      salt,
-      initCodeHash,
-      predictedAddress,
-      rawByteLength: byteLength(salt) + byteLength(creationBytecode),
+      initCodeByteLength: byteLength(creationBytecode),
     },
     examples: [
       [1, "active", "none"],
@@ -191,6 +182,7 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
   processImageMock.mockReset();
   prepareDeploymentMock.mockReset();
+  simulateContractMock.mockReset();
   sendTransactionMock.mockReset();
   resetTransactionMock.mockReset();
   switchChainMock.mockReset();
@@ -198,6 +190,7 @@ afterEach(() => {
   wagmiState.account.chainId = undefined;
   wagmiState.account.isConnected = false;
   wagmiState.receipt.error = null;
+  wagmiState.receipt.data = undefined;
   wagmiState.receipt.isLoading = false;
   wagmiState.receipt.isSuccess = false;
   wagmiState.transaction.data = undefined;
@@ -249,13 +242,15 @@ describe("public renderer lab", () => {
     const summary = screen.getByRole("region", { name: "Deployment summary" });
     expect(within(summary).getByText("Robinhood testnet")).toBeVisible();
     expect(
-      within(summary).getByText(rendererPackage().deployment.predictedAddress),
+      within(summary).getByText("Returned after deployment"),
     ).toBeVisible();
-    expect(within(summary).getByText("37 bytes")).toBeVisible();
+    expect(within(summary).getByText("5 bytes")).toBeVisible();
     expect(screen.queryByTestId("wallet-prompt")).not.toBeInTheDocument();
 
     await user.click(screen.getByText("Technical details"));
-    expect(within(summary).getByText(salt)).toBeVisible();
+    expect(
+      within(summary).getByText(rendererRegistryAddress[46_630]),
+    ).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Deploy renderer" }));
     expect(screen.getByTestId("wallet-prompt")).toBeVisible();
@@ -266,30 +261,29 @@ describe("public renderer lab", () => {
   it("simulates the prepared request and passes that exact request to wagmi", async () => {
     const user = userEvent.setup();
     const value = rendererPackage();
-    const call = vi.fn().mockResolvedValue({ data: "0x" });
-    const getBytecode = vi.fn().mockResolvedValue("0x6000");
+    const simulatedRequest = {
+      address: getAddress("0x1111111111111111111111111111111111111111"),
+      abi: [],
+      functionName: "deployAndRegister",
+      args: [value.artifacts.creationBytecode],
+    };
     wagmiState.account.address = getAddress(
       "0x7777777777777777777777777777777777777777",
     );
     wagmiState.account.chainId = 46_630;
     wagmiState.account.isConnected = true;
-    wagmiState.receipt.isSuccess = true;
     previewMock.mockResolvedValue(svg);
-    prepareDeploymentMock.mockResolvedValue({
+    prepareDeploymentMock.mockReturnValue({
       approvalFingerprint: `0x${"88".repeat(32)}`,
-      calldata: `${value.deployment.salt}${value.artifacts.creationBytecode.slice(2)}`,
       chainId: 46_630,
-      deployer: value.deployment.create2Deployer,
-      initcode: value.artifacts.creationBytecode,
-      predictedAddress: value.deployment.predictedAddress,
-      rawByteLength: value.deployment.rawByteLength,
-      salt: value.deployment.salt,
+      registry: simulatedRequest.address,
+      initCode: value.artifacts.creationBytecode,
+      initCodeByteLength: value.deployment.initCodeByteLength,
       state: "prepared",
     });
+    simulateContractMock.mockResolvedValue({ request: simulatedRequest });
     sendTransactionMock.mockResolvedValue(`0x${"aa".repeat(32)}`);
-    renderLab({
-      client: { call, getBytecode } as unknown as PublicClient,
-    });
+    renderLab();
 
     await user.upload(screen.getByLabelText("Renderer package"), packageFile());
     await user.click(
@@ -300,17 +294,9 @@ describe("public renderer lab", () => {
     await user.click(screen.getByRole("button", { name: "Deploy renderer" }));
 
     await waitFor(() => expect(sendTransactionMock).toHaveBeenCalledOnce());
-    expect(call).toHaveBeenCalledOnce();
-    expect(sendTransactionMock.mock.calls[0][0]).toEqual(call.mock.calls[0][0]);
+    expect(simulateContractMock).toHaveBeenCalledOnce();
+    expect(sendTransactionMock).toHaveBeenCalledWith(simulatedRequest);
     expect(switchChainMock).not.toHaveBeenCalled();
-    expect(
-      await screen.findByText(
-        `Renderer deployed: ${value.deployment.predictedAddress}`,
-      ),
-    ).toBeVisible();
-    expect(getBytecode).toHaveBeenCalledWith({
-      address: value.deployment.predictedAddress,
-    });
   });
 
   it("accepts drag-and-drop and explains invalid packages without loading them", async () => {
@@ -387,7 +373,6 @@ describe("public renderer lab", () => {
       artifactFingerprint: value.artifacts.artifactFingerprint,
       creationBytecode: value.artifacts.creationBytecode,
       runtimeBytecode: value.artifacts.runtimeBytecode,
-      salt: value.deployment.salt,
       manifest: {
         ...value,
         artifacts: {

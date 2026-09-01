@@ -1,12 +1,14 @@
 import {
-  concatHex,
+  encodeAbiParameters,
+  encodeEventTopics,
+  encodeFunctionData,
   getAddress,
-  getCreate2Address,
-  keccak256,
+  maxUint256,
+  serializeTransaction,
   type Hex,
-  type PublicClient,
+  type Log,
 } from "viem";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { approveRendererCandidate } from "@/features/renderer-lab/approval";
 import {
@@ -17,17 +19,16 @@ import {
   type RendererCandidateInput,
 } from "@/features/renderer-lab/candidate";
 import {
-  prepareUnsignedRendererDeployment,
+  prepareRendererDeployment,
+  rendererAddressFromDeploymentLogs,
   RendererDeploymentPreparationError,
 } from "@/features/renderer-lab/deployment";
+import { maxRendererInitcodeBytes } from "@/features/renderer-lab/package-import";
+import { rendererRegistryAbi } from "@/contracts";
 
-const deployer = getAddress("0x4e59b44847b379578588920cA78FbF26c0B4956C");
-const deployerCode = "0x60016000526001601ff3";
-const deployerCodeHash = keccak256(deployerCode);
-const salt = `0x${"34".repeat(32)}` as Hex;
+const registry = getAddress("0x1111111111111111111111111111111111111111");
 
 function approvedCandidateState(creationBytecode: Hex = "0x6000600055") {
-  const initCodeHash = keccak256(creationBytecode);
   const candidate: RendererCandidateInput = {
     candidateId: "candidate-1",
     chainId: 46_630,
@@ -35,15 +36,7 @@ function approvedCandidateState(creationBytecode: Hex = "0x6000600055") {
     interfaceSchema: `0x${"12".repeat(32)}`,
     creationBytecode,
     runtimeBytecode: "0x6000",
-    create2Deployer: deployer,
-    salt,
-    initCodeHash,
-    predictedAddress: getCreate2Address({
-      from: deployer,
-      salt,
-      bytecodeHash: initCodeHash,
-    }),
-    rawByteLength: (salt.length - 2) / 2 + (creationBytecode.length - 2) / 2,
+    initCodeByteLength: (creationBytecode.length - 2) / 2,
   };
   const requests = Array.from({ length: 6 }, (_, index) => ({
     requestId: `request-${index + 1}`,
@@ -73,77 +66,97 @@ function approvedCandidateState(creationBytecode: Hex = "0x6000600055") {
   return { state, approval: approveRendererCandidate(state) };
 }
 
-function client(getBytecode: PublicClient["getBytecode"]) {
-  return { getBytecode } as Pick<PublicClient, "getBytecode">;
-}
-
-describe("unsigned renderer deployment preparation", () => {
-  it("rejects a predicted CREATE2 address that already contains code", async () => {
+describe("renderer registry deployment preparation", () => {
+  it("requires a configured registry", () => {
     const { state, approval } = approvedCandidateState();
-    const getBytecode = vi
-      .fn<PublicClient["getBytecode"]>()
-      .mockResolvedValueOnce(deployerCode)
-      .mockResolvedValueOnce("0x6002");
 
-    await expect(
-      prepareUnsignedRendererDeployment({
-        client: client(getBytecode),
-        state,
-        approval,
-        expectedDeployerCodeHash: deployerCodeHash,
-      }),
-    ).rejects.toMatchObject({
-      code: "address-occupied",
-    } satisfies Partial<RendererDeploymentPreparationError>);
+    expect(() => prepareRendererDeployment({ state, approval })).toThrow(
+      expect.objectContaining({
+        code: "registry-unavailable",
+      }) as RendererDeploymentPreparationError,
+    );
   });
 
-  it("rejects a raw salt-plus-initcode payload at the 95,000-byte Nitro limit", async () => {
-    const creationBytecode = `0x${"00".repeat(94_968)}` as Hex;
+  it("rejects initcode above the registry transaction limit", () => {
+    const creationBytecode =
+      `0x${"00".repeat(maxRendererInitcodeBytes + 1)}` as Hex;
     const { state, approval } = approvedCandidateState(creationBytecode);
-    const getBytecode = vi
-      .fn<PublicClient["getBytecode"]>()
-      .mockResolvedValue(deployerCode);
 
-    await expect(
-      prepareUnsignedRendererDeployment({
-        client: client(getBytecode),
-        state,
-        approval,
-        expectedDeployerCodeHash: deployerCodeHash,
-      }),
-    ).rejects.toMatchObject({
-      code: "nitro-limit",
-    } satisfies Partial<RendererDeploymentPreparationError>);
+    expect(() =>
+      prepareRendererDeployment({ registry, state, approval }),
+    ).toThrow(
+      expect.objectContaining({
+        code: "nitro-limit",
+      }) as RendererDeploymentPreparationError,
+    );
   });
 
-  it("returns only an exact unsigned request for the current approved inputs", async () => {
-    const { state, approval } = approvedCandidateState();
-    const getBytecode = vi
-      .fn<PublicClient["getBytecode"]>()
-      .mockResolvedValueOnce(deployerCode)
-      .mockResolvedValueOnce(undefined);
-
-    const request = await prepareUnsignedRendererDeployment({
-      client: client(getBytecode),
-      state,
-      approval,
-      expectedDeployerCodeHash: deployerCodeHash,
+  it("leaves room for a conservatively large signed transaction envelope", () => {
+    const data = encodeFunctionData({
+      abi: rendererRegistryAbi,
+      functionName: "deployAndRegister",
+      args: [`0x${"00".repeat(maxRendererInitcodeBytes)}`],
     });
+    const serialized = serializeTransaction(
+      {
+        chainId: 46_630,
+        data,
+        gas: 0xffffffffffffffffn,
+        maxFeePerGas: maxUint256,
+        maxPriorityFeePerGas: maxUint256,
+        nonce: Number.MAX_SAFE_INTEGER,
+        to: registry,
+        type: "eip1559",
+        value: 0n,
+      },
+      {
+        r: `0x${"ff".repeat(32)}`,
+        s: `0x${"ff".repeat(32)}`,
+        yParity: 1,
+      },
+    );
 
-    expect(request).toEqual({
+    expect((serialized.length - 2) / 2).toBeLessThanOrEqual(95_000);
+  });
+
+  it("returns the exact registry input for the approved candidate", () => {
+    const { state, approval } = approvedCandidateState();
+
+    expect(prepareRendererDeployment({ registry, state, approval })).toEqual({
       chainId: 46_630,
-      deployer,
-      salt,
-      initcode: state.candidate!.creationBytecode,
-      calldata: concatHex([salt, state.candidate!.creationBytecode]),
-      rawByteLength: 37,
-      predictedAddress: state.candidate!.predictedAddress,
+      registry,
+      initCode: state.candidate!.creationBytecode,
+      initCodeByteLength: 5,
       approvalFingerprint: approval.fingerprint,
       state: "prepared",
     });
-    expect(getBytecode).toHaveBeenNthCalledWith(1, { address: deployer });
-    expect(getBytecode).toHaveBeenNthCalledWith(2, {
-      address: state.candidate!.predictedAddress,
-    });
+  });
+
+  it("returns the actual renderer emitted by the configured registry", () => {
+    const creator = getAddress("0x2222222222222222222222222222222222222222");
+    const renderer = getAddress("0x3333333333333333333333333333333333333333");
+    const log = {
+      address: registry,
+      topics: encodeEventTopics({
+        abi: rendererRegistryAbi,
+        eventName: "RendererDeployed",
+        args: {
+          creator,
+          renderer,
+          initCodeHash: `0x${"44".repeat(32)}`,
+        },
+      }),
+      data: encodeAbiParameters([{ type: "uint256" }], [0n]),
+    } as Log;
+
+    expect(rendererAddressFromDeploymentLogs({ logs: [log], registry })).toBe(
+      renderer,
+    );
+    expect(
+      rendererAddressFromDeploymentLogs({
+        logs: [log],
+        registry: getAddress("0x4444444444444444444444444444444444444444"),
+      }),
+    ).toBeUndefined();
   });
 });

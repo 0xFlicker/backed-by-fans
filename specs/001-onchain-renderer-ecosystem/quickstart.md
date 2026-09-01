@@ -4,11 +4,12 @@ This guide describes the runnable evidence expected after implementation. It doe
 public deployment. Robinhood-testnet writes require separate explicit approval; mainnet is out of
 scope.
 
-> **Required operator gate:** The immutable direct-renderer protocol must be deployed again before
-> the completed feature can run on Robinhood testnet. Finish every local and Anvil check first, then
-> stop and request explicit operator approval. Only after approval may the operator start the testnet
-> broadcast and enter the deployment password interactively. Never ask the operator to paste that
-> password into an agent prompt, command argument, generated file, or log. Mainnet is out of scope.
+> **Required operator gate:** The direct-renderer membership protocol is already on testnet. This
+> addition requires only the separate renderer registry deployment. Finish every local and Anvil
+> check first, then stop and request explicit operator approval. Only after approval may the
+> operator run `contracts/scripts/deploy-renderer-registry.sh broadcast` and enter the encrypted
+> account password interactively. Never ask the operator to paste that password into an agent
+> prompt, command argument, generated file, or log. Mainnet is out of scope.
 
 ## Prerequisites
 
@@ -58,8 +59,8 @@ bun .agents/skills/backed-by-fans-renderer/scripts/render-gallery.ts \
 Expected outcomes:
 
 - The package uses Solidity 0.8.36, Cancun, and the Robinhood optimizer profile.
-- Runtime bytecode, final initcode, raw `salt || initcode` size, initcode hash, and predicted CREATE2
-  address are measured from the final artifact.
+- Runtime bytecode and final initcode are measured from the final artifact; registry-bound initcode
+  is at most 94,656 bytes, preserving room for the signed transaction envelope.
 - The gallery includes token IDs 1, 7, and 42 in active and expired states, with generated and image
   cases where supported.
 - No production key is requested. Disposable Foundry/Anvil identities are test-only.
@@ -151,19 +152,17 @@ Expected outcomes:
 ## 5. Approve and prepare deployment
 
 1. Approve the complete representative result set.
-2. Confirm the browser shows the canonical chain, existing CREATE2 deployer, raw payload size,
-   estimated cost, and predicted renderer address.
+2. Confirm the browser shows the canonical chain, renderer registry, final initcode size, and
+   wallet-estimated cost. The renderer address is returned only after deployment.
 3. Change one source/artifact/configuration field and confirm approval disappears.
 4. Rebuild, rerun all required previews, and approve again.
 
 Expected outcomes:
 
 - Approval is bound to exact candidate, request, and result fingerprints.
-- The prepared request contains the complete final initcode and selected salt.
-- Payloads at or above 95,000 bytes are blocked before wallet simulation.
-- An occupied predicted address is blocked.
-- In loopback mode, the agent can read the prepared request but cannot trigger a wallet prompt. In
-  file mode, the creator sees the prepared request directly in the webpage.
+- The prepared request calls `deployAndRegister` with the complete final initcode.
+- Initcode above 94,656 bytes is blocked before wallet simulation.
+- The agent cannot trigger a wallet prompt in loopback or file-import mode.
 
 ## 6. Verify the wallet boundary
 
@@ -187,8 +186,8 @@ Expected outcomes:
 - Cancellation, replacement, revert, pending, and receipt behavior come from wagmi/viem.
 - No application-local receipt polling, transaction journal, nonce inference, lock, or recovery loop
   exists.
-- Product reconciliation starts only from a successful library-supplied receipt and checks code at
-  the predicted address.
+- Product reconciliation starts only from a successful library-supplied receipt, decodes the
+  registry's deployed renderer address, and checks code at that actual address.
 
 ## 7. Reuse by address
 
@@ -196,13 +195,15 @@ After a separately authorized local or public deployment:
 
 1. Copy the renderer address shown by the deployment result.
 2. Paste it into the new membership renderer field.
-3. Review the representative images and approve it.
-4. Create a local test tier.
+3. Confirm a connected creator's registry-deployed renderers appear before the six defaults and
+   Custom appears last.
+4. Review the representative artwork and create a local test tier.
 5. Open the membership and copy the renderer address from its details.
 
 Expected outcomes:
 
-- No registry lookup, submission, listing, or enablement occurs.
+- Direct address use succeeds without a registry entry; the registry provides owner-specific
+  discovery only.
 - The address is resolved only on the current environment's canonical chain.
 - The membership continues to show the address even if the renderer later fails.
 - Pasting the address does not install or execute third-party skill instructions.
@@ -216,4 +217,5 @@ Record evidence separately:
 - Anvil/fork checks prove the exact configured payload under the local Robinhood envelope, not Nitro
   public admission.
 - A successful public wallet receipt proves only the authorized transaction.
-- The renderer address is reported as deployed only after code is visible at the predicted address.
+- The renderer address is reported as deployed only after a successful registry event identifies
+  the actual address and code is visible there.

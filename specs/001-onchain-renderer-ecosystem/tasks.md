@@ -211,6 +211,44 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 ---
 
+## Phase 10: Creator Renderer Registry
+
+**Goal**: Deploy and record a renderer in one creator-wallet transaction, enumerate creators and
+their renderer lists onchain, and surface the connected creator's renderers before the default Art
+Studio styles without gating direct-address use.
+
+- [X] T083 Add `IRendererRegistry` and `RendererRegistry` with one-call deploy-and-register,
+  separate created/saved lists, append-only creator enumeration, bounded pagination, and no owner or
+  membership-admission authority in `contracts/src/`
+- [X] T084 Add focused registry contract tests covering address return, creator provenance, saved
+  addresses, unregister/re-register behavior, pagination, malformed renderers, duplicate entries,
+  failed deployment rollback, and transaction-size bounds in `contracts/test/RendererRegistry.t.sol`
+- [X] T085 Add a separate testnet-only registry deployment and validation script using the approved
+  encrypted operator account in `contracts/script/DeployRendererRegistry.s.sol` and
+  `contracts/scripts/deploy-renderer-registry.sh`
+- [X] T086 Generate registry ABI bindings without inventing a public address and extend Anvil web
+  configuration with an ephemeral registry deployment in `web/wagmi.config.ts`,
+  `web/src/contracts.ts`, `web/src/lib/config.ts`, and `scripts/test-web-anvil.sh`
+- [X] T087 Replace package-v1 CREATE2 fields with package-v2 final-initcode sizing and change the
+  browser deployment flow to simulate and pass the exact registry `deployAndRegister` request to
+  wagmi/viem in `web/src/features/renderer-lab/`
+- [X] T088 Read the connected creator's onchain created-renderer list and render it before the six
+  default styles, keeping Custom and its address field last in `web/src/features/renderer-registry/`
+  and `web/src/features/creator-studio/`
+- [X] T089 Update and test the standalone, embedded, and web-published renderer skill so local
+  tooling emits package v2 and browser deployment returns the registry-created address without
+  CREATE2 salts or predicted-address language
+- [X] T090 Run complete contract, web, skill, boundary, and local browser/Anvil validation; record
+  evidence without claiming public-chain deployment
+- [X] T091 Stop and request operator approval for
+  `contracts/scripts/deploy-renderer-registry.sh broadcast`; the operator must enter the encrypted
+  account password interactively
+- [X] T092 After operator deployment, run `cd web && bun run generate`, verify the generated
+  `rendererRegistryAddress` for chain `46630`, then run read-only registry and creator-list smoke
+  checks
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -324,8 +362,9 @@ Task: "Write sharing browser journey in web/tests/e2e/renderer-sharing.spec.ts"
 
 - `[P]` tasks change different files and have no dependency on an unfinished task in the same phase.
 - User-story labels provide traceability to `spec.md`.
-- Existing deployed registry-based contracts remain untouched; the new protocol does not add a compatibility write layer.
-- The onchain media registry remains valid and must not be confused with the removed user-renderer registry.
+- Existing immutable membership contracts remain untouched; the renderer registry is a separate
+  optional index and does not add a compatibility write layer or tier-admission gate.
+- The onchain media registry remains separate from the creator renderer registry.
 - T077-T080 describe the required Robinhood-testnet rollout but do not supply authorization; T077 is a hard stop for separate operator approval, and T078 requires interactive operator password entry.
 - No task authorizes a mainnet transaction, merge, push, brand-clearance claim, or production configuration change.
 - Run `$speckit-analyze` after this task list and before implementation, as required by the constitution.

@@ -53,4 +53,4 @@ Do not require exact output-byte, palette, dimension, encoding, or recognizabili
 
 ## Reuse
 
-A renderer is reused as its contract address on Robinhood testnet (chain ID 46630). The membership Creator Studio calls that address directly. There is no registry, platform listing, cross-chain lookup, or automatic installation of third-party agent instructions.
+A renderer is reused as its contract address on Robinhood testnet (chain ID 46630). The membership Creator Studio calls that address directly. The optional registry helps the connected creator rediscover renderers they deployed; it is not a platform listing, compatibility approval, cross-chain lookup, or installer for third-party agent instructions.

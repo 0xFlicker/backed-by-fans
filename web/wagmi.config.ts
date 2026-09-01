@@ -48,6 +48,7 @@ export default defineConfig({
         "OnchainMediaStoreFactory.sol/**",
         "OnchainMetadataRenderer.sol/**",
         "RendererPreviewHarness.sol/**",
+        "RendererRegistry.sol/**",
         "MembershipFactory.sol/**",
         "TestnetUSDG.sol/**",
       ],

@@ -4,8 +4,6 @@ import { fileURLToPath } from "node:url";
 import {
   encodeAbiParameters,
   encodeFunctionResult,
-  getAddress,
-  getCreate2Address,
   keccak256,
   type Hex,
 } from "viem";
@@ -23,11 +21,7 @@ import {
   makeRendererPreviewContext,
 } from "../../src/features/creator-studio/studio-protocol";
 
-const create2Deployer = getAddress(
-  "0x4e59b44847b379578588920cA78FbF26c0B4956C",
-);
 const interfaceSchema = `0x${"12".repeat(32)}` as Hex;
-const salt = `0x${"34".repeat(32)}` as Hex;
 const transformedSvg =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect data-transform="creator-image" width="100" height="100" fill="#625bff"/></svg>';
 const imageFixture = fileURLToPath(
@@ -72,15 +66,8 @@ function rendererPackage() {
       ],
     ),
   );
-  const initCodeHash = keccak256(creationBytecode);
-  const predictedAddress = getCreate2Address({
-    from: create2Deployer,
-    salt,
-    bytecodeHash: initCodeHash,
-  });
-
   return {
-    formatVersion: 1 as const,
+    formatVersion: 2 as const,
     rendererName: "Moonlit Memberships",
     interfaceSchema,
     compiler,
@@ -95,11 +82,7 @@ function rendererPackage() {
     },
     deployment: {
       chainId: 46_630,
-      create2Deployer,
-      salt,
-      initCodeHash,
-      predictedAddress,
-      rawByteLength: byteLength(salt) + byteLength(creationBytecode),
+      initCodeByteLength: byteLength(creationBytecode),
     },
     examples: (
       [
@@ -264,7 +247,6 @@ test("uses the optional loopback handoff without an account or source-image tran
         examples: undefined,
       },
       runtimeBytecode: value.artifacts.runtimeBytecode,
-      salt: value.deployment.salt,
     },
     "/v1/example-requests": {
       candidateFingerprint: value.artifacts.artifactFingerprint,

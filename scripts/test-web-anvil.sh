@@ -172,6 +172,14 @@ preview_harness="$({
     --broadcast \
     --json
 } | jq -er '.deployedTo')"
+renderer_registry="$({
+  forge create src/RendererRegistry.sol:RendererRegistry \
+    --rpc-url "$rpc_url" \
+    --unlocked \
+    --from "$creator" \
+    --broadcast \
+    --json
+} | jq -er '.deployedTo')"
 factory="$({
   forge create src/MembershipFactory.sol:MembershipFactory \
     --rpc-url "$rpc_url" \
@@ -194,6 +202,10 @@ require_equal \
   "$(cast call "$renderer" 'rendererSchema()(bytes32)' --rpc-url "$rpc_url")" \
   "$(cast keccak 'BackedByFans.MembershipRenderer.v1')" \
   "Canonical renderer schema"
+require_equal \
+  "$(cast call "$renderer_registry" 'rendererSchema()(bytes32)' --rpc-url "$rpc_url")" \
+  "$(cast keccak 'BackedByFans.MembershipRenderer.v1')" \
+  "Renderer registry schema"
 require_equal \
   "$(cast call "$factory" 'mediaStoreFactoryRuntimeCodehash()(bytes32)' --rpc-url "$rpc_url")" \
   "$(cast codehash "$media_store_factory" --rpc-url "$rpc_url")" \
@@ -302,6 +314,7 @@ export NEXT_PUBLIC_ANVIL_FACTORY_ADDRESS="$factory"
 export NEXT_PUBLIC_ANVIL_USDG_ADDRESS="$usdg"
 export NEXT_PUBLIC_ANVIL_RENDERER_ADDRESS="$renderer"
 export NEXT_PUBLIC_ANVIL_PREVIEW_HARNESS_ADDRESS="$preview_harness"
+export NEXT_PUBLIC_ANVIL_RENDERER_REGISTRY_ADDRESS="$renderer_registry"
 export NEXT_PUBLIC_SITE_URL="$web_url"
 export BBF_ANVIL_RPC_URL="$rpc_url"
 export BBF_ANVIL_CREATOR_ADDRESS="$creator"

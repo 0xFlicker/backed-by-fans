@@ -21,6 +21,7 @@ export type PublicEnvironment = {
   anvilUsdgAddress?: string;
   anvilRendererAddress?: string;
   anvilPreviewHarnessAddress?: string;
+  anvilRendererRegistryAddress?: string;
 };
 
 export type ReadyDeployment = {
@@ -30,6 +31,7 @@ export type ReadyDeployment = {
   usdgAddress: Address;
   rendererAddress: Address;
   previewHarnessAddress: Address;
+  rendererRegistryAddress?: Address;
 };
 
 export type DeploymentAvailability =
@@ -155,6 +157,16 @@ function generatedPreviewHarnessAddresses(): Partial<Record<number, Address>> {
   );
 }
 
+function generatedRendererRegistryAddresses(): Partial<
+  Record<number, Address>
+> {
+  return generatedTestnetAddress(
+    "rendererRegistryAddress",
+    "RendererRegistry",
+    "renderer registry",
+  );
+}
+
 export function buildPublicConfig(
   environment: PublicEnvironment,
   factoryAddresses: Partial<
@@ -167,6 +179,9 @@ export function buildPublicConfig(
   previewHarnessAddresses: Partial<
     Record<number, string>
   > = generatedPreviewHarnessAddresses(),
+  rendererRegistryAddresses: Partial<
+    Record<number, string>
+  > = generatedRendererRegistryAddresses(),
 ): PublicConfig {
   const siteUrl = parsePublicUrl(environment.siteUrl, "http://localhost:3000");
   const deployments: Partial<Record<SupportedChainId, ReadyDeployment>> = {};
@@ -176,6 +191,8 @@ export function buildPublicConfig(
   const publicRendererAddress = rendererAddresses[robinhoodTestnet.id];
   const publicPreviewHarnessAddress =
     previewHarnessAddresses[robinhoodTestnet.id];
+  const publicRendererRegistryAddress =
+    rendererRegistryAddresses[robinhoodTestnet.id];
   if (
     publicFactoryAddress &&
     publicUsdgAddress &&
@@ -201,6 +218,14 @@ export function buildPublicConfig(
         publicPreviewHarnessAddress,
         `Preview harness address for chain ${robinhoodTestnet.id}`,
       ),
+      ...(publicRendererRegistryAddress
+        ? {
+            rendererRegistryAddress: parseRequiredAddress(
+              publicRendererRegistryAddress,
+              `Renderer registry address for chain ${robinhoodTestnet.id}`,
+            ),
+          }
+        : {}),
     };
   }
 
@@ -230,6 +255,14 @@ export function buildPublicConfig(
       "Anvil renderer evidence requires its renderer and preview harness addresses plus the complete Anvil deployment configuration.",
     );
   }
+  if (
+    environment.anvilRendererRegistryAddress?.trim() &&
+    (!hasEveryLocalRendererValue || !hasEveryLocalDeploymentValue)
+  ) {
+    throw new Error(
+      "Anvil renderer registry requires the complete Anvil deployment configuration.",
+    );
+  }
 
   let anvilRpcUrl: string | undefined;
   if (hasEveryLocalDeploymentValue) {
@@ -257,6 +290,14 @@ export function buildPublicConfig(
         environment.anvilPreviewHarnessAddress,
         "Anvil preview harness address",
       ),
+      ...(environment.anvilRendererRegistryAddress?.trim()
+        ? {
+            rendererRegistryAddress: parseRequiredAddress(
+              environment.anvilRendererRegistryAddress,
+              "Anvil renderer registry address",
+            ),
+          }
+        : {}),
     };
   }
 
@@ -303,4 +344,6 @@ export const publicConfig = buildPublicConfig({
   anvilRendererAddress: process.env.NEXT_PUBLIC_ANVIL_RENDERER_ADDRESS,
   anvilPreviewHarnessAddress:
     process.env.NEXT_PUBLIC_ANVIL_PREVIEW_HARNESS_ADDRESS,
+  anvilRendererRegistryAddress:
+    process.env.NEXT_PUBLIC_ANVIL_RENDERER_REGISTRY_ADDRESS,
 });

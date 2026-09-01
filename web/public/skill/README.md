@@ -54,7 +54,7 @@ The skill itself asks about the creator, visual direction, and whether the rende
 
 Renderer evaluation belongs in the standalone public renderer preview page. The membership Creator Studio only needs a Custom renderer option and a contract-address field.
 
-Deployment is submitted by the creator through the established browser-wallet flow on Robinhood testnet (chain ID 46630). This repository never needs or accepts a creator private key.
+Deployment is submitted in one transaction through the renderer registry by the creator's established browser-wallet flow on Robinhood testnet (chain ID 46630). The registry returns the deployed address and adds it to the creator's onchain renderer list. This repository never needs or accepts a creator private key.
 
 ## Development
 

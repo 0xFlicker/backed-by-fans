@@ -23,6 +23,17 @@ ordinary read-only RPC calls, and never uploads either to application storage. A
 approval, the browser prepares the exact canonical CREATE2 calldata and passes the simulated request
 directly to wagmi for creator-initiated signing and submission.
 
+### 2026-09-01 registry amendment
+
+The direct-address membership protocol above remains unchanged. Renderer deployment now uses a
+separate permissionless `RendererRegistry`: one wallet transaction deploys the candidate, returns
+and emits its actual address, records creator provenance, and makes that creator's renderers
+enumerable. The registry is not consulted by tier creation. Package format v2 therefore removes
+CREATE2 salt, deployer, raw-payload, and predicted-address fields; the browser validates final
+initcode sizing and passes the exact simulated `deployAndRegister(initCode)` request to wagmi. This
+amendment supersedes the CREATE2 renderer-deployment details below without changing the historical
+direct-renderer protocol rollout record.
+
 ## Technical Context
 
 **Language/Version**: Solidity 0.8.36; TypeScript 6.0.2; React 19.2.8; Next.js 16.3.3;
@@ -40,7 +51,7 @@ code and creator-approved membership media are onchain only after explicit walle
 
 **Testing**: Foundry unit/fuzz tests and Robinhood-profile Anvil/fork checks; Vitest component and
 service tests; Playwright browser flows; shell tests for artifact generation, package import, the
-loopback helper, and exact CREATE2 payload preparation
+loopback helper, and exact registry deployment preparation
 
 **Target Platform**: Modern desktop browsers with an injected or WalletConnect wallet; local
 loopback helper or renderer-package file handoff on macOS/Linux/Windows; Robinhood Chain testnet
@@ -59,16 +70,16 @@ no crosschain lookup; no private-key, seed, or keystore export; no backend signe
 preview storage; no custom transaction polling or receipt state machine; browser image candidates
 remain within the existing 20 MiB source, 512 px processed, and 90 KiB renderer-input limits;
 renderer RPC output remains within the existing 600,000-byte token URI and 1,200,002-byte JSON-RPC
-hex ceilings; public CREATE2 calldata remains below Robinhood Nitro's 95,000-byte limit; project
-renderer runtime and initcode ceilings remain 88,000 and 176,000 bytes respectively
+hex ceilings; project renderer runtime and registry-initcode ceilings are 88,000 and 94,656 bytes
+respectively
 
 **Scale/Scope**: One creator, one agent, and one browser per short-lived local session or file
 handoff; one renderer candidate at a time; six representative token/state/image combinations per
 approval set: token 1 active without image, token 1 expired with image, token 7 active with image,
 token 7 expired without image, token 42 active without image, and token 42 expired with image. An
 image case uses the browser-selected image when present, otherwise configured onchain media; absence
-or unsupported media is shown as generated-only output or a clear failure. No platform catalog,
-renderer registry, durable session history, or media account
+or unsupported media is shown as generated-only output or a clear failure. No public renderer feed,
+platform curation, durable session history, or media account
 
 ## Constitution Check
 

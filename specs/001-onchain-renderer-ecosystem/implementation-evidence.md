@@ -109,3 +109,59 @@ submitted by these checks.
 No second protocol deployment is required for this implementation. Any future immutable protocol
 replacement still requires a new explicit operator approval and direct interactive password entry;
 the completed testnet approval does not authorize Robinhood mainnet or a creator renderer write.
+
+## Creator renderer registry checkpoint — 2026-09-01
+
+This checkpoint adds a separate permissionless renderer registry without changing the deployed
+membership protocol. No registry transaction was broadcast while collecting this evidence.
+
+- The registry contract, interface, focused tests, testnet-only deployment script, generated ABI,
+  Anvil configuration, and web configuration are present. The registry has no owner or membership
+  admission authority. `deployAndRegister(bytes)` uses one creator-wallet transaction and returns
+  the address actually created.
+- The connected creator's valid created renderers are resolved independently and appear before the
+  six default Art Studio styles. A broken registry entry cannot hide valid entries. Custom remains
+  last and accepts an unregistered same-chain address directly.
+- The renderer package, helper, embedded skill, standalone skill, and `/skill` download now use
+  package format 2: final initcode plus its byte length, with no salt, predicted address, or CREATE2
+  deployment request. The skill warns that the registry is constructor `msg.sender` and requires
+  any intended owner to be encoded explicitly.
+- The initcode ceiling is 94,656 bytes. A viem regression test serializes the maximum input inside a
+  deliberately large signed EIP-1559 envelope and measures 94,909 bytes, preserving 91 bytes under
+  the chain's 95,000-byte transaction envelope.
+- The complete Foundry suite passed with no failures. The focused registry suite passed 10 tests.
+  A real Robinhood-testnet dry-run on chain 46630 validated the schema, page size, and 94,656-byte
+  cap, estimated 1,227,504 gas and approximately 0.000024550081227504 ETH, and did not broadcast.
+- Vitest passed 308 tests across 54 files. TypeScript, ESLint, Prettier, package-schema drift,
+  generated-binding determinism, the production build, and the renderer ecosystem boundary check
+  passed. The package-format-2 renderer-lab matrix passed 15 tests across desktop, tablet, phone,
+  Firefox, and WebKit.
+- The configured local Anvil run passed 30 applicable browser tests with 30 intentional viewport
+  skips. It covered creator tier publication, direct renderer reuse, cross-membership sharing,
+  wallet operations, and native-media active/afterglow responses. This is local evidence only.
+- The standalone skill passed 12 Bun tests with 77 expectations when localhost binding was allowed.
+  The sandbox-only run could not bind its loopback helper; that was an execution restriction, not a
+  product failure.
+- A twelve-lens Solidity audit produced no confirmed exploit. It identified the transaction-envelope
+  availability issue above, which was fixed and retested. Remaining observations are trust-boundary
+  reminders: registration is not certification, and renderer constructors must not infer creator
+  ownership from `msg.sender`.
+
+The operator-gated deployment and its read-only follow-up are recorded below.
+
+## Creator renderer registry deployment — 2026-09-01
+
+The operator deployed the standalone registry to Robinhood Chain Testnet (chain 46630), then ran
+wagmi generation. This completed T092 without changing or redeploying the membership protocol.
+
+- Registry: `0x4d421062e1Af4AB12e4f65ba475F169f633d745A`
+- Deployment transaction:
+  `0x5784cee8e114d4d12e6d951b8dceb686bb144466eece89b8c2e751df95dbe3f3`
+- The Foundry broadcast record, returned deployment address, and generated
+  `rendererRegistryAddress[46630]` agree.
+- The read-only deployment status check found live contract code, the expected renderer schema,
+  page-size limit 100, and initcode limit 94,656 bytes.
+- Initial creator enumeration returned zero creators, as expected before the first renderer is
+  deployed through this registry.
+- After generation, TypeScript completed without errors and Vitest passed all 308 tests across 54
+  files. The renderer-lab and public-config assertions now cover the deployed generated address.

@@ -118,33 +118,35 @@ Primary references:
 
 ## 6. Creator-wallet deployment
 
-**Decision**: Build the exact raw `salt || initcode` request for the configured canonical CREATE2
-deployer, precompute and display the address, enforce Robinhood payload limits, simulate through
-wagmi/viem, and pass the returned request directly to the connected wallet only after the creator
-clicks Deploy.
+**Superseded 2026-09-01 decision**: Build the exact raw `salt || initcode` request for the configured
+canonical CREATE2 deployer and precompute the address.
 
-**Rationale**: The repository already pins the canonical deployer and uses raw CREATE2 calls because
-Robinhood accepts a larger initcode envelope than Foundry's standard broadcast path while Nitro
-independently caps transaction data. CREATE2 makes the shareable address knowable before signing.
-The canonical singleton pattern is standardized by ERC-2470, while this repository's configured
-deployer address and exact calldata remain the implementation source of truth.
+**Current decision**: The browser simulates `RendererRegistry.deployAndRegister(initCode)` and passes
+that exact request directly to the connected wallet only after the creator clicks Deploy. The one
+transaction deploys the renderer, returns and emits the actual address, records creator provenance,
+and appends a first-time deployer to an enumerable creator list.
 
-Primary reference:
+**Rationale**: The user does not require deterministic addresses. A registry makes prior deployments
+discoverable from the chain, and one atomic call is simpler for the creator than separate deployment
+and registration writes. Tier creation still accepts compatible direct addresses without registry
+membership, so the index cannot become an admission gate.
 
-- [ERC-2470: Singleton Factory](https://ercs.ethereum.org/ERCS/erc-2470)
+
+The registry also permits saving an existing compatible renderer address, but records that entry
+separately from renderer creation so saving never claims authorship.
 
 **Alternatives considered**:
 
-- Direct wallet contract creation: rejected because the address depends on wallet nonce and does
-  not reuse the repository's established deterministic deployment path.
-- New renderer factory: rejected because it adds unnecessary protocol infrastructure and risks
-  becoming a registry.
+- Separate deploy and register transactions: rejected because they add an avoidable second wallet
+  prompt and can leave deployment and discovery out of sync.
+- Preserve CREATE2 prediction inside the registry: rejected because determinism adds package and UI
+  complexity without product value.
 - Backend relay or signer: rejected because the creator's wallet must own authorization and signing.
 
 ## 7. Approval and mutation boundaries
 
 **Decision**: Approval is keyed by chain, candidate artifact fingerprint, representative request-set
-fingerprint, and result fingerprints. Any source, bytecode, constructor input, salt, renderer
+fingerprint, and result fingerprints. Any source, bytecode, constructor input, renderer
 configuration, or representative request change clears approval and any prepared deployment
 request. Wallet identity is introduced only when deployment begins.
 

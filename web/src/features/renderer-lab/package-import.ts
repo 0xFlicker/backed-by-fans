@@ -1,23 +1,12 @@
 import Ajv2020 from "ajv/dist/2020";
-import {
-  encodeAbiParameters,
-  getAddress,
-  getCreate2Address,
-  keccak256,
-  type Address,
-  type Hex,
-} from "viem";
+import { encodeAbiParameters, keccak256, type Hex } from "viem";
 
 import rendererPackageSchema from "@/features/renderer-lab/renderer-package.schema.json";
 
 export const maxRendererPackageBytes = 1_000_000;
 export const maxRendererRuntimeBytes = 88_000;
-export const maxRendererInitcodeBytes = 176_000;
-export const maxRawRendererDeploymentBytes = 95_000;
+export const maxRendererInitcodeBytes = 94_656;
 export const canonicalRendererPackageChainId = 46_630;
-export const canonicalRendererCreate2Deployer = getAddress(
-  "0x4e59b44847b379578588920cA78FbF26c0B4956C",
-);
 
 type CompilerProfile = {
   solidity: "0.8.36";
@@ -37,7 +26,7 @@ export type RendererPackageExample = {
 };
 
 export type RendererPackage = {
-  formatVersion: 1;
+  formatVersion: 2;
   rendererName: string;
   interfaceSchema: Hex;
   compiler: CompilerProfile;
@@ -52,11 +41,7 @@ export type RendererPackage = {
   };
   deployment: {
     chainId: number;
-    create2Deployer: Address;
-    salt: Hex;
-    initCodeHash: Hex;
-    predictedAddress: Address;
-    rawByteLength: number;
+    initCodeByteLength: number;
   };
   examples: RendererPackageExample[];
   skill: string;
@@ -75,16 +60,11 @@ export type RendererPackageImportErrorCode =
   | "invalid-json"
   | "schema-invalid"
   | "wrong-chain"
-  | "wrong-deployer"
   | "creation-too-large"
   | "runtime-too-large"
   | "artifact-fingerprint-mismatch"
   | "creation-size-mismatch"
-  | "runtime-size-mismatch"
-  | "initcode-hash-mismatch"
-  | "raw-payload-too-large"
-  | "raw-payload-size-mismatch"
-  | "predicted-address-mismatch";
+  | "runtime-size-mismatch";
 
 export class RendererPackageImportError extends Error {
   readonly code: RendererPackageImportErrorCode;
@@ -100,7 +80,6 @@ const ajv = new Ajv2020({ allErrors: true });
 const validateRendererPackage = ajv.compile<RendererPackage>(
   rendererPackageSchema,
 );
-const addressPattern = /^0x[0-9a-fA-F]{40}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -109,7 +88,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function rejectNoncanonicalProfile(value: unknown): void {
   if (!isRecord(value) || !isRecord(value.deployment)) return;
 
-  const { chainId, create2Deployer } = value.deployment;
+  const { chainId } = value.deployment;
   if (
     typeof chainId === "number" &&
     chainId !== canonicalRendererPackageChainId
@@ -117,18 +96,6 @@ function rejectNoncanonicalProfile(value: unknown): void {
     throw new RendererPackageImportError(
       "wrong-chain",
       `This package targets chain ${chainId}; the renderer lab requires canonical chain ${canonicalRendererPackageChainId}.`,
-    );
-  }
-
-  if (
-    typeof create2Deployer === "string" &&
-    addressPattern.test(create2Deployer) &&
-    create2Deployer.toLowerCase() !==
-      canonicalRendererCreate2Deployer.toLowerCase()
-  ) {
-    throw new RendererPackageImportError(
-      "wrong-deployer",
-      "This package does not use the canonical CREATE2 deployer.",
     );
   }
 }
@@ -234,8 +201,6 @@ export function parseRendererPackage(
     value.artifacts.runtimeBytecode,
     "Runtime bytecode",
   );
-  const saltByteLength = hexByteLength(value.deployment.salt, "CREATE2 salt");
-
   if (creationByteLength > maxRendererInitcodeBytes) {
     throw new RendererPackageImportError(
       "creation-too-large",
@@ -265,6 +230,12 @@ export function parseRendererPackage(
       "The declared runtime byte length does not match the imported runtime bytecode.",
     );
   }
+  assertEqual(
+    value.deployment.initCodeByteLength,
+    creationByteLength,
+    "creation-size-mismatch",
+    "The deployment byte length does not match the imported initcode.",
+  );
 
   const artifactFingerprint = computeRendererArtifactFingerprint({
     creationBytecode: value.artifacts.creationBytecode,
@@ -279,40 +250,6 @@ export function parseRendererPackage(
     "The artifact fingerprint does not match the imported renderer artifacts.",
   );
 
-  const initCodeHash = keccak256(value.artifacts.creationBytecode);
-  assertEqual(
-    value.deployment.initCodeHash,
-    initCodeHash,
-    "initcode-hash-mismatch",
-    "The initcode hash does not match the imported creation bytecode.",
-  );
-
-  const rawByteLength = saltByteLength + creationByteLength;
-  if (rawByteLength >= maxRawRendererDeploymentBytes) {
-    throw new RendererPackageImportError(
-      "raw-payload-too-large",
-      `The raw CREATE2 payload must be smaller than ${maxRawRendererDeploymentBytes.toLocaleString()} bytes for Nitro admission.`,
-    );
-  }
-  assertEqual(
-    value.deployment.rawByteLength,
-    rawByteLength,
-    "raw-payload-size-mismatch",
-    "The declared raw CREATE2 payload size does not match salt plus initcode.",
-  );
-
-  const predictedAddress = getCreate2Address({
-    from: canonicalRendererCreate2Deployer,
-    salt: value.deployment.salt,
-    bytecodeHash: initCodeHash,
-  });
-  assertEqual(
-    value.deployment.predictedAddress,
-    predictedAddress,
-    "predicted-address-mismatch",
-    "The predicted CREATE2 address does not match the imported deployment inputs.",
-  );
-
   return {
     ...value,
     artifacts: {
@@ -321,12 +258,6 @@ export function parseRendererPackage(
       creationByteLength,
       runtimeByteLength,
     },
-    deployment: {
-      ...value.deployment,
-      create2Deployer: canonicalRendererCreate2Deployer,
-      initCodeHash,
-      predictedAddress,
-      rawByteLength,
-    },
+    deployment: value.deployment,
   };
 }

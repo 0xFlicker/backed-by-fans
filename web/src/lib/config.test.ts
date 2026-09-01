@@ -5,6 +5,7 @@ import { robinhood, robinhoodTestnet } from "viem/chains";
 import {
   onchainMetadataRendererAddress,
   rendererPreviewHarnessAddress,
+  rendererRegistryAddress,
 } from "@/contracts";
 import { localAnvil } from "@/lib/chains";
 import {
@@ -35,6 +36,9 @@ describe("buildPublicConfig", () => {
       ),
       previewHarnessAddress: getAddress(
         rendererPreviewHarnessAddress[robinhoodTestnet.id],
+      ),
+      rendererRegistryAddress: getAddress(
+        rendererRegistryAddress[robinhoodTestnet.id],
       ),
     });
   });
@@ -112,6 +116,9 @@ describe("buildPublicConfig", () => {
       ),
       previewHarnessAddress: getAddress(
         rendererPreviewHarnessAddress[robinhoodTestnet.id],
+      ),
+      rendererRegistryAddress: getAddress(
+        rendererRegistryAddress[robinhoodTestnet.id],
       ),
     });
     expect(getDeployment(config, robinhood.id)).toMatchObject({

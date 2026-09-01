@@ -14,8 +14,7 @@ Mechanical deployment checks may confirm:
 
 - the package targets Robinhood testnet, chain ID 46630;
 - the final initcode and constructor arguments fit the configured chain limits;
-- the predicted address is derived from the selected salt and initcode;
-- the configured deployer can be called and the predicted address is not already occupied;
+- the configured renderer registry accepts the final initcode;
 - the creator is looking at the package and representative results they chose to approve.
 
 These checks are interface and transaction preparation, not a safety certification or artistic judgment.
@@ -23,6 +22,12 @@ These checks are interface and transaction preparation, not a safety certificati
 ## Deployment
 
 After the creator clicks Deploy, the existing wagmi/viem browser-wallet lifecycle owns simulation, chain selection, signature prompts, submission, pending state, replacement, cancellation, receipts, and errors.
+
+The browser calls `deployAndRegister(bytes initCode)`. That one transaction deploys the renderer, returns its actual address, emits the address for the browser, and adds it to the connected creator's onchain renderer list. There is no second registration transaction and no predicted-address step.
+
+The registry contract is the EVM deployer, so a renderer constructor sees the registry—not the creator wallet—as `msg.sender`. Prefer ownerless renderers. If a design genuinely needs an owner, encode the intended owner explicitly in its constructor arguments; never infer creator authority from constructor `msg.sender`.
+
+The registry is discovery infrastructure only. It does not approve renderers and membership creation does not consult it. A compatible same-chain renderer remains usable and shareable by contract address even if it was never registered.
 
 Do not recreate that lifecycle in this repository.
 

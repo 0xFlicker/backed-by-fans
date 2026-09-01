@@ -7,6 +7,8 @@ cd "$repo_root"
 renderer_paths=(
   web/src/features/renderer-lab
   web/src/features/creator-studio
+  web/src/features/renderer-registry
+  web/src/app/render
   web/src/app/renderer
   .agents/skills/backed-by-fans-renderer/scripts
 )
@@ -25,8 +27,8 @@ fail_if_present() {
 }
 
 fail_if_present \
-  "user-renderer registry or catalog implementation found" \
-  'renderer.{0,24}(registry|catalog|listing|enablement)|(?:registry|catalog).{0,24}renderer' \
+  "renderer feed, catalog, curation, or enablement gate found" \
+  'renderer.{0,24}(feed|catalog|curation|ranking|enablement)|(?:feed|catalog|curation|ranking).{0,24}renderer' \
   "${renderer_paths[@]}"
 
 fail_if_present \

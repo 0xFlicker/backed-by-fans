@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent } from "react";
+import type { Address } from "viem";
 
 import {
   artEngineNames,
@@ -6,7 +7,12 @@ import {
 } from "@/features/creator-studio/art-config";
 import styles from "@/features/creator-studio/CreatorStudio.module.css";
 
-export type ArtStyleSelection = number | "custom";
+export type ArtStyleSelection = number | `created:${Address}` | "custom";
+
+export type CreatedRendererOption = {
+  address: Address;
+  name: string;
+};
 
 export type CustomRendererState =
   | { status: "idle" }
@@ -61,6 +67,7 @@ export function artEngineForManifestName(
 
 export function EnginePicker({
   engines,
+  createdRenderers,
   value,
   onChange,
   customAddress,
@@ -69,6 +76,7 @@ export function EnginePicker({
   disabled = false,
 }: {
   engines: readonly string[];
+  createdRenderers: readonly CreatedRendererOption[];
   value: ArtStyleSelection;
   onChange: (selection: ArtStyleSelection) => void;
   customAddress: string;
@@ -77,10 +85,21 @@ export function EnginePicker({
   disabled?: boolean;
 }) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  const optionCount = engines.length + 1;
+  const optionCount = createdRenderers.length + engines.length + 1;
   const hasSelectedEngine =
     value === "custom" ||
-    (Number.isInteger(value) && value >= 0 && value < engines.length);
+    (typeof value === "string" && value.startsWith("created:")) ||
+    (typeof value === "number" &&
+      Number.isInteger(value) &&
+      value >= 0 &&
+      value < engines.length);
+
+  function selectionAt(index: number): ArtStyleSelection {
+    const created = createdRenderers[index];
+    if (created) return `created:${created.address}`;
+    const engineIndex = index - createdRenderers.length;
+    return engineIndex === engines.length ? "custom" : engineIndex;
+  }
 
   function moveFocus(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number | undefined;
@@ -96,7 +115,7 @@ export function EnginePicker({
     if (next === undefined) return;
     event.preventDefault();
     buttons.current[next]?.focus();
-    onChange(next === engines.length ? "custom" : next);
+    onChange(selectionAt(next));
   }
 
   return (
@@ -108,23 +127,16 @@ export function EnginePicker({
         className={styles.engineList}
         role="radiogroup"
       >
-        {engines.map((engineName, index) => {
-          const artEngine = artEngineForManifestName(engineName);
-          const detail = artEngine
-            ? engineDetails[artEngine]
-            : {
-                label: engineName,
-                short: "Renderer style",
-                description: "Defined by this renderer.",
-              };
-          const selected = index === value;
+        {createdRenderers.map((renderer, index) => {
+          const selection = `created:${renderer.address}` as const;
+          const selected = value === selection;
           return (
             <button
               aria-checked={selected}
               className={styles.engineChoice}
-              data-engine={artEngine ?? "custom"}
-              key={`${index}:${engineName}`}
-              onClick={() => onChange(index)}
+              data-engine="created"
+              key={renderer.address}
+              onClick={() => onChange(selection)}
               onKeyDown={(event) => moveFocus(event, index)}
               ref={(button) => {
                 buttons.current[index] = button;
@@ -139,6 +151,47 @@ export function EnginePicker({
                 {String(index + 1).padStart(2, "0")}
               </span>
               <span className={styles.engineCopy}>
+                <strong>{renderer.name}</strong>
+                <span>Your renderer</span>
+                <small>
+                  {renderer.address.slice(0, 8)}…{renderer.address.slice(-6)}
+                </small>
+              </span>
+            </button>
+          );
+        })}
+        {engines.map((engineName, index) => {
+          const artEngine = artEngineForManifestName(engineName);
+          const detail = artEngine
+            ? engineDetails[artEngine]
+            : {
+                label: engineName,
+                short: "Renderer style",
+                description: "Defined by this renderer.",
+              };
+          const optionIndex = createdRenderers.length + index;
+          const selected = index === value;
+          return (
+            <button
+              aria-checked={selected}
+              className={styles.engineChoice}
+              data-engine={artEngine ?? "custom"}
+              key={`${index}:${engineName}`}
+              onClick={() => onChange(index)}
+              onKeyDown={(event) => moveFocus(event, optionIndex)}
+              ref={(button) => {
+                buttons.current[optionIndex] = button;
+              }}
+              role="radio"
+              tabIndex={
+                selected || (!hasSelectedEngine && index === 0) ? 0 : -1
+              }
+              type="button"
+            >
+              <span aria-hidden="true" className={styles.engineNumber}>
+                {String(optionIndex + 1).padStart(2, "0")}
+              </span>
+              <span className={styles.engineCopy}>
                 <strong>{detail.label}</strong>
                 <span>{detail.short}</span>
                 <small>{detail.description}</small>
@@ -151,9 +204,9 @@ export function EnginePicker({
           className={styles.engineChoice}
           data-engine="custom"
           onClick={() => onChange("custom")}
-          onKeyDown={(event) => moveFocus(event, engines.length)}
+          onKeyDown={(event) => moveFocus(event, optionCount - 1)}
           ref={(button) => {
-            buttons.current[engines.length] = button;
+            buttons.current[optionCount - 1] = button;
           }}
           role="radio"
           tabIndex={value === "custom" ? 0 : -1}

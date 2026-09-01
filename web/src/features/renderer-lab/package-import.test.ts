@@ -1,78 +1,33 @@
-import {
-  encodeAbiParameters,
-  getAddress,
-  getCreate2Address,
-  keccak256,
-  type Address,
-  type Hex,
-} from "viem";
+import { encodeAbiParameters, keccak256, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
 
 import {
   maxRendererPackageBytes,
   parseRendererPackage,
   RendererPackageImportError,
+  type RendererPackage,
 } from "@/features/renderer-lab/package-import";
 
-const canonicalChainId = 46_630;
-const canonicalCreate2Deployer = getAddress(
-  "0x4e59b44847b379578588920cA78FbF26c0B4956C",
-);
 const interfaceSchema = `0x${"12".repeat(32)}` as Hex;
-const salt = `0x${"34".repeat(32)}` as Hex;
-
-type CompilerProfile = {
-  solidity: string;
-  evmVersion: string;
-  optimizerEnabled: boolean;
-  optimizerRuns: number;
-};
-
-type RendererPackageFixture = {
-  formatVersion: 1;
-  rendererName: string;
-  interfaceSchema: Hex;
-  compiler: CompilerProfile;
-  artifacts: {
-    sourceRoot: string;
-    abi: string;
-    creationBytecode: Hex;
-    runtimeBytecode: Hex;
-    artifactFingerprint: Hex;
-    creationByteLength?: number;
-    runtimeByteLength?: number;
-  };
-  deployment: {
-    chainId: number;
-    create2Deployer: Address;
-    salt: Hex;
-    initCodeHash: Hex;
-    predictedAddress: Address;
-    rawByteLength: number;
-  };
-  examples: Array<{
-    requestId: string;
-    tokenId: 1 | 7 | 42;
-    state: "active" | "expired";
-    imageMode: "none" | "browser-slot";
-    method: "previewSVG" | "previewTokenURI";
-    contextWithoutMedia: Record<string, unknown>;
-    localImageSlot: boolean;
-  }>;
-  skill: string;
-  llms: string;
-};
 
 function byteLength(value: Hex): number {
   return (value.length - 2) / 2;
 }
 
-function computeFixtureFingerprint(
-  creationBytecode: Hex,
-  runtimeBytecode: Hex,
-  compiler: CompilerProfile,
-): Hex {
-  return keccak256(
+function fixture({
+  creationBytecode = "0x6000600055",
+  runtimeBytecode = "0x6000",
+}: {
+  creationBytecode?: Hex;
+  runtimeBytecode?: Hex;
+} = {}): RendererPackage {
+  const compiler = {
+    solidity: "0.8.36" as const,
+    evmVersion: "cancun" as const,
+    optimizerEnabled: true as const,
+    optimizerRuns: 200,
+  };
+  const artifactFingerprint = keccak256(
     encodeAbiParameters(
       [
         { type: "bytes" },
@@ -94,25 +49,8 @@ function computeFixtureFingerprint(
       ],
     ),
   );
-}
-
-function packageFixture({
-  creationBytecode = "0x6000600055",
-  runtimeBytecode = "0x6000",
-}: {
-  creationBytecode?: Hex;
-  runtimeBytecode?: Hex;
-} = {}): RendererPackageFixture {
-  const compiler: CompilerProfile = {
-    solidity: "0.8.36",
-    evmVersion: "cancun",
-    optimizerEnabled: true,
-    optimizerRuns: 200,
-  };
-  const initCodeHash = keccak256(creationBytecode);
-
   return {
-    formatVersion: 1,
+    formatVersion: 2,
     rendererName: "Test Renderer",
     interfaceSchema,
     compiler,
@@ -121,25 +59,13 @@ function packageFixture({
       abi: "[]",
       creationBytecode,
       runtimeBytecode,
-      artifactFingerprint: computeFixtureFingerprint(
-        creationBytecode,
-        runtimeBytecode,
-        compiler,
-      ),
+      artifactFingerprint,
       creationByteLength: byteLength(creationBytecode),
       runtimeByteLength: byteLength(runtimeBytecode),
     },
     deployment: {
-      chainId: canonicalChainId,
-      create2Deployer: canonicalCreate2Deployer,
-      salt,
-      initCodeHash,
-      predictedAddress: getCreate2Address({
-        from: canonicalCreate2Deployer,
-        salt,
-        bytecodeHash: initCodeHash,
-      }),
-      rawByteLength: byteLength(salt) + byteLength(creationBytecode),
+      chainId: 46_630,
+      initCodeByteLength: byteLength(creationBytecode),
     },
     examples: [
       [1, "active", "none"],
@@ -157,19 +83,12 @@ function packageFixture({
       contextWithoutMedia: { tokenId, state },
       localImageSlot: imageMode === "browser-slot",
     })),
-    skill: ".agents/skills/backed-by-fans-renderer/SKILL.md",
-    llms: ".agents/skills/backed-by-fans-renderer/llms.txt",
+    skill: "/skill",
+    llms: "/llms.txt",
   };
 }
 
-function serialize(value: RendererPackageFixture): string {
-  return JSON.stringify(value);
-}
-
-function expectImportError(
-  action: () => unknown,
-  code: RendererPackageImportError["code"],
-) {
+function expectImportError(action: () => unknown, code: string) {
   try {
     action();
     throw new Error("Expected package import to fail.");
@@ -180,160 +99,105 @@ function expectImportError(
 }
 
 describe("parseRendererPackage", () => {
-  it("validates a package and returns independently recomputed integrity fields", () => {
-    const fixture = packageFixture();
-    const parsed = parseRendererPackage(serialize(fixture));
+  it("validates version 2 and recomputes artifact fields", () => {
+    const value = fixture();
+    const parsed = parseRendererPackage(JSON.stringify(value));
 
     expect(parsed.artifacts).toMatchObject({
       creationByteLength: 5,
       runtimeByteLength: 2,
-      artifactFingerprint: fixture.artifacts.artifactFingerprint,
+      artifactFingerprint: value.artifacts.artifactFingerprint,
     });
-    expect(parsed.deployment).toMatchObject({
-      chainId: canonicalChainId,
-      create2Deployer: canonicalCreate2Deployer,
-      salt,
-      initCodeHash: fixture.deployment.initCodeHash,
-      rawByteLength: 37,
-      predictedAddress: fixture.deployment.predictedAddress,
+    expect(parsed.deployment).toEqual({
+      chainId: 46_630,
+      initCodeByteLength: 5,
     });
   });
 
-  it("rejects a package above the 1,000,000-byte UTF-8 limit before parsing JSON", () => {
+  it("rejects oversized, malformed, and schema-invalid input", () => {
     const oversized = `"${"é".repeat(maxRendererPackageBytes / 2)}"`;
-
-    expect(new TextEncoder().encode(oversized).length).toBeGreaterThan(
-      maxRendererPackageBytes,
-    );
     expectImportError(
       () => parseRendererPackage(oversized),
       "package-too-large",
     );
-  });
-
-  it("rejects malformed JSON and packages that do not satisfy the Ajv schema", () => {
     expectImportError(() => parseRendererPackage("{"), "invalid-json");
 
-    const fixture = packageFixture();
-    const invalid = { ...fixture } as Partial<RendererPackageFixture>;
-    delete invalid.rendererName;
+    const value = fixture() as Partial<RendererPackage>;
+    delete value.rendererName;
     expectImportError(
-      () => parseRendererPackage(JSON.stringify(invalid)),
+      () => parseRendererPackage(JSON.stringify(value)),
       "schema-invalid",
     );
   });
 
-  it("keeps imported paths and descriptive strings inert", () => {
-    const fixture = packageFixture();
-    fixture.rendererName = "<img src=x onerror=globalThis.rendererRan=true>";
-    fixture.artifacts.sourceRoot =
-      "javascript:globalThis.rendererRan=true;../../private-key";
-    fixture.skill = "data:text/javascript,globalThis.rendererRan=true";
-    fixture.llms = "<script>globalThis.rendererRan=true</script>";
+  it("keeps descriptive strings inert", () => {
+    const value = fixture();
+    value.rendererName = "<img src=x onerror=globalThis.rendererRan=true>";
+    value.artifacts.sourceRoot = "javascript:globalThis.rendererRan=true";
+    value.skill = "data:text/javascript,globalThis.rendererRan=true";
 
-    const parsed = parseRendererPackage(serialize(fixture));
-
-    expect(parsed.rendererName).toBe(fixture.rendererName);
-    expect(parsed.artifacts.sourceRoot).toBe(fixture.artifacts.sourceRoot);
-    expect(parsed.skill).toBe(fixture.skill);
-    expect(parsed.llms).toBe(fixture.llms);
+    const parsed = parseRendererPackage(JSON.stringify(value));
+    expect(parsed.rendererName).toBe(value.rendererName);
+    expect(parsed.artifacts.sourceRoot).toBe(value.artifacts.sourceRoot);
+    expect(parsed.skill).toBe(value.skill);
     expect(
       (globalThis as typeof globalThis & { rendererRan?: boolean }).rendererRan,
     ).toBeUndefined();
   });
 
-  it("rejects a package for a noncanonical chain or deployer", () => {
-    const wrongChain = packageFixture();
+  it("rejects the wrong chain and obsolete version 1 packages", () => {
+    const wrongChain = fixture();
     wrongChain.deployment.chainId = 31_337;
     expectImportError(
-      () => parseRendererPackage(serialize(wrongChain)),
+      () => parseRendererPackage(JSON.stringify(wrongChain)),
       "wrong-chain",
     );
 
-    const wrongDeployer = packageFixture();
-    wrongDeployer.deployment.create2Deployer = getAddress(
-      "0x1111111111111111111111111111111111111111",
-    );
+    const obsolete = { ...fixture(), formatVersion: 1 };
     expectImportError(
-      () => parseRendererPackage(serialize(wrongDeployer)),
-      "wrong-deployer",
-    );
-
-    const badChecksumDeployer = packageFixture();
-    badChecksumDeployer.deployment.create2Deployer =
-      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaA" as Address;
-    expectImportError(
-      () => parseRendererPackage(serialize(badChecksumDeployer)),
-      "wrong-deployer",
+      () => parseRendererPackage(JSON.stringify(obsolete)),
+      "schema-invalid",
     );
   });
 
-  it("rejects artifact fingerprint and initcode hash mismatches", () => {
-    const fingerprintMismatch = packageFixture();
-    fingerprintMismatch.artifacts.artifactFingerprint = `0x${"ff".repeat(32)}`;
+  it("rejects fingerprint and declared byte-length mismatches", () => {
+    const fingerprint = fixture();
+    fingerprint.artifacts.artifactFingerprint = `0x${"ff".repeat(32)}`;
     expectImportError(
-      () => parseRendererPackage(serialize(fingerprintMismatch)),
+      () => parseRendererPackage(JSON.stringify(fingerprint)),
       "artifact-fingerprint-mismatch",
     );
 
-    const initcodeMismatch = packageFixture();
-    initcodeMismatch.deployment.initCodeHash = `0x${"ee".repeat(32)}`;
+    const artifactSize = fixture();
+    artifactSize.artifacts.creationByteLength = 500;
     expectImportError(
-      () => parseRendererPackage(serialize(initcodeMismatch)),
-      "initcode-hash-mismatch",
-    );
-  });
-
-  it("rejects declared artifact and raw payload sizes that differ from the bytes", () => {
-    const creationSizeMismatch = packageFixture();
-    creationSizeMismatch.artifacts.creationByteLength = 500;
-    expectImportError(
-      () => parseRendererPackage(serialize(creationSizeMismatch)),
+      () => parseRendererPackage(JSON.stringify(artifactSize)),
       "creation-size-mismatch",
     );
 
-    const runtimeSizeMismatch = packageFixture();
-    runtimeSizeMismatch.artifacts.runtimeByteLength = 200;
+    const deploymentSize = fixture();
+    deploymentSize.deployment.initCodeByteLength = 500;
     expectImportError(
-      () => parseRendererPackage(serialize(runtimeSizeMismatch)),
-      "runtime-size-mismatch",
-    );
-
-    const payloadSizeMismatch = packageFixture();
-    payloadSizeMismatch.deployment.rawByteLength += 1;
-    expectImportError(
-      () => parseRendererPackage(serialize(payloadSizeMismatch)),
-      "raw-payload-size-mismatch",
+      () => parseRendererPackage(JSON.stringify(deploymentSize)),
+      "creation-size-mismatch",
     );
   });
 
-  it("accepts 94,999 raw salt-plus-initcode bytes and rejects 95,000", () => {
-    const accepted = packageFixture({
-      creationBytecode: `0x${"00".repeat(94_967)}`,
+  it("accepts the registry limit and rejects one byte above it", () => {
+    const accepted = fixture({
+      creationBytecode: `0x${"00".repeat(94_656)}`,
     });
     expect(
-      parseRendererPackage(serialize(accepted)).deployment.rawByteLength,
-    ).toBe(94_999);
+      parseRendererPackage(JSON.stringify(accepted)).deployment
+        .initCodeByteLength,
+    ).toBe(94_656);
 
-    const rejected = packageFixture({
-      creationBytecode: `0x${"00".repeat(94_968)}`,
+    const rejected = fixture({
+      creationBytecode: `0x${"00".repeat(94_657)}`,
     });
-    rejected.deployment.rawByteLength = 94_999;
     expectImportError(
-      () => parseRendererPackage(serialize(rejected)),
-      "raw-payload-too-large",
-    );
-  });
-
-  it("rejects a predicted CREATE2 address that was not derived from the package", () => {
-    const fixture = packageFixture();
-    fixture.deployment.predictedAddress = getAddress(
-      "0x2222222222222222222222222222222222222222",
-    );
-
-    expectImportError(
-      () => parseRendererPackage(serialize(fixture)),
-      "predicted-address-mismatch",
+      () => parseRendererPackage(JSON.stringify(rejected)),
+      "schema-invalid",
     );
   });
 });

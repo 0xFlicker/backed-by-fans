@@ -11,6 +11,7 @@ import {
 import {
   CreatorStudio,
   type CreatorStudioProps,
+  type StudioRenderer,
 } from "@/features/creator-studio/CreatorStudio";
 import type { PreviewGalleryModel } from "@/features/creator-studio/PreviewGallery";
 import type { RendererAddressResolution } from "@/features/creator-studio/renderer-address";
@@ -51,10 +52,12 @@ const customRenderer = {
 
 function StudioHarness({
   renderer = foundingRenderer,
+  createdRenderers = [],
   initialEngine = 0,
   initialRendererChoice = "original",
 }: {
   renderer?: RendererAddressResolution | null;
+  createdRenderers?: readonly StudioRenderer[];
   initialEngine?: number;
   initialRendererChoice?: CreatorStudioProps["rendererChoice"];
 } = {}) {
@@ -68,22 +71,27 @@ function StudioHarness({
   });
   const [engine, setEngine] = useState(initialEngine);
   const [rendererChoice, setRendererChoice] = useState(initialRendererChoice);
+  const [activeRenderer, setActiveRenderer] = useState<
+    StudioRenderer | undefined
+  >(renderer ?? undefined);
   const [customAddress, setCustomAddress] = useState("");
 
   return (
     <CreatorStudio
       art={art}
+      createdRenderers={createdRenderers}
       customRendererAddress={customAddress}
       customRendererState={{ status: "idle" }}
       media={media}
       onArtChange={setArt}
       onCustomRendererAddressChange={setCustomAddress}
+      onCreatedRendererChange={setActiveRenderer}
       onEngineChange={setEngine}
       onMediaChange={setMedia}
       onRendererChoiceChange={setRendererChoice}
       onSelectionChange={setSelection}
       preview={preview}
-      renderer={renderer ?? undefined}
+      renderer={activeRenderer}
       rendererChoice={rendererChoice}
       selectedEngine={engine}
       selection={selection}
@@ -115,6 +123,26 @@ describe("CreatorStudio", () => {
     expect(
       screen.getByRole("radio", { name: /Add your image/i }),
     ).not.toBeVisible();
+  });
+
+  it("puts the connected creator's renderers before the six defaults and Custom", async () => {
+    const user = userEvent.setup();
+    render(<StudioHarness createdRenderers={[customRenderer]} />);
+
+    const choices = within(
+      screen.getByRole("radiogroup", { name: "Art styles" }),
+    ).getAllByRole("radio");
+    expect(choices).toHaveLength(8);
+    expect(choices[0]).toHaveAccessibleName(/MOONLIT MEMBERSHIPS/i);
+    expect(choices[1]).toHaveAccessibleName(/STACK/i);
+    expect(choices[7]).toHaveAccessibleName(/CUSTOM/i);
+
+    await user.click(choices[0]);
+    expect(choices[0]).toHaveAttribute("aria-checked", "true");
+    expect(document.querySelector("[data-creator-studio]")).toHaveAttribute(
+      "data-renderer-address",
+      customRenderer.address,
+    );
   });
 
   it("places collapsed artwork and image controls together below the preview", () => {

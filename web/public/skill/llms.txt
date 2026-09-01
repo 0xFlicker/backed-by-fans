@@ -24,7 +24,7 @@ What the checks mean
 Product boundaries
 
 - Canonical chain: Robinhood testnet, chain ID 46630.
-- Sharing: direct same-chain contract address. No renderer registry or cross-chain lookup.
+- Sharing: direct same-chain contract address. Browser deployment also records the renderer in the creator's onchain renderer list; the list is not an approval gate.
 - Preview: public renderer preview page, never the membership Creator Studio.
 - Deployment: creator's browser wallet only. Never ask for a private key, mnemonic, keystore, or password.
 - Media: an artistic input that the renderer may transform or ignore; exact-byte preservation is not required.

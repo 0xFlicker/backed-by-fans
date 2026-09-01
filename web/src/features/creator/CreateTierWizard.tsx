@@ -45,6 +45,7 @@ import {
 import {
   CreatorStudio,
   type RendererChoice,
+  type StudioRenderer,
 } from "@/features/creator-studio/CreatorStudio";
 import {
   canonicalArtEngineManifestNames,
@@ -70,10 +71,8 @@ import {
   type PreviewSelection,
 } from "@/features/creator-studio/PreviewGallery";
 import { decodeRendererTokenURI } from "@/features/creator-studio/renderer-preview";
-import {
-  resolveRendererAddress,
-  type RendererAddressResolution,
-} from "@/features/creator-studio/renderer-address";
+import { resolveRendererAddress } from "@/features/creator-studio/renderer-address";
+import { readCreatedRendererAddresses } from "@/features/renderer-registry/registry-read";
 import {
   emptyMediaConfig,
   makeRendererPreviewContext,
@@ -318,7 +317,7 @@ export function CreateTierWizard() {
   const [rendererAddress, setRendererAddress] = useState("");
   const [rendererEngine, setRendererEngine] = useState(0);
   const [rendererResolution, setRendererResolution] =
-    useState<RendererAddressResolution>();
+    useState<StudioRenderer>();
   const [rendererCustomState, setRendererCustomState] =
     useState<CustomRendererState>({ status: "idle" });
   const rendererResolutionGeneration = useRef(0);
@@ -391,6 +390,51 @@ export function CreateTierWizard() {
           : canonicalArtEngineManifestNames,
     };
   }, [deployment, protocol.data]);
+  const createdRenderers = useQuery({
+    queryKey: [
+      "creator-renderers",
+      deployment.status === "ready"
+        ? deployment.rendererRegistryAddress
+        : undefined,
+      account.address,
+    ],
+    enabled: Boolean(
+      deployment.status === "ready" &&
+      deployment.rendererRegistryAddress &&
+      account.address &&
+      client,
+    ),
+    queryFn: async () => {
+      if (
+        deployment.status !== "ready" ||
+        !deployment.rendererRegistryAddress ||
+        !account.address ||
+        !client ||
+        (deployment.chainId !== 46_630 && deployment.chainId !== 31_337)
+      ) {
+        return [];
+      }
+      const addresses = await readCreatedRendererAddresses(
+        client,
+        deployment.rendererRegistryAddress,
+        account.address,
+      );
+      const canonicalChainId = deployment.chainId;
+      const resolutions = await Promise.allSettled(
+        addresses.map((address) =>
+          resolveRendererAddress(client, {
+            address,
+            canonicalChainId,
+            expectedSchema: membershipRendererSchema,
+          }),
+        ),
+      );
+      return resolutions.flatMap((resolution) =>
+        resolution.status === "fulfilled" ? [resolution.value] : [],
+      );
+    },
+    retry: false,
+  });
   const selectedRenderer =
     rendererChoice === "original" ? originalRenderer : rendererResolution;
 
@@ -1152,7 +1196,17 @@ export function CreateTierWizard() {
     setRendererEngine(0);
     if (choice === "custom" && rendererAddress.trim().length === 42) {
       handleRendererAddressChange(rendererAddress);
+    } else if (choice === "custom") {
+      setRendererResolution(undefined);
     }
+    resetCompletion();
+  }
+
+  function handleCreatedRendererChange(renderer: StudioRenderer) {
+    rendererResolutionGeneration.current += 1;
+    setRendererResolution(renderer);
+    setRendererCustomState({ status: "idle" });
+    setRendererEngine(0);
     resetCompletion();
   }
 
@@ -2001,6 +2055,7 @@ export function CreateTierWizard() {
             </span>
             <CreatorStudio
               art={art}
+              createdRenderers={createdRenderers.data ?? []}
               customRendererAddress={rendererAddress}
               customRendererState={rendererCustomState}
               disabled={
@@ -2014,6 +2069,7 @@ export function CreateTierWizard() {
               nativeState={presentedNativeState}
               onArtChange={handleArtChange}
               onCustomRendererAddressChange={handleRendererAddressChange}
+              onCreatedRendererChange={handleCreatedRendererChange}
               onEngineChange={handleRendererEngineChange}
               onMediaChange={handleMediaChange}
               onNextNativeLibraryPage={() =>

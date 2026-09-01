@@ -8,12 +8,9 @@ import {
 } from "./session-helper";
 
 const SITE_ORIGIN = "https://backed-by-fans.example";
-const PAGE_URL = `${SITE_ORIGIN}/renderer`;
+const PAGE_URL = `${SITE_ORIGIN}/render`;
 const fingerprint = `0x${"11".repeat(32)}`;
 const requestSetFingerprint = `0x${"22".repeat(32)}`;
-const initCodeHash = `0x${"33".repeat(32)}`;
-const salt = `0x${"44".repeat(32)}`;
-const predictedAddress = `0x${"55".repeat(20)}`;
 
 const helpers = new Set<RendererSessionHelper>();
 
@@ -48,11 +45,9 @@ function candidate(overrides: Record<string, unknown> = {}) {
     artifactFingerprint: fingerprint,
     creationBytecode: "0x6000",
     runtimeBytecode: "0x6001",
-    salt,
     manifest: {
       deployment: {
-        initCodeHash,
-        predictedAddress,
+        initCodeByteLength: 2,
       },
     },
     ...overrides,
@@ -118,7 +113,7 @@ describe("renderer session helper", () => {
     const fragment = new URLSearchParams(pageUrl.hash.slice(1));
 
     expect(pageUrl.origin).toBe(SITE_ORIGIN);
-    expect(pageUrl.pathname).toBe("/renderer");
+    expect(pageUrl.pathname).toBe("/render");
     expect(fragment.get("helper")).toBe(first.origin);
     expect(fragment.get("capability")).toBe(first.capability);
     expect(fragment.get("sessionId")).toBe(first.sessionId);
@@ -210,7 +205,7 @@ describe("renderer session helper", () => {
     });
   });
 
-  test("stores only bounded session state and invalidates prepared deployment on mutation", async () => {
+  test("stores only bounded session state and invalidates approval on mutation", async () => {
     const helper = await startHelper();
     const requests = exampleRequests();
     const results = exampleResults();
@@ -225,8 +220,7 @@ describe("renderer session helper", () => {
     expect(await putCandidate.json()).toEqual({
       candidateId: "candidate-1",
       artifactFingerprint: fingerprint,
-      initCodeHash,
-      predictedAddress,
+      initCodeByteLength: 2,
     });
 
     const putRequests = await jsonRequest(
@@ -257,43 +251,25 @@ describe("renderer session helper", () => {
       (await jsonRequest(helper, "/v1/approval", "PUT", approval)).status,
     ).toBe(200);
 
-    const deployment = {
-      chainId: 46_630,
-      deployer: `0x${"66".repeat(20)}`,
-      salt,
-      initcode: "0x6000",
-      calldata: `0x${"44".repeat(32)}6000`,
-      rawByteLength: 34,
-      predictedAddress,
-      approvalFingerprint: `0x${"77".repeat(32)}`,
-    };
-    expect(
-      (await jsonRequest(helper, "/v1/deployment-request", "PUT", deployment))
-        .status,
-    ).toBe(200);
-
-    const getDeployment = await fetch(
-      `${helper.origin}/v1/deployment-request`,
-      { headers: authorizedHeaders(helper) },
-    );
-    expect(await getDeployment.json()).toEqual(deployment);
-
     await jsonRequest(helper, "/v1/candidate", "PUT", {
       ...candidate(),
       candidateId: "candidate-2",
     });
 
-    const invalidated = await fetch(`${helper.origin}/v1/deployment-request`, {
-      headers: authorizedHeaders(helper),
-    });
-    expect(invalidated.status).toBe(404);
+    const staleApproval = await jsonRequest(
+      helper,
+      "/v1/approval",
+      "PUT",
+      approval,
+    );
+    expect(staleApproval.status).toBe(409);
   });
 
   test("loads a package without duplicating artifact bytes or example requests in the candidate response", async () => {
     const examples = exampleRequests().requests;
     const helper = await startHelper({
       initialPackage: {
-        formatVersion: 1,
+        formatVersion: 2,
         rendererName: "Test renderer",
         artifacts: {
           sourceRoot: "/local/source",
@@ -302,7 +278,7 @@ describe("renderer session helper", () => {
           creationBytecode: "0x6000",
           runtimeBytecode: "0x6001",
         },
-        deployment: { salt, initCodeHash, predictedAddress },
+        deployment: { chainId: 46_630, initCodeByteLength: 2 },
         examples: examples.map(
           ({ requestId, method, contextWithoutMedia, localImageSlot }) => ({
             requestId,
@@ -337,12 +313,46 @@ describe("renderer session helper", () => {
     expect((await requestsResponse.json()).requests).toHaveLength(6);
   });
 
+  test("hands an optional source image to the authorized browser without adding it to JSON state", async () => {
+    const bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+    const helper = await startHelper({
+      initialImage: {
+        name: "creator.jpg",
+        mime: "image/jpeg",
+        bytes,
+      },
+    });
+
+    const session = await fetch(`${helper.origin}/v1/session`, {
+      headers: authorizedHeaders(helper),
+    });
+    expect(await session.json()).toMatchObject({
+      sourceImage: {
+        name: "creator.jpg",
+        mime: "image/jpeg",
+        size: bytes.byteLength,
+      },
+    });
+
+    const image = await fetch(`${helper.origin}/v1/source-image`, {
+      headers: authorizedHeaders(helper),
+    });
+    expect(image.status).toBe(200);
+    expect(image.headers.get("content-type")).toBe("image/jpeg");
+    expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes);
+
+    const missingCapability = await fetch(`${helper.origin}/v1/source-image`, {
+      headers: { origin: SITE_ORIGIN },
+    });
+    expect(missingCapability.status).toBe(401);
+  });
+
   test("accepts renderer outputs but rejects source-image fields at any depth", async () => {
     const helper = await startHelper();
     const withSourceImage = candidate({
       manifest: {
         sourceImageUrl: "data:image/png;base64,creator-source",
-        deployment: { initCodeHash, predictedAddress },
+        deployment: { chainId: 46_630, initCodeByteLength: 2 },
       },
     });
 
@@ -354,7 +364,7 @@ describe("renderer session helper", () => {
     );
     expect(rejectedCandidate.status).toBe(400);
     expect(await rejectedCandidate.json()).toEqual({
-      error: "Source image data is not accepted by the local helper.",
+      error: "Source image data is not accepted inside JSON renderer state.",
     });
 
     expect(
@@ -394,7 +404,7 @@ describe("renderer session helper", () => {
     );
     expect(rejectedSource.status).toBe(400);
     expect(await rejectedSource.json()).toEqual({
-      error: "Source image data is not accepted by the local helper.",
+      error: "Source image data is not accepted inside JSON renderer state.",
     });
   });
 });

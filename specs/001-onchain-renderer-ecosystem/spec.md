@@ -34,6 +34,21 @@ renderer address from an existing membership and paste it to reuse the renderer.
   otherwise the creator drops or selects the file in the webpage. Both paths continue with the same
   preview, approval, and wallet deployment without a hosted relay or storage backend.
 
+### Session 2026-09-01
+
+- Q: How should creators find renderers they previously deployed? → A: Add a permissionless
+  onchain renderer registry. It enumerates creators and each creator's deployed renderers. The
+  create-membership style list shows the connected creator's renderers first, the six default
+  styles next, and Custom with an address field last.
+- Q: Should deployment and registration require two transactions? → A: No. The browser calls
+  `deployAndRegister(bytes initCode)` once. The registry creates the renderer, returns and emits the
+  actual address, and records it for the caller.
+- Q: Does the registry gate membership use or become a renderer feed? → A: No. Compatible renderer
+  addresses remain directly usable without registration. A public renderer feed and curation UI are
+  out of scope, although the append-only creator list permits future enumeration.
+- Q: Must deployment preserve a deterministic or precomputed renderer address? → A: No. The only
+  authoritative renderer address is the address returned by the successful registry deployment.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Copy and Reuse a Renderer by Address (Priority: P1)
@@ -43,7 +58,8 @@ that address into the renderer flow, see representative images returned by the c
 whether to use it. The product resolves the address only on the environment's canonical chain.
 
 **Why this priority**: A copyable contract address is the simplest permissionless sharing
-mechanism. It lets onchain art spread without a platform-owned renderer registry.
+mechanism. The optional onchain registry makes a creator's own deployments easy to find without
+controlling which compatible addresses can be used.
 
 **Independent Test**: View a membership that uses a custom renderer, copy its renderer address,
 paste the address into another creator's renderer flow in the same environment, review the returned
@@ -102,8 +118,8 @@ authorization, and return the contract address.
    creator imports that package into the public renderer page, **Then** the browser validates it and
    displays representative previews without an account, SIWE flow, agent token, or backend session.
 7. **Given** an approved renderer candidate, **When** the browser prepares deployment, **Then** it
-   uses the existing canonical CREATE2 deployer, shows the precomputed renderer address, and asks
-   the creator's browser wallet to sign only after the creator clicks Deploy.
+   calls the configured renderer registry's one-transaction deployment function and asks the
+   creator's browser wallet to sign only after the creator clicks Deploy.
 8. **Given** a creator has not connected a wallet, **When** they import a valid package and request
    previews, **Then** the public page can display the renderer results; wallet connection remains a
    deployment-only requirement.
@@ -155,7 +171,8 @@ image, and let the creator approve or reject the displayed results.
 
 An artist shares a renderer by using it on a membership or sharing its contract address directly.
 People who discover the membership can inspect and copy the address, then paste it into their own
-creator flow. No platform registry, submission, listing, or curation workflow is involved.
+creator flow. Registry lookup is optional and no submission, approval, feed, or curation workflow is
+required.
 
 **Why this priority**: Memberships themselves become the discovery surface for an open ecosystem of
 onchain art, while the contract address remains the portable sharing primitive.
@@ -167,11 +184,14 @@ the renderer.
 **Acceptance Scenarios**:
 
 1. **Given** a custom-rendered membership, **When** someone views its renderer details, **Then** they
-   can copy the renderer contract address without entering an author or registry workflow.
+   can copy the renderer contract address without entering a registry workflow.
 2. **Given** the copied address, **When** another creator pastes it in the same environment, **Then**
    the canonical-chain renderer is called and its representative images are displayed.
 3. **Given** a renderer that is not referenced by any featured or platform-owned content, **When**
-   its address is pasted, **Then** it remains reusable because no renderer registry is required.
+   its address is pasted, **Then** it remains reusable even without a renderer registry entry.
+4. **Given** a connected creator has deployed renderers through the registry, **When** they open the
+   create-membership Art Studio, **Then** those renderers appear before the six defaults, with
+   Custom and its address field last.
 
 ### Edge Cases
 
@@ -191,13 +211,12 @@ the renderer.
 - A third-party AI skill or `llms.txt` contains unsafe instructions, requests secrets, or proposes
   actions unrelated to renderer creation.
 - An imported renderer package is malformed, too large, targets the wrong canonical chain, or has
-  fingerprints or a predicted address that do not match its contents.
+  artifact or byte-length fields that do not match its contents.
 - The browser denies local-network access, blocks the helper request, or the helper has expired;
   file import remains available without restarting the renderer build.
 - The public RPC rate-limits or rejects the preview's calldata or response size; the page explains
   the failure without silently moving the request to a paid backend RPC.
-- The precomputed CREATE2 address already contains code or the canonical deployer's code does not
-  match the environment's expected deployer.
+- The renderer registry is not deployed on the selected chain or its deployment call reverts.
 - A previously used renderer later fails to return an image; the membership still exposes its
   address and the product shows the rendering failure clearly.
 
@@ -215,8 +234,8 @@ the renderer.
   a copyable form.
 - **FR-004**: Creators MUST be able to paste a renderer contract address for reuse.
 - **FR-005**: The product MUST resolve a pasted address only on the environment's canonical chain.
-- **FR-006**: A contract address MUST be sufficient to attempt runtime reuse; no renderer registry,
-  submission, listing, approval, or platform curation record may be required.
+- **FR-006**: A contract address MUST be sufficient to attempt runtime reuse; no renderer registry
+  entry, submission, listing, approval, or platform curation record may be required.
 - **FR-007**: A pasted address with no contract on the canonical chain MUST produce a clear failure
   and MUST NOT trigger a search on another chain.
 - **FR-008**: A membership MUST continue to expose the renderer address even when rendering fails.
@@ -293,12 +312,18 @@ the renderer.
 
 #### Sharing Scope
 
-- **FR-038**: User-provided renderer discovery MUST occur through memberships and direct contract
-  address sharing in this feature.
-- **FR-039**: A platform registry for user-provided renderers, including submission, listing,
-  curation, attribution, compatibility evidence, and removal workflows, is out of scope.
+- **FR-038**: The product MUST provide a permissionless onchain renderer registry that enumerates
+  creators and the renderers each creator deployed through it.
+- **FR-039**: A public renderer feed, platform curation, approval, ranking, moderation, and
+  compatibility-scoring workflow is out of scope.
 - **FR-040**: The sharing flow MUST NOT require a crosschain identifier; the address is interpreted
   only in the current environment's canonical-chain context.
+- **FR-040a**: The create-membership style list MUST show the connected creator's registry-deployed
+  renderers first, the six canonical defaults next, and Custom with an address field last.
+- **FR-040b**: The registry MUST expose separate created and saved renderer lists so manually saving
+  an existing address does not claim authorship.
+- **FR-040c**: The registry MUST maintain an append-only enumerable list of addresses that have
+  successfully deployed a renderer through it.
 
 #### Public Renderer Lab and File Handoff
 
@@ -312,8 +337,8 @@ the renderer.
 - **FR-044**: The package MUST NOT contain a source image, wallet secret, wallet signature,
   authentication artifact, paid RPC credential, or browser-executable code.
 - **FR-045**: Before preview, the browser MUST validate package schema and size, require the
-  environment's canonical chain, and recompute the artifact fingerprint, initcode hash, raw CREATE2
-  payload size, and predicted address from the imported contents.
+  environment's canonical chain, and recompute the artifact fingerprint and final initcode and
+  runtime byte lengths from the imported contents.
 - **FR-046**: A malformed, oversized, wrong-chain, or internally inconsistent package MUST fail with
   a clear explanation and MUST NOT become an approved or deployable candidate.
 - **FR-047**: Importing and previewing a package MUST NOT require a connected wallet. Wallet
@@ -331,17 +356,21 @@ the renderer.
 - **FR-053**: The renderer output or clear failure returned by the RPC MUST be displayed directly to
   the creator for approval or rejection.
 - **FR-054**: The browser MUST offer deployment only after creator approval. Any candidate,
-  representative-request, salt, or deployment-input change MUST clear approval.
-- **FR-055**: Renderer deployment MUST use the environment's existing canonical CREATE2 deployer
-  rather than introducing a renderer registry, renderer factory, or backend deployment signer.
+  representative-request, result, or deployment-input change MUST clear approval.
+- **FR-055**: Renderer deployment MUST use the configured renderer registry's
+  `deployAndRegister(bytes initCode)` function rather than a backend deployment signer.
 - **FR-056**: Before the creator clicks Deploy, the browser MUST show the canonical chain, complete
-  final creation payload size, selected salt, and precomputed renderer address.
-- **FR-057**: Deployment preparation MUST reject a payload that exceeds the canonical chain's public
-  transaction constraints or targets a precomputed address that already contains code.
+  final creation payload size, and renderer registry address. It MUST NOT present a predicted
+  renderer address as authoritative.
+- **FR-057**: Deployment preparation MUST reject initcode that exceeds the registry's canonical
+  transaction limit.
 - **FR-058**: Only the creator's browser wallet, through the established wallet lifecycle, may
   simulate, sign, and submit the deployment after the creator clicks Deploy.
-- **FR-059**: After successful deployment, the browser MUST show the precomputed renderer contract
-  address as the reusable address.
+- **FR-059**: After successful deployment, the browser MUST decode the registry event, show the
+  actual renderer contract address, and make that address available in the creator's registry list.
+- **FR-059a**: Deploying and recording a renderer MUST require one creator-wallet transaction.
+- **FR-059b**: Membership tier creation MUST continue to accept any compatible direct renderer
+  address without consulting the renderer registry.
 - **FR-060**: The platform MUST NOT persist the imported package, browser-selected source image,
   rendered preview, approval, or prepared deployment request after the page session ends.
 - **FR-061**: The renderer skill SHOULD offer an optional loopback helper that binds only to
@@ -390,15 +419,19 @@ the renderer.
 - **Local Preview Image**: Image data selected by the creator for temporary design review. It stays
   browser-held, may be included in a read-only canonical-RPC renderer call, and is not a durable or
   onchain media record.
-- **Unsigned Renderer Deployment Request**: The approved renderer's final creation payload, CREATE2
-  salt, canonical deployer, canonical chain, and precomputed contract address, prepared for the
-  creator's browser wallet without granting signing authority to the agent.
+- **Unsigned Renderer Deployment Request**: The approved renderer's final creation payload,
+  canonical renderer registry, and canonical chain, prepared for the creator's browser wallet
+  without granting signing authority to the agent.
+- **Renderer Registry**: A permissionless onchain index that deploys and records renderers, returns
+  their actual addresses, separates creator provenance from saved addresses, and never gates tier
+  creation.
 
 ## Assumptions and Dependencies
 
 - The current product environment's one canonical public chain is Robinhood testnet (`46630`). Local
   chain `31337` is evidence-only. Robinhood mainnet configuration and deployment are out of scope.
-- User-provided renderer registry and catalog features are intentionally excluded.
+- A public renderer catalog or feed is intentionally excluded; owner-specific registry enumeration
+  is included.
 - The renderer input contract can expose the configured onchain image in a form contracts can use.
 - A renderer author controls how the supplied image affects the final artwork; transformation is a
   feature, not a failure of byte preservation.
@@ -413,8 +446,8 @@ the renderer.
 - Browser-local image handling is the default because it avoids a persistent media-storage service.
   Including image bytes in the ordinary read-only RPC preview request is part of that browser flow,
   not a persistent upload, and needs no additional confirmation.
-- The canonical CREATE2 deployer configured for the environment remains available and is not a
-  renderer registry or renderer-specific factory.
+- The renderer registry is separately deployed and does not require redeploying or modifying the
+  immutable membership protocol.
 - Optional loopback is the preferred convenience handoff when the browser permits it; local
   renderer-package import is the universal fallback. Both use the same canonical RPC and
   established wallet lifecycle.
@@ -455,9 +488,9 @@ the renderer.
 - **SC-012**: In 100% of image-preview tests, no extra transmission confirmation is shown, and
   neither the package, source image, nor rendered preview remains available after the page session
   ends.
-- **SC-013**: In 100% of renderer deployment tests, the browser shows the correct precomputed
-  CREATE2 address before authorization, the creator's wallet is the only signer, and the same
-  address is returned after successful deployment.
+- **SC-013**: In 100% of renderer deployment tests, the creator's wallet is the only signer, one
+  transaction deploys and records the renderer, and the address emitted by the registry is shown
+  after successful deployment.
 - **SC-014**: In 100% of import tests, a valid renderer package reaches the preview and approval
   gates, while malformed, wrong-chain, or inconsistent packages are rejected before any wallet
   prompt.

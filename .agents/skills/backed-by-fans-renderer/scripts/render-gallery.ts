@@ -7,7 +7,6 @@ import {
   startLocalAnvil,
   type RendererPackage,
   type RendererPackageExample,
-  type SimulatedRendererDeployment,
 } from "./build-package";
 
 const PREVIEW_SVG_SIGNATURE =
@@ -52,7 +51,7 @@ function galleryHtml(
     .join("");
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${escapeHtml(rendererPackage.rendererName)} gallery</title><style>
-:root{color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0c0c0c;color:#f4f1e8}body{margin:0;padding:32px}header{max-width:980px;margin:0 auto 28px}h1{font-size:clamp(28px,5vw,56px);margin:0 0 12px}p{color:#aaa;overflow-wrap:anywhere}.matrix{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;max-width:1440px;margin:auto}figure{margin:0;border:1px solid #333;background:#151515}img{display:block;width:100%;aspect-ratio:1;object-fit:contain;background:#080808}figcaption{display:grid;gap:7px;padding:14px;font-size:13px}figcaption span{color:#aaa}</style></head><body><header><h1>${escapeHtml(rendererPackage.rendererName)}</h1><p>Six deterministic local representative requests. Browser image slots render with empty local media; no source image is embedded.</p><p>Predicted CREATE2 address: ${escapeHtml(rendererPackage.deployment.predictedAddress)}</p></header><main class="matrix">${figures}</main></body></html>
+:root{color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0c0c0c;color:#f4f1e8}body{margin:0;padding:32px}header{max-width:980px;margin:0 auto 28px}h1{font-size:clamp(28px,5vw,56px);margin:0 0 12px}p{color:#aaa;overflow-wrap:anywhere}.matrix{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;max-width:1440px;margin:auto}figure{margin:0;border:1px solid #333;background:#151515}img{display:block;width:100%;aspect-ratio:1;object-fit:contain;background:#080808}figcaption{display:grid;gap:7px;padding:14px;font-size:13px}figcaption span{color:#aaa}</style></head><body><header><h1>${escapeHtml(rendererPackage.rendererName)}</h1><p>Six local representative requests. Browser image slots render with empty local media; no source image is embedded.</p></header><main class="matrix">${figures}</main></body></html>
 `;
 }
 
@@ -163,7 +162,6 @@ function castOutput(command: string[]): string {
 async function simulatedPreviewCall(
   rpcUrl: string,
   rendererAddress: string,
-  simulation: SimulatedRendererDeployment,
   example: RendererPackageExample,
 ): Promise<string> {
   const calldata = castOutput([
@@ -175,7 +173,6 @@ async function simulatedPreviewCall(
   const encodedOutput = await anvilRpc(rpcUrl, "eth_call", [
     { data: calldata, to: rendererAddress },
     "latest",
-    simulation.stateOverrides,
   ]);
   if (typeof encodedOutput !== "string") {
     throw new Error("Local preview returned no ABI-encoded output.");
@@ -195,7 +192,7 @@ async function simulatedPreviewCall(
 function parseRendererPackage(path: string): RendererPackage {
   const value = JSON.parse(readFileSync(path, "utf8")) as RendererPackage;
   if (
-    value.formatVersion !== 1 ||
+    value.formatVersion !== 2 ||
     typeof value.artifacts?.creationBytecode !== "string" ||
     typeof value.artifacts?.runtimeBytecode !== "string" ||
     !Array.isArray(value.examples)
@@ -228,17 +225,16 @@ export async function runRenderGalleryCli(args: string[]): Promise<string> {
   );
   const local = await startLocalAnvil();
   try {
-    const simulation = await simulateRendererDeployment(local, {
-      creationBytecode: rendererPackage.artifacts.creationBytecode,
-      predictedAddress: rendererPackage.deployment.predictedAddress,
-      salt: rendererPackage.deployment.salt,
-    });
+    const simulation = await simulateRendererDeployment(
+      local,
+      rendererPackage.artifacts.creationBytecode,
+    );
     if (
       simulation.runtimeBytecode.toLowerCase() !==
       rendererPackage.artifacts.runtimeBytecode.toLowerCase()
     ) {
       throw new Error(
-        "The package runtime does not match the complete local CREATE2 simulation.",
+        "The package runtime does not match the complete local deployment.",
       );
     }
     const gallery = await writeRendererGallery({
@@ -247,8 +243,7 @@ export async function runRenderGalleryCli(args: string[]): Promise<string> {
       renderSvg: (example) =>
         simulatedPreviewCall(
           local.rpcUrl,
-          rendererPackage.deployment.predictedAddress,
-          simulation,
+          simulation.rendererAddress,
           example,
         ),
     });
