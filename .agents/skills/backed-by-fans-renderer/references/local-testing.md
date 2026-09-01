@@ -82,4 +82,15 @@ bun ./scripts/session-helper.ts \
 
 Open the printed URL in the creator's regular browser first so their wallet extensions are available. Fall back to an agentic browser only if opening the external browser does not work.
 
+An agentic browser is sufficient for visual inspection, but it is not a substitute for the final handoff to the creator's normal browser. In ChatGPT, the loopback path also requires the ChatGPT browser extension and permission for the preview page to reach the local helper. If either requirement is missing, use file handoff instead of asking the creator to debug the bridge.
+
 If the agent runs in a cloud, sandbox, or VM—or loopback is blocked—return `renderer-package.json` to the creator as a downloadable file. Instruct them to open `https://HOST/render` in their own browser, upload the package, and choose the source JPEG or PNG there. Do not rebuild the package, upload either file to a storage service, or request wallet secrets.
+
+Regardless of whether loopback succeeded, end with:
+
+- the resolved, clickable public `/render` URL, normally derived from the origin that served the hosted skill or `llms.txt`, rather than a placeholder;
+- a clickable attachment or file link to `renderer-package.json`;
+- a clickable attachment or file link to the exact JPEG or PNG used, when present; and
+- instructions to open the page in the creator's regular browser, upload the JSON, upload the image when present, inspect the previews, and connect their wallet and choose **Deploy renderer** only if they want to publish it.
+
+If the creator did not supply an image, remind them that the agent can generate one and rerun the renderer workflow with it. If the design intentionally uses no image, say that no image file is required.

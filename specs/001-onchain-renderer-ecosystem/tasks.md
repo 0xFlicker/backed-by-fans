@@ -62,9 +62,9 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 ## Phase 3: User Story 1 - Copy and Reuse a Renderer by Address (Priority: P1) 🎯 MVP
 
-**Goal**: A creator can copy a renderer address from a membership, paste it on the environment's one canonical chain, inspect representative results, approve or reject it, and create a tier without a registry entry.
+**Goal**: A creator can copy a renderer address from a membership, paste it into Custom on the environment's one canonical chain, render with it directly, and create a tier without a registry entry or separate acceptance step.
 
-**Independent Test**: Open a membership, copy its renderer address, paste it into the create flow, render all representative examples on the configured canonical chain, approve it, and create a local tier; invalid or failing addresses never become selectable.
+**Independent Test**: Open a membership, copy its renderer address, paste it into Custom, render with it on the configured canonical chain, and create a local tier; invalid or failing addresses show a clear error and leave the controls usable.
 
 ### Tests for User Story 1
 
@@ -131,7 +131,7 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 **Goal**: A renderer can receive browser-selected preview bytes and configured onchain media, transform or ignore them, and show representative results without byte-preservation claims or storage.
 
-**Independent Test**: Select a local JPEG/PNG, render every representative image case through canonical RPC, verify the custom renderer transforms the input, verify loopback receives only the output, approve or reject it, and confirm no source or result survives page/helper closure.
+**Independent Test**: Select a local JPEG/PNG, render every representative image case through canonical RPC, verify the custom renderer transforms the input, verify loopback receives only the output, inspect the results, and confirm no source or result survives page/helper closure.
 
 ### Tests for User Story 3
 
@@ -156,7 +156,7 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 **Goal**: Memberships and direct addresses form the complete renderer discovery surface; no platform registry, listing, submission, or skill execution is introduced.
 
-**Independent Test**: Open a custom-rendered membership, copy its renderer address even when current rendering fails, share it with another creator, paste it on the same canonical chain, and approve or reject its displayed examples without installing associated agent guidance.
+**Independent Test**: Open a custom-rendered membership, copy its renderer address even when current rendering fails, share it with another creator, paste it on the same canonical chain, and use it directly or see a clear rendering failure without installing associated agent guidance.
 
 ### Tests for User Story 4
 
@@ -202,12 +202,11 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 ---
 
-## Phase 9: Acceptance Trials
+## Phase 9: Agent Trial Closure
 
-**Purpose**: Measure the explicit user and agent success criteria without substituting automated tests for participant evidence.
+**Purpose**: Record the clean-workspace agent trials separately from automated compatibility checks.
 
-- [ ] T081 Run five clean-workspace renderer-agent trials for SC-003 after the testnet protocol rollout, preserving a separate approval gate for every public renderer deployment, and record the success ratio and evidence boundaries in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
-- [ ] T082 Run timed creator sessions for SC-001, SC-008, and SC-009 covering address reuse, representative-set sufficiency, and package import without account or wallet connection, and record the measured results in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
+- [X] T081 Run five clean-workspace renderer-agent trials for SC-003 after the testnet protocol rollout, preserving a separate approval gate for every public renderer deployment, and record the success ratio and evidence boundaries in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
 
 ---
 
@@ -261,14 +260,14 @@ Studio styles without gating direct-address use.
 - **User Story 4 (Phase 6)**: Depends on US1 direct-address and membership-details primitives.
 - **Polish (Phase 7)**: Depends on every user story selected for delivery; full quickstart validation assumes US1-US4.
 - **Operator-Gated Testnet Deployment (Phase 8)**: Depends on every Phase 7 check and cannot begin until separate operator approval is recorded at T077.
-- **Acceptance Trials (Phase 9)**: Depend on the promoted Robinhood-testnet protocol; every renderer write within a trial retains its own creator-wallet approval gate.
+- **Agent Trial Closure (Phase 9)**: Depends on the promoted Robinhood-testnet protocol; every renderer write within a trial retains its own creator-wallet approval gate.
 
 ### User Story Dependency Graph
 
 ```text
 Setup -> Foundation -> US1 (MVP) -> US4
                     \-> US2 ------> US3
-US1 + US2 + US3 + US4 -> Polish -> Operator-Gated Testnet -> Acceptance Trials
+US1 + US2 + US3 + US4 -> Polish -> Operator-Gated Testnet -> Agent Trial Closure
 ```
 
 ### Within Each User Story
@@ -345,7 +344,7 @@ Task: "Write sharing browser journey in web/tests/e2e/renderer-sharing.spec.ts"
 5. **US4**: Membership discovery and direct sharing complete the open ecosystem.
 6. **Polish**: Run complete source, browser, Anvil, and boundary validation with evidence classes kept separate.
 7. **Operator-Gated Testnet**: Stop for approval, then deploy and promote the immutable protocol through the interactive operator-password flow.
-8. **Acceptance Trials**: Measure the explicit creator and agent success criteria against the promoted testnet environment.
+8. **Agent Trial Closure**: Record the five clean-workspace agent trials against the promoted testnet environment.
 
 ### Parallel Team Strategy
 

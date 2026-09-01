@@ -61,9 +61,10 @@ loopback helper or renderer-package file handoff on macOS/Linux/Windows; Robinho
 agent skill/helper
 
 **Performance Goals**: Preserve the existing 300 ms focused-preview debounce, 1 second gallery
-debounce, two concurrent RPC previews, and 15 second per-preview timeout. Load a loopback or imported
-package and reach previews within two minutes for at least 90% of test users. Render token IDs 1, 7,
-and 42 in active and expired states without retaining source or output media after the session.
+debounce, two concurrent RPC previews, and 15 second per-preview timeout. A loopback or imported
+package reaches representative previews without requiring an account or wallet connection. Render
+token IDs 1, 7, and 42 in active and expired states without retaining source or output media after
+the session.
 
 **Constraints**: Robinhood testnet is the only public canonical chain in scope; no renderer registry gate for tier creation;
 no crosschain lookup; no private-key, seed, or keystore export; no backend signer; no persistent

@@ -43,7 +43,9 @@ For the detailed local workflow, read [references/local-testing.md](references/l
 
 - Use the public renderer preview page for representative browser previews. Renderer preview does not belong in the membership Creator Studio.
 - Prefer the creator's regular external browser, where their wallet extensions are available. Open the helper URL there first; use an agent's packaged browser only when the external browser cannot be opened.
+- An agentic browser is useful for inspecting previews, but it is not the final handoff when the creator needs their normal browser or wallet extension. Do not finish the task merely because the previews worked in an internal browser.
 - When the agent and browser share a machine, prefer `bun ./scripts/session-helper.ts --package <package> --image <image> --page-url <url>` for loopback handoff. The browser should receive both the package and the selected image when permitted.
+- Treat loopback as optional. In ChatGPT it requires the ChatGPT browser extension plus permission for the preview site to reach the local helper. If the extension is absent, permission is denied, or the helper cannot be reached, move directly to file handoff.
 - In a cloud, sandbox, or VM that cannot reach the creator's browser, export `renderer-package.json` as a downloadable artifact. Tell the creator to open `/render` in their own browser, upload that file, and then choose the source image there. Do not replace this handoff with a private key or hosted upload service.
 - A selected image may be encoded into canonical RPC preview calldata without a separate confirmation. It is never added to the renderer package.
 - Only the creator's browser wallet may authorize and submit deployment. Never request or handle a creator private key, mnemonic, keystore, or wallet password.
@@ -57,5 +59,14 @@ For the detailed local workflow, read [references/local-testing.md](references/l
 - `nativeMedia` and onchain media are artistic inputs. The renderer may crop, filter, recolor, transform, combine, reinterpret, or ignore them.
 
 ## Finish plainly
+
+Before ending a browser-handoff turn, give the creator all of the following in one concise message:
+
+1. A clickable, absolute URL for the public `/render` page. Derive it from the origin that served the hosted skill or `llms.txt`, unless the creator supplied another site URL. Never leave `HOST` or another placeholder in the final message.
+2. A clickable attachment or file link for `renderer-package.json`.
+3. A clickable attachment or file link for the exact JPEG or PNG used in the design, when one was provided or generated. If the design intentionally uses no image, say so instead.
+4. Instructions to open `/render` in their regular browser, upload the JSON package, upload the image when present, inspect the previews, and connect their wallet and choose **Deploy renderer** only when they want to publish it.
+
+Repeat this file handoff even if loopback or an internal browser preview succeeded, so the creator is never stranded without the submission materials. If an image would help and the creator has not supplied one, clearly offer to generate it rather than silently defaulting to generated-only renderer artwork.
 
 When deployed, return the chain and copyable contract address. When not deployed, state the immediate blocker. Do not burden the creator with receipts, proof language, deployment journals, or source-verification records.

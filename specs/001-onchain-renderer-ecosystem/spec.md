@@ -62,21 +62,19 @@ mechanism. The optional onchain registry makes a creator's own deployments easy 
 controlling which compatible addresses can be used.
 
 **Independent Test**: View a membership that uses a custom renderer, copy its renderer address,
-paste the address into another creator's renderer flow in the same environment, review the returned
-images, approve them, and use the renderer for a new membership.
+paste the address into another creator's Custom style in the same environment, confirm that its
+artwork renders, and use the renderer for a new membership without a separate acceptance step.
 
 **Acceptance Scenarios**:
 
 1. **Given** a membership with a renderer, **When** a viewer opens its renderer details, **Then**
    the renderer contract address is visible and can be copied.
 2. **Given** a renderer address deployed on the environment's canonical chain, **When** a creator
-   pastes it, **Then** the product calls the renderer with representative membership inputs and
-   displays every returned image.
-3. **Given** representative images are displayed, **When** the creator reviews them, **Then** the
-   creator can explicitly approve or reject the renderer before using it.
-4. **Given** an address with no contract, a failed renderer call, or a response without a
-   displayable image, **When** a creator previews it, **Then** the product shows a clear failure and
-   does not offer approval.
+   pastes it into Custom, **Then** the existing Creator Studio uses the renderer directly and changes
+   no other artwork controls or membership settings.
+3. **Given** an address with no contract, a failed renderer call, or a response without a
+   displayable image, **When** the Creator Studio calls it, **Then** the product shows a clear failure
+   and leaves the creator controls usable.
 
 ---
 
@@ -144,7 +142,7 @@ customizable onchain art without dictating how the source image must appear in t
 
 **Independent Test**: Configure a membership with an onchain image, preview a custom renderer
 across representative membership states, confirm that the renderer can access and transform the
-image, and let the creator approve or reject the displayed results.
+image, and show the displayed results for the creator's judgment.
 
 **Acceptance Scenarios**:
 
@@ -152,12 +150,12 @@ image, and let the creator approve or reject the displayed results.
    renderer input makes that image available to the contract.
 2. **Given** a renderer that filters or transforms the supplied image, **When** representative
    outputs are shown, **Then** the transformed results are accepted as valid renderer behavior and
-   the creator decides whether to approve them.
+   remain available for the creator's judgment.
 3. **Given** the image is unavailable or unsupported by the renderer, **When** preview is attempted,
    **Then** the resulting image or failure is shown clearly without claiming that the original bytes
    were preserved.
 4. **Given** no onchain image is configured, **When** a renderer supports generated-only artwork,
-   **Then** its representative generated result can still be displayed and approved.
+   **Then** its representative generated result can still be displayed.
 5. **Given** a creator selects a local image for preview, **When** the browser can render the
    candidate, **Then** the browser may include the image bytes in the ordinary read-only renderer
    call to the canonical RPC without storing the image or uploading it onchain.
@@ -178,15 +176,15 @@ required.
 onchain art, while the contract address remains the portable sharing primitive.
 
 **Independent Test**: Open a membership, copy its renderer contract address, send it to another
-creator, paste it into that creator's flow, inspect the representative images, and approve or reject
-the renderer.
+creator, paste it into that creator's Custom style, and confirm that the creator can use it directly
+or see a clear rendering failure.
 
 **Acceptance Scenarios**:
 
 1. **Given** a custom-rendered membership, **When** someone views its renderer details, **Then** they
    can copy the renderer contract address without entering a registry workflow.
 2. **Given** the copied address, **When** another creator pastes it in the same environment, **Then**
-   the canonical-chain renderer is called and its representative images are displayed.
+   the canonical-chain renderer is called directly in the existing Creator Studio.
 3. **Given** a renderer that is not referenced by any featured or platform-owned content, **When**
    its address is pasted, **Then** it remains reusable even without a renderer registry entry.
 4. **Given** a connected creator has deployed renderers through the registry, **When** they open the
@@ -247,14 +245,17 @@ the renderer.
 - **FR-010**: The renderer input contract MUST make a configured onchain image available when one
   exists.
 - **FR-011**: The renderer output contract MUST provide an image that the product can display.
-- **FR-012**: Before a renderer can be selected, the product MUST call it with representative inputs
-  and display the returned images to the creator.
-- **FR-013**: Representative inputs MUST cover the materially different membership states and image
-  configurations supported by the renderer flow.
-- **FR-014**: The creator MUST explicitly approve or reject the displayed renderer examples.
-- **FR-015**: A renderer MUST NOT be selectable until the creator approves the displayed examples.
-- **FR-016**: If a representative call fails or does not return a displayable image, the product
-  MUST show that failure and MUST NOT present the renderer as ready for approval.
+- **FR-012**: Custom MUST appear as another entry in the existing Creator Studio style set and accept
+  a compatible same-chain renderer address without adding a separate preview gallery or acceptance
+  step to the Creator Studio.
+- **FR-013**: The standalone `/render` page MUST use representative inputs that cover the materially
+  different membership states and image configurations supported by the renderer flow.
+- **FR-014**: The standalone `/render` page MUST display representative results for the creator's
+  judgment without requiring an approve/reject control merely to reveal later controls.
+- **FR-015**: After a compatible Custom renderer address returns displayable artwork, the Creator
+  Studio MUST use it directly while preserving the rest of the existing artwork and membership flow.
+- **FR-016**: If a Custom renderer call fails or does not return a displayable image, the product MUST
+  show that failure plainly and MUST restore usable controls after the failed RPC settles.
 - **FR-017**: Platform validation MUST be limited to calling the contract with the defined inputs,
   determining whether it returns a displayable image, and presenting representative results for the
   creator's judgment.
@@ -304,7 +305,7 @@ the renderer.
 - **FR-034**: The feature MUST NOT require the renderer output to preserve the source image's exact
   bytes, visual appearance, dimensions, palette, or encoding.
 - **FR-035**: Representative examples MUST show how the renderer behaves with the configured
-  onchain image so the creator can approve or reject the result.
+  onchain image so the creator can judge the result.
 - **FR-036**: When the onchain image is absent or unsupported, the renderer MAY return generated-only
   art or fail clearly; either result MUST be shown to the creator.
 - **FR-037**: The product MUST NOT describe a displayed result as proof that source-image bytes were
@@ -340,7 +341,7 @@ the renderer.
   environment's canonical chain, and recompute the artifact fingerprint and final initcode and
   runtime byte lengths from the imported contents.
 - **FR-046**: A malformed, oversized, wrong-chain, or internally inconsistent package MUST fail with
-  a clear explanation and MUST NOT become an approved or deployable candidate.
+  a clear explanation and MUST NOT become previewable or deployable.
 - **FR-047**: Importing and previewing a package MUST NOT require a connected wallet. Wallet
   connection is required only when the creator chooses an action that needs a wallet signature.
 - **FR-048**: Package previews MUST use the same renderer input and read-only canonical-RPC behavior
@@ -354,9 +355,10 @@ the renderer.
 - **FR-052**: The public renderer lab MUST NOT require a persistent image bucket, application
   database, cloud relay, hosted renderer-session service, backend signer, or paid RPC proxy.
 - **FR-053**: The renderer output or clear failure returned by the RPC MUST be displayed directly to
-  the creator for approval or rejection.
-- **FR-054**: The browser MUST offer deployment only after creator approval. Any candidate,
-  representative-request, result, or deployment-input change MUST clear approval.
+  the creator for judgment.
+- **FR-054**: The deployment section MUST remain visible without an approve/reject gate. Any
+  candidate, representative-request, result, or deployment-input change MUST invalidate stale
+  previews and prepared deployment data before the next deployment attempt.
 - **FR-055**: Renderer deployment MUST use the configured renderer registry's
   `deployAndRegister(bytes initCode)` function rather than a backend deployment signer.
 - **FR-056**: Before the creator clicks Deploy, the browser MUST show the canonical chain, complete
@@ -372,7 +374,7 @@ the renderer.
 - **FR-059b**: Membership tier creation MUST continue to accept any compatible direct renderer
   address without consulting the renderer registry.
 - **FR-060**: The platform MUST NOT persist the imported package, browser-selected source image,
-  rendered preview, approval, or prepared deployment request after the page session ends.
+  rendered preview, or prepared deployment request after the page session ends.
 - **FR-061**: The renderer skill SHOULD offer an optional loopback helper that binds only to
   `127.0.0.1` on a random high port and keeps candidate and result state only in bounded process
   memory.
@@ -385,7 +387,7 @@ the renderer.
   request and response size limits, expiry, and explicit CORS/preflight handling; it MUST reject LAN
   binds, wildcard origins, and requests without the capability.
 - **FR-064**: When loopback works, the helper MAY transfer the renderer package to the browser and
-  receive preview results, approval state, prepared deployment data, and the final deployed address.
+  receive preview results, prepared deployment data, and the final deployed address.
   It MUST NOT receive the creator's selected source image.
 - **FR-065**: The loopback helper and local capability MUST NOT authorize a wallet prompt,
   simulation, signature, transaction submission, or receipt lifecycle operation.
@@ -400,8 +402,8 @@ the renderer.
   token state and the configured onchain image when present.
 - **Representative Example Set**: Images or clear failures returned from the renderer across the
   materially different membership states and image configurations presented for review.
-- **Creator Approval**: The creator's explicit accept or reject decision for a renderer address and
-  its displayed representative examples.
+- **Creator Decision**: The creator's judgment after seeing representative examples. It is not a
+  persisted UI gate; choosing Deploy is the explicit action that requests wallet submission.
 - **Renderer Kit**: The portable AI skill, `llms.txt`, local testing instructions, input/output
   documentation, and canonical-chain deployment guidance used to create a renderer.
 - **Renderer Package**: A schema-versioned local JSON file written by the renderer skill and
@@ -411,7 +413,7 @@ the renderer.
 - **Membership Renderer Reference**: The renderer contract address shown on a membership and copied
   for direct reuse.
 - **Renderer Lab Session**: Temporary browser-memory state containing the imported candidate,
-  representative requests and results, creator approval, and prepared deployment request. It has no
+  representative requests and results, and prepared deployment request. It has no
   account, agent token, or server-side session record.
 - **Local Renderer Helper**: An optional loopback-only process that transfers a renderer package and
   browser-produced results between the agent and public page using a random, expiring local
@@ -419,7 +421,7 @@ the renderer.
 - **Local Preview Image**: Image data selected by the creator for temporary design review. It stays
   browser-held, may be included in a read-only canonical-RPC renderer call, and is not a durable or
   onchain media record.
-- **Unsigned Renderer Deployment Request**: The approved renderer's final creation payload,
+- **Unsigned Renderer Deployment Request**: The renderer's final creation payload,
   canonical renderer registry, and canonical chain, prepared for the creator's browser wallet
   without granting signing authority to the agent.
 - **Renderer Registry**: A permissionless onchain index that deploys and records renderers, returns
@@ -435,10 +437,11 @@ the renderer.
 - The renderer input contract can expose the configured onchain image in a form contracts can use.
 - A renderer author controls how the supplied image affects the final artwork; transformation is a
   feature, not a failure of byte preservation.
-- Creator approval of representative images is the product's practical acceptance boundary. The
-  platform does not attempt exhaustive proofs about arbitrary renderer behavior.
+- The creator's judgment after seeing representative images is the practical design boundary. It is
+  not a performative UI gate, and the platform does not attempt exhaustive proofs about arbitrary
+  renderer behavior.
 - The agent may perform technical deployment checks behind the scenes, but creator-facing success is
-  expressed as approved examples, the correct canonical chain, and a reusable contract address.
+  expressed as visible examples, the correct canonical chain, and a reusable contract address.
 - Wallet connection, submission, replacement, cancellation, and failure reporting remain owned by
   the established wallet lifecycle rather than being reimplemented by this feature.
 - Preparing an unsigned deployment request is distinct from requesting a wallet signature or
@@ -458,8 +461,8 @@ the renderer.
 
 ### Measurable Outcomes
 
-- **SC-001**: At least 90% of test participants can copy a renderer address from a membership, paste
-  it into the creator flow, view representative images, and approve or reject it within two minutes.
+- **SC-001**: In direct-address tests, a compatible renderer pasted into Custom renders without a
+  separate acceptance step, while a failed renderer reports the error and leaves controls usable.
 - **SC-002**: In 100% of acceptance tests, renderer calls that return displayable images are shown to
   the creator, while reverts and responses without an image produce a clear failure.
 - **SC-003**: In at least four of five agent trials starting with only the renderer AI skill,
@@ -469,19 +472,19 @@ the renderer.
 - **SC-004**: In 100% of supported onchain-image test cases, the configured image is made available
   through the defined renderer input and transformed results can be displayed without requiring
   proof that output bytes match the source bytes.
-- **SC-005**: In 100% of renderer-selection tests, a creator must explicitly accept the displayed
-  representative examples before the renderer can be used.
+- **SC-005**: In renderer-selection tests, neither Custom in the Creator Studio nor the standalone
+  renderer page adds a performative approve/reject gate before the creator can continue.
 - **SC-006**: In 100% of deployment trials, the workflow identifies the environment's canonical
   chain before authorization and returns a contract address after success without presenting a
   crosschain choice.
 - **SC-007**: In 100% of tested custom-rendered membership views, the renderer contract address is
   visible and copyable even if the renderer currently fails to return an image.
-- **SC-008**: In creator testing, at least 80% of participants report that the representative image
-  set is sufficient to decide whether to accept or reject a renderer.
-- **SC-009**: At least 90% of test participants can import an agent-produced renderer package and
-  reach the representative previews within two minutes without an account or wallet connection.
+- **SC-008**: The standalone renderer page displays the complete representative image set without
+  inserting that gallery into the membership Creator Studio.
+- **SC-009**: An agent-produced renderer package can be imported and previewed without an account or
+  wallet connection.
 - **SC-010**: In 100% of deployment tests, importing or previewing a package cannot trigger a wallet
-  prompt or public write; both remain unavailable until the creator approves and clicks Deploy.
+  prompt or public write; only the creator's Deploy action may begin the wallet lifecycle.
 - **SC-011**: In 100% of preview cases supported by browser-local rendering, the selected image can
   be shown in representative designs through the ordinary read-only canonical-RPC request without
   creating a transaction or persistent media record.
@@ -491,9 +494,9 @@ the renderer.
 - **SC-013**: In 100% of renderer deployment tests, the creator's wallet is the only signer, one
   transaction deploys and records the renderer, and the address emitted by the registry is shown
   after successful deployment.
-- **SC-014**: In 100% of import tests, a valid renderer package reaches the preview and approval
-  gates, while malformed, wrong-chain, or inconsistent packages are rejected before any wallet
-  prompt.
+- **SC-014**: In 100% of import tests, a valid renderer package reaches previews and visible
+  deployment controls without an approve/reject gate, while malformed, wrong-chain, or inconsistent
+  packages are rejected before any wallet prompt.
 - **SC-015**: In supported-browser tests, the loopback link transfers the same package and results
   as manual import without SIWE or hosted session state; in every denied or blocked case, the page
   offers manual import and no package rebuild is required.

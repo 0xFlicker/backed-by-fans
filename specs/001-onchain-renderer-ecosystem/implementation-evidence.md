@@ -165,3 +165,26 @@ wagmi generation. This completed T092 without changing or redeploying the member
   deployed through this registry.
 - After generation, TypeScript completed without errors and Vitest passed all 308 tests across 54
   files. The renderer-lab and public-config assertions now cover the deployed generated address.
+
+## Clean-workspace renderer-agent trials — 2026-09-01
+
+The creator completed five clean-workspace agent trials after the testnet rollout. All five agents
+produced working representative previews, satisfying SC-003's four-of-five target. Public deployment
+remained a separate creator-controlled browser-wallet action.
+
+The trials also exposed a handoff weakness that automated compatibility tests did not capture:
+
+- Agents could always produce the renderer package and reach a submission path, but several needed
+  additional prompting to give the creator a clear browser handoff.
+- ChatGPT agents consistently preferred their internal browser. That worked well for visual preview,
+  but it did not provide the creator's ordinary wallet-extension submission environment.
+- ChatGPT loopback required the ChatGPT browser extension to be installed and its permission updated
+  so the preview page could reach the local helper.
+- The skill now requires every final browser handoff to include the resolved `/render` URL, a link or
+  attachment for `renderer-package.json`, a link or attachment for the exact provided/generated
+  image when present, and concise upload/submission instructions for the creator's regular browser.
+  It also states plainly that the agent can generate an image for the creator.
+
+This is creator-reported trial evidence, not a participant study, renderer safety audit, artistic
+certification, or guarantee that loopback works without the required browser extension and
+permission. Session-based upload remains possible future work and is not claimed by this spec.

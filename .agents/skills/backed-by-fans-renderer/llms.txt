@@ -11,8 +11,10 @@ Start here
 5. Implement the design in the generated Foundry project.
 6. Run `./scripts/test-renderer.sh <project-directory> --membership-name "<preview name>"`.
 7. Show the generated representative gallery to the creator.
-8. If the creator approves, hand the package and requested image to the public renderer preview page. Prefer the creator's regular external browser. In a cloud or VM, export the package and instruct the creator to upload it and their image at `/render` in their own browser.
-9. Return the deployed renderer contract address.
+8. If the creator approves, hand the package and requested image to the public renderer preview page. Prefer the creator's regular external browser. An internal agent browser may inspect previews but is not the final wallet-submission handoff.
+9. Finish with a clickable absolute `/render` URL derived from the hosted skill's origin, a clickable `renderer-package.json`, the exact source/generated image when one is used, and short instructions to upload the package and image in the creator's regular browser before optionally connecting their wallet and choosing Deploy renderer. Never leave a `HOST` placeholder in the final message.
+10. If loopback needs the ChatGPT browser extension or local-network permission and either is unavailable, use the same file handoff immediately. Return these links even when loopback worked.
+11. Return the deployed renderer contract address.
 
 What the checks mean
 
