@@ -59,6 +59,7 @@ vi.mock("@/components/WalletReadiness", () => ({
   WalletReadiness: () => <p>Wallet readiness preview</p>,
 }));
 vi.mock("@/features/protocol/protocol-read", () => ({
+  membershipRendererSchema: `0x${"33".repeat(32)}`,
   readProtocolDependencies,
 }));
 vi.mock("@/lib/use-active-network", () => ({
@@ -114,19 +115,16 @@ function rendererRead(functionName: string) {
   return `0x${"66".repeat(32)}`;
 }
 
-async function approveCurrentRenderer(
-  user: ReturnType<typeof userEvent.setup>,
-) {
-  const input = await screen.findByRole("textbox", {
-    name: "Renderer address",
-  });
+async function expectOriginalRenderer() {
   await waitFor(() =>
-    expect(input).toHaveValue("0x3333333333333333333333333333333333333333"),
+    expect(screen.getByRole("radio", { name: /STACK/i })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    ),
   );
-  await user.click(screen.getByRole("button", { name: "Preview renderer" }));
-  await user.click(
-    await screen.findByRole("button", { name: "Use this renderer" }),
-  );
+  expect(
+    screen.queryByLabelText("Renderer contract address"),
+  ).not.toBeInTheDocument();
 }
 
 describe("creator setup component", () => {
@@ -226,67 +224,69 @@ describe("creator setup component", () => {
     );
   });
 
-  it("starts the Art Studio with the canonical renderer address", async () => {
+  it("starts the Art Studio with the original renderer selected", async () => {
     const user = userEvent.setup();
     renderWizard();
 
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
-
-    await waitFor(() =>
-      expect(screen.getByLabelText("Renderer address")).toHaveValue(
-        "0x3333333333333333333333333333333333333333",
-      ),
-    );
+    await expectOriginalRenderer();
+    expect(screen.getByRole("radio", { name: /CUSTOM/i })).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Artwork renderer" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/approve|accept/i)).not.toBeInTheDocument();
   });
 
-  it("previews and approves an unregistered direct renderer, then clears approval when its address changes", async () => {
+  it("keeps the six original styles visible when protocol reads fail", async () => {
+    const user = userEvent.setup();
+    readProtocolDependencies.mockRejectedValueOnce(
+      new Error("RPC unavailable"),
+    );
+    renderWizard();
+
+    await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+
+    const styles = screen.getByRole("radiogroup", { name: "Art styles" });
+    expect(within(styles).getAllByRole("radio")).toHaveLength(7);
+    expect(
+      within(styles).getByRole("radio", { name: /STACK/i }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      within(styles).getByRole("radio", { name: /CUSTOM/i }),
+    ).toBeVisible();
+  });
+
+  it("accepts a custom renderer address without a separate approval step", async () => {
     const user = userEvent.setup();
     renderWizard();
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
-    const input = await screen.findByLabelText("Renderer address");
+    await user.click(screen.getByRole("radio", { name: /Custom/i }));
+    const input = await screen.findByLabelText("Renderer contract address");
     const customRenderer = "0x8888888888888888888888888888888888888888";
 
-    await user.clear(input);
     await user.type(input, customRenderer);
-    await user.click(screen.getByRole("button", { name: "Preview renderer" }));
-    await user.click(
-      await screen.findByRole("button", { name: "Use this renderer" }),
+    await waitFor(() =>
+      expect(screen.getByText("BACKED BY FANS / FOUNDING SIX")).toBeVisible(),
     );
-    expect(screen.getByText("Renderer approved.")).toBeVisible();
-
-    await user.clear(input);
-    await user.type(input, "0x9999999999999999999999999999999999999999");
-    expect(screen.queryByText("Renderer approved.")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Use this renderer" }),
+      screen.queryByRole("button", { name: /use this renderer/i }),
     ).not.toBeInTheDocument();
   });
 
-  it("withholds approval when a representative renderer call fails", async () => {
+  it("shows a custom renderer error directly", async () => {
     const user = userEvent.setup();
-    activeClient.readContract.mockImplementation(
-      ({ functionName }: { functionName: string }) => {
-        if (functionName === "tierForIdentity")
-          return Promise.resolve(zeroAddress);
-        if (functionName === "previewSVG") {
-          return Promise.reject(new Error("Representative call reverted"));
-        }
-        return Promise.resolve(rendererRead(functionName));
-      },
-    );
+    activeClient.getBytecode.mockResolvedValue("0x");
     renderWizard();
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
-    await waitFor(() =>
-      expect(screen.getByLabelText("Renderer address")).not.toHaveValue(""),
+    await user.click(screen.getByRole("radio", { name: /Custom/i }));
+    await user.type(
+      screen.getByLabelText("Renderer contract address"),
+      "0x8888888888888888888888888888888888888888",
     );
-    await user.click(screen.getByRole("button", { name: "Preview renderer" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "did not return every required example",
+      "No renderer contract exists",
     );
-    expect(
-      screen.queryByRole("button", { name: "Use this renderer" }),
-    ).not.toBeInTheDocument();
   });
 
   it("preserves completed input through wallet and network rerenders", async () => {
@@ -414,7 +414,7 @@ describe("creator setup component", () => {
     await user.type(screen.getByLabelText("Membership name"), "After Hours");
     await user.type(screen.getByLabelText("Symbol"), "NITE");
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
-    await approveCurrentRenderer(user);
+    await expectOriginalRenderer();
     await user.click(screen.getByRole("button", { name: /^risks$/i }));
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
@@ -536,7 +536,7 @@ describe("creator setup component", () => {
     await user.type(screen.getByLabelText("Membership name"), "After Hours");
     await user.type(screen.getByLabelText("Symbol"), "NITE");
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
-    await approveCurrentRenderer(user);
+    await expectOriginalRenderer();
     await user.click(screen.getByText("Add an image", { exact: true }));
     await user.click(screen.getByRole("radio", { name: /add your image/i }));
     await user.upload(
@@ -546,7 +546,6 @@ describe("creator setup component", () => {
       }),
     );
     await screen.findByAltText("New image");
-    await approveCurrentRenderer(user);
     await user.click(screen.getByRole("button", { name: /^risks$/i }));
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
@@ -606,18 +605,16 @@ describe("creator setup component", () => {
       screen.getByLabelText("Creator setup steps").parentElement,
     ).toHaveClass("creator-workspace", "creator-workspace-studio");
 
-    await approveCurrentRenderer(user);
-
     expect(
       screen.getByRole("heading", {
         name: /make the membership unmistakably yours/i,
       }),
     ).toBeVisible();
     expect(
-      screen.getAllByRole("radio", {
-        name: /stack|chorus|loom|bloom|marquee|afterimage/i,
-      }),
-    ).toHaveLength(6);
+      within(
+        screen.getByRole("radiogroup", { name: "Art styles" }),
+      ).getAllByRole("radio"),
+    ).toHaveLength(7);
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: /surprise me/i }),
@@ -629,13 +626,13 @@ describe("creator setup component", () => {
     const user = userEvent.setup();
     const first = renderWizard();
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
-    await approveCurrentRenderer(user);
+    await expectOriginalRenderer();
     const firstSeed = first.container.querySelector("code")?.textContent;
     first.unmount();
 
     const second = renderWizard();
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
-    await approveCurrentRenderer(user);
+    await expectOriginalRenderer();
     const secondSeed = second.container.querySelector("code")?.textContent;
     expect(firstSeed).toMatch(/^[0-9a-f]{32}$/);
     expect(secondSeed).toMatch(/^[0-9a-f]{32}$/);

@@ -52,9 +52,11 @@ const customRenderer = {
 function StudioHarness({
   renderer = foundingRenderer,
   initialEngine = 0,
+  initialRendererChoice = "original",
 }: {
   renderer?: RendererAddressResolution | null;
   initialEngine?: number;
+  initialRendererChoice?: CreatorStudioProps["rendererChoice"];
 } = {}) {
   const [art, setArt] = useState<AnyStudioArtConfig>(
     createDefaultArtConfig("stack", 1n),
@@ -65,25 +67,33 @@ function StudioHarness({
     state: "active",
   });
   const [engine, setEngine] = useState(initialEngine);
+  const [rendererChoice, setRendererChoice] = useState(initialRendererChoice);
+  const [customAddress, setCustomAddress] = useState("");
 
   return (
     <CreatorStudio
       art={art}
+      customRendererAddress={customAddress}
+      customRendererState={{ status: "idle" }}
       media={media}
       onArtChange={setArt}
+      onCustomRendererAddressChange={setCustomAddress}
       onEngineChange={setEngine}
       onMediaChange={setMedia}
+      onRendererChoiceChange={setRendererChoice}
       onSelectionChange={setSelection}
       preview={preview}
       renderer={renderer ?? undefined}
+      rendererChoice={rendererChoice}
       selectedEngine={engine}
       selection={selection}
+      styleEngines={foundingRenderer.engines}
     />
   );
 }
 
 describe("CreatorStudio", () => {
-  it("presents the rendered artwork as the dominant stage with six descriptive engines", () => {
+  it("presents the rendered artwork with six canonical styles and Custom", () => {
     render(<StudioHarness />);
 
     expect(
@@ -98,7 +108,8 @@ describe("CreatorStudio", () => {
       within(
         screen.getByRole("radiogroup", { name: "Art styles" }),
       ).getAllByRole("radio"),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
+    expect(screen.getByRole("radio", { name: /CUSTOM/i })).toBeVisible();
     expect(screen.getByText(/one style, three memberships/i)).toBeVisible();
     expect(screen.queryByText(/Arweave|IPFS|HTTPS reference/i)).toBeNull();
     expect(
@@ -147,9 +158,14 @@ describe("CreatorStudio", () => {
     ).toBeChecked();
   });
 
-  it("drives generic engine selection from the direct renderer manifest", async () => {
+  it("keeps Custom inside the canonical style list", async () => {
     const user = userEvent.setup();
-    render(<StudioHarness renderer={customRenderer} />);
+    render(
+      <StudioHarness
+        initialRendererChoice="custom"
+        renderer={customRenderer}
+      />,
+    );
 
     expect(document.querySelector("[data-creator-studio]")).toHaveAttribute(
       "data-renderer-address",
@@ -159,34 +175,39 @@ describe("CreatorStudio", () => {
       within(
         screen.getByRole("radiogroup", { name: "Art styles" }),
       ).getAllByRole("radio"),
-    ).toHaveLength(2);
-    expect(screen.getByRole("radio", { name: /AURORA/i })).toHaveAttribute(
+    ).toHaveLength(7);
+    expect(screen.getByRole("radio", { name: /CUSTOM/i })).toHaveAttribute(
       "aria-checked",
       "true",
     );
-    expect(screen.queryByText("Customize artwork")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Renderer contract address")).toBeVisible();
+    expect(screen.getByText("Customize artwork")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("radio", { name: /TIDELINE/i }));
+    await user.type(
+      screen.getByLabelText("Renderer contract address"),
+      customRenderer.address,
+    );
+    await user.click(screen.getByRole("radio", { name: /STACK/i }));
 
-    expect(screen.getByRole("radio", { name: /TIDELINE/i })).toHaveAttribute(
+    expect(screen.getByRole("radio", { name: /STACK/i })).toHaveAttribute(
       "aria-checked",
       "true",
     );
-    expect(screen.getAllByText("TIDELINE selected.")).not.toHaveLength(0);
     expect(
-      screen.queryByRole("radiogroup", { name: "Artwork collections" }),
+      screen.queryByLabelText("Renderer contract address"),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/Edition 1/i)).not.toBeInTheDocument();
   });
 
-  it("withholds art tools until a direct renderer manifest is available", () => {
+  it("keeps the canonical style set available while the renderer is unavailable", () => {
     render(<StudioHarness renderer={null} />);
 
     expect(
-      screen.queryByRole("radiogroup", { name: "Art styles" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Surprise me/i })).toBeDisabled();
-    expect(screen.queryByText("Customize artwork")).not.toBeInTheDocument();
+      within(
+        screen.getByRole("radiogroup", { name: "Art styles" }),
+      ).getAllByRole("radio"),
+    ).toHaveLength(7);
+    expect(screen.getByRole("button", { name: /Surprise me/i })).toBeEnabled();
+    expect(screen.getByText("Customize artwork")).toBeInTheDocument();
   });
 
   it("honors per-control locks while generating a fresh direction", async () => {

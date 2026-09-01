@@ -14,6 +14,8 @@ import styles from "@/features/creator-studio/CreatorStudio.module.css";
 import {
   artEngineForManifestName,
   EnginePicker,
+  type ArtStyleSelection,
+  type CustomRendererState,
 } from "@/features/creator-studio/EnginePicker";
 import {
   MediaEditor,
@@ -35,15 +37,28 @@ import {
 } from "@/features/creator-studio/surprise";
 import { isSameAddress } from "@/lib/address";
 
+export type StudioRenderer = Pick<
+  RendererAddressResolution,
+  "address" | "name" | "engines"
+>;
+
+export type RendererChoice = "original" | "custom";
+
 export type CreatorStudioProps = {
   art: AnyStudioArtConfig;
   media: StudioMediaDraft;
   selection: PreviewSelection;
   preview: PreviewGalleryModel;
-  renderer?: RendererAddressResolution;
+  renderer?: StudioRenderer;
+  rendererChoice: RendererChoice;
+  styleEngines: readonly string[];
+  customRendererAddress: string;
+  customRendererState: CustomRendererState;
   selectedEngine: number;
   onArtChange: (art: AnyStudioArtConfig) => void;
   onEngineChange: (engine: number) => void;
+  onRendererChoiceChange: (choice: RendererChoice) => void;
+  onCustomRendererAddressChange: (address: string) => void;
   onMediaChange: (media: StudioMediaDraft) => void;
   onSelectionChange: (selection: PreviewSelection) => void;
   onRefreshPreviews?: () => void;
@@ -70,9 +85,15 @@ export function CreatorStudio({
   selection,
   preview,
   renderer,
+  rendererChoice,
+  styleEngines,
+  customRendererAddress,
+  customRendererState,
   selectedEngine,
   onArtChange,
   onEngineChange,
+  onRendererChoiceChange,
+  onCustomRendererAddressChange,
   onMediaChange,
   onSelectionChange,
   onRefreshPreviews,
@@ -100,13 +121,16 @@ export function CreatorStudio({
   >();
   const [studioAnnouncement, setStudioAnnouncement] =
     useState("Art Studio ready.");
-  const toolsDisabled = disabled || renderer === undefined;
-  const selectedEngineName = renderer?.engines[selectedEngine];
+  const previewDisabled = disabled || renderer === undefined;
+  const selectedEngineName =
+    rendererChoice === "original" ? styleEngines[selectedEngine] : undefined;
   const selectedArtEngine = artEngineForManifestName(selectedEngineName);
-  const artToolsAvailable = selectedArtEngine === art.engine;
+  const artToolsAvailable =
+    rendererChoice === "custom" || selectedArtEngine === art.engine;
   const canUndoEngine = Boolean(
     engineUndo &&
     renderer &&
+    rendererChoice === "original" &&
     isSameAddress(engineUndo.rendererAddress, renderer.address),
   );
 
@@ -119,9 +143,17 @@ export function CreatorStudio({
     });
   }
 
-  function changeEngine(engine: number) {
-    const engineName = renderer?.engines[engine];
-    if (!renderer || !engineName || engine === selectedEngine) return;
+  function changeStyle(selection: ArtStyleSelection) {
+    if (selection === "custom") {
+      setEngineUndo(undefined);
+      onRendererChoiceChange("custom");
+      setStudioAnnouncement("Custom renderer selected.");
+      return;
+    }
+
+    const engineName = styleEngines[selection];
+    if (!engineName) return;
+    if (rendererChoice === "original" && selection === selectedEngine) return;
     const nextArtEngine = artEngineForManifestName(engineName);
     let artUndo: EngineSwitchUndo | undefined;
     if (nextArtEngine && nextArtEngine !== art.engine) {
@@ -129,12 +161,17 @@ export function CreatorStudio({
       artUndo = switched.undo;
       onArtChange(switched.composition.art);
     }
-    setEngineUndo({
-      rendererAddress: renderer.address,
-      previousEngine: selectedEngine,
-      art: artUndo,
-    });
-    onEngineChange(engine);
+    setEngineUndo(
+      renderer
+        ? {
+            rendererAddress: renderer.address,
+            previousEngine: selectedEngine,
+            art: artUndo,
+          }
+        : undefined,
+    );
+    onRendererChoiceChange("original");
+    onEngineChange(selection);
     setStudioAnnouncement(`${engineName} selected.`);
   }
 
@@ -151,7 +188,7 @@ export function CreatorStudio({
       onArtChange(restored.art);
     }
     onEngineChange(engineUndo.previousEngine);
-    const restoredName = renderer.engines[engineUndo.previousEngine];
+    const restoredName = styleEngines[engineUndo.previousEngine];
     setEngineUndo(undefined);
     setStudioAnnouncement(`${restoredName ?? "Previous style"} restored.`);
   }
@@ -164,7 +201,11 @@ export function CreatorStudio({
     ) as AnyStudioArtConfig;
     onArtChange(next);
     setEngineUndo(undefined);
-    setStudioAnnouncement(`New ${selectedEngineName} direction.`);
+    setStudioAnnouncement(
+      rendererChoice === "custom"
+        ? "New custom direction."
+        : `New ${selectedEngineName} direction.`,
+    );
   }
 
   return (
@@ -186,7 +227,7 @@ export function CreatorStudio({
       <div className={styles.workbench}>
         <div className={styles.previewColumn}>
           <PreviewGallery
-            disabled={toolsDisabled}
+            disabled={previewDisabled}
             model={{
               ...preview,
               announcement: preview.announcement ?? studioAnnouncement,
@@ -206,7 +247,7 @@ export function CreatorStudio({
             <div className={styles.surpriseActions}>
               <button
                 className={styles.surpriseButton}
-                disabled={toolsDisabled || !artToolsAvailable}
+                disabled={disabled || !artToolsAvailable}
                 onClick={surprise}
                 type="button"
               >
@@ -215,7 +256,7 @@ export function CreatorStudio({
               {canUndoEngine ? (
                 <button
                   className={styles.undoButton}
-                  disabled={toolsDisabled}
+                  disabled={disabled}
                   onClick={undoEngine}
                   type="button"
                 >
@@ -225,47 +266,46 @@ export function CreatorStudio({
             </div>
           </div>
 
-          {renderer ? (
-            <EnginePicker
-              disabled={toolsDisabled}
-              engines={renderer.engines}
-              onChange={changeEngine}
-              value={selectedEngine}
-            />
-          ) : null}
+          <EnginePicker
+            customAddress={customRendererAddress}
+            customState={customRendererState}
+            disabled={disabled}
+            engines={styleEngines}
+            onChange={changeStyle}
+            onCustomAddressChange={onCustomRendererAddressChange}
+            value={rendererChoice === "custom" ? "custom" : selectedEngine}
+          />
         </aside>
 
-        {renderer ? (
-          <div className={styles.customizationGrid}>
-            {artToolsAvailable ? (
-              <ArtControls
-                art={art}
-                disabled={toolsDisabled}
-                locks={locks}
-                onChange={onArtChange}
-                onToggleLock={toggleLock}
-              />
-            ) : null}
-            <MediaEditor
+        <div className={styles.customizationGrid}>
+          {artToolsAvailable ? (
+            <ArtControls
               art={art}
-              disabled={toolsDisabled}
+              disabled={disabled}
               locks={locks}
-              media={media}
-              nativeLibrary={nativeLibrary}
-              nativeSettings={nativeSettings}
-              nativeState={nativeState}
-              onArtChange={onArtChange}
-              onMediaChange={onMediaChange}
-              onNextNativeLibraryPage={onNextNativeLibraryPage}
-              onNativeSourceSelected={onNativeSourceSelected}
-              onNativeSettingsChange={onNativeSettingsChange}
-              onPreviousNativeLibraryPage={onPreviousNativeLibraryPage}
-              onRetryNativeLibrary={onRetryNativeLibrary}
-              onSelectNativeStore={onSelectNativeStore}
+              onChange={onArtChange}
               onToggleLock={toggleLock}
             />
-          </div>
-        ) : null}
+          ) : null}
+          <MediaEditor
+            art={art}
+            disabled={disabled}
+            locks={locks}
+            media={media}
+            nativeLibrary={nativeLibrary}
+            nativeSettings={nativeSettings}
+            nativeState={nativeState}
+            onArtChange={onArtChange}
+            onMediaChange={onMediaChange}
+            onNextNativeLibraryPage={onNextNativeLibraryPage}
+            onNativeSourceSelected={onNativeSourceSelected}
+            onNativeSettingsChange={onNativeSettingsChange}
+            onPreviousNativeLibraryPage={onPreviousNativeLibraryPage}
+            onRetryNativeLibrary={onRetryNativeLibrary}
+            onSelectNativeStore={onSelectNativeStore}
+            onToggleLock={toggleLock}
+          />
+        </div>
       </div>
 
       <p aria-live="polite" className={styles.studioAnnouncement} role="status">

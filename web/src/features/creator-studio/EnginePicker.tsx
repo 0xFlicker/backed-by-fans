@@ -6,6 +6,14 @@ import {
 } from "@/features/creator-studio/art-config";
 import styles from "@/features/creator-studio/CreatorStudio.module.css";
 
+export type ArtStyleSelection = number | "custom";
+
+export type CustomRendererState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; rendererName: string }
+  | { status: "error"; message: string };
+
 const engineDetails: Record<
   ArtEngine,
   { label: string; short: string; description: string }
@@ -55,32 +63,40 @@ export function EnginePicker({
   engines,
   value,
   onChange,
+  customAddress,
+  customState,
+  onCustomAddressChange,
   disabled = false,
 }: {
   engines: readonly string[];
-  value: number;
-  onChange: (engine: number) => void;
+  value: ArtStyleSelection;
+  onChange: (selection: ArtStyleSelection) => void;
+  customAddress: string;
+  customState: CustomRendererState;
+  onCustomAddressChange: (address: string) => void;
   disabled?: boolean;
 }) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const optionCount = engines.length + 1;
   const hasSelectedEngine =
-    Number.isInteger(value) && value >= 0 && value < engines.length;
+    value === "custom" ||
+    (Number.isInteger(value) && value >= 0 && value < engines.length);
 
   function moveFocus(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number | undefined;
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      next = (index + 1) % engines.length;
+      next = (index + 1) % optionCount;
     } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      next = (index - 1 + engines.length) % engines.length;
+      next = (index - 1 + optionCount) % optionCount;
     } else if (event.key === "Home") {
       next = 0;
     } else if (event.key === "End") {
-      next = engines.length - 1;
+      next = optionCount - 1;
     }
     if (next === undefined) return;
     event.preventDefault();
     buttons.current[next]?.focus();
-    onChange(next);
+    onChange(next === engines.length ? "custom" : next);
   }
 
   return (
@@ -130,7 +146,62 @@ export function EnginePicker({
             </button>
           );
         })}
+        <button
+          aria-checked={value === "custom"}
+          className={styles.engineChoice}
+          data-engine="custom"
+          onClick={() => onChange("custom")}
+          onKeyDown={(event) => moveFocus(event, engines.length)}
+          ref={(button) => {
+            buttons.current[engines.length] = button;
+          }}
+          role="radio"
+          tabIndex={value === "custom" ? 0 : -1}
+          type="button"
+        >
+          <span aria-hidden="true" className={styles.engineNumber}>
+            {String(optionCount).padStart(2, "0")}
+          </span>
+          <span className={styles.engineCopy}>
+            <strong>CUSTOM</strong>
+            <span>Contract renderer</span>
+            <small>Use a renderer contract address.</small>
+          </span>
+        </button>
       </div>
+      {value === "custom" ? (
+        <div className={styles.customRendererField}>
+          <label htmlFor="custom-renderer-address">
+            Renderer contract address
+          </label>
+          <input
+            aria-describedby="custom-renderer-status"
+            aria-invalid={customState.status === "error" || undefined}
+            autoCapitalize="none"
+            autoComplete="off"
+            disabled={disabled}
+            id="custom-renderer-address"
+            onChange={(event) => onCustomAddressChange(event.target.value)}
+            placeholder="0x…"
+            spellCheck={false}
+            type="text"
+            value={customAddress}
+          />
+          <p
+            aria-live="polite"
+            id="custom-renderer-status"
+            role={customState.status === "error" ? "alert" : "status"}
+          >
+            {customState.status === "loading"
+              ? "Loading renderer..."
+              : customState.status === "ready"
+                ? customState.rendererName
+                : customState.status === "error"
+                  ? customState.message
+                  : ""}
+          </p>
+        </div>
+      ) : null}
     </fieldset>
   );
 }

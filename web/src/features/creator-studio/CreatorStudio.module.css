@@ -4,7 +4,9 @@
   border-radius: var(--radius-large);
   color: white;
   container-type: inline-size;
+  min-width: 0;
   overflow: clip;
+  width: 100%;
 }
 
 .studioHeader {
@@ -137,7 +139,6 @@
 }
 
 .previewSelectors fieldset,
-.rendererPicker,
 .enginePicker,
 .mediaModeFieldset,
 .inlineChoices {
@@ -148,7 +149,6 @@
 }
 
 .previewSelectors legend,
-.rendererPicker > legend,
 .enginePicker > legend,
 .inlineChoices legend {
   font-size: 0.7rem;
@@ -379,7 +379,6 @@
 }
 
 .surpriseBar,
-.rendererPicker,
 .enginePicker {
   padding: clamp(1.25rem, 3vw, 2rem);
 }
@@ -438,150 +437,8 @@
   text-underline-offset: 0.2em;
 }
 
-.rendererPicker,
 .enginePicker {
   border-bottom: 2px solid var(--backstage);
-}
-
-.rendererAddressInput {
-  background: var(--paper);
-  border-bottom: 2px solid var(--backstage);
-  color: var(--backstage);
-  padding: clamp(1.25rem, 3vw, 2rem);
-}
-
-.rendererAddressHeading h2 {
-  font-family: "Instrument Serif", Georgia, serif;
-  font-size: clamp(1.9rem, 3vw, 2.5rem);
-  font-weight: 400;
-  letter-spacing: -0.025em;
-  line-height: 1;
-  margin: 0;
-}
-
-.rendererAddressHeading p,
-.rendererAddressHint {
-  color: var(--muted-ink);
-  font-size: 0.76rem;
-  line-height: 1.5;
-}
-
-.rendererAddressHeading p {
-  margin: 0.55rem 0 1.25rem;
-}
-
-.rendererAddressLabel {
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 760;
-}
-
-.rendererAddressHint {
-  margin: 0.35rem 0 0.65rem;
-}
-
-.rendererAddressField {
-  align-items: stretch;
-  display: grid;
-  gap: 0.55rem;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.rendererAddressField input {
-  background: var(--house-light);
-  border: 1.5px solid var(--backstage);
-  border-radius: var(--radius-small);
-  color: var(--backstage);
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.74rem;
-  min-height: 2.75rem;
-  min-width: 0;
-  padding: 0.65rem 0.75rem;
-  width: 100%;
-}
-
-.rendererAddressField input[aria-invalid="true"] {
-  border-color: #8a2514;
-  box-shadow: inset 0 -0.2rem #8a2514;
-}
-
-.rendererAddressField input:focus-visible {
-  outline: 3px solid var(--fan-blue);
-  outline-offset: 2px;
-}
-
-.rendererAddressActions,
-.rendererDecisionActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: 0.85rem;
-}
-
-.rendererAddressInput button:disabled {
-  cursor: not-allowed;
-  opacity: 0.58;
-}
-
-.rendererCopyFeedback,
-.rendererDecisionStatus {
-  color: var(--muted-ink);
-  font-size: 0.7rem;
-  font-weight: 700;
-  margin: 0.55rem 0 0;
-}
-
-.rendererPreviewStatus {
-  background: var(--house-light);
-  border: 1.5px solid var(--backstage);
-  margin-top: 1rem;
-  padding: 0.9rem;
-}
-
-.rendererPreviewStatus[data-state="loading"] {
-  border-left: 0.4rem solid var(--fan-blue);
-}
-
-.rendererPreviewStatus[data-state="ready"] {
-  border-left: 0.4rem solid var(--encore);
-}
-
-.rendererPreviewStatus[data-state="error"] {
-  border-left: 0.4rem solid #8a2514;
-}
-
-.rendererPreviewStatus p {
-  font-size: 0.74rem;
-  line-height: 1.5;
-  margin: 0;
-}
-
-.rendererPreviewStatus strong + p {
-  margin-top: 0.35rem;
-}
-
-.rendererResolvedName {
-  display: block;
-  font-size: 0.82rem;
-}
-
-.rendererFailureDetails {
-  border-top: 1px solid var(--line);
-  margin-top: 0.75rem;
-  padding-top: 0.65rem;
-}
-
-.rendererFailureDetails summary {
-  cursor: pointer;
-  font-size: 0.7rem;
-  font-weight: 760;
-}
-
-.rendererFailureDetails p {
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.65rem;
-  margin-top: 0.55rem;
-  overflow-wrap: anywhere;
 }
 
 .controlsSection,
@@ -653,7 +510,6 @@ details[open] > .customizationSummary::after {
   padding: 0 clamp(1.25rem, 3vw, 2rem) clamp(1.25rem, 3vw, 2rem);
 }
 
-.rendererPicker > legend,
 .enginePicker > legend {
   float: left;
   font-family: "Instrument Serif", Georgia, serif;
@@ -662,81 +518,6 @@ details[open] > .customizationSummary::after {
   letter-spacing: -0.025em;
   text-transform: none;
   width: 100%;
-}
-
-.rendererList {
-  clear: both;
-  display: grid;
-  gap: 0.65rem;
-}
-
-.rendererChoice {
-  align-items: start;
-  background: var(--house-light);
-  border: 1.5px solid var(--backstage);
-  border-radius: var(--radius-small);
-  color: var(--backstage);
-  cursor: pointer;
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: auto minmax(0, 1fr);
-  padding: 0.85rem;
-  text-align: left;
-  width: 100%;
-}
-
-.rendererChoice[aria-checked="true"] {
-  background: var(--backstage);
-  box-shadow: inset 0 -0.3rem var(--fan-blue);
-  color: white;
-}
-
-.rendererChoice:disabled {
-  cursor: not-allowed;
-  opacity: 0.64;
-}
-
-.rendererChoice > span:last-child {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.rendererChoice strong {
-  font-size: 0.76rem;
-  letter-spacing: 0.035em;
-}
-
-.rendererChoice small {
-  font-size: 0.68rem;
-  line-height: 1.45;
-}
-
-.rendererEdition {
-  background: var(--encore);
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  color: var(--backstage);
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.58rem;
-  font-weight: 760;
-  padding: 0.32rem 0.44rem;
-  white-space: nowrap;
-}
-
-.rendererAlert,
-.rendererStatus {
-  font-size: 0.72rem;
-  line-height: 1.45;
-  margin: 0.75rem 0 0;
-}
-
-.rendererAlert {
-  color: var(--applause);
-  font-weight: 720;
-}
-
-.rendererStatus {
-  color: var(--muted-ink);
 }
 
 .sectionHint {
@@ -770,7 +551,7 @@ details[open] > .customizationSummary::after {
   width: 100%;
 }
 
-.engineChoice:hover:not(:disabled) {
+.engineChoice:hover:not(:disabled):not([aria-checked="true"]) {
   background: var(--house-light);
   padding-left: 0.85rem;
 }
@@ -786,7 +567,8 @@ details[open] > .customizationSummary::after {
 }
 
 .engineChoice[data-engine="chorus"][aria-checked="true"],
-.engineChoice[data-engine="afterimage"][aria-checked="true"] {
+.engineChoice[data-engine="afterimage"][aria-checked="true"],
+.engineChoice[data-engine="custom"][aria-checked="true"] {
   box-shadow: inset 0.45rem 0 var(--fan-blue);
 }
 
@@ -804,6 +586,7 @@ details[open] > .customizationSummary::after {
 .engineCopy {
   display: grid;
   gap: 0.2rem;
+  min-width: 0;
 }
 
 .engineCopy strong {
@@ -826,6 +609,56 @@ details[open] > .customizationSummary::after {
   font-size: 0.72rem;
   line-height: 1.4;
   opacity: 0.78;
+  overflow-wrap: anywhere;
+}
+
+.customRendererField {
+  background: var(--house-light);
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+}
+
+.customRendererField label {
+  font-size: 0.72rem;
+  font-weight: 760;
+}
+
+.customRendererField input {
+  background: var(--paper);
+  border: 1.5px solid var(--backstage);
+  border-radius: var(--radius-small);
+  color: var(--backstage);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.74rem;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  width: 100%;
+}
+
+.customRendererField input[aria-invalid="true"] {
+  border-color: #8a2514;
+  box-shadow: inset 0 -0.2rem #8a2514;
+}
+
+.customRendererField input:focus-visible {
+  outline: 3px solid var(--fan-blue);
+  outline-offset: 2px;
+}
+
+.customRendererField p {
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+  margin: 0;
+  min-height: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.customRendererField p[role="alert"] {
+  color: #8a2514;
+  font-weight: 700;
 }
 
 .seedLine {
@@ -1265,6 +1098,12 @@ details[open] > .customizationSummary::after {
     border-top: 2px solid var(--backstage);
   }
 
+  .previewColumn,
+  .toolColumn {
+    max-width: 100%;
+    width: 100%;
+  }
+
   .previewGallery {
     position: static;
   }
@@ -1331,10 +1170,6 @@ details[open] > .customizationSummary::after {
     grid-template-columns: minmax(0, 1fr) 4rem;
   }
 
-  .rendererAddressField {
-    grid-template-columns: 1fr;
-  }
-
   .customizationSummary {
     align-items: start;
   }
@@ -1352,7 +1187,6 @@ details[open] > .customizationSummary::after {
   .textButton,
   .surpriseButton,
   .undoButton,
-  .rendererChoice,
   .engineChoice,
   .tokenSample {
     animation: none;
@@ -1363,7 +1197,6 @@ details[open] > .customizationSummary::after {
 @media (forced-colors: active) {
   .artStage,
   .tokenSample,
-  .rendererChoice,
   .engineChoice,
   .mediaModeChoice {
     border: 2px solid currentColor;

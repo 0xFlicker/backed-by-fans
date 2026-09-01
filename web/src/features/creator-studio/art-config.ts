@@ -9,6 +9,15 @@ export const artEngineNames = [
   "afterimage",
 ] as const;
 
+export const canonicalArtEngineManifestNames = [
+  "STACK",
+  "CHORUS",
+  "LOOM",
+  "BLOOM",
+  "MARQUEE",
+  "AFTERIMAGE",
+] as const;
+
 export type ArtEngine = (typeof artEngineNames)[number];
 
 export const artEngineIndex = {

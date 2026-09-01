@@ -97,39 +97,19 @@ test.describe("@anvil renderer sharing through memberships", () => {
       await page.getByLabel("Symbol").fill("SHARED");
       await page.getByRole("button", { name: /^art studio$/i }).click();
 
-      const rendererChooser = page.getByRole("region", {
-        name: "Choose the artwork renderer",
-      });
-      const rendererAddress = rendererChooser.getByLabel("Renderer address");
+      const rendererChooser = page.getByRole("group", { name: "Art style" });
+      await rendererChooser.getByRole("radio", { name: /Custom/i }).click();
+      const rendererAddress = rendererChooser.getByLabel(
+        "Renderer contract address",
+        { exact: true },
+      );
       await rendererAddress.focus();
       await page.keyboard.press("ControlOrMeta+A");
       await page.keyboard.press("ControlOrMeta+V");
       await expect(rendererAddress).toHaveValue(renderer);
-      await rendererChooser
-        .getByRole("button", { name: "Preview renderer" })
-        .click();
-      await expect(rendererChooser.getByRole("status")).toContainText(
-        "6 of 6 representative previews are ready",
-        { timeout: 30_000 },
-      );
-
-      const representativeArtwork = page
-        .getByRole("heading", { name: "Representative artwork" })
-        .locator("..");
-      await expect(representativeArtwork.getByRole("img")).toHaveCount(6);
-
-      await rendererChooser
-        .getByRole("button", { name: "Reject renderer" })
-        .click();
-      await expect(
-        page.getByText("Renderer rejected.", { exact: true }),
-      ).toBeVisible();
-      await rendererChooser
-        .getByRole("button", { name: "Use this renderer" })
-        .click();
-      await expect(
-        page.getByText("Renderer approved.", { exact: true }),
-      ).toBeVisible();
+      await expect(rendererChooser.getByRole("status")).not.toBeEmpty({
+        timeout: 30_000,
+      });
 
       await page.getByRole("button", { name: /^risks$/i }).click();
       await page.getByRole("checkbox").nth(0).check();

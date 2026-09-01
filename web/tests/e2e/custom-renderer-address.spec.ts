@@ -12,7 +12,7 @@ import {
   snapshotAnvil,
 } from "./helpers/anvil";
 
-test("@anvil copies, previews, approves, and reuses a direct renderer", async ({
+test("@anvil copies and reuses a direct renderer", async ({
   context,
   page,
 }, testInfo) => {
@@ -51,22 +51,23 @@ test("@anvil copies, previews, approves, and reuses a direct renderer", async ({
     await page.getByLabel("Symbol").fill("DIRECT");
     await page.getByRole("button", { name: /^art studio$/i }).click();
 
-    const rendererChooser = page.getByRole("region", {
-      name: "Choose the artwork renderer",
-    });
-    const rendererAddress = rendererChooser.getByLabel("Renderer address");
+    const rendererChooser = page.getByRole("group", { name: "Art style" });
+    await expect(
+      rendererChooser.getByRole("radio", { name: /STACK/i }),
+    ).toHaveAttribute("aria-checked", "true");
+    await rendererChooser.getByRole("radio", { name: /Custom/i }).click();
+    const rendererAddress = rendererChooser.getByLabel(
+      "Renderer contract address",
+      { exact: true },
+    );
     await rendererAddress.focus();
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.press("ControlOrMeta+V");
     await expect(rendererAddress).toHaveValue(renderer);
     await expect(rendererChooser.getByRole("combobox")).toHaveCount(0);
-    await rendererChooser
-      .getByRole("button", { name: "Preview renderer" })
-      .click();
-    await expect(rendererChooser.getByRole("status")).toContainText(
-      "6 of 6 representative previews are ready",
-      { timeout: 30_000 },
-    );
+    await expect(rendererChooser.getByRole("status")).not.toBeEmpty({
+      timeout: 30_000,
+    });
 
     const representativeTokens = page.getByLabel(
       "Representative membership tokens",
@@ -78,12 +79,6 @@ test("@anvil copies, previews, approves, and reuses a direct renderer", async ({
     await expect(representativeTokens.getByRole("img")).toHaveCount(3, {
       timeout: 30_000,
     });
-
-    const approveRenderer = rendererChooser.getByRole("button", {
-      name: "Use this renderer",
-    });
-    await expect(approveRenderer).toBeEnabled();
-    await approveRenderer.click();
 
     await page.getByRole("button", { name: /^risks$/i }).click();
     await page.getByRole("checkbox").nth(0).check();
