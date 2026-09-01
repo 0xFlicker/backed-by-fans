@@ -29,8 +29,7 @@
 }
 
 .eyebrow,
-.microLabel,
-.approvedLabel {
+.microLabel {
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -79,7 +78,7 @@
   margin: 0;
 }
 
-.sectionHeading p:not(.approvedLabel) {
+.sectionHeading p:not(.microLabel) {
   color: var(--muted-ink);
   line-height: 1.55;
   margin: 0.65rem 0 0;
@@ -529,31 +528,6 @@
   font-size: 0.68rem;
 }
 
-.decisionPanel {
-  align-items: center;
-  background: var(--encore);
-  border: 2px solid var(--backstage);
-  display: flex;
-  gap: 1.5rem;
-  justify-content: space-between;
-  margin-top: 2rem;
-  padding: 1.25rem;
-}
-
-.decisionPanel strong {
-  display: block;
-  line-height: 1.35;
-  margin-top: 0.35rem;
-  max-width: 24rem;
-}
-
-.decisionActions {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-}
-
 .noticeStack {
   margin-top: 1.5rem;
 }
@@ -577,11 +551,6 @@
   box-shadow: var(--shadow);
   margin-top: clamp(4rem, 8vw, 7rem);
   padding: clamp(1.5rem, 4vw, 4rem);
-}
-
-.approvedLabel {
-  color: #315400;
-  margin-bottom: 0.55rem;
 }
 
 .summaryGrid {
@@ -772,7 +741,6 @@
   }
 
   .candidateHeader,
-  .decisionPanel,
   .walletGate {
     align-items: stretch;
     flex-direction: column;
@@ -825,13 +793,5 @@
   .previewAction {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .decisionActions {
-    flex-direction: column;
-  }
-
-  .decisionActions > button {
-    width: 100%;
   }
 }

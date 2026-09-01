@@ -10,12 +10,9 @@ import {
 } from "viem";
 import { describe, expect, it } from "vitest";
 
-import { approveRendererCandidate } from "@/features/renderer-lab/approval";
 import {
   createRendererLabCandidateState,
   replaceRendererCandidate,
-  replaceRendererPreviewRequests,
-  replaceRendererPreviewResults,
   type RendererCandidateInput,
 } from "@/features/renderer-lab/candidate";
 import {
@@ -28,7 +25,7 @@ import { rendererRegistryAbi } from "@/contracts";
 
 const registry = getAddress("0x1111111111111111111111111111111111111111");
 
-function approvedCandidateState(creationBytecode: Hex = "0x6000600055") {
+function candidateState(creationBytecode: Hex = "0x6000600055") {
   const candidate: RendererCandidateInput = {
     candidateId: "candidate-1",
     chainId: 46_630,
@@ -38,39 +35,16 @@ function approvedCandidateState(creationBytecode: Hex = "0x6000600055") {
     runtimeBytecode: "0x6000",
     initCodeByteLength: (creationBytecode.length - 2) / 2,
   };
-  const requests = Array.from({ length: 6 }, (_, index) => ({
-    requestId: `request-${index + 1}`,
-    mode: "undeployed-initcode" as const,
-    method: "previewSVG" as const,
-    contextWithoutMedia: { tokenId: [1, 1, 7, 7, 42, 42][index] },
-    localImageSlot: index % 2 === 1,
-  }));
-
   let state = createRendererLabCandidateState();
   state = replaceRendererCandidate(state, candidate);
-  state = replaceRendererPreviewRequests(
-    state,
-    state.candidate!.candidateFingerprint,
-    requests,
-  );
-  state = replaceRendererPreviewResults(state, {
-    candidateFingerprint: state.candidate!.candidateFingerprint,
-    requestSetFingerprint: state.requestSet!.requestSetFingerprint,
-    results: requests.map((request) => ({
-      requestId: request.requestId,
-      status: "ready" as const,
-      image: `<svg xmlns="http://www.w3.org/2000/svg"><text>${request.requestId}</text></svg>`,
-    })),
-  });
-
-  return { state, approval: approveRendererCandidate(state) };
+  return state;
 }
 
 describe("renderer registry deployment preparation", () => {
   it("requires a configured registry", () => {
-    const { state, approval } = approvedCandidateState();
+    const state = candidateState();
 
-    expect(() => prepareRendererDeployment({ state, approval })).toThrow(
+    expect(() => prepareRendererDeployment({ state })).toThrow(
       expect.objectContaining({
         code: "registry-unavailable",
       }) as RendererDeploymentPreparationError,
@@ -80,11 +54,9 @@ describe("renderer registry deployment preparation", () => {
   it("rejects initcode above the registry transaction limit", () => {
     const creationBytecode =
       `0x${"00".repeat(maxRendererInitcodeBytes + 1)}` as Hex;
-    const { state, approval } = approvedCandidateState(creationBytecode);
+    const state = candidateState(creationBytecode);
 
-    expect(() =>
-      prepareRendererDeployment({ registry, state, approval }),
-    ).toThrow(
+    expect(() => prepareRendererDeployment({ registry, state })).toThrow(
       expect.objectContaining({
         code: "nitro-limit",
       }) as RendererDeploymentPreparationError,
@@ -119,15 +91,14 @@ describe("renderer registry deployment preparation", () => {
     expect((serialized.length - 2) / 2).toBeLessThanOrEqual(95_000);
   });
 
-  it("returns the exact registry input for the approved candidate", () => {
-    const { state, approval } = approvedCandidateState();
+  it("returns the exact registry input for the loaded candidate", () => {
+    const state = candidateState();
 
-    expect(prepareRendererDeployment({ registry, state, approval })).toEqual({
+    expect(prepareRendererDeployment({ registry, state })).toEqual({
       chainId: 46_630,
       registry,
       initCode: state.candidate!.creationBytecode,
       initCodeByteLength: 5,
-      approvalFingerprint: approval.fingerprint,
       state: "prepared",
     });
   });

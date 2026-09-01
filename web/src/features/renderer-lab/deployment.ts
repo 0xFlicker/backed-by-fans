@@ -7,18 +7,11 @@ import {
 } from "viem";
 
 import { rendererRegistryAbi } from "@/contracts";
-import {
-  isRendererReviewCurrent,
-  type RendererReviewDecision,
-} from "@/features/renderer-lab/approval";
 import type { RendererLabCandidateState } from "@/features/renderer-lab/candidate";
 import { maxRendererInitcodeBytes } from "@/features/renderer-lab/package-import";
 
 export type RendererDeploymentPreparationErrorCode =
-  | "approval-stale"
-  | "registry-unavailable"
-  | "nitro-limit"
-  | "candidate-invalid";
+  "registry-unavailable" | "nitro-limit" | "candidate-invalid";
 
 export class RendererDeploymentPreparationError extends Error {
   readonly code: RendererDeploymentPreparationErrorCode;
@@ -35,7 +28,6 @@ export type PreparedRendererDeployment = {
   registry: Address;
   initCode: Hex;
   initCodeByteLength: number;
-  approvalFingerprint: Hex;
   state: "prepared";
 };
 
@@ -46,17 +38,12 @@ function byteLength(value: Hex) {
 export function prepareRendererDeployment(input: {
   registry?: Address;
   state: RendererLabCandidateState;
-  approval: RendererReviewDecision;
 }): PreparedRendererDeployment {
   const candidate = input.state.candidate;
-  if (
-    !candidate ||
-    input.approval.decision !== "approved" ||
-    !isRendererReviewCurrent(input.approval, input.state)
-  ) {
+  if (!candidate) {
     throw new RendererDeploymentPreparationError(
-      "approval-stale",
-      "Review and approve the current renderer examples before deployment.",
+      "candidate-invalid",
+      "Load a renderer package before deployment.",
     );
   }
   if (!input.registry) {
@@ -85,7 +72,6 @@ export function prepareRendererDeployment(input: {
     registry: input.registry,
     initCode: candidate.creationBytecode,
     initCodeByteLength,
-    approvalFingerprint: input.approval.fingerprint,
     state: "prepared",
   };
 }

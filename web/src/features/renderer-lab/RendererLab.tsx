@@ -44,12 +44,6 @@ import {
   creatorMediaMime,
 } from "@/features/creator-studio/media-preview";
 import {
-  approveRendererCandidate,
-  isRendererReviewCurrent,
-  rejectRendererCandidate,
-  type RendererReviewDecision,
-} from "@/features/renderer-lab/approval";
-import {
   createRendererLabCandidateState,
   replaceRendererCandidate,
   replaceRendererPreviewRequests,
@@ -553,7 +547,6 @@ export function RendererLab({
   }>({ status: "idle", records: [] });
   const [previewPhase, setPreviewPhase] = useState<PreviewPhase>("idle");
   const [previewMembershipName, setPreviewMembershipName] = useState("");
-  const [review, setReview] = useState<RendererReviewDecision | null>(null);
   const [preparedDeployment, setPreparedDeployment] =
     useState<PreparedRendererDeployment | null>(null);
   const [preparedImageDeployment, setPreparedImageDeployment] =
@@ -591,8 +584,7 @@ export function RendererLab({
   const requests = candidateState.requestSet?.requests ?? [];
   const hasImageSlots = requests.some((request) => request.localImageSlot);
 
-  const resetDecision = () => {
-    setReview(null);
+  const resetDeploymentState = () => {
     setPreparedDeployment(null);
     setPreparedImageDeployment(null);
     setDeployedAddress(null);
@@ -623,7 +615,7 @@ export function RendererLab({
         : current,
     );
     setPreviewPhase("idle");
-    resetDecision();
+    resetDeploymentState();
   };
 
   const updateImageSettings = (update: Partial<RendererImageSettings>) => {
@@ -640,7 +632,7 @@ export function RendererLab({
         : current,
     );
     setPreviewPhase("idle");
-    resetDecision();
+    resetDeploymentState();
   };
 
   useEffect(() => {
@@ -769,7 +761,7 @@ export function RendererLab({
     setImagePhase("idle");
     setImageError(null);
     setPreviewPhase("idle");
-    resetDecision();
+    resetDeploymentState();
     setError(null);
     setMessage(`Ready to preview ${requests.length} examples.`);
     return nextState;
@@ -970,7 +962,7 @@ export function RendererLab({
       setImportDetails(null);
       setHelperBinding(null);
       setPreviewPhase("idle");
-      resetDecision();
+      resetDeploymentState();
       setMessage(null);
       setError(
         caught instanceof Error
@@ -1031,7 +1023,7 @@ export function RendererLab({
         : current,
     );
     setPreviewPhase("idle");
-    resetDecision();
+    resetDeploymentState();
     setMessage(null);
     setError(null);
   };
@@ -1051,7 +1043,7 @@ export function RendererLab({
       return;
     }
     setPreviewPhase("running");
-    resetDecision();
+    resetDeploymentState();
     setError(null);
     setMessage(`Making ${requestSet.requests.length} canonical RPC previews…`);
 
@@ -1117,39 +1109,9 @@ export function RendererLab({
     }
   };
 
-  const approve = () => {
-    try {
-      const nextReview = approveRendererCandidate(candidateState);
-      setReview(nextReview);
-      setMessage("Renderer approved.");
-      setError(null);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "The renderer could not be approved.",
-      );
-    }
-  };
-
-  const reject = () => {
-    try {
-      setReview(rejectRendererCandidate(candidateState));
-      setMessage("Renderer rejected.");
-      setError(null);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "The renderer could not be rejected.",
-      );
-    }
-  };
-
   const deployRenderer = async () => {
     setRendererDeploymentError(null);
     if (!account.isConnected || !account.address) return;
-    if (!review) return;
 
     try {
       if (account.chainId !== canonicalRendererPackageChainId) {
@@ -1160,7 +1122,6 @@ export function RendererLab({
       const prepared = prepareRendererDeployment({
         registry: configuredRendererRegistry,
         state: candidateState,
-        approval: review,
       });
       const { request } = await simulateContract(wagmiConfig, {
         account: account.address,
@@ -1234,12 +1195,6 @@ export function RendererLab({
       setError("The address could not be copied. Select it and copy manually.");
     }
   };
-
-  const approved =
-    review?.decision === "approved" &&
-    isRendererReviewCurrent(review, candidateState);
-  const readyToReview =
-    previewPhase === "complete" && results.length === requests.length;
 
   return (
     <section className={styles.lab} data-renderer-lab>
@@ -1616,33 +1571,6 @@ export function RendererLab({
                   })}
                 </div>
               )}
-
-              {readyToReview && (
-                <div className={styles.decisionPanel}>
-                  <div>
-                    <p className={styles.microLabel}>Your decision</p>
-                    <strong>
-                      Would you use this artwork for your membership?
-                    </strong>
-                  </div>
-                  <div className={styles.decisionActions}>
-                    <button
-                      className="button button-dark"
-                      onClick={approve}
-                      type="button"
-                    >
-                      Approve renderer
-                    </button>
-                    <button
-                      className="button button-outline"
-                      onClick={reject}
-                      type="button"
-                    >
-                      Reject renderer
-                    </button>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </section>
@@ -1663,7 +1591,7 @@ export function RendererLab({
         </div>
       )}
 
-      {approved && candidateState.candidate && review && (
+      {candidateState.candidate && (
         <section
           aria-label="Deployment summary"
           className={styles.deploymentPanel}
@@ -1671,7 +1599,7 @@ export function RendererLab({
           <div className={styles.sectionHeading}>
             <span>03</span>
             <div>
-              <p className={styles.approvedLabel}>Approved</p>
+              <p className={styles.microLabel}>Deploy</p>
               <h2>Ready when you are</h2>
               <p>
                 Connect your wallet, then deploy the renderer and optional image
@@ -1753,12 +1681,6 @@ export function RendererLab({
                   title={candidateState.candidate.candidateFingerprint}
                 >
                   {shortHex(candidateState.candidate.candidateFingerprint)}
-                </dd>
-              </div>
-              <div>
-                <dt>Approval fingerprint</dt>
-                <dd className="font-mono" title={review.fingerprint}>
-                  {shortHex(review.fingerprint)}
                 </dd>
               </div>
             </dl>

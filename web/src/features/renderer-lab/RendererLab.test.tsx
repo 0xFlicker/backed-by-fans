@@ -238,7 +238,24 @@ describe("public renderer lab", () => {
     expect(screen.getByLabelText("Preview membership name")).toHaveValue(
       "Moonlit Circle",
     );
-    expect(screen.queryByTestId("wallet-prompt")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Choose JPEG or PNG")).toBeVisible();
+    const summary = screen.getByRole("region", { name: "Deployment summary" });
+    expect(within(summary).getByText("Robinhood testnet")).toBeVisible();
+    expect(
+      within(summary).getByText("Returned after deployment"),
+    ).toBeVisible();
+    expect(within(summary).getAllByText("5 bytes")).toHaveLength(2);
+    expect(screen.getByTestId("wallet-prompt")).toBeVisible();
+    expect(screen.getByText("Connect a wallet to deploy")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Deploy renderer" }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Approve renderer" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Reject renderer" }),
+    ).not.toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Preview membership name"));
     await user.type(
@@ -261,30 +278,6 @@ describe("public renderer lab", () => {
     expect(
       await screen.findAllByRole("img", { name: /Membership example/i }),
     ).toHaveLength(6);
-    expect(screen.queryByTestId("wallet-prompt")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Deploy renderer" }),
-    ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Reject renderer" }));
-    expect(screen.getByText("Renderer rejected.")).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Deploy renderer" }),
-    ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Approve renderer" }));
-
-    const summary = screen.getByRole("region", { name: "Deployment summary" });
-    expect(within(summary).getByText("Robinhood testnet")).toBeVisible();
-    expect(
-      within(summary).getByText("Returned after deployment"),
-    ).toBeVisible();
-    expect(within(summary).getAllByText("5 bytes")).toHaveLength(2);
-    expect(screen.getByTestId("wallet-prompt")).toBeVisible();
-    expect(screen.getByText("Connect a wallet to deploy")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Deploy renderer" }),
-    ).toBeDisabled();
 
     await user.click(screen.getByText("Technical details"));
     expect(
@@ -310,7 +303,6 @@ describe("public renderer lab", () => {
     wagmiState.account.isConnected = true;
     previewMock.mockResolvedValue(svg);
     prepareDeploymentMock.mockReturnValue({
-      approvalFingerprint: `0x${"88".repeat(32)}`,
       chainId: 46_630,
       registry: simulatedRequest.address,
       initCode: value.artifacts.creationBytecode,
@@ -322,11 +314,6 @@ describe("public renderer lab", () => {
     renderLab();
 
     await user.upload(screen.getByLabelText("Renderer package"), packageFile());
-    await user.click(
-      screen.getByRole("button", { name: "Preview 6 examples" }),
-    );
-    await screen.findAllByRole("img", { name: /Membership example/i });
-    await user.click(screen.getByRole("button", { name: "Approve renderer" }));
     await user.click(screen.getByRole("button", { name: "Deploy renderer" }));
 
     await waitFor(() => expect(sendTransactionMock).toHaveBeenCalledOnce());
@@ -346,7 +333,6 @@ describe("public renderer lab", () => {
     };
     previewMock.mockResolvedValue(svg);
     prepareDeploymentMock.mockReturnValue({
-      approvalFingerprint: `0x${"88".repeat(32)}`,
       chainId: 46_630,
       registry: simulatedRequest.address,
       initCode: value.artifacts.creationBytecode,
@@ -358,11 +344,6 @@ describe("public renderer lab", () => {
     const rendered = renderLab();
 
     await user.upload(screen.getByLabelText("Renderer package"), packageFile());
-    await user.click(
-      screen.getByRole("button", { name: "Preview 6 examples" }),
-    );
-    await screen.findAllByRole("img", { name: /Membership example/i });
-    await user.click(screen.getByRole("button", { name: "Approve renderer" }));
     expect(
       screen.getByRole("button", { name: "Deploy renderer" }),
     ).toBeDisabled();
@@ -432,12 +413,6 @@ describe("public renderer lab", () => {
       "src",
       "blob:prepared-image",
     );
-    await user.click(
-      screen.getByRole("button", { name: "Preview 6 examples" }),
-    );
-    await screen.findAllByRole("img", { name: /Membership example/i });
-    await user.click(screen.getByRole("button", { name: "Approve renderer" }));
-
     const summary = screen.getByRole("region", { name: "Deployment summary" });
     expect(within(summary).getByText("Image size estimate")).toBeVisible();
     expect(within(summary).getAllByText("4 bytes")).toHaveLength(2);
@@ -477,7 +452,6 @@ describe("public renderer lab", () => {
     wagmiState.account.isConnected = true;
     previewMock.mockResolvedValue(svg);
     prepareDeploymentMock.mockReturnValue({
-      approvalFingerprint: `0x${"88".repeat(32)}`,
       chainId: 46_630,
       registry: simulatedRequest.address,
       initCode: value.artifacts.creationBytecode,
@@ -492,11 +466,6 @@ describe("public renderer lab", () => {
     });
 
     await user.upload(screen.getByLabelText("Renderer package"), packageFile());
-    await user.click(
-      screen.getByRole("button", { name: "Preview 6 examples" }),
-    );
-    await screen.findAllByRole("img", { name: /Membership example/i });
-    await user.click(screen.getByRole("button", { name: "Approve renderer" }));
     await user.click(screen.getByRole("button", { name: "Deploy renderer" }));
 
     wagmiState.transaction.data = transactionHash;
@@ -659,7 +628,7 @@ describe("public renderer lab", () => {
     expect(JSON.stringify(submitExampleResults.mock.calls[0][0])).not.toMatch(
       /nativeMedia|sourceImage/i,
     );
-    expect(screen.queryByTestId("wallet-prompt")).not.toBeInTheDocument();
+    expect(screen.getByTestId("wallet-prompt")).toBeVisible();
   });
 
   it("offers a connected creator's uploaded images as preview sources", async () => {
