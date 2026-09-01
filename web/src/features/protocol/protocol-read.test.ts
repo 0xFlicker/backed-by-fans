@@ -1,4 +1,4 @@
-import { getAddress, keccak256, type PublicClient } from "viem";
+import { getAddress, keccak256, type Address, type PublicClient } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -11,16 +11,16 @@ import type { ReadyDeployment } from "@/lib/config";
 const factory = getAddress("0x1111111111111111111111111111111111111111");
 const paymentToken = getAddress("0x2222222222222222222222222222222222222222");
 const renderer = getAddress("0x3333333333333333333333333333333333333333");
-const secondRenderer = getAddress("0x8888888888888888888888888888888888888888");
 const mediaStoreFactory = getAddress(
   "0x4444444444444444444444444444444444444444",
 );
 const owner = getAddress("0x5555555555555555555555555555555555555555");
 const pendingOwner = getAddress("0x6666666666666666666666666666666666666666");
 const feeRecipient = getAddress("0x7777777777777777777777777777777777777777");
+const previewHarness = getAddress("0x8888888888888888888888888888888888888888");
 const rendererCode = "0x6001600055" as const;
-const secondRendererCode = "0x6003600055" as const;
 const mediaStoreFactoryCode = "0x6002600055" as const;
+const previewHarnessCode = "0x6003600055" as const;
 const foundingEngineNames = [
   "STACK",
   "CHORUS",
@@ -29,15 +29,25 @@ const foundingEngineNames = [
   "MARQUEE",
   "AFTERIMAGE",
 ] as const;
-const deployment: ReadyDeployment = {
+const deployment = {
   status: "ready",
   chainId: 46630,
   factoryAddress: factory,
   usdgAddress: paymentToken,
+  rendererAddress: renderer,
+  previewHarnessAddress: previewHarness,
+} satisfies ReadyDeployment & {
+  rendererAddress: Address;
+  previewHarnessAddress: Address;
 };
 
 function protocolClient(
-  input: { rendererHash?: `0x${string}`; rendererCount?: number } = {},
+  input: {
+    rendererCode?: `0x${string}`;
+    previewHarnessCode?: `0x${string}`;
+    mediaStoreFactoryHash?: `0x${string}`;
+    rendererSchema?: `0x${string}`;
+  } = {},
 ) {
   const readContract = vi.fn(
     ({
@@ -49,46 +59,26 @@ function protocolClient(
       functionName: string;
       args?: readonly unknown[];
     }) => {
-      const rendererVersion = Number(args?.[0] ?? 1);
-      if (functionName === "rendererRecord") {
-        return Promise.resolve(
-          rendererVersion === 2
-            ? {
-                implementation: secondRenderer,
-                runtimeCodehash: keccak256(secondRendererCode),
-                enabled: true,
-              }
-            : {
-                implementation: renderer,
-                runtimeCodehash: input.rendererHash ?? keccak256(rendererCode),
-                enabled: true,
-              },
-        );
-      }
-      if (functionName === "rendererVersionOf") {
-        return Promise.resolve(args?.[0] === secondRenderer ? 2 : 1);
-      }
-      if (functionName === "rendererName") {
-        return Promise.resolve(
-          address === secondRenderer ? "SECOND LIGHT" : "FOUNDING SIX",
-        );
-      }
-      if (functionName === "engineCount") {
-        return Promise.resolve(address === secondRenderer ? 1 : 6);
-      }
-      if (functionName === "engineName") {
-        return Promise.resolve(
-          address === secondRenderer
-            ? "SECOND ENGINE"
-            : foundingEngineNames[rendererVersion],
-        );
+      if (address === renderer) {
+        if (functionName === "rendererSchema") {
+          return Promise.resolve(
+            input.rendererSchema ?? membershipRendererSchema,
+          );
+        }
+        if (functionName === "rendererName") {
+          return Promise.resolve("FOUNDING SIX");
+        }
+        if (functionName === "engineCount") return Promise.resolve(6);
+        if (functionName === "engineName") {
+          return Promise.resolve(foundingEngineNames[Number(args?.[0])]);
+        }
       }
       const values: Record<string, unknown> = {
         paymentToken,
         rendererSchema: membershipRendererSchema,
-        rendererCount: input.rendererCount ?? 1,
         mediaStoreFactory,
-        mediaStoreFactoryRuntimeCodehash: keccak256(mediaStoreFactoryCode),
+        mediaStoreFactoryRuntimeCodehash:
+          input.mediaStoreFactoryHash ?? keccak256(mediaStoreFactoryCode),
         owner,
         pendingOwner,
         feeRecipient,
@@ -105,9 +95,9 @@ function protocolClient(
     getBytecode: vi.fn(({ address }: { address: string }) =>
       Promise.resolve(
         address === renderer
-          ? rendererCode
-          : address === secondRenderer
-            ? secondRendererCode
+          ? (input.rendererCode ?? rendererCode)
+          : address === previewHarness
+            ? (input.previewHarnessCode ?? previewHarnessCode)
             : mediaStoreFactoryCode,
       ),
     ),
@@ -116,7 +106,7 @@ function protocolClient(
 }
 
 describe("protocol dependency reads", () => {
-  it("derives and verifies dependencies from the canonical factory at one block", async () => {
+  it("derives direct renderer, preview harness, and media registry dependencies at one block", async () => {
     const client = protocolClient();
     const result = await readProtocolState(client, deployment);
 
@@ -128,24 +118,23 @@ describe("protocol dependency reads", () => {
         factory,
         paymentToken,
         rendererSchema: membershipRendererSchema,
-        rendererCount: 1,
-        defaultRendererVersion: 1,
-        renderers: [
-          {
-            version: 1,
-            implementation: renderer,
-            enabled: true,
-            name: "FOUNDING SIX",
-            engineCount: 6,
-            engineNames: foundingEngineNames,
-          },
-        ],
+        renderer,
+        rendererName: "FOUNDING SIX",
+        rendererEngineCount: 6,
+        rendererEngineNames: foundingEngineNames,
+        previewHarness,
         mediaStoreFactory,
         owner,
         protocolFeeBps: 100,
         tierCount: 4n,
       },
     });
+    const functionNames = vi
+      .mocked(client.readContract)
+      .mock.calls.map(([call]) => call.functionName);
+    expect(functionNames).not.toContain("rendererCount");
+    expect(functionNames).not.toContain("rendererRecord");
+    expect(functionNames).not.toContain("rendererVersionOf");
     for (const call of vi.mocked(client.readContract).mock.calls) {
       expect(call[0]).toMatchObject({ blockNumber: 40n });
     }
@@ -154,46 +143,53 @@ describe("protocol dependency reads", () => {
     }
   });
 
-  it("does not silently choose a renderer when multiple versions are enabled", async () => {
+  it("rejects a direct renderer without code", async () => {
     const result = await readProtocolDependencies(
-      protocolClient({ rendererCount: 2 }),
-      deployment,
-    );
-
-    expect(result).toMatchObject({
-      status: "valid",
-      data: {
-        rendererCount: 2,
-        defaultRendererVersion: undefined,
-        renderers: [
-          {
-            version: 1,
-            name: "FOUNDING SIX",
-            enabled: true,
-            engineCount: 6,
-            engineNames: foundingEngineNames,
-          },
-          {
-            version: 2,
-            name: "SECOND LIGHT",
-            enabled: true,
-            engineCount: 1,
-            engineNames: ["SECOND ENGINE"],
-          },
-        ],
-      },
-    });
-  });
-
-  it("rejects a renderer whose current bytecode misses the factory snapshot", async () => {
-    const result = await readProtocolDependencies(
-      protocolClient({ rendererHash: `0x${"ff".repeat(32)}` }),
+      protocolClient({ rendererCode: "0x" }),
       deployment,
     );
 
     expect(result).toMatchObject({
       status: "interface-mismatch",
-      failedChecks: ["renderer 1 runtime identity"],
+      failedChecks: ["renderer code"],
+    });
+  });
+
+  it("rejects a direct renderer with the wrong schema", async () => {
+    const result = await readProtocolDependencies(
+      protocolClient({ rendererSchema: `0x${"ff".repeat(32)}` }),
+      deployment,
+    );
+
+    expect(result).toMatchObject({
+      status: "interface-mismatch",
+      failedChecks: ["renderer schema"],
+    });
+  });
+
+  it("rejects a preview harness without code", async () => {
+    const result = await readProtocolDependencies(
+      protocolClient({ previewHarnessCode: "0x" }),
+      deployment,
+    );
+
+    expect(result).toMatchObject({
+      status: "interface-mismatch",
+      failedChecks: ["renderer preview harness code"],
+    });
+  });
+
+  it("keeps the onchain media registry runtime identity check", async () => {
+    const result = await readProtocolDependencies(
+      protocolClient({
+        mediaStoreFactoryHash: `0x${"ff".repeat(32)}`,
+      }),
+      deployment,
+    );
+
+    expect(result).toMatchObject({
+      status: "interface-mismatch",
+      failedChecks: ["media registry runtime identity"],
     });
   });
 

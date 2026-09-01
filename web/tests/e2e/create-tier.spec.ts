@@ -1,7 +1,20 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { resolve } from "node:path";
+import {
+  decodeFunctionData,
+  encodeFunctionResult,
+  getAbiItem,
+  multicall3Abi,
+  toFunctionSelector,
+  type Address,
+  type Hex,
+} from "viem";
 
-import { membershipFactoryAbi } from "../../src/contracts";
+import {
+  membershipFactoryAbi,
+  onchainMetadataRendererAbi,
+} from "../../src/contracts";
+import { membershipRendererSchema } from "../../src/features/protocol/protocol-read";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -11,6 +24,168 @@ import {
   revertAnvil,
   snapshotAnvil,
 } from "./helpers/anvil";
+
+const rendererLayoutSvg =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#625bff"/></svg>';
+const multicall3Address = "0xca11bde05977b3631167028862be2a173976ca11";
+const rendererLayoutSelectors = {
+  rendererSchema: toFunctionSelector(
+    getAbiItem({ abi: onchainMetadataRendererAbi, name: "rendererSchema" }),
+  ),
+  rendererName: toFunctionSelector(
+    getAbiItem({ abi: onchainMetadataRendererAbi, name: "rendererName" }),
+  ),
+  engineCount: toFunctionSelector(
+    getAbiItem({ abi: onchainMetadataRendererAbi, name: "engineCount" }),
+  ),
+  engineName: toFunctionSelector(
+    getAbiItem({ abi: onchainMetadataRendererAbi, name: "engineName" }),
+  ),
+  previewSVG: toFunctionSelector(
+    getAbiItem({ abi: onchainMetadataRendererAbi, name: "previewSVG" }),
+  ),
+};
+
+async function installRendererLayoutRpc(page: Page, renderer: Address) {
+  type RpcRequest = {
+    id?: number | string;
+    method?: string;
+    params?: unknown[];
+  };
+
+  function rendererResult(data: Hex) {
+    const selector = data.slice(0, 10);
+    if (selector === rendererLayoutSelectors.rendererSchema) {
+      return encodeFunctionResult({
+        abi: onchainMetadataRendererAbi,
+        functionName: "rendererSchema",
+        result: membershipRendererSchema,
+      });
+    }
+    if (selector === rendererLayoutSelectors.rendererName) {
+      return encodeFunctionResult({
+        abi: onchainMetadataRendererAbi,
+        functionName: "rendererName",
+        result: "Layout fixture",
+      });
+    }
+    if (selector === rendererLayoutSelectors.engineCount) {
+      return encodeFunctionResult({
+        abi: onchainMetadataRendererAbi,
+        functionName: "engineCount",
+        result: 1,
+      });
+    }
+    if (selector === rendererLayoutSelectors.engineName) {
+      return encodeFunctionResult({
+        abi: onchainMetadataRendererAbi,
+        functionName: "engineName",
+        result: "STACK",
+      });
+    }
+    if (selector === rendererLayoutSelectors.previewSVG) {
+      return encodeFunctionResult({
+        abi: onchainMetadataRendererAbi,
+        functionName: "previewSVG",
+        result: rendererLayoutSvg,
+      });
+    }
+    return undefined;
+  }
+
+  function resultFor(body: RpcRequest) {
+    if (body.method === "eth_chainId") return "0xb626";
+    if (body.method === "eth_blockNumber") return "0x1234";
+    if (
+      body.method === "eth_getCode" &&
+      String(body.params?.[0]).toLowerCase() === renderer.toLowerCase()
+    ) {
+      return "0x6000";
+    }
+    if (body.method !== "eth_call") return undefined;
+
+    const call = body.params?.[0] as { data?: Hex; to?: string } | undefined;
+    if (!call?.data || !call.to) return undefined;
+    if (call.to.toLowerCase() === renderer.toLowerCase()) {
+      return rendererResult(call.data);
+    }
+    if (call.to.toLowerCase() !== multicall3Address) return undefined;
+
+    const aggregate = decodeFunctionData({
+      abi: multicall3Abi,
+      data: call.data,
+    });
+    if (aggregate.functionName !== "aggregate3") return undefined;
+    const results = aggregate.args[0].map((item) => {
+      if (item.target.toLowerCase() !== renderer.toLowerCase()) {
+        throw new Error("Unexpected contract in renderer layout multicall.");
+      }
+      const returnData = rendererResult(item.callData);
+      if (!returnData) {
+        throw new Error("Unexpected renderer method in layout multicall.");
+      }
+      return { success: true, returnData };
+    });
+    return encodeFunctionResult({
+      abi: multicall3Abi,
+      functionName: "aggregate3",
+      result: results,
+    });
+  }
+
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (request.method() !== "POST") return route.continue();
+    let payload: RpcRequest | RpcRequest[];
+    try {
+      payload = request.postDataJSON() as typeof payload;
+    } catch {
+      return route.continue();
+    }
+
+    if (Array.isArray(payload)) {
+      const responses = payload.map((body) => ({
+        jsonrpc: "2.0",
+        id: body.id,
+        result: resultFor(body),
+      }));
+      if (responses.some(({ result }) => result === undefined)) {
+        return route.continue();
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(responses),
+      });
+      return;
+    }
+
+    const result = resultFor(payload);
+    if (result === undefined) return route.continue();
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ jsonrpc: "2.0", id: payload.id, result }),
+    });
+  });
+}
+
+async function approveConfiguredRenderer(page: Page) {
+  const rendererChooser = page.getByRole("region", {
+    name: "Choose the artwork renderer",
+  });
+  await rendererChooser
+    .getByRole("button", { name: "Preview renderer" })
+    .click();
+  await expect(rendererChooser.getByRole("status")).toContainText(
+    "6 of 6 representative previews are ready",
+    { timeout: 30_000 },
+  );
+  await rendererChooser
+    .getByRole("button", { name: "Use this renderer" })
+    .click();
+  await expect(
+    rendererChooser.getByText("Renderer approved.", { exact: true }),
+  ).toBeVisible();
+}
 
 test("@anvil deploys and shares a creator-owned tier through the production UI", async ({
   page,
@@ -29,6 +204,8 @@ test("@anvil deploys and shares a creator-owned tier through the production UI",
     await connectAnvilWallet(page, creator);
     await page.getByLabel("Membership name").fill("Anvil listening room");
     await page.getByLabel("Symbol").fill("ANVIL");
+    await page.getByRole("button", { name: /^art studio$/i }).click();
+    await approveConfiguredRenderer(page);
     await page.getByRole("button", { name: /^risks$/i }).click();
     await page.getByRole("checkbox").nth(0).check();
     await page.getByRole("checkbox").nth(1).check();
@@ -79,6 +256,7 @@ test("@anvil rediscovers and revalidates the connected creator's permanent media
   await page.goto("/create");
   await connectAnvilWallet(page, creator);
   await page.getByRole("button", { name: /^art studio$/i }).click();
+  await approveConfiguredRenderer(page);
   await page.getByText("Add an image", { exact: true }).click();
   const nativeMode = page.getByRole("radio", { name: /Add your image/i });
   await expect(nativeMode).toBeEnabled();
@@ -137,6 +315,7 @@ test("@anvil deliberately continues in memory when creative autosave is inaccess
   await expect(
     page.getByText("Autosave is off. Reloading will lose this draft."),
   ).toBeVisible();
+  await approveConfiguredRenderer(page);
   await page.getByText("Add an image", { exact: true }).click();
   await expect(
     page.getByRole("radio", { name: /Generated artwork/i }),
@@ -168,6 +347,7 @@ test("@anvil cancels stale local image work when the creator changes media mode"
   await page.goto("/create");
   await connectAnvilWallet(page, creator);
   await page.getByRole("button", { name: /^art studio$/i }).click();
+  await approveConfiguredRenderer(page);
 
   await page.getByText("Add an image", { exact: true }).click();
   await page.getByRole("radio", { name: /Add your image/i }).check();
@@ -231,6 +411,11 @@ test("expands Art Studio controls on desktop and collapses them on mobile", asyn
       name: "Make the membership unmistakably yours.",
     }),
   ).toBeVisible();
+  const rendererAddress = await page
+    .getByLabel("Renderer address")
+    .inputValue();
+  await installRendererLayoutRpc(page, rendererAddress as Address);
+  await approveConfiguredRenderer(page);
 
   const geometry = await page.evaluate(() => {
     const detailsFor = (heading: string) => {

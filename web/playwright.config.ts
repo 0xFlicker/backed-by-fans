@@ -27,6 +27,16 @@ export default defineConfig({
       name: "phone",
       use: { ...devices["iPhone 13"], browserName: "chromium" },
     },
+    {
+      name: "firefox",
+      testMatch: /renderer-lab\.spec\.ts/,
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "webkit",
+      testMatch: /renderer-lab\.spec\.ts/,
+      use: { ...devices["Desktop Safari"] },
+    },
   ],
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined

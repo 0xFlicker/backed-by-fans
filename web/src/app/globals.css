@@ -131,6 +131,10 @@ button:disabled {
   justify-self: end;
 }
 
+body[data-renderer-lab="active"] .site-header > .wallet-control {
+  display: none;
+}
+
 .wallet-control {
   align-items: center;
   display: flex;

@@ -32,6 +32,7 @@ import {
   captureSharedReferrer,
   membershipShareUrl,
 } from "@/features/membership/referral";
+import { RendererDetails } from "@/features/membership/RendererDetails";
 import {
   buildPaymentPreview,
   classifyMembershipState,
@@ -242,9 +243,7 @@ export function MembershipExperience({
     capturedBlock,
     tier: snapshot.address,
     tierIdentity: snapshot.tierIdentity,
-    rendererVersion: snapshot.rendererVersion,
     renderer: snapshot.renderer,
-    rendererRuntimeCodehash: snapshot.rendererRuntimeCodehash,
     art: snapshot.art,
     media: snapshot.media,
     protocolDependencies: snapshot.protocolDependencies,
@@ -710,6 +709,10 @@ export function MembershipExperience({
               ? "The contract returns this self-contained SVG directly, including any creator image bytes stored on Robinhood Chain."
               : "A deterministic first-token composition from this membership’s permanent art direction."}
           </p>
+          <RendererDetails
+            chainId={snapshot.protocolDependencies.chainId}
+            renderer={snapshot.renderer}
+          />
           {snapshot.credential && (
             <span className="membership-artwork-state">
               {snapshot.credential.active

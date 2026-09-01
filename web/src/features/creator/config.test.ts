@@ -13,6 +13,7 @@ import {
 } from "@/features/creator-studio/art-config";
 
 const creator = getAddress("0x1111111111111111111111111111111111111111");
+const renderer = getAddress("0x2222222222222222222222222222222222222222");
 const validCreatorForm = {
   ...defaultCreatorForm,
   name: "Creator membership",
@@ -21,7 +22,7 @@ const validCreatorForm = {
 const creative = {
   tierSalt:
     "0x0000000000000000000000000000000000000000000000000000000000000001" as const,
-  rendererVersion: 1,
+  renderer,
   art: toContractArtConfig(createDefaultArtConfig()),
   media: {
     mime: 0,
@@ -51,7 +52,7 @@ describe("creator tier configuration", () => {
       supplyCap: 0n,
       maxPrepaidPeriods: 12n,
       tierSalt: creative.tierSalt,
-      rendererVersion: 1,
+      renderer,
       art: creative.art,
       media: creative.media,
     });
@@ -139,10 +140,10 @@ describe("creator tier configuration", () => {
     expect(result.creativeError).toMatch(/create a new direction/i);
   });
 
-  it("requires an enabled renderer version to be selected", () => {
+  it("requires a non-zero direct renderer address", () => {
     const result = evaluateCreatorForm(validCreatorForm, creator, {
       ...creative,
-      rendererVersion: 0,
+      renderer: zeroAddress,
     });
 
     expect(result.config).toBeUndefined();

@@ -42,32 +42,45 @@ const engineDetails: Record<
   },
 };
 
+export function artEngineForManifestName(
+  engineName: string | undefined,
+): ArtEngine | undefined {
+  const normalized = engineName?.trim().toUpperCase();
+  return artEngineNames.find(
+    (engine) => engineDetails[engine].label === normalized,
+  );
+}
+
 export function EnginePicker({
+  engines,
   value,
   onChange,
   disabled = false,
 }: {
-  value: ArtEngine;
-  onChange: (engine: ArtEngine) => void;
+  engines: readonly string[];
+  value: number;
+  onChange: (engine: number) => void;
   disabled?: boolean;
 }) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const hasSelectedEngine =
+    Number.isInteger(value) && value >= 0 && value < engines.length;
 
   function moveFocus(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number | undefined;
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      next = (index + 1) % artEngineNames.length;
+      next = (index + 1) % engines.length;
     } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      next = (index - 1 + artEngineNames.length) % artEngineNames.length;
+      next = (index - 1 + engines.length) % engines.length;
     } else if (event.key === "Home") {
       next = 0;
     } else if (event.key === "End") {
-      next = artEngineNames.length - 1;
+      next = engines.length - 1;
     }
     if (next === undefined) return;
     event.preventDefault();
     buttons.current[next]?.focus();
-    onChange(artEngineNames[next]);
+    onChange(next);
   }
 
   return (
@@ -79,22 +92,31 @@ export function EnginePicker({
         className={styles.engineList}
         role="radiogroup"
       >
-        {artEngineNames.map((engine, index) => {
-          const detail = engineDetails[engine];
-          const selected = engine === value;
+        {engines.map((engineName, index) => {
+          const artEngine = artEngineForManifestName(engineName);
+          const detail = artEngine
+            ? engineDetails[artEngine]
+            : {
+                label: engineName,
+                short: "Renderer style",
+                description: "Defined by this renderer.",
+              };
+          const selected = index === value;
           return (
             <button
               aria-checked={selected}
               className={styles.engineChoice}
-              data-engine={engine}
-              key={engine}
-              onClick={() => onChange(engine)}
+              data-engine={artEngine ?? "custom"}
+              key={`${index}:${engineName}`}
+              onClick={() => onChange(index)}
               onKeyDown={(event) => moveFocus(event, index)}
               ref={(button) => {
                 buttons.current[index] = button;
               }}
               role="radio"
-              tabIndex={selected ? 0 : -1}
+              tabIndex={
+                selected || (!hasSelectedEngine && index === 0) ? 0 : -1
+              }
               type="button"
             >
               <span aria-hidden="true" className={styles.engineNumber}>
@@ -112,5 +134,3 @@ export function EnginePicker({
     </fieldset>
   );
 }
-
-export { engineDetails };

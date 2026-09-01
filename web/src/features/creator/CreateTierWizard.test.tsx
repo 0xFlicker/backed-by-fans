@@ -22,6 +22,7 @@ const activeClient = vi.hoisted(() => ({
     .mockRejectedValue(new Error("Preview unavailable in unit test")),
   getBalance: vi.fn().mockResolvedValue(1n),
   estimateContractGas: vi.fn().mockResolvedValue(1n),
+  getChainId: vi.fn().mockResolvedValue(46_630),
   getBlockNumber: vi.fn().mockResolvedValue(10n),
   getGasPrice: vi.fn().mockResolvedValue(1n),
   getBytecode: vi.fn(),
@@ -70,6 +71,8 @@ vi.mock("@/lib/use-active-network", () => ({
       chainId: 46_630,
       factoryAddress: "0x1111111111111111111111111111111111111111",
       usdgAddress: "0x2222222222222222222222222222222222222222",
+      rendererAddress: "0x3333333333333333333333333333333333333333",
+      previewHarnessAddress: "0x7777777777777777777777777777777777777777",
     },
   }),
 }));
@@ -100,6 +103,32 @@ function rendererTokenURI() {
   return `data:application/json;base64,${btoa(metadata)}`;
 }
 
+function rendererRead(functionName: string) {
+  if (functionName === "rendererSchema") return `0x${"33".repeat(32)}`;
+  if (functionName === "rendererName") return "BACKED BY FANS / FOUNDING SIX";
+  if (functionName === "engineCount") return 6;
+  if (functionName === "engineName") return "STACK";
+  if (functionName === "previewSVG") {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" />';
+  }
+  return `0x${"66".repeat(32)}`;
+}
+
+async function approveCurrentRenderer(
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  const input = await screen.findByRole("textbox", {
+    name: "Renderer address",
+  });
+  await waitFor(() =>
+    expect(input).toHaveValue("0x3333333333333333333333333333333333333333"),
+  );
+  await user.click(screen.getByRole("button", { name: "Preview renderer" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Use this renderer" }),
+  );
+}
+
 describe("creator setup component", () => {
   beforeEach(() => {
     walletAddress = undefined;
@@ -109,7 +138,9 @@ describe("creator setup component", () => {
     activeClient.estimateContractGas.mockResolvedValue(1n);
     activeClient.getBlockNumber.mockResolvedValue(10n);
     activeClient.getGasPrice.mockResolvedValue(1n);
+    activeClient.getChainId.mockResolvedValue(46_630);
     activeClient.getBytecode.mockReset();
+    activeClient.getBytecode.mockResolvedValue("0x6000");
     activeClient.waitForTransactionReceipt.mockReset();
     simulateContract.mockReset();
     writeContractAsync.mockReset();
@@ -134,7 +165,17 @@ describe("creator setup component", () => {
             ? zeroAddress
             : functionName === "previewTokenURI"
               ? rendererTokenURI()
-              : `0x${"66".repeat(32)}`,
+              : functionName === "previewSVG"
+                ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" />'
+                : functionName === "rendererSchema"
+                  ? `0x${"33".repeat(32)}`
+                  : functionName === "rendererName"
+                    ? "BACKED BY FANS / FOUNDING SIX"
+                    : functionName === "engineCount"
+                      ? 6
+                      : functionName === "engineName"
+                        ? "STACK"
+                        : rendererRead(functionName),
         ),
     );
     readProtocolDependencies.mockResolvedValue({
@@ -144,26 +185,18 @@ describe("creator setup component", () => {
         factory: "0x1111111111111111111111111111111111111111",
         paymentToken: "0x2222222222222222222222222222222222222222",
         rendererSchema: `0x${"33".repeat(32)}`,
-        rendererCount: 1,
-        renderers: [
-          {
-            version: 1,
-            implementation: "0x3333333333333333333333333333333333333333",
-            runtimeCodehash: `0x${"44".repeat(32)}`,
-            enabled: true,
-            name: "BACKED BY FANS / FOUNDING SIX",
-            engineCount: 6,
-            engineNames: [
-              "STACK",
-              "CHORUS",
-              "LOOM",
-              "BLOOM",
-              "MARQUEE",
-              "AFTERIMAGE",
-            ],
-          },
+        renderer: "0x3333333333333333333333333333333333333333",
+        rendererName: "BACKED BY FANS / FOUNDING SIX",
+        rendererEngineCount: 6,
+        rendererEngineNames: [
+          "STACK",
+          "CHORUS",
+          "LOOM",
+          "BLOOM",
+          "MARQUEE",
+          "AFTERIMAGE",
         ],
-        defaultRendererVersion: 1,
+        previewHarness: "0x7777777777777777777777777777777777777777",
         mediaStoreFactory: "0x4444444444444444444444444444444444444444",
         mediaStoreFactoryRuntimeCodehash: `0x${"55".repeat(32)}`,
       },
@@ -191,6 +224,69 @@ describe("creator setup component", () => {
       "role",
       "alert",
     );
+  });
+
+  it("starts the Art Studio with the canonical renderer address", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+
+    await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Renderer address")).toHaveValue(
+        "0x3333333333333333333333333333333333333333",
+      ),
+    );
+  });
+
+  it("previews and approves an unregistered direct renderer, then clears approval when its address changes", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+    const input = await screen.findByLabelText("Renderer address");
+    const customRenderer = "0x8888888888888888888888888888888888888888";
+
+    await user.clear(input);
+    await user.type(input, customRenderer);
+    await user.click(screen.getByRole("button", { name: "Preview renderer" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Use this renderer" }),
+    );
+    expect(screen.getByText("Renderer approved.")).toBeVisible();
+
+    await user.clear(input);
+    await user.type(input, "0x9999999999999999999999999999999999999999");
+    expect(screen.queryByText("Renderer approved.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Use this renderer" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("withholds approval when a representative renderer call fails", async () => {
+    const user = userEvent.setup();
+    activeClient.readContract.mockImplementation(
+      ({ functionName }: { functionName: string }) => {
+        if (functionName === "tierForIdentity")
+          return Promise.resolve(zeroAddress);
+        if (functionName === "previewSVG") {
+          return Promise.reject(new Error("Representative call reverted"));
+        }
+        return Promise.resolve(rendererRead(functionName));
+      },
+    );
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Renderer address")).not.toHaveValue(""),
+    );
+    await user.click(screen.getByRole("button", { name: "Preview renderer" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "did not return every required example",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Use this renderer" }),
+    ).not.toBeInTheDocument();
   });
 
   it("preserves completed input through wallet and network rerenders", async () => {
@@ -317,6 +413,8 @@ describe("creator setup component", () => {
 
     await user.type(screen.getByLabelText("Membership name"), "After Hours");
     await user.type(screen.getByLabelText("Symbol"), "NITE");
+    await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+    await approveCurrentRenderer(user);
     await user.click(screen.getByRole("button", { name: /^risks$/i }));
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
@@ -328,6 +426,18 @@ describe("creator setup component", () => {
     });
     await waitFor(() => expect(publish).toBeEnabled());
     await user.click(publish);
+
+    expect(simulateContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        functionName: "createTier",
+        args: [
+          expect.objectContaining({
+            renderer: "0x3333333333333333333333333333333333333333",
+          }),
+        ],
+      }),
+    );
 
     await screen.findByRole("heading", {
       name: /finish checking the membership/i,
@@ -418,7 +528,7 @@ describe("creator setup component", () => {
             runtimeCodehash,
           });
         }
-        return Promise.resolve(`0x${"66".repeat(32)}`);
+        return Promise.resolve(rendererRead(functionName));
       },
     );
     renderWizard();
@@ -426,6 +536,7 @@ describe("creator setup component", () => {
     await user.type(screen.getByLabelText("Membership name"), "After Hours");
     await user.type(screen.getByLabelText("Symbol"), "NITE");
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+    await approveCurrentRenderer(user);
     await user.click(screen.getByText("Add an image", { exact: true }));
     await user.click(screen.getByRole("radio", { name: /add your image/i }));
     await user.upload(
@@ -435,6 +546,7 @@ describe("creator setup component", () => {
       }),
     );
     await screen.findByAltText("New image");
+    await approveCurrentRenderer(user);
     await user.click(screen.getByRole("button", { name: /^risks$/i }));
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
@@ -494,6 +606,8 @@ describe("creator setup component", () => {
       screen.getByLabelText("Creator setup steps").parentElement,
     ).toHaveClass("creator-workspace", "creator-workspace-studio");
 
+    await approveCurrentRenderer(user);
+
     expect(
       screen.getByRole("heading", {
         name: /make the membership unmistakably yours/i,
@@ -515,11 +629,13 @@ describe("creator setup component", () => {
     const user = userEvent.setup();
     const first = renderWizard();
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+    await approveCurrentRenderer(user);
     const firstSeed = first.container.querySelector("code")?.textContent;
     first.unmount();
 
     const second = renderWizard();
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+    await approveCurrentRenderer(user);
     const secondSeed = second.container.querySelector("code")?.textContent;
     expect(firstSeed).toMatch(/^[0-9a-f]{32}$/);
     expect(secondSeed).toMatch(/^[0-9a-f]{32}$/);

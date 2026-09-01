@@ -24,25 +24,22 @@ const deployment = {
   chainId: 46630 as const,
   factoryAddress: factory,
   usdgAddress: token,
+  rendererAddress: getAddress("0x4444444444444444444444444444444444444444"),
+  previewHarnessAddress: getAddress(
+    "0x6666666666666666666666666666666666666666",
+  ),
 };
 const renderer = getAddress("0x4444444444444444444444444444444444444444");
-const rendererRuntimeCodehash = `0x${"01".repeat(32)}` as const;
 const protocolDependencies: ProtocolDependencySnapshot = {
   chainId: 46630,
   factory,
   paymentToken: token,
   rendererSchema: `0x${"03".repeat(32)}`,
-  rendererCount: 1,
-  renderers: [
-    {
-      version: 1,
-      implementation: renderer,
-      runtimeCodehash: rendererRuntimeCodehash,
-      enabled: true,
-      name: "Founding Six",
-    },
-  ],
-  defaultRendererVersion: 1,
+  renderer,
+  rendererName: "Founding Six",
+  rendererEngineCount: 6,
+  rendererEngineNames: ["One", "Two", "Three", "Four", "Five", "Six"],
+  previewHarness: deployment.previewHarnessAddress,
   mediaStoreFactory: getAddress("0x5555555555555555555555555555555555555555"),
   mediaStoreFactoryRuntimeCodehash: `0x${"02".repeat(32)}`,
 };
@@ -103,9 +100,7 @@ describe("supporter direct reads", () => {
         occupiedSupply: 0n,
         maxPrepaidPeriods: 0n,
         paused: false,
-        rendererVersion: 1,
         renderer,
-        rendererRuntimeCodehash,
         protocolDependencies,
       },
     });
@@ -165,9 +160,7 @@ describe("supporter direct reads", () => {
         occupiedSupply: 0n,
         maxPrepaidPeriods: 0n,
         paused: false,
-        rendererVersion: 1,
         renderer,
-        rendererRuntimeCodehash,
         protocolDependencies,
       },
     });

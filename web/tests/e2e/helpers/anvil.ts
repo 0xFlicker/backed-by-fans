@@ -270,7 +270,13 @@ export async function expectReconciled(page: Page, preparedAction?: string) {
   }
   await expect(
     page
-      .locator(".transaction-phase-label", { hasText: "confirmed" })
-      .or(page.locator(".membership-transaction.transaction-confirmed")),
+      .locator(".membership-transaction.transaction-confirmed")
+      .or(page.locator(".transaction-message.transaction-confirmed"))
+      .or(
+        page.locator(".transaction-phase-label", {
+          hasText: /^Complete$/i,
+        }),
+      )
+      .first(),
   ).toBeVisible({ timeout: 30_000 });
 }

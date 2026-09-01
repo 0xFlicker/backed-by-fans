@@ -1,4 +1,10 @@
-import { parseUnits, zeroHash, type Address } from "viem";
+import {
+  isAddress,
+  parseUnits,
+  zeroAddress,
+  zeroHash,
+  type Address,
+} from "viem";
 
 import type { TierPublicationConfig } from "@/features/protocol/registry-reconciliation";
 
@@ -24,7 +30,7 @@ export type TierConfig = TierPublicationConfig;
 
 export type TierCreativeConfig = Pick<
   TierPublicationConfig,
-  "tierSalt" | "rendererVersion" | "art" | "media"
+  "tierSalt" | "renderer" | "art" | "media"
 >;
 
 export type SplitPreview = {
@@ -225,9 +231,8 @@ export function evaluateCreatorForm(
       creative.tierSalt.toLowerCase() === zeroHash)
       ? "Return to Art Studio and create a new direction."
       : creative &&
-          (!Number.isInteger(creative.rendererVersion) ||
-            creative.rendererVersion < 1 ||
-            creative.rendererVersion > 0xffff_ffff)
+          (!isAddress(creative.renderer) ||
+            creative.renderer.toLowerCase() === zeroAddress)
         ? "Choose an artwork collection before publishing."
         : undefined;
 
@@ -253,7 +258,7 @@ export function evaluateCreatorForm(
     config: {
       creator,
       tierSalt: creative.tierSalt,
-      rendererVersion: creative.rendererVersion,
+      renderer: creative.renderer,
       name,
       symbol,
       pricePerPeriod,

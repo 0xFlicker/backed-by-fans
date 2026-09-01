@@ -17,6 +17,8 @@ import { simulateContract } from "@wagmi/core";
 import {
   bytesToHex,
   formatUnits,
+  keccak256,
+  stringToHex,
   zeroAddress,
   type Address,
   type Hex,
@@ -65,7 +67,21 @@ import {
   type PreviewSelection,
 } from "@/features/creator-studio/PreviewGallery";
 import { decodeRendererTokenURI } from "@/features/creator-studio/renderer-preview";
-import { supportsFoundingSixStudio } from "@/features/creator-studio/RendererPicker";
+import {
+  createRendererAddressApproval,
+  createRepresentativeRendererResultState,
+  isRendererAddressApprovalCurrent,
+  representativeRendererPreviews,
+  resolveRendererAddress,
+  type RendererAddressApproval,
+  type RendererAddressResolution,
+  type RepresentativeRendererResult,
+  type RepresentativeRendererResultState,
+} from "@/features/creator-studio/renderer-address";
+import {
+  RendererAddressInput,
+  type RendererAddressPreview,
+} from "@/features/creator-studio/RendererAddressInput";
 import {
   emptyMediaConfig,
   makeRendererPreviewContext,
@@ -302,10 +318,23 @@ export function CreateTierWizard() {
   }>();
   const [confirmationNote, setConfirmationNote] = useState<string>();
   const [mediaLibraryPage, setMediaLibraryPage] = useState(0);
-  const [rendererChoice, setRendererChoice] = useState<{
-    registryScopeKey: string;
-    version: number;
-  }>();
+  const [rendererAddress, setRendererAddress] = useState("");
+  const [rendererEngine, setRendererEngine] = useState(0);
+  const [rendererResolution, setRendererResolution] =
+    useState<RendererAddressResolution>();
+  const [rendererResults, setRendererResults] =
+    useState<RepresentativeRendererResultState>();
+  const [rendererRequestSetFingerprint, setRendererRequestSetFingerprint] =
+    useState<Hex>();
+  const [rendererApproval, setRendererApproval] =
+    useState<RendererAddressApproval>();
+  const [rendererDecision, setRendererDecision] = useState<
+    "pending" | "approved" | "rejected"
+  >("pending");
+  const [rendererPreview, setRendererPreview] =
+    useState<RendererAddressPreview>({ status: "idle" });
+  const rendererPreviewGeneration = useRef(0);
+  const rendererScope = useRef<string | undefined>(undefined);
   const [selectingNativeStore, setSelectingNativeStore] = useState<Address>();
   const [mediaLibraryNotice, setMediaLibraryNotice] = useState<{
     scopeKey: string;
@@ -355,31 +384,36 @@ export function CreateTierWizard() {
     },
     retry: false,
   });
-  const rendererRegistryScopeKey = protocol.data
+  const rendererScopeKey = protocol.data
     ? `${protocol.data.chainId}:${protocol.data.factory.toLowerCase()}:${protocol.data.rendererSchema.toLowerCase()}`
     : undefined;
-  const enabledRenderers = useMemo(
-    () => protocol.data?.renderers.filter((renderer) => renderer.enabled) ?? [],
-    [protocol.data],
+  const rendererApprovalCurrent = Boolean(
+    rendererResolution &&
+    rendererResults?.status === "ready" &&
+    rendererRequestSetFingerprint &&
+    isRendererAddressApprovalCurrent(rendererApproval, {
+      renderer: rendererResolution,
+      requestSetFingerprint: rendererRequestSetFingerprint,
+      previewState: rendererResults,
+    }),
   );
-  const selectedRenderer = useMemo(() => {
-    if (!protocol.data || !rendererRegistryScopeKey) return undefined;
-    const version =
-      rendererChoice?.registryScopeKey === rendererRegistryScopeKey
-        ? rendererChoice.version
-        : protocol.data.defaultRendererVersion;
-    const renderer = enabledRenderers.find(
-      (entry) => entry.version === version,
-    );
-    return renderer && supportsFoundingSixStudio(renderer)
-      ? renderer
-      : undefined;
-  }, [
-    enabledRenderers,
-    protocol.data,
-    rendererChoice,
-    rendererRegistryScopeKey,
-  ]);
+  const selectedRenderer = rendererApprovalCurrent
+    ? rendererResolution
+    : undefined;
+
+  useEffect(() => {
+    if (!protocol.data || !rendererScopeKey) return;
+    if (rendererScope.current === rendererScopeKey) return;
+    rendererScope.current = rendererScopeKey;
+    rendererPreviewGeneration.current += 1;
+    setRendererAddress(protocol.data.renderer);
+    setRendererResolution(undefined);
+    setRendererResults(undefined);
+    setRendererRequestSetFingerprint(undefined);
+    setRendererApproval(undefined);
+    setRendererDecision("pending");
+    setRendererPreview({ status: "idle" });
+  }, [protocol.data, rendererScopeKey]);
   const gas = useQuery({
     queryKey: ["creator-gas-balance", active.chainId, account.address],
     enabled: Boolean(
@@ -388,7 +422,10 @@ export function CreateTierWizard() {
     queryFn: () => client!.getBalance({ address: account.address! }),
   });
   const switchChain = useSwitchChain();
-  const contractArt = useMemo(() => toContractArtConfig(art), [art]);
+  const contractArt = useMemo(
+    () => ({ ...toContractArtConfig(art), engine: rendererEngine }),
+    [art, rendererEngine],
+  );
   const currentCreatorScope = useMemo<CreatorProtocolScope | undefined>(
     () =>
       protocol.data && account.address
@@ -423,19 +460,18 @@ export function CreateTierWizard() {
       : undefined;
   const draftScope = useMemo<StudioDraftScope | undefined>(
     () =>
-      protocol.data && account.address && selectedRenderer
+      protocol.data && account.address
         ? {
             chainId: protocol.data.chainId,
             factory: protocol.data.factory,
             creator: account.address,
-            rendererVersion: selectedRenderer.version,
-            renderer: selectedRenderer.implementation,
+            renderer: rendererResolution?.address ?? protocol.data.renderer,
             mediaRegistry: protocol.data.mediaStoreFactory,
             abiVersion: studioDraftAbiVersion,
             rendererBoundsVersion: studioDraftRendererBoundsVersion,
           }
         : undefined,
-    [account.address, protocol.data, selectedRenderer],
+    [account.address, protocol.data, rendererResolution?.address],
   );
   const draftScopeKey = useMemo(
     () => (draftScope ? studioDraftStorageKey(draftScope) : undefined),
@@ -571,7 +607,7 @@ export function CreateTierWizard() {
       tierSalt && publicationMedia && selectedRenderer
         ? {
             tierSalt,
-            rendererVersion: selectedRenderer.version,
+            renderer: selectedRenderer.address,
             art: contractArt,
             media: publicationMedia,
           }
@@ -880,7 +916,7 @@ export function CreateTierWizard() {
       : undefined;
   const previewDraft = useMemo(
     () =>
-      tierIdentity.data && protocol.data && selectedRenderer
+      tierIdentity.data && protocol.data && rendererResolution
         ? {
             tierName: form.name,
             description: form.description,
@@ -899,25 +935,23 @@ export function CreateTierWizard() {
       previewMedia,
       previewNativeMedia,
       protocol.data,
-      selectedRenderer,
+      rendererResolution,
       tierIdentity.data,
     ],
   );
   const contractPreviews = useContractPreviews({
     client,
     protocol: protocol.data,
-    renderer: selectedRenderer?.implementation,
+    renderer: rendererResolution?.address,
     draft: previewDraft,
     selection,
-    enabled: Boolean(previewDraft && selectedRenderer && draftScopeReady),
+    enabled: Boolean(previewDraft && rendererResolution && draftScopeReady),
     blockedMessage: !protocol.data
       ? protocol.error
         ? "Artwork is unavailable on this network."
         : "Preparing artwork..."
-      : !selectedRenderer
-        ? enabledRenderers.length === 0
-          ? "No artwork collection is available on this network."
-          : "Choose an artwork collection."
+      : !rendererResolution
+        ? "Preview and approve an artwork renderer."
         : !draftScopeReady
           ? "Review the saved Art Studio draft first."
           : "Preparing artwork...",
@@ -968,8 +1002,7 @@ export function CreateTierWizard() {
     queryKey: [
       "creator-final-token-uri",
       protocol.data?.chainId,
-      selectedRenderer?.version,
-      selectedRenderer?.implementation,
+      selectedRenderer?.address,
       reviewFingerprint,
     ],
     enabled: Boolean(
@@ -999,7 +1032,7 @@ export function CreateTierWizard() {
         referenceTimestamp: BigInt(Math.floor(Date.now() / 1_000)),
       });
       const tokenURI = await client!.readContract({
-        address: selectedRenderer!.implementation,
+        address: selectedRenderer!.address,
         abi: onchainMetadataRendererAbi,
         functionName: "previewTokenURI",
         args: [context],
@@ -1050,9 +1083,19 @@ export function CreateTierWizard() {
     localImageNeedsStorage && mediaTransaction.phase !== "confirmed",
   );
 
+  function invalidateRendererReview() {
+    setRendererResults(undefined);
+    setRendererRequestSetFingerprint(undefined);
+    setRendererApproval(undefined);
+    setRendererDecision("pending");
+    setRendererPreview({ status: "idle" });
+  }
+
   function update(key: keyof CreatorForm) {
     return (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      rendererPreviewGeneration.current += 1;
       setForm((current) => ({ ...current, [key]: event.target.value }));
+      invalidateRendererReview();
       setCreatedTier(undefined);
       setConfirmationNote(undefined);
     };
@@ -1063,14 +1106,161 @@ export function CreateTierWizard() {
     setConfirmationNote(undefined);
   }
 
-  function handleRendererChange(version: number) {
-    if (!rendererRegistryScopeKey) return;
-    const renderer = enabledRenderers.find(
-      (entry) => entry.version === version,
+  function handleRendererAddressChange(value: string) {
+    rendererPreviewGeneration.current += 1;
+    setRendererAddress(value);
+    setRendererResolution(undefined);
+    setRendererEngine(0);
+    setRendererResults(undefined);
+    setRendererRequestSetFingerprint(undefined);
+    setRendererApproval(undefined);
+    setRendererDecision("pending");
+    setRendererPreview({ status: "idle" });
+    resetCompletion();
+  }
+
+  async function previewRendererAddress() {
+    if (!client || !protocol.data || !tierIdentity.data) return;
+    if (protocol.data.chainId !== 46_630 && protocol.data.chainId !== 31_337) {
+      setRendererPreview({
+        status: "error",
+        message: "Renderer previews are not available on this network.",
+      });
+      return;
+    }
+    const generation = ++rendererPreviewGeneration.current;
+    setRendererDecision("pending");
+    setRendererApproval(undefined);
+    setRendererResolution(undefined);
+    setRendererResults(undefined);
+    setRendererRequestSetFingerprint(undefined);
+    setRendererPreview({ status: "loading" });
+
+    try {
+      const resolution = await resolveRendererAddress(client, {
+        address: rendererAddress,
+        canonicalChainId: protocol.data.chainId,
+        expectedSchema: protocol.data.rendererSchema,
+      });
+      const referenceTimestamp = 1_800_000_000n;
+      const contexts = representativeRendererPreviews.map((preview) => ({
+        preview,
+        context: makeRendererPreviewContext({
+          tierName: form.name,
+          description: form.description,
+          externalURI: form.externalURI,
+          tierIdentity: tierIdentity.data!,
+          art: contractArt,
+          media: previewMedia,
+          nativeMedia:
+            preview.imageMode === "with-image" ? previewNativeMedia : undefined,
+          tokenId: preview.tokenId,
+          state: preview.membershipState === "active" ? "active" : "afterglow",
+          referenceTimestamp,
+          editingPlaceholders: true,
+        }),
+      }));
+      const requestSetFingerprint = keccak256(
+        stringToHex(
+          JSON.stringify(contexts, (_key, value) =>
+            typeof value === "bigint" ? value.toString() : value,
+          ),
+        ),
+      );
+      const results = await Promise.all(
+        contexts.map(async ({ preview, context }) => {
+          try {
+            const image = await client.readContract({
+              address: resolution.address,
+              abi: onchainMetadataRendererAbi,
+              functionName: "previewSVG",
+              args: [context],
+              blockNumber: resolution.capturedBlock,
+            });
+            return {
+              id: preview.id,
+              status: "ready" as const,
+              image,
+            } satisfies RepresentativeRendererResult;
+          } catch (error) {
+            return {
+              id: preview.id,
+              status: "failed" as const,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "The renderer call failed.",
+            } satisfies RepresentativeRendererResult;
+          }
+        }),
+      );
+      if (rendererPreviewGeneration.current !== generation) return;
+      const resultState = createRepresentativeRendererResultState(results);
+      setRendererResolution(resolution);
+      setRendererEngine((current) =>
+        current < resolution.engines.length ? current : 0,
+      );
+      setRendererResults(resultState);
+      setRendererRequestSetFingerprint(requestSetFingerprint);
+      if (resultState.status !== "ready") {
+        setRendererPreview({
+          status: "error",
+          message: "This renderer did not return every required example.",
+          detail:
+            resultState.status === "failed"
+              ? resultState.failures
+                  .map((failure) => `${failure.id}: ${failure.error}`)
+                  .join("\n")
+              : `Missing: ${resultState.missing.join(", ")}`,
+        });
+        return;
+      }
+      setRendererPreview({
+        status: "ready",
+        completed: resultState.results.length,
+        total: representativeRendererPreviews.length,
+        rendererName: resolution.name,
+      });
+    } catch (error) {
+      if (rendererPreviewGeneration.current !== generation) return;
+      setRendererPreview({
+        status: "error",
+        message: "This renderer could not be used on the current network.",
+        detail: error instanceof Error ? error.message : undefined,
+      });
+    }
+  }
+
+  function approveRenderer() {
+    if (
+      !rendererResolution ||
+      rendererResults?.status !== "ready" ||
+      !rendererRequestSetFingerprint
+    ) {
+      return;
+    }
+    setRendererApproval(
+      createRendererAddressApproval({
+        renderer: rendererResolution,
+        requestSetFingerprint: rendererRequestSetFingerprint,
+        previewState: rendererResults,
+      }),
     );
-    if (!renderer || !supportsFoundingSixStudio(renderer)) return;
-    setRendererChoice({ registryScopeKey: rendererRegistryScopeKey, version });
-    setDraftNotice(`${renderer.name} selected.`);
+    setRendererDecision("approved");
+    setDraftNotice(`${rendererResolution.name} approved.`);
+    resetCompletion();
+  }
+
+  function rejectRenderer() {
+    setRendererApproval(undefined);
+    setRendererDecision("rejected");
+    resetCompletion();
+  }
+
+  function handleRendererEngineChange(engine: number) {
+    rendererPreviewGeneration.current += 1;
+    setRendererEngine(engine);
+    invalidateRendererReview();
     resetCompletion();
   }
 
@@ -1233,6 +1423,8 @@ export function CreateTierWizard() {
     nextArt: AnyStudioArtConfig = art,
     debounce = false,
   ) {
+    rendererPreviewGeneration.current += 1;
+    invalidateRendererReview();
     invalidateMediaSelection();
     const generation = ++processingGeneration.current;
     if (processingDebounce.current) clearTimeout(processingDebounce.current);
@@ -1367,7 +1559,9 @@ export function CreateTierWizard() {
     const cropChanged =
       next.global.focalX !== art.global.focalX ||
       next.global.focalY !== art.global.focalY;
+    rendererPreviewGeneration.current += 1;
     setArt(next);
+    invalidateRendererReview();
     resetCompletion();
     if (cropChanged && media.mode === "native" && sourceBlob.current) {
       processNativeImage(sourceBlob.current, nativeSettings, next, true);
@@ -1375,6 +1569,8 @@ export function CreateTierWizard() {
   }
 
   function handleMediaChange(next: StudioMediaDraft) {
+    rendererPreviewGeneration.current += 1;
+    invalidateRendererReview();
     invalidateMediaSelection();
     const normalized =
       next.mode === "native" && currentConfirmedMedia
@@ -1682,7 +1878,7 @@ export function CreateTierWizard() {
 
     const publicationResult = evaluateCreatorForm(form, creator, {
       tierSalt,
-      rendererVersion: selectedRenderer.version,
+      renderer: selectedRenderer.address,
       art: contractArt,
       media: mediaForPublication,
     });
@@ -1912,6 +2108,40 @@ export function CreateTierWizard() {
             <span className="sr-only" id="step-art">
               Art Studio
             </span>
+            <RendererAddressInput
+              address={rendererAddress}
+              decision={rendererDecision}
+              disabled={
+                isTransactionInFlight(mediaTransaction.phase) ||
+                isTransactionInFlight(transaction.phase)
+              }
+              onAddressChange={handleRendererAddressChange}
+              onApprove={approveRenderer}
+              onPreview={() => void previewRendererAddress()}
+              onReject={rejectRenderer}
+              preview={rendererPreview}
+            />
+
+            {rendererResults?.status === "ready" ? (
+              <section aria-labelledby="renderer-example-heading">
+                <h2 id="renderer-example-heading">Representative artwork</h2>
+                <p>Review every example before using this renderer.</p>
+                <div className="final-art-grid">
+                  {rendererResults.results.map((result) => (
+                    <figure key={result.id}>
+                      {/* The SVG was returned by the selected onchain renderer. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        alt={result.id.replaceAll("-", " ")}
+                        src={svgPreviewDataURI(result.image)}
+                      />
+                      <figcaption>{result.id.replaceAll("-", " ")}</figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             <CreatorStudio
               art={art}
               disabled={
@@ -1924,6 +2154,7 @@ export function CreateTierWizard() {
               nativeSettings={nativeSettings}
               nativeState={presentedNativeState}
               onArtChange={handleArtChange}
+              onEngineChange={handleRendererEngineChange}
               onMediaChange={handleMediaChange}
               onNextNativeLibraryPage={() =>
                 setMediaLibraryPage((current) => current + 1)
@@ -1934,14 +2165,13 @@ export function CreateTierWizard() {
                 setMediaLibraryPage((current) => Math.max(0, current - 1))
               }
               onRefreshPreviews={contractPreviews.refreshSet}
-              onRendererChange={handleRendererChange}
               onRetryNativeLibrary={() => void creatorMediaLibrary.refetch()}
               onRetryPreview={contractPreviews.retryFocused}
               onSelectNativeStore={(store) => void selectNativeStore(store)}
               onSelectionChange={setSelection}
               preview={contractPreviews.model}
-              renderers={protocol.data?.renderers ?? []}
-              selectedRendererVersion={selectedRenderer?.version}
+              renderer={rendererResolution}
+              selectedEngine={rendererEngine}
               selection={selection}
             />
 

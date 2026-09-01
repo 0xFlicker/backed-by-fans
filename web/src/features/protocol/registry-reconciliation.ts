@@ -28,7 +28,7 @@ import { isSameAddress } from "@/lib/address";
 export type TierPublicationConfig = {
   creator: Address;
   tierSalt: Hex;
-  rendererVersion: number;
+  renderer: Address;
   name: string;
   symbol: string;
   pricePerPeriod: bigint;
@@ -125,18 +125,8 @@ function sameImmutableProtocolDependencies(
     isSameAddress(left.factory, right.factory) &&
     isSameAddress(left.paymentToken, right.paymentToken) &&
     left.rendererSchema === right.rendererSchema &&
-    left.rendererCount === left.renderers.length &&
-    right.rendererCount === right.renderers.length &&
-    right.rendererCount >= left.rendererCount &&
-    left.renderers.every((renderer, index) => {
-      const other = right.renderers[index];
-      return (
-        other !== undefined &&
-        renderer.version === other.version &&
-        isSameAddress(renderer.implementation, other.implementation) &&
-        renderer.runtimeCodehash === other.runtimeCodehash
-      );
-    }) &&
+    isSameAddress(left.renderer, right.renderer) &&
+    isSameAddress(left.previewHarness, right.previewHarness) &&
     isSameAddress(left.mediaStoreFactory, right.mediaStoreFactory) &&
     left.mediaStoreFactoryRuntimeCodehash ===
       right.mediaStoreFactoryRuntimeCodehash
@@ -172,6 +162,8 @@ export async function readCreatorMediaPage(
       chainId: input.protocolDependencies.chainId,
       factoryAddress: input.protocolDependencies.factory,
       usdgAddress: input.protocolDependencies.paymentToken,
+      rendererAddress: input.protocolDependencies.renderer,
+      previewHarnessAddress: input.protocolDependencies.previewHarness,
     },
     blockNumber,
   );
@@ -277,6 +269,8 @@ export async function reconcileStoredMedia(
       chainId: input.protocolDependencies.chainId,
       factoryAddress: input.protocolDependencies.factory,
       usdgAddress: input.protocolDependencies.paymentToken,
+      rendererAddress: input.protocolDependencies.renderer,
+      previewHarnessAddress: input.protocolDependencies.previewHarness,
     },
     blockNumber,
   );
@@ -387,6 +381,8 @@ export async function readConfirmedOnchainMedia(
       chainId: input.protocolDependencies.chainId,
       factoryAddress: input.protocolDependencies.factory,
       usdgAddress: input.protocolDependencies.paymentToken,
+      rendererAddress: input.protocolDependencies.renderer,
+      previewHarnessAddress: input.protocolDependencies.previewHarness,
     },
     blockNumber,
   );
@@ -501,18 +497,11 @@ async function matchesLaunchTerms(
   expectedIdentity: Hex,
   blockNumber: bigint,
 ) {
-  const rendererRecord = protocol.renderers.find(
-    ({ version }) => version === config.rendererVersion,
-  );
-  if (!rendererRecord) return false;
-
   const [
     owner,
     factory,
     paymentToken,
     renderer,
-    rendererVersion,
-    rendererRuntimeCodehash,
     tierIdentity,
     name,
     symbol,
@@ -549,18 +538,6 @@ async function matchesLaunchTerms(
       address: tier,
       abi: membershipTierAbi,
       functionName: "renderer",
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "rendererVersion",
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "rendererRuntimeCodehash",
       blockNumber,
     }),
     client.readContract({
@@ -647,9 +624,7 @@ async function matchesLaunchTerms(
     isSameAddress(owner, config.creator) &&
     isSameAddress(factory, protocol.factory) &&
     isSameAddress(paymentToken, protocol.paymentToken) &&
-    rendererVersion === config.rendererVersion &&
-    isSameAddress(renderer, rendererRecord.implementation) &&
-    rendererRuntimeCodehash === rendererRecord.runtimeCodehash &&
+    isSameAddress(renderer, config.renderer) &&
     tierIdentity === expectedIdentity &&
     name === config.name &&
     symbol === config.symbol &&
@@ -685,6 +660,8 @@ export async function reconcileCreatedTier(
       chainId: input.protocolDependencies.chainId,
       factoryAddress: input.protocolDependencies.factory,
       usdgAddress: input.protocolDependencies.paymentToken,
+      rendererAddress: input.protocolDependencies.renderer,
+      previewHarnessAddress: input.protocolDependencies.previewHarness,
     },
     blockNumber,
   );
@@ -705,13 +682,6 @@ export async function reconcileCreatedTier(
     args: [input.config.creator, input.config.tierSalt],
     blockNumber,
   });
-  const requestedRenderer = input.protocolDependencies.renderers.find(
-    ({ version }) => version === input.config.rendererVersion,
-  );
-  const rendererRecord = freshProtocol.data.renderers.find(
-    ({ version }) => version === input.config.rendererVersion,
-  );
-  if (!requestedRenderer?.enabled || !rendererRecord) return undefined;
   const events = parseEventLogs({
     abi: membershipFactoryAbi,
     eventName: "TierCreated",
@@ -737,9 +707,7 @@ export async function reconcileCreatedTier(
     (event) =>
       isSameAddress(event.address, freshProtocol.data.factory) &&
       isSameAddress(event.args.tier, tier) &&
-      event.args.rendererVersion === input.config.rendererVersion &&
-      isSameAddress(event.args.renderer, rendererRecord.implementation) &&
-      event.args.runtimeCodehash === rendererRecord.runtimeCodehash,
+      isSameAddress(event.args.renderer, input.config.renderer),
   );
   if (rendererEvents.length !== 1) return undefined;
 

@@ -49,12 +49,12 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 - [X] T010 Update shared fixtures and existing protocol assertions for direct renderer addresses without compatibility shims in `contracts/test/helpers/MembershipTestConfig.sol`, `contracts/test/FactoryAndFees.t.sol`, `contracts/test/MetadataAndStandards.t.sol`, and `contracts/test/RendererBudget.t.sol`
 - [X] T011 Add the preview-harness salt/address and direct-factory constructor to canonical deployment prediction, deployment checks, and logs in `contracts/src/RobinhoodProtocolConfig.sol` and `contracts/script/DeployDirectProtocol.s.sol`
 - [X] T012 Update raw CREATE2 preflight, runtime verification, output parsing, and deterministic deployment fixtures for the new protocol components in `contracts/scripts/deploy-protocol.sh`, `contracts/scripts/test-deploy-protocol.sh`, and `contracts/scripts/test-fixtures/deploy-protocol/`
-- [ ] T013 Include `RendererPreviewHarness.sol/**` in Foundry-driven generation and regenerate ABI-only bindings without hand-editing them in `web/wagmi.config.ts` and `web/src/contracts.ts`
-- [ ] T014 Add Robinhood testnet (`46630`) as the only public renderer-chain setting plus generated canonical renderer and preview-harness addresses, including Anvil (`31337`) evidence injection and validation tests, in `web/.env.example`, `web/src/lib/config.ts`, and `web/src/lib/config.test.ts`
-- [ ] T015 Replace renderer registry collections with direct renderer and preview-harness dependencies in `web/src/contracts/types.ts`, `web/src/features/protocol/protocol-read.ts`, and `web/src/features/protocol/protocol-read.test.ts`
-- [ ] T016 Remove renderer-version/codehash registry pinning while preserving factory, token, media, interface, chain, and direct-renderer checks in `web/src/lib/authenticity.ts`, `web/src/lib/authenticity.test.ts`, `web/src/lib/direct-read.ts`, and `web/src/lib/direct-read.test.ts`
-- [ ] T017 Replace registry-based tier publication reconciliation with direct renderer event/postcondition checks and remove obsolete renderer-registry reconciliation exports in `web/src/features/protocol/registry-reconciliation.ts` and `web/src/features/protocol/registry-reconciliation.test.ts`
-- [ ] T018 Run the foundational contract and web checks from `contracts/` and `web/`: `forge fmt --check`, Robinhood-profile build/tests, `bun run generate:check`, focused Vitest suites, typecheck, lint, and formatting
+- [X] T013 Include `RendererPreviewHarness.sol/**` in Foundry-driven generation and regenerate ABI-only bindings without hand-editing them in `web/wagmi.config.ts` and `web/src/contracts.ts`
+- [X] T014 Add Robinhood testnet (`46630`) as the only public renderer-chain setting plus generated canonical renderer and preview-harness addresses, including Anvil (`31337`) evidence injection and validation tests, in `web/.env.example`, `web/src/lib/config.ts`, and `web/src/lib/config.test.ts`
+- [X] T015 Replace renderer registry collections with direct renderer and preview-harness dependencies in `web/src/contracts/types.ts`, `web/src/features/protocol/protocol-read.ts`, and `web/src/features/protocol/protocol-read.test.ts`
+- [X] T016 Remove renderer-version/codehash registry pinning while preserving factory, token, media, interface, chain, and direct-renderer checks in `web/src/lib/authenticity.ts`, `web/src/lib/authenticity.test.ts`, `web/src/lib/direct-read.ts`, and `web/src/lib/direct-read.test.ts`
+- [X] T017 Replace registry-based tier publication reconciliation with direct renderer event/postcondition checks and remove obsolete renderer-registry reconciliation exports in `web/src/features/protocol/registry-reconciliation.ts` and `web/src/features/protocol/registry-reconciliation.test.ts`
+- [X] T018 Run the foundational contract and web checks from `contracts/` and `web/`: `forge fmt --check`, Robinhood-profile build/tests, `bun run generate:check`, focused Vitest suites, typecheck, lint, and formatting
 
 **Checkpoint**: The next protocol accepts direct compatible renderer addresses, exposes them on tiers, includes the preview harness, and the web app has generated bindings with no user-renderer registry model.
 
@@ -68,23 +68,23 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 ### Tests for User Story 1
 
-- [ ] T019 [P] [US1] Write failing address normalization, canonical-chain code lookup, renderer interface/manifest, representative preview, and approval-invalidation tests in `web/src/features/creator-studio/renderer-address.test.ts`
-- [ ] T020 [P] [US1] Write failing direct-address field, loading, failure, approve/reject, and no-chain-selector component tests in `web/src/features/creator-studio/RendererAddressInput.test.tsx`
-- [ ] T021 [P] [US1] Extend creator-flow tests for a default canonical renderer, pasted unregistered renderer, failed representative call, changed address, and direct renderer publication config in `web/src/features/creator/CreateTierWizard.test.tsx`
-- [ ] T022 [P] [US1] Write failing renderer-details and membership integration tests requiring a visible copyable renderer address even when artwork rendering fails in `web/src/features/membership/RendererDetails.test.tsx` and `web/src/features/membership/MembershipExperience.test.tsx`
-- [ ] T023 [P] [US1] Add a failing browser journey for copy, paste, preview, approve, and local tier creation in `web/tests/e2e/custom-renderer-address.spec.ts`
+- [X] T019 [P] [US1] Write failing address normalization, canonical-chain code lookup, renderer interface/manifest, representative preview, and approval-invalidation tests in `web/src/features/creator-studio/renderer-address.test.ts`
+- [X] T020 [P] [US1] Write failing direct-address field, loading, failure, approve/reject, and no-chain-selector component tests in `web/src/features/creator-studio/RendererAddressInput.test.tsx`
+- [X] T021 [P] [US1] Extend creator-flow tests for a default canonical renderer, pasted unregistered renderer, failed representative call, changed address, and direct renderer publication config in `web/src/features/creator/CreateTierWizard.test.tsx`
+- [X] T022 [P] [US1] Write failing renderer-details and membership integration tests requiring a visible copyable renderer address even when artwork rendering fails in `web/src/features/membership/RendererDetails.test.tsx` and `web/src/features/membership/MembershipExperience.test.tsx`
+- [X] T023 [P] [US1] Add a failing browser journey for copy, paste, preview, approve, and local tier creation in `web/tests/e2e/custom-renderer-address.spec.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T024 [P] [US1] Implement direct renderer address resolution, schema/name/engine reads, representative result state, and approval fingerprints in `web/src/features/creator-studio/renderer-address.ts`
-- [ ] T025 [P] [US1] Build the plain-language paste/copy, preview status, failure detail, and approve/reject control in `web/src/features/creator-studio/RendererAddressInput.tsx` and `web/src/features/creator-studio/CreatorStudio.module.css`
-- [ ] T026 [US1] Replace version-based renderer props with a direct renderer manifest and generic engine selection in `web/src/features/creator-studio/CreatorStudio.tsx` and `web/src/features/creator-studio/EnginePicker.tsx`
-- [ ] T027 [US1] Replace `rendererVersion` with the approved renderer address in form evaluation and unsigned draft scope, clearing approval on renderer/configuration changes, in `web/src/features/creator/config.ts`, `web/src/features/creator/config.test.ts`, `web/src/features/creator-studio/studio-draft.ts`, and `web/src/features/creator-studio/studio-draft.test.ts`
-- [ ] T028 [US1] Integrate canonical-chain direct address selection, representative contract previews, approval gating, and direct renderer tier creation in `web/src/features/creator/CreateTierWizard.tsx`
-- [ ] T029 [P] [US1] Remove the obsolete versioned registry picker and update studio tests to assert direct-address behavior in `web/src/features/creator-studio/RendererPicker.tsx`, `web/src/features/creator-studio/CreatorStudio.test.tsx`, and `web/src/features/creator-studio/RendererAddressInput.test.tsx`
-- [ ] T030 [US1] Read and carry the direct renderer address through tier snapshots and management presentation in `web/src/features/membership/membership-read.ts`, `web/src/features/creator/TierManagement.tsx`, and `web/src/contracts/types.ts`
-- [ ] T031 [US1] Build `RendererDetails`, integrate it into the membership view, display the renderer address with copy feedback, and preserve it independently of renderer output status in `web/src/features/membership/RendererDetails.tsx` and `web/src/features/membership/MembershipExperience.tsx`
-- [ ] T032 [US1] Run the US1 contract, component, and Playwright tests in `contracts/test/CustomRendererAddress.t.sol`, `web/src/features/creator-studio/`, `web/src/features/creator/`, `web/src/features/membership/`, and `web/tests/e2e/custom-renderer-address.spec.ts`
+- [X] T024 [P] [US1] Implement direct renderer address resolution, schema/name/engine reads, representative result state, and approval fingerprints in `web/src/features/creator-studio/renderer-address.ts`
+- [X] T025 [P] [US1] Build the plain-language paste/copy, preview status, failure detail, and approve/reject control in `web/src/features/creator-studio/RendererAddressInput.tsx` and `web/src/features/creator-studio/CreatorStudio.module.css`
+- [X] T026 [US1] Replace version-based renderer props with a direct renderer manifest and generic engine selection in `web/src/features/creator-studio/CreatorStudio.tsx` and `web/src/features/creator-studio/EnginePicker.tsx`
+- [X] T027 [US1] Replace `rendererVersion` with the approved renderer address in form evaluation and unsigned draft scope, clearing approval on renderer/configuration changes, in `web/src/features/creator/config.ts`, `web/src/features/creator/config.test.ts`, `web/src/features/creator-studio/studio-draft.ts`, and `web/src/features/creator-studio/studio-draft.test.ts`
+- [X] T028 [US1] Integrate canonical-chain direct address selection, representative contract previews, approval gating, and direct renderer tier creation in `web/src/features/creator/CreateTierWizard.tsx`
+- [X] T029 [P] [US1] Remove the obsolete versioned registry picker and update studio tests to assert direct-address behavior in `web/src/features/creator-studio/RendererPicker.tsx`, `web/src/features/creator-studio/CreatorStudio.test.tsx`, and `web/src/features/creator-studio/RendererAddressInput.test.tsx`
+- [X] T030 [US1] Read and carry the direct renderer address through tier snapshots and management presentation in `web/src/features/membership/membership-read.ts`, `web/src/features/creator/TierManagement.tsx`, and `web/src/contracts/types.ts`
+- [X] T031 [US1] Build `RendererDetails`, integrate it into the membership view, display the renderer address with copy feedback, and preserve it independently of renderer output status in `web/src/features/membership/RendererDetails.tsx` and `web/src/features/membership/MembershipExperience.tsx`
+- [X] T032 [US1] Run the US1 contract, component, and Playwright tests in `contracts/test/CustomRendererAddress.t.sol`, `web/src/features/creator-studio/`, `web/src/features/creator/`, `web/src/features/membership/`, and `web/tests/e2e/custom-renderer-address.spec.ts`
 
 **Checkpoint**: Direct address reuse works end to end on one canonical chain without a renderer registry or crosschain lookup.
 
@@ -98,30 +98,30 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 ### Tests for User Story 2
 
-- [ ] T033 [P] [US2] Write failing package size/schema, inert-string, canonical-chain, fingerprint, initcode-hash, payload-size, and predicted-address tests in `web/src/features/renderer-lab/package-import.test.ts`
-- [ ] T034 [P] [US2] Write failing candidate mutation, representative result, approval invalidation, occupied-address, Nitro-limit, and unsigned deployment tests in `web/src/features/renderer-lab/approval.test.ts` and `web/src/features/renderer-lab/deployment.test.ts`
-- [ ] T035 [P] [US2] Write failing fragment parsing, immediate URL cleanup, `127.0.0.1` high-port restriction, capability expiry, CORS failure, and file-fallback tests in `web/src/features/renderer-lab/local-helper-client.test.ts`
-- [ ] T036 [P] [US2] Write failing public-page tests proving import/preview works without a wallet and no wallet prompt is possible before approval plus a Deploy click in `web/src/features/renderer-lab/RendererLab.test.tsx`
-- [ ] T037 [P] [US2] Write failing helper and package-writer tests for loopback-only binding, exact-origin CORS, bounded bodies, local capability enforcement, no source-image field, and deterministic package output in `.agents/skills/backed-by-fans-renderer/scripts/session-helper.test.ts` and `.agents/skills/backed-by-fans-renderer/scripts/build-package.test.ts`
+- [X] T033 [P] [US2] Write failing package size/schema, inert-string, canonical-chain, fingerprint, initcode-hash, payload-size, and predicted-address tests in `web/src/features/renderer-lab/package-import.test.ts`
+- [X] T034 [P] [US2] Write failing candidate mutation, representative result, approval invalidation, occupied-address, Nitro-limit, and unsigned deployment tests in `web/src/features/renderer-lab/approval.test.ts` and `web/src/features/renderer-lab/deployment.test.ts`
+- [X] T035 [P] [US2] Write failing fragment parsing, immediate URL cleanup, `127.0.0.1` high-port restriction, capability expiry, CORS failure, and file-fallback tests in `web/src/features/renderer-lab/local-helper-client.test.ts`
+- [X] T036 [P] [US2] Write failing public-page tests proving import/preview works without a wallet and no wallet prompt is possible before approval plus a Deploy click in `web/src/features/renderer-lab/RendererLab.test.tsx`
+- [X] T037 [P] [US2] Write failing helper and package-writer tests for loopback-only binding, exact-origin CORS, bounded bodies, local capability enforcement, no source-image field, and deterministic package output in `.agents/skills/backed-by-fans-renderer/scripts/session-helper.test.ts` and `.agents/skills/backed-by-fans-renderer/scripts/build-package.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T038 [P] [US2] Implement Ajv-backed package parsing plus independently recomputed hashes, sizes, and CREATE2 address in `web/src/features/renderer-lab/package-import.ts`
-- [ ] T039 [P] [US2] Implement browser-memory candidate, request/result, and mutation state with no persistence APIs in `web/src/features/renderer-lab/candidate.ts`
-- [ ] T040 [P] [US2] Implement creator approval/rejection and exact candidate/request/result fingerprint binding in `web/src/features/renderer-lab/approval.ts`
-- [ ] T041 [US2] Implement deployed-address calls and undeployed-initcode `RendererPreviewHarness.preview` calls using generated ABIs, the existing limiter, and canonical public RPC in `web/src/features/renderer-lab/preview.ts`
-- [ ] T042 [US2] Implement CREATE2 calldata preparation, deployer-code and occupied-address checks, Nitro sizing, predicted-address display data, and approval invalidation in `web/src/features/renderer-lab/deployment.ts`
-- [ ] T043 [US2] Implement strict fragment parsing, in-memory capability handling, helper health checks, bounded API calls, result reporting, and explicit file fallback in `web/src/features/renderer-lab/local-helper-client.ts`
-- [ ] T044 [US2] Build the public package import, representative gallery, approval, deployment summary, progressive technical disclosure, and wallet-only Deploy UI in `web/src/features/renderer-lab/RendererLab.tsx` and `web/src/features/renderer-lab/RendererLab.module.css`
-- [ ] T045 [US2] Expose the renderer lab as a client-only public route with no renderer API handlers or server session in `web/src/app/renderer/page.tsx`
-- [ ] T046 [US2] Wire creator-initiated deployment through wagmi/viem simulation and pass the exact returned request to the connected wallet, reporting only library-owned transaction state and post-receipt code reconciliation, in `web/src/features/renderer-lab/RendererLab.tsx`
-- [ ] T047 [P] [US2] Implement the loopback-only in-memory helper from `specs/001-onchain-renderer-ecosystem/contracts/local-helper.openapi.yaml`, including random port/capability generation and public-page fragment URL output, in `.agents/skills/backed-by-fans-renderer/scripts/session-helper.ts`
-- [ ] T048 [P] [US2] Implement deterministic Foundry artifact packaging, final initcode/runtime measurement, raw `salt || initcode` sizing, hashes, embedded requests, and predicted address in `.agents/skills/backed-by-fans-renderer/scripts/build-package.ts`
-- [ ] T049 [P] [US2] Implement the six-case local representative SVG/gallery matrix defined in `specs/001-onchain-renderer-ecosystem/data-model.md` in `.agents/skills/backed-by-fans-renderer/scripts/render-gallery.ts`
-- [ ] T050 [P] [US2] Author the portable renderer workflow, public interface, local testing, visual approval, canonical deployment, and plain-language completion guidance in `.agents/skills/backed-by-fans-renderer/SKILL.md`, `.agents/skills/backed-by-fans-renderer/llms.txt`, and `.agents/skills/backed-by-fans-renderer/references/`
-- [ ] T051 [P] [US2] Add a minimal Solidity 0.8.36 Cancun renderer and local Foundry tests with no production key requirement in `.agents/skills/backed-by-fans-renderer/templates/renderer/src/CustomRenderer.sol`, `.agents/skills/backed-by-fans-renderer/templates/renderer/test/CustomRenderer.t.sol`, and `.agents/skills/backed-by-fans-renderer/templates/renderer/foundry.toml`
-- [ ] T052 [US2] Add the full loopback-success, loopback-denied/file-fallback, package rejection, preview approval, and creator-wallet local deployment journey in `web/tests/e2e/renderer-lab.spec.ts`
-- [ ] T053 [US2] Run the US2 script, component, helper, Foundry-template, and Playwright suites in `.agents/skills/backed-by-fans-renderer/` and `web/src/features/renderer-lab/`
+- [X] T038 [P] [US2] Implement Ajv-backed package parsing plus independently recomputed hashes, sizes, and CREATE2 address in `web/src/features/renderer-lab/package-import.ts`
+- [X] T039 [P] [US2] Implement browser-memory candidate, request/result, and mutation state with no persistence APIs in `web/src/features/renderer-lab/candidate.ts`
+- [X] T040 [P] [US2] Implement creator approval/rejection and exact candidate/request/result fingerprint binding in `web/src/features/renderer-lab/approval.ts`
+- [X] T041 [US2] Implement deployed-address calls and undeployed-initcode `RendererPreviewHarness.preview` calls using generated ABIs, the existing limiter, and canonical public RPC in `web/src/features/renderer-lab/preview.ts`
+- [X] T042 [US2] Implement CREATE2 calldata preparation, deployer-code and occupied-address checks, Nitro sizing, predicted-address display data, and approval invalidation in `web/src/features/renderer-lab/deployment.ts`
+- [X] T043 [US2] Implement strict fragment parsing, in-memory capability handling, helper health checks, bounded API calls, result reporting, and explicit file fallback in `web/src/features/renderer-lab/local-helper-client.ts`
+- [X] T044 [US2] Build the public package import, representative gallery, approval, deployment summary, progressive technical disclosure, and wallet-only Deploy UI in `web/src/features/renderer-lab/RendererLab.tsx` and `web/src/features/renderer-lab/RendererLab.module.css`
+- [X] T045 [US2] Expose the renderer lab as a client-only public route with no renderer API handlers or server session in `web/src/app/renderer/page.tsx`
+- [X] T046 [US2] Wire creator-initiated deployment through wagmi/viem simulation and pass the exact returned request to the connected wallet, reporting only library-owned transaction state and post-receipt code reconciliation, in `web/src/features/renderer-lab/RendererLab.tsx`
+- [X] T047 [P] [US2] Implement the loopback-only in-memory helper from `specs/001-onchain-renderer-ecosystem/contracts/local-helper.openapi.yaml`, including random port/capability generation and public-page fragment URL output, in `.agents/skills/backed-by-fans-renderer/scripts/session-helper.ts`
+- [X] T048 [P] [US2] Implement deterministic Foundry artifact packaging, final initcode/runtime measurement, raw `salt || initcode` sizing, hashes, embedded requests, and predicted address in `.agents/skills/backed-by-fans-renderer/scripts/build-package.ts`
+- [X] T049 [P] [US2] Implement the six-case local representative SVG/gallery matrix defined in `specs/001-onchain-renderer-ecosystem/data-model.md` in `.agents/skills/backed-by-fans-renderer/scripts/render-gallery.ts`
+- [X] T050 [P] [US2] Author the portable renderer workflow, public interface, local testing, visual approval, canonical deployment, and plain-language completion guidance in `.agents/skills/backed-by-fans-renderer/SKILL.md`, `.agents/skills/backed-by-fans-renderer/llms.txt`, and `.agents/skills/backed-by-fans-renderer/references/`
+- [X] T051 [P] [US2] Add a minimal Solidity 0.8.36 Cancun renderer and local Foundry tests with no production key requirement in `.agents/skills/backed-by-fans-renderer/templates/renderer/src/CustomRenderer.sol`, `.agents/skills/backed-by-fans-renderer/templates/renderer/test/CustomRenderer.t.sol`, and `.agents/skills/backed-by-fans-renderer/templates/renderer/foundry.toml`
+- [X] T052 [US2] Add the full loopback-success, loopback-denied/file-fallback, package rejection, preview approval, and creator-wallet local deployment journey in `web/tests/e2e/renderer-lab.spec.ts`
+- [X] T053 [US2] Run the US2 script, component, helper, Foundry-template, and Playwright suites in `.agents/skills/backed-by-fans-renderer/` and `web/src/features/renderer-lab/`
 
 **Checkpoint**: The agent workflow works without SIWE, OAuth, hosted storage, hosted sessions, paid RPC proxying, or private-key export; only the browser wallet can deploy.
 
@@ -135,18 +135,18 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 ### Tests for User Story 3
 
-- [ ] T054 [P] [US3] Write failing contract tests proving `PreviewContext.nativeMedia` and configured onchain `MediaConfig` reach custom renderers without exact-byte-preservation requirements in `contracts/test/CustomRendererImageInput.t.sol`
-- [ ] T055 [P] [US3] Write failing browser tests for local image processing, 90 KiB renderer input, canonical RPC calldata, transformed output, generated-only fallback, and page-memory cleanup in `web/src/features/renderer-lab/image-preview.test.ts`
-- [ ] T056 [P] [US3] Extend helper tests to prove preview outputs/failures may return but source image bytes are rejected and never retained in `.agents/skills/backed-by-fans-renderer/scripts/session-helper.test.ts`
+- [X] T054 [P] [US3] Write failing contract tests proving `PreviewContext.nativeMedia` and configured onchain `MediaConfig` reach custom renderers without exact-byte-preservation requirements in `contracts/test/CustomRendererImageInput.t.sol`
+- [X] T055 [P] [US3] Write failing browser tests for local image processing, 90 KiB renderer input, canonical RPC calldata, transformed output, generated-only fallback, and page-memory cleanup in `web/src/features/renderer-lab/image-preview.test.ts`
+- [X] T056 [P] [US3] Extend helper tests to prove preview outputs/failures may return but source image bytes are rejected and never retained in `.agents/skills/backed-by-fans-renderer/scripts/session-helper.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T057 [US3] Reuse the existing browser image pipeline and inject `nativeMedia` only immediately before canonical RPC calls in `web/src/features/renderer-lab/preview.ts` and `web/src/features/creator-studio/image-processing.ts`
-- [ ] T058 [US3] Add temporary image selection, image/no-image representative cases, transformed-result display, and clear failure language without an extra RPC-transmission confirmation in `web/src/features/renderer-lab/RendererLab.tsx`
-- [ ] T059 [P] [US3] Extend the renderer template with a documented image transformation and generated-only behavior in `.agents/skills/backed-by-fans-renderer/templates/renderer/src/CustomRenderer.sol` and `.agents/skills/backed-by-fans-renderer/templates/renderer/test/CustomRenderer.t.sol`
-- [ ] T060 [P] [US3] Teach agents how `nativeMedia` and onchain `MediaConfig` are received and may be transformed, without proofs of preserved bytes, in `.agents/skills/backed-by-fans-renderer/references/interface.md` and `.agents/skills/backed-by-fans-renderer/references/local-testing.md`
-- [ ] T061 [US3] Add image/no-image, transformed-output, helper-exclusion, and page-cleanup browser coverage in `web/tests/e2e/renderer-lab.spec.ts`
-- [ ] T062 [US3] Run the US3 contract, browser image, helper, template, and renderer-lab E2E suites in `contracts/test/CustomRendererImageInput.t.sol`, `web/src/features/renderer-lab/`, and `.agents/skills/backed-by-fans-renderer/`
+- [X] T057 [US3] Reuse the existing browser image pipeline and inject `nativeMedia` only immediately before canonical RPC calls in `web/src/features/renderer-lab/preview.ts` and `web/src/features/creator-studio/image-processing.ts`
+- [X] T058 [US3] Add temporary image selection, image/no-image representative cases, transformed-result display, and clear failure language without an extra RPC-transmission confirmation in `web/src/features/renderer-lab/RendererLab.tsx`
+- [X] T059 [P] [US3] Extend the renderer template with a documented image transformation and generated-only behavior in `.agents/skills/backed-by-fans-renderer/templates/renderer/src/CustomRenderer.sol` and `.agents/skills/backed-by-fans-renderer/templates/renderer/test/CustomRenderer.t.sol`
+- [X] T060 [P] [US3] Teach agents how `nativeMedia` and onchain `MediaConfig` are received and may be transformed, without proofs of preserved bytes, in `.agents/skills/backed-by-fans-renderer/references/interface.md` and `.agents/skills/backed-by-fans-renderer/references/local-testing.md`
+- [X] T061 [US3] Add image/no-image, transformed-output, helper-exclusion, and page-cleanup browser coverage in `web/tests/e2e/renderer-lab.spec.ts`
+- [X] T062 [US3] Run the US3 contract, browser image, helper, template, and renderer-lab E2E suites in `contracts/test/CustomRendererImageInput.t.sol`, `web/src/features/renderer-lab/`, and `.agents/skills/backed-by-fans-renderer/`
 
 **Checkpoint**: Creators can judge transformed onchain-image results visually, while source media stays browser-held and no storage service or byte-preservation proof is introduced.
 
@@ -160,15 +160,15 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 ### Tests for User Story 4
 
-- [ ] T063 [P] [US4] Extend renderer-details tests with Robinhood-testnet context, no registry/listing language, and direct-address sharing behavior in `web/src/features/membership/RendererDetails.test.tsx`
-- [ ] T064 [P] [US4] Add a failing end-to-end membership-to-membership address-sharing journey and renderer-failure case in `web/tests/e2e/renderer-sharing.spec.ts`
+- [X] T063 [P] [US4] Extend renderer-details tests with Robinhood-testnet context, no registry/listing language, and direct-address sharing behavior in `web/src/features/membership/RendererDetails.test.tsx`
+- [X] T064 [P] [US4] Add a failing end-to-end membership-to-membership address-sharing journey and renderer-failure case in `web/tests/e2e/renderer-sharing.spec.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T065 [P] [US4] Extend the existing renderer details surface with progressively disclosed Robinhood-testnet context and direct-sharing guidance in `web/src/features/membership/RendererDetails.tsx`
-- [ ] T066 [US4] Ensure pasted addresses never load or execute skill content and add focused coverage for that boundary in `web/src/features/creator-studio/renderer-address.ts` and `web/src/features/creator-studio/renderer-address.test.ts`
-- [ ] T067 [US4] Remove remaining user-renderer registry/listing/enablement presentation and tests while retaining the separate onchain media registry in `web/src/features/protocol/ProtocolAdministration.tsx`, `web/src/features/protocol/`, and `web/src/features/creator-studio/`
-- [ ] T068 [US4] Run the US4 membership component and Playwright suites in `web/src/features/membership/` and `web/tests/e2e/renderer-sharing.spec.ts`
+- [X] T065 [P] [US4] Extend the existing renderer details surface with progressively disclosed Robinhood-testnet context and direct-sharing guidance in `web/src/features/membership/RendererDetails.tsx`
+- [X] T066 [US4] Ensure pasted addresses never load or execute skill content and add focused coverage for that boundary in `web/src/features/creator-studio/renderer-address.ts` and `web/src/features/creator-studio/renderer-address.test.ts`
+- [X] T067 [US4] Remove remaining user-renderer registry/listing/enablement presentation and tests while retaining the separate onchain media registry in `web/src/features/protocol/ProtocolAdministration.tsx`, `web/src/features/protocol/`, and `web/src/features/creator-studio/`
+- [X] T068 [US4] Run the US4 membership component and Playwright suites in `web/src/features/membership/` and `web/tests/e2e/renderer-sharing.spec.ts`
 
 **Checkpoint**: Renderer discovery is limited to memberships and address sharing, and the address remains usable without any platform registry record.
 
@@ -178,14 +178,14 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 **Purpose**: Validate security boundaries, documentation, performance limits, and evidence classes across the complete feature without performing a public deployment.
 
-- [ ] T069 [P] Update public project documentation for direct renderers, the public renderer lab, optional loopback, file fallback, no-backend/no-paid-RPC scope, and the separate Robinhood-testnet protocol operator approval/password gate in `web/README.md` and `.agents/skills/backed-by-fans-renderer/references/deployment.md`
-- [ ] T070 [P] Add a repository-wide assertion that user-renderer registry APIs, SIWE/OAuth renderer routes, hosted renderer storage, private RPC credentials, and handwritten ABI/address maps are absent from implementation paths in `scripts/check-renderer-ecosystem-boundaries.sh`
-- [ ] T071 Run full Solidity formatting, Robinhood-profile build, unit/fuzz/invariant tests, deployment script tests, and renderer/template size checks in `contracts/` and `.agents/skills/backed-by-fans-renderer/templates/renderer/`
-- [ ] T072 Run web schema drift, generated-binding drift, formatting, lint, typecheck, Vitest, build, and complete Playwright checks in `web/`
-- [ ] T073 Verify loopback success and denied/fallback behavior in supported Chrome, Firefox, and Safari/WebKit projects and record browser evidence separately in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
-- [ ] T074 Run the local Anvil quickstart end to end without a production key or public write and record local, browser, Anvil, and any separately authorized public-chain evidence distinctly in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
-- [ ] T075 Audit all renderer package, preview, approval, and helper state for browser/process-memory-only lifetime and document the result in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
-- [ ] T076 Confirm ordinary implementation validation stops before broadcast and records that the required Robinhood-testnet protocol deployment needs separate operator approval plus interactive operator password entry, with no public deployment, merge, push, brand-clearance claim, or production claim performed in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
+- [X] T069 [P] Update public project documentation for direct renderers, the public renderer lab, optional loopback, file fallback, no-backend/no-paid-RPC scope, and the separate Robinhood-testnet protocol operator approval/password gate in `web/README.md` and `.agents/skills/backed-by-fans-renderer/references/deployment.md`
+- [X] T070 [P] Add a repository-wide assertion that user-renderer registry APIs, SIWE/OAuth renderer routes, hosted renderer storage, private RPC credentials, and handwritten ABI/address maps are absent from implementation paths in `scripts/check-renderer-ecosystem-boundaries.sh`
+- [X] T071 Run full Solidity formatting, Robinhood-profile build, unit/fuzz/invariant tests, deployment script tests, and renderer/template size checks in `contracts/` and `.agents/skills/backed-by-fans-renderer/templates/renderer/`
+- [X] T072 Run web schema drift, generated-binding drift, formatting, lint, typecheck, Vitest, build, and complete Playwright checks in `web/`
+- [X] T073 Verify loopback success and denied/fallback behavior in supported Chrome, Firefox, and Safari/WebKit projects and record browser evidence separately in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
+- [X] T074 Run the local Anvil quickstart end to end without a production key or public write and record local, browser, Anvil, and any separately authorized public-chain evidence distinctly in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
+- [X] T075 Audit all renderer package, preview, approval, and helper state for browser/process-memory-only lifetime and document the result in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
+- [X] T076 Confirm ordinary implementation validation stops before broadcast and records that the required Robinhood-testnet protocol deployment needs separate operator approval plus interactive operator password entry, with no public deployment, merge, push, brand-clearance claim, or production claim performed in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
 
 ---
 
@@ -193,10 +193,10 @@ description: "Dependency-ordered implementation tasks for the onchain renderer e
 
 **Purpose**: Make the required immutable protocol replacement explicit without treating this task list as authorization to write to the chain.
 
-- [ ] T077 After T071-T076 pass, stop and request explicit operator approval for the Robinhood-testnet protocol broadcast, recording approval or deferral without secrets in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
-- [ ] T078 Only after T077 records affirmative approval, run `contracts/scripts/deploy-protocol.sh testnet broadcast` and let the operator enter the deployment password directly into Cast's interactive terminal prompt; the agent MUST NOT request, receive, persist, pass as an argument, or log the password
-- [ ] T079 Reconcile the promoted Robinhood-testnet deployment record, chain ID, deployed runtimes, generated addresses, and web bindings using `contracts/scripts/deploy-protocol.sh`, `contracts/deployments/protocol/`, `contracts/broadcast/DeployDirectProtocol.s.sol/46630/`, and `web/src/contracts.ts`
-- [ ] T080 Run read-only Robinhood-testnet factory, preview-harness, default-renderer, direct-address preview, and renderer-address copy smoke checks, and record chain evidence separately in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`; any creator wallet write still requires its own explicit browser action
+- [X] T077 After T071-T076 pass, stop and request explicit operator approval for the Robinhood-testnet protocol broadcast, recording approval or deferral without secrets in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`
+- [X] T078 Only after T077 records affirmative approval, run `contracts/scripts/deploy-protocol.sh testnet broadcast` and let the operator enter the deployment password directly into Cast's interactive terminal prompt; the agent MUST NOT request, receive, persist, pass as an argument, or log the password
+- [X] T079 Reconcile the promoted Robinhood-testnet deployment record, chain ID, deployed runtimes, generated addresses, and web bindings using `contracts/scripts/deploy-protocol.sh`, `contracts/deployments/protocol/`, `contracts/broadcast/DeployDirectProtocol.s.sol/46630/`, and `web/src/contracts.ts`
+- [X] T080 Run read-only Robinhood-testnet factory, preview-harness, default-renderer, direct-address preview, and renderer-address copy smoke checks, and record chain evidence separately in `specs/001-onchain-renderer-ecosystem/implementation-evidence.md`; any creator wallet write still requires its own explicit browser action
 
 **Checkpoint**: The new direct-renderer protocol is promoted on Robinhood testnet with operator-authorized chain evidence; mainnet remains untouched.
 

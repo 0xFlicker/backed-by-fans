@@ -57,7 +57,7 @@ describe("wallet connectors", () => {
     expect(config.chains.map((chain) => chain.id)).toContain(localAnvil.id);
   });
 
-  it("starts new sessions on mainnet only after a mainnet deployment exists", () => {
+  it("keeps new sessions on the canonical testnet even if a mainnet factory is supplied", () => {
     const config = createWalletConfig(
       buildPublicConfig(
         {},
@@ -65,7 +65,7 @@ describe("wallet connectors", () => {
       ),
     );
 
-    expect(config.chains[0].id).toBe(robinhood.id);
+    expect(config.chains[0].id).toBe(robinhoodTestnet.id);
     expect(config.chains.map((chain) => chain.id)).toContain(
       robinhoodTestnet.id,
     );

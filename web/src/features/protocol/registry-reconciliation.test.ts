@@ -38,13 +38,13 @@ const tier = getAddress("0x3333333333333333333333333333333333333333");
 const otherTier = getAddress("0x4444444444444444444444444444444444444444");
 const paymentToken = getAddress("0x5555555555555555555555555555555555555555");
 const renderer = getAddress("0x6666666666666666666666666666666666666666");
+const previewHarness = getAddress("0x9999999999999999999999999999999999999999");
 const mediaStoreFactory = getAddress(
   "0x7777777777777777777777777777777777777777",
 );
 const tierSalt = `0x${"01".repeat(32)}` as Hex;
 const tierIdentity = `0x${"02".repeat(32)}` as Hex;
 const rendererSchema = `0x${"03".repeat(32)}` as Hex;
-const rendererRuntimeCodehash = `0x${"04".repeat(32)}` as Hex;
 const mediaStore = getAddress("0x8888888888888888888888888888888888888888");
 const creatorMediaPayload = `0x${"09".repeat(10)}` as Hex;
 const creatorMediaRuntime = `0x00${creatorMediaPayload.slice(2)}` as Hex;
@@ -79,24 +79,18 @@ const protocolDependencies: ProtocolDependencySnapshot = {
   factory,
   paymentToken,
   rendererSchema,
-  rendererCount: 1,
-  renderers: [
-    {
-      version: 1,
-      implementation: renderer,
-      runtimeCodehash: rendererRuntimeCodehash,
-      enabled: true,
-      name: "Founding Six",
-    },
-  ],
-  defaultRendererVersion: 1,
+  renderer,
+  rendererName: "Founding Six",
+  rendererEngineCount: 1,
+  rendererEngineNames: ["Founding Engine"],
+  previewHarness,
   mediaStoreFactory,
   mediaStoreFactoryRuntimeCodehash: `0x${"05".repeat(32)}`,
 };
 const config: TierPublicationConfig = {
   creator,
   tierSalt,
-  rendererVersion: 1,
+  renderer,
   name: "Creator membership",
   symbol: "FANS",
   pricePerPeriod: 10_000_000n,
@@ -130,34 +124,28 @@ function tierCreatedLog(
         tierIdentity: input.identity ?? tierIdentity,
       },
     }),
-  } as Log;
+  } as unknown as Log;
 }
 
 function tierRendererConfiguredLog(
   input: {
     emittedTier?: Address;
-    rendererVersion?: number;
     implementation?: Address;
-    runtimeCodehash?: Hex;
   } = {},
 ) {
   return {
     address: factory,
     blockNumber: 40n,
-    data: encodeAbiParameters(
-      [{ type: "bytes32" }],
-      [input.runtimeCodehash ?? rendererRuntimeCodehash],
-    ),
+    data: "0x",
     topics: encodeEventTopics({
       abi: membershipFactoryAbi,
       eventName: "TierRendererConfigured",
       args: {
         tier: input.emittedTier ?? tier,
-        rendererVersion: input.rendererVersion ?? 1,
         renderer: input.implementation ?? renderer,
       },
     }),
-  } as Log;
+  } as unknown as Log;
 }
 
 function receipt(logs: Log[]) {
@@ -292,8 +280,6 @@ function reconciliationClient(
           factory,
           paymentToken,
           renderer,
-          rendererVersion: publishedConfig.rendererVersion,
-          rendererRuntimeCodehash,
           tierIdentity,
           name: publishedConfig.name,
           symbol: publishedConfig.symbol,
@@ -323,7 +309,7 @@ describe("created-tier reconciliation", () => {
     });
   });
 
-  it("verifies the exact identity, registry entry, and immutable launch config", async () => {
+  it("verifies the exact identity, direct renderer, and immutable launch config", async () => {
     await expect(
       reconcileCreatedTier(reconciliationClient(), {
         protocolDependencies,
@@ -343,43 +329,7 @@ describe("created-tier reconciliation", () => {
     ).resolves.toBe(tier);
   });
 
-  it("still verifies a published tier after governance disables its renderer and appends another", async () => {
-    vi.mocked(readProtocolDependencies).mockResolvedValue({
-      status: "valid",
-      capturedBlock: 50n,
-      data: {
-        ...protocolDependencies,
-        rendererCount: 2,
-        renderers: [
-          {
-            ...protocolDependencies.renderers[0],
-            enabled: false,
-            name: undefined,
-          },
-          {
-            version: 2,
-            implementation: getAddress(
-              "0x9999999999999999999999999999999999999999",
-            ),
-            runtimeCodehash: `0x${"09".repeat(32)}`,
-            enabled: true,
-            name: "Second Light",
-          },
-        ],
-        defaultRendererVersion: 2,
-      },
-    });
-
-    await expect(
-      reconcileCreatedTier(reconciliationClient(), {
-        protocolDependencies,
-        config,
-        receipt: publicationReceipt(tierCreatedLog(tier)),
-      }),
-    ).resolves.toBe(tier);
-  });
-
-  it("does not substitute another matching registry tier", async () => {
+  it("does not substitute another registered tier", async () => {
     await expect(
       reconcileCreatedTier(
         reconciliationClient({ registeredTier: otherTier }),
@@ -417,7 +367,7 @@ describe("created-tier reconciliation", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("requires the renderer event to match the pinned registry record", async () => {
+  it("requires the renderer event to match the requested direct address", async () => {
     await expect(
       reconcileCreatedTier(reconciliationClient(), {
         protocolDependencies,
@@ -425,7 +375,7 @@ describe("created-tier reconciliation", () => {
         receipt: publicationReceipt(
           tierCreatedLog(tier),
           tierRendererConfiguredLog({
-            runtimeCodehash: `0x${"ff".repeat(32)}`,
+            implementation: otherTier,
           }),
         ),
       }),

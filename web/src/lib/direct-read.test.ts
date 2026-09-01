@@ -29,31 +29,30 @@ import {
 const factory = getAddress("0x1111111111111111111111111111111111111111");
 const tierA = getAddress("0x2222222222222222222222222222222222222222");
 const tierB = getAddress("0x3333333333333333333333333333333333333333");
+const renderer = getAddress("0x4444444444444444444444444444444444444444");
+const canonicalRenderer = getAddress(
+  "0x5555555555555555555555555555555555555555",
+);
+const previewHarness = getAddress("0x6666666666666666666666666666666666666666");
 const deployment = {
   status: "ready" as const,
   chainId: 46630 as const,
   factoryAddress: factory,
   usdgAddress: tierB,
+  rendererAddress: canonicalRenderer,
+  previewHarnessAddress: previewHarness,
 };
-const renderer = getAddress("0x4444444444444444444444444444444444444444");
-const rendererRuntimeCodehash = `0x${"02".repeat(32)}` as const;
 const protocolDependencies: ProtocolDependencySnapshot = {
   chainId: 46630,
   factory,
   paymentToken: tierB,
   rendererSchema: `0x${"01".repeat(32)}`,
-  rendererCount: 1,
-  renderers: [
-    {
-      version: 1,
-      implementation: renderer,
-      runtimeCodehash: rendererRuntimeCodehash,
-      enabled: true,
-      name: "Founding Six",
-    },
-  ],
-  defaultRendererVersion: 1,
-  mediaStoreFactory: getAddress("0x5555555555555555555555555555555555555555"),
+  renderer: canonicalRenderer,
+  rendererName: "Founding Six",
+  rendererEngineCount: 1,
+  rendererEngineNames: ["Founding Engine"],
+  previewHarness,
+  mediaStoreFactory: getAddress("0x7777777777777777777777777777777777777777"),
   mediaStoreFactoryRuntimeCodehash: `0x${"03".repeat(32)}`,
 };
 const art: TierArtConfig = {
@@ -200,9 +199,7 @@ describe("direct reads", () => {
       capturedBlock: 12n,
       tier: tierA,
       tierIdentity,
-      rendererVersion: 1,
       renderer,
-      rendererRuntimeCodehash,
       art,
       media,
       protocolDependencies,
@@ -246,13 +243,13 @@ describe("direct reads", () => {
         creator: factory,
         occupiedSupply: 2n,
         tierIdentity,
-        rendererVersion: 1,
         renderer,
-        rendererRuntimeCodehash,
         art,
         media,
       },
     });
+    expect(result).not.toHaveProperty("data.rendererVersion");
+    expect(result).not.toHaveProperty("data.rendererRuntimeCodehash");
     expect(multicall).toHaveBeenCalledTimes(1);
     expect(readContract).not.toHaveBeenCalled();
   });

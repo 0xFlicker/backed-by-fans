@@ -25,9 +25,12 @@ const renderer = getAddress("0x4444444444444444444444444444444444444444");
 const mediaStoreFactory = getAddress(
   "0x5555555555555555555555555555555555555555",
 );
+const canonicalRenderer = getAddress(
+  "0x6666666666666666666666666666666666666666",
+);
+const previewHarness = getAddress("0x7777777777777777777777777777777777777777");
 const tierIdentity = `0x${"ab".repeat(32)}` as Hex;
 const runtimeCode = "0x6000";
-const rendererRuntimeCodehash = `0x${"01".repeat(32)}` as Hex;
 const art: TierArtConfig = {
   engine: 0,
   collectionSeed: 1n,
@@ -59,17 +62,11 @@ const protocolDependencies: ProtocolDependencySnapshot = {
   factory,
   paymentToken: token,
   rendererSchema: `0x${"03".repeat(32)}`,
-  rendererCount: 1,
-  renderers: [
-    {
-      version: 1,
-      implementation: renderer,
-      runtimeCodehash: rendererRuntimeCodehash,
-      enabled: true,
-      name: "Founding Six",
-    },
-  ],
-  defaultRendererVersion: 1,
+  renderer: canonicalRenderer,
+  rendererName: "Founding Six",
+  rendererEngineCount: 1,
+  rendererEngineNames: ["Founding Engine"],
+  previewHarness,
   mediaStoreFactory,
   mediaStoreFactoryRuntimeCodehash: `0x${"02".repeat(32)}`,
 };
@@ -78,22 +75,26 @@ const deployment: ReadyDeployment = {
   chainId: 46630,
   factoryAddress: factory,
   usdgAddress: token,
+  rendererAddress: canonicalRenderer,
+  previewHarnessAddress: previewHarness,
 };
 
 function authenticityClient(
   registered: boolean,
   overrides: Record<string, unknown> = {},
+  rendererCode: Hex | undefined = runtimeCode,
 ) {
   return {
-    getBytecode: vi.fn().mockResolvedValue(runtimeCode),
+    getBytecode: vi.fn(({ address }: { address: string }) =>
+      Promise.resolve(address === renderer ? rendererCode : runtimeCode),
+    ),
     readContract: vi.fn(({ functionName }: { functionName: string }) => {
       const values: Record<string, unknown> = {
         isRegisteredTier: registered,
         factory,
         paymentToken: token,
         renderer,
-        rendererVersion: 1,
-        rendererRuntimeCodehash,
+        rendererSchema: protocolDependencies.rendererSchema,
         tierIdentity,
         tierForIdentity: tier,
         artConfig: art,
@@ -114,9 +115,7 @@ function verifiedResult(
     capturedBlock: 9n,
     tier,
     tierIdentity,
-    rendererVersion: 1,
     renderer,
-    rendererRuntimeCodehash,
     art,
     media,
     protocolDependencies: { ...protocolDependencies, ...overrides },
@@ -152,8 +151,9 @@ describe("tier authenticity and write guard", () => {
     ).toMatchObject({ enabled: false });
   });
 
-  it("enables a write only after dependencies, identity, bindings, art, and media verify", async () => {
-    const result = await verifyTierAuthenticity(authenticityClient(true), {
+  it("enables a write for a compatible direct renderer after all tier bindings verify", async () => {
+    const client = authenticityClient(true);
+    const result = await verifyTierAuthenticity(client, {
       deployment,
       tier,
     });
@@ -162,11 +162,26 @@ describe("tier authenticity and write guard", () => {
       status: "verified",
       capturedBlock: 90n,
       tierIdentity,
-      rendererVersion: 1,
       renderer,
-      rendererRuntimeCodehash,
-      protocolDependencies: { rendererCount: 1, mediaStoreFactory },
+      protocolDependencies: { mediaStoreFactory },
     });
+    expect(client.getBytecode).toHaveBeenCalledWith({
+      address: renderer,
+      blockNumber: 90n,
+    });
+    expect(client.readContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: renderer,
+        functionName: "rendererSchema",
+        blockNumber: 90n,
+      }),
+    );
+    expect(client.readContract).not.toHaveBeenCalledWith(
+      expect.objectContaining({ functionName: "rendererVersion" }),
+    );
+    expect(client.readContract).not.toHaveBeenCalledWith(
+      expect.objectContaining({ functionName: "rendererRuntimeCodehash" }),
+    );
     expect(
       getWriteGuard({
         deployment,
@@ -183,38 +198,29 @@ describe("tier authenticity and write guard", () => {
     });
   });
 
-  it("rejects a tier whose renderer pin differs from its versioned factory record", async () => {
+  it("rejects a direct renderer address without code", async () => {
     const result = await verifyTierAuthenticity(
-      authenticityClient(true, {
-        rendererRuntimeCodehash: `0x${"ff".repeat(32)}`,
-      }),
+      authenticityClient(true, {}, "0x"),
       { deployment, tier },
     );
 
     expect(result).toMatchObject({
       status: "interface-mismatch",
-      failedChecks: expect.arrayContaining(["tier renderer runtime identity"]),
+      failedChecks: expect.arrayContaining(["tier renderer code"]),
     });
   });
 
-  it("keeps an existing tier authentic after its renderer is disabled for new tiers", async () => {
-    vi.mocked(readProtocolDependencies).mockResolvedValue({
-      status: "valid",
-      capturedBlock: 90n,
-      data: {
-        ...protocolDependencies,
-        renderers: protocolDependencies.renderers.map((record) => ({
-          ...record,
-          enabled: false,
-          name: undefined,
-        })),
-        defaultRendererVersion: undefined,
-      },
+  it("rejects a direct renderer with the wrong interface schema", async () => {
+    const client = authenticityClient(true, {
+      rendererSchema: `0x${"ff".repeat(32)}`,
     });
 
     await expect(
-      verifyTierAuthenticity(authenticityClient(true), { deployment, tier }),
-    ).resolves.toMatchObject({ status: "verified", rendererVersion: 1 });
+      verifyTierAuthenticity(client, { deployment, tier }),
+    ).resolves.toMatchObject({
+      status: "interface-mismatch",
+      failedChecks: expect.arrayContaining(["tier renderer schema"]),
+    });
   });
 
   it("keeps verified contracts disabled on the wrong wallet chain", () => {
@@ -261,8 +267,7 @@ describe("tier authenticity and write guard", () => {
           factory,
           paymentToken: token,
           renderer,
-          rendererVersion: 1,
-          rendererRuntimeCodehash,
+          rendererSchema: protocolDependencies.rendererSchema,
           tierIdentity,
           tierForIdentity: tier,
           mediaConfig: media,
@@ -281,7 +286,7 @@ describe("tier authenticity and write guard", () => {
   });
 
   it("verifies a native media record and its immutable code-store runtime", async () => {
-    const store = getAddress("0x6666666666666666666666666666666666666666");
+    const store = getAddress("0x8888888888888888888888888888888888888888");
     const storeCode = "0x00ffd8ff" as const;
     const onchainMedia: TierMediaConfig = {
       mime: 1,
@@ -301,8 +306,7 @@ describe("tier authenticity and write guard", () => {
           factory,
           paymentToken: token,
           renderer,
-          rendererVersion: 1,
-          rendererRuntimeCodehash,
+          rendererSchema: protocolDependencies.rendererSchema,
           tierIdentity,
           tierForIdentity: tier,
           artConfig: art,
@@ -311,7 +315,7 @@ describe("tier authenticity and write guard", () => {
           isRegisteredMedia: true,
           mediaRecord: {
             store,
-            creator: getAddress("0x7777777777777777777777777777777777777777"),
+            creator: getAddress("0x9999999999999999999999999999999999999999"),
             mime: onchainMedia.mime,
             length: onchainMedia.length,
             digest: onchainMedia.digest,

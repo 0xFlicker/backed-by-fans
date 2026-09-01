@@ -1,0 +1,84 @@
+# Backed By Fans custom renderer kit
+
+Use this kit to create and test an onchain membership renderer, show its representative artwork to
+the creator, and prepare deployment through the creator's browser wallet.
+
+Canonical environment
+
+- Robinhood testnet, chain ID 46630, is the only public renderer chain for this version.
+- A renderer is shared directly as its same-chain contract address. There is no renderer registry,
+  submission flow, catalog, crosschain lookup, or platform enablement step.
+- Robinhood mainnet is out of scope.
+
+Public renderer contract
+
+- Implement the exact BackedByFans.MembershipRenderer.v1 Solidity interface and membership types.
+- Required methods are rendererSchema, rendererName, engineCount, engineName,
+  validateConfiguration, previewSVG, previewTokenURI, and renderTokenURI.
+- previewSVG returns a complete SVG document. previewTokenURI and renderTokenURI return complete
+  metadata data URIs with a displayable image.
+- Use the canonical Solidity files and generated Foundry artifact ABI. The package writer embeds the
+  generated ABI; do not write or maintain another ABI by hand.
+- Rendering is read-only. It must not alter membership ownership, payments, rewards, referrals,
+  expiration accounting, or creator payout identity.
+
+Media behavior
+
+- PreviewContext.nativeMedia carries temporary browser-processed JPEG or PNG bytes immediately
+  before a read-only preview call. It is not part of the renderer package and must not be sent to
+  the loopback helper or stored by the platform.
+- Production renderTokenURI receives MediaConfig. A renderer may read the configured onchain media
+  store, use that media, produce generated-only art, or fail clearly when media is unsupported.
+- A renderer may crop, filter, recolor, transform, mask, combine, reinterpret, or ignore media.
+  Validity is based on the displayed result and creator approval, not proof that source bytes or
+  appearance were preserved.
+
+Authoring and local evidence
+
+1. Start from the bundled Foundry renderer template and preserve Solidity 0.8.36, Cancun, and the
+   enabled optimizer profile.
+2. Add focused Forge tests for deterministic complete output, active and expired states,
+   generated-only behavior, nativeMedia behavior, onchain MediaConfig behavior, and clear failures.
+3. Run Forge locally without a production key.
+4. Run scripts/build-package.ts against the final Foundry project. It builds the contract, embeds
+   the generated artifact ABI, measures runtime and complete final initcode including constructor
+   arguments, checks raw salt || initcode against Robinhood Nitro's limit, and computes the CREATE2
+   address.
+5. Run scripts/render-gallery.ts on the package. Inspect all six local examples: token IDs 1, 7,
+   and 42; active and expired; generated and image-slot cases.
+
+Browser visual approval
+
+- Hand the same renderer package to the public renderer page. Prefer the optional
+  scripts/session-helper.ts loopback handoff; use drag-and-drop or file selection when loopback is
+  denied, expired, or unavailable.
+- Import and preview require no account, SIWE, OAuth, connected wallet, hosted relay, session
+  database, or persistent media storage.
+- Browser examples use the canonical RPC and the same public renderer input as memberships.
+  Browser-selected media stays in memory and may be included in ordinary read-only RPC calldata.
+- Show every representative output or failure. The creator must approve the exact candidate,
+  request set, and results. Any candidate, request, salt, or deployment-input change clears
+  approval.
+
+Deployment boundary
+
+- Local Anvil success does not prove Robinhood Nitro will admit a public transaction. Measure the
+  complete final payload and let the browser independently recheck the package, canonical CREATE2
+  deployer, unoccupied predicted address, and Nitro envelope.
+- Do not deploy with an agent-held key, cast send, backend signer, exported key, mnemonic, password,
+  or generated secret file.
+- After approval, show Robinhood testnet, the final payload size, salt, and predicted address. Only
+  after the creator clicks Deploy may wagmi/viem simulate and pass its exact request to the creator's
+  browser wallet.
+- Report success only after wagmi/viem supplies a successful receipt and code is visible at the
+  predicted address. Normal completion should say the chain and copyable renderer address without
+  requiring receipt, verification, journal, or code-proof expertise.
+- Deploying the new direct-renderer protocol is separate from deploying a creator renderer. After
+  local validation, stop for explicit operator approval; the operator enters the encrypted
+  deployment password interactively. Never request or record that password.
+
+Detailed guidance
+
+- references/interface.md
+- references/local-testing.md
+- references/deployment.md

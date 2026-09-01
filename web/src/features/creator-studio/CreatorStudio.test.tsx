@@ -4,7 +4,6 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import type { RendererRegistryEntry } from "@/contracts/types";
 import {
   createDefaultArtConfig,
   type AnyStudioArtConfig,
@@ -14,8 +13,7 @@ import {
   type CreatorStudioProps,
 } from "@/features/creator-studio/CreatorStudio";
 import type { PreviewGalleryModel } from "@/features/creator-studio/PreviewGallery";
-import { foundingSixRendererName } from "@/features/creator-studio/RendererPicker";
-import { foundingSixEngineNames } from "@/features/creator-studio/RendererPicker";
+import type { RendererAddressResolution } from "@/features/creator-studio/renderer-address";
 import type { StudioMediaDraft } from "@/features/creator-studio/studio-draft";
 
 const preview: PreviewGalleryModel = {
@@ -35,21 +33,28 @@ const preview: PreviewGalleryModel = {
 };
 
 const foundingRenderer = {
-  version: 1,
-  implementation: "0x1111111111111111111111111111111111111111",
-  runtimeCodehash: `0x${"11".repeat(32)}`,
-  enabled: true,
-  name: foundingSixRendererName,
-  engineCount: 6,
-  engineNames: foundingSixEngineNames,
-} satisfies RendererRegistryEntry;
+  chainId: 46_630,
+  address: "0x1111111111111111111111111111111111111111",
+  capturedBlock: 123n,
+  runtimeCodeHash: `0x${"11".repeat(32)}`,
+  schema: `0x${"22".repeat(32)}`,
+  name: "BACKED BY FANS / FOUNDING SIX",
+  engines: ["STACK", "CHORUS", "LOOM", "BLOOM", "MARQUEE", "AFTERIMAGE"],
+} satisfies RendererAddressResolution;
+
+const customRenderer = {
+  ...foundingRenderer,
+  address: "0x2222222222222222222222222222222222222222",
+  name: "MOONLIT MEMBERSHIPS",
+  engines: ["AURORA", "TIDELINE"],
+} satisfies RendererAddressResolution;
 
 function StudioHarness({
-  renderers = [foundingRenderer],
-  initialRendererVersion = 1,
+  renderer = foundingRenderer,
+  initialEngine = 0,
 }: {
-  renderers?: readonly RendererRegistryEntry[];
-  initialRendererVersion?: number;
+  renderer?: RendererAddressResolution | null;
+  initialEngine?: number;
 } = {}) {
   const [art, setArt] = useState<AnyStudioArtConfig>(
     createDefaultArtConfig("stack", 1n),
@@ -59,21 +64,19 @@ function StudioHarness({
     tokenId: 1,
     state: "active",
   });
-  const [rendererVersion, setRendererVersion] = useState(
-    initialRendererVersion,
-  );
+  const [engine, setEngine] = useState(initialEngine);
 
   return (
     <CreatorStudio
       art={art}
       media={media}
       onArtChange={setArt}
+      onEngineChange={setEngine}
       onMediaChange={setMedia}
-      onRendererChange={setRendererVersion}
       onSelectionChange={setSelection}
       preview={preview}
-      renderers={renderers}
-      selectedRendererVersion={rendererVersion || undefined}
+      renderer={renderer ?? undefined}
+      selectedEngine={engine}
       selection={selection}
     />
   );
@@ -144,34 +147,46 @@ describe("CreatorStudio", () => {
     ).toBeChecked();
   });
 
-  it("requires an explicit compatible renderer choice when multiple are enabled", async () => {
+  it("drives generic engine selection from the direct renderer manifest", async () => {
     const user = userEvent.setup();
-    render(
-      <StudioHarness
-        initialRendererVersion={0}
-        renderers={[
-          foundingRenderer,
-          {
-            ...foundingRenderer,
-            version: 2,
-            implementation: "0x2222222222222222222222222222222222222222",
-          },
-        ]}
-      />,
+    render(<StudioHarness renderer={customRenderer} />);
+
+    expect(document.querySelector("[data-creator-studio]")).toHaveAttribute(
+      "data-renderer-address",
+      customRenderer.address,
     );
+    expect(
+      within(
+        screen.getByRole("radiogroup", { name: "Art styles" }),
+      ).getAllByRole("radio"),
+    ).toHaveLength(2);
+    expect(screen.getByRole("radio", { name: /AURORA/i })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.queryByText("Customize artwork")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: /TIDELINE/i }));
+
+    expect(screen.getByRole("radio", { name: /TIDELINE/i })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getAllByText("TIDELINE selected.")).not.toHaveLength(0);
+    expect(
+      screen.queryByRole("radiogroup", { name: "Artwork collections" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Edition 1/i)).not.toBeInTheDocument();
+  });
+
+  it("withholds art tools until a direct renderer manifest is available", () => {
+    render(<StudioHarness renderer={null} />);
 
     expect(
-      screen.getByText(/Choose an artwork collection to continue/i),
-    ).toBeVisible();
-    expect(screen.getByRole("radio", { name: /STACK/i })).toBeDisabled();
-    const choices = screen.getAllByRole("radio", {
-      name: new RegExp(foundingSixRendererName, "i"),
-    });
-    expect(choices).toHaveLength(2);
-    expect(choices[1]).toBeDisabled();
-    await user.click(choices[0]);
-    expect(screen.getByRole("radio", { name: /STACK/i })).toBeEnabled();
-    expect(screen.getAllByText(/FOUNDING SIX selected/i)).not.toHaveLength(0);
+      screen.queryByRole("radiogroup", { name: "Art styles" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Surprise me/i })).toBeDisabled();
+    expect(screen.queryByText("Customize artwork")).not.toBeInTheDocument();
   });
 
   it("honors per-control locks while generating a fresh direction", async () => {

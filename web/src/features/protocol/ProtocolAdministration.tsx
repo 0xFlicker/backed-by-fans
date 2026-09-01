@@ -83,6 +83,8 @@ function ProtocolControls({
       chainId: expectedChainId,
       factoryAddress: snapshot.factory,
       usdgAddress: snapshot.paymentToken,
+      rendererAddress: snapshot.renderer,
+      previewHarnessAddress: snapshot.previewHarness,
     },
     walletChainId: account.isConnected ? account.chainId : undefined,
     expectedChainId,

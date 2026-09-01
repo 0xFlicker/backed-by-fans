@@ -1,14 +1,11 @@
-import { getAddress, keccak256, type Address, type PublicClient } from "viem";
+import { keccak256, type Address, type PublicClient } from "viem";
 
 import {
   onchainMetadataRendererAbi,
   membershipFactoryAbi,
   usdgAbi,
 } from "@/contracts";
-import type {
-  ProtocolDependencySnapshot,
-  RendererRegistryEntry,
-} from "@/contracts/types";
+import type { ProtocolDependencySnapshot } from "@/contracts/types";
 import { isSameAddress } from "@/lib/address";
 import type { DeploymentAvailability } from "@/lib/config";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
@@ -69,7 +66,6 @@ export async function readProtocolDependencies(
     const [
       boundToken,
       rendererSchema,
-      rendererCount,
       mediaStoreFactory,
       mediaStoreFactoryRuntimeCodehash,
     ] = await Promise.all([
@@ -83,12 +79,6 @@ export async function readProtocolDependencies(
         address: deployment.factoryAddress,
         abi: membershipFactoryAbi,
         functionName: "rendererSchema",
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: deployment.factoryAddress,
-        abi: membershipFactoryAbi,
-        functionName: "rendererCount",
         blockNumber: capturedBlock,
       }),
       client.readContract({
@@ -112,53 +102,28 @@ export async function readProtocolDependencies(
     if (rendererSchema !== membershipRendererSchema) {
       failedChecks.push("renderer schema");
     }
-    if (rendererCount < 1) {
-      failedChecks.push("renderer registry");
+
+    const [rendererCode, previewHarnessCode, mediaStoreFactoryCode] =
+      await Promise.all([
+        client.getBytecode({
+          address: deployment.rendererAddress,
+          blockNumber: capturedBlock,
+        }),
+        client.getBytecode({
+          address: deployment.previewHarnessAddress,
+          blockNumber: capturedBlock,
+        }),
+        client.getBytecode({
+          address: mediaStoreFactory,
+          blockNumber: capturedBlock,
+        }),
+      ]);
+    if (!rendererCode || rendererCode === "0x") {
+      failedChecks.push("renderer code");
     }
-
-    const rendererRecords = await Promise.all(
-      Array.from({ length: rendererCount }, (_, index) => {
-        const version = index + 1;
-        return client
-          .readContract({
-            address: deployment.factoryAddress,
-            abi: membershipFactoryAbi,
-            functionName: "rendererRecord",
-            args: [version],
-            blockNumber: capturedBlock,
-          })
-          .then((record): RendererRegistryEntry => ({
-            version,
-            implementation: getAddress(record.implementation),
-            runtimeCodehash: record.runtimeCodehash,
-            enabled: record.enabled,
-            name: undefined,
-          }));
-      }),
-    );
-
-    const [rendererCodes, mediaStoreFactoryCode] = await Promise.all([
-      Promise.all(
-        rendererRecords.map((record) =>
-          client.getBytecode({
-            address: record.implementation,
-            blockNumber: capturedBlock,
-          }),
-        ),
-      ),
-      client.getBytecode({
-        address: mediaStoreFactory,
-        blockNumber: capturedBlock,
-      }),
-    ]);
-    rendererRecords.forEach((record, index) => {
-      const code = rendererCodes[index];
-      if (!code || code === "0x") {
-        failedChecks.push(`renderer ${record.version} code`);
-      } else if (keccak256(code) !== record.runtimeCodehash) {
-        failedChecks.push(`renderer ${record.version} runtime identity`);
-      }
-    });
+    if (!previewHarnessCode || previewHarnessCode === "0x") {
+      failedChecks.push("renderer preview harness code");
+    }
     if (!mediaStoreFactoryCode || mediaStoreFactoryCode === "0x") {
       failedChecks.push("media registry code");
     } else if (
@@ -167,96 +132,70 @@ export async function readProtocolDependencies(
       failedChecks.push("media registry runtime identity");
     }
 
-    if (failedChecks.length === 0) {
-      const manifestReads = await Promise.allSettled(
-        rendererRecords.map(async (record) => {
-          const [implementationSchema, reverseVersion, manifest] =
-            await Promise.all([
-              client.readContract({
-                address: record.implementation,
-                abi: onchainMetadataRendererAbi,
-                functionName: "rendererSchema",
-                blockNumber: capturedBlock,
-              }),
-              client.readContract({
-                address: deployment.factoryAddress,
-                abi: membershipFactoryAbi,
-                functionName: "rendererVersionOf",
-                args: [record.implementation],
-                blockNumber: capturedBlock,
-              }),
-              record.enabled
-                ? Promise.all([
-                    client.readContract({
-                      address: record.implementation,
-                      abi: onchainMetadataRendererAbi,
-                      functionName: "rendererName",
-                      blockNumber: capturedBlock,
-                    }),
-                    client.readContract({
-                      address: record.implementation,
-                      abi: onchainMetadataRendererAbi,
-                      functionName: "engineCount",
-                      blockNumber: capturedBlock,
-                    }),
-                  ]).then(async ([name, rawEngineCount]) => {
-                    const engineCount = Number(rawEngineCount);
-                    const engineNames =
-                      Number.isSafeInteger(engineCount) &&
-                      engineCount > 0 &&
-                      engineCount <= maxRendererManifestEngines
-                        ? await Promise.all(
-                            Array.from({ length: engineCount }, (_, engine) =>
-                              client.readContract({
-                                address: record.implementation,
-                                abi: onchainMetadataRendererAbi,
-                                functionName: "engineName",
-                                args: [engine],
-                                blockNumber: capturedBlock,
-                              }),
-                            ),
-                          )
-                        : undefined;
-                    return { name, engineCount, engineNames };
-                  })
-                : Promise.resolve({
-                    name: undefined,
-                    engineCount: undefined,
-                    engineNames: undefined,
+    let rendererManifest:
+      | {
+          name: string;
+          engineCount: number;
+          engineNames: readonly string[];
+        }
+      | undefined;
+    if (rendererCode && rendererCode !== "0x" && failedChecks.length === 0) {
+      try {
+        const [implementationSchema, name, rawEngineCount] = await Promise.all([
+          client.readContract({
+            address: deployment.rendererAddress,
+            abi: onchainMetadataRendererAbi,
+            functionName: "rendererSchema",
+            blockNumber: capturedBlock,
+          }),
+          client.readContract({
+            address: deployment.rendererAddress,
+            abi: onchainMetadataRendererAbi,
+            functionName: "rendererName",
+            blockNumber: capturedBlock,
+          }),
+          client.readContract({
+            address: deployment.rendererAddress,
+            abi: onchainMetadataRendererAbi,
+            functionName: "engineCount",
+            blockNumber: capturedBlock,
+          }),
+        ]);
+        const engineCount = Number(rawEngineCount);
+        const engineNames =
+          Number.isSafeInteger(engineCount) &&
+          engineCount > 0 &&
+          engineCount <= maxRendererManifestEngines
+            ? await Promise.all(
+                Array.from({ length: engineCount }, (_, engine) =>
+                  client.readContract({
+                    address: deployment.rendererAddress,
+                    abi: onchainMetadataRendererAbi,
+                    functionName: "engineName",
+                    args: [engine],
+                    blockNumber: capturedBlock,
                   }),
-            ]);
-          return { implementationSchema, reverseVersion, ...manifest };
-        }),
-      );
-      manifestReads.forEach((result, index) => {
-        const record = rendererRecords[index];
-        if (result.status === "rejected") {
-          failedChecks.push(`renderer ${record.version} manifest`);
-          return;
+                ),
+              )
+            : undefined;
+        if (implementationSchema !== rendererSchema) {
+          failedChecks.push("renderer schema");
         }
-        if (result.value.implementationSchema !== rendererSchema) {
-          failedChecks.push(`renderer ${record.version} schema`);
-        }
-        if (result.value.reverseVersion !== record.version) {
-          failedChecks.push(`renderer ${record.version} reverse index`);
-        }
-        if (
-          record.enabled &&
-          (!result.value.name ||
-            result.value.name.trim().length === 0 ||
-            !Number.isSafeInteger(result.value.engineCount) ||
-            (result.value.engineCount ?? 0) < 1)
-        ) {
-          failedChecks.push(`renderer ${record.version} manifest`);
+        if (!name || name.trim().length === 0 || engineNames === undefined) {
+          failedChecks.push("renderer manifest");
         } else {
-          record.name = result.value.name;
-          record.engineCount = result.value.engineCount;
-          record.engineNames = result.value.engineNames;
+          rendererManifest = { name, engineCount, engineNames };
         }
-      });
+      } catch {
+        failedChecks.push("renderer manifest");
+      }
     }
 
-    if (failedChecks.length > 0) {
+    if (rendererManifest === undefined && failedChecks.length === 0) {
+      failedChecks.push("renderer manifest");
+    }
+
+    if (failedChecks.length > 0 || rendererManifest === undefined) {
       return {
         status: "interface-mismatch",
         address: deployment.factoryAddress,
@@ -274,12 +213,11 @@ export async function readProtocolDependencies(
         factory: deployment.factoryAddress,
         paymentToken: deployment.usdgAddress,
         rendererSchema,
-        rendererCount,
-        renderers: rendererRecords,
-        defaultRendererVersion:
-          rendererRecords.filter((record) => record.enabled).length === 1
-            ? rendererRecords.find((record) => record.enabled)?.version
-            : undefined,
+        renderer: deployment.rendererAddress,
+        rendererName: rendererManifest.name,
+        rendererEngineCount: rendererManifest.engineCount,
+        rendererEngineNames: rendererManifest.engineNames,
+        previewHarness: deployment.previewHarnessAddress,
         mediaStoreFactory,
         mediaStoreFactoryRuntimeCodehash,
       },

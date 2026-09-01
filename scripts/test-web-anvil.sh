@@ -103,6 +103,7 @@ anvil_args=(
   --host "$anvil_host"
   --port "$anvil_port"
   --chain-id 31337
+  --block-time 1
   --code-size-limit 98304
   --gas-limit 100000000
 )
@@ -163,6 +164,14 @@ renderer="$({
     --broadcast \
     --json
 } | jq -er '.deployedTo')"
+preview_harness="$({
+  forge create src/RendererPreviewHarness.sol:RendererPreviewHarness \
+    --rpc-url "$rpc_url" \
+    --unlocked \
+    --from "$creator" \
+    --broadcast \
+    --json
+} | jq -er '.deployedTo')"
 factory="$({
   forge create src/MembershipFactory.sol:MembershipFactory \
     --rpc-url "$rpc_url" \
@@ -170,7 +179,7 @@ factory="$({
     --from "$creator" \
     --broadcast \
     --json \
-    --constructor-args "$usdg" "$renderer" "$media_store_factory" "$creator" "$creator"
+    --constructor-args "$usdg" "$media_store_factory" "$creator" "$creator"
 } | jq -er '.deployedTo')"
 
 require_equal \
@@ -182,27 +191,9 @@ require_equal \
   "$media_store_factory" \
   "Factory media store"
 require_equal \
-  "$(cast call "$factory" 'rendererCount()(uint32)' --rpc-url "$rpc_url")" \
-  "1" \
-  "Factory renderer count"
-require_equal \
-  "$(cast call "$factory" 'rendererVersionOf(address)(uint32)' "$renderer" --rpc-url "$rpc_url")" \
-  "1" \
-  "Initial renderer version"
-renderer_record="$(cast call "$factory" 'rendererRecord(uint32)((address,bytes32,bool))' 1 \
-  --rpc-url "$rpc_url" --json)"
-require_equal \
-  "$(printf '%s' "$renderer_record" | jq -er '.[0][0]')" \
-  "$renderer" \
-  "Initial renderer record address"
-require_equal \
-  "$(printf '%s' "$renderer_record" | jq -er '.[0][1]')" \
-  "$(cast codehash "$renderer" --rpc-url "$rpc_url")" \
-  "Initial renderer runtime codehash"
-require_equal \
-  "$(printf '%s' "$renderer_record" | jq -er '.[0][2]')" \
-  "true" \
-  "Initial renderer enabled state"
+  "$(cast call "$renderer" 'rendererSchema()(bytes32)' --rpc-url "$rpc_url")" \
+  "$(cast keccak 'BackedByFans.MembershipRenderer.v1')" \
+  "Canonical renderer schema"
 require_equal \
   "$(cast call "$factory" 'mediaStoreFactoryRuntimeCodehash()(bytes32)' --rpc-url "$rpc_url")" \
   "$(cast codehash "$media_store_factory" --rpc-url "$rpc_url")" \
@@ -230,9 +221,9 @@ tier_salt="0x8b390fcf87bf5ea112fd26e41d77d06f13744880fda7e48fc25bda05af0a56a6"
 tier_metadata="(\"An Anvil-backed creator membership.\",\"\")"
 art_config="(0,0x0123456789abcdef0123456789abcdef,0,64,56,2,52,0,1,0,50,50,36,55,52,48,44)"
 media_config="(1,$media_store,$media_length,$media_digest,$media_runtime_codehash)"
-tier_config="($creator,$tier_salt,1,\"Local Creator Circle\",\"LOCAL\",10000000,2592000,500,100,0,12,$tier_metadata,$art_config,$media_config)"
+tier_config="($creator,$tier_salt,$renderer,\"Local Creator Circle\",\"LOCAL\",10000000,2592000,500,100,0,12,$tier_metadata,$art_config,$media_config)"
 cast send "$factory" \
-  'createTier((address,bytes32,uint32,string,string,uint256,uint64,uint16,uint16,uint64,uint64,(string,string),(uint16,uint128,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8),(uint8,address,uint32,bytes32,bytes32)))' \
+  'createTier((address,bytes32,address,string,string,uint256,uint64,uint16,uint16,uint64,uint64,(string,string),(uint16,uint128,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8),(uint8,address,uint32,bytes32,bytes32)))' \
   "$tier_config" \
   --rpc-url "$rpc_url" \
   --unlocked \
@@ -259,14 +250,6 @@ require_equal \
   "$(cast call "$tier" 'renderer()(address)' --rpc-url "$rpc_url")" \
   "$renderer" \
   "Tier renderer"
-require_equal \
-  "$(cast call "$tier" 'rendererVersion()(uint32)' --rpc-url "$rpc_url")" \
-  "1" \
-  "Tier renderer version"
-require_equal \
-  "$(cast call "$tier" 'rendererRuntimeCodehash()(bytes32)' --rpc-url "$rpc_url")" \
-  "$(cast codehash "$renderer" --rpc-url "$rpc_url")" \
-  "Tier renderer runtime codehash"
 
 if [[ -n "$fork_url" ]]; then
   echo "Exact constructor deployment and $media_length-byte native-media tier verified on the configured Robinhood fork."
@@ -317,6 +300,8 @@ echo "Media-backed active/afterglow tokenURI responses verified (${#active_token
 export NEXT_PUBLIC_ANVIL_RPC_URL="$rpc_url"
 export NEXT_PUBLIC_ANVIL_FACTORY_ADDRESS="$factory"
 export NEXT_PUBLIC_ANVIL_USDG_ADDRESS="$usdg"
+export NEXT_PUBLIC_ANVIL_RENDERER_ADDRESS="$renderer"
+export NEXT_PUBLIC_ANVIL_PREVIEW_HARNESS_ADDRESS="$preview_harness"
 export NEXT_PUBLIC_SITE_URL="$web_url"
 export BBF_ANVIL_RPC_URL="$rpc_url"
 export BBF_ANVIL_CREATOR_ADDRESS="$creator"
@@ -368,6 +353,8 @@ if ! PLAYWRIGHT_BASE_URL="$web_url" bunx playwright test \
   tests/e2e/join-renew-gift.spec.ts \
   tests/e2e/claims-refunds.spec.ts \
   tests/e2e/rpc-recovery.spec.ts \
+  tests/e2e/custom-renderer-address.spec.ts \
+  tests/e2e/renderer-sharing.spec.ts \
   --grep '@anvil' \
   --workers=1; then
   token_id="$(cast call "$tier" 'tokenOf(address)(uint256)' "$member" --rpc-url "$rpc_url")"

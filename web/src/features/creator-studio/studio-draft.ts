@@ -11,18 +11,17 @@ import {
 } from "@/features/creator-studio/art-config";
 import { isNonZeroAddress, isSameAddress } from "@/lib/address";
 
-export const studioDraftVersion = 3;
+export const studioDraftVersion = 4;
 export const studioDraftKind = "backed-by-fans-creative-draft";
 export const maxUnsignedStudioDraftBytes = 16 * 1024;
 export const studioDraftAbiVersion = "onchain-art-image-only-2026-08-30";
 export const studioDraftRendererBoundsVersion =
-  "renderer-registry-native-media-92160-2026-08-30";
+  "direct-renderer-native-media-92160-2026-08-31";
 
 export type StudioDraftScope = {
   chainId: number;
   factory: Address;
   creator: Address;
-  rendererVersion: number;
   renderer: Address;
   mediaRegistry: Address;
   abiVersion: string;
@@ -111,7 +110,6 @@ function validScope(value: unknown): value is StudioDraftScope {
       "chainId",
       "factory",
       "creator",
-      "rendererVersion",
       "renderer",
       "mediaRegistry",
       "abiVersion",
@@ -127,11 +125,8 @@ function validScope(value: unknown): value is StudioDraftScope {
     isAddress(value.factory) &&
     typeof value.creator === "string" &&
     isAddress(value.creator) &&
-    Number.isInteger(value.rendererVersion) &&
-    Number(value.rendererVersion) >= 1 &&
-    Number(value.rendererVersion) <= 0xffff_ffff &&
     typeof value.renderer === "string" &&
-    isAddress(value.renderer) &&
+    isNonZeroAddress(value.renderer) &&
     typeof value.mediaRegistry === "string" &&
     isAddress(value.mediaRegistry) &&
     typeof value.abiVersion === "string" &&
@@ -281,12 +276,6 @@ function scopeMismatch(
       "Reconnect the wallet that owns this draft.",
     );
   }
-  if (stored.rendererVersion !== current.rendererVersion) {
-    return rejected(
-      "renderer-mismatch",
-      "The artwork collection changed. Start a new direction.",
-    );
-  }
   if (!isSameAddress(stored.renderer, current.renderer)) {
     return rejected(
       "renderer-mismatch",
@@ -430,7 +419,7 @@ export function studioDraftStorageKey(scope: StudioDraftScope) {
     scope.chainId,
     scope.factory.toLowerCase(),
     scope.creator.toLowerCase(),
-    scope.rendererVersion,
+    scope.renderer.toLowerCase(),
   ].join(":");
 }
 

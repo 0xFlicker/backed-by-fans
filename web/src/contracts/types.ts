@@ -2,25 +2,16 @@ import type { Address, ContractFunctionReturnType, Hex } from "viem";
 
 import type { membershipTierAbi } from "@/contracts";
 
-export type RendererRegistryEntry = {
-  version: number;
-  implementation: Address;
-  runtimeCodehash: Hex;
-  enabled: boolean;
-  name: string | undefined;
-  engineCount?: number;
-  engineNames?: readonly string[];
-};
-
 export type ProtocolDependencySnapshot = {
   chainId: 4663 | 46630 | 31337;
   factory: Address;
   paymentToken: Address;
   rendererSchema: Hex;
-  rendererCount: number;
-  renderers: readonly RendererRegistryEntry[];
-  /** Present only when exactly one registered renderer is enabled. */
-  defaultRendererVersion: number | undefined;
+  renderer: Address;
+  rendererName: string;
+  rendererEngineCount: number;
+  rendererEngineNames: readonly string[];
+  previewHarness: Address;
   mediaStoreFactory: Address;
   mediaStoreFactoryRuntimeCodehash: Hex;
 };
@@ -60,9 +51,7 @@ export type TierSnapshot = TierSummary & {
   maxPrepaidPeriods: bigint;
   paymentToken: Address;
   factory: Address;
-  rendererVersion: number;
   renderer: Address;
-  rendererRuntimeCodehash: Hex;
   protocolDependencies: ProtocolDependencySnapshot;
 };
 

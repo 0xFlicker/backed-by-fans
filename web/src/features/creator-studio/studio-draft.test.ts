@@ -20,7 +20,6 @@ const scope: StudioDraftScope = {
   chainId: 46_630,
   factory: address("1"),
   creator: address("2"),
-  rendererVersion: 1,
   renderer: address("3"),
   mediaRegistry: address("4"),
   abiVersion: "onchain-art-v1",
@@ -114,7 +113,6 @@ describe("unsigned Creator Studio draft recovery", () => {
     ["chainId", 1, "chain-mismatch"],
     ["factory", address("6"), "factory-mismatch"],
     ["creator", address("6"), "creator-mismatch"],
-    ["rendererVersion", 2, "renderer-mismatch"],
     ["renderer", address("6"), "renderer-mismatch"],
     ["mediaRegistry", address("6"), "media-registry-mismatch"],
     ["abiVersion", "onchain-art-v2", "abi-mismatch"],
@@ -186,7 +184,7 @@ describe("unsigned Creator Studio draft recovery", () => {
 
   it("scopes storage keys to chain, canonical factory, and creator", () => {
     expect(studioDraftStorageKey(scope)).toBe(
-      "backed-by-fans-creative-draft:3:46630:0x1111111111111111111111111111111111111111:0x2222222222222222222222222222222222222222:1",
+      "backed-by-fans-creative-draft:4:46630:0x1111111111111111111111111111111111111111:0x2222222222222222222222222222222222222222:0x3333333333333333333333333333333333333333",
     );
   });
 

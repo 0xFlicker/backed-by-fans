@@ -14,10 +14,10 @@ import {
   membershipTierAbi,
   onchainMediaStoreFactoryAbi,
   membershipFactoryAbi,
+  onchainMetadataRendererAbi,
 } from "@/contracts";
 import type {
   ProtocolDependencySnapshot,
-  RendererRegistryEntry,
   TierArtConfig,
   TierMediaConfig,
 } from "@/contracts/types";
@@ -33,9 +33,7 @@ export type AuthenticityResult =
       capturedBlock: bigint;
       tier: Address;
       tierIdentity: Hex;
-      rendererVersion: number;
       renderer: Address;
-      rendererRuntimeCodehash: Hex;
       art: TierArtConfig;
       media: TierMediaConfig;
       protocolDependencies: ProtocolDependencySnapshot;
@@ -68,9 +66,6 @@ export function tierBindingFailures(input: {
   factory: Address;
   paymentToken: Address;
   tierRenderer?: unknown;
-  tierRendererVersion?: unknown;
-  tierRendererRuntimeCodehash?: unknown;
-  renderers?: readonly RendererRegistryEntry[];
   tierIdentity?: unknown;
   identityTier?: unknown;
   tier?: Address;
@@ -89,35 +84,8 @@ export function tierBindingFailures(input: {
   ) {
     failedChecks.push("tier USDG binding");
   }
-  if (input.renderers !== undefined) {
-    if (
-      typeof input.tierRendererVersion !== "number" ||
-      !Number.isInteger(input.tierRendererVersion) ||
-      input.tierRendererVersion < 1
-    ) {
-      failedChecks.push("tier renderer version");
-    } else {
-      const record = input.renderers.find(
-        ({ version }) => version === input.tierRendererVersion,
-      );
-      if (!record) {
-        failedChecks.push("tier renderer registry pin");
-      } else {
-        if (
-          !isAddress(input.tierRenderer as string) ||
-          !isSameAddress(input.tierRenderer as Address, record.implementation)
-        ) {
-          failedChecks.push("tier renderer binding");
-        }
-        if (
-          !isBytes32(input.tierRendererRuntimeCodehash) ||
-          input.tierRendererRuntimeCodehash.toLowerCase() !==
-            record.runtimeCodehash.toLowerCase()
-        ) {
-          failedChecks.push("tier renderer runtime identity");
-        }
-      }
-    }
+  if (!isAddress(input.tierRenderer as string)) {
+    failedChecks.push("tier renderer binding");
   }
   if (
     input.tier !== undefined &&
@@ -317,8 +285,6 @@ export async function verifyTierAuthenticity(
       "tier factory binding",
       "tier USDG binding",
       "tier renderer binding",
-      "tier renderer version",
-      "tier renderer runtime identity",
       "tier identity",
       "tier art config",
       "tier media config",
@@ -348,18 +314,6 @@ export async function verifyTierAuthenticity(
         address: tier,
         abi: membershipTierAbi,
         functionName: "renderer",
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "rendererVersion",
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "rendererRuntimeCodehash",
         blockNumber: capturedBlock,
       }),
       client.readContract({
@@ -421,12 +375,10 @@ export async function verifyTierAuthenticity(
     const tierFactory = values[1];
     const tierToken = values[2];
     const tierRenderer = values[3];
-    const tierRendererVersion = values[4];
-    const tierRendererRuntimeCodehash = values[5];
-    const tierIdentity = values[6];
-    const art = values[7];
-    const media = values[8];
-    const supportedInterfaces = values.slice(9);
+    const tierIdentity = values[4];
+    const art = values[5];
+    const media = values[6];
+    const supportedInterfaces = values.slice(7);
 
     let identityTier: unknown;
     if (isBytes32(tierIdentity)) {
@@ -445,17 +397,52 @@ export async function verifyTierAuthenticity(
         tierFactory,
         tierToken,
         tierRenderer,
-        tierRendererVersion,
-        tierRendererRuntimeCodehash,
         tierIdentity,
         identityTier,
         supportedInterfaces,
         factory: protocol.data.factory,
         paymentToken: protocol.data.paymentToken,
-        renderers: protocol.data.renderers,
         tier,
       }),
     );
+
+    if (isAddress(tierRenderer as string)) {
+      const rendererAddress = getAddress(tierRenderer as Address);
+      const rendererReads = await Promise.allSettled([
+        client.getBytecode({
+          address: rendererAddress,
+          blockNumber: capturedBlock,
+        }),
+        client.readContract({
+          address: rendererAddress,
+          abi: onchainMetadataRendererAbi,
+          functionName: "rendererSchema",
+          blockNumber: capturedBlock,
+        }),
+      ]);
+      const rateLimited = rendererReads.find(
+        (result) =>
+          result.status === "rejected" &&
+          classifyReadError(result.reason).status === "rate-limited",
+      );
+      if (rateLimited?.status === "rejected") {
+        return classifyReadError(rateLimited.reason);
+      }
+      const rendererCode =
+        rendererReads[0].status === "fulfilled"
+          ? rendererReads[0].value
+          : undefined;
+      const rendererSchema =
+        rendererReads[1].status === "fulfilled"
+          ? rendererReads[1].value
+          : undefined;
+      if (!rendererCode || rendererCode === "0x") {
+        failedChecks.push("tier renderer code");
+      }
+      if (rendererSchema !== protocol.data.rendererSchema) {
+        failedChecks.push("tier renderer schema");
+      }
+    }
     if (!isTierArtConfig(art)) failedChecks.push("tier art config");
     if (!isTierMediaConfig(media)) failedChecks.push("tier media config");
     if (isTierMediaConfig(media)) {
@@ -490,9 +477,7 @@ export async function verifyTierAuthenticity(
       capturedBlock,
       tier,
       tierIdentity,
-      rendererVersion: tierRendererVersion as number,
       renderer: getAddress(tierRenderer as Address),
-      rendererRuntimeCodehash: tierRendererRuntimeCodehash as Hex,
       art,
       media,
       protocolDependencies: protocol.data,

@@ -352,9 +352,7 @@ export async function readTierSnapshotState(
       maxPrepaidPeriods: values[12] as bigint,
       paymentToken: authenticity.protocolDependencies.paymentToken,
       factory: authenticity.protocolDependencies.factory,
-      rendererVersion: authenticity.rendererVersion,
       renderer: authenticity.renderer,
-      rendererRuntimeCodehash: authenticity.rendererRuntimeCodehash,
       protocolDependencies: authenticity.protocolDependencies,
     };
     const latestBlock = await client.getBlockNumber({ cacheTime: 0 });

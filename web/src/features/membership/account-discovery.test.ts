@@ -1,11 +1,7 @@
 import { getAddress, zeroAddress, type PublicClient } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  ProtocolDependencySnapshot,
-  TierArtConfig,
-  TierMediaConfig,
-} from "@/contracts/types";
+import type { TierArtConfig, TierMediaConfig } from "@/contracts/types";
 
 vi.mock("@/lib/direct-read", () => ({
   multicall3Address: "0xca11bde05977b3631167028862be2a173976ca11",
@@ -16,12 +12,8 @@ vi.mock("@/lib/authenticity", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/authenticity")>()),
   verifyTierAuthenticity: vi.fn(),
 }));
-vi.mock("@/features/protocol/protocol-read", () => ({
-  readProtocolDependencies: vi.fn(),
-}));
 
 import { discoverAccountPage } from "@/features/membership/account-discovery";
-import { readProtocolDependencies } from "@/features/protocol/protocol-read";
 import { verifyTierAuthenticity } from "@/lib/authenticity";
 import { readCatalogPage, verifyMulticall3 } from "@/lib/direct-read";
 
@@ -31,26 +23,19 @@ const wallet = getAddress("0x3333333333333333333333333333333333333333");
 const tierA = getAddress("0x4444444444444444444444444444444444444444");
 const tierB = getAddress("0x5555555555555555555555555555555555555555");
 const renderer = getAddress("0x6666666666666666666666666666666666666666");
-const rendererRuntimeCodehash = `0x${"01".repeat(32)}` as const;
-const protocolDependencies: ProtocolDependencySnapshot = {
+const protocolDependencies = {
   chainId: 46630,
   factory,
   paymentToken: token,
   rendererSchema: `0x${"03".repeat(32)}`,
-  rendererCount: 1,
-  renderers: [
-    {
-      version: 1,
-      implementation: renderer,
-      runtimeCodehash: rendererRuntimeCodehash,
-      enabled: true,
-      name: "Founding Six",
-    },
-  ],
-  defaultRendererVersion: 1,
+  renderer,
+  rendererName: "Founding Six",
+  rendererEngineCount: 6,
+  rendererEngineNames: ["One", "Two", "Three", "Four", "Five", "Six"],
+  previewHarness: getAddress("0x8888888888888888888888888888888888888888"),
   mediaStoreFactory: getAddress("0x7777777777777777777777777777777777777777"),
   mediaStoreFactoryRuntimeCodehash: `0x${"02".repeat(32)}`,
-};
+} as const;
 const art: TierArtConfig = {
   engine: 0,
   collectionSeed: 1n,
@@ -83,15 +68,12 @@ const deployment = {
   chainId: 46630 as const,
   factoryAddress: factory,
   usdgAddress: token,
+  rendererAddress: renderer,
+  previewHarnessAddress: protocolDependencies.previewHarness,
 };
 
 describe("bounded account discovery", () => {
   beforeEach(() => {
-    vi.mocked(readProtocolDependencies).mockResolvedValue({
-      status: "valid",
-      capturedBlock: 80n,
-      data: protocolDependencies,
-    });
     vi.mocked(readCatalogPage).mockResolvedValue({
       capturedBlock: 80n,
       total: 20n,
@@ -109,9 +91,7 @@ describe("bounded account discovery", () => {
               capturedBlock: 80n,
               tier: tierA,
               tierIdentity,
-              rendererVersion: 1,
               renderer,
-              rendererRuntimeCodehash,
               art,
               media,
               protocolDependencies,
@@ -210,8 +190,6 @@ describe("bounded account discovery", () => {
         success(factory),
         success(token),
         success(renderer),
-        success(1),
-        success(rendererRuntimeCodehash),
         ...Array.from({ length: 5 }, () => success(true)),
         success("Room"),
         success(1n),
@@ -248,7 +226,7 @@ describe("bounded account discovery", () => {
     expect(verifyTierAuthenticity).not.toHaveBeenCalled();
   });
 
-  it("rejects a batched tier whose renderer pin differs from the factory registry", async () => {
+  it("accepts a batched tier without consulting a renderer registry", async () => {
     vi.mocked(readCatalogPage).mockResolvedValue({
       capturedBlock: 80n,
       total: 1n,
@@ -266,14 +244,13 @@ describe("bounded account discovery", () => {
         success(factory),
         success(token),
         success(renderer),
-        success(1),
-        success(`0x${"ff".repeat(32)}`),
         ...Array.from({ length: 5 }, () => success(true)),
         success("Room"),
         success(1n),
         success(3n),
         success(factory),
-      ]);
+      ])
+      .mockResolvedValueOnce([success(true), success(2n)]);
 
     const page = await discoverAccountPage(
       {
@@ -283,9 +260,9 @@ describe("bounded account discovery", () => {
       { deployment, wallet, offset: 0n },
     );
 
-    expect(page.results).toEqual([]);
-    expect(page.skipped).toEqual([expect.stringContaining("mismatch")]);
-    expect(multicall).toHaveBeenCalledTimes(1);
+    expect(page.results).toHaveLength(1);
+    expect(page.skipped).toEqual([]);
+    expect(multicall).toHaveBeenCalledTimes(2);
   });
 
   it("retains a creator-owned tier even when it has no membership or proceeds", async () => {

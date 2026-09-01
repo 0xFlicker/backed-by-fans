@@ -19,6 +19,8 @@ export type PublicEnvironment = {
   anvilRpcUrl?: string;
   anvilFactoryAddress?: string;
   anvilUsdgAddress?: string;
+  anvilRendererAddress?: string;
+  anvilPreviewHarnessAddress?: string;
 };
 
 export type ReadyDeployment = {
@@ -26,6 +28,8 @@ export type ReadyDeployment = {
   chainId: SupportedChainId;
   factoryAddress: Address;
   usdgAddress: Address;
+  rendererAddress: Address;
+  previewHarnessAddress: Address;
 };
 
 export type DeploymentAvailability =
@@ -111,51 +115,129 @@ function generatedUsdgAddresses(): Partial<Record<SupportedChainId, Address>> {
   return addresses;
 }
 
+function generatedTestnetAddress(
+  exportName: string,
+  contractName: string,
+  addressLabel: string,
+): Partial<Record<number, Address>> {
+  const exports = generatedContracts as Record<string, unknown>;
+  const value = exports[exportName];
+  if (value === undefined) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`The generated ${contractName} deployment map is invalid.`);
+  }
+  const testnetAddress = (value as Record<number, unknown>)[
+    robinhoodTestnet.id
+  ];
+  return testnetAddress === undefined
+    ? {}
+    : {
+        [robinhoodTestnet.id]: parseRequiredAddress(
+          testnetAddress,
+          `Generated ${addressLabel} address for chain ${robinhoodTestnet.id}`,
+        ),
+      };
+}
+
+function generatedRendererAddresses(): Partial<Record<number, Address>> {
+  return generatedTestnetAddress(
+    "onchainMetadataRendererAddress",
+    "OnchainMetadataRenderer",
+    "canonical renderer",
+  );
+}
+
+function generatedPreviewHarnessAddresses(): Partial<Record<number, Address>> {
+  return generatedTestnetAddress(
+    "rendererPreviewHarnessAddress",
+    "RendererPreviewHarness",
+    "preview harness",
+  );
+}
+
 export function buildPublicConfig(
   environment: PublicEnvironment,
   factoryAddresses: Partial<
     Record<number, string>
   > = generatedFactoryAddresses(),
   usdgAddresses: Partial<Record<number, string>> = generatedUsdgAddresses(),
+  rendererAddresses: Partial<
+    Record<number, string>
+  > = generatedRendererAddresses(),
+  previewHarnessAddresses: Partial<
+    Record<number, string>
+  > = generatedPreviewHarnessAddresses(),
 ): PublicConfig {
   const siteUrl = parsePublicUrl(environment.siteUrl, "http://localhost:3000");
   const deployments: Partial<Record<SupportedChainId, ReadyDeployment>> = {};
 
-  for (const chainId of [robinhoodTestnet.id, robinhood.id] as const) {
-    const factoryAddress = factoryAddresses[chainId];
-    const usdgAddress = usdgAddresses[chainId];
-    if (!factoryAddress || !usdgAddress) continue;
-    deployments[chainId] = {
+  const publicFactoryAddress = factoryAddresses[robinhoodTestnet.id];
+  const publicUsdgAddress = usdgAddresses[robinhoodTestnet.id];
+  const publicRendererAddress = rendererAddresses[robinhoodTestnet.id];
+  const publicPreviewHarnessAddress =
+    previewHarnessAddresses[robinhoodTestnet.id];
+  if (
+    publicFactoryAddress &&
+    publicUsdgAddress &&
+    publicRendererAddress &&
+    publicPreviewHarnessAddress
+  ) {
+    deployments[robinhoodTestnet.id] = {
       status: "ready",
-      chainId,
+      chainId: robinhoodTestnet.id,
       factoryAddress: parseRequiredAddress(
-        factoryAddress,
-        `MembershipFactory address for chain ${chainId}`,
+        publicFactoryAddress,
+        `MembershipFactory address for chain ${robinhoodTestnet.id}`,
       ),
       usdgAddress: parseRequiredAddress(
-        usdgAddress,
-        `USDG address for chain ${chainId}`,
+        publicUsdgAddress,
+        `USDG address for chain ${robinhoodTestnet.id}`,
+      ),
+      rendererAddress: parseRequiredAddress(
+        publicRendererAddress,
+        `Canonical renderer address for chain ${robinhoodTestnet.id}`,
+      ),
+      previewHarnessAddress: parseRequiredAddress(
+        publicPreviewHarnessAddress,
+        `Preview harness address for chain ${robinhoodTestnet.id}`,
       ),
     };
   }
 
-  const localValues = [
+  const localDeploymentValues = [
     environment.anvilRpcUrl?.trim(),
     environment.anvilFactoryAddress?.trim(),
     environment.anvilUsdgAddress?.trim(),
   ];
-  const hasAnyLocalValue = localValues.some(Boolean);
-  const hasEveryLocalValue = localValues.every(Boolean);
-  if (hasAnyLocalValue && !hasEveryLocalValue) {
+  const hasAnyLocalDeploymentValue = localDeploymentValues.some(Boolean);
+  const hasEveryLocalDeploymentValue = localDeploymentValues.every(Boolean);
+  if (hasAnyLocalDeploymentValue && !hasEveryLocalDeploymentValue) {
     throw new Error(
       "Anvil configuration requires its RPC URL, factory address, and USDG address together.",
     );
   }
+  const localRendererValues = [
+    environment.anvilRendererAddress?.trim(),
+    environment.anvilPreviewHarnessAddress?.trim(),
+  ];
+  const hasAnyLocalRendererValue = localRendererValues.some(Boolean);
+  const hasEveryLocalRendererValue = localRendererValues.every(Boolean);
+  if (
+    hasAnyLocalRendererValue &&
+    (!hasEveryLocalRendererValue || !hasEveryLocalDeploymentValue)
+  ) {
+    throw new Error(
+      "Anvil renderer evidence requires its renderer and preview harness addresses plus the complete Anvil deployment configuration.",
+    );
+  }
 
   let anvilRpcUrl: string | undefined;
-  if (hasEveryLocalValue) {
+  if (hasEveryLocalDeploymentValue) {
     anvilRpcUrl = parsePublicUrl(environment.anvilRpcUrl, "");
     if (!anvilRpcUrl) throw new Error("The Anvil RPC URL is invalid.");
+  }
+
+  if (hasEveryLocalDeploymentValue && hasEveryLocalRendererValue) {
     deployments[localAnvil.id] = {
       status: "ready",
       chainId: localAnvil.id,
@@ -167,6 +249,14 @@ export function buildPublicConfig(
         environment.anvilUsdgAddress,
         "Anvil USDG address",
       ),
+      rendererAddress: parseRequiredAddress(
+        environment.anvilRendererAddress,
+        "Anvil canonical renderer address",
+      ),
+      previewHarnessAddress: parseRequiredAddress(
+        environment.anvilPreviewHarnessAddress,
+        "Anvil preview harness address",
+      ),
     };
   }
 
@@ -177,9 +267,7 @@ export function buildPublicConfig(
     anvilRpcUrl,
     walletConnectProjectId,
     siteUrl,
-    defaultChainId: deployments[robinhood.id]
-      ? robinhood.id
-      : robinhoodTestnet.id,
+    defaultChainId: robinhoodTestnet.id,
     deployments,
   };
 }
@@ -212,4 +300,7 @@ export const publicConfig = buildPublicConfig({
   anvilRpcUrl: process.env.NEXT_PUBLIC_ANVIL_RPC_URL,
   anvilFactoryAddress: process.env.NEXT_PUBLIC_ANVIL_FACTORY_ADDRESS,
   anvilUsdgAddress: process.env.NEXT_PUBLIC_ANVIL_USDG_ADDRESS,
+  anvilRendererAddress: process.env.NEXT_PUBLIC_ANVIL_RENDERER_ADDRESS,
+  anvilPreviewHarnessAddress:
+    process.env.NEXT_PUBLIC_ANVIL_PREVIEW_HARNESS_ADDRESS,
 });

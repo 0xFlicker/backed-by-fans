@@ -33,23 +33,16 @@ import { MembershipExperience } from "@/features/membership/MembershipExperience
 const factory = getAddress("0x4444444444444444444444444444444444444444");
 const paymentToken = getAddress("0x5555555555555555555555555555555555555555");
 const renderer = getAddress("0x6666666666666666666666666666666666666666");
-const rendererRuntimeCodehash = `0x${"01".repeat(32)}` as const;
 const protocolDependencies: ProtocolDependencySnapshot = {
   chainId: 46630,
   factory,
   paymentToken,
   rendererSchema: `0x${"03".repeat(32)}`,
-  rendererCount: 1,
-  renderers: [
-    {
-      version: 1,
-      implementation: renderer,
-      runtimeCodehash: rendererRuntimeCodehash,
-      enabled: true,
-      name: "Founding Six",
-    },
-  ],
-  defaultRendererVersion: 1,
+  renderer,
+  rendererName: "Founding Six",
+  rendererEngineCount: 1,
+  rendererEngineNames: ["Afterimage"],
+  previewHarness: getAddress("0x8888888888888888888888888888888888888888"),
   mediaStoreFactory: getAddress("0x7777777777777777777777777777777777777777"),
   mediaStoreFactoryRuntimeCodehash: `0x${"02".repeat(32)}`,
 };
@@ -86,9 +79,7 @@ const snapshot: TierSupporterSnapshot = {
   creator: getAddress("0x3333333333333333333333333333333333333333"),
   factory,
   paymentToken,
-  rendererVersion: 1,
   renderer,
-  rendererRuntimeCodehash,
   protocolDependencies,
   tierIdentity,
   art,
@@ -336,6 +327,30 @@ describe("supporter membership experience", () => {
         ([request]) => request.functionName === "tokenURI",
       ),
     ).toBe(false);
+  });
+
+  it("keeps the renderer address available when artwork rendering fails", async () => {
+    const user = userEvent.setup();
+    readContract.mockRejectedValueOnce(new Error("Renderer call failed"));
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined);
+
+    renderExperience(snapshot);
+
+    expect(
+      await screen.findByText("Canonical art is temporarily unavailable."),
+    ).toBeVisible();
+
+    await user.click(screen.getByText("Reuse this artwork"));
+
+    expect(screen.getByText(renderer)).toBeVisible();
+
+    await user.click(
+      screen.getByRole("button", { name: "Copy renderer address" }),
+    );
+
+    expect(writeText).toHaveBeenCalledWith(renderer);
   });
 
   it("keeps referrals implicit and hides claims that are not available", () => {

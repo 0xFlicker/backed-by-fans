@@ -34,11 +34,34 @@ factory, canonical-token, and interface bindings. The browser does not perform
 a redundant runtime-code-hash attestation against the same frontend RPC it is
 already using.
 
+## Custom onchain renderers
+
+- `/renderer` is a public, account-free lab for importing a renderer package,
+  previewing representative membership states through the canonical Robinhood
+  testnet RPC, approving or rejecting what is shown, and preparing a deployment
+  for the creator's connected wallet.
+- A local image may be selected for preview. It stays in page memory and is sent
+  directly to the canonical RPC as call data; the app has no renderer upload,
+  bucket, session database, paid-RPC proxy, or hosted compilation service.
+- Agents may optionally hand a package to the page through a short-lived
+  loopback helper on `127.0.0.1`. If browser policy blocks loopback, the same
+  package can be saved locally and selected in the page. Neither path needs
+  SIWE, OAuth, an account, a private key export, or a backend token.
+- A deployed renderer is reused by pasting its contract address on the same
+  chain. Membership details expose that address for direct copying; there is no
+  user-renderer registry or catalog.
+
+Renderer deployment is a normal creator-wallet action in the browser. It is
+separate from replacing the immutable protocol contracts. A Robinhood testnet
+protocol replacement must stop for explicit operator approval, then let the
+operator enter the deployment password directly into Cast's interactive prompt
+before bindings are regenerated with `bun run generate`.
+
 ## Direct creator and protocol operations
 
 - `/create` guides a creator through metadata, immutable economics, mutable
-  limits, material risks, acknowledgements, factory deployment, registry
-  reconciliation, and the share-success state.
+  limits, material risks, acknowledgements, factory deployment, direct renderer
+  selection, post-deployment reconciliation, and the share-success state.
 - `/chains/[chainId]/tiers/[tierAddress]/manage` verifies factory registration and expected
   interfaces before exposing tier-owner pause, limits, grants, revocation,
   refund, withdrawal, metadata, and two-step ownership controls.
