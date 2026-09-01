@@ -10,8 +10,16 @@ import {
 } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createDefaultArtConfig } from "@/features/creator-studio/art-config";
+import {
+  persistUnsignedStudioDraft,
+  studioDraftAbiVersion,
+  studioDraftRendererBoundsVersion,
+} from "@/features/creator-studio/studio-draft";
+
 let walletAddress: Address | undefined;
 let walletChainId = 46_630;
+let failDraftRecovery = false;
 const readProtocolDependencies = vi.hoisted(() => vi.fn());
 const simulateContract = vi.hoisted(() => vi.fn());
 const writeContractAsync = vi.hoisted(() => vi.fn());
@@ -131,6 +139,7 @@ describe("creator setup component", () => {
   beforeEach(() => {
     walletAddress = undefined;
     walletChainId = 46_630;
+    failDraftRecovery = false;
     window.localStorage.clear();
     activeClient.getBalance.mockResolvedValue(1n);
     activeClient.estimateContractGas.mockResolvedValue(1n);
@@ -157,8 +166,11 @@ describe("creator setup component", () => {
       dispose: vi.fn(),
     });
     activeClient.readContract.mockImplementation(
-      ({ functionName }: { functionName: string }) =>
-        Promise.resolve(
+      ({ functionName }: { functionName: string }) => {
+        if (failDraftRecovery && functionName === "predictTierIdentity") {
+          return Promise.reject(new Error("RPC unavailable"));
+        }
+        return Promise.resolve(
           functionName === "tierForIdentity"
             ? zeroAddress
             : functionName === "previewTokenURI"
@@ -174,7 +186,8 @@ describe("creator setup component", () => {
                       : functionName === "engineName"
                         ? "STACK"
                         : rendererRead(functionName),
-        ),
+        );
+      },
     );
     readProtocolDependencies.mockResolvedValue({
       status: "valid",
@@ -287,6 +300,61 @@ describe("creator setup component", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "No renderer contract exists",
     );
+  });
+
+  it("keeps the selected renderer usable when saved-draft recovery loses RPC access", async () => {
+    const user = userEvent.setup();
+    const creator = getAddress("0x1111111111111111111111111111111111111111");
+    const customRenderer = getAddress(
+      "0x8888888888888888888888888888888888888888",
+    );
+    walletAddress = creator;
+    const savedDraftKey = persistUnsignedStudioDraft(window.localStorage, {
+      scope: {
+        chainId: 46_630,
+        factory: getAddress("0x1111111111111111111111111111111111111111"),
+        creator,
+        renderer: customRenderer,
+        mediaRegistry: getAddress("0x4444444444444444444444444444444444444444"),
+        abiVersion: studioDraftAbiVersion,
+        rendererBoundsVersion: studioDraftRendererBoundsVersion,
+      },
+      tierSalt: `0x${"12".repeat(32)}`,
+      art: createDefaultArtConfig("stack", 12n),
+      media: { mode: "none" },
+    });
+    const savedDraft = window.localStorage.getItem(savedDraftKey);
+    renderWizard();
+
+    await user.click(screen.getByRole("button", { name: /^art studio$/i }));
+    await expectOriginalRenderer();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /surprise me/i }),
+      ).toBeEnabled(),
+    );
+    await user.click(screen.getByRole("radio", { name: /Custom/i }));
+    failDraftRecovery = true;
+    await user.type(
+      screen.getByLabelText("Renderer contract address"),
+      customRenderer,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: /Custom/i })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      ),
+    );
+    expect(
+      await screen.findByText(/Continuing without autosave for this renderer/i),
+    ).toBeVisible();
+    expect(screen.getByRole("radio", { name: /STACK/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /surprise me/i })).toBeEnabled();
+    expect(
+      screen.queryByRole("heading", { name: /Saved draft needs attention/i }),
+    ).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(savedDraftKey)).toBe(savedDraft);
   });
 
   it("preserves completed input through wallet and network rerenders", async () => {

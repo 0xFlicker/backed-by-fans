@@ -137,6 +137,18 @@ const publicationConfirmations = 3;
 const previewOnlyCreator =
   "0x0000000000000000000000000000000000000bbf" as Address;
 
+class DraftValidationUnavailableError extends Error {
+  constructor(cause: unknown) {
+    super(
+      cause instanceof Error
+        ? cause.message
+        : "The canonical chain is unavailable.",
+      { cause },
+    );
+    this.name = "DraftValidationUnavailableError";
+  }
+}
+
 function freshBytes(length: number) {
   const bytes = new Uint8Array(length);
   globalThis.crypto.getRandomValues(bytes);
@@ -736,27 +748,35 @@ export function CreateTierWizard() {
           draftScope!,
           {
             validateTierSalt: async (storedTierSalt) => {
-              const identity = await client!.readContract({
-                address: dependencies.factory,
-                abi: membershipFactoryAbi,
-                functionName: "predictTierIdentity",
-                args: [creator, storedTierSalt],
-              });
-              const existingTier = await client!.readContract({
-                address: dependencies.factory,
-                abi: membershipFactoryAbi,
-                functionName: "tierForIdentity",
-                args: [identity],
-              });
-              return isSameAddress(existingTier, zeroAddress);
+              try {
+                const identity = await client!.readContract({
+                  address: dependencies.factory,
+                  abi: membershipFactoryAbi,
+                  functionName: "predictTierIdentity",
+                  args: [creator, storedTierSalt],
+                });
+                const existingTier = await client!.readContract({
+                  address: dependencies.factory,
+                  abi: membershipFactoryAbi,
+                  functionName: "tierForIdentity",
+                  args: [identity],
+                });
+                return isSameAddress(existingTier, zeroAddress);
+              } catch (cause) {
+                throw new DraftValidationUnavailableError(cause);
+              }
             },
             validateConfirmedStore: async (store) => {
-              recoveredNative = await readConfirmedOnchainMedia(client!, {
-                protocolDependencies: dependencies,
-                creator,
-                store,
-              });
-              return Boolean(recoveredNative);
+              try {
+                recoveredNative = await readConfirmedOnchainMedia(client!, {
+                  protocolDependencies: dependencies,
+                  creator,
+                  store,
+                });
+                return Boolean(recoveredNative);
+              } catch (cause) {
+                throw new DraftValidationUnavailableError(cause);
+              }
             },
           },
         );
@@ -825,6 +845,14 @@ export function CreateTierWizard() {
         }
       } catch (error) {
         if (cancelled) return;
+        if (error instanceof DraftValidationUnavailableError) {
+          const message = `Saved draft could not be checked: ${error.message} Continuing without autosave for this renderer.`;
+          setDraftNotice(message);
+          setDraftAutosaveBypassKey(recoveryKey);
+          setDraftReadyKey(recoveryKey);
+          setDraftRecoveryBlock(undefined);
+          return;
+        }
         const message = `Saved draft could not be loaded: ${error instanceof Error ? error.message : "browser storage could not be read."}`;
         setDraftNotice(message);
         setDraftRecoveryBlock({ key: recoveryKey, message, reason: "storage" });
