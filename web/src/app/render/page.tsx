@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 import { RendererLab } from "@/features/renderer-lab/RendererLab";
 
-export default function RendererPage() {
+export default function RenderPage() {
   useEffect(() => {
     document.body.dataset.rendererLab = "active";
     return () => {

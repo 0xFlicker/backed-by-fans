@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent, type DragEvent } from "react";
-import { hexToBytes, type Address } from "viem";
+import { type Address } from "viem";
 
 import {
   globalControlDefinitions,
@@ -20,6 +20,7 @@ import {
   type OutputDimension,
   type SupportedImageMIME,
 } from "@/features/creator-studio/image-processing";
+import { creatorMediaDataUrl } from "@/features/creator-studio/media-preview";
 import type { StudioMediaDraft } from "@/features/creator-studio/studio-draft";
 import type { SurpriseLock } from "@/features/creator-studio/surprise";
 import { useWideStudioDisclosure } from "@/features/creator-studio/use-wide-studio-disclosure";
@@ -90,26 +91,7 @@ function StoredMediaImage({
   record: CreatorMediaRecord;
   alt: string;
 }) {
-  const source = useMemo(() => {
-    const bytes = Uint8Array.from(hexToBytes(record.payload));
-    const alphabet =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let base64 = "";
-    for (let index = 0; index < bytes.length; index += 3) {
-      const first = bytes[index] ?? 0;
-      const second = bytes[index + 1] ?? 0;
-      const third = bytes[index + 2] ?? 0;
-      base64 += alphabet.charAt(first >> 2);
-      base64 += alphabet.charAt(((first & 3) << 4) | (second >> 4));
-      base64 +=
-        index + 1 < bytes.length
-          ? alphabet.charAt(((second & 15) << 2) | (third >> 6))
-          : "=";
-      base64 += index + 2 < bytes.length ? alphabet.charAt(third & 63) : "=";
-    }
-    const mime = record.mime === 2 ? "image/png" : "image/jpeg";
-    return `data:${mime};base64,${base64}`;
-  }, [record.mime, record.payload]);
+  const source = useMemo(() => creatorMediaDataUrl(record), [record]);
 
   return (
     // eslint-disable-next-line @next/next/no-img-element

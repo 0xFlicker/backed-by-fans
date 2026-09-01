@@ -2,6 +2,7 @@ import {
   decodeFunctionData,
   encodeFunctionResult,
   getAddress,
+  keccak256,
   toHex,
   type PublicClient,
 } from "viem";
@@ -46,6 +47,13 @@ describe("renderer lab image preview", () => {
       expect(decoded.functionName).toBe("previewSVG");
       const decodedContext = decoded.args?.[0] as typeof context | undefined;
       expect(decodedContext?.nativeMedia).toBe(nativeMedia);
+      expect(decodedContext?.token.media).toEqual({
+        mime: 1,
+        store: "0x0000000000000000000000000000000000000000",
+        length: 90 * 1024,
+        digest: keccak256(nativeMedia),
+        runtimeCodehash: `0x${"00".repeat(32)}`,
+      });
       return {
         data: encodeFunctionResult({
           abi: onchainMetadataRendererAbi,
@@ -61,7 +69,7 @@ describe("renderer lab image preview", () => {
         previewHarness: harness,
         renderer,
         creationBytecode: "0x6000",
-        nativeMedia,
+        nativeMedia: { bytes: nativeMedia, mime: 1 },
         request: {
           requestId: "with-image",
           mode: "deployed-address",

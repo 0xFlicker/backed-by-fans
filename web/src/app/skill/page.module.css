@@ -1,0 +1,242 @@
+.page {
+  margin: 0 auto;
+  max-width: var(--page-width);
+  padding: 0 var(--page-gutter) clamp(6rem, 10vw, 10rem);
+}
+
+.hero {
+  align-items: center;
+  display: grid;
+  gap: clamp(3rem, 7vw, 7rem);
+  grid-template-columns: minmax(0, 0.82fr) minmax(28rem, 1.18fr);
+  min-height: min(48rem, calc(100dvh - 5.5rem));
+  padding: clamp(3rem, 7vw, 6rem) 0;
+}
+
+.heroCopy {
+  max-width: 39rem;
+}
+
+.heroCopy h1 {
+  font-size: clamp(4.2rem, 7.2vw, 7.3rem);
+  letter-spacing: -0.06em;
+  line-height: 0.88;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.lede {
+  color: var(--backstage);
+  font-size: clamp(1rem, 1.4vw, 1.18rem);
+  line-height: 1.65;
+  margin: 1.7rem 0 2rem;
+  max-width: 33rem;
+}
+
+.promptWrap {
+  min-width: 0;
+  padding: 0 0.8rem 0.8rem 0;
+}
+
+.artSection {
+  align-items: center;
+  border-top: 2px solid var(--backstage);
+  display: grid;
+  gap: clamp(2.5rem, 7vw, 7rem);
+  grid-template-columns: minmax(17rem, 0.62fr) minmax(0, 1.38fr);
+  padding: clamp(5rem, 10vw, 9rem) 0;
+}
+
+.artCopy {
+  align-self: start;
+  max-width: 31rem;
+  padding-top: clamp(1rem, 4vw, 4rem);
+}
+
+.artCopy h2,
+.workflow h2,
+.resources h2 {
+  font-size: clamp(3rem, 5.7vw, 6rem);
+  letter-spacing: -0.052em;
+  line-height: 0.92;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.artCopy p,
+.resources > div:first-child > p {
+  color: var(--muted-ink);
+  line-height: 1.65;
+  margin: 1.25rem 0 0;
+  max-width: 30rem;
+}
+
+.artWindow {
+  aspect-ratio: 16 / 11;
+  background: var(--backstage);
+  box-shadow: 1rem 1rem 0 var(--applause);
+  overflow: hidden;
+}
+
+.artImage {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+}
+
+.artWindow:hover .artImage {
+  transform: scale(1.025);
+}
+
+.workflow {
+  border-top: 1px solid var(--line);
+  padding: clamp(5rem, 10vw, 9rem) 0;
+}
+
+.workflow > h2 {
+  max-width: 54rem;
+}
+
+.workflowList {
+  display: grid;
+  margin-left: clamp(0rem, 16vw, 15rem);
+  margin-top: clamp(3rem, 6vw, 5rem);
+}
+
+.workflowList article {
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(12rem, 0.6fr) minmax(0, 1.4fr);
+  padding: 1.5rem 0;
+}
+
+.workflowList h3 {
+  font-size: clamp(1.2rem, 2vw, 1.65rem);
+  letter-spacing: -0.035em;
+  margin: 0;
+}
+
+.workflowList p {
+  color: var(--muted-ink);
+  line-height: 1.65;
+  margin: 0;
+  max-width: 41rem;
+}
+
+.resources {
+  align-items: start;
+  border-top: 2px solid var(--backstage);
+  display: grid;
+  gap: clamp(3rem, 8vw, 8rem);
+  grid-template-columns: minmax(18rem, 0.8fr) minmax(0, 1.2fr);
+  padding: clamp(5rem, 10vw, 9rem) 0 0;
+}
+
+.resources :global(.text-link) {
+  display: inline-flex;
+  margin-top: 1rem;
+}
+
+.resourceLinks {
+  display: grid;
+}
+
+.resourceLinks a {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.25rem 0;
+  text-decoration: none;
+  transition:
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.resourceLinks a:first-child {
+  border-top: 1px solid var(--line);
+}
+
+.resourceLinks a:hover {
+  color: var(--fan-blue);
+  transform: translateX(0.4rem);
+}
+
+.resourceLinks strong {
+  font-size: 1rem;
+}
+
+.resourceLinks span {
+  color: var(--muted-ink);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 960px) {
+  .hero,
+  .artSection,
+  .resources {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    min-height: auto;
+  }
+
+  .heroCopy {
+    max-width: 48rem;
+  }
+
+  .artCopy {
+    padding-top: 0;
+  }
+
+  .workflowList {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding-bottom: 5rem;
+    padding-top: 4rem;
+  }
+
+  .heroCopy h1 {
+    font-size: clamp(3.7rem, 17vw, 5.2rem);
+  }
+
+  .heroCopy :global(.button) {
+    width: 100%;
+  }
+
+  .promptWrap {
+    padding-right: 0.45rem;
+  }
+
+  .artWindow {
+    aspect-ratio: 4 / 5;
+    box-shadow: 0.6rem 0.6rem 0 var(--applause);
+  }
+
+  .workflowList article {
+    gap: 0.65rem;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artImage,
+  .resourceLinks a {
+    transition: none;
+  }
+
+  .artWindow:hover .artImage,
+  .resourceLinks a:hover {
+    transform: none;
+  }
+}

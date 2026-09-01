@@ -49,6 +49,9 @@ vi.mock("@/features/renderer-lab/preview", () => ({
 
 vi.mock("@/features/creator-studio/image-processing", () => ({
   defaultJpegQuality: 0.84,
+  defaultOutputDimension: 512,
+  jpegQualityBounds: { min: 0.55, max: 0.95, step: 0.01 },
+  outputDimensions: [256, 384, 512],
   processImageSource: processImageMock,
 }));
 
@@ -330,6 +333,10 @@ describe("public renderer lab", () => {
     const preparedBytes = new Uint8Array([0xff, 0xd8, 0xff, 0x01]);
     const dispose = vi.fn();
     processImageMock.mockResolvedValue({
+      byteLength: preparedBytes.byteLength,
+      dimension: 512,
+      mime: "image/jpeg",
+      objectURL: "blob:prepared-image",
       rendererCallBytes: preparedBytes,
       dispose,
     });
@@ -343,8 +350,11 @@ describe("public renderer lab", () => {
     await user.upload(screen.getByLabelText("Choose JPEG or PNG"), source);
 
     await waitFor(() => expect(processImageMock).toHaveBeenCalledOnce());
-    expect(dispose).toHaveBeenCalledOnce();
     expect(screen.getByText("portrait.jpg")).toBeVisible();
+    expect(screen.getByAltText("Selected source")).toHaveAttribute(
+      "src",
+      "blob:prepared-image",
+    );
 
     await user.click(
       screen.getByRole("button", { name: "Preview 6 examples" }),
@@ -352,14 +362,25 @@ describe("public renderer lab", () => {
     await waitFor(() => expect(previewMock).toHaveBeenCalledTimes(6));
 
     for (const [input] of previewMock.mock.calls) {
-      expect(input.nativeMedia).toBe(
-        input.request.localImageSlot ? "0xffd8ff01" : undefined,
+      expect(input.nativeMedia).toEqual(
+        input.request.localImageSlot
+          ? { bytes: "0xffd8ff01", mime: 1 }
+          : undefined,
       );
     }
   });
 
   it("loads the optional fragment helper into the same browser-memory preview flow", async () => {
     const user = userEvent.setup();
+    const preparedBytes = new Uint8Array([0xff, 0xd8, 0xff, 0x01]);
+    processImageMock.mockResolvedValue({
+      byteLength: preparedBytes.byteLength,
+      dimension: 512,
+      mime: "image/jpeg",
+      objectURL: "blob:helper-image",
+      rendererCallBytes: preparedBytes,
+      dispose: vi.fn(),
+    });
     const value = rendererPackage();
     const helperCandidate = {
       candidateId: "candidate-1",
@@ -389,10 +410,23 @@ describe("public renderer lab", () => {
       })),
     };
     const submitExampleResults = vi.fn().mockResolvedValue({ accepted: true });
+    const helperImage = new File(
+      [new Uint8Array([0xff, 0xd8, 0xff, 0xe0])],
+      "helper-portrait.jpg",
+      { type: "image/jpeg" },
+    );
     const helper = {
-      connect: vi.fn().mockResolvedValue({ sessionId: "session-123" }),
+      connect: vi.fn().mockResolvedValue({
+        sessionId: "session-123",
+        sourceImage: {
+          name: helperImage.name,
+          mime: "image/jpeg",
+          size: helperImage.size,
+        },
+      }),
       getCandidate: vi.fn().mockResolvedValue(helperCandidate),
       getExampleRequests: vi.fn().mockResolvedValue(helperRequests),
+      getSourceImage: vi.fn().mockResolvedValue(helperImage),
       submitExampleResults,
     };
     const helperClientFactory = vi.fn(() => helper);
@@ -401,14 +435,17 @@ describe("public renderer lab", () => {
       capability: "c".repeat(43),
       sessionId: "session-123",
     });
-    window.history.replaceState(null, "", `/renderer#${fragment}`);
+    window.history.replaceState(null, "", `/render#${fragment}`);
     previewMock.mockResolvedValue(svg);
 
     renderLab({ helperClientFactory });
 
-    expect(await screen.findByText("Connected to local helper.")).toBeVisible();
+    expect(
+      await screen.findByText("Connected to local helper with source image."),
+    ).toBeVisible();
     expect(window.location.hash).toBe("");
     expect(screen.getByText("Moonlit Memberships")).toBeVisible();
+    expect(await screen.findByText("helper-portrait.jpg")).toBeVisible();
 
     await user.click(
       screen.getByRole("button", { name: "Preview 6 examples" }),
@@ -419,5 +456,49 @@ describe("public renderer lab", () => {
       /nativeMedia|sourceImage/i,
     );
     expect(screen.queryByTestId("wallet-prompt")).not.toBeInTheDocument();
+  });
+
+  it("offers a connected creator's uploaded images as preview sources", async () => {
+    const user = userEvent.setup();
+    wagmiState.account.address = getAddress(
+      "0x7777777777777777777777777777777777777777",
+    );
+    wagmiState.account.chainId = 46_630;
+    wagmiState.account.isConnected = true;
+    const preparedBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    processImageMock.mockResolvedValue({
+      byteLength: preparedBytes.byteLength,
+      dimension: 384,
+      mime: "image/png",
+      objectURL: "blob:saved-image",
+      rendererCallBytes: preparedBytes,
+      dispose: vi.fn(),
+    });
+    const creatorMediaLoader = vi.fn().mockResolvedValue([
+      {
+        store: getAddress("0x8888888888888888888888888888888888888888"),
+        creator: wagmiState.account.address,
+        mime: 2,
+        length: 8,
+        digest: `0x${"11".repeat(32)}`,
+        runtimeCodehash: `0x${"22".repeat(32)}`,
+        payload: "0x89504e470d0a1a0a",
+      },
+    ]);
+
+    renderLab({ creatorMediaLoader });
+    await user.upload(screen.getByLabelText("Renderer package"), packageFile());
+
+    const saved = await screen.findByRole("button", {
+      name: "Use uploaded image 1",
+    });
+    await user.click(saved);
+
+    await waitFor(() => expect(processImageMock).toHaveBeenCalledOnce());
+    expect(screen.getByText("Saved image 1")).toBeVisible();
+    expect(creatorMediaLoader).toHaveBeenCalledWith(
+      expect.anything(),
+      wagmiState.account.address,
+    );
   });
 });

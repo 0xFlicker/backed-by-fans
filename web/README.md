@@ -36,7 +36,10 @@ already using.
 
 ## Custom onchain renderers
 
-- `/renderer` is a public, account-free lab for importing a renderer package,
+- `/skill` is the public agent handoff. It serves an editable creator prompt,
+  the raw skill and references, a downloadable toolkit, and links to `/render`.
+- `/llms.txt` is the root agent index for the hosted renderer materials.
+- `/render` is a public, account-free lab for importing a renderer package,
   previewing representative membership states through the canonical Robinhood
   testnet RPC, approving or rejecting what is shown, and preparing a deployment
   for the creator's connected wallet.

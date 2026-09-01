@@ -1,11 +1,18 @@
 const highPortMinimum = 49_152;
 const maxResponseBytes = 1_000_000;
+const maxSourceImageBytes = 20 * 1024 * 1024;
 const requestTimeoutMs = 5_000;
 
 export type RendererHelperConnection = {
   origin: string;
   capability: string;
   sessionId: string;
+};
+
+export type RendererHelperSourceImage = {
+  name: string;
+  mime: "image/jpeg" | "image/png";
+  size: number;
 };
 
 export class HelperConnectionError extends Error {
@@ -89,7 +96,7 @@ export class RendererHelperClient {
     private readonly fetcher: typeof fetch = fetch,
   ) {}
 
-  private async request(path: string, init: RequestInit = {}) {
+  private async requestResponse(path: string, init: RequestInit = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
     try {
@@ -111,7 +118,7 @@ export class RendererHelperClient {
             : "The local renderer helper is unavailable. Import the renderer file instead.",
         );
       }
-      return responseJson(response);
+      return response;
     } catch (error) {
       if (error instanceof HelperConnectionError) throw error;
       throw new HelperConnectionError(
@@ -123,11 +130,16 @@ export class RendererHelperClient {
     }
   }
 
+  private async request(path: string, init: RequestInit = {}) {
+    return responseJson(await this.requestResponse(path, init));
+  }
+
   async connect() {
     const session = (await this.request("/v1/session")) as {
       sessionId?: unknown;
       chainId?: unknown;
       expiresAt?: unknown;
+      sourceImage?: unknown;
     };
     if (
       session.sessionId !== this.connection.sessionId ||
@@ -139,7 +151,90 @@ export class RendererHelperClient {
         "The local renderer helper session is invalid or expired. Import the renderer file instead.",
       );
     }
-    return session;
+    let sourceImage: RendererHelperSourceImage | undefined;
+    if (session.sourceImage !== null && session.sourceImage !== undefined) {
+      if (
+        typeof session.sourceImage !== "object" ||
+        Array.isArray(session.sourceImage)
+      ) {
+        throw new HelperConnectionError(
+          "The local renderer helper image metadata is invalid.",
+        );
+      }
+      const raw = session.sourceImage as Record<string, unknown>;
+      if (
+        typeof raw.name !== "string" ||
+        !raw.name ||
+        (raw.mime !== "image/jpeg" && raw.mime !== "image/png") ||
+        typeof raw.size !== "number" ||
+        !Number.isSafeInteger(raw.size) ||
+        raw.size <= 0 ||
+        raw.size > maxSourceImageBytes
+      ) {
+        throw new HelperConnectionError(
+          "The local renderer helper image metadata is invalid.",
+        );
+      }
+      sourceImage = {
+        name: raw.name,
+        mime: raw.mime,
+        size: raw.size,
+      };
+    }
+    return { ...session, sourceImage };
+  }
+
+  async getSourceImage(metadata: RendererHelperSourceImage) {
+    const response = await this.requestResponse("/v1/source-image");
+    const rawDeclaredLength = response.headers.get("content-length");
+    const declaredLength =
+      rawDeclaredLength === null ? undefined : Number(rawDeclaredLength);
+    if (
+      declaredLength !== undefined &&
+      Number.isFinite(declaredLength) &&
+      (declaredLength !== metadata.size || declaredLength > maxSourceImageBytes)
+    ) {
+      throw new HelperConnectionError(
+        "The local renderer helper image size changed.",
+      );
+    }
+    if (response.headers.get("content-type") !== metadata.mime) {
+      throw new HelperConnectionError(
+        "The local renderer helper image type changed.",
+      );
+    }
+    if (!response.body) {
+      throw new HelperConnectionError(
+        "The local renderer helper returned no image.",
+      );
+    }
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxSourceImageBytes || size > metadata.size) {
+        await reader.cancel();
+        throw new HelperConnectionError(
+          "The local renderer helper image is too large.",
+        );
+      }
+      chunks.push(value);
+    }
+    if (size !== metadata.size) {
+      throw new HelperConnectionError(
+        "The local renderer helper image is incomplete.",
+      );
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new File([bytes], metadata.name, { type: metadata.mime });
   }
 
   getCandidate() {

@@ -235,26 +235,177 @@
 }
 
 .imageControl {
-  align-items: center;
   background: rgba(255, 253, 248, 0.72);
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: minmax(0, 1fr) auto;
   margin-top: 1.25rem;
-  padding: 1rem;
+  padding: 1.15rem;
 }
 
-.imageControl p {
+.imageControlHeading {
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 0.8rem;
+}
+
+.imageWorkspace {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(8rem, 0.7fr) minmax(13rem, 1.3fr);
+  padding-top: 1rem;
+}
+
+.imageSourcePreview {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #e8e2d7;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.imageSourcePreview img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.imageSourcePreview span {
+  color: var(--quiet);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+}
+
+.imageSourceTools {
+  align-content: start;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.imageSourceTools > label:first-child {
+  justify-self: start;
+}
+
+.imageControl p,
+.savedImages span {
   color: var(--quiet);
   font-size: 0.78rem;
   line-height: 1.45;
-  margin: 0.25rem 0 0;
 }
 
 .localFile {
   color: var(--fan-blue);
   font-size: 0.75rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.imageSettings {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-top: 0.85rem;
+}
+
+.imageSettings label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.imageSettings label > span {
+  align-items: center;
+  color: var(--quiet);
+  display: flex;
+  font-size: 0.68rem;
+  font-weight: 800;
+  justify-content: space-between;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.imageSettings select {
+  background: var(--paper);
+  border: 1px solid var(--backstage);
+  border-radius: 0;
+  color: var(--backstage);
+  min-height: 2.5rem;
+  padding: 0 0.65rem;
+}
+
+.rangeSetting {
   grid-column: 1 / -1;
+}
+
+.rangeSetting output {
+  color: var(--backstage);
+  font-family: var(--font-geist-mono), monospace;
+}
+
+.rangeSetting input {
+  accent-color: var(--fan-blue);
+  width: 100%;
+}
+
+.imageStatus,
+.imageError {
+  margin: 0;
+  min-height: 1.15rem;
+}
+
+.imageError {
+  color: #962a16 !important;
+}
+
+.savedImages {
+  border-top: 1px solid var(--line);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.savedImages > div:first-child {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
+}
+
+.savedImages p {
+  margin: 0.65rem 0 0;
+}
+
+.savedImages ul {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+}
+
+.savedImages button {
+  aspect-ratio: 1;
+  background: #e8e2d7;
+  border: 1px solid transparent;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+  width: 100%;
+}
+
+.savedImages button:hover,
+.savedImages button:focus-visible {
+  border-color: var(--fan-blue);
+  outline: 0;
+}
+
+.savedImages img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .previewAction {
@@ -544,7 +695,20 @@
   }
 
   .imageControl {
+    padding: 0.9rem;
+  }
+
+  .imageWorkspace,
+  .imageSettings {
     grid-template-columns: 1fr;
+  }
+
+  .rangeSetting {
+    grid-column: auto;
+  }
+
+  .savedImages ul {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .previewAction {

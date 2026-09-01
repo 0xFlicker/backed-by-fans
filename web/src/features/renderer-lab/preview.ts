@@ -1,6 +1,10 @@
 import {
   decodeFunctionResult,
   encodeFunctionData,
+  keccak256,
+  size,
+  zeroAddress,
+  zeroHash,
   type Address,
   type Hex,
   type PublicClient,
@@ -23,14 +27,38 @@ export async function previewRendererRequest(input: {
   renderer: Address;
   creationBytecode: Hex;
   request: RendererPreviewRequest;
-  nativeMedia?: Hex;
+  nativeMedia?: { bytes: Hex; mime: 1 | 2 };
   signal?: AbortSignal;
 }) {
+  const nativeMedia = input.request.localImageSlot
+    ? input.nativeMedia
+    : undefined;
+  const rawToken = input.request.contextWithoutMedia.token;
+  if (
+    nativeMedia &&
+    (rawToken === null ||
+      typeof rawToken !== "object" ||
+      Array.isArray(rawToken))
+  ) {
+    throw new Error("The image preview context has no token media slot.");
+  }
   const context = {
     ...input.request.contextWithoutMedia,
-    nativeMedia: input.request.localImageSlot
-      ? (input.nativeMedia ?? "0x")
-      : "0x",
+    ...(nativeMedia
+      ? {
+          token: {
+            ...(rawToken as Record<string, unknown>),
+            media: {
+              mime: nativeMedia.mime,
+              store: zeroAddress,
+              length: size(nativeMedia.bytes),
+              digest: keccak256(nativeMedia.bytes),
+              runtimeCodehash: zeroHash,
+            },
+          },
+        }
+      : {}),
+    nativeMedia: nativeMedia?.bytes ?? "0x",
   } as never;
   const rendererCallData = encodeFunctionData({
     abi: onchainMetadataRendererAbi,

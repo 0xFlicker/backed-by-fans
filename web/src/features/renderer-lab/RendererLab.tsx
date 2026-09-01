@@ -31,8 +31,18 @@ import {
 import { WalletControl } from "@/components/WalletControl";
 import {
   defaultJpegQuality,
+  defaultOutputDimension,
+  jpegQualityBounds,
+  outputDimensions,
   processImageSource,
+  type OutputDimension,
+  type SupportedImageMIME,
 } from "@/features/creator-studio/image-processing";
+import {
+  creatorMediaBlob,
+  creatorMediaDataUrl,
+  creatorMediaMime,
+} from "@/features/creator-studio/media-preview";
 import {
   approveRendererCandidate,
   isRendererReviewCurrent,
@@ -71,14 +81,29 @@ import {
   type ParsedRendererPackage,
 } from "@/features/renderer-lab/package-import";
 import { previewRendererRequest } from "@/features/renderer-lab/preview";
+import { readProtocolDependencies } from "@/features/protocol/protocol-read";
+import {
+  creatorMediaPageSize,
+  readCreatorMediaPage,
+  type CreatorMediaRecord,
+} from "@/features/protocol/registry-reconciliation";
 import { getDeployment, publicConfig } from "@/lib/config";
 
 import styles from "./RendererLab.module.css";
 
 type RendererHelperPort = Pick<
   RendererHelperClient,
-  "connect" | "getCandidate" | "getExampleRequests" | "submitExampleResults"
+  | "connect"
+  | "getCandidate"
+  | "getExampleRequests"
+  | "getSourceImage"
+  | "submitExampleResults"
 >;
+
+type CreatorMediaLoader = (
+  client: PublicClient,
+  creator: Address,
+) => Promise<readonly CreatorMediaRecord[]>;
 
 export type RendererLabProps = {
   client?: PublicClient;
@@ -86,6 +111,7 @@ export type RendererLabProps = {
   helperClientFactory?: (
     connection: RendererHelperConnection,
   ) => RendererHelperPort;
+  creatorMediaLoader?: CreatorMediaLoader;
 };
 
 type ImportDetails = {
@@ -101,6 +127,29 @@ type HelperBinding = {
 };
 
 type PreviewPhase = "idle" | "running" | "complete";
+type ImagePhase = "idle" | "processing" | "ready" | "error";
+
+type RendererImageSource = {
+  blob: Blob;
+  mime: SupportedImageMIME;
+  name: string;
+};
+
+type RendererImageSettings = {
+  dimension: OutputDimension;
+  focalX: number;
+  focalY: number;
+  jpegQuality: number;
+  mime: SupportedImageMIME;
+};
+
+const defaultRendererImageSettings: RendererImageSettings = {
+  dimension: defaultOutputDimension,
+  focalX: 50,
+  focalY: 50,
+  jpegQuality: defaultJpegQuality,
+  mime: "image/jpeg",
+};
 
 const canonicalPublicClient = createPublicClient({
   chain: robinhoodTestnet,
@@ -117,6 +166,27 @@ const configuredPreviewHarness =
 
 function defaultHelperClientFactory(connection: RendererHelperConnection) {
   return new RendererHelperClient(connection);
+}
+
+async function defaultCreatorMediaLoader(
+  client: PublicClient,
+  creator: Address,
+) {
+  const dependencies = await readProtocolDependencies(
+    client,
+    configuredDeployment,
+  );
+  if (dependencies.status !== "valid") {
+    throw new Error(dependencies.label);
+  }
+  const page = await readCreatorMediaPage(client, {
+    protocolDependencies: dependencies.data,
+    creator,
+    offset: 0n,
+    limit: creatorMediaPageSize,
+  });
+  if (!page) throw new Error("Saved images could not be read from chain.");
+  return page.records;
 }
 
 function byteLength(value: Hex): number {
@@ -409,6 +479,7 @@ export function RendererLab({
   client = canonicalPublicClient,
   previewHarness = configuredPreviewHarness,
   helperClientFactory = defaultHelperClientFactory,
+  creatorMediaLoader = defaultCreatorMediaLoader,
 }: RendererLabProps) {
   const packageInputId = useId();
   const imageInputId = useId();
@@ -423,10 +494,27 @@ export function RendererLab({
     null,
   );
   const [helperStatus, setHelperStatus] = useState<string | null>(null);
+  const [imageSource, setImageSource] = useState<RendererImageSource | null>(
+    null,
+  );
+  const [imageSettings, setImageSettings] = useState<RendererImageSettings>(
+    defaultRendererImageSettings,
+  );
+  const [imagePhase, setImagePhase] = useState<ImagePhase>("idle");
+  const [imageError, setImageError] = useState<string | null>(null);
   const [localImage, setLocalImage] = useState<{
     name: string;
     bytes: Hex;
+    byteLength: number;
+    dimension: OutputDimension;
+    mime: 1 | 2;
+    previewUrl: string;
   } | null>(null);
+  const [savedMedia, setSavedMedia] = useState<{
+    status: "idle" | "loading" | "ready" | "error";
+    records: readonly CreatorMediaRecord[];
+    message?: string;
+  }>({ status: "idle", records: [] });
   const [previewPhase, setPreviewPhase] = useState<PreviewPhase>("idle");
   const [review, setReview] = useState<RendererReviewDecision | null>(null);
   const [deployRequested, setDeployRequested] = useState(false);
@@ -443,6 +531,9 @@ export function RendererLab({
     hash: sendTransaction.data,
     query: { enabled: Boolean(sendTransaction.data) },
   });
+  const results = candidateState.resultSet?.results ?? [];
+  const requests = candidateState.requestSet?.requests ?? [];
+  const hasImageSlots = requests.some((request) => request.localImageSlot);
 
   const resetDecision = () => {
     setReview(null);
@@ -450,6 +541,45 @@ export function RendererLab({
     setPreparedDeployment(null);
     setDeployedAddress(null);
     sendTransaction.reset();
+  };
+
+  const selectImageSource = (
+    blob: Blob,
+    name: string,
+    mime: SupportedImageMIME,
+  ) => {
+    setImageSource({ blob, name, mime });
+    setImageSettings(defaultRendererImageSettings);
+    setLocalImage(null);
+    setImagePhase("processing");
+    setImageError(null);
+    setCandidateState((current) =>
+      current.candidate && current.requestSet
+        ? stateWithCandidateAndRequests(
+            current.candidate,
+            current.requestSet.requests,
+          )
+        : current,
+    );
+    setPreviewPhase("idle");
+    resetDecision();
+  };
+
+  const updateImageSettings = (update: Partial<RendererImageSettings>) => {
+    setImageSettings((current) => ({ ...current, ...update }));
+    setLocalImage(null);
+    setImagePhase("processing");
+    setImageError(null);
+    setCandidateState((current) =>
+      current.candidate && current.requestSet
+        ? stateWithCandidateAndRequests(
+            current.candidate,
+            current.requestSet.requests,
+          )
+        : current,
+    );
+    setPreviewPhase("idle");
+    resetDecision();
   };
 
   useEffect(() => {
@@ -503,13 +633,103 @@ export function RendererLab({
     const nextState = stateWithCandidateAndRequests(candidate, requests);
     setCandidateState(nextState);
     setImportDetails(details);
+    setImageSource(null);
     setLocalImage(null);
+    setImagePhase("idle");
+    setImageError(null);
     setPreviewPhase("idle");
     resetDecision();
     setError(null);
     setMessage(`Ready to preview ${requests.length} examples.`);
     return nextState;
   };
+
+  useEffect(() => {
+    if (!hasImageSlots || !account.isConnected || !account.address) {
+      return;
+    }
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) setSavedMedia({ status: "loading", records: [] });
+    });
+    void creatorMediaLoader(client, account.address)
+      .then((records) => {
+        if (!cancelled) setSavedMedia({ status: "ready", records });
+      })
+      .catch((caught) => {
+        if (cancelled) return;
+        setSavedMedia({
+          status: "error",
+          records: [],
+          message:
+            caught instanceof Error
+              ? caught.message
+              : "Saved images could not be read from chain.",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    account.address,
+    account.isConnected,
+    client,
+    creatorMediaLoader,
+    hasImageSlots,
+  ]);
+
+  useEffect(() => {
+    if (!imageSource) return;
+    let cancelled = false;
+    let prepared: Awaited<ReturnType<typeof processImageSource>> | undefined;
+    const timeout = window.setTimeout(() => {
+      setImagePhase("processing");
+      setImageError(null);
+      void processImageSource(imageSource.blob, {
+        dimension: imageSettings.dimension,
+        focalX: imageSettings.focalX / 100,
+        focalY: imageSettings.focalY / 100,
+        output:
+          imageSettings.mime === "image/jpeg"
+            ? {
+                mime: "image/jpeg",
+                quality: imageSettings.jpegQuality,
+                background: "#120b0a",
+              }
+            : { mime: "image/png", purpose: "flat-art" },
+      })
+        .then((candidate) => {
+          prepared = candidate;
+          if (cancelled) return;
+          setLocalImage({
+            name: imageSource.name,
+            bytes: bytesToHex(candidate.rendererCallBytes),
+            byteLength: candidate.byteLength,
+            dimension: candidate.dimension,
+            mime: candidate.mime === "image/png" ? 2 : 1,
+            previewUrl: candidate.objectURL,
+          });
+          setImagePhase("ready");
+          setMessage("Image ready. Preview the representative examples.");
+        })
+        .catch((caught) => {
+          if (cancelled) return;
+          setLocalImage(null);
+          setImagePhase("error");
+          setImageError(
+            caught instanceof Error
+              ? caught.message
+              : "The browser could not prepare that image.",
+          );
+        });
+    }, 120);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+      prepared?.dispose();
+    };
+  }, [imageSettings, imageSource]);
 
   useEffect(() => {
     let cancelled = false;
@@ -535,7 +755,7 @@ export function RendererLab({
       const helper = helperClientFactory(connection);
       setHelperStatus("Connecting to local helper…");
       try {
-        await helper.connect();
+        const session = await helper.connect();
         const [rawCandidate, rawRequests] = await Promise.all([
           helper.getCandidate(),
           helper.getExampleRequests(),
@@ -560,7 +780,27 @@ export function RendererLab({
           candidateFingerprint: adaptedRequests.candidateFingerprint,
           requestSetFingerprint: adaptedRequests.requestSetFingerprint,
         });
-        setHelperStatus("Connected to local helper.");
+        if (session.sourceImage) {
+          try {
+            const image = await helper.getSourceImage(session.sourceImage);
+            if (cancelled) return;
+            selectImageSource(
+              image,
+              image.name,
+              image.type as SupportedImageMIME,
+            );
+            setHelperStatus("Connected to local helper with source image.");
+          } catch (caught) {
+            if (cancelled) return;
+            setHelperStatus(
+              caught instanceof Error
+                ? `${caught.message} Choose the image manually below.`
+                : "Connected to local helper. Choose the image manually below.",
+            );
+          }
+        } else {
+          setHelperStatus("Connected to local helper.");
+        }
       } catch (caught) {
         if (cancelled) return;
         setHelperBinding(null);
@@ -626,47 +866,24 @@ export function RendererLab({
     }
   };
 
-  const onLocalImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const onLocalImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
     if (!new Set(["image/jpeg", "image/png"]).has(file.type)) {
-      setError("Choose a JPEG or PNG for the browser-held preview image.");
+      setImageError("Choose a JPEG or PNG.");
+      setImagePhase("error");
       return;
     }
-    try {
-      const candidate = await processImageSource(file, {
-        output:
-          file.type === "image/jpeg"
-            ? {
-                mime: "image/jpeg",
-                quality: defaultJpegQuality,
-                background: "#120b0a",
-              }
-            : { mime: "image/png", purpose: "flat-art" },
-      });
-      const bytes = bytesToHex(candidate.rendererCallBytes);
-      candidate.dispose();
-      setLocalImage({ name: file.name, bytes });
-      if (candidateState.candidate && candidateState.requestSet) {
-        setCandidateState(
-          stateWithCandidateAndRequests(
-            candidateState.candidate,
-            candidateState.requestSet.requests,
-          ),
-        );
-      }
-      setPreviewPhase("idle");
-      resetDecision();
-      setMessage("Image ready in this browser. Run the examples again.");
-      setError(null);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "The browser could not prepare that image.",
-      );
-    }
+    selectImageSource(file, file.name, file.type as SupportedImageMIME);
+  };
+
+  const selectSavedImage = (record: CreatorMediaRecord, index: number) => {
+    selectImageSource(
+      creatorMediaBlob(record),
+      `Saved image ${index + 1}`,
+      creatorMediaMime(record),
+    );
   };
 
   const runPreviews = async () => {
@@ -694,9 +911,10 @@ export function RendererLab({
               renderer: candidate.predictedAddress,
               creationBytecode: candidate.creationBytecode,
               request,
-              nativeMedia: request.localImageSlot
-                ? localImage?.bytes
-                : undefined,
+              nativeMedia:
+                request.localImageSlot && localImage
+                  ? { bytes: localImage.bytes, mime: localImage.mime }
+                  : undefined,
             });
             return { requestId: request.requestId, status: "ready", image };
           } catch (caught) {
@@ -819,11 +1037,8 @@ export function RendererLab({
   const approved =
     review?.decision === "approved" &&
     isRendererReviewCurrent(review, candidateState);
-  const results = candidateState.resultSet?.results ?? [];
-  const requests = candidateState.requestSet?.requests ?? [];
   const readyToReview =
     previewPhase === "complete" && results.length === requests.length;
-  const hasImageSlots = requests.some((request) => request.localImageSlot);
 
   return (
     <section className={styles.lab} data-renderer-lab>
@@ -834,8 +1049,7 @@ export function RendererLab({
         </div>
         <p>
           Bring in a renderer package, see how it treats real membership states,
-          and decide if it feels right. Nothing is uploaded or saved by Backed
-          By Fans.
+          and decide if it feels right.
         </p>
       </header>
 
@@ -932,28 +1146,186 @@ export function RendererLab({
 
               {hasImageSlots && (
                 <div className={styles.imageControl}>
-                  <div>
+                  <div className={styles.imageControlHeading}>
                     <strong>Try your own image</strong>
-                    <p>
-                      Optional. It stays in this browser and is used only in
-                      read-only previews.
-                    </p>
                   </div>
-                  <label
-                    className="button button-outline"
-                    htmlFor={imageInputId}
-                  >
-                    {localImage ? "Change image" : "Choose JPEG or PNG"}
-                  </label>
-                  <input
-                    accept="image/jpeg,image/png"
-                    className={styles.hiddenInput}
-                    id={imageInputId}
-                    onChange={onLocalImageChange}
-                    type="file"
-                  />
-                  {localImage && (
-                    <span className={styles.localFile}>{localImage.name}</span>
+
+                  <div className={styles.imageWorkspace}>
+                    <div className={styles.imageSourcePreview}>
+                      {localImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          alt="Selected source"
+                          src={localImage.previewUrl}
+                        />
+                      ) : (
+                        <span aria-hidden="true">IMAGE</span>
+                      )}
+                    </div>
+
+                    <div className={styles.imageSourceTools}>
+                      <label
+                        className="button button-outline"
+                        htmlFor={imageInputId}
+                      >
+                        {imageSource ? "Change image" : "Choose JPEG or PNG"}
+                      </label>
+                      <input
+                        accept="image/jpeg,image/png"
+                        className={styles.hiddenInput}
+                        id={imageInputId}
+                        onChange={onLocalImageChange}
+                        type="file"
+                      />
+
+                      {imageSource && (
+                        <>
+                          <p className={styles.localFile}>{imageSource.name}</p>
+                          <div className={styles.imageSettings}>
+                            <label>
+                              <span>Image size</span>
+                              <select
+                                onChange={(event) =>
+                                  updateImageSettings({
+                                    dimension: Number(
+                                      event.target.value,
+                                    ) as OutputDimension,
+                                  })
+                                }
+                                value={imageSettings.dimension}
+                              >
+                                {outputDimensions.map((dimension) => (
+                                  <option key={dimension} value={dimension}>
+                                    {dimension} × {dimension}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              <span>Output format</span>
+                              <select
+                                onChange={(event) =>
+                                  updateImageSettings({
+                                    mime: event.target
+                                      .value as SupportedImageMIME,
+                                  })
+                                }
+                                value={imageSettings.mime}
+                              >
+                                <option value="image/jpeg">JPEG</option>
+                                <option value="image/png">PNG</option>
+                              </select>
+                            </label>
+                            {imageSettings.mime === "image/jpeg" && (
+                              <label className={styles.rangeSetting}>
+                                <span>
+                                  JPEG quality
+                                  <output>
+                                    {Math.round(
+                                      imageSettings.jpegQuality * 100,
+                                    )}
+                                  </output>
+                                </span>
+                                <input
+                                  max={jpegQualityBounds.max}
+                                  min={jpegQualityBounds.min}
+                                  onChange={(event) =>
+                                    updateImageSettings({
+                                      jpegQuality: Number(event.target.value),
+                                    })
+                                  }
+                                  step={jpegQualityBounds.step}
+                                  type="range"
+                                  value={imageSettings.jpegQuality}
+                                />
+                              </label>
+                            )}
+                            <label className={styles.rangeSetting}>
+                              <span>
+                                Horizontal focus
+                                <output>{imageSettings.focalX}</output>
+                              </span>
+                              <input
+                                max="100"
+                                min="0"
+                                onChange={(event) =>
+                                  updateImageSettings({
+                                    focalX: Number(event.target.value),
+                                  })
+                                }
+                                type="range"
+                                value={imageSettings.focalX}
+                              />
+                            </label>
+                            <label className={styles.rangeSetting}>
+                              <span>
+                                Vertical focus
+                                <output>{imageSettings.focalY}</output>
+                              </span>
+                              <input
+                                max="100"
+                                min="0"
+                                onChange={(event) =>
+                                  updateImageSettings({
+                                    focalY: Number(event.target.value),
+                                  })
+                                }
+                                type="range"
+                                value={imageSettings.focalY}
+                              />
+                            </label>
+                          </div>
+                        </>
+                      )}
+
+                      <p aria-live="polite" className={styles.imageStatus}>
+                        {imagePhase === "processing"
+                          ? "Preparing image…"
+                          : localImage
+                            ? `${localImage.dimension} × ${localImage.dimension} · ${Math.ceil(localImage.byteLength / 1024)} KB`
+                            : ""}
+                      </p>
+                      {imageError && (
+                        <p className={styles.imageError} role="alert">
+                          {imageError}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {account.isConnected && (
+                    <div className={styles.savedImages}>
+                      <div>
+                        <strong>Your uploaded images</strong>
+                        <span>Robinhood testnet</span>
+                      </div>
+                      {savedMedia.status === "loading" && (
+                        <p role="status">Loading images…</p>
+                      )}
+                      {savedMedia.status === "error" && (
+                        <p role="alert">{savedMedia.message}</p>
+                      )}
+                      {savedMedia.status === "ready" &&
+                        savedMedia.records.length === 0 && (
+                          <p>No uploaded images found.</p>
+                        )}
+                      {savedMedia.records.length > 0 && (
+                        <ul>
+                          {savedMedia.records.map((record, index) => (
+                            <li key={record.store}>
+                              <button
+                                aria-label={`Use uploaded image ${index + 1}`}
+                                onClick={() => selectSavedImage(record, index)}
+                                type="button"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img alt="" src={creatorMediaDataUrl(record)} />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -1016,7 +1388,7 @@ export function RendererLab({
                           <small>
                             {request.localImageSlot
                               ? localImage
-                                ? "With your browser-held image"
+                                ? "With selected image"
                                 : "Without a supplied image"
                               : "Generated-only input"}
                           </small>

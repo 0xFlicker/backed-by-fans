@@ -10,6 +10,7 @@
     "generate:check": "bun run generate && git diff --exit-code -- src/contracts.ts",
     "gallery:render": "bun scripts/render-renderer-gallery.ts",
     "renderer:schema:check": "bun scripts/check-renderer-package-schema.ts",
+    "skill:sync": "sh scripts/sync-renderer-skill.sh",
     "start": "next start",
     "format": "prettier --check .",
     "format:write": "prettier --write .",

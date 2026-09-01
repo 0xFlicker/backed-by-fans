@@ -1,0 +1,36 @@
+# Onchain renderer skill
+
+Use this repository to turn an art brief into a Backed By Fans-compatible onchain membership renderer.
+
+Start here
+
+1. Ask what the creator makes and is known for; what theme or world the art should explore and how it should feel; and whether the design should use an image. If yes, ask for the attachment or an accessible local path. Ask the questions together and skip anything already answered.
+2. Run `./scripts/check-dependencies.sh`.
+3. With the user's permission, run `./scripts/bootstrap.sh --install` if required tools are missing.
+4. Run `./scripts/new-renderer.sh <project-directory>`.
+5. Implement the design in the generated Foundry project.
+6. Run `./scripts/test-renderer.sh <project-directory>`.
+7. Show the generated representative gallery to the creator.
+8. If the creator approves, hand the package and requested image to the public renderer preview page. Prefer the creator's regular external browser. In a cloud or VM, export the package and instruct the creator to upload it and their image at `/render` in their own browser.
+9. Return the deployed renderer contract address.
+
+What the checks mean
+
+- Interface and packaging checks are mechanical compatibility checks.
+- A rendered example shows what the contract returned for that input.
+- The creator approves or rejects the design.
+- Never claim that a passing example is a safety audit, proof, certification, permanence guarantee, or artistic approval.
+
+Product boundaries
+
+- Canonical chain: Robinhood testnet, chain ID 46630.
+- Sharing: direct same-chain contract address. No renderer registry or cross-chain lookup.
+- Preview: public renderer preview page, never the membership Creator Studio.
+- Deployment: creator's browser wallet only. Never ask for a private key, mnemonic, keystore, or password.
+- Media: an artistic input that the renderer may transform or ignore; exact-byte preservation is not required.
+
+Detailed references
+
+- `references/interface.md`
+- `references/local-testing.md`
+- `references/deployment.md`

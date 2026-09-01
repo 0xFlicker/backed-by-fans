@@ -21,7 +21,7 @@ describe("local renderer helper client", () => {
       parseRendererHelperFragment(
         {
           hash: fragment(),
-          pathname: "/renderer",
+          pathname: "/render",
           search: "?mode=preview",
         },
         { replaceState },
@@ -31,11 +31,7 @@ describe("local renderer helper client", () => {
       capability,
       sessionId,
     });
-    expect(replaceState).toHaveBeenCalledWith(
-      null,
-      "",
-      "/renderer?mode=preview",
-    );
+    expect(replaceState).toHaveBeenCalledWith(null, "", "/render?mode=preview");
   });
 
   it.each([
@@ -50,11 +46,11 @@ describe("local renderer helper client", () => {
 
     expect(() =>
       parseRendererHelperFragment(
-        { hash: fragment(helper), pathname: "/renderer", search: "" },
+        { hash: fragment(helper), pathname: "/render", search: "" },
         { replaceState },
       ),
     ).toThrow(/loopback helper/i);
-    expect(replaceState).toHaveBeenCalledWith(null, "", "/renderer");
+    expect(replaceState).toHaveBeenCalledWith(null, "", "/render");
   });
 
   it("loads session and candidate with the fragment-held bearer capability", async () => {
@@ -98,6 +94,47 @@ describe("local renderer helper client", () => {
         }),
       }),
     );
+  });
+
+  it("loads the optional source image as a browser File", async () => {
+    const bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2]);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            sessionId,
+            chainId: 46_630,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            sourceImage: {
+              name: "creator.jpg",
+              mime: "image/jpeg",
+              size: bytes.byteLength,
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(bytes, {
+          status: 200,
+          headers: {
+            "content-length": String(bytes.byteLength),
+            "content-type": "image/jpeg",
+          },
+        }),
+      );
+    const client = new RendererHelperClient(
+      { origin: "http://127.0.0.1:54321", capability, sessionId },
+      fetcher,
+    );
+
+    const session = await client.connect();
+    const image = await client.getSourceImage(session.sourceImage!);
+
+    expect(image.name).toBe("creator.jpg");
+    expect(image.type).toBe("image/jpeg");
+    expect(new Uint8Array(await image.arrayBuffer())).toEqual(bytes);
   });
 
   it("turns CORS, local-network denial, and expiry into an explicit file-import fallback", async () => {

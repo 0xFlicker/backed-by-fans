@@ -1,0 +1,86 @@
+.prompt {
+  background: var(--paper);
+  border: 2px solid var(--backstage);
+  box-shadow: 0.8rem 0.8rem 0 var(--applause);
+  padding: clamp(1.35rem, 3vw, 2.25rem);
+}
+
+.heading {
+  align-items: end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1.6rem;
+}
+
+.heading h2 {
+  font-size: clamp(1.65rem, 3vw, 2.5rem);
+  letter-spacing: -0.045em;
+  line-height: 1;
+  margin: 0;
+}
+
+.heading p {
+  color: var(--muted-ink);
+  font-size: 0.84rem;
+  margin: 0;
+  text-align: right;
+}
+
+.label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 760;
+  margin-bottom: 0.55rem;
+}
+
+.prompt textarea {
+  background: var(--house-light);
+  border: 1px solid var(--backstage);
+  border-radius: var(--radius-small);
+  color: var(--backstage);
+  font:
+    0.88rem/1.65 var(--font-geist-mono),
+    monospace;
+  min-height: 12rem;
+  padding: 1rem;
+  resize: vertical;
+  width: 100%;
+}
+
+.hint {
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  margin: 0.7rem 0 0;
+}
+
+.actionRow {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.copyStatus {
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .heading,
+  .actionRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .heading p {
+    text-align: left;
+  }
+
+  .actionRow :global(.button) {
+    width: 100%;
+  }
+}

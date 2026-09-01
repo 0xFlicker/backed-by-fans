@@ -23,6 +23,9 @@ export default function CreatePage() {
         <Link className="text-button" href="/account">
           Manage memberships
         </Link>
+        <Link className="text-button" href="/skill">
+          Make custom onchain artwork
+        </Link>
       </div>
       <CreateTierWizard />
     </section>

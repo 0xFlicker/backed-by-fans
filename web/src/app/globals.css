@@ -50,10 +50,11 @@ body {
 body::before {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.08'/%3E%3C/svg%3E");
   content: "";
-  inset: 0;
+  inset: 0 auto 0 0;
   opacity: 0.16;
   pointer-events: none;
   position: fixed;
+  width: 100vw;
   z-index: 10;
 }
 
@@ -2298,7 +2299,9 @@ dd {
   }
 
   .primary-nav {
+    display: grid;
     gap: 0.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-row: 3;
   }
 

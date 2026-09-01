@@ -61,6 +61,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/memberships">Explore</Link>
               <Link href="/account">My account</Link>
               <Link href="/create">For creators</Link>
+              <Link href="/skill">Make art</Link>
             </nav>
             <WalletControl />
           </header>

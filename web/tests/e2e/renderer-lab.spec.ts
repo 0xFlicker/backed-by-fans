@@ -188,7 +188,7 @@ test("imports, previews, approves, and invalidates browser-held renderer work", 
   page,
 }) => {
   await installPreviewRpc(page);
-  await page.goto("/renderer");
+  await page.goto("/render");
   await importPackage(page);
 
   await expect(page.getByText("Ready to preview 6 examples.")).toBeVisible();
@@ -310,12 +310,12 @@ test("uses the optional loopback handoff without an account or source-image tran
     sessionId,
   });
 
-  await page.goto(`/renderer#${fragment}`);
+  await page.goto(`/render#${fragment}`);
   await expect(
     page.getByText("Connected to local helper.", { exact: true }),
   ).toBeVisible();
   await installPreviewRpc(page);
-  await expect(page).toHaveURL(/\/renderer$/);
+  await expect(page).toHaveURL(/\/render$/);
   await expect(page.getByText("Moonlit Memberships")).toBeVisible();
   await page.getByRole("button", { name: "Preview 6 examples" }).click();
   await expect(
@@ -332,8 +332,8 @@ test("falls back to manual import when loopback is unavailable", async ({
     capability: "c".repeat(43),
     sessionId: "unavailable-helper",
   });
-  await page.goto(`/renderer#${fragment}`);
-  await expect(page).toHaveURL(/\/renderer$/);
+  await page.goto(`/render#${fragment}`);
+  await expect(page).toHaveURL(/\/render$/);
   await expect(page.getByRole("status")).toContainText(
     /local renderer helper/i,
   );
