@@ -120,9 +120,7 @@ describe("CreatorStudio", () => {
     expect(screen.getByRole("radio", { name: /CUSTOM/i })).toBeVisible();
     expect(screen.getByText(/one style, three memberships/i)).toBeVisible();
     expect(screen.queryByText(/Arweave|IPFS|HTTPS reference/i)).toBeNull();
-    expect(
-      screen.getByRole("radio", { name: /Add your image/i }),
-    ).not.toBeVisible();
+    expect(screen.queryByRole("radio", { name: /Add your image/i })).toBeNull();
   });
 
   it("puts the connected creator's renderers before the six defaults and Custom", async () => {
@@ -156,12 +154,12 @@ describe("CreatorStudio", () => {
     expect(artwork?.parentElement).toBe(image?.parentElement);
   });
 
-  it("switches engines without losing media and provides a one-step undo", async () => {
+  it("keeps the image tray available while switching styles and undoing", async () => {
     const user = userEvent.setup();
     render(<StudioHarness />);
 
     await user.click(screen.getByText("Add an image").closest("summary")!);
-    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
+    expect(screen.getByRole("heading", { name: "Images" })).toBeVisible();
     const stack = screen.getByRole("radio", { name: /STACK/i });
     stack.focus();
     await user.keyboard("{ArrowDown}");
@@ -170,9 +168,7 @@ describe("CreatorStudio", () => {
       "aria-checked",
       "true",
     );
-    expect(
-      screen.getByRole("radio", { name: /Add your image/i }),
-    ).toBeChecked();
+    expect(screen.getByLabelText("Add new image")).toBeVisible();
 
     await user.click(
       screen.getByRole("button", { name: /Undo style change/i }),
@@ -181,9 +177,7 @@ describe("CreatorStudio", () => {
       "aria-checked",
       "true",
     );
-    expect(
-      screen.getByRole("radio", { name: /Add your image/i }),
-    ).toBeChecked();
+    expect(screen.getByLabelText("Add new image")).toBeVisible();
   });
 
   it("keeps Custom inside the canonical style list", async () => {

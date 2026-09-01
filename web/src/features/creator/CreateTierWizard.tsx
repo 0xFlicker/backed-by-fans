@@ -549,11 +549,7 @@ export function CreateTierWizard() {
       mediaLibraryPage,
     ],
     enabled: Boolean(
-      client &&
-      protocol.data &&
-      account.address &&
-      media.mode === "native" &&
-      draftScopeReady,
+      client && protocol.data && account.address && draftScopeReady,
     ),
     retry: false,
     queryFn: async () => {
@@ -569,7 +565,7 @@ export function CreateTierWizard() {
     },
   });
   const nativeLibrary = useMemo<NativeMediaLibraryModel | undefined>(() => {
-    if (!currentCreatorScopeKey || media.mode !== "native") return undefined;
+    if (!currentCreatorScopeKey) return undefined;
     const notice =
       mediaLibraryNotice?.scopeKey === currentCreatorScopeKey
         ? mediaLibraryNotice
@@ -599,7 +595,8 @@ export function CreateTierWizard() {
     return {
       status: "ready",
       ...creatorMediaLibrary.data,
-      selectedStore: currentConfirmedMedia?.store,
+      selectedStore:
+        media.mode === "native" ? currentConfirmedMedia?.store : undefined,
       selectingStore: selectingNativeStore,
       message: notice?.message,
     };

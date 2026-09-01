@@ -47,12 +47,19 @@ function MediaHarness({
   const [nativeSettings, setNativeSettings] = useState(
     defaultNativeMediaSettings,
   );
+  const presentedNativeLibrary = nativeLibrary
+    ? {
+        ...nativeLibrary,
+        selectedStore:
+          media.mode === "native" ? nativeLibrary.selectedStore : undefined,
+      }
+    : undefined;
   return (
     <MediaEditor
       art={art}
       locks={new Set()}
       media={media}
-      nativeLibrary={nativeLibrary}
+      nativeLibrary={presentedNativeLibrary}
       nativeSettings={nativeSettings}
       nativeState={nativeState}
       onArtChange={setArt}
@@ -73,19 +80,25 @@ async function openMediaControls(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("MediaEditor", () => {
-  it("starts collapsed and offers generated artwork or an uploaded image", () => {
+  it("starts collapsed and shows the image tray without a mode chooser", async () => {
+    const user = userEvent.setup();
     render(<MediaHarness />);
 
     expect(
       screen.getByText("Add an image").closest("details"),
     ).not.toHaveAttribute("open");
-    expect(screen.getAllByRole("radio")).toHaveLength(2);
     expect(
-      screen.getByRole("radio", { name: /Generated artwork/i }),
-    ).toBeChecked();
+      screen.queryByRole("radio", { name: /Generated artwork/i }),
+    ).toBeNull();
+    expect(screen.queryByRole("radio", { name: /Add your image/i })).toBeNull();
+
+    await openMediaControls(user);
+
+    expect(screen.getByRole("heading", { name: "Images" })).toBeVisible();
+    expect(screen.getByLabelText("Add new image")).toBeVisible();
     expect(
-      screen.getByRole("radio", { name: /Add your image/i }),
-    ).not.toBeVisible();
+      screen.getByRole("button", { name: "Using generated artwork" }),
+    ).toBeDisabled();
     expect(screen.queryByText(/Arweave|IPFS|HTTPS reference/i)).toBeNull();
   });
 
@@ -95,7 +108,6 @@ describe("MediaEditor", () => {
     render(<MediaHarness onNativeSourceSelected={onNativeSourceSelected} />);
 
     await openMediaControls(user);
-    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
     const file = new File([new Uint8Array([137, 80, 78, 71])], "stage.png", {
       type: "image/png",
     });
@@ -145,7 +157,6 @@ describe("MediaEditor", () => {
     const onNativeSourceSelected = vi.fn();
     render(<MediaHarness onNativeSourceSelected={onNativeSourceSelected} />);
     await openMediaControls(user);
-    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
     const file = new File([new Uint8Array([137, 80, 78, 71])], "drop.png", {
       type: "image/png",
     });
@@ -164,7 +175,6 @@ describe("MediaEditor", () => {
     const user = userEvent.setup();
     render(<MediaHarness />);
     await openMediaControls(user);
-    await user.click(screen.getByRole("radio", { name: /Add your image/i }));
 
     expect(
       screen.queryByLabelText("Paste an image from clipboard"),
@@ -192,6 +202,11 @@ describe("MediaEditor", () => {
 
     expect(screen.getByAltText("New image")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Allow/i })).toBeNull();
+    await user.click(
+      screen.getByRole("button", { name: "Use generated artwork" }),
+    );
+    expect(screen.queryByAltText("New image")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Image placement/i)).not.toBeInTheDocument();
   });
 
   it("renders, selects, and pages the connected creator's bounded onchain media", async () => {
@@ -240,9 +255,50 @@ describe("MediaEditor", () => {
     expect(screen.queryByLabelText("Image size")).not.toBeInTheDocument();
     expect(screen.getByText(/Image placement/i)).toBeVisible();
     await user.click(savedImage);
+    expect(onSelectNativeStore).not.toHaveBeenCalled();
+    const availableImage = screen.getByRole("button", {
+      name: "Select saved image 1",
+    });
+    expect(availableImage).toHaveAttribute("aria-pressed", "false");
+    await user.click(availableImage);
     expect(onSelectNativeStore).toHaveBeenCalledWith(store);
     await user.click(screen.getByRole("button", { name: "Next" }));
     expect(onNextNativeLibraryPage).toHaveBeenCalledOnce();
+  });
+
+  it("shows saved images while generated artwork is active", async () => {
+    const user = userEvent.setup();
+    const store = "0x1111111111111111111111111111111111111111";
+    render(
+      <MediaHarness
+        nativeLibrary={{
+          status: "ready",
+          records: [
+            {
+              store,
+              creator: "0x2222222222222222222222222222222222222222",
+              mime: 2,
+              length: 12_500,
+              digest: ("0x" + "03".repeat(32)) as Hex,
+              runtimeCodehash: ("0x" + "04".repeat(32)) as Hex,
+              payload: "0x89504e47",
+            },
+          ],
+          total: 1n,
+          offset: 0n,
+          limit: 6,
+        }}
+      />,
+    );
+
+    await openMediaControls(user);
+
+    expect(
+      screen.getByRole("button", { name: "Select saved image 1" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Using generated artwork" }),
+    ).toBeDisabled();
   });
 
   it("makes a failed onchain library read explicitly retryable", async () => {

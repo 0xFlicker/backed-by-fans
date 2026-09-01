@@ -538,7 +538,6 @@ describe("creator setup component", () => {
     await user.click(screen.getByRole("button", { name: /^art studio$/i }));
     await expectOriginalRenderer();
     await user.click(screen.getByText("Add an image", { exact: true }));
-    await user.click(screen.getByRole("radio", { name: /add your image/i }));
     await user.upload(
       screen.getByLabelText("Add new image"),
       new File([new Uint8Array([1, 2, 3, 4])], "cover.jpg", {
