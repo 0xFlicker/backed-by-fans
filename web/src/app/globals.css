@@ -653,6 +653,14 @@ main {
   max-width: 47rem;
 }
 
+.page-intro-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin-top: 0.75rem;
+}
+
 .narrow-page {
   max-width: 68rem;
 }

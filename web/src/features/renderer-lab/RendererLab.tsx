@@ -78,14 +78,17 @@ import {
   parseRendererPackage,
   type ParsedRendererPackage,
 } from "@/features/renderer-lab/package-import";
-import { rendererRegistryAbi } from "@/contracts";
+import { onchainMediaStoreFactoryAbi, rendererRegistryAbi } from "@/contracts";
+import type { ProtocolDependencySnapshot } from "@/contracts/types";
 import { previewRendererRequest } from "@/features/renderer-lab/preview";
 import { readProtocolDependencies } from "@/features/protocol/protocol-read";
 import {
   creatorMediaPageSize,
   readCreatorMediaPage,
+  reconcileStoredMedia,
   type CreatorMediaRecord,
 } from "@/features/protocol/registry-reconciliation";
+import { isSuccessfulWriteReceipt } from "@/features/protocol/write-reconciliation";
 import { getDeployment, publicConfig } from "@/lib/config";
 
 import styles from "./RendererLab.module.css";
@@ -142,6 +145,13 @@ type RendererImageSettings = {
   mime: SupportedImageMIME;
 };
 
+type PreparedImageDeployment = {
+  creator: Address;
+  dependencies: ProtocolDependencySnapshot;
+  mime: 1 | 2;
+  payload: Hex;
+};
+
 const defaultRendererImageSettings: RendererImageSettings = {
   dimension: defaultOutputDimension,
   focalX: 50,
@@ -166,6 +176,7 @@ const configuredRendererRegistry =
   configuredDeployment.status === "ready"
     ? configuredDeployment.rendererRegistryAddress
     : undefined;
+const rendererDeploymentConfirmations = 3;
 
 function defaultHelperClientFactory(connection: RendererHelperConnection) {
   return new RendererHelperClient(connection);
@@ -427,6 +438,36 @@ function shortHex(value: string) {
   return `${value.slice(0, 10)}…${value.slice(-8)}`;
 }
 
+function byteEstimate(byteLength: number) {
+  if (byteLength < 1_024) return `${byteLength.toLocaleString()} bytes`;
+  return `${byteLength.toLocaleString()} bytes (${(byteLength / 1_024).toFixed(1)} KB)`;
+}
+
+function CopyableAddress({
+  address,
+  copied,
+  label,
+  onCopy,
+}: {
+  address: Address;
+  copied: boolean;
+  label: string;
+  onCopy: (address: Address) => void;
+}) {
+  return (
+    <button
+      aria-label={`Copy ${label} ${address}`}
+      className={styles.copyAddress}
+      onClick={() => onCopy(address)}
+      title={`Copy ${address}`}
+      type="button"
+    >
+      <span className="font-mono">{address}</span>
+      <strong>{copied ? "Copied" : "Copy"}</strong>
+    </button>
+  );
+}
+
 function requestLabel(request: RendererPreviewRequest, index: number) {
   const tokenId = request.contextWithoutMedia.tokenId;
   const state = request.contextWithoutMedia.state;
@@ -436,6 +477,38 @@ function requestLabel(request: RendererPreviewRequest, index: number) {
       : `Example ${index + 1}`;
   const stateLabel = typeof state === "string" ? `, ${state}` : "";
   return `${tokenLabel}${stateLabel}`;
+}
+
+function membershipNameFromRequests(
+  requests: readonly RendererPreviewRequest[],
+  rendererName: string,
+) {
+  for (const request of requests) {
+    const token = request.contextWithoutMedia.token;
+    if (isRecord(token) && typeof token.tierName === "string") {
+      const membershipName = token.tierName.trim();
+      if (membershipName) return membershipName;
+    }
+  }
+  return `${rendererName.replace(/\s+renderer$/i, "").trim()} Membership`;
+}
+
+function requestsWithMembershipName(
+  requests: readonly RendererPreviewRequest[],
+  membershipName: string,
+): RendererPreviewRequest[] {
+  return requests.map((request) => ({
+    ...request,
+    contextWithoutMedia: {
+      ...request.contextWithoutMedia,
+      token: {
+        ...(isRecord(request.contextWithoutMedia.token)
+          ? request.contextWithoutMedia.token
+          : {}),
+        tierName: membershipName,
+      },
+    },
+  }));
 }
 
 export function RendererLab({
@@ -479,21 +552,40 @@ export function RendererLab({
     message?: string;
   }>({ status: "idle", records: [] });
   const [previewPhase, setPreviewPhase] = useState<PreviewPhase>("idle");
+  const [previewMembershipName, setPreviewMembershipName] = useState("");
   const [review, setReview] = useState<RendererReviewDecision | null>(null);
-  const [deployRequested, setDeployRequested] = useState(false);
   const [preparedDeployment, setPreparedDeployment] =
     useState<PreparedRendererDeployment | null>(null);
+  const [preparedImageDeployment, setPreparedImageDeployment] =
+    useState<PreparedImageDeployment | null>(null);
   const [deployedAddress, setDeployedAddress] = useState<Address | null>(null);
+  const [deployedImageAddress, setDeployedImageAddress] =
+    useState<Address | null>(null);
+  const [copiedAddress, setCopiedAddress] = useState<Address | null>(null);
+  const [rendererDeploymentError, setRendererDeploymentError] = useState<
+    string | null
+  >(null);
+  const [imageDeploymentError, setImageDeploymentError] = useState<
+    string | null
+  >(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const account = useAccount();
   const wagmiConfig = useConfig();
   const switchChain = useSwitchChain();
-  const write = useWriteContract();
+  const rendererWrite = useWriteContract();
+  const imageWrite = useWriteContract();
   const deploymentReceipt = useWaitForTransactionReceipt({
     chainId: canonicalRendererPackageChainId,
-    hash: write.data,
-    query: { enabled: Boolean(write.data) },
+    confirmations: rendererDeploymentConfirmations,
+    hash: rendererWrite.data,
+    query: { enabled: Boolean(rendererWrite.data) },
+  });
+  const imageDeploymentReceipt = useWaitForTransactionReceipt({
+    chainId: canonicalRendererPackageChainId,
+    confirmations: rendererDeploymentConfirmations,
+    hash: imageWrite.data,
+    query: { enabled: Boolean(imageWrite.data) },
   });
   const results = candidateState.resultSet?.results ?? [];
   const requests = candidateState.requestSet?.requests ?? [];
@@ -501,10 +593,15 @@ export function RendererLab({
 
   const resetDecision = () => {
     setReview(null);
-    setDeployRequested(false);
     setPreparedDeployment(null);
+    setPreparedImageDeployment(null);
     setDeployedAddress(null);
-    write.reset();
+    setDeployedImageAddress(null);
+    setCopiedAddress(null);
+    setRendererDeploymentError(null);
+    setImageDeploymentError(null);
+    rendererWrite.reset();
+    imageWrite.reset();
   };
 
   const selectImageSource = (
@@ -563,32 +660,28 @@ export function RendererLab({
         registry: preparedDeployment.registry,
       }),
     )
-      .then((renderer) => {
+      .then(async (renderer) => {
         if (!renderer) {
           throw new Error(
             "The deployment succeeded, but no renderer address was returned.",
           );
         }
-        return Promise.all([
-          renderer,
-          client.getBytecode({ address: renderer }),
-        ]);
-      })
-      .then(([renderer, bytecode]) => {
+        if (cancelled) return;
+        setDeployedAddress(renderer);
+        const bytecode = await client.getBytecode({ address: renderer });
         if (cancelled) return;
         if (!bytecode || bytecode === "0x") {
-          setError(
-            "The wallet reported success, but the renderer code is not visible yet. Refresh the canonical chain before sharing this address.",
+          setRendererDeploymentError(
+            "The address was returned, but its code is not visible from the canonical RPC yet.",
           );
           return;
         }
-        setDeployedAddress(renderer);
         setMessage("Renderer deployed on Robinhood testnet.");
-        setError(null);
+        setRendererDeploymentError(null);
       })
       .catch((caught) => {
         if (cancelled) return;
-        setError(
+        setRendererDeploymentError(
           caught instanceof Error
             ? caught.message
             : "The renderer transaction succeeded, but its code could not be checked.",
@@ -606,6 +699,60 @@ export function RendererLab({
     preparedDeployment,
   ]);
 
+  useEffect(() => {
+    if (
+      !imageDeploymentReceipt.isSuccess ||
+      !imageDeploymentReceipt.data ||
+      !preparedImageDeployment ||
+      deployedImageAddress
+    ) {
+      return;
+    }
+    let cancelled = false;
+    void Promise.resolve()
+      .then(() => {
+        if (!isSuccessfulWriteReceipt(imageDeploymentReceipt.data)) {
+          throw new Error("The image deployment did not succeed.");
+        }
+        return reconcileStoredMedia(client, {
+          protocolDependencies: preparedImageDeployment.dependencies,
+          creator: preparedImageDeployment.creator,
+          payload: preparedImageDeployment.payload,
+          mime: preparedImageDeployment.mime,
+          receipt: imageDeploymentReceipt.data,
+        });
+      })
+      .then((stored) => {
+        if (cancelled) return;
+        if (!stored) {
+          throw new Error(
+            "The image transaction succeeded, but its address is not available yet.",
+          );
+        }
+        setDeployedImageAddress(stored.store);
+        setImageDeploymentError(null);
+        setMessage("Image deployed on Robinhood testnet.");
+      })
+      .catch((caught) => {
+        if (cancelled) return;
+        setImageDeploymentError(
+          caught instanceof Error
+            ? caught.message
+            : "The image transaction succeeded, but its address could not be read.",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    client,
+    deployedImageAddress,
+    imageDeploymentReceipt.data,
+    imageDeploymentReceipt.isSuccess,
+    preparedImageDeployment,
+  ]);
+
   const loadCandidate = (
     candidate: RendererCandidateInput,
     requests: readonly RendererPreviewRequest[],
@@ -614,6 +761,9 @@ export function RendererLab({
     const nextState = stateWithCandidateAndRequests(candidate, requests);
     setCandidateState(nextState);
     setImportDetails(details);
+    setPreviewMembershipName(
+      membershipNameFromRequests(requests, details.rendererName),
+    );
     setImageSource(null);
     setLocalImage(null);
     setImagePhase("idle");
@@ -867,10 +1017,33 @@ export function RendererLab({
     );
   };
 
+  const updatePreviewMembershipName = (membershipName: string) => {
+    setPreviewMembershipName(membershipName);
+    setCandidateState((current) =>
+      current.candidate && current.requestSet
+        ? stateWithCandidateAndRequests(
+            current.candidate,
+            requestsWithMembershipName(
+              current.requestSet.requests,
+              membershipName,
+            ),
+          )
+        : current,
+    );
+    setPreviewPhase("idle");
+    resetDecision();
+    setMessage(null);
+    setError(null);
+  };
+
   const runPreviews = async () => {
     const candidate = candidateState.candidate;
     const requestSet = candidateState.requestSet;
     if (!candidate || !requestSet) return;
+    if (!previewMembershipName.trim()) {
+      setError("Add a membership name for the preview.");
+      return;
+    }
     if (!previewHarness) {
       setError(
         "The canonical preview harness is not configured for this public build.",
@@ -948,7 +1121,6 @@ export function RendererLab({
     try {
       const nextReview = approveRendererCandidate(candidateState);
       setReview(nextReview);
-      setDeployRequested(false);
       setMessage("Renderer approved.");
       setError(null);
     } catch (caught) {
@@ -963,7 +1135,6 @@ export function RendererLab({
   const reject = () => {
     try {
       setReview(rejectRendererCandidate(candidateState));
-      setDeployRequested(false);
       setMessage("Renderer rejected.");
       setError(null);
     } catch (caught) {
@@ -975,9 +1146,8 @@ export function RendererLab({
     }
   };
 
-  const deploy = async () => {
-    setDeployRequested(true);
-    setError(null);
+  const deployRenderer = async () => {
+    setRendererDeploymentError(null);
     if (!account.isConnected || !account.address) return;
     if (!review) return;
 
@@ -1002,14 +1172,66 @@ export function RendererLab({
       });
       setPreparedDeployment(prepared);
       setMessage("The deployment simulation passed. Review it in your wallet.");
-      await write.writeContractAsync(request);
+      await rendererWrite.writeContractAsync(request);
     } catch (caught) {
       setPreparedDeployment(null);
-      setError(
+      setRendererDeploymentError(
         caught instanceof Error
           ? caught.message
           : "The renderer deployment could not be prepared.",
       );
+    }
+  };
+
+  const deployImage = async () => {
+    setImageDeploymentError(null);
+    if (!account.isConnected || !account.address || !localImage) return;
+
+    try {
+      if (account.chainId !== canonicalRendererPackageChainId) {
+        await switchChain.switchChainAsync({
+          chainId: canonicalRendererPackageChainId,
+        });
+      }
+      const dependencies = await readProtocolDependencies(
+        client,
+        configuredDeployment,
+      );
+      if (dependencies.status !== "valid") {
+        throw new Error(dependencies.label);
+      }
+      const { request } = await simulateContract(wagmiConfig, {
+        account: account.address,
+        address: dependencies.data.mediaStoreFactory,
+        abi: onchainMediaStoreFactoryAbi,
+        chainId: canonicalRendererPackageChainId,
+        functionName: "store",
+        args: [localImage.bytes, localImage.mime],
+      });
+      setPreparedImageDeployment({
+        creator: account.address,
+        dependencies: dependencies.data,
+        mime: localImage.mime,
+        payload: localImage.bytes,
+      });
+      setMessage("The image simulation passed. Review it in your wallet.");
+      await imageWrite.writeContractAsync(request);
+    } catch (caught) {
+      setPreparedImageDeployment(null);
+      setImageDeploymentError(
+        caught instanceof Error
+          ? caught.message
+          : "The image deployment could not be prepared.",
+      );
+    }
+  };
+
+  const copyAddress = async (address: Address) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedAddress(address);
+    } catch {
+      setError("The address could not be copied. Select it and copy manually.");
     }
   };
 
@@ -1120,8 +1342,25 @@ export function RendererLab({
                       : importDetails.fileName}
                   </p>
                 </div>
-                <span className={styles.validBadge}>Package verified</span>
+                <span className={styles.validBadge}>Package loaded</span>
               </div>
+
+              <label className={styles.membershipNameField}>
+                <span>Preview membership name</span>
+                <input
+                  aria-label="Preview membership name"
+                  aria-describedby="preview-membership-name-help"
+                  onChange={(event) =>
+                    updatePreviewMembershipName(event.target.value)
+                  }
+                  type="text"
+                  value={previewMembershipName}
+                />
+                <small id="preview-membership-name-help">
+                  Used in these previews. You’ll choose the final name when you
+                  create the membership.
+                </small>
+              </label>
 
               {hasImageSlots && (
                 <div className={styles.imageControl}>
@@ -1435,8 +1674,8 @@ export function RendererLab({
               <p className={styles.approvedLabel}>Approved</p>
               <h2>Ready when you are</h2>
               <p>
-                Review the destination below. A wallet is requested only after
-                you choose Deploy renderer.
+                Connect your wallet, then deploy the renderer and optional image
+                separately.
               </p>
             </div>
           </div>
@@ -1447,16 +1686,51 @@ export function RendererLab({
               <dd>Robinhood testnet</dd>
             </div>
             <div>
-              <dt>Final payload</dt>
+              <dt>Renderer size estimate</dt>
               <dd>
-                {candidateState.candidate.initCodeByteLength.toLocaleString()}{" "}
-                bytes
+                {byteEstimate(candidateState.candidate.initCodeByteLength)}
+              </dd>
+            </div>
+            <div>
+              <dt>Image size estimate</dt>
+              <dd>
+                {localImage
+                  ? byteEstimate(localImage.byteLength)
+                  : "No image selected"}
               </dd>
             </div>
             <div className={styles.addressSummary}>
               <dt>Reusable renderer address</dt>
-              <dd>Returned after deployment</dd>
+              <dd>
+                {deployedAddress ? (
+                  <CopyableAddress
+                    address={deployedAddress}
+                    copied={copiedAddress === deployedAddress}
+                    label="renderer address"
+                    onCopy={(address) => void copyAddress(address)}
+                  />
+                ) : (
+                  "Returned after deployment"
+                )}
+              </dd>
             </div>
+            {localImage && (
+              <div className={styles.addressSummary}>
+                <dt>Reusable image address</dt>
+                <dd>
+                  {deployedImageAddress ? (
+                    <CopyableAddress
+                      address={deployedImageAddress}
+                      copied={copiedAddress === deployedImageAddress}
+                      label="image address"
+                      onCopy={(address) => void copyAddress(address)}
+                    />
+                  ) : (
+                    "Returned after image deployment"
+                  )}
+                </dd>
+              </div>
+            )}
             <div>
               <dt>Wallet cost</dt>
               <dd>Estimated by your wallet before signing</dd>
@@ -1490,55 +1764,125 @@ export function RendererLab({
             </dl>
           </details>
 
-          {!deployRequested ? (
-            <button
-              className={`button button-dark ${styles.deployButton}`}
-              onClick={() => void deploy()}
-              type="button"
-            >
-              Deploy renderer
-            </button>
-          ) : (
-            <div className={styles.walletGate}>
+          <div className={styles.walletGate}>
+            <div>
+              <p className={styles.microLabel}>Creator wallet</p>
+              <strong>
+                {account.isConnected
+                  ? "Wallet connected"
+                  : "Connect a wallet to deploy"}
+              </strong>
+              <p>Choose the account and network here. Deployment is below.</p>
+            </div>
+            <WalletControl />
+          </div>
+
+          <div className={styles.deploymentActions}>
+            <div className={styles.deploymentAction}>
               <div>
-                <p className={styles.microLabel}>Creator wallet</p>
-                <strong>Connect only when you are ready to continue.</strong>
-                <p>
-                  Your wallet owns submission, confirmation, replacement, and
-                  cancellation. Backed By Fans checks the renderer address only
-                  after a successful wallet receipt.
-                </p>
+                <p className={styles.microLabel}>Renderer contract</p>
+                <strong>
+                  {byteEstimate(candidateState.candidate.initCodeByteLength)}
+                </strong>
+                {rendererWrite.data && deploymentReceipt.isLoading && (
+                  <p role="status">Waiting for three confirmations.</p>
+                )}
+                {deployedAddress && (
+                  <p role="status">Renderer address is ready above.</p>
+                )}
+                {(rendererDeploymentError ||
+                  rendererWrite.error ||
+                  deploymentReceipt.error) && (
+                  <p className={styles.actionError} role="alert">
+                    {rendererDeploymentError ??
+                      rendererWrite.error?.message ??
+                      deploymentReceipt.error?.message}
+                  </p>
+                )}
               </div>
-              <WalletControl />
-              {account.isConnected && !write.data && (
+              <button
+                className="button button-dark"
+                disabled={
+                  !account.isConnected ||
+                  Boolean(deployedAddress) ||
+                  rendererWrite.isPending ||
+                  deploymentReceipt.isLoading ||
+                  (deploymentReceipt.isSuccess &&
+                    !deployedAddress &&
+                    !rendererDeploymentError)
+                }
+                onClick={() => void deployRenderer()}
+                type="button"
+              >
+                {deployedAddress
+                  ? "Renderer deployed"
+                  : rendererWrite.isPending
+                    ? "Waiting for wallet…"
+                    : deploymentReceipt.isLoading
+                      ? "Confirming renderer…"
+                      : deploymentReceipt.isSuccess && !rendererDeploymentError
+                        ? "Finding renderer address…"
+                        : rendererWrite.error ||
+                            deploymentReceipt.error ||
+                            rendererDeploymentError
+                          ? "Try renderer deployment again"
+                          : "Deploy renderer"}
+              </button>
+            </div>
+
+            {localImage && (
+              <div className={styles.deploymentAction}>
+                <div>
+                  <p className={styles.microLabel}>Onchain image</p>
+                  <strong>{byteEstimate(localImage.byteLength)}</strong>
+                  {imageWrite.data && imageDeploymentReceipt.isLoading && (
+                    <p role="status">Waiting for three confirmations.</p>
+                  )}
+                  {deployedImageAddress && (
+                    <p role="status">Image address is ready above.</p>
+                  )}
+                  {(imageDeploymentError ||
+                    imageWrite.error ||
+                    imageDeploymentReceipt.error) && (
+                    <p className={styles.actionError} role="alert">
+                      {imageDeploymentError ??
+                        imageWrite.error?.message ??
+                        imageDeploymentReceipt.error?.message}
+                    </p>
+                  )}
+                </div>
                 <button
-                  className="button button-dark"
-                  disabled={write.isPending}
-                  onClick={() => void deploy()}
+                  className="button button-outline"
+                  disabled={
+                    !account.isConnected ||
+                    Boolean(deployedImageAddress) ||
+                    imageWrite.isPending ||
+                    imageDeploymentReceipt.isLoading ||
+                    (imageDeploymentReceipt.isSuccess &&
+                      !deployedImageAddress &&
+                      !imageDeploymentError)
+                  }
+                  onClick={() => void deployImage()}
                   type="button"
                 >
-                  {write.isPending
-                    ? "Waiting for wallet…"
-                    : "Send renderer deployment"}
+                  {deployedImageAddress
+                    ? "Image deployed"
+                    : imageWrite.isPending
+                      ? "Waiting for wallet…"
+                      : imageDeploymentReceipt.isLoading
+                        ? "Confirming image…"
+                        : imageDeploymentReceipt.isSuccess &&
+                            !imageDeploymentError
+                          ? "Finding image address…"
+                          : imageWrite.error ||
+                              imageDeploymentReceipt.error ||
+                              imageDeploymentError
+                            ? "Try image deployment again"
+                            : "Deploy image"}
                 </button>
-              )}
-              {write.data && deploymentReceipt.isLoading && (
-                <p role="status">
-                  Deployment submitted. Waiting for your wallet receipt…
-                </p>
-              )}
-              {deployedAddress && (
-                <p className="font-mono" role="status">
-                  Renderer deployed: {deployedAddress}
-                </p>
-              )}
-              {(write.error || deploymentReceipt.error) && (
-                <p className={styles.errorMessage} role="alert">
-                  {write.error?.message ?? deploymentReceipt.error?.message}
-                </p>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </section>
       )}
     </section>

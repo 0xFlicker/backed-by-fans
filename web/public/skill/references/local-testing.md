@@ -33,16 +33,21 @@ Edit `my-renderer/src/CustomRenderer.sol` to implement the art brief. Keep the i
 ## 3. Run the local workflow
 
 ```sh
-./scripts/test-renderer.sh ./my-renderer
+./scripts/test-renderer.sh ./my-renderer --membership-name "Example Membership"
 ```
 
 This wrapper:
 
 1. checks dependencies;
 2. runs Forge formatting, compilation, and contract tests;
-3. packages the final artifact;
+3. packages the final artifact with the illustrative membership name used by the previews;
 4. evaluates six representative calls using disposable local Anvil state;
 5. writes a compact HTML gallery.
+
+The packaging and gallery helpers start their own loopback-only Anvil instance with a
+100,000,000-gas block limit and estimate each local deployment before submitting it. Do not add a
+larger hardcoded transaction gas limit or patch a downloaded renderer project to work around an
+Anvil block-limit rejection; update the skill toolkit if this managed rehearsal fails.
 
 The six cases are token IDs 1, 7, and 42 across active and expired states, with generated and browser-image slots represented.
 

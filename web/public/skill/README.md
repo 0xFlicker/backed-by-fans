@@ -26,12 +26,12 @@ Then create and test a renderer:
 
 ```sh
 ./scripts/new-renderer.sh ./my-renderer
-./scripts/test-renderer.sh ./my-renderer
+./scripts/test-renderer.sh ./my-renderer --membership-name "Example Membership"
 ```
 
 The second command writes `renderer-package.json` and a compact gallery under `renderer-gallery/`.
 
-The skill itself asks about the creator, visual direction, and whether the renderer should use an image. If an image is requested, the agent loads it into the browser preview directly through the optional loopback helper or returns the package for upload at `/render` from the creator's own browser.
+The skill itself asks about the creator, visual direction, an illustrative preview name, and whether the creator wants to provide an image, have the agent generate one, or use no image. The preview name remains editable on `/render`; the final membership name is chosen when the membership is created. If an image is requested, the agent loads it into the browser preview directly through the optional loopback helper or returns the package for upload at `/render` from the creator's own browser.
 
 ## Repository contents
 

@@ -20,12 +20,14 @@ export default function CreatePage() {
           Set the terms, preview the artwork, and see what becomes permanent
           before you publish.
         </p>
-        <Link className="text-button" href="/account">
-          Manage memberships
-        </Link>
-        <Link className="text-button" href="/skill">
-          Make custom onchain artwork
-        </Link>
+        <div className="page-intro-actions">
+          <Link className="text-button" href="/account">
+            Manage memberships
+          </Link>
+          <Link className="text-button" href="/skill">
+            Make custom onchain artwork
+          </Link>
+        </div>
       </div>
       <CreateTierWizard />
     </section>

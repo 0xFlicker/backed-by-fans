@@ -22,10 +22,13 @@ import { previewRendererRequest } from "@/features/renderer-lab/preview";
 const previewMock = vi.hoisted(() => vi.fn());
 const processImageMock = vi.hoisted(() => vi.fn());
 const prepareDeploymentMock = vi.hoisted(() => vi.fn());
+const rendererAddressFromLogsMock = vi.hoisted(() => vi.fn());
+const readProtocolDependenciesMock = vi.hoisted(() => vi.fn());
 const simulateContractMock = vi.hoisted(() => vi.fn());
 const sendTransactionMock = vi.hoisted(() => vi.fn());
 const resetTransactionMock = vi.hoisted(() => vi.fn());
 const switchChainMock = vi.hoisted(() => vi.fn());
+const waitForReceiptMock = vi.hoisted(() => vi.fn());
 const wagmiState = vi.hoisted(() => ({
   account: {
     address: undefined as `0x${string}` | undefined,
@@ -59,6 +62,11 @@ vi.mock("@/features/creator-studio/image-processing", () => ({
 
 vi.mock("@/features/renderer-lab/deployment", () => ({
   prepareRendererDeployment: prepareDeploymentMock,
+  rendererAddressFromDeploymentLogs: rendererAddressFromLogsMock,
+}));
+
+vi.mock("@/features/protocol/protocol-read", () => ({
+  readProtocolDependencies: readProtocolDependenciesMock,
 }));
 
 vi.mock("@wagmi/core", () => ({
@@ -74,7 +82,10 @@ vi.mock("wagmi", () => ({
     writeContractAsync: sendTransactionMock,
   }),
   useSwitchChain: () => ({ switchChainAsync: switchChainMock }),
-  useWaitForTransactionReceipt: () => wagmiState.receipt,
+  useWaitForTransactionReceipt: (options: unknown) => {
+    waitForReceiptMock(options);
+    return wagmiState.receipt;
+  },
 }));
 
 vi.mock("@/components/WalletControl", () => ({
@@ -152,7 +163,11 @@ function rendererPackage() {
       state: state as "active" | "expired",
       imageMode: imageMode as "none" | "browser-slot",
       method: "previewSVG" as const,
-      contextWithoutMedia: { tokenId, state },
+      contextWithoutMedia: {
+        tokenId,
+        state,
+        token: { tierName: "Moonlit Circle" },
+      },
       localImageSlot: imageMode === "browser-slot",
     })),
     skill: ".agents/skills/backed-by-fans-renderer/SKILL.md",
@@ -182,10 +197,13 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
   processImageMock.mockReset();
   prepareDeploymentMock.mockReset();
+  rendererAddressFromLogsMock.mockReset();
+  readProtocolDependenciesMock.mockReset();
   simulateContractMock.mockReset();
   sendTransactionMock.mockReset();
   resetTransactionMock.mockReset();
   switchChainMock.mockReset();
+  waitForReceiptMock.mockReset();
   wagmiState.account.address = undefined;
   wagmiState.account.chainId = undefined;
   wagmiState.account.isConnected = false;
@@ -199,12 +217,15 @@ afterEach(() => {
 });
 
 describe("public renderer lab", () => {
-  it("imports and previews without a wallet, then requires approval plus Deploy before showing wallet UI", async () => {
+  it("keeps wallet connection separate from the renderer deployment action", async () => {
     const user = userEvent.setup();
     previewMock.mockResolvedValue(svg);
     renderLab();
 
     expect(screen.getByRole("heading", { name: "Renderer lab" })).toBeVisible();
+    expect(waitForReceiptMock).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmations: 3 }),
+    );
     expect(screen.queryByTestId("wallet-prompt")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Deploy renderer" }),
@@ -214,7 +235,16 @@ describe("public renderer lab", () => {
 
     expect(screen.getByText("Moonlit Memberships")).toBeVisible();
     expect(screen.getByText("Ready to preview 6 examples.")).toBeVisible();
+    expect(screen.getByLabelText("Preview membership name")).toHaveValue(
+      "Moonlit Circle",
+    );
     expect(screen.queryByTestId("wallet-prompt")).not.toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText("Preview membership name"));
+    await user.type(
+      screen.getByLabelText("Preview membership name"),
+      "After Dark Club",
+    );
 
     await user.click(
       screen.getByRole("button", { name: "Preview 6 examples" }),
@@ -223,6 +253,11 @@ describe("public renderer lab", () => {
     await waitFor(() =>
       expect(previewRendererRequest).toHaveBeenCalledTimes(6),
     );
+    for (const [input] of previewMock.mock.calls) {
+      expect(input.request.contextWithoutMedia.token.tierName).toBe(
+        "After Dark Club",
+      );
+    }
     expect(
       await screen.findAllByRole("img", { name: /Membership example/i }),
     ).toHaveLength(6);
@@ -244,17 +279,18 @@ describe("public renderer lab", () => {
     expect(
       within(summary).getByText("Returned after deployment"),
     ).toBeVisible();
-    expect(within(summary).getByText("5 bytes")).toBeVisible();
-    expect(screen.queryByTestId("wallet-prompt")).not.toBeInTheDocument();
+    expect(within(summary).getAllByText("5 bytes")).toHaveLength(2);
+    expect(screen.getByTestId("wallet-prompt")).toBeVisible();
+    expect(screen.getByText("Connect a wallet to deploy")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Deploy renderer" }),
+    ).toBeDisabled();
 
     await user.click(screen.getByText("Technical details"));
     expect(
       within(summary).getByText(rendererRegistryAddress[46_630]),
     ).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Deploy renderer" }));
-    expect(screen.getByTestId("wallet-prompt")).toBeVisible();
-    expect(screen.getByText(/Your wallet owns submission/i)).toBeVisible();
     expect(sendTransactionMock).not.toHaveBeenCalled();
   });
 
@@ -297,6 +333,189 @@ describe("public renderer lab", () => {
     expect(simulateContractMock).toHaveBeenCalledOnce();
     expect(sendTransactionMock).toHaveBeenCalledWith(simulatedRequest);
     expect(switchChainMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a clear deployment action after a disconnected creator connects", async () => {
+    const user = userEvent.setup();
+    const value = rendererPackage();
+    const simulatedRequest = {
+      address: getAddress("0x1111111111111111111111111111111111111111"),
+      abi: [],
+      functionName: "deployAndRegister",
+      args: [value.artifacts.creationBytecode],
+    };
+    previewMock.mockResolvedValue(svg);
+    prepareDeploymentMock.mockReturnValue({
+      approvalFingerprint: `0x${"88".repeat(32)}`,
+      chainId: 46_630,
+      registry: simulatedRequest.address,
+      initCode: value.artifacts.creationBytecode,
+      initCodeByteLength: value.deployment.initCodeByteLength,
+      state: "prepared",
+    });
+    simulateContractMock.mockResolvedValue({ request: simulatedRequest });
+    sendTransactionMock.mockResolvedValue(`0x${"aa".repeat(32)}`);
+    const rendered = renderLab();
+
+    await user.upload(screen.getByLabelText("Renderer package"), packageFile());
+    await user.click(
+      screen.getByRole("button", { name: "Preview 6 examples" }),
+    );
+    await screen.findAllByRole("img", { name: /Membership example/i });
+    await user.click(screen.getByRole("button", { name: "Approve renderer" }));
+    expect(
+      screen.getByRole("button", { name: "Deploy renderer" }),
+    ).toBeDisabled();
+
+    wagmiState.account.address = getAddress(
+      "0x7777777777777777777777777777777777777777",
+    );
+    wagmiState.account.chainId = 46_630;
+    wagmiState.account.isConnected = true;
+    rendered.rerender(
+      <RendererLab
+        client={{} as PublicClient}
+        previewHarness={previewHarness}
+      />,
+    );
+
+    const deployButton = screen.getByRole("button", {
+      name: "Deploy renderer",
+    });
+    expect(deployButton).toBeVisible();
+    await user.click(deployButton);
+    await waitFor(() => expect(sendTransactionMock).toHaveBeenCalledOnce());
+  });
+
+  it("shows and submits a separate image deployment with its size estimate", async () => {
+    const user = userEvent.setup();
+    const creator = getAddress("0x7777777777777777777777777777777777777777");
+    const mediaStoreFactory = getAddress(
+      "0x9999999999999999999999999999999999999999",
+    );
+    const preparedBytes = new Uint8Array([0xff, 0xd8, 0xff, 0x01]);
+    const imageRequest = {
+      address: mediaStoreFactory,
+      abi: [],
+      functionName: "store",
+      args: ["0xffd8ff01", 1],
+    };
+    wagmiState.account.address = creator;
+    wagmiState.account.chainId = 46_630;
+    wagmiState.account.isConnected = true;
+    processImageMock.mockResolvedValue({
+      byteLength: preparedBytes.byteLength,
+      dimension: 512,
+      mime: "image/jpeg",
+      objectURL: "blob:prepared-image",
+      rendererCallBytes: preparedBytes,
+      dispose: vi.fn(),
+    });
+    previewMock.mockResolvedValue(svg);
+    readProtocolDependenciesMock.mockResolvedValue({
+      status: "valid",
+      data: { chainId: 46_630, mediaStoreFactory },
+    });
+    simulateContractMock.mockResolvedValue({ request: imageRequest });
+    sendTransactionMock.mockResolvedValue(`0x${"bb".repeat(32)}`);
+    renderLab();
+
+    await user.upload(screen.getByLabelText("Renderer package"), packageFile());
+    await user.upload(
+      screen.getByLabelText("Choose JPEG or PNG"),
+      new File([new Uint8Array([1, 2, 3])], "portrait.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+    await waitFor(() => expect(processImageMock).toHaveBeenCalledOnce());
+    expect(await screen.findByAltText("Selected source")).toHaveAttribute(
+      "src",
+      "blob:prepared-image",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Preview 6 examples" }),
+    );
+    await screen.findAllByRole("img", { name: /Membership example/i });
+    await user.click(screen.getByRole("button", { name: "Approve renderer" }));
+
+    const summary = screen.getByRole("region", { name: "Deployment summary" });
+    expect(within(summary).getByText("Image size estimate")).toBeVisible();
+    expect(within(summary).getAllByText("4 bytes")).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: "Deploy image" }));
+
+    expect(readProtocolDependenciesMock).toHaveBeenCalled();
+    expect(simulateContractMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        account: creator,
+        address: mediaStoreFactory,
+        chainId: 46_630,
+        functionName: "store",
+        args: ["0xffd8ff01", 1],
+      }),
+    );
+    expect(sendTransactionMock).toHaveBeenCalledWith(imageRequest);
+  });
+
+  it("updates the summary with a copyable renderer address", async () => {
+    const user = userEvent.setup();
+    const writeTextMock = vi.spyOn(navigator.clipboard, "writeText");
+    const creator = getAddress("0x7777777777777777777777777777777777777777");
+    const renderer = getAddress("0x8888888888888888888888888888888888888888");
+    const transactionHash = `0x${"aa".repeat(32)}` as Hex;
+    const value = rendererPackage();
+    const simulatedRequest = {
+      address: getAddress("0x1111111111111111111111111111111111111111"),
+      abi: [],
+      functionName: "deployAndRegister",
+      args: [value.artifacts.creationBytecode],
+    };
+    const getBytecode = vi.fn().mockResolvedValue("0x6000");
+    wagmiState.account.address = creator;
+    wagmiState.account.chainId = 46_630;
+    wagmiState.account.isConnected = true;
+    previewMock.mockResolvedValue(svg);
+    prepareDeploymentMock.mockReturnValue({
+      approvalFingerprint: `0x${"88".repeat(32)}`,
+      chainId: 46_630,
+      registry: simulatedRequest.address,
+      initCode: value.artifacts.creationBytecode,
+      initCodeByteLength: value.deployment.initCodeByteLength,
+      state: "prepared",
+    });
+    rendererAddressFromLogsMock.mockReturnValue(renderer);
+    simulateContractMock.mockResolvedValue({ request: simulatedRequest });
+    sendTransactionMock.mockResolvedValue(transactionHash);
+    const rendered = renderLab({
+      client: { getBytecode } as unknown as PublicClient,
+    });
+
+    await user.upload(screen.getByLabelText("Renderer package"), packageFile());
+    await user.click(
+      screen.getByRole("button", { name: "Preview 6 examples" }),
+    );
+    await screen.findAllByRole("img", { name: /Membership example/i });
+    await user.click(screen.getByRole("button", { name: "Approve renderer" }));
+    await user.click(screen.getByRole("button", { name: "Deploy renderer" }));
+
+    wagmiState.transaction.data = transactionHash;
+    wagmiState.receipt.data = { logs: [] };
+    wagmiState.receipt.isSuccess = true;
+    rendered.rerender(
+      <RendererLab
+        client={{ getBytecode } as unknown as PublicClient}
+        previewHarness={previewHarness}
+      />,
+    );
+
+    const copyButton = await screen.findByRole("button", {
+      name: `Copy renderer address ${renderer}`,
+    });
+    expect(copyButton).toHaveTextContent(renderer);
+    await user.click(copyButton);
+    expect(writeTextMock).toHaveBeenCalledWith(renderer);
+    expect(copyButton).toHaveTextContent("Copied");
   });
 
   it("accepts drag-and-drop and explains invalid packages without loading them", async () => {

@@ -15,9 +15,10 @@ Before running tools or writing code, ask the creator these short questions toge
 
 1. What do you create, and what are you known for?
 2. What theme or world should the membership art explore, and how should it feel visually?
-3. Should the design use an image? If yes, ask the creator to attach it or provide an accessible local path.
+3. What illustrative membership name should appear in the previews?
+4. Would you like to provide an image, have me generate one, or make the design without an image? If they provide one, ask for the attachment or an accessible local path. If they ask for generation, use an available image-generation tool and show the result before building it into the design.
 
-Do not repeat a question the creator has already answered. Keep this conversational and about the artwork; dependency and contract details come later. If the creator wants an image, treat it as a primary design input rather than an optional afterthought.
+Do not repeat a question the creator has already answered. Keep this conversational and about the artwork; dependency and contract details come later. If no membership name is supplied, create a short illustrative name that fits the creator and theme, then tell them: “I’ll use [name] for the previews. You can change it on the preview page. The final membership name is chosen when you create the membership.” If the creator wants an image, treat it as a primary design input rather than an optional afterthought.
 
 ## Start cheaply
 
@@ -31,7 +32,7 @@ Do not repeat a question the creator has already answered. Keep this conversatio
 1. Implement the creator's direction in the generated Foundry project.
    - When an image is requested, implement and exercise the renderer's `nativeMedia` and stored-media paths. The image must visibly participate in the proposed design unless the creator asks for a subtler treatment.
    - Use generated-only artwork only when the creator says they do not want an image.
-2. Run `./scripts/test-renderer.sh <project-directory>` to format, compile, test, package, and produce a local gallery.
+2. Run `./scripts/test-renderer.sh <project-directory> --membership-name "<preview name>"` to format, compile, test, package, and produce a local gallery using the illustrative membership name.
 3. Show the gallery to the creator. Mechanical checks establish only that the required calls work and return displayable results for the tested inputs.
 4. The creator decides whether the design is acceptable. Do not describe a passing check as a safety audit, proof, certification, verification record, or artistic approval.
 5. If the creator rejects the design, revise it and repeat. If a required call fails, report the failure plainly and fix it before asking for approval.

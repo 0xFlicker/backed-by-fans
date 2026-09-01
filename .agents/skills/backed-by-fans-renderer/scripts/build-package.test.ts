@@ -6,8 +6,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 
 import {
   DEFAULT_INTERFACE_SCHEMA,
+  LOCAL_ANVIL_BLOCK_GAS_LIMIT,
   buildRendererPackage,
+  localAnvilCommand,
   representativeRendererExamples,
+  simulateRendererDeployment,
+  type AnvilRpcRequest,
+  type LocalAnvil,
 } from "./build-package";
 import { writeRendererGallery } from "./render-gallery";
 
@@ -114,6 +119,83 @@ describe("renderer package writer", () => {
       ),
     ).toBe(true);
     expect(containsForbiddenImageField(first)).toBe(false);
+  });
+
+  test("uses the illustrative membership name in every preview", () => {
+    const rendererPackage = buildRendererPackage({
+      artifact,
+      finalRuntimeBytecode: "0x6001",
+      membershipName: "Night Garden Society",
+      rendererName: "Test Renderer",
+      sourceRoot: "template",
+    });
+
+    expect(
+      rendererPackage.examples.map(
+        (example) =>
+          (example.contextWithoutMedia.token as { tierName: string }).tierName,
+      ),
+    ).toEqual(Array(6).fill("Night Garden Society"));
+  });
+});
+
+describe("local deployment rehearsal", () => {
+  test("starts Anvil with the toolkit block gas limit", () => {
+    const command = localAnvilCommand(54_321);
+    const gasLimitIndex = command.indexOf("--gas-limit");
+
+    expect(gasLimitIndex).toBeGreaterThan(-1);
+    expect(command[gasLimitIndex + 1]).toBe(
+      String(LOCAL_ANVIL_BLOCK_GAS_LIMIT),
+    );
+  });
+
+  test("estimates deployment gas and sends that estimate", async () => {
+    const deployer = "0x1111111111111111111111111111111111111111";
+    const renderer = "0x2222222222222222222222222222222222222222";
+    const transactionHash = `0x${"33".repeat(32)}`;
+    const calls: Array<{ method: string; params: unknown[] }> = [];
+    const rpc: AnvilRpcRequest = async (_rpcUrl, method, params) => {
+      calls.push({ method, params });
+      switch (method) {
+        case "eth_accounts":
+          return [deployer];
+        case "eth_estimateGas":
+          return "0x186a0";
+        case "eth_sendTransaction":
+          return transactionHash;
+        case "eth_getTransactionReceipt":
+          return { contractAddress: renderer, status: "0x1" };
+        case "eth_getCode":
+          return "0x6000";
+        default:
+          throw new Error(`Unexpected RPC method: ${method}`);
+      }
+    };
+
+    const result = await simulateRendererDeployment(
+      { rpcUrl: "http://127.0.0.1:54321" } as LocalAnvil,
+      "0x6000",
+      rpc,
+    );
+
+    expect(result).toEqual({
+      rendererAddress: renderer,
+      runtimeBytecode: "0x6000",
+    });
+    expect(calls.map(({ method }) => method)).toEqual([
+      "eth_accounts",
+      "eth_estimateGas",
+      "eth_sendTransaction",
+      "eth_getTransactionReceipt",
+      "eth_getCode",
+    ]);
+    expect(calls[1]?.params).toEqual([
+      { data: "0x6000", from: deployer },
+    ]);
+    expect(calls[2]?.params).toEqual([
+      { data: "0x6000", from: deployer, gas: "0x186a0" },
+    ]);
   });
 });
 

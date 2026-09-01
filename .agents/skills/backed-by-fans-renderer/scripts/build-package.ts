@@ -9,6 +9,7 @@ export const MAX_RUNTIME_BYTES = 88_000;
 // Preserves room for ABI and a conservatively large signed EIP-1559 envelope under Nitro's
 // 95,000-byte transaction limit.
 export const MAX_INITCODE_BYTES = 94_656;
+export const LOCAL_ANVIL_BLOCK_GAS_LIMIT = 100_000_000;
 
 const SKILL_REFERENCE = "SKILL.md";
 const LLMS_REFERENCE = "llms.txt";
@@ -128,6 +129,7 @@ type BuildRendererPackageOptions = {
   artifact: FoundryRendererArtifact;
   constructorArgs?: string;
   finalRuntimeBytecode: string;
+  membershipName?: string;
   rendererName?: string;
   sourceRoot: string;
 };
@@ -142,10 +144,17 @@ export type SimulatedRendererDeployment = {
   runtimeBytecode: Hex;
 };
 
+export type AnvilRpcRequest = (
+  rpcUrl: string,
+  method: string,
+  params: unknown[],
+) => Promise<unknown>;
+
 type CliOptions = {
   sourceRoot: string;
   artifactPath?: string;
   constructorArgs?: string;
+  membershipName?: string;
   outputPath?: string;
   rendererName?: string;
 };
@@ -202,28 +211,34 @@ async function waitForAnvil(local: LocalAnvil): Promise<boolean> {
   return false;
 }
 
+export function localAnvilCommand(port: number): string[] {
+  return [
+    "anvil",
+    "--host",
+    LOOPBACK_HOST,
+    "--port",
+    String(port),
+    "--hardfork",
+    "cancun",
+    "--chain-id",
+    String(CANONICAL_CHAIN_ID),
+    "--timestamp",
+    "1800000000",
+    "--gas-limit",
+    String(LOCAL_ANVIL_BLOCK_GAS_LIMIT),
+    "--disable-code-size-limit",
+  ];
+}
+
 export async function startLocalAnvil(): Promise<LocalAnvil> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const port = randomInt(HIGH_PORT_MIN, HIGH_PORT_MAX + 1);
     const local = {
       rpcUrl: `http://${LOOPBACK_HOST}:${port}`,
-      process: Bun.spawn(
-        [
-          "anvil",
-          "--host",
-          LOOPBACK_HOST,
-          "--port",
-          String(port),
-          "--hardfork",
-          "cancun",
-          "--chain-id",
-          String(CANONICAL_CHAIN_ID),
-          "--timestamp",
-          "1800000000",
-          "--disable-code-size-limit",
-        ],
-        { stderr: "pipe", stdout: "ignore" },
-      ),
+      process: Bun.spawn(localAnvilCommand(port), {
+        stderr: "pipe",
+        stdout: "ignore",
+      }),
     };
     if (await waitForAnvil(local)) return local;
     local.process.kill();
@@ -278,29 +293,35 @@ function concatenateHex(first: Hex, second: Hex): Hex {
 export async function simulateRendererDeployment(
   local: LocalAnvil,
   creationBytecodeInput: string,
+  rpc: AnvilRpcRequest = anvilRpc,
 ): Promise<SimulatedRendererDeployment> {
   const creationBytecode = normalizeHex(
     creationBytecodeInput,
     "Final renderer initcode",
   );
-  const accounts = await anvilRpc(local.rpcUrl, "eth_accounts", []);
+  const accounts = await rpc(local.rpcUrl, "eth_accounts", []);
   const deployer = Array.isArray(accounts) ? accounts[0] : undefined;
   if (typeof deployer !== "string") {
     throw new Error("Local Anvil returned no unlocked deployment account.");
   }
-  const transactionHash = await anvilRpc(local.rpcUrl, "eth_sendTransaction", [
-    {
-      data: creationBytecode,
-      from: deployer,
-      gas: "0x3b9aca00",
-    },
+  const transaction = { data: creationBytecode, from: deployer };
+  const estimatedGas = await rpc(local.rpcUrl, "eth_estimateGas", [transaction]);
+  if (
+    typeof estimatedGas !== "string" ||
+    !/^0x[0-9a-fA-F]+$/.test(estimatedGas) ||
+    BigInt(estimatedGas) === 0n
+  ) {
+    throw new Error("Local renderer deployment returned no valid gas estimate.");
+  }
+  const transactionHash = await rpc(local.rpcUrl, "eth_sendTransaction", [
+    { ...transaction, gas: estimatedGas },
   ]);
   if (typeof transactionHash !== "string") {
     throw new Error("Local renderer deployment returned no transaction hash.");
   }
   let rendererAddress: unknown;
   for (let attempt = 0; attempt < 80; attempt += 1) {
-    const receipt = (await anvilRpc(local.rpcUrl, "eth_getTransactionReceipt", [
+    const receipt = (await rpc(local.rpcUrl, "eth_getTransactionReceipt", [
       transactionHash,
     ])) as { contractAddress?: unknown; status?: unknown } | null;
     if (receipt) {
@@ -316,7 +337,7 @@ export async function simulateRendererDeployment(
     throw new Error("Local renderer deployment receipt did not arrive.");
   }
   const runtimeBytecode = normalizeHex(
-    await anvilRpc(local.rpcUrl, "eth_getCode", [rendererAddress, "latest"]),
+    await rpc(local.rpcUrl, "eth_getCode", [rendererAddress, "latest"]),
     "Local renderer runtime bytecode",
   );
   if (runtimeBytecode === "0x") {
@@ -397,7 +418,13 @@ function packageSourceRoot(sourceRoot: string): string {
   ).replaceAll("\\", "/");
 }
 
-export function representativeRendererExamples(): RendererPackageExample[] {
+export function representativeRendererExamples(
+  membershipName = "Renderer Gallery",
+): RendererPackageExample[] {
+  const previewMembershipName = membershipName.trim();
+  if (!previewMembershipName) {
+    throw new Error("Preview membership name cannot be empty.");
+  }
   const zeroHash = `0x${"00".repeat(32)}` as Hex;
   const zeroAddress = `0x${"00".repeat(20)}` as Hex;
   const matrix = [
@@ -419,7 +446,7 @@ export function representativeRendererExamples(): RendererPackageExample[] {
       method: "previewSVG",
       contextWithoutMedia: {
         token: {
-          tierName: "Renderer Gallery",
+          tierName: previewMembershipName,
           description: "Six representative membership states",
           externalURI: "",
           tierIdentity: DEFAULT_INTERFACE_SCHEMA as Hex,
@@ -534,7 +561,7 @@ export function buildRendererPackage(
       chainId: CANONICAL_CHAIN_ID,
       initCodeByteLength: creationByteLength,
     },
-    examples: representativeRendererExamples(),
+    examples: representativeRendererExamples(options.membershipName),
     skill: SKILL_REFERENCE,
     llms: LLMS_REFERENCE,
   };
@@ -617,7 +644,7 @@ function parseCliOptions(args: string[]): CliOptions {
   const [sourceRootInput, ...rest] = args;
   if (!sourceRootInput || sourceRootInput.startsWith("--")) {
     throw new Error(
-      "Usage: bun build-package.ts <foundry-root> [--artifact path] [--constructor-args 0x...] [--renderer-name name] [--output path]",
+      "Usage: bun build-package.ts <foundry-root> [--artifact path] [--constructor-args 0x...] [--renderer-name name] [--membership-name name] [--output path]",
     );
   }
   const options: CliOptions = { sourceRoot: resolve(sourceRootInput) };
@@ -636,6 +663,9 @@ function parseCliOptions(args: string[]): CliOptions {
         break;
       case "--renderer-name":
         options.rendererName = value;
+        break;
+      case "--membership-name":
+        options.membershipName = value;
         break;
       default:
         throw new Error(`Unknown option: ${option}`);
@@ -669,6 +699,7 @@ export async function runBuildPackageCli(args: string[]): Promise<string> {
     artifact,
     constructorArgs: options.constructorArgs,
     finalRuntimeBytecode,
+    membershipName: options.membershipName,
     rendererName: options.rendererName,
     sourceRoot: options.sourceRoot,
   });
