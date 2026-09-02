@@ -1,17 +1,18 @@
 ---
 title: Backed By Fans public testnet pilot record
-status: ready-for-staging
+status: staged-browser-testing-open
 date: 2026-09-02
 ---
 
 # Public testnet pilot record
 
-This is an unexecuted template. It is **not** evidence of a public pilot, user
-approval, audit, deployment, or launch readiness.
+This is an unexecuted human-pilot template. It is **not** evidence of a public
+pilot, user approval, audit, canonical-domain deployment, or launch readiness.
 
-The source-verified testnet protocol is promoted and its generated bindings are
-active. The human pilot has not run; staged-browser, participant, and canonical
-browser evidence remain open.
+The source-verified testnet protocol is promoted, its generated bindings are
+active, and a protected Vercel artifact has passed authenticated route-level
+smoke checks. The human pilot has not run; staged-browser, participant, live
+transaction, and canonical-browser evidence remain open.
 
 ## Candidate
 
@@ -19,6 +20,14 @@ browser evidence remain open.
   `0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C`
 - Source commit and promoted candidate: **RECORDED** —
   `222005218daee91d40c92b90c62716f7aa7a9864`, current prefix `4`
+- Staged web source commit: **RECORDED** —
+  `a2f7d540758823c97c73356b7c555eedad8c2adb`
+- Protected staged deployment: **READY** —
+  `https://backed-by-fans-1zhln29wb-flicks-projects.vercel.app`,
+  `dpl_CzysrFBvrFG9DLygVv9EixCt7D2A`
+- Authenticated route smoke: **PASS** — HTTP 200 for `/`, `/create`, `/render`, `/skill`, and
+  `/llms.txt`
+- Staged browser journey matrix: **OPEN**
 - Captured block/hash and second-RPC verification: **OPEN**
 - Creator participant/consent record: **OPEN**
 - Supporter participant/consent record: **OPEN**
@@ -55,7 +64,7 @@ capacity races, and that Stock Tokens are testnet-only for this release.
 - Confusions, failures, severity, owner, and resolution: **OPEN**
 - Participant confirmation that the final workflow was unassisted: **OPEN**
 - Independent reviewer disposition: **OPEN**
-- Final result: **READY FOR STAGING / NOT RUN**
+- Final result: **STAGED / HUMAN PILOT NOT RUN**
 
 The deterministic local lifecycle test is development evidence only. It cannot
 satisfy this public, human, unassisted pilot gate.

@@ -236,6 +236,27 @@ Record the resulting deployment URL and ID, source commit, active factory, and p
 production deployment. Test that exact URL. A normal preview-to-production promotion rebuilds with
 the production environment and therefore does not satisfy the exact-artifact gate.
 
+### Current staged beta artifact
+
+The operator authorized authenticated Vercel setup and a staging-only production build on
+2026-09-02. The reviewed target is:
+
+| Field | Value |
+| --- | --- |
+| Vercel team/project | `flicks-projects/backed-by-fans` |
+| Vercel project ID | `prj_dmeAPJm04v3JmKWmTROhdxnrBdMa` |
+| Source branch | `codex/testnet-beta-release` |
+| Source commit | `a2f7d540758823c97c73356b7c555eedad8c2adb` |
+| Staged deployment | `https://backed-by-fans-1zhln29wb-flicks-projects.vercel.app` |
+| Deployment ID | `dpl_CzysrFBvrFG9DLygVv9EixCt7D2A` |
+| Active factory | `0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C` |
+| Prior known-good production deployment | None; this is the project's first valid staged artifact |
+
+The project framework preset is `nextjs`. Authenticated route-level checks returned HTTP 200 for
+`/`, `/create`, `/render`, `/skill`, and `/llms.txt`. This is deployment smoke evidence only; the
+staged browser and live testnet transaction matrix remains open. No custom domain is assigned, and
+this artifact is not yet approved for canonical-domain promotion.
+
 Only after the staged artifact and domain assignment receive separate operator approval, promote
 that same production build without rebuilding:
 
