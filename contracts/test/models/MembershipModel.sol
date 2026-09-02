@@ -28,9 +28,10 @@ library MembershipModel {
         uint256 protocolProceeds;
         uint256 rewardReserve;
         uint256 totalReferralLiability;
-        uint256 totalShares;
+        uint256 totalRewardShares;
         uint256 tokenCount;
         mapping(uint256 tokenId => uint256 shares) shares;
+        mapping(uint256 tokenId => bool eligible) rewardEligible;
         mapping(uint256 tokenId => uint256 scaledReward) scaledRewards;
         mapping(uint256 tokenId => uint256 wholeCredit) rewardCredits;
         mapping(address referrer => uint256 amount) referralCredits;
@@ -143,8 +144,9 @@ library MembershipModel {
         uint256 creator = gross - protocolFee - reward - referral;
 
         if (book.shares[tokenId] == 0) ++book.tokenCount;
+        activateRewards(book, tokenId);
         book.shares[tokenId] += gross;
-        book.totalShares += gross;
+        book.totalRewardShares += gross;
         book.creatorProceeds += creator;
         book.protocolProceeds += protocolFee;
         book.rewardReserve += reward;
@@ -154,11 +156,26 @@ library MembershipModel {
         }
 
         if (reward == 0) return;
-        uint256 indexIncrease = Math.mulDiv(reward, REWARD_SCALE, book.totalShares);
+        uint256 indexIncrease = Math.mulDiv(reward, REWARD_SCALE, book.totalRewardShares);
         for (uint256 currentTokenId = 1; currentTokenId <= book.tokenCount; ++currentTokenId) {
-            book.scaledRewards[currentTokenId] += book.shares[currentTokenId] * indexIncrease;
+            if (book.rewardEligible[currentTokenId]) {
+                book.scaledRewards[currentTokenId] += book.shares[currentTokenId] * indexIncrease;
+            }
         }
-        book.rewardCredits[tokenId] += mulmod(reward, REWARD_SCALE, book.totalShares) / REWARD_SCALE;
+        book.rewardCredits[tokenId] += mulmod(reward, REWARD_SCALE, book.totalRewardShares)
+        / REWARD_SCALE;
+    }
+
+    function activateRewards(PaymentBook storage book, uint256 tokenId) internal {
+        if (book.rewardEligible[tokenId]) return;
+        book.rewardEligible[tokenId] = true;
+        book.totalRewardShares += book.shares[tokenId];
+    }
+
+    function deactivateRewards(PaymentBook storage book, uint256 tokenId) internal {
+        if (!book.rewardEligible[tokenId]) return;
+        book.rewardEligible[tokenId] = false;
+        book.totalRewardShares -= book.shares[tokenId];
     }
 
     function claimableReward(PaymentBook storage book, uint256 tokenId)

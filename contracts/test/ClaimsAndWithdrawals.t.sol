@@ -281,7 +281,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         assertFalse(paymentToken.lastCallbackSucceeded());
         assertEq(tier.sharesOf(tokenId), 10_000_000);
         assertEq(tier.expiresAt(tokenId), block.timestamp + 30 days);
-        assertEq(tier.totalShares(), 10_000_000);
+        assertEq(tier.totalRewardShares(), 10_000_000);
     }
 
     function test_existingMemberTimeIsCheckpointedBeforeInboundTokenCallback() public {
@@ -414,7 +414,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         assertEq(tier.tokenOf(member), 0);
         assertEq(tier.totalMinted(), 0);
         assertEq(tier.occupiedSupply(), 0);
-        assertEq(tier.totalShares(), 0);
+        assertEq(tier.totalRewardShares(), 0);
         assertEq(tier.creatorProceeds(), 0);
         assertEq(tier.rewardReserve(), 0);
         assertEq(tier.totalReferralLiability(), 0);

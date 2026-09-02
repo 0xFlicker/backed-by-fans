@@ -26,7 +26,9 @@ import {
   validateSupplyCap,
 } from "@/features/creator/management";
 import { readTierManagementState } from "@/features/creator/management-read";
+import { ExpiredMembershipSyncControl } from "@/features/creator/ExpiredMembershipSyncControl";
 import { RendererManagementControl } from "@/features/creator/RendererManagementControl";
+import { reconcileExpiredMembershipSync } from "@/features/creator/expired-membership-sync";
 import { receiptProvesMembershipRefund } from "@/features/protocol/payout-reconciliation";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import {
@@ -373,6 +375,7 @@ function ManagementControls({
       | "revokeGrantTime"
       | "refund"
       | "withdrawCreatorProceeds"
+      | "synchronizeExpiredMemberships"
       | "transferOwnership"
       | "acceptOwnership",
   >(functionName: Name, args: readonly unknown[] = []) {
@@ -582,6 +585,28 @@ function ManagementControls({
         dispatch({ type: "FAILED", error: decodeTransactionError(error) });
       }
     });
+  }
+
+  async function synchronizeExpiredMemberships(tokenIds: readonly bigint[]) {
+    const synchronizedBlock = await perform(
+      `Sync ${tokenIds.length} expired membership${tokenIds.length === 1 ? "" : "s"}`,
+      tierWrite("synchronizeExpiredMemberships", [[...tokenIds]]),
+      async (receipt) => {
+        const reconciled = await reconcileExpiredMembershipSync(client, {
+          tier: snapshot.address,
+          tokenIds,
+          receipt,
+        });
+        if (!reconciled) return undefined;
+        const refreshed = await onRefresh();
+        return refreshed?.status === "valid"
+          ? refreshed.capturedBlock
+          : undefined;
+      },
+    );
+    return typeof synchronizedBlock === "bigint"
+      ? synchronizedBlock
+      : undefined;
   }
 
   const capError = validateSupplyCap(supplyCap, snapshot.occupiedSupply);
@@ -848,6 +873,18 @@ function ManagementControls({
               </label>
             </div>
           </section>
+
+          <ExpiredMembershipSyncControl
+            account={account.address}
+            canSync={canOwnerWrite}
+            capturedBlock={capturedBlock}
+            client={client}
+            onSync={synchronizeExpiredMemberships}
+            owner={snapshot.creator}
+            tier={snapshot.address}
+            totalMinted={snapshot.totalMinted}
+            walletChainId={account.chainId}
+          />
 
           <section className="control-group">
             <div>

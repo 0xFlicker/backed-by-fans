@@ -25,7 +25,7 @@ contract CapacityAndPauseTest is Test {
         tier = _deployTier(1);
     }
 
-    function test_expiredMemberKeepsSlotUntilPermissionlessIdempotentSync() public {
+    function test_expiredMemberKeepsSlotUntilOwnerIdempotentSync() public {
         uint256 tokenId = tier.grantTime(member, 1);
         vm.warp(tier.expiresAt(tokenId));
 
@@ -33,12 +33,11 @@ contract CapacityAndPauseTest is Test {
         assertTrue(tier.isOccupied(tokenId));
         assertEq(tier.occupiedSupply(), 1);
 
-        vm.prank(competitor);
-        assertTrue(tier.synchronize(tokenId));
+        assertEq(_sync(tier, tokenId), 1);
         assertFalse(tier.isOccupied(tokenId));
         assertEq(tier.occupiedSupply(), 0);
 
-        assertFalse(tier.synchronize(tokenId));
+        assertEq(_sync(tier, tokenId), 0);
         assertEq(tier.occupiedSupply(), 0);
     }
 
@@ -47,7 +46,7 @@ contract CapacityAndPauseTest is Test {
         MembershipTypes.MembershipState memory beforeState = tier.storedTimeState(tokenId);
         vm.warp(_START + 15 days);
 
-        assertFalse(tier.synchronize(tokenId));
+        assertEq(_sync(tier, tokenId), 0);
 
         MembershipTypes.MembershipState memory afterState = tier.storedTimeState(tokenId);
         assertEq(afterState.checkpoint, beforeState.checkpoint);
@@ -75,7 +74,7 @@ contract CapacityAndPauseTest is Test {
     function test_synchronizedMemberCanLoseCapacityRace() public {
         uint256 tokenId = tier.grantTime(member, 1);
         vm.warp(tier.expiresAt(tokenId));
-        assertTrue(tier.synchronize(tokenId));
+        assertEq(_sync(tier, tokenId), 1);
 
         tier.grantTime(competitor, 1);
 
@@ -99,7 +98,7 @@ contract CapacityAndPauseTest is Test {
         assertEq(uncappedTier.supplyCap(), 2);
 
         vm.warp(_START + _PERIOD);
-        assertTrue(uncappedTier.synchronize(uncappedTier.tokenOf(member)));
+        assertEq(_sync(uncappedTier, uncappedTier.tokenOf(member)), 1);
         uncappedTier.setSupplyCap(1);
         assertEq(uncappedTier.supplyCap(), 1);
 
@@ -166,6 +165,12 @@ contract CapacityAndPauseTest is Test {
     function _purchase(MembershipTier target, address buyer) private returns (uint256 tokenId) {
         vm.prank(buyer);
         tokenId = target.purchase(1, address(0));
+    }
+
+    function _sync(MembershipTier target, uint256 tokenId) private returns (uint256 burnedCount) {
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        burnedCount = target.synchronizeExpiredMemberships(tokenIds);
     }
 
     function _fundAndApprove(MembershipTier target, address buyer) private {

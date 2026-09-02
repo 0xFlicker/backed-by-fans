@@ -221,12 +221,12 @@ export function MembershipExperience({
       "membership-artwork",
       expectedChainId,
       snapshot.address,
-      snapshot.credential ? "minted-token-uri" : "preview-token-uri",
+      snapshot.credential?.minted ? "minted-token-uri" : "preview-token-uri",
       artworkTokenId.toString(),
       capturedBlock.toString(),
     ],
     queryFn: async () => {
-      const tokenURI = snapshot.credential
+      const tokenURI = snapshot.credential?.minted
         ? await client.readContract({
             address: snapshot.address,
             abi: membershipTierAbi,
@@ -382,8 +382,7 @@ export function MembershipExperience({
       | "gift"
       | "claimReward"
       | "claimReferral"
-      | "withdrawCreatorProceeds"
-      | "synchronize",
+      | "withdrawCreatorProceeds",
     args: readonly unknown[] = [],
   ) {
     return async (): Promise<SendWrite> => {
@@ -739,9 +738,11 @@ export function MembershipExperience({
           />
           {snapshot.credential && (
             <span className="membership-artwork-state">
-              {snapshot.credential.active
-                ? "Active composition"
-                : "Afterglow composition"}
+              {!snapshot.credential.minted
+                ? "NFT synced · membership record retained"
+                : snapshot.credential.active
+                  ? "Active composition"
+                  : "Afterglow composition"}
             </span>
           )}
         </div>
@@ -825,6 +826,14 @@ export function MembershipExperience({
               <dd>{snapshot.credential.active ? "Active" : "Inactive"}</dd>
             </div>
             <div>
+              <dt>NFT</dt>
+              <dd>
+                {snapshot.credential.minted
+                  ? "In this wallet"
+                  : "Burned after creator sync"}
+              </dd>
+            </div>
+            <div>
               <dt>Through</dt>
               <dd>{formatMembershipDate(snapshot.credential.expiration)}</dd>
             </div>
@@ -832,18 +841,7 @@ export function MembershipExperience({
         </section>
       )}
 
-      <div
-        className={`supporter-columns ${
-          !hasClaims &&
-          !(
-            snapshot.credential &&
-            !snapshot.credential.active &&
-            snapshot.credential.occupied
-          )
-            ? "is-single"
-            : ""
-        }`}
-      >
+      <div className={`supporter-columns ${!hasClaims ? "is-single" : ""}`}>
         <div className="supporter-primary">
           <section className="supporter-action" aria-label="Membership action">
             <p className="eyebrow">
@@ -1105,10 +1103,7 @@ export function MembershipExperience({
           )}
         </div>
 
-        {(hasClaims ||
-          (snapshot.credential &&
-            !snapshot.credential.active &&
-            snapshot.credential.occupied)) && (
+        {hasClaims && (
           <aside className="supporter-secondary">
             {hasClaims && (
               <section className="claim-groups" aria-labelledby="claims-title">
@@ -1219,40 +1214,6 @@ export function MembershipExperience({
                 </p>
               </section>
             )}
-
-            {snapshot.credential &&
-              !snapshot.credential.active &&
-              snapshot.credential.occupied && (
-                <section className="maintenance-action">
-                  <p className="eyebrow">Expired membership</p>
-                  <h2>Release expired capacity</h2>
-                  <p>
-                    Free this inactive place for another supporter. Your
-                    membership history and funds stay intact.
-                  </p>
-                  <button
-                    className="button button-dark"
-                    disabled={!writesVerified}
-                    onClick={() =>
-                      void perform(
-                        "Synchronize inactive capacity",
-                        tierWrite("synchronize", [
-                          snapshot.credential!.tokenId,
-                        ]),
-                        () =>
-                          reconcileSnapshot(
-                            (next) =>
-                              next.credential?.occupied === false ||
-                              next.credential?.active === true,
-                          ),
-                      )
-                    }
-                    type="button"
-                  >
-                    Synchronize this place
-                  </button>
-                </section>
-              )}
           </aside>
         )}
       </div>

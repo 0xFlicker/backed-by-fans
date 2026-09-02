@@ -137,12 +137,14 @@ function credential(
   return {
     tokenId: 1n,
     owner: wallet,
+    minted: true,
     active: true,
     occupied: true,
     expiration: snapshot.capturedTimestamp + snapshot.periodDuration,
     paidSeconds: snapshot.periodDuration,
     grantSeconds: 0n,
     shares: 10_000_000n,
+    rewardEligible: true,
     claimableReward: 2_000_000n,
     refundableGross: 10_000_000n,
     referralStatus: "locked-none" as const,
@@ -232,8 +234,8 @@ describe("supporter membership experience", () => {
       0,
     );
     expect(
-      screen.getByRole("button", { name: "Synchronize this place" }),
-    ).toBeVisible();
+      screen.queryByRole("button", { name: "Synchronize this place" }),
+    ).not.toBeInTheDocument();
 
     view.rerender(
       <QueryClientProvider client={new QueryClient()}>
@@ -247,6 +249,8 @@ describe("supporter membership experience", () => {
             credential: credential({
               active: false,
               occupied: false,
+              minted: false,
+              rewardEligible: false,
               expiration: 1n,
             }),
           }}
@@ -259,6 +263,7 @@ describe("supporter membership experience", () => {
     expect(
       screen.queryByRole("button", { name: "Synchronize this place" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByText("Burned after creator sync")).toBeVisible();
   });
 
   it("separates a zero contribution from positive economics and omits gifting", () => {

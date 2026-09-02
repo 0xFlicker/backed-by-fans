@@ -59,15 +59,17 @@
       "runtimeCodehash": "0x0a4c43cc7583986bc35eaf86a492341f952567ca2fa6b9fe3eaf62fcefb06604"
     },
     "membershipFactory": {
-      "address": "0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C",
-      "runtimeCodehash": "0x68071c69e215ba392a134849548ab1e1d9d6a377c8072c81dce234a82e1f9c9e"
+      "address": "0x6C06126E121667c6f06Bd426Cde706EDde862fd9",
+      "runtimeCodehash": "0x35e90d6caac5c6c09252cc2c002100b12d151ee2ff791455e4a68017b1973982"
     }
   },
   "safe": {
     "address": "0xeAA4B38A99f766117C1D493a21012fec25f70505",
     "singleton": "0xEdd160fEBBD92E350D4D398fb636302fccd67C7e",
     "version": "1.5.0",
-    "owners": ["0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"],
+    "owners": [
+      "0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"
+    ],
     "threshold": 1,
     "modules": [],
     "guard": "0x0000000000000000000000000000000000000000",

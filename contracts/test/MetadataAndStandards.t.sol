@@ -141,11 +141,18 @@ contract MetadataAndStandardsTest is Test {
 
         vm.warp(tier.expiresAt(tokenId));
         vm.recordLogs();
-        assertTrue(tier.synchronize(tokenId));
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        assertEq(tier.synchronizeExpiredMemberships(tokenIds), 1);
         Vm.Log[] memory syncLogs = vm.getRecordedLogs();
 
-        assertEq(_countLogs(syncLogs, keccak256("MembershipSynchronized(uint256,address)")), 1);
-        assertEq(_countLogs(syncLogs, keccak256("MetadataUpdate(uint256)")), 1);
+        assertEq(
+            _countLogs(
+                syncLogs, keccak256("ExpiredMembershipSynchronized(uint256,address,uint256)")
+            ),
+            1
+        );
+        assertEq(_countLogs(syncLogs, keccak256("Transfer(address,address,uint256)")), 1);
     }
 
     function test_standardAdaptersExposeRenewalAndCreatorOnlyCancellation() public {

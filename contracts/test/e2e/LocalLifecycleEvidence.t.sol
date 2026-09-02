@@ -134,7 +134,7 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(tier.revokeGrantTime(grantToken), 30 days);
         assertFalse(tier.isActive(grantRecipient));
         assertTrue(tier.isOccupied(grantToken));
-        assertTrue(tier.synchronize(grantToken));
+        assertEq(_syncAs(tier, grantToken, creator), 1);
         assertFalse(tier.isOccupied(grantToken));
         _assertTierCustody(0);
 
@@ -157,16 +157,16 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(tier.ownerOf(memberToken), member);
         assertEq(tier.balanceOf(member), 1);
         assertTrue(tier.isOccupied(memberToken));
-        assertTrue(tier.synchronize(memberToken));
+        assertEq(_syncAs(tier, memberToken, nextCreator), 1);
         _assertTierCustody(0);
 
         vm.warp(_START + 31 days);
-        string memory afterglowTokenURI = tier.tokenURI(memberToken);
-        assertNotEq(keccak256(bytes(activeTokenURI)), keccak256(bytes(afterglowTokenURI)));
+        vm.expectRevert();
+        tier.tokenURI(memberToken);
         assertFalse(tier.isActive(giftRecipient));
         assertEq(tier.activeBalanceOf(giftRecipient), 0);
         assertTrue(tier.isOccupied(giftToken));
-        assertTrue(tier.synchronize(giftToken));
+        assertEq(_syncAs(tier, giftToken, nextCreator), 1);
         assertEq(tier.occupiedSupply(), 0);
 
         assertEq(tier.claimableReward(memberToken), 1_083_333);
@@ -217,5 +217,15 @@ contract LocalLifecycleEvidenceTest is Test {
         uint256 liabilities =
             tier.creatorProceeds() + tier.rewardReserve() + tier.totalReferralLiability();
         assertEq(paymentToken.balanceOf(address(tier)), liabilities + expectedSurplus);
+    }
+
+    function _syncAs(MembershipTier target, uint256 tokenId, address tierOwner)
+        private
+        returns (uint256 burnedCount)
+    {
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        vm.prank(tierOwner);
+        burnedCount = target.synchronizeExpiredMemberships(tokenIds);
     }
 }

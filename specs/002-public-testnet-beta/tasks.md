@@ -268,6 +268,22 @@ cross-artifact analysis and implementation convergence.
 
 ---
 
+## Phase 10: Expired Membership Fast Follow
+
+**Purpose**: Make creator-synchronized ERC-721 ownership match current membership and suspend rewards
+for inactive records before mainnet scope is frozen.
+
+- [x] T077 Replace permissionless scalar sync with owner-only, 100-ID-bounded expired-membership burn sync and permanent-record reads in `contracts/src/MembershipTier.sol` and `contracts/src/interfaces/IMembershipTier.sol`
+- [x] T078 Add reward eligibility, `totalRewardShares`, refund/revocation suspension, burn-time settlement, and same-ID restoration across purchase, contribution, gift, and grant paths
+- [x] T079 Add unit, fuzz/invariant, event, capacity, standards, remint, custody, rounding, zero-share, invalid-ID, and maximum-batch gas coverage in `contracts/test/`
+- [x] T080 Add direct block-pinned creator scanning, 100-ID wallet batches, stale-scan reset, receipt-plus-state reconciliation, burned-member claims/rejoin UX, and generated bindings in `web/src/`
+- [x] T081 Add focused web tests and configured Anvil browser coverage for scans, failures, batching, wallet changes, burned claims, and rejoin in `web/src/` and `web/tests/e2e/`
+- [ ] T082 After explicit operator approval, deploy and verify a replacement testnet factory, recreate pilot tiers, regenerate active bindings, and promote only that replacement to the canonical website
+- [ ] T083 Repeat the public testnet pilot against the replacement and record creator/supporter, third-party gate, indexing-delay, capacity-race, claim, and rejoin evidence
+- [ ] T084 Freeze the replacement artifacts and obtain fresh independent accounting/security review, reproducible-build evidence, deployment approval, and mainnet GO
+
+---
+
 ## Dependencies and Execution Order
 
 ### Phase dependencies
@@ -283,6 +299,9 @@ cross-artifact analysis and implementation convergence.
 - **Phase 8 — US5**: Depends on US1, US2, US3, US4, and US6 because it deploys and publicly hosts the
   integrated beta.
 - **Phase 9 — Polish**: Depends on every story included in the release.
+- **Phase 10 — Expired Membership Fast Follow**: Reopens the protocol artifact after Phase 9; its
+  replacement deployment, pilot, review, and freeze gates supersede the earlier candidate for
+  mainnet purposes.
 
 ### User story dependency graph
 

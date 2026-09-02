@@ -47,7 +47,7 @@ contract RewardsTest is Test {
         uint256 tokenId = tier.purchase(1, address(0));
 
         assertEq(tier.sharesOf(tokenId), 10_000_000);
-        assertEq(tier.totalShares(), 10_000_000);
+        assertEq(tier.totalRewardShares(), 10_000_000);
         assertEq(tier.rewardReserve(), 500_000);
         assertEq(tier.claimableReward(tokenId), 500_000);
     }
@@ -92,7 +92,7 @@ contract RewardsTest is Test {
         assertEq(tier.tokenOf(payer), 0);
     }
 
-    function test_sharesSurviveExpirationSynchronizationAndGrantRevocation() public {
+    function test_sharesSurviveButBecomeIneligibleAfterExpirationSynchronization() public {
         vm.prank(firstMember);
         uint256 tokenId = tier.purchase(1, address(0));
         tier.grantTime(firstMember, 1);
@@ -100,10 +100,11 @@ contract RewardsTest is Test {
 
         tier.revokeGrantTime(tokenId);
         vm.warp(tier.expiresAt(tokenId));
-        assertTrue(tier.synchronize(tokenId));
+        assertEq(_sync(tier, tokenId), 1);
 
         assertEq(tier.sharesOf(tokenId), shares);
-        assertEq(tier.totalShares(), shares);
+        assertEq(tier.totalRewardShares(), 0);
+        assertFalse(tier.rewardEligible(tokenId));
         assertEq(tier.claimableReward(tokenId), 500_000);
     }
 
@@ -113,7 +114,7 @@ contract RewardsTest is Test {
         uint256 tokenId = zeroTier.contribute(0, address(0));
 
         assertEq(zeroTier.sharesOf(tokenId), 0);
-        assertEq(zeroTier.totalShares(), 0);
+        assertEq(zeroTier.totalRewardShares(), 0);
         assertEq(zeroTier.rewardReserve(), 0);
         assertEq(zeroTier.claimableReward(tokenId), 0);
     }
@@ -222,5 +223,11 @@ contract RewardsTest is Test {
         paymentToken.mint(account, amount);
         vm.prank(account);
         paymentToken.approve(address(target), type(uint256).max);
+    }
+
+    function _sync(MembershipTier target, uint256 tokenId) private returns (uint256 burnedCount) {
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        burnedCount = target.synchronizeExpiredMemberships(tokenIds);
     }
 }

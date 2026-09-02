@@ -93,8 +93,9 @@ contract MembershipHandler is Test {
     }
 
     function refund(uint256 actorSeed) external {
-        uint256 tokenId = tier.tokenOf(_actor(actorSeed));
-        if (tokenId == 0) return;
+        address actor = _actor(actorSeed);
+        uint256 tokenId = tier.tokenOf(actor);
+        if (tokenId == 0 || tier.balanceOf(actor) == 0) return;
         _fundTopUp(tokenId);
 
         vm.prank(creator);
@@ -110,12 +111,14 @@ contract MembershipHandler is Test {
         uint256 tokenId = tier.tokenOf(actor);
         if (tokenId == 0) return;
         if (!_canIncreaseTime(actor)) return;
-        _fundTopUp(tokenId);
+        if (tier.balanceOf(actor) != 0) {
+            _fundTopUp(tokenId);
 
-        vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
-        _modelLifecycle[tokenId].refundTime(_timestamp());
-        assertEq(_grossRefund(tokenId), 0);
+            vm.prank(creator);
+            tier.refund(tokenId, type(uint256).max, type(uint256).max);
+            _modelLifecycle[tokenId].refundTime(_timestamp());
+            assertEq(_grossRefund(tokenId), 0);
+        }
 
         uint256 newGross = grossSeed % (_MAX_GROSS + 1);
         if (newGross != 0) paymentToken.mint(actor, newGross);
@@ -130,9 +133,14 @@ contract MembershipHandler is Test {
     function synchronizeTwice(uint256 actorSeed) external {
         uint256 tokenId = tier.tokenOf(_actor(actorSeed));
         if (tokenId == 0) return;
-        bool released = tier.synchronize(tokenId);
-        assertEq(released, _modelLifecycle[tokenId].synchronize(_timestamp()));
-        assertFalse(tier.synchronize(tokenId));
+        bool expectedRelease = _modelLifecycle[tokenId].synchronize(_timestamp());
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        vm.prank(creator);
+        uint256 released = tier.synchronizeExpiredMemberships(tokenIds);
+        assertEq(released, expectedRelease ? 1 : 0);
+        vm.prank(creator);
+        assertEq(tier.synchronizeExpiredMemberships(tokenIds), 0);
         assertFalse(_modelLifecycle[tokenId].synchronize(_timestamp()));
         _recordMonotonicState(tokenId);
     }
@@ -220,6 +228,13 @@ contract MembershipHandler is Test {
         initialized = state.initialized;
     }
 
+    function recipientFor(uint256 tokenId) external view returns (address) {
+        for (uint256 i; i < _actors.length; ++i) {
+            if (tier.tokenOf(_actors[i]) == tokenId) return _actors[i];
+        }
+        return address(0);
+    }
+
     function _fundTopUp(uint256 tokenId) private {
         (, uint256 ownerTopUp) = tier.previewRefund(tokenId);
         if (ownerTopUp != 0) paymentToken.mint(creator, ownerTopUp);
@@ -274,7 +289,8 @@ contract MembershipHandler is Test {
         uint64 grantSeconds;
         uint64 checkpoint;
         (paidSeconds, grantSeconds, checkpoint) = tier.timeBalances(tokenId);
-        (uint256 refundPreview,) = tier.previewRefund(tokenId);
+        uint256 refundPreview;
+        if (tier.balanceOf(actor) != 0) (refundPreview,) = tier.previewRefund(tokenId);
         bytes32 timeState =
             keccak256(abi.encode(paidSeconds, grantSeconds, checkpoint, refundPreview));
         return keccak256(abi.encode(tokenId, timeState, _economicFingerprint(tokenId, actor)));
@@ -289,7 +305,8 @@ contract MembershipHandler is Test {
                 tier.sharesOf(tokenId),
                 tier.claimableReward(tokenId),
                 tier.claimableReferral(actor),
-                tier.isOccupied(tokenId)
+                tier.isOccupied(tokenId),
+                tier.rewardEligible(tokenId)
             )
         );
     }
@@ -299,7 +316,7 @@ contract MembershipHandler is Test {
             abi.encode(
                 tier.totalMinted(),
                 tier.occupiedSupply(),
-                tier.totalShares(),
+                tier.totalRewardShares(),
                 tier.creatorProceeds(),
                 tier.rewardReserve(),
                 tier.totalReferralLiability()
@@ -380,11 +397,15 @@ contract MembershipInvariantTest is StdInvariant, Test {
         assertTrue(_factory.isPaymentTokenListed(address(_paymentToken)));
         uint256 totalMinted = _tier.totalMinted();
         uint256 countedOccupancy;
+        uint256 countedRewardShares;
         for (uint256 tokenId = 1; tokenId <= totalMinted; ++tokenId) {
-            address recipient = _tier.ownerOf(tokenId);
+            address recipient = _handler.recipientFor(tokenId);
+            assertTrue(recipient != address(0));
             assertEq(_tier.tokenOf(recipient), tokenId);
+            if (_tier.balanceOf(recipient) != 0) assertEq(_tier.ownerOf(tokenId), recipient);
             assertGe(_tier.sharesOf(tokenId), _handler.ghostShareFloor(tokenId));
             if (_tier.isOccupied(tokenId)) ++countedOccupancy;
+            if (_tier.rewardEligible(tokenId)) countedRewardShares += _tier.sharesOf(tokenId);
 
             _assertLifecycleMatchesModel(tokenId, recipient);
 
@@ -399,6 +420,7 @@ contract MembershipInvariantTest is StdInvariant, Test {
 
         assertEq(countedOccupancy, _tier.occupiedSupply());
         assertLe(countedOccupancy, _tier.supplyCap());
+        assertEq(countedRewardShares, _tier.totalRewardShares());
     }
 
     function _assertLifecycleMatchesModel(uint256 tokenId, address recipient) private view {
@@ -416,7 +438,9 @@ contract MembershipInvariantTest is StdInvariant, Test {
         assertEq(paidSeconds, modelPaid);
         assertEq(grantSeconds, modelGrant);
         assertEq(checkpoint, modelCheckpoint);
-        assertEq(_tier.expiresAt(tokenId), modelExpiration);
+        if (_tier.balanceOf(recipient) != 0) {
+            assertEq(_tier.expiresAt(tokenId), modelExpiration);
+        }
         assertEq(_tier.isActiveToken(tokenId), modelActive);
         assertEq(_tier.isActive(recipient), modelActive);
         assertEq(_tier.isOccupied(tokenId), modelOccupied);
@@ -492,6 +516,34 @@ contract FrozenGiftLifecycleTest is Test {
         uint256 tokenId = tier.gift(recipient, 1, MembershipTypes.ReferralStatus.Unset, address(0));
         vm.stopPrank();
 
+        _assertFrozenRefundIsAtomic(token, tier, recipient, tokenId);
+
+        vm.warp(tier.expiresAt(tokenId));
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        assertEq(tier.synchronizeExpiredMemberships(tokenIds), 1);
+        assertEq(tier.occupiedSupply(), 0);
+        assertEq(tier.balanceOf(recipient), 0);
+        vm.expectRevert();
+        tier.ownerOf(tokenId);
+        assertEq(tier.sharesOf(tokenId), config.pricePerPeriod);
+        assertFalse(tier.rewardEligible(tokenId));
+
+        token.mint(competitor, config.pricePerPeriod);
+        vm.startPrank(competitor);
+        token.approve(address(tier), type(uint256).max);
+        uint256 competitorTokenId = tier.purchase(1, address(0));
+        vm.stopPrank();
+        assertEq(competitorTokenId, 2);
+        assertEq(tier.occupiedSupply(), 1);
+    }
+
+    function _assertFrozenRefundIsAtomic(
+        AdversarialERC20 token,
+        MembershipTier tier,
+        address recipient,
+        uint256 tokenId
+    ) private {
         (uint256 grossRefund, uint256 ownerTopUp) = tier.previewRefund(tokenId);
         token.mint(address(this), ownerTopUp);
         token.approve(address(tier), type(uint256).max);
@@ -509,22 +561,7 @@ contract FrozenGiftLifecycleTest is Test {
         assertEq(token.balanceOf(address(tier)), tierBalance);
         assertEq(tier.creatorProceeds(), creatorProceeds);
         assertEq(tier.rewardReserve(), rewardReserve);
-        assertEq(tier.sharesOf(tokenId), config.pricePerPeriod);
         assertTrue(tier.isOccupied(tokenId));
-        assertEq(tier.occupiedSupply(), 1);
-
-        vm.warp(tier.expiresAt(tokenId));
-        assertTrue(tier.synchronize(tokenId));
-        assertEq(tier.occupiedSupply(), 0);
-        assertEq(tier.ownerOf(tokenId), recipient);
-        assertEq(tier.sharesOf(tokenId), config.pricePerPeriod);
-
-        token.mint(competitor, config.pricePerPeriod);
-        vm.startPrank(competitor);
-        token.approve(address(tier), type(uint256).max);
-        uint256 competitorTokenId = tier.purchase(1, address(0));
-        vm.stopPrank();
-        assertEq(competitorTokenId, 2);
         assertEq(tier.occupiedSupply(), 1);
     }
 }

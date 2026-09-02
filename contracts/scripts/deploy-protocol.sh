@@ -70,10 +70,12 @@ deployment_lock_directory=""
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/deploy-protocol.sh <testnet|mainnet> [dry-run|broadcast|status|resume-verify|recover-dropped]
+Usage: ./scripts/deploy-protocol.sh <testnet|mainnet> [prepare|dry-run|broadcast|status|resume-verify|recover-dropped]
 
 Deploys Backed By Fans deterministically through the canonical CREATE2 deployer.
 
+  prepare       Build and validate the deterministic plan, then atomically update
+                the reviewed component addresses and runtime hashes for commit.
   dry-run       Build the exact Robinhood artifacts and deploy their raw CREATE2
                 calldata on an exact-chain-id Anvil fork. This is the default.
   broadcast     Require the encrypted Foundry account, repeat the Anvil-fork
@@ -199,6 +201,7 @@ require_recorded_source_checkout() {
 prepare_broadcast_journal_slot() {
   local journal="$1"
   local active="$2"
+  local archive_promoted="${3:-true}"
   local recorded_commit status archived active_commit active_plan journal_plan
 
   if [[ ! -f "$journal" ]]; then
@@ -238,6 +241,8 @@ prepare_broadcast_journal_slot() {
   journal_plan="$(journal_fingerprint "$journal")"
   [[ "$active_plan" == "$journal_plan" ]] \
     || fail "promoted recovery journal $journal and active broadcast $active describe different deployments"
+
+  [[ "$archive_promoted" == "true" ]] || return 0
 
   archived="${journal%.json}-${recorded_commit:0:12}-promoted.json"
   [[ ! -e "$archived" ]] \
@@ -574,7 +579,7 @@ validate_plan_against_operational_state() {
   done
 }
 
-require_committed_operational_state() {
+resolve_operational_state_path() {
   case "$operational_state_file" in
     "$repo_root"/*)
       operational_state_relative="${operational_state_file:$(( ${#repo_root} + 1 ))}"
@@ -583,6 +588,10 @@ require_committed_operational_state() {
   esac
   git -C "$repo_root" ls-files --error-unmatch -- "$operational_state_relative" >/dev/null 2>&1 \
     || fail "reviewed operational state must be tracked at $operational_state_relative"
+}
+
+require_committed_operational_state() {
+  resolve_operational_state_path
   git -C "$repo_root" diff --quiet HEAD -- "$operational_state_relative" \
     || fail "reviewed operational state has uncommitted changes at $operational_state_relative"
   operational_state_blob="$(git -C "$repo_root" rev-parse \
@@ -591,6 +600,82 @@ require_committed_operational_state() {
   [[ "$operational_state_blob" =~ ^[0-9a-fA-F]{40,64}$ ]] \
     || fail "reviewed operational-state blob hash is malformed"
   echo "Protocol deployment: reviewed operational state $operational_state_relative at $source_commit blob $operational_state_blob"
+}
+
+require_prepare_checkout() {
+  local changes line path
+  if ! changes="$(git -C "$repo_root" status --porcelain --untracked-files=all)"; then
+    fail "could not inspect deployment source status"
+  fi
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    path="${line:3}"
+    [[ "$path" == "$operational_state_relative" ]] && continue
+    fail "prepare requires committed source; unexpected change at $path"
+  done <<<"$changes"
+}
+
+prepare_operational_state() {
+  local target="$operational_state_file"
+  local committed prepared
+  committed="$(mktemp "${TMPDIR:-/tmp}/bbf-operational-committed.XXXXXX")"
+  prepared="$(mktemp "${TMPDIR:-/tmp}/bbf-operational-prepared.XXXXXX")"
+
+  git -C "$repo_root" show "HEAD:$operational_state_relative" >"$committed" \
+    || fail "could not read committed operational state at $operational_state_relative"
+  jq \
+    --arg media_address "${component_addresses[0]}" \
+    --arg media_runtime "${component_runtime_hashes[0]}" \
+    --arg renderer_address "${component_addresses[1]}" \
+    --arg renderer_runtime "${component_runtime_hashes[1]}" \
+    --arg preview_address "${component_addresses[2]}" \
+    --arg preview_runtime "${component_runtime_hashes[2]}" \
+    --arg factory_address "${component_addresses[3]}" \
+    --arg factory_runtime "${component_runtime_hashes[3]}" \
+    '.deployment.mediaStoreFactory = {
+       address: $media_address,
+       runtimeCodehash: $media_runtime
+     }
+     | .deployment.renderer = {
+       address: $renderer_address,
+       runtimeCodehash: $renderer_runtime
+     }
+     | .deployment.previewHarness = {
+       address: $preview_address,
+       runtimeCodehash: $preview_runtime
+     }
+     | .deployment.membershipFactory = {
+       address: $factory_address,
+       runtimeCodehash: $factory_runtime
+     }' \
+    "$committed" >"$prepared" \
+    || fail "could not prepare reviewed operational state"
+
+  if ! git -C "$repo_root" diff --quiet HEAD -- "$operational_state_relative"; then
+    if ! cmp -s "$target" "$prepared"; then
+      rm -f "$committed" "$prepared"
+      fail "reviewed operational state has uncommitted changes outside the generated deployment fields"
+    fi
+  fi
+
+  operational_state_file="$prepared"
+  validate_operational_state_manifest
+  validate_plan_against_operational_state
+  validate_chain_state "$rpc_url" false
+  print_recovery_table
+  operational_state_file="$target"
+
+  if cmp -s "$target" "$prepared"; then
+    echo "Protocol deployment: reviewed operational state is already prepared at $operational_state_relative"
+    rm -f "$committed" "$prepared"
+    return 0
+  fi
+
+  cp "$prepared" "${target}.tmp.$$"
+  mv "${target}.tmp.$$" "$target"
+  rm -f "$committed" "$prepared"
+  echo "Protocol deployment: prepared reviewed operational state at $operational_state_relative"
+  echo "Protocol deployment: review and commit that file before dry-run or broadcast"
 }
 
 validate_protocol_safe() {
@@ -1687,7 +1772,7 @@ if ! bbf_configure_public_network "$network"; then
   exit 2
 fi
 operational_state_file="$project_dir/config/operational-state/$expected_chain_id.json"
-if [[ "$action" != "dry-run" && "$action" != "broadcast" \
+if [[ "$action" != "prepare" && "$action" != "dry-run" && "$action" != "broadcast" \
   && "$action" != "status" && "$action" != "resume-verify" \
   && "$action" != "recover-dropped" ]]; then
   usage >&2
@@ -1700,8 +1785,13 @@ reject_plaintext_signer_inputs
 
 cd "$project_dir"
 resolve_source_commit
-require_committed_operational_state
-validate_operational_state_manifest
+if [[ "$action" == "prepare" ]]; then
+  resolve_operational_state_path
+  require_prepare_checkout
+else
+  require_committed_operational_state
+  validate_operational_state_manifest
+fi
 journal="deployments/protocol/$expected_chain_id/candidate.json"
 active_broadcast="broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/run-latest.json"
 if [[ "$action" == "broadcast" || "$action" == "resume-verify" \
@@ -1709,7 +1799,7 @@ if [[ "$action" == "broadcast" || "$action" == "resume-verify" \
   acquire_deployment_lock
 fi
 if [[ "$action" == "broadcast" ]]; then
-  prepare_broadcast_journal_slot "$journal" "$active_broadcast"
+  prepare_broadcast_journal_slot "$journal" "$active_broadcast" false
 elif [[ "$action" == "resume-verify" ]]; then
   if [[ -f "$journal" ]]; then
     require_recorded_source_checkout "$journal"
@@ -1727,6 +1817,10 @@ validate_build_environment
 bbf_verify_public_chain "Protocol deployment"
 build_deployment_plan
 validate_plan_against_solidity
+if [[ "$action" == "prepare" ]]; then
+  prepare_operational_state
+  exit 0
+fi
 if [[ "$action" == "status" && -f "$active_broadcast" ]]; then
   load_promoted_plan_for_status "$active_broadcast"
 else
@@ -1760,6 +1854,7 @@ if [[ "$action" == "recover-dropped" ]]; then
   recover_dropped_submission "$journal" "$rpc_url"
   exit 0
 fi
+prepare_broadcast_journal_slot "$journal" "$active_broadcast"
 prepare_journal "$journal" "$rpc_url"
 ensure_no_conflicting_active_broadcast "$active_broadcast" "$journal"
 deploy_missing_prefix "$rpc_url" keystore "$journal"

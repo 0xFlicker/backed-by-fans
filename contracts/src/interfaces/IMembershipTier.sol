@@ -16,7 +16,12 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     event MembershipTimeUpdated(
         uint256 indexed tokenId, uint64 paidSeconds, uint64 grantSeconds, uint64 expiration
     );
-    event MembershipSynchronized(uint256 indexed tokenId, address indexed recipient);
+    event ExpiredMembershipSynchronized(
+        uint256 indexed tokenId, address indexed recipient, uint256 suspendedShares
+    );
+    event RewardEligibilityUpdated(
+        uint256 indexed tokenId, bool eligible, uint256 eligibleShares, uint256 totalRewardShares
+    );
     event PauseUpdated(bool paused);
     event SupplyCapUpdated(uint64 previousCap, uint64 newCap);
     event MaxPrepaidPeriodsUpdated(uint64 previousMaximum, uint64 newMaximum);
@@ -125,7 +130,9 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function sharesOf(uint256 tokenId) external view returns (uint256);
 
-    function totalShares() external view returns (uint256);
+    function rewardEligible(uint256 tokenId) external view returns (bool);
+
+    function totalRewardShares() external view returns (uint256);
 
     function rewardPerShare() external view returns (uint256);
 
@@ -160,7 +167,9 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function revokeGrantTime(uint256 tokenId) external returns (uint64 revokedSeconds);
 
-    function synchronize(uint256 tokenId) external returns (bool released);
+    function synchronizeExpiredMemberships(uint256[] calldata tokenIds)
+        external
+        returns (uint256 burnedCount);
 
     function setPaused(bool newPaused) external;
 

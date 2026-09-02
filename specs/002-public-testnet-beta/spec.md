@@ -388,6 +388,34 @@ claims, referrals, and accounting remain unchanged.
   a compatible replacement using the tier's existing art/media inputs, explain that the change affects
   all existing and future membership artwork, and leave the final aesthetic decision to that owner.
 
+#### Expired Membership Sync and Reward Suspension
+
+- **FR-059**: Only the current tier owner MAY call
+  `synchronizeExpiredMemberships(uint256[])`; a batch MUST contain 1 through 100 known token IDs.
+- **FR-060**: Sync MUST skip duplicates, already-burned tokens, and memberships renewed before
+  execution, while an unknown ID MUST revert the transaction atomically.
+- **FR-061**: Syncing a still-inactive membership MUST settle its accrued reward, remove its lifetime
+  shares from `totalRewardShares`, release occupied supply, burn the ERC-721, and emit both
+  `ExpiredMembershipSynchronized` and the standard burn `Transfer`.
+- **FR-062**: Burn MUST preserve `tokenOf`, `sharesOf`, referral state, reward credit, and
+  `totalMinted`; the permanently associated wallet MUST remain able to claim accrued rewards.
+- **FR-063**: Refund and complete grant-only revocation MUST suspend reward eligibility immediately;
+  natural expiration MUST suspend it only when creator sync executes.
+- **FR-064**: Purchase, contribution, gift, and grant MUST each restore a burned membership using the
+  same token ID, skip rewards allocated during the inactive interval, reactivate lifetime shares,
+  add any new shares, and reacquire capacity atomically.
+- **FR-065**: ERC-721 and ERC-5643 functions requiring an existing NFT MUST revert while burned;
+  custom permanent-record reads and canonical restoration paths MUST remain available.
+- **FR-066**: Creator management MUST scan IDs `1…totalMinted` directly onchain at one captured block
+  in pages of 100, discard incomplete or stale scans, explain the consequences, and submit no more
+  than 100 IDs per wallet confirmation through wagmi/viem.
+- **FR-067**: Supporter UX MUST keep accrued claims and canonical rejoin paths available after burn.
+- **FR-068**: Integration guidance MUST explain that ordinary NFT gates become accurate after creator
+  sync and that unsynced expired NFTs still require `isActive` or `activeBalanceOf`.
+- **FR-069**: The replacement protocol MUST repeat the public testnet pilot and receive fresh
+  accounting, security, reproducible-build, artifact-freeze, and deployment approvals before
+  mainnet authorization.
+
 ### Key Entities
 
 - **Accepted Payment Token**: A chain-scoped token approved for new membership tiers, including its
