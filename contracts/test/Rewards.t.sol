@@ -32,7 +32,9 @@ contract RewardsTest is Test {
         tier = new MembershipTier(
             address(this),
             paymentToken,
-            MembershipTestConfig.defaultConfig(address(this), address(renderer))
+            MembershipTestConfig.defaultConfig(
+                address(this), address(renderer), address(paymentToken)
+            )
         );
 
         _fundAndApprove(firstMember, 1_000_000_000);
@@ -138,8 +140,9 @@ contract RewardsTest is Test {
 
     function test_nearUintRangeContributionSettlesRewardWithoutIntermediateOverflow() public {
         MockUSDG largeSupplyToken = new MockUSDG();
-        MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), address(renderer));
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            address(this), address(renderer), address(largeSupplyToken)
+        );
         config.pricePerPeriod = 0;
         MembershipTier largeTier = new MembershipTier(address(this), largeSupplyToken, config);
         address largeHolder = makeAddr("largeHolder");
@@ -200,8 +203,9 @@ contract RewardsTest is Test {
     }
 
     function _deployZeroTier() private returns (MembershipTier zeroTier) {
-        MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), address(renderer));
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            address(this), address(renderer), address(paymentToken)
+        );
         config.pricePerPeriod = 0;
         zeroTier = new MembershipTier(address(this), paymentToken, config);
         vm.prank(firstMember);

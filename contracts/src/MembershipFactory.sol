@@ -25,18 +25,22 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4;
     uint16 private constant _BPS_DENOMINATOR = 10_000;
 
-    IERC20 public immutable override paymentToken;
     address public immutable override mediaStoreFactory;
     bytes32 public immutable override mediaStoreFactoryRuntimeCodehash;
     address public immutable override deployer;
 
     address public override feeRecipient;
+    address[] private _paymentTokens;
     address[] private _tiers;
+    mapping(address token => bool listed) public override isPaymentTokenListed;
+    mapping(address token => bool enabled) public override isPaymentTokenEnabled;
     mapping(address tier => bool registered) public override isRegisteredTier;
     mapping(address creator => mapping(bytes32 tierSalt => bool used)) private _usedTierSalts;
     mapping(bytes32 tierIdentity_ => address tier) public override tierForIdentity;
 
     error CreatorMustBeCaller();
+    error DuplicatePaymentToken(address token);
+    error EmptyPaymentTokenList();
     error InexactTokenTransfer();
     error InvalidAddress();
     error InvalidContract();
@@ -49,30 +53,46 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     error MediaStoreFactoryCodeChanged(bytes32 expected, bytes32 actual);
     error OnlyFeeRecipient();
     error OwnershipRenunciationDisabled();
+    error InvalidPaymentToken(address token);
+    error PaymentTokenNotEnabled(address token);
+    error PaymentTokenNotListed(address token);
     error TierIdentityMismatch(bytes32 expected, bytes32 actual);
     error TierSaltAlreadyUsed(address creator, bytes32 tierSalt);
 
     constructor(
-        IERC20 paymentToken_,
+        IERC20[] memory initialPaymentTokens,
         address mediaStoreFactory_,
         address initialOwner,
         address initialFeeRecipient
     ) Ownable(initialOwner) {
-        if (address(paymentToken_) == address(0) || mediaStoreFactory_ == address(0)) {
+        if (initialPaymentTokens.length == 0) {
+            revert EmptyPaymentTokenList();
+        }
+        if (mediaStoreFactory_ == address(0)) {
             revert InvalidAddress();
         }
-        if (address(paymentToken_).code.length == 0 || mediaStoreFactory_.code.length == 0) {
+        if (mediaStoreFactory_.code.length == 0) {
             revert InvalidContract();
         }
         if (initialFeeRecipient == address(0) || initialFeeRecipient == address(this)) {
             revert InvalidAddress();
         }
 
-        paymentToken = paymentToken_;
         mediaStoreFactory = mediaStoreFactory_;
         mediaStoreFactoryRuntimeCodehash = mediaStoreFactory_.codehash;
         feeRecipient = initialFeeRecipient;
         deployer = address(new MembershipTierDeployer(address(this)));
+
+        for (uint256 i; i < initialPaymentTokens.length; ++i) {
+            address token = address(initialPaymentTokens[i]);
+            _validatePaymentToken(token);
+            if (isPaymentTokenListed[token]) revert DuplicatePaymentToken(token);
+            _paymentTokens.push(token);
+            isPaymentTokenListed[token] = true;
+            isPaymentTokenEnabled[token] = true;
+            emit PaymentTokenListed(token, i);
+            emit PaymentTokenEnabled(token);
+        }
 
         emit FeeRecipientUpdated(address(0), initialFeeRecipient);
     }
@@ -93,6 +113,9 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         if (uint256(config.rewardBps) + config.referralBps + protocolFeeBps > _BPS_DENOMINATOR) {
             revert InvalidRateTotal();
         }
+        if (!isPaymentTokenEnabled[config.paymentToken]) {
+            revert PaymentTokenNotEnabled(config.paymentToken);
+        }
         _validateRenderer(config.renderer, config.art, config.media);
         if (config.media.store != address(0)) {
             bytes32 actualMediaFactoryCodehash = mediaStoreFactory.codehash;
@@ -108,7 +131,7 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         bytes32 identity = TierIdentity.derive(address(this), msg.sender, config.tierSalt);
         _usedTierSalts[msg.sender][config.tierSalt] = true;
 
-        tier = MembershipTierDeployer(deployer).deploy(paymentToken, config);
+        tier = MembershipTierDeployer(deployer).deploy(config);
         bytes32 deployedIdentity = IMembershipTier(tier).tierIdentity();
         if (deployedIdentity != identity) revert TierIdentityMismatch(identity, deployedIdentity);
 
@@ -120,6 +143,7 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         emit TierCreated(tier, msg.sender, identity, tierIndex, config.name, config.symbol);
         emit TierTermsConfigured(
             tier,
+            config.paymentToken,
             config.pricePerPeriod,
             config.periodDuration,
             config.rewardBps,
@@ -187,6 +211,31 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     }
 
     /// @inheritdoc IMembershipFactory
+    function paymentTokenCount() external view override returns (uint256) {
+        return _paymentTokens.length;
+    }
+
+    /// @inheritdoc IMembershipFactory
+    function paymentTokens(uint256 offset, uint256 limit)
+        external
+        view
+        override
+        returns (address[] memory page)
+    {
+        if (limit > maxPageSize) revert InvalidPageSize();
+        uint256 length = _paymentTokens.length;
+        if (offset >= length || limit == 0) return new address[](0);
+
+        uint256 end = offset + limit;
+        if (end > length) end = length;
+
+        page = new address[](end - offset);
+        for (uint256 i; i < page.length; ++i) {
+            page[i] = _paymentTokens[offset + i];
+        }
+    }
+
+    /// @inheritdoc IMembershipFactory
     function setFeeRecipient(address newRecipient) external override onlyOwner {
         if (newRecipient == address(0) || newRecipient == address(this)) {
             revert InvalidAddress();
@@ -198,19 +247,50 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     }
 
     /// @inheritdoc IMembershipFactory
-    function withdrawProtocolFees() external override nonReentrant returns (uint256 amount) {
+    function setPaymentTokenEnabled(address token, bool enabled) external override onlyOwner {
+        bool listed = isPaymentTokenListed[token];
+        if (enabled) {
+            if (!listed) {
+                _validatePaymentToken(token);
+                uint256 tokenIndex = _paymentTokens.length;
+                _paymentTokens.push(token);
+                isPaymentTokenListed[token] = true;
+                emit PaymentTokenListed(token, tokenIndex);
+            }
+            if (isPaymentTokenEnabled[token]) return;
+            isPaymentTokenEnabled[token] = true;
+            emit PaymentTokenEnabled(token);
+            return;
+        }
+
+        if (!listed) revert PaymentTokenNotListed(token);
+        if (!isPaymentTokenEnabled[token]) return;
+        isPaymentTokenEnabled[token] = false;
+        emit PaymentTokenDisabled(token);
+    }
+
+    /// @inheritdoc IMembershipFactory
+    function withdrawProtocolFees(IERC20 token)
+        external
+        override
+        nonReentrant
+        returns (uint256 amount)
+    {
         address recipient = feeRecipient;
         if (msg.sender != recipient) revert OnlyFeeRecipient();
+        if (!isPaymentTokenListed[address(token)]) {
+            revert PaymentTokenNotListed(address(token));
+        }
 
-        uint256 factoryBalanceBefore = paymentToken.balanceOf(address(this));
+        uint256 factoryBalanceBefore = token.balanceOf(address(this));
         if (factoryBalanceBefore == 0) return 0;
-        uint256 recipientBalanceBefore = paymentToken.balanceOf(recipient);
+        uint256 recipientBalanceBefore = token.balanceOf(recipient);
 
         amount = factoryBalanceBefore;
-        paymentToken.safeTransfer(recipient, amount);
+        token.safeTransfer(recipient, amount);
 
-        uint256 factoryBalanceAfter = paymentToken.balanceOf(address(this));
-        uint256 recipientBalanceAfter = paymentToken.balanceOf(recipient);
+        uint256 factoryBalanceAfter = token.balanceOf(address(this));
+        uint256 recipientBalanceAfter = token.balanceOf(recipient);
         if (
             factoryBalanceAfter > factoryBalanceBefore
                 || factoryBalanceBefore - factoryBalanceAfter != amount
@@ -220,7 +300,13 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
             revert InexactTokenTransfer();
         }
 
-        emit ProtocolFeesWithdrawn(recipient, amount);
+        emit ProtocolFeesWithdrawn(address(token), recipient, amount);
+    }
+
+    function _validatePaymentToken(address token) private view {
+        if (token == address(0) || token.code.length == 0) {
+            revert InvalidPaymentToken(token);
+        }
     }
 
     function _validateRenderer(

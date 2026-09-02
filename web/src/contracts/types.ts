@@ -1,11 +1,12 @@
 import type { Address, ContractFunctionReturnType, Hex } from "viem";
 
 import type { membershipTierAbi } from "@/contracts";
+import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
 
 export type ProtocolDependencySnapshot = {
   chainId: 4663 | 46630 | 31337;
   factory: Address;
-  paymentToken: Address;
+  paymentTokens: readonly Address[];
   rendererSchema: Hex;
   renderer: Address;
   rendererName: string;
@@ -33,6 +34,7 @@ export type TierSummary = {
   name: string;
   symbol: string;
   creator: Address;
+  paymentToken: Address;
   pricePerPeriod: bigint;
   periodDuration: bigint;
   paused: boolean;
@@ -50,6 +52,7 @@ export type TierSnapshot = TierSummary & {
   occupiedSupply: bigint;
   maxPrepaidPeriods: bigint;
   paymentToken: Address;
+  paymentTokenState?: AcceptedPaymentToken;
   factory: Address;
   renderer: Address;
   protocolDependencies: ProtocolDependencySnapshot;
@@ -81,7 +84,7 @@ export type SupporterCredential = {
 export type TierSupporterSnapshot = TierSnapshot & {
   capturedTimestamp: bigint;
   wallet?: Address;
-  walletUsdgBalance?: bigint;
+  walletPaymentTokenBalance?: bigint;
   walletEthBalance?: bigint;
   allowance?: bigint;
   claimableReferral?: bigint;

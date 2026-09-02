@@ -1,298 +1,206 @@
 # Robinhood public deployment runbook
 
-Status: **testnet deployment incomplete; not promoted.** The v4 media store factory and initial
-renderer are deployed on chain 46630, but the membership factory is not. The failed candidate is
-archived under `contracts/deployments/protocol/46630/`; no active broadcast pointer or generated
-public address exists. Mainnet remains undeployed.
+Status: **replacement testnet deployment not yet broadcast.** The reviewed candidate adds six
+external payment tokens and owner-mutable tier renderers. Mainnet remains inspection-only and is not
+authorized by this runbook.
 
-This runbook does not authorize mainnet. Mainnet still requires every human gate in
-[mainnet-readiness.md](mainnet-readiness.md), including an explicit GO decision and provisional-
-brand clearance.
+## Release boundary
 
-## Fixed configuration
+| Network | Chain ID | Initial payment tokens | Encrypted account |
+| --- | ---: | --- | --- |
+| Robinhood Chain Testnet | `46630` | external USDG, AMD, NFLX, PLTR, AMZN, TSLA | `backed-by-fans-testnet` |
+| Robinhood Chain Mainnet | `4663` | canonical Paxos USDG only | `backed-by-fans` |
 
-| Network                 | Chain ID | USDG                                                    | Encrypted account        |
-| ----------------------- | -------: | ------------------------------------------------------- | ------------------------ |
-| Robinhood Chain Testnet |  `46630` | Deterministic `LOL Dollar`, symbol `USDG`               | `backed-by-fans-testnet` |
-| Robinhood Chain Mainnet |   `4663` | Paxos USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` | `backed-by-fans`         |
+The exact token addresses, metadata, decimals, runtime hashes, and observed ERC-8056 state are in
+`contracts/config/payment-tokens/<chain-id>.json`. Testnet uses:
 
-The approved deployer is `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027`. The canonical
-CREATE2 deployer is `0x4e59b44847b379578588920cA78FbF26c0B4956C`. The deterministic
-Safe `0xeAA4B38A99f766117C1D493a21012fec25f70505` is the initial protocol owner and
-fee recipient on both chains.
+| Symbol | Address |
+| --- | --- |
+| USDG | `0x7E955252E15c84f5768B83c41a71F9eba181802F` |
+| AMD | `0x71178BAc73cBeb415514eB542a8995b82669778d` |
+| NFLX | `0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93` |
+| PLTR | `0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0` |
+| AMZN | `0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02` |
+| TSLA | `0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E` |
 
-The public bootstrap graph has three direct deterministic deployments, always in this order:
+There is no Backed By Fans test USDG deployment or mint path. Mainnet's only configured token is
+Paxos USDG at `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`; revalidate it before any future
+mainnet decision.
+
+The approved deployer is `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027`. The protocol owner and
+fee recipient are the Safe at `0xeAA4B38A99f766117C1D493a21012fec25f70505`. The canonical CREATE2
+deployer is `0x4e59b44847b379578588920cA78FbF26c0B4956C`.
+
+## Deployment graph
+
+The wrapper deploys exactly four contracts, in order:
 
 1. `OnchainMediaStoreFactory`
-2. the initial `OnchainMetadataRenderer`
-3. `MembershipFactory`
+2. `OnchainMetadataRenderer`
+3. `RendererPreviewHarness`
+4. `MembershipFactory`
 
-The release wrapper appends five fixed constructor arguments to the actual `MembershipFactory`
-creation bytecode: the chain's reviewed USDG, the deterministic initial renderer and media factory,
-and the protocol Safe as both owner and fee recipient. The factory address is therefore
-chain-specific. Anyone submitting the exact salt and payload can only install that exact Safe-owned
-factory at that exact address; a different payload derives a different CREATE2 address. The factory
-runtime code hash is also chain-specific because construction patches the payment-token and
-tier-deployer immutables; the release parity test deploys the factory and records the resulting
-post-constructor code hash rather than hashing the artifact's immutable placeholders. The factory
-records the initial renderer as enabled renderer version 1. Later renderer releases are appended to
-that registry; they do not replace the bootstrap renderer or mutate a published tier.
+The factory constructor receives the ordered initial token list, media-store factory, protocol
+owner, and fee recipient. The default renderer and preview harness are separate direct contracts.
+Every initial token must be listed and enabled after deployment.
 
-## Why public deployment uses raw CREATE2 calls
+Published tiers store immutable payment-token and raw-price terms. Their current owner may change
+the renderer to another compatible direct contract. That presentation change preserves the tier's
+art/media inputs, economics, membership time, ownership, liabilities, and accounting. There is no
+renderer registry gate or operator renderer UI.
 
-Robinhood Chain accepts the reviewed 98,304-byte runtime and 196,608-byte initcode envelope, while
-its Nitro sequencer admits at most 95,000 bytes of transaction data. The renderer exceeds Ethereum's
-49,152-byte EIP-3860 initcode limit, so Foundry's in-process script broadcaster rejects it before a
-transaction reaches the Robinhood RPC. The factory's corrected raw CREATE2 payload is 46,026 bytes;
-the wrapper enforces the 95,000-byte sequencer ceiling for every component before any signing.
+## Why the guarded raw CREATE2 wrapper is required
 
-`contracts/scripts/deploy-protocol.sh` instead:
+Robinhood admits larger code and initcode than Ethereum's default EIP-3860 envelope, while its Nitro
+sequencer limits transaction data to 95,000 bytes. Foundry's in-process broadcaster rejects the
+reviewed renderer before the Robinhood RPC can evaluate it. `contracts/scripts/deploy-protocol.sh`
+therefore builds with the Robinhood profile, derives exact CREATE2 payloads, rejects oversize
+payloads, rehearses the exact four-call sequence on a chain-`46630` fork, and only then submits raw
+transactions through the canonical deployer.
 
-- builds with `FOUNDRY_PROFILE=robinhood` and `--ignore-eip-3860`;
-- reads the exact creation and runtime bytecode from the Foundry artifacts;
-- ABI-encodes the reviewed `MembershipFactory` constructor arguments and appends them to its
-  creation bytecode;
-- recomputes each salt, initcode hash, runtime hash, and canonical CREATE2 address;
-- rejects any raw CREATE2 payload above the Nitro sequencer's 95,000-byte transaction-data limit;
-- requires `config/operational-state/<chain-id>.json` to be tracked, byte-identical to `HEAD`,
-  and to pin the reviewed deployment and current governance state;
-- proves the shell-computed salts, hashes, and addresses against the same Solidity release
-  constants and creation bytecode before any send;
-- builds and signs each raw `salt || initcode` transaction locally with the encrypted Foundry
-  account and an explicit pending nonce;
-- computes and journals the signed transaction hash and nonce before publishing the raw transaction
-  through the canonical CREATE2 deployer;
-- validates exact runtime hashes and the permitted prefix after every receipt;
-- validates the factory's renderer schema, version-1 registry record, media registry, owner,
-  fee-recipient, and tier-deployer dependencies through exact public getters and runtime hashes;
-- verifies all three sources on Blockscout;
-- serializes every mutating testnet or mainnet action and ordinary web binding generation with one
-  repo-wide lock; and
-- only then generates bindings from a staged copy of all existing broadcasts and writes the
-  Foundry-compatible `run-latest.json` release pointer last.
+The wrapper also requires the operational state to be tracked and byte-identical to `HEAD`, checks
+the manifest and all constructor dependencies, journals each signed transaction hash and nonce
+before publication, verifies exact runtime hashes and sources, and promotes Wagmi inputs only after
+the complete graph passes. It rejects private-key, mnemonic, password-file, and password environment
+inputs. Broadcast prompts in the terminal for the encrypted Foundry account password.
 
-The wrapper rejects `ETH_PASSWORD`, private-key, and mnemonic environment inputs. Do not pass
-`--password`, `--password-file`, `--private-key`, or a plaintext secret by any other route. A
-testnet broadcast prompts for the encrypted `backed-by-fans-testnet` keystore password; no password
-is needed for status, fork preflight, or verification recovery.
+## 1. Validate a clean reviewed checkout
 
-## Recovery contract
+Deployment dry-run and broadcast require committed reviewed source. From `contracts/`:
 
-Every invocation prints the exact recovery table generated from the current compiler artifacts:
+```sh
+./scripts/check-clean-room.sh
+./scripts/test-create-safe.sh
+./scripts/test-deploy-protocol.sh
+./scripts/test-manage-payment-tokens.sh
+forge fmt --check src script test
+FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
+FOUNDRY_PROFILE=robinhood forge test \
+  --code-size-limit 1000000 \
+  --gas-limit 1000000000 \
+  -vvv
+./scripts/deploy-protocol.sh testnet status
+```
 
-| Order | Component           | Allowed predecessor                    | Required validation                                 |
-| ----: | ------------------- | -------------------------------------- | --------------------------------------------------- |
-|     0 | Media store factory | Empty candidate                        | exact initcode-derived address and runtime hash     |
-|     1 | Initial renderer    | Exact media store factory only         | exact initcode-derived address and runtime hash     |
-|     2 | Membership factory  | Exact media store factory and renderer | exact runtime plus all immutable/dependency getters |
+Keep RPC URLs in `contracts/.env`. Never put a password, private key, or mnemonic there. `status`
+does not load the signing account and performs no write.
 
-Only four chain states are accepted: empty, media-only, media-plus-renderer, and complete. A
-renderer without the expected media factory, a factory without both predecessors, wrong code at a
-predicted address, or a dependency mismatch fails before another transaction can be submitted.
+## 2. Rehearse the exact testnet deployment
 
-Before the first public send, the wrapper writes
-`contracts/deployments/protocol/<chain-id>/candidate.json`. It contains no RPC URL or secret. It
-records the salts, initcode hashes, runtime hashes, expected addresses, allowed predecessor states,
-submitted transaction hashes, receipts, observed code hashes, and source-verification results.
-Each signed transaction hash and nonce is persisted before `cast publish`, so a process loss after
-RPC acceptance cannot cause a second transaction to be sent at the next nonce. Rerun the same
-`broadcast` command to reconcile that exact hash and resume a valid prefix. If the source-derived
-fingerprint differs from the existing journal, stop and preserve the journal; the wrapper will not
-reinterpret it as a different release.
+```sh
+./scripts/deploy-protocol.sh testnet dry-run
+```
 
-If a journaled transaction is absent from the RPC or has a confirmed revert and its recorded nonce
-proves that it is dropped or consumed, do not edit the journal. Authorize that exact hash:
+The dry-run forks the configured Robinhood testnet RPC at chain ID `46630`, configures the reviewed
+code-size and gas envelope, impersonates the approved deployer inside Anvil, and sends the exact four
+raw CREATE2 calls. It must confirm:
+
+- the exact six manifest tokens, in order, are listed and enabled;
+- all four runtimes and the tier deployer have code;
+- factory owner, pending owner, fee recipient, media dependency, renderer schema, and tier-deployer
+  binding match the reviewed operational state; and
+- every payload remains below the Robinhood initcode/runtime and Nitro transaction-data limits.
+
+This creates no public transaction, public recovery journal, active broadcast pointer, or generated
+address. Set `BBF_ANVIL_PORT` only if the random local port is unavailable.
+
+## 3. Operator-approved testnet broadcast
+
+Only after explicit operator approval:
+
+```sh
+./scripts/deploy-protocol.sh testnet broadcast
+```
+
+This sends four public testnet transactions from the approved encrypted deployer. The terminal asks
+for its keystore password. The resulting factory is owned by the Safe. No chain-`4663` transaction
+is sent and this command does not authorize mainnet.
+
+If a process stops after submission, preserve
+`contracts/deployments/protocol/46630/candidate.json` and rerun the same broadcast command. The
+wrapper reconciles the journaled transaction and valid predecessor code before submitting a missing
+successor. Do not delete or edit the journal.
+
+If all contracts mined but source verification or binding generation failed, use:
+
+```sh
+./scripts/deploy-protocol.sh testnet resume-verify
+```
+
+If one journaled transaction is conclusively absent or reverted and its nonce evidence proves that
+recovery is safe, authorize only that recorded hash:
 
 ```sh
 RECOVER_DROPPED_TRANSACTION_HASH=0x... \
   ./scripts/deploy-protocol.sh testnet recover-dropped
 ```
 
-The command requires the encrypted operator account, records receipt/absence plus latest and
-pending nonce evidence, and returns only that component to `pending`. It does not resubmit. Run
-`broadcast` separately for a fresh password-authorized transaction. A still-known transaction,
-ambiguous nonce state, successful receipt without exact runtime, or mismatched hash is a hard stop.
+That command does not resubmit. Run `broadcast` separately for a fresh password-authorized send.
 
-The journal is recovery evidence, not an application deployment source. A partial journal never
-creates `run-latest.json` and never enables generated public addresses.
+## 4. Promote records and Wagmi bindings
 
-## 1. Verify the checkout
+A successful broadcast and source verification produce:
 
-Keep RPC URLs in `contracts/.env`; the wrappers load that file and prefer its configured endpoints.
-Never put a password, private key, or mnemonic there. The deployer remains in Foundry's encrypted
-keystore.
+- `contracts/deployments/protocol/46630/candidate.json`;
+- a timestamped Foundry-compatible broadcast record;
+- `contracts/broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json`; and
+- regenerated `web/src/contracts.ts` addresses and ABIs.
 
-```sh
-cd contracts
-forge --version
-./scripts/check-clean-room.sh
-./scripts/test-create-safe.sh
-./scripts/test-deploy-protocol.sh
-./scripts/test-testnet-usdg.sh
-forge fmt --check
-FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
-FOUNDRY_PROFILE=robinhood forge test \
-  --code-size-limit 1000000 \
-  --gas-limit 1000000000 \
-  -vvv
-```
-
-The Safe and testnet USDG must already exist and pass their respective validators. `status` requires
-a clean checkout and committed operational record. Before deployment it checks current artifacts
-against that record. After promotion it loads immutable addresses and runtime hashes from
-`run-latest.json`, cross-checks them against the current reviewed record, and validates those
-promoted addresses onchain. Later source drift may be reported, but cannot redirect monitoring to
-a new empty CREATE2 prefix. `status` does not load the signing account:
+Review and commit those artifacts together, then prove generation is reproducible:
 
 ```sh
-./scripts/deploy-protocol.sh testnet status
-```
-
-Review the printed addresses and hashes as the candidate's exact recovery table. Do not copy an old
-address table forward after any source, compiler, optimizer, or metadata change.
-
-## 2. Deploy testnet USDG
-
-The protocol candidate depends on the deterministic test token already documented by the USDG
-wrapper:
-
-```sh
-./scripts/deploy-testnet-usdg.sh dry-run
-./scripts/deploy-testnet-usdg.sh broadcast
-./scripts/deploy-testnet-usdg.sh status
-```
-
-The contract is named `LOL Dollar`, uses symbol `USDG` and six decimals, and can be minted without
-a supply cap only by the approved deployer. It cannot deploy on mainnet.
-
-Token deployment and minting use different scripts. The successful token deployment record remains
-`broadcast/TestnetUSDG.s.sol/46630/run-latest.json`; mint records must never replace it.
-
-## 3. Prove the exact raw deployment on an Anvil fork
-
-Dry-run starts Anvil from the configured network RPC with the target chain ID itself, not `31337`.
-For testnet that means chain `46630`. It configures Robinhood's 98,304-byte code-size and 100M gas
-envelope, impersonates and funds the approved deployer only inside the fork, then sends the exact
-three raw CREATE2 calls. The exact getter and runtime-hash checks run before and after the sequence.
-
-```sh
-./scripts/deploy-protocol.sh testnet dry-run
-```
-
-This writes no public transaction, public recovery journal, active broadcast pointer, or generated
-address. A public `broadcast` repeats this fork preflight before it loads the encrypted account.
-
-If the default random high port is unavailable, choose one explicitly:
-
-```sh
-BBF_ANVIL_PORT=18545 ./scripts/deploy-protocol.sh testnet dry-run
-```
-
-## 4. Deploy the protocol
-
-Only after explicit testnet authorization:
-
-```sh
-./scripts/deploy-protocol.sh testnet broadcast
-```
-
-The sequence is media factory, renderer, then membership factory. Each `cast mktx --account` call
-uses the encrypted Foundry keystore and prompts in the terminal. The wrapper keeps the signed raw
-transaction only in process memory, journals its public hash and nonce before `cast publish`, and
-never reads, stores, or forwards the password.
-
-If a transaction fails or the terminal closes, keep
-`deployments/protocol/46630/candidate.json` and rerun the same command. Valid predecessor code is
-skipped; missing successors are submitted. If all contracts mined but Blockscout verification or
-binding generation failed, no signer is required:
-
-```sh
-./scripts/deploy-protocol.sh testnet resume-verify
-```
-
-`resume-verify` requires a complete exact deployment, retries source verification, promotes the
-broadcast record, and regenerates bindings. It cannot deploy missing code.
-
-Mainnet uses the same artifact graph only after an explicit GO decision:
-
-```sh
-CONFIRM_MAINNET_DEPLOYMENT=4663 ./scripts/deploy-protocol.sh mainnet dry-run
-CONFIRM_MAINNET_DEPLOYMENT=4663 ./scripts/deploy-protocol.sh mainnet broadcast
-```
-
-The confirmation must be present in the invoking process. The wrappers ignore confirmation values
-stored in `contracts/.env`, so a past decision cannot become reusable authorization. There is no
-mainnet LOL Dollar deployment.
-
-## 5. Promote records and web bindings
-
-Successful source verification produces both a timestamped record and the active pointer:
-
-- `contracts/broadcast/DeployDirectProtocol.s.sol/<chain-id>/run-<timestamp>.json`
-- `contracts/broadcast/DeployDirectProtocol.s.sol/<chain-id>/run-latest.json`
-
-The records describe the three canonical-deployer calls and expose each created contract through
-`additionalContracts`, the shape consumed by Wagmi CLI's Foundry plugin. The active record also
-embeds the deterministic deployment-plan fingerprint and points to the recovery journal.
-
-`web/wagmi.config.ts` includes Foundry broadcast addresses only when a promoted protocol
-`run-latest.json` exists for chain `46630` or `4663`. Before promotion, `bun run generate` is
-intentionally ABI-only. The deployment wrapper runs generation only after the complete runtime,
-dependency, and source-verification gates pass. The staged Foundry project retains USDG and
-protocol records for every chain, so one promotion cannot erase another network's addresses. The
-current chain's active pointer is installed only after staged generation and binding installation
-succeed. Ordinary `bun run generate` takes the same repo-wide lock, preventing a concurrent
-generator from interleaving old bindings with a newly promoted pointer. Recovery also rejects
-changes to another chain's broadcast inputs rather than copying them into the staged release.
-
-After an authorized deployment, review and commit together:
-
-- the recovery journal;
-- the timestamped and active broadcast records; and
-- the regenerated `web/src/contracts.ts`.
-
-Then prove the committed output is reproducible:
-
-```sh
-cd web
+cd ../web
 bun run generate:check
 ```
 
-If an obsolete active pointer exists, archive its timestamped record and remove `run-latest.json`
-before promoting a new source fingerprint. The wrapper refuses to overwrite a conflicting active
-deployment. Testnet and mainnet records may coexist because their chain directories are distinct.
+The deployment wrapper stages generation and installs the active pointer last. A partial deployment
+never becomes a Wagmi address source.
 
-## 6. Exercise the product
+## 5. Operate accepted payment tokens
 
-Run `./scripts/verify-local.sh`, then use the web app on the authorized public candidate through
-`/create`. Complete media storage, tier creation and discovery, purchase, renewal, gifting, creator
-management, refunds, claims, ownership, and protocol administration with real wallets.
+Accepted-token administration is Safe/deployer CLI only. There is no operator page in the web app.
+Read operations need no signer:
 
-Wagmi and Viem own application wallet simulation, submission, receipts, replacements,
-cancellation, and errors. Release tooling does not create a parallel application transaction stack.
+```sh
+./scripts/manage-payment-tokens.sh testnet list
+./scripts/manage-payment-tokens.sh testnet inspect 0xTOKEN
+```
 
-## 7. Append a renderer release
+Writes print reviewed Safe transaction JSON by default:
 
-Renderer versions are append-only records inside `MembershipFactory`. A registered renderer is
-disabled by default. Registration records its address and exact runtime code hash after confirming
-the fixed `BackedByFans.MembershipRenderer.v1` schema and a non-empty engine manifest. Enabling it
-is a separate Safe-governed action.
+```sh
+./scripts/manage-payment-tokens.sh testnet enable 0xTOKEN safe
+./scripts/manage-payment-tokens.sh testnet disable 0xTOKEN safe
+./scripts/manage-payment-tokens.sh testnet withdraw 0xTOKEN safe
+```
 
-Before proposing either Safe transaction:
+Direct encrypted-account submission is allowed only if that account is the factory's current owner
+for enable/disable, or the current fee recipient for withdrawal. The invoking process must also
+supply the exact chain confirmation:
 
-1. deploy a direct, immutable renderer contract; do not register a proxy or another implementation
-   whose behavior can change behind a stable proxy runtime hash;
-2. verify source, runtime code hash, `rendererSchema`, `rendererName`, `engineCount`, every
-   `engineName`, configuration validation, totality, gas and response-size ceilings;
-3. visually inspect every engine with generated-only and maximum onchain JPEG/PNG media, active and
-   afterglow states, and representative token IDs;
-4. propose `registerRenderer(renderer)` through the protocol Safe and verify the returned registry
-   version, recorded address, code hash and disabled state;
-5. append that exact record and disabled state to the chain's committed operational record; then
-6. propose `setRendererEnabled(version, true)` only after the product has shipped matching Studio
-   support, update the committed record to enabled, and rerun `status`.
+```sh
+CONFIRM_PAYMENT_TOKEN_WRITE=46630 \
+  ./scripts/manage-payment-tokens.sh testnet enable 0xTOKEN submit
 
-Disabling a version calls `setRendererEnabled(version, false)`. It blocks only new tier creation.
-Every published tier keeps its immutable renderer version, address and runtime code hash and will
-continue rendering as long as that exact code remains present. Never present "latest renderer" as
-the identity of an existing tier, and never reuse a version number.
+CONFIRM_PAYMENT_TOKEN_WRITE=46630 \
+  ./scripts/manage-payment-tokens.sh testnet withdraw 0xTOKEN submit
+```
+
+Enabling a previously unlisted token first checks code, ERC-20 metadata, and coherent ERC-8056 core
+and pending interfaces. Disabling affects only new tier publication. Existing tiers remain usable,
+and protocol fees are inspected and withdrawn independently by token.
+
+## 6. Stage and promote the web app
+
+After the verified protocol promotion, build and test the web app with the generated active factory,
+chain `46630`, `NEXT_PUBLIC_SITE_URL=https://backedbyfans.xyz`, a domain-restricted production RPC,
+and the production WalletConnect configuration. Authenticated Vercel staging and canonical-domain
+promotion each require their own explicit operator approval. Stage once, test that exact artifact,
+and promote it without rebuilding. Routing rollback changes only the web deployment; it cannot roll
+back onchain state.
+
+## Mainnet boundary
+
+This runbook does not authorize mainnet. Future mainnet dry-run or broadcast additionally requires
+`CONFIRM_MAINNET_DEPLOYMENT=4663`, the USDG-only manifest, and every gate in
+`docs/runbooks/mainnet-readiness.md`. Stock Tokens are testnet-only for this release.

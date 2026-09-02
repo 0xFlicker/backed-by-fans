@@ -74,6 +74,7 @@ library MembershipTypes {
         address creator;
         bytes32 tierSalt;
         address renderer;
+        address paymentToken;
         string name;
         string symbol;
         uint256 pricePerPeriod;

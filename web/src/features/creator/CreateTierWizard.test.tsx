@@ -21,6 +21,7 @@ let walletAddress: Address | undefined;
 let walletChainId = 46_630;
 let failDraftRecovery = false;
 const readProtocolDependencies = vi.hoisted(() => vi.fn());
+const readAcceptedPaymentTokens = vi.hoisted(() => vi.fn());
 const simulateContract = vi.hoisted(() => vi.fn());
 const writeContractAsync = vi.hoisted(() => vi.fn());
 const processImageSource = vi.hoisted(() => vi.fn());
@@ -70,6 +71,7 @@ vi.mock("@/features/protocol/protocol-read", () => ({
   membershipRendererSchema: `0x${"33".repeat(32)}`,
   readProtocolDependencies,
 }));
+vi.mock("@/lib/payment-token-read", () => ({ readAcceptedPaymentTokens }));
 vi.mock("@/lib/use-active-network", () => ({
   useActiveNetwork: () => ({
     chainId: walletChainId,
@@ -79,7 +81,6 @@ vi.mock("@/lib/use-active-network", () => ({
       status: "ready",
       chainId: 46_630,
       factoryAddress: "0x1111111111111111111111111111111111111111",
-      usdgAddress: "0x2222222222222222222222222222222222222222",
       rendererAddress: "0x3333333333333333333333333333333333333333",
       previewHarnessAddress: "0x7777777777777777777777777777777777777777",
     },
@@ -165,6 +166,30 @@ describe("creator setup component", () => {
       objectURL: "blob:prepared-image",
       dispose: vi.fn(),
     });
+    readAcceptedPaymentTokens.mockResolvedValue({
+      status: "valid",
+      capturedBlock: 10n,
+      failures: [],
+      data: [
+        {
+          chainId: 46_630,
+          factory: "0x1111111111111111111111111111111111111111",
+          address: "0x2222222222222222222222222222222222222222",
+          registryIndex: 0,
+          listed: true,
+          enabled: true,
+          name: "Global Dollar",
+          symbol: "USDG",
+          decimals: 6,
+          scaledUI: false,
+          uiMultiplier: 10n ** 18n,
+          newUIMultiplier: 10n ** 18n,
+          effectiveAt: 0n,
+          walletRawBalance: 20_000_000n,
+          readBlock: 10n,
+        },
+      ],
+    });
     activeClient.readContract.mockImplementation(
       ({ functionName }: { functionName: string }) => {
         if (failDraftRecovery && functionName === "predictTierIdentity") {
@@ -194,7 +219,7 @@ describe("creator setup component", () => {
       data: {
         chainId: 46_630,
         factory: "0x1111111111111111111111111111111111111111",
-        paymentToken: "0x2222222222222222222222222222222222222222",
+        paymentTokens: ["0x2222222222222222222222222222222222222222"],
         rendererSchema: `0x${"33".repeat(32)}`,
         renderer: "0x3333333333333333333333333333333333333333",
         rendererName: "BACKED BY FANS / FOUNDING SIX",

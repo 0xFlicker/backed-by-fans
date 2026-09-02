@@ -29,6 +29,7 @@ export type TierPublicationConfig = {
   creator: Address;
   tierSalt: Hex;
   renderer: Address;
+  paymentToken: Address;
   name: string;
   symbol: string;
   pricePerPeriod: bigint;
@@ -123,7 +124,10 @@ function sameImmutableProtocolDependencies(
   return (
     left.chainId === right.chainId &&
     isSameAddress(left.factory, right.factory) &&
-    isSameAddress(left.paymentToken, right.paymentToken) &&
+    left.paymentTokens.length === right.paymentTokens.length &&
+    left.paymentTokens.every((token, index) =>
+      isSameAddress(token, right.paymentTokens[index]),
+    ) &&
     left.rendererSchema === right.rendererSchema &&
     isSameAddress(left.renderer, right.renderer) &&
     isSameAddress(left.previewHarness, right.previewHarness) &&
@@ -161,7 +165,6 @@ export async function readCreatorMediaPage(
       status: "ready",
       chainId: input.protocolDependencies.chainId,
       factoryAddress: input.protocolDependencies.factory,
-      usdgAddress: input.protocolDependencies.paymentToken,
       rendererAddress: input.protocolDependencies.renderer,
       previewHarnessAddress: input.protocolDependencies.previewHarness,
     },
@@ -268,7 +271,6 @@ export async function reconcileStoredMedia(
       status: "ready",
       chainId: input.protocolDependencies.chainId,
       factoryAddress: input.protocolDependencies.factory,
-      usdgAddress: input.protocolDependencies.paymentToken,
       rendererAddress: input.protocolDependencies.renderer,
       previewHarnessAddress: input.protocolDependencies.previewHarness,
     },
@@ -380,7 +382,6 @@ export async function readConfirmedOnchainMedia(
       status: "ready",
       chainId: input.protocolDependencies.chainId,
       factoryAddress: input.protocolDependencies.factory,
-      usdgAddress: input.protocolDependencies.paymentToken,
       rendererAddress: input.protocolDependencies.renderer,
       previewHarnessAddress: input.protocolDependencies.previewHarness,
     },
@@ -623,7 +624,7 @@ async function matchesLaunchTerms(
   return (
     isSameAddress(owner, config.creator) &&
     isSameAddress(factory, protocol.factory) &&
-    isSameAddress(paymentToken, protocol.paymentToken) &&
+    isSameAddress(paymentToken, config.paymentToken) &&
     isSameAddress(renderer, config.renderer) &&
     tierIdentity === expectedIdentity &&
     name === config.name &&
@@ -659,7 +660,6 @@ export async function reconcileCreatedTier(
       status: "ready",
       chainId: input.protocolDependencies.chainId,
       factoryAddress: input.protocolDependencies.factory,
-      usdgAddress: input.protocolDependencies.paymentToken,
       rendererAddress: input.protocolDependencies.renderer,
       previewHarnessAddress: input.protocolDependencies.previewHarness,
     },

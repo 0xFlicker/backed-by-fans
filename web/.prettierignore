@@ -1,5 +1,8 @@
 .next
 node_modules
+dist
+build
+out
 playwright-report
 test-results
 coverage

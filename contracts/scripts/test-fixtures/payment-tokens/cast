@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf 'cast %s\n' "$*" >>"${MOCK_LOG:?}"
+command="${1:-}"
+shift || true
+token_a="0x1111111111111111111111111111111111111111"
+token_b="0x2222222222222222222222222222222222222222"
+
+case "$command" in
+  chain-id)
+    printf '%s\n' "${MOCK_CHAIN_ID:-46630}"
+    ;;
+  code)
+    if [[ "${1:-}" == "${MOCK_NO_CODE:-never}" ]]; then printf '0x\n'; else printf '0x6000\n'; fi
+    ;;
+  wallet)
+    printf '%s\n' "${MOCK_OWNER:-0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027}"
+    ;;
+  calldata)
+    case "${1:-}" in
+      setPaymentTokenEnabled*) printf '0xaaaa%s\n' "${3:-}" ;;
+      withdrawProtocolFees*) printf '0xbbbb\n' ;;
+      *) exit 1 ;;
+    esac
+    ;;
+  send)
+    printf '0x%s\n' "$(printf 'ab%.0s' {1..32})"
+    ;;
+  call)
+    address="${1:-}"
+    signature="${2:-}"
+    argument="${3:-}"
+    case "$signature" in
+      'paymentTokenCount()(uint256)') printf '2\n' ;;
+      'paymentTokens(uint256,uint256)(address[])') printf '[%s, %s]\n' "$token_a" "$token_b" ;;
+      'isPaymentTokenListed(address)(bool)')
+        if [[ "$argument" == "${MOCK_UNLISTED:-never}" ]]; then printf 'false\n'; else printf 'true\n'; fi
+        ;;
+      'isPaymentTokenEnabled(address)(bool)') printf 'true\n' ;;
+      'name()(string)')
+        if [[ "$address" == "$token_b" ]]; then printf 'AMD Stock Token\n'; else printf 'Global Dollar\n'; fi
+        ;;
+      'symbol()(string)')
+        if [[ "$address" == "$token_b" ]]; then printf 'AMD\n'; else printf 'USDG\n'; fi
+        ;;
+      'decimals()(uint8)')
+        if [[ "$address" == "$token_b" ]]; then printf '18\n'; else printf '6\n'; fi
+        ;;
+      'balanceOf(address)(uint256)') printf '123456\n' ;;
+      'supportsInterface(bytes4)(bool)')
+        if [[ "$argument" == "0xa60bf13d" && "${MOCK_CORE_ONLY:-false}" == "true" ]]; then
+          printf 'true\n'
+        elif [[ "$address" == "$token_b" ]]; then
+          printf 'true\n'
+        else
+          printf 'Error: execution reverted\n' >&2
+          exit 1
+        fi
+        ;;
+      'uiMultiplier()(uint256)') printf '2000000000000000000\n' ;;
+      'newUIMultiplier()(uint256)') printf '3000000000000000000\n' ;;
+      'effectiveAt()(uint256)') printf '2000000000\n' ;;
+      'owner()(address)') printf '%s\n' "${MOCK_OWNER:-0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027}" ;;
+      'feeRecipient()(address)') printf '%s\n' "${MOCK_FEE_RECIPIENT:-0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027}" ;;
+      *) printf 'mock cast: unsupported call %s\n' "$signature" >&2; exit 1 ;;
+    esac
+    ;;
+  *)
+    printf 'mock cast: unsupported command %s\n' "$command" >&2
+    exit 1
+    ;;
+esac

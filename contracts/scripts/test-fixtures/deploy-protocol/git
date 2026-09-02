@@ -44,6 +44,9 @@ case "${args[0]:-}" in
       printf '%s\n' "contracts/broadcast/DeployDirectProtocol.s.sol/4663/run-latest.json"
     fi
     ;;
+  hash-object)
+    printf '%s\n' "${MOCK_PAYMENT_TOKEN_MANIFEST_BLOB:-4444444444444444444444444444444444444444}"
+    ;;
   *)
     echo "unexpected mock git invocation: $*" >&2
     exit 1

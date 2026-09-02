@@ -130,7 +130,7 @@ contract GrantsAndCapacityTest is Test {
 
     function _config(address renderer_) private view returns (MembershipTypes.TierConfig memory) {
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), renderer_);
+            MembershipTestConfig.defaultConfig(address(this), renderer_, address(paymentToken));
         config.supplyCap = 1;
         return config;
     }

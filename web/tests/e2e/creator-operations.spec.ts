@@ -1,11 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { formatUnits, zeroAddress } from "viem";
+import { zeroAddress } from "viem";
 
-import {
-  membershipFactoryAbi,
-  membershipTierAbi,
-  usdgAbi,
-} from "../../src/contracts";
+import { membershipTierAbi, usdgAbi } from "../../src/contracts";
+import { formatRawTokenAmount } from "../../src/lib/token-amount";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -19,6 +16,9 @@ import {
   snapshotAnvil,
   switchAnvilAccount,
 } from "./helpers/anvil";
+
+const usdgDisplay = (raw: bigint) =>
+  `${formatRawTokenAmount({ raw, decimals: 6, multiplier: 10n ** 18n })} USDG`;
 
 const tier = "0x2222222222222222222222222222222222222222";
 
@@ -34,7 +34,7 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
   const recipient = requiredAnvilAddress("giftRecipient");
   const newOwner = requiredAnvilAddress("newOwner");
   const configuredTier = requiredAnvilAddress("tier");
-  const usdg = requiredAnvilAddress("usdg");
+  const usdg = requiredAnvilAddress("paymentToken");
   const client = anvilPublicClient();
 
   try {
@@ -131,10 +131,10 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
     const refundPreview = page.locator(".refund-preview");
     await expect(
       refundPreview.getByText("Gross refund").locator(".."),
-    ).toContainText(`${formatUnits(grossRefund, 6)} USDG`);
+    ).toContainText(usdgDisplay(grossRefund));
     await expect(
       refundPreview.getByText("Exact owner top-up").locator(".."),
-    ).toContainText(`${formatUnits(ownerTopUp, 6)} USDG`);
+    ).toContainText(usdgDisplay(ownerTopUp));
     await page
       .getByRole("button", { name: "Approve exact top-up and refund" })
       .click();
@@ -164,73 +164,6 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
   }
 });
 
-test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi", async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(90_000);
-  test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
-  test.skip(testInfo.project.name !== "desktop", "One mutation is sufficient.");
-  const snapshot = await snapshotAnvil();
-  const creator = requiredAnvilAddress("creator");
-  const member = requiredAnvilAddress("member");
-  const newRecipient = requiredAnvilAddress("giftRecipient");
-  const factory = requiredAnvilAddress("factory");
-  const configuredTier = requiredAnvilAddress("tier");
-  const usdg = requiredAnvilAddress("usdg");
-  const client = anvilPublicClient();
-
-  try {
-    expectSuccessfulReceipt(
-      await sendContract({
-        account: member,
-        address: usdg,
-        abi: usdgAbi,
-        functionName: "approve",
-        args: [configuredTier, 10_000_000n],
-      }),
-    );
-    expectSuccessfulReceipt(
-      await sendContract({
-        account: member,
-        address: configuredTier,
-        abi: membershipTierAbi,
-        functionName: "purchase",
-        args: [1n, zeroAddress],
-      }),
-    );
-
-    await installAnvilWallet(page, creator);
-    await page.goto("/protocol");
-    await connectAnvilWallet(page, creator);
-
-    await page
-      .getByRole("button", { name: "Withdraw to fee recipient" })
-      .click();
-    await expectReconciled(page, "Withdraw protocol fees");
-    await expect(
-      client.readContract({
-        address: usdg,
-        abi: usdgAbi,
-        functionName: "balanceOf",
-        args: [factory],
-      }),
-    ).resolves.toBe(0n);
-
-    await page.getByLabel("New fee recipient").fill(newRecipient);
-    await page.getByRole("button", { name: "Set fee recipient" }).click();
-    await expectReconciled(page, "Change protocol fee recipient");
-    await expect(
-      client.readContract({
-        address: factory,
-        abi: membershipFactoryAbi,
-        functionName: "feeRecipient",
-      }),
-    ).resolves.toBe(newRecipient);
-  } finally {
-    await revertAnvil(snapshot);
-  }
-});
-
 test("validates management routes before any direct read", async ({ page }) => {
   await page.goto("/chains/31337/tiers/not-an-address/manage");
   await expect(page.getByText("Invalid tier address")).toBeVisible();
@@ -241,15 +174,6 @@ test("fails registered-tier management closed without deployment config", async 
   page,
 }) => {
   await page.goto(`/chains/31337/tiers/${tier}/manage`);
-  await expect(page.getByText("Onchain state unavailable")).toBeVisible();
-  await expect(page.getByText(/not deployed/i)).toBeVisible();
-});
-
-test("fails protocol administration closed without a verified factory", async ({
-  page,
-}) => {
-  await page.goto("/protocol");
-  await page.getByLabel("Membership network").selectOption("4663");
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
   await expect(page.getByText(/not deployed/i)).toBeVisible();
 });

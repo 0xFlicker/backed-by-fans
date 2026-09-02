@@ -30,7 +30,9 @@ public_state="$test_dir/public-prefix"
 local_state="$test_dir/local-prefix"
 anvil_ready="$test_dir/anvil-ready"
 operational_state="$contracts_dir/config/operational-state/46630.json"
+payment_token_manifest="$contracts_dir/config/payment-tokens/46630.json"
 reviewed_operational_state="$test_dir/reviewed-operational-state.json"
+reviewed_payment_token_manifest="$test_dir/reviewed-payment-token-manifest.json"
 deployment_lock=""
 
 cleanup_test() {
@@ -83,6 +85,7 @@ reset_project_state() {
   rm -rf "$contracts_dir/deployments/protocol" "$contracts_dir/broadcast"
   rm -f "$project_root/web/src/contracts.ts"
   cp "$reviewed_operational_state" "$operational_state"
+  cp "$reviewed_payment_token_manifest" "$payment_token_manifest"
 }
 
 real_cast="$(command -v cast)"
@@ -101,7 +104,7 @@ export MOCK_PREVIEW_RUNTIME=0x600f
 export MOCK_SECOND_RENDERER_RUNTIME=0x600e
 export MOCK_RENDERER_SCHEMA=0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4
 export MOCK_FACTORY_RUNTIME=0x600c
-export MOCK_TESTNET_USDG_RUNTIME=0x600d
+export MOCK_PAYMENT_TOKEN_RUNTIME=0x600d
 export MOCK_CREATE2_RUNTIME=0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3
 export MOCK_CREATE2_ADDRESS=0x4e59b44847b379578588920cA78FbF26c0B4956C
 export MOCK_SAFE_ADDRESS=0xeAA4B38A99f766117C1D493a21012fec25f70505
@@ -111,16 +114,22 @@ create2_deployer=0x4e59b44847b379578588920cA78FbF26c0B4956C
 media_salt="$($real_cast keccak 'Backed By Fans media store factory v4')"
 renderer_salt="$($real_cast keccak 'Backed By Fans renderer v4')"
 preview_salt="$($real_cast keccak 'Backed By Fans renderer preview harness v1')"
-factory_salt="$($real_cast keccak 'Backed By Fans factory v5')"
+factory_salt="$($real_cast keccak 'Backed By Fans factory v6')"
 export MOCK_MEDIA_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$media_salt" --init-code 0x6001)"
 export MOCK_RENDERER_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$renderer_salt" --init-code 0x6002)"
 export MOCK_PREVIEW_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$preview_salt" --init-code 0x6005)"
 export MOCK_SECOND_RENDERER_ADDRESS=0x9999999999999999999999999999999999999999
-testnet_usdg_salt="$($real_cast keccak 'Backed By Fans testnet USDG v1')"
-export MOCK_TESTNET_USDG_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$testnet_usdg_salt" --init-code 0x6004)"
+export MOCK_TESTNET_USDG_ADDRESS=0x7E955252E15c84f5768B83c41a71F9eba181802F
+export MOCK_TESTNET_AMD_ADDRESS=0x71178BAc73cBeb415514eB542a8995b82669778d
+export MOCK_TESTNET_NFLX_ADDRESS=0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93
+export MOCK_TESTNET_PLTR_ADDRESS=0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0
+export MOCK_TESTNET_AMZN_ADDRESS=0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02
+export MOCK_TESTNET_TSLA_ADDRESS=0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E
+export MOCK_PAYMENT_TOKEN_ADDRESSES="$MOCK_TESTNET_USDG_ADDRESS $MOCK_TESTNET_AMD_ADDRESS $MOCK_TESTNET_NFLX_ADDRESS $MOCK_TESTNET_PLTR_ADDRESS $MOCK_TESTNET_AMZN_ADDRESS $MOCK_TESTNET_TSLA_ADDRESS"
+payment_token_array="[$(printf '%s' "$MOCK_PAYMENT_TOKEN_ADDRESSES" | tr ' ' ',')]"
 factory_constructor_args="$($real_cast abi-encode \
-  'constructor(address,address,address,address)' \
-  "$MOCK_TESTNET_USDG_ADDRESS" \
+  'constructor(address[],address,address,address)' \
+  "$payment_token_array" \
   "$MOCK_MEDIA_ADDRESS" \
   "$MOCK_SAFE_ADDRESS" \
   "$MOCK_SAFE_ADDRESS")"
@@ -131,28 +140,34 @@ export MOCK_RENDERER_RUNTIME_HASH="$($real_cast keccak "$MOCK_RENDERER_RUNTIME")
 export MOCK_PREVIEW_RUNTIME_HASH="$($real_cast keccak "$MOCK_PREVIEW_RUNTIME")"
 export MOCK_SECOND_RENDERER_RUNTIME_HASH="$($real_cast keccak "$MOCK_SECOND_RENDERER_RUNTIME")"
 export MOCK_FACTORY_RUNTIME_HASH="$($real_cast keccak "$MOCK_FACTORY_RUNTIME")"
-export MOCK_TESTNET_USDG_RUNTIME_HASH="$($real_cast keccak "$MOCK_TESTNET_USDG_RUNTIME")"
+export MOCK_PAYMENT_TOKEN_RUNTIME_HASH="$($real_cast keccak "$MOCK_PAYMENT_TOKEN_RUNTIME")"
 
-mkdir -p "$wrapper_dir" "$project_root/web/src" "$contracts_dir/config/operational-state"
+mkdir -p "$wrapper_dir" "$project_root/web/src" \
+  "$contracts_dir/config/operational-state" "$contracts_dir/config/payment-tokens"
 cp "$script_dir/deploy-protocol.sh" "$script_dir/public-chain-common.sh" "$wrapper_dir/"
 cp "$script_dir/../config/operational-state/46630.json" "$operational_state"
+cp "$script_dir/../config/payment-tokens/46630.json" "$payment_token_manifest"
+jq --arg runtime "$MOCK_PAYMENT_TOKEN_RUNTIME_HASH" \
+  '.releaseStatus = "validated" | .initialTokens[].runtimeCodehash = $runtime' \
+  "$payment_token_manifest" >"${payment_token_manifest}.tmp"
+mv "${payment_token_manifest}.tmp" "$payment_token_manifest"
 jq \
   --arg implementation "$MOCK_RENDERER_ADDRESS" \
   --arg runtime_hash "$MOCK_RENDERER_RUNTIME_HASH" \
-  --arg payment_token "$MOCK_TESTNET_USDG_ADDRESS" \
-  --arg payment_runtime "$MOCK_TESTNET_USDG_RUNTIME_HASH" \
+  --argjson payment_tokens "$(jq -c '.initialTokens | map({
+    symbol,
+    address,
+    runtimeCodehash,
+    implementation: null,
+    implementationRuntimeCodehash: null
+  })' "$payment_token_manifest")" \
   --arg media "$MOCK_MEDIA_ADDRESS" \
   --arg media_runtime "$MOCK_MEDIA_RUNTIME_HASH" \
   --arg preview "$MOCK_PREVIEW_ADDRESS" \
   --arg preview_runtime "$MOCK_PREVIEW_RUNTIME_HASH" \
   --arg factory "$MOCK_FACTORY_ADDRESS" \
   --arg factory_runtime "$MOCK_FACTORY_RUNTIME_HASH" \
-  '.deployment.paymentToken = {
-      address: $payment_token,
-      runtimeCodehash: $payment_runtime,
-      implementation: null,
-      implementationRuntimeCodehash: null
-    }
+  '.deployment.paymentTokens = $payment_tokens
    | .deployment.mediaStoreFactory = {address: $media, runtimeCodehash: $media_runtime}
    | .deployment.renderer = {address: $implementation, runtimeCodehash: $runtime_hash}
    | .deployment.previewHarness = {address: $preview, runtimeCodehash: $preview_runtime}
@@ -160,6 +175,7 @@ jq \
   "$operational_state" >"${operational_state}.tmp"
 mv "${operational_state}.tmp" "$operational_state"
 cp "$operational_state" "$reviewed_operational_state"
+cp "$payment_token_manifest" "$reviewed_payment_token_manifest"
 deploy_wrapper="$wrapper_dir/deploy-protocol.sh"
 export PATH="$mock_bin:$PATH"
 export TMPDIR="$test_dir"
@@ -181,6 +197,22 @@ rm "$deployment_lock/owner"
 rmdir "$deployment_lock"
 
 reset_project_state
+jq '.releaseStatus = "pending"' "$payment_token_manifest" \
+  >"${payment_token_manifest}.tmp"
+mv "${payment_token_manifest}.tmp" "$payment_token_manifest"
+run_expect_failure "$deploy_wrapper" testnet dry-run
+assert_contains "$test_dir/stderr" "payment-token manifest is not release-validated"
+assert_not_contains "$mock_log" "cast send $create2_deployer"
+
+reset_project_state
+jq '.initialTokens[1].address = .initialTokens[0].address' "$payment_token_manifest" \
+  >"${payment_token_manifest}.tmp"
+mv "${payment_token_manifest}.tmp" "$payment_token_manifest"
+run_expect_failure "$deploy_wrapper" testnet dry-run
+assert_contains "$test_dir/stderr" "payment-token manifest is not release-validated"
+assert_not_contains "$mock_log" "cast send $create2_deployer"
+
+reset_project_state
 "$deploy_wrapper" testnet dry-run
 assert_contains "$mock_log" "FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860"
 assert_contains "$mock_log" "anvil --fork-url https://rpc.testnet.chain.robinhood.com --chain-id 46630"
@@ -198,17 +230,13 @@ assert_not_contains "$mock_log" ":DeployProtocol --rpc-url"
   || fail "dry-run wrote a public recovery journal"
 
 reset_project_state
-run_expect_failure env MOCK_FACTORY_BYTECODE_BYTES=94841 "$deploy_wrapper" testnet dry-run
+run_expect_failure env MOCK_FACTORY_BYTECODE_BYTES=94617 "$deploy_wrapper" testnet dry-run
 assert_contains "$test_dir/stderr" \
   "membership factory raw CREATE2 transaction data is 95001 bytes; Robinhood Nitro sequencer limit is 95000"
 assert_not_contains "$mock_log" "cast send $create2_deployer"
 
 reset_project_state
-mkdir -p \
-  "$contracts_dir/broadcast/TestnetUSDG.s.sol/46630" \
-  "$contracts_dir/broadcast/DeployDirectProtocol.s.sol/4663"
-printf '{"transactions":[]}\n' \
-  >"$contracts_dir/broadcast/TestnetUSDG.s.sol/46630/run-latest.json"
+mkdir -p "$contracts_dir/broadcast/DeployDirectProtocol.s.sol/4663"
 printf '{"transactions":[]}\n' \
   >"$contracts_dir/broadcast/DeployDirectProtocol.s.sol/4663/run-latest.json"
 env MOCK_BUN_REQUIRE_PRESERVED_BROADCASTS=1 "$deploy_wrapper" testnet broadcast
@@ -238,7 +266,20 @@ assert_jq "$active" '.chain == 46630 and (.transactions | length) == 4'
 assert_jq "$active" '[.transactions[].transactionType] == ["CALL", "CALL", "CALL", "CALL"]'
 assert_jq "$active" '[.transactions[].additionalContracts[0].contractName] == ["OnchainMediaStoreFactory", "OnchainMetadataRenderer", "RendererPreviewHarness", "MembershipFactory"]'
 assert_jq "$active" '.deploymentPlan.components[0].allowedPredecessor == "empty" and .deploymentPlan.components[3].allowedPredecessor == "renderer preview harness"'
-assert_jq "$active" '.commit == "1111111111111111111111111111111111111111" and .deploymentPlan.schemaVersion == 4 and .deploymentPlan.sourceCommit == .commit and .deploymentPlan.operationalStateBlob == "2222222222222222222222222222222222222222"'
+assert_jq "$active" '
+  .commit == "1111111111111111111111111111111111111111"
+  and .deploymentPlan.schemaVersion == 5
+  and (.deploymentPlan.paymentTokens | map(.address | ascii_downcase)) == [
+    "0x7e955252e15c84f5768b83c41a71f9eba181802f",
+    "0x71178bac73cbeb415514eb542a8995b82669778d",
+    "0x3b8262a63d25f0477c4dde23f83cfe22cb768c93",
+    "0x1fbe1a0e43594b3455993b5de5fd0a7a266298d0",
+    "0x5884ad2f920c162cfbbacc88c9c51aa75ec09e02",
+    "0xc9f9c86933092bbbfff3ccb4b105a4a94bf3bd4e"
+  ]
+  and .deploymentPlan.sourceCommit == .commit
+  and .deploymentPlan.operationalStateBlob == "2222222222222222222222222222222222222222"'
+assert_not_contains "$mock_log" "TestnetUSDG"
 assert_jq "$candidate" '.buildConfigHash | test("^0x[0-9a-f]{64}$")'
 assert_jq "$candidate" '.forgeVersion == "forge Version: 1.7.1" and .solcVersion == "0.8.36" and .buildConfig.optimizer_runs == 200'
 

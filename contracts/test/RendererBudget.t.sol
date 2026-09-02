@@ -65,10 +65,14 @@ contract RendererBudgetTest is Test {
 
     function test_noMediaRealFactoryTierMintAndTokenURIPath() public {
         MembershipFactory factory = new MembershipFactory(
-            IERC20(address(paymentToken)), address(mediaFactory), address(this), address(this)
+            MembershipTestConfig.paymentTokens(IERC20(address(paymentToken))),
+            address(mediaFactory),
+            address(this),
+            address(this)
         );
-        MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), address(renderer));
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            address(this), address(renderer), address(paymentToken)
+        );
         MembershipTier tier = MembershipTier(factory.createTier(config));
         uint256 tokenId = tier.grantTime(makeAddr("no-media-member"), 1);
 
@@ -145,7 +149,9 @@ contract RendererBudgetTest is Test {
     {
         (address store, bytes32 digest, bytes32 runtimeCodehash) =
             _etchNativePayload(mediaLength, engine);
-        config = MembershipTestConfig.defaultConfig(address(this), address(renderer));
+        config = MembershipTestConfig.defaultConfig(
+            address(this), address(renderer), address(paymentToken)
+        );
         config.tierSalt = keccak256(abi.encode("budget-tier", mediaLength, engine));
         config.art.engine = engine;
         config.media = MembershipTypes.MediaConfig({

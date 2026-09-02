@@ -121,7 +121,7 @@ test.describe("@anvil configured local Anvil membership", () => {
     const snapshot = await snapshotAnvil();
     const member = requiredAnvilAddress("member");
     const tier = requiredAnvilAddress("tier");
-    const usdg = requiredAnvilAddress("usdg");
+    const usdg = requiredAnvilAddress("paymentToken");
     const client = anvilPublicClient();
     try {
       await installAnvilWallet(page, member);

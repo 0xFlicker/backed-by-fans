@@ -33,7 +33,9 @@ contract ReferralsTest is Test {
         tier = new MembershipTier(
             address(this),
             paymentToken,
-            MembershipTestConfig.defaultConfig(address(this), address(renderer))
+            MembershipTestConfig.defaultConfig(
+                address(this), address(renderer), address(paymentToken)
+            )
         );
 
         paymentToken.mint(member, 1_000_000_000);
@@ -169,8 +171,9 @@ contract ReferralsTest is Test {
     }
 
     function test_zeroPriceStandardRenewalDoesNotInventAttribution() public {
-        MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), address(renderer));
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            address(this), address(renderer), address(paymentToken)
+        );
         config.pricePerPeriod = 0;
         MembershipTier zeroTier = new MembershipTier(address(this), paymentToken, config);
         uint256 tokenId = zeroTier.grantTime(member, 1);

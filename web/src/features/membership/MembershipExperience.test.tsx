@@ -36,7 +36,7 @@ const renderer = getAddress("0x6666666666666666666666666666666666666666");
 const protocolDependencies: ProtocolDependencySnapshot = {
   chainId: 46630,
   factory,
-  paymentToken,
+  paymentTokens: [paymentToken],
   rendererSchema: `0x${"03".repeat(32)}`,
   renderer,
   rendererName: "Founding Six",
@@ -79,6 +79,22 @@ const snapshot: TierSupporterSnapshot = {
   creator: getAddress("0x3333333333333333333333333333333333333333"),
   factory,
   paymentToken,
+  paymentTokenState: {
+    chainId: 46_630,
+    factory,
+    address: paymentToken,
+    registryIndex: 0,
+    listed: true,
+    enabled: true,
+    name: "Global Dollar",
+    symbol: "USDG",
+    decimals: 6,
+    scaledUI: false,
+    uiMultiplier: 10n ** 18n,
+    newUIMultiplier: 10n ** 18n,
+    effectiveAt: 0n,
+    readBlock: 100n,
+  },
   renderer,
   protocolDependencies,
   tierIdentity,
@@ -98,7 +114,7 @@ const snapshot: TierSupporterSnapshot = {
   paused: false,
   capturedTimestamp: 2_000_000_000n,
   wallet,
-  walletUsdgBalance: 100_000_000n,
+  walletPaymentTokenBalance: 100_000_000n,
   walletEthBalance: 1n,
   allowance: 0n,
   claimableReferral: 0n,
@@ -277,6 +293,36 @@ describe("supporter membership experience", () => {
     expect(
       screen.getByRole("button", { name: "Renew active membership" }),
     ).toBeDisabled();
+  });
+
+  it("displays a scaled token and its scheduled change without changing raw terms", () => {
+    const scaled = {
+      ...snapshot,
+      pricePerPeriod: 25_000_000_000_000_000n,
+      walletPaymentTokenBalance: 100_000_000_000_000_000n,
+      paymentTokenState: {
+        ...snapshot.paymentTokenState!,
+        name: "AMD Stock Token",
+        symbol: "AMD",
+        decimals: 18,
+        scaledUI: true,
+        uiMultiplier: 2n * 10n ** 18n,
+        newUIMultiplier: 4n * 10n ** 18n,
+        effectiveAt: snapshot.capturedTimestamp + 3_600n,
+      },
+    };
+
+    renderExperience(scaled);
+
+    expect(
+      screen.getAllByText("0.05 AMD", { exact: true }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/one period will display as 0.1 AMD/i),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/raw contract price does not change/i),
+    ).toBeVisible();
   });
 
   it("shows only the canonical self-contained SVG", async () => {

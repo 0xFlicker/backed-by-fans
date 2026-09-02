@@ -28,9 +28,9 @@ deployment.
 **Purpose**: Establish the current baseline and create the chain/token fixtures used by the protocol
 and browser test layers.
 
-- [ ] T001 Run the existing `forge build`, `forge test`, `bun run generate:check`, `bun run format`, `bun run lint`, `bun run typecheck`, `bun run test`, and `bun run build` baselines in `contracts/` and `web/`, preserving unrelated user changes and recording any pre-existing failure in the implementation handoff
-- [ ] T002 [P] Add fail-closed chain-scoped launch manifests containing exactly external testnet USDG `0x7E955252E15c84f5768B83c41a71F9eba181802F`, AMD `0x71178BAc73cBeb415514eB542a8995b82669778d`, NFLX `0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93`, PLTR `0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0`, AMZN `0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02`, and TSLA `0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E` for testnet and canonical USDG only for mainnet in `contracts/config/payment-tokens/46630.json` and `contracts/config/payment-tokens/4663.json`
-- [ ] T003 [P] Add the ERC-8056 core/pending interfaces and an adjustable 18-decimal scaled-token test double in `contracts/src/interfaces/IERC8056.sol` and `contracts/test/mocks/MockScaledToken.sol`
+- [x] T001 Run the existing `forge build`, `forge test`, `bun run generate:check`, `bun run format`, `bun run lint`, `bun run typecheck`, `bun run test`, and `bun run build` baselines in `contracts/` and `web/`, preserving unrelated user changes and recording any pre-existing failure in the implementation handoff
+- [x] T002 [P] Add fail-closed chain-scoped launch manifests containing exactly external testnet USDG `0x7E955252E15c84f5768B83c41a71F9eba181802F`, AMD `0x71178BAc73cBeb415514eB542a8995b82669778d`, NFLX `0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93`, PLTR `0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0`, AMZN `0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02`, and TSLA `0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E` for testnet and canonical USDG only for mainnet in `contracts/config/payment-tokens/46630.json` and `contracts/config/payment-tokens/4663.json`
+- [x] T003 [P] Add the ERC-8056 core/pending interfaces and an adjustable 18-decimal scaled-token test double in `contracts/src/interfaces/IERC8056.sol` and `contracts/test/mocks/MockScaledToken.sol`
 
 **Checkpoint**: Baseline behavior is known, manifests are chain-scoped, and tests can model a
 multiplier change without depending on a live issuer contract.
@@ -46,29 +46,29 @@ generated interfaces required by every user story.
 
 ### Protocol tests first
 
-- [ ] T004 [P] Add failing accepted-token enumeration, initial-list, idempotent same-state enable/disable, duplicate, disabled-publication, immutable-tier-token, token-specific-fee, and event tests in `contracts/test/FactoryAndFees.t.sol`
-- [ ] T005 [P] Add failing multi-token exact-transfer, claim, refund, proceeds, fee-isolation, and conservation tests in `contracts/test/PaymentsAndTime.t.sol`, `contracts/test/ClaimsAndWithdrawals.t.sol`, `contracts/test/models/MembershipModel.sol`, `contracts/test/invariants/AccountingInvariant.t.sol`, and `contracts/test/invariants/MembershipInvariant.t.sol`
-- [ ] T006 [P] Add failing exact-address six-token testnet manifest, no-internal-USDG, USDG-only mainnet, incompatible/unconfirmed manifest rejection, factory-initcode, CREATE2 identity, Nitro size, and deployment-invariant tests in `contracts/test/deployment/DeploymentScripts.t.sol` and `contracts/scripts/test-deploy-protocol.sh`
+- [x] T004 [P] Add failing accepted-token enumeration, initial-list, idempotent same-state enable/disable, duplicate, disabled-publication, immutable-tier-token, token-specific-fee, and event tests in `contracts/test/FactoryAndFees.t.sol`
+- [x] T005 [P] Add failing multi-token exact-transfer, claim, refund, proceeds, fee-isolation, and conservation tests in `contracts/test/PaymentsAndTime.t.sol`, `contracts/test/ClaimsAndWithdrawals.t.sol`, `contracts/test/models/MembershipModel.sol`, `contracts/test/invariants/AccountingInvariant.t.sol`, and `contracts/test/invariants/MembershipInvariant.t.sol`
+- [x] T006 [P] Add failing exact-address six-token testnet manifest, no-internal-USDG, USDG-only mainnet, incompatible/unconfirmed manifest rejection, factory-initcode, CREATE2 identity, Nitro size, and deployment-invariant tests in `contracts/test/deployment/DeploymentScripts.t.sol` and `contracts/scripts/test-deploy-protocol.sh`
 
 ### Protocol implementation
 
-- [ ] T007 Implement `TierConfig.paymentToken`, append-only listed/enabled token state, bounded enumeration, owner status changes, publication validation before salt consumption, token-addressed fee withdrawal, and token-aware events/errors in `contracts/src/types/MembershipTypes.sol`, `contracts/src/interfaces/IMembershipFactory.sol`, `contracts/src/MembershipFactory.sol`, and `contracts/src/MembershipTierDeployer.sol`
-- [ ] T008 Update shared tier builders, adversarial fixtures, and invariant/model initialization to create tiers with explicit payment tokens in `contracts/test/helpers/MembershipTestConfig.sol`, `contracts/test/mocks/AdversarialERC20.sol`, `contracts/test/mocks/AdversarialFeeToken.sol`, `contracts/test/models/MembershipModel.sol`, `contracts/test/invariants/AccountingInvariant.t.sol`, and `contracts/test/invariants/MembershipInvariant.t.sol`
-- [ ] T009 Replace single-USDG deployment assumptions with exact validated chain manifests, launch-time seeding of all six external testnet tokens, no internal USDG deployment, new factory salt/initcode, complete intended-write logging, and token-list postconditions in `contracts/src/RobinhoodProtocolConfig.sol`, `contracts/script/DeployDirectProtocol.s.sol`, `contracts/scripts/public-chain-common.sh`, and `contracts/scripts/deploy-protocol.sh`
+- [x] T007 Implement `TierConfig.paymentToken`, append-only listed/enabled token state, bounded enumeration, owner status changes, publication validation before salt consumption, token-addressed fee withdrawal, and token-aware events/errors in `contracts/src/types/MembershipTypes.sol`, `contracts/src/interfaces/IMembershipFactory.sol`, `contracts/src/MembershipFactory.sol`, and `contracts/src/MembershipTierDeployer.sol`
+- [x] T008 Update shared tier builders, adversarial fixtures, and invariant/model initialization to create tiers with explicit payment tokens in `contracts/test/helpers/MembershipTestConfig.sol`, `contracts/test/mocks/AdversarialERC20.sol`, `contracts/test/mocks/AdversarialFeeToken.sol`, `contracts/test/models/MembershipModel.sol`, `contracts/test/invariants/AccountingInvariant.t.sol`, and `contracts/test/invariants/MembershipInvariant.t.sol`
+- [x] T009 Replace single-USDG deployment assumptions with exact validated chain manifests, launch-time seeding of all six external testnet tokens, no internal USDG deployment, new factory salt/initcode, complete intended-write logging, and token-list postconditions in `contracts/src/RobinhoodProtocolConfig.sol`, `contracts/script/DeployDirectProtocol.s.sol`, `contracts/scripts/public-chain-common.sh`, and `contracts/scripts/deploy-protocol.sh`
 
 ### Browser tests first
 
-- [ ] T010 [P] Add table-driven failing tests for nearest-raw conversion, rational display scaling, carry, trimming, three meaningful fractional digits, zero/one-unit boundaries, and scheduled multipliers in `web/src/lib/token-amount.test.ts`
-- [ ] T011 [P] Add failing composed-read tests for factory pagination, ERC-20 metadata, ERC-165 capability detection, current/pending multipliers, connected-wallet balances, stable ordering, captured blocks, and token-scoped read failures in `web/src/lib/payment-token-read.test.ts`
-- [ ] T012 [P] Add failing active-protocol and tier-authenticity tests that remove the factory-global USDG binding and require each tier token to remain factory-listed even when disabled in `web/src/lib/config.test.ts`, `web/src/lib/authenticity.test.ts`, `web/src/lib/direct-read.test.ts`, and `web/src/features/protocol/protocol-read.test.ts`
+- [x] T010 [P] Add table-driven failing tests for nearest-raw conversion, rational display scaling, carry, trimming, three meaningful fractional digits, zero/one-unit boundaries, and scheduled multipliers in `web/src/lib/token-amount.test.ts`
+- [x] T011 [P] Add failing composed-read tests for factory pagination, ERC-20 metadata, ERC-165 capability detection, current/pending multipliers, connected-wallet balances, stable ordering, captured blocks, and token-scoped read failures in `web/src/lib/payment-token-read.test.ts`
+- [x] T012 [P] Add failing active-protocol and tier-authenticity tests that remove the factory-global USDG binding and require each tier token to remain factory-listed even when disabled in `web/src/lib/config.test.ts`, `web/src/lib/authenticity.test.ts`, `web/src/lib/direct-read.test.ts`, and `web/src/features/protocol/protocol-read.test.ts`
 
 ### Browser implementation
 
-- [ ] T013 Implement exact positive-BigInt parse, displayed-to-raw, raw-to-displayed, scheduled-display, and clarified rounding functions without feeding rounded text into wallet values in `web/src/lib/token-amount.ts`
-- [ ] T014 Implement the composed `AcceptedPaymentToken` direct-read model, ERC-8056 interface IDs, metadata/multiplier validation, balance-aware ordering, and retryable token-scoped failures in `web/src/lib/payment-token-read.ts`
-- [ ] T015 Replace `ProtocolDependencySnapshot.paymentToken` and deployment-wide USDG authenticity with accepted-token enumeration and listed-tier-token checks in `web/src/contracts/types.ts`, `web/src/lib/config.ts`, `web/src/lib/authenticity.ts`, `web/src/lib/direct-read.ts`, and `web/src/features/protocol/protocol-read.ts`
-- [ ] T016 Update generated-contract coverage for the new factory constructor, token registry methods/events, tier config tuple, and token-specific fee withdrawal, then regenerate ABI-only local bindings in `web/wagmi.config.ts`, `web/src/contracts-generation.test.ts`, and `web/src/contracts.ts`
-- [ ] T017 Update the Anvil lifecycle fixture to deploy at least one six-decimal unscaled token and one adjustable scaled token, seed the factory list, and expose their addresses to browser tests in `web/tests/e2e/helpers/anvil.ts` and `contracts/test/e2e/LocalLifecycleEvidence.t.sol`
+- [x] T013 Implement exact positive-BigInt parse, displayed-to-raw, raw-to-displayed, scheduled-display, and clarified rounding functions without feeding rounded text into wallet values in `web/src/lib/token-amount.ts`
+- [x] T014 Implement the composed `AcceptedPaymentToken` direct-read model, ERC-8056 interface IDs, metadata/multiplier validation, balance-aware ordering, and retryable token-scoped failures in `web/src/lib/payment-token-read.ts`
+- [x] T015 Replace `ProtocolDependencySnapshot.paymentToken` and deployment-wide USDG authenticity with accepted-token enumeration and listed-tier-token checks in `web/src/contracts/types.ts`, `web/src/lib/config.ts`, `web/src/lib/authenticity.ts`, `web/src/lib/direct-read.ts`, and `web/src/features/protocol/protocol-read.ts`
+- [x] T016 Update generated-contract coverage for the new factory constructor, token registry methods/events, tier config tuple, and token-specific fee withdrawal, then regenerate ABI-only local bindings in `web/wagmi.config.ts`, `web/src/contracts-generation.test.ts`, and `web/src/contracts.ts`
+- [x] T017 Update the Anvil lifecycle fixture to deploy at least one six-decimal unscaled token and one adjustable scaled token, seed the factory list, and expose their addresses to browser tests in `web/tests/e2e/helpers/anvil.ts` and `contracts/test/e2e/LocalLifecycleEvidence.t.sol`
 
 **Checkpoint**: A local factory supports multiple immutable per-tier payment tokens, every amount can
 be represented as exact raw units plus current display state, and the browser has generated interfaces
@@ -86,16 +86,16 @@ assets, switch to chain `46630`, and complete one membership purchase using the 
 
 ### Tests for User Story 1
 
-- [ ] T018 [P] [US1] Add failing testnet-label, gas-shortfall, selected-token-shortfall, official-faucet-link, no-custom-faucet, and wallet-network-switch component tests in `web/src/components/WalletReadiness.test.tsx`, `web/src/components/ChainRouteBoundary.test.tsx`, and `web/src/features/membership/MembershipExperience.test.tsx`
-- [ ] T019 [P] [US1] Add a failing fresh-wallet browser journey covering no assets, faucet guidance, network switch, returned faucet-token recognition, approval, and purchase in `web/tests/e2e/fresh-wallet-beta.spec.ts`
+- [x] T018 [P] [US1] Add failing testnet-label, gas-shortfall, selected-token-shortfall, official-faucet-link, no-custom-faucet, and wallet-network-switch component tests in `web/src/components/WalletReadiness.test.tsx`, `web/src/components/ChainRouteBoundary.test.tsx`, and `web/src/features/membership/MembershipExperience.test.tsx`
+- [x] T019 [P] [US1] Add a failing fresh-wallet browser journey covering no assets, faucet guidance, network switch, returned faucet-token recognition, approval, and purchase in `web/tests/e2e/fresh-wallet-beta.spec.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T020 [P] [US1] Add one chain-scoped funding-readiness helper that distinguishes ETH gas from the selected payment token and exposes the official faucet URL in `web/src/lib/testnet-funding.ts`
-- [ ] T021 [US1] Replace global USDG readiness copy with selected-token balance, gas balance, testnet status, and contextual official-faucet guidance in `web/src/components/WalletReadiness.tsx`
-- [ ] T022 [P] [US1] Surface the same selected-token and gas guidance at creator publication without adding account or operator-funding requirements in `web/src/features/creator/CreateTierWizard.tsx`
-- [ ] T023 [US1] Integrate fresh-wallet readiness into supporter approval/purchase states while retaining wagmi/viem chain switching, submission, receipt, replacement, cancellation, and revert handling in `web/src/features/membership/MembershipExperience.tsx`
-- [ ] T024 [US1] Run and pass the independent local fresh-wallet journey in `web/tests/e2e/fresh-wallet-beta.spec.ts` and record only local-browser evidence in the implementation handoff
+- [x] T020 [P] [US1] Add one chain-scoped funding-readiness helper that distinguishes ETH gas from the selected payment token and exposes the official faucet URL in `web/src/lib/testnet-funding.ts`
+- [x] T021 [US1] Replace global USDG readiness copy with selected-token balance, gas balance, testnet status, and contextual official-faucet guidance in `web/src/components/WalletReadiness.tsx`
+- [x] T022 [P] [US1] Surface the same selected-token and gas guidance at creator publication without adding account or operator-funding requirements in `web/src/features/creator/CreateTierWizard.tsx`
+- [x] T023 [US1] Integrate fresh-wallet readiness into supporter approval/purchase states while retaining wagmi/viem chain switching, submission, receipt, replacement, cancellation, and revert handling in `web/src/features/membership/MembershipExperience.tsx`
+- [x] T024 [US1] Run and pass the independent local fresh-wallet journey in `web/tests/e2e/fresh-wallet-beta.spec.ts` and record only local-browser evidence in the implementation handoff
 
 **Checkpoint**: A fresh local wallet can fund itself through the official-faucet path and purchase a
 membership without any Backed By Fans account, mint endpoint, or operator action.
@@ -112,17 +112,17 @@ for each, and confirm precision, symbol, scaled conversion, review terms, and im
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Add failing creator-form tests for selected token identity, token-specific decimals, nearest-raw conversion, multiplier refresh before publication, disabled-token rejection, and draft persistence in `web/src/features/creator/config.test.ts` and `web/src/features/creator/management.test.ts`
-- [ ] T026 [P] [US2] Add failing creator UI tests for held-token-first ordering, six launch choices, symbols/precision, current scaled amount, exact raw technical detail, and immutable management display in `web/src/features/creator/CreateTierWizard.test.tsx`
-- [ ] T027 [P] [US2] Add a failing browser journey that publishes unscaled and scaled-token tiers and verifies the tier's immutable token/raw price in `web/tests/e2e/payment-token-selection.spec.ts`
+- [x] T025 [P] [US2] Add failing creator-form tests for selected token identity, token-specific decimals, nearest-raw conversion, multiplier refresh before publication, disabled-token rejection, and draft persistence in `web/src/features/creator/config.test.ts` and `web/src/features/creator/management.test.ts`
+- [x] T026 [P] [US2] Add failing creator UI tests for held-token-first ordering, six launch choices, symbols/precision, current scaled amount, exact raw technical detail, and immutable management display in `web/src/features/creator/CreateTierWizard.test.tsx`
+- [x] T027 [P] [US2] Add a failing browser journey that publishes unscaled and scaled-token tiers and verifies the tier's immutable token/raw price in `web/tests/e2e/payment-token-selection.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Replace `priceUsd` with selected-token/displayed-price form state and evaluate publication config through `token-amount.ts` in `web/src/features/creator/config.ts`
-- [ ] T029 [P] [US2] Build the normal accepted-token picker with held balances first, token name/symbol, no arbitrary address field, and token-scoped retry states in `web/src/features/creator/PaymentTokenPicker.tsx`
-- [ ] T030 [US2] Integrate token selection, displayed-price input, refreshed final review, exact raw technical detail, and explicit token tuple into `web/src/features/creator/CreateTierWizard.tsx`
-- [ ] T031 [US2] Reconcile publication against the emitted tier token/raw terms and remove factory-global USDG assumptions from `web/src/features/protocol/deployment-write-guard.ts`, `web/src/features/protocol/registry-reconciliation.ts`, and their tests
-- [ ] T032 [US2] Show the published token as a permanent, non-editable term in creator management and pass the independent selection journey in `web/src/features/creator/TierManagement.tsx` and `web/tests/e2e/payment-token-selection.spec.ts`
+- [x] T028 [US2] Replace `priceUsd` with selected-token/displayed-price form state and evaluate publication config through `token-amount.ts` in `web/src/features/creator/config.ts`
+- [x] T029 [P] [US2] Build the normal accepted-token picker with held balances first, token name/symbol, no arbitrary address field, and token-scoped retry states in `web/src/features/creator/PaymentTokenPicker.tsx`
+- [x] T030 [US2] Integrate token selection, displayed-price input, refreshed final review, exact raw technical detail, and explicit token tuple into `web/src/features/creator/CreateTierWizard.tsx`
+- [x] T031 [US2] Reconcile publication against the emitted tier token/raw terms and remove factory-global USDG assumptions from `web/src/features/protocol/deployment-write-guard.ts`, `web/src/features/protocol/registry-reconciliation.ts`, and their tests
+- [x] T032 [US2] Show the published token as a permanent, non-editable term in creator management and pass the independent selection journey in `web/src/features/creator/TierManagement.tsx` and `web/tests/e2e/payment-token-selection.spec.ts`
 
 **Checkpoint**: Creators can publish tiers in any enabled representative token, while the deployed
 tier permanently identifies that token and raw price.
@@ -140,19 +140,19 @@ unchanged except for initiated transactions.
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Add failing captured-block token metadata/multiplier and unchanged-raw snapshot tests in `web/src/features/membership/membership-read.test.ts` and `web/src/features/membership/account-discovery.test.ts`
-- [ ] T034 [P] [US3] Add failing current/scheduled multiplier, join, renew, prepay, gift, contribution, allowance, shortfall, refund, and claim display tests in `web/src/features/membership/MembershipExperience.test.tsx`
-- [ ] T035 [P] [US3] Add failing creator proceeds/refund display tests and per-token raw protocol-fee accounting tests in `web/src/features/creator/management.test.ts` and `contracts/test/FactoryAndFees.t.sol`
-- [ ] T036 [P] [US3] Add a failing full multiplier-transition browser journey with raw balance/time assertions in `web/tests/e2e/scaled-token-lifecycle.spec.ts`
+- [x] T033 [P] [US3] Add failing captured-block token metadata/multiplier and unchanged-raw snapshot tests in `web/src/features/membership/membership-read.test.ts` and `web/src/features/membership/account-discovery.test.ts`
+- [x] T034 [P] [US3] Add failing current/scheduled multiplier, join, renew, prepay, gift, contribution, allowance, shortfall, refund, and claim display tests in `web/src/features/membership/MembershipExperience.test.tsx`
+- [x] T035 [P] [US3] Add failing creator proceeds/refund display tests and per-token raw protocol-fee accounting tests in `web/src/features/creator/management.test.ts` and `contracts/test/FactoryAndFees.t.sol`
+- [x] T036 [P] [US3] Add a failing full multiplier-transition browser journey with raw balance/time assertions in `web/tests/e2e/payment-token-selection.spec.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] Compose each tier snapshot with its own payment-token metadata and live current/pending multiplier at the captured block in `web/src/features/membership/membership-read.ts` and `web/src/features/membership/account-discovery.ts`
-- [ ] T038 [US3] Replace all USDG/six-decimal supporter labels, inputs, balances, allowances, shortfalls, previews, and claims with shared selected-token formatting while keeping wallet args raw in `web/src/features/membership/MembershipExperience.tsx`
-- [ ] T039 [P] [US3] Replace catalog, tier-read, wallet-readiness, and account-discovery USDG formatting with the tier token model in `web/src/components/CatalogExplorer.tsx`, `web/src/components/TierReadPanel.tsx`, `web/src/components/WalletReadiness.tsx`, and `web/src/features/membership/AccountDiscovery.tsx`
-- [ ] T040 [P] [US3] Replace creator-management price, refund, top-up, and proceeds formatting with current token display state while retaining raw transaction ceilings in `web/src/features/creator/management-read.ts` and `web/src/features/creator/TierManagement.tsx`
-- [ ] T041 [P] [US3] Add token-addressed raw fee-balance inspection and independent withdrawal command fixtures without a Backed By Fans operator UI in `contracts/scripts/manage-payment-tokens.sh` and `contracts/scripts/test-manage-payment-tokens.sh`
-- [ ] T042 [US3] Show scheduled multiplier adjustments as future display information only, verify no fixed-dollar/investment wording, and pass `web/tests/e2e/scaled-token-lifecycle.spec.ts` with exact raw wallet arguments and accounting assertions
+- [x] T037 [US3] Compose each tier snapshot with its own payment-token metadata and live current/pending multiplier at the captured block in `web/src/features/membership/membership-read.ts` and `web/src/features/membership/account-discovery.ts`
+- [x] T038 [US3] Replace all USDG/six-decimal supporter labels, inputs, balances, allowances, shortfalls, previews, and claims with shared selected-token formatting while keeping wallet args raw in `web/src/features/membership/MembershipExperience.tsx`
+- [x] T039 [P] [US3] Replace catalog, tier-read, wallet-readiness, and account-discovery USDG formatting with the tier token model in `web/src/components/CatalogExplorer.tsx`, `web/src/components/TierReadPanel.tsx`, `web/src/components/WalletReadiness.tsx`, and `web/src/features/membership/AccountDiscovery.tsx`
+- [x] T040 [P] [US3] Replace creator-management price, refund, top-up, and proceeds formatting with current token display state while retaining raw transaction ceilings in `web/src/features/creator/management-read.ts` and `web/src/features/creator/TierManagement.tsx`
+- [x] T041 [P] [US3] Add token-addressed raw fee-balance inspection and independent withdrawal command fixtures without a Backed By Fans operator UI in `contracts/scripts/manage-payment-tokens.sh` and `contracts/scripts/test-manage-payment-tokens.sh`
+- [x] T042 [US3] Show scheduled multiplier adjustments as future display information only, verify no fixed-dollar/investment wording, and pass `web/tests/e2e/payment-token-selection.spec.ts` with exact raw wallet arguments and accounting assertions
 
 **Checkpoint**: A two-for-one multiplier change updates all visible Stock Token amounts and no raw
 price, approval, transfer, liability, or membership-time rule.
@@ -169,15 +169,15 @@ the existing tier, and withdraw fees in two tokens independently.
 
 ### Tests for User Story 4
 
-- [ ] T043 [P] [US4] Extend owner/non-owner status-change, disable-existing-tier, re-enable-stable-index, one-broken-token/one-withdrawable-token, and exact event tests in `contracts/test/FactoryAndFees.t.sol` and `contracts/test/ClaimsAndWithdrawals.t.sol`
-- [ ] T044 [P] [US4] Add failing shell fixtures for bounded token enumeration, per-token fee balances, metadata/ERC-8056 admission preflight, idempotent enable/disable calldata, Safe transaction output, explicitly authorized deployer submission, and token-specific fee withdrawal in `contracts/scripts/test-manage-payment-tokens.sh`
-- [ ] T045 [P] [US4] Add a failing local-chain CLI lifecycle covering enable, create, disable, rejected new publication, existing-tier use, one broken token, and independent fee withdrawals in `contracts/scripts/test-manage-payment-tokens.sh`
+- [x] T043 [P] [US4] Extend owner/non-owner status-change, disable-existing-tier, re-enable-stable-index, one-broken-token/one-withdrawable-token, and exact event tests in `contracts/test/FactoryAndFees.t.sol` and `contracts/test/ClaimsAndWithdrawals.t.sol`
+- [x] T044 [P] [US4] Add failing shell fixtures for bounded token enumeration, per-token fee balances, metadata/ERC-8056 admission preflight, idempotent enable/disable calldata, Safe transaction output, explicitly authorized deployer submission, and token-specific fee withdrawal in `contracts/scripts/test-manage-payment-tokens.sh`
+- [x] T045 [P] [US4] Add a failing local-chain CLI lifecycle covering enable, create, disable, rejected new publication, existing-tier use, one broken token, and independent fee withdrawals in `contracts/scripts/test-manage-payment-tokens.sh`
 
 ### Implementation for User Story 4
 
-- [ ] T046 [US4] Implement bounded accepted-token/status and token-specific factory-fee inspection commands in `contracts/scripts/manage-payment-tokens.sh`
-- [ ] T047 [US4] Implement metadata/ERC-8056 preflight plus reviewed Safe calldata and explicitly authorized deployer modes for idempotent enable/disable and independent fee withdrawal in `contracts/scripts/manage-payment-tokens.sh`, with no Backed By Fans operator web interface
-- [ ] T048 [US4] Pass the complete CLI fixtures, document Safe/deployer submission and explicit authorization boundaries, and preserve disabled existing tiers in `contracts/scripts/test-manage-payment-tokens.sh` and `docs/runbooks/deployment.md`
+- [x] T046 [US4] Implement bounded accepted-token/status and token-specific factory-fee inspection commands in `contracts/scripts/manage-payment-tokens.sh`
+- [x] T047 [US4] Implement metadata/ERC-8056 preflight plus reviewed Safe calldata and explicitly authorized deployer modes for idempotent enable/disable and independent fee withdrawal in `contracts/scripts/manage-payment-tokens.sh`, with no Backed By Fans operator web interface
+- [x] T048 [US4] Pass the complete CLI fixtures, document Safe/deployer submission and explicit authorization boundaries, and preserve disabled existing tiers in `contracts/scripts/test-manage-payment-tokens.sh` and `docs/runbooks/deployment.md`
 
 **Checkpoint**: Token policy controls only future publication, historical tier interpretation remains
 intact, and a failing token cannot hide or block another token's fee withdrawal.
@@ -195,16 +195,16 @@ state while every `tokenURI` uses the replacement.
 
 ### Tests for User Story 6
 
-- [ ] T049 [P] [US6] Add failing owner, pending/former/non-owner, direct-unregistered-address, zero/EOA, wrong-schema, rejected-config, old-renderer-preservation, metadata-refresh-range, and active/expired `tokenURI` tests in `contracts/test/CustomRendererAddress.t.sol`, `contracts/test/MetadataAndStandards.t.sol`, and `contracts/test/RefundsAndOwnership.t.sol`
-- [ ] T050 [P] [US6] Add failing creator-management and renderer-detail tests for current renderer, owner-deployed/default/Custom ordering, current art/media preview inputs, whole-tier change copy, preview-error recovery, and receipt-driven refresh in `web/src/features/creator/management.test.ts`, `web/src/features/creator/TierManagement.test.tsx`, and `web/src/features/membership/RendererDetails.test.tsx`
-- [ ] T051 [P] [US6] Add a failing ownership-transfer and renderer-replacement browser journey with economic/state preservation assertions in `web/tests/e2e/renderer-update.spec.ts`
+- [x] T049 [P] [US6] Add failing owner, pending/former/non-owner, direct-unregistered-address, zero/EOA, wrong-schema, rejected-config, old-renderer-preservation, metadata-refresh-range, and active/expired `tokenURI` tests in `contracts/test/CustomRendererAddress.t.sol`, `contracts/test/MetadataAndStandards.t.sol`, and `contracts/test/RefundsAndOwnership.t.sol`
+- [x] T050 [P] [US6] Add failing creator-management and renderer-detail tests for current renderer, owner-deployed/default/Custom ordering, current art/media preview inputs, whole-tier change copy, preview-error recovery, and receipt-driven refresh in `web/src/features/creator/management.test.ts`, `web/src/features/creator/TierManagement.test.tsx`, and `web/src/features/membership/RendererDetails.test.tsx`
+- [x] T051 [P] [US6] Add a failing ownership-transfer and renderer-replacement browser journey with economic/state preservation assertions in `web/tests/e2e/renderer-update.spec.ts`
 
 ### Implementation for User Story 6
 
-- [ ] T052 [US6] Change tier renderer storage to current-owner mutable, validate code/schema/current art-media before assignment, emit old/new identity plus conditional ERC-4906 refresh, and expose `setRenderer` in `contracts/src/MembershipTier.sol` and `contracts/src/interfaces/IMembershipTier.sol`
-- [ ] T053 [US6] Regenerate the tier ABI and update renderer postcondition/authenticity and public renderer-detail reads without adding a registry gate or runtime-codehash pin in `web/src/contracts.ts`, `web/src/contracts/types.ts`, `web/src/lib/authenticity.ts`, `web/src/features/protocol/registry-reconciliation.ts`, and `web/src/features/membership/RendererDetails.tsx`
-- [ ] T054 [US6] Add renderer-update draft validation, current-owner permission, existing art/media preview composition, and transaction-state reconciliation in `web/src/features/creator/management.ts` and `web/src/features/creator/management-read.ts`
-- [ ] T055 [US6] Add the normal renderer selector/preview/update control to tier management, preserve usable controls after preview/RPC failure, and pass `web/tests/e2e/renderer-update.spec.ts` in `web/src/features/creator/TierManagement.tsx`
+- [x] T052 [US6] Change tier renderer storage to current-owner mutable, validate code/schema/current art-media before assignment, emit old/new identity plus conditional ERC-4906 refresh, and expose `setRenderer` in `contracts/src/MembershipTier.sol` and `contracts/src/interfaces/IMembershipTier.sol`
+- [x] T053 [US6] Regenerate the tier ABI and update renderer postcondition/authenticity and public renderer-detail reads without adding a registry gate or runtime-codehash pin in `web/src/contracts.ts`, `web/src/contracts/types.ts`, `web/src/lib/authenticity.ts`, `web/src/features/protocol/registry-reconciliation.ts`, and `web/src/features/membership/RendererDetails.tsx`
+- [x] T054 [US6] Add renderer-update draft validation, current-owner permission, existing art/media preview composition, and transaction-state reconciliation in `web/src/features/creator/management.ts` and `web/src/features/creator/management-read.ts`
+- [x] T055 [US6] Add the normal renderer selector/preview/update control to tier management, preserve usable controls after preview/RPC failure, and pass `web/tests/e2e/renderer-update.spec.ts` in `web/src/features/creator/TierManagement.tsx`
 
 **Checkpoint**: Renderer replacement is owner-controlled presentation only, works with compatible
 direct addresses, refreshes metadata, and preserves every tested membership/economic field.
@@ -223,9 +223,9 @@ the site remains plainly testnet-only.
 
 ### Release tests and manifest freeze
 
-- [ ] T056 [P] [US5] Validate code, metadata, decimals, and claimed ERC-8056 state for the exact six confirmed testnet addresses from T002, fail closed on any mismatch, confirm no internal USDG deployment path remains, and record the results in `contracts/config/payment-tokens/46630.json`
-- [ ] T057 [P] [US5] Add production-domain route, testnet-label, test-assets, faucet-link, canonical-link, and mainnet-disabled assertions in `web/tests/e2e/brand-shell.spec.ts`, `web/tests/e2e/direct-route.spec.ts`, and `web/tests/e2e/renderer-entrypoints.spec.ts`
-- [ ] T058 [US5] Run the complete Foundry, deployment fixture, Vitest, lint, typecheck, build, and local Playwright suites from `contracts/`, `contracts/scripts/test-deploy-protocol.sh`, and `web/`, resolving all regressions before preparing a public write
+- [x] T056 [P] [US5] Validate code, metadata, decimals, and claimed ERC-8056 state for the exact six confirmed testnet addresses from T002, fail closed on any mismatch, confirm no internal USDG deployment path remains, and record the results in `contracts/config/payment-tokens/46630.json`
+- [x] T057 [P] [US5] Add production-domain route, testnet-label, test-assets, faucet-link, canonical-link, and mainnet-disabled assertions in `web/tests/e2e/brand-shell.spec.ts`, `web/tests/e2e/direct-route.spec.ts`, and `web/tests/e2e/renderer-entrypoints.spec.ts`
+- [x] T058 [US5] Run the complete Foundry, deployment fixture, Vitest, lint, typecheck, build, and local Playwright suites from `contracts/`, `contracts/scripts/test-deploy-protocol.sh`, and `web/`, resolving all regressions before preparing a public write
 - [ ] T059 [US5] Verify the deployment workflow's reviewed committed-source requirement and stop to ask the user to commit if needed; then run `contracts/scripts/deploy-protocol.sh testnet dry-run`, verify the exact six-token manifest, mutable-renderer runtime, owner/fee recipient, source and operational-state identities, transaction count, and Nitro byte/gas limits, and update the reviewed candidate in `contracts/deployments/protocol/46630/` without creating an inferred commit
 
 ### STOP — explicit testnet operator approval required
@@ -236,7 +236,7 @@ the site remains plainly testnet-only.
 
 ### Staged web artifact and canonical-domain gate
 
-- [ ] T063 [P] [US5] Update beta deployment, monitoring, incident, pilot, ownership/renderer, and USDG-only future-mainnet guidance in `docs/runbooks/deployment.md`, `docs/runbooks/monitoring.md`, `docs/runbooks/incident-response.md`, `docs/runbooks/mainnet-readiness.md`, `docs/runbooks/ownership.md`, `docs/runbooks/renderer-compatibility.md`, and `docs/pilots/testnet-pilot.md`
+- [x] T063 [P] [US5] Update beta deployment, monitoring, incident, pilot, ownership/renderer, and USDG-only future-mainnet guidance in `docs/runbooks/deployment.md`, `docs/runbooks/monitoring.md`, `docs/runbooks/incident-response.md`, `docs/runbooks/mainnet-readiness.md`, `docs/runbooks/ownership.md`, `docs/runbooks/renderer-compatibility.md`, and `docs/pilots/testnet-pilot.md`
 - [ ] T064 [P] [US5] Configure the Vercel project root and reviewed public production environment contract, including `NEXT_PUBLIC_SITE_URL=https://backedbyfans.xyz`, chain `46630`, domain-restricted RPC policy, WalletConnect, and active generated deployment state in `web/.env.example` and `docs/runbooks/deployment.md`
 
 ### STOP — explicit authenticated staging deployment approval required
@@ -258,13 +258,13 @@ inspection-only and USDG-only in configuration.
 **Purpose**: Remove stale assumptions, verify all evidence classes, and leave the feature ready for
 cross-artifact analysis and implementation convergence.
 
-- [ ] T070 [P] Remove stale global-USDG, hard-coded six-decimal, factory-token-binding, immutable-renderer, internal-testnet-USDG, operator-web-UI, and pre-beta active-address language while preserving intentional external USDG references in `web/src/`, `contracts/src/`, `docs/protocol/integration.md`, and `docs/runbooks/`
-- [ ] T071 [P] Update CI to run the new contract, generation, token-amount, token-read, CLI-administration, and browser suites without formatting vendored Solidity in `.github/workflows/contracts.yml` and `.github/workflows/web.yml`
-- [ ] T072 Run the complete optimized Foundry build, unit, fuzz, invariant, deployment, and shell-fixture validation in `contracts/foundry.toml`, `contracts/test/`, and `contracts/scripts/`
+- [x] T070 [P] Remove stale global-USDG, hard-coded six-decimal, factory-token-binding, immutable-renderer, internal-testnet-USDG, operator-web-UI, and pre-beta active-address language while preserving intentional external USDG references in `web/src/`, `contracts/src/`, `docs/protocol/integration.md`, and `docs/runbooks/`
+- [x] T071 [P] Update CI to run the new contract, generation, token-amount, token-read, CLI-administration, and browser suites without formatting vendored Solidity in `.github/workflows/contracts.yml` and `.github/workflows/web.yml`
+- [x] T072 Run the complete optimized Foundry build, unit, fuzz, invariant, deployment, and shell-fixture validation in `contracts/foundry.toml`, `contracts/test/`, and `contracts/scripts/`
 - [ ] T073 Run `bun run generate:check`, formatting, lint, typecheck, Vitest, production build, and the complete local Playwright suite in `web/package.json` and `web/tests/e2e/`
-- [ ] T074 Review the final Solidity diff for authorization, reentrancy, exact-transfer, token-disablement, fee-isolation, renderer-validation-before-write, metadata-refresh, bytecode-size, and immutable-economic-state regressions in `contracts/src/MembershipFactory.sol`, `contracts/src/MembershipTier.sol`, and `contracts/src/MembershipTierDeployer.sol`
+- [x] T074 Review the final Solidity diff for authorization, reentrancy, exact-transfer, token-disablement, fee-isolation, renderer-validation-before-write, metadata-refresh, bytecode-size, and immutable-economic-state regressions in `contracts/src/MembershipFactory.sol`, `contracts/src/MembershipTier.sol`, and `contracts/src/MembershipTierDeployer.sol`
 - [ ] T075 Replay `specs/002-public-testnet-beta/quickstart.md` and report source/local, testnet-chain, staged-browser, canonical-browser, and mainnet-inspection evidence as distinct classes in the implementation handoff
-- [ ] T076 Run `git diff --check`, verify generated files and deployment records match source, confirm no unauthorized mainnet write or unapproved production mutation occurred, and inventory any remaining work against `specs/002-public-testnet-beta/spec.md` and `specs/002-public-testnet-beta/tasks.md`
+- [x] T076 Run `git diff --check`, verify generated files and deployment records match source, confirm no unauthorized mainnet write or unapproved production mutation occurred, and inventory any remaining work against `specs/002-public-testnet-beta/spec.md` and `specs/002-public-testnet-beta/tasks.md`
 
 ---
 

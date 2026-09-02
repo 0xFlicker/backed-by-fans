@@ -48,7 +48,6 @@ describe("wallet connectors", () => {
         {
           anvilRpcUrl: "http://127.0.0.1:8545",
           anvilFactoryAddress: "0x1111111111111111111111111111111111111111",
-          anvilUsdgAddress: "0x2222222222222222222222222222222222222222",
         },
         {},
       ),

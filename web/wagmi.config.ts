@@ -50,7 +50,6 @@ export default defineConfig({
         "RendererPreviewHarness.sol/**",
         "RendererRegistry.sol/**",
         "MembershipFactory.sol/**",
-        "TestnetUSDG.sol/**",
       ],
     }),
     react(),

@@ -38,7 +38,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         paymentToken = new MockUSDG();
         renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken));
         tier = new MembershipTier(makeAddr("factory"), paymentToken, config);
         _fundAndApprove(member, 100_000_000);
         _fundAndApprove(payer, 100_000_000);
@@ -486,7 +486,7 @@ contract ZeroPriceRefundsTest is Test {
 
     function _deployZeroTier() private returns (MembershipTier zeroTier) {
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken));
         config.pricePerPeriod = 0;
         config.maxPrepaidPeriods = 0;
         zeroTier = new MembershipTier(makeAddr("zeroFactory"), paymentToken, config);
@@ -542,7 +542,7 @@ contract AdversarialRefundsTest is Test {
         tier = new MembershipTier(
             makeAddr("adversarialFactory"),
             paymentToken,
-            MembershipTestConfig.defaultConfig(creator, address(renderer))
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken))
         );
         paymentToken.mint(member, 100_000_000);
         paymentToken.mint(creator, 100_000_000);

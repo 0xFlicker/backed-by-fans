@@ -1,28 +1,66 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "chainId": 46630,
   "deployment": {
-    "paymentToken": {
-      "address": "0xAB97dbB8f4Ae0b4a3cc0D6963d75334b1c40Da09",
-      "runtimeCodehash": "0x0ed781bfa4ba445d2e259aba728764e5ba3fe23e20c0e1e15b1133d331724090",
-      "implementation": null,
-      "implementationRuntimeCodehash": null
-    },
+    "paymentTokens": [
+      {
+        "symbol": "USDG",
+        "address": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+        "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",
+        "implementation": null,
+        "implementationRuntimeCodehash": null
+      },
+      {
+        "symbol": "AMD",
+        "address": "0x71178BAc73cBeb415514eB542a8995b82669778d",
+        "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440",
+        "implementation": null,
+        "implementationRuntimeCodehash": null
+      },
+      {
+        "symbol": "NFLX",
+        "address": "0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93",
+        "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440",
+        "implementation": null,
+        "implementationRuntimeCodehash": null
+      },
+      {
+        "symbol": "PLTR",
+        "address": "0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0",
+        "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440",
+        "implementation": null,
+        "implementationRuntimeCodehash": null
+      },
+      {
+        "symbol": "AMZN",
+        "address": "0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02",
+        "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440",
+        "implementation": null,
+        "implementationRuntimeCodehash": null
+      },
+      {
+        "symbol": "TSLA",
+        "address": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E",
+        "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440",
+        "implementation": null,
+        "implementationRuntimeCodehash": null
+      }
+    ],
     "mediaStoreFactory": {
-      "address": "0xe54a9a47B0b261776f28B9509319bD8070358594",
-      "runtimeCodehash": "0xaf5edc13efc92235133fd5752c87ce69f9c416bb542f701329872daa370a989c"
+      "address": "0xF62F64da02bF67dfF4223aa5264270254823Cf65",
+      "runtimeCodehash": "0x2ce449f3ddfceb7f8b90a31ab390edbc2c8ca77201b4977ac1af3cd09f582c83"
     },
     "renderer": {
-      "address": "0xf0c285eC82D5C3454146d87D7232503f392E021F",
-      "runtimeCodehash": "0x4ee63808c4f6f1d7ce026a9dcf0a83020a2fef671d92901d9196b5c3e5482cee"
+      "address": "0x2E73800F227c59fe7A4Be673D246afdcdF88878A",
+      "runtimeCodehash": "0xbb5195bacf9748241223acbeee3ff59cd1800b63b90326a61a3adf2b145628a8"
     },
     "previewHarness": {
       "address": "0x35ACe5985a9088699197cd1931fc3083dee229B6",
       "runtimeCodehash": "0x0a4c43cc7583986bc35eaf86a492341f952567ca2fa6b9fe3eaf62fcefb06604"
     },
     "membershipFactory": {
-      "address": "0x7d4729c5f4ecA2048C9bAd4748aFc804076B79b5",
-      "runtimeCodehash": "0xd9f8d11f9674ecfceb47bbafe9eae87d88d58e5f1f634999bf02b61370098672"
+      "address": "0x059F5F920f1840a7338ADDb9EFe3c94Ee62A7743",
+      "runtimeCodehash": "0x363eb20f232e8b62ef5997ac871b9337be9a90d149a03cdc4e7dd59e98ffba64"
     }
   },
   "safe": {

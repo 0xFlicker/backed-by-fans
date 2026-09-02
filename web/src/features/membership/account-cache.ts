@@ -4,6 +4,7 @@ export type AccountTierResult = {
   tier: Address;
   name: string;
   creatorOwned: boolean;
+  paymentToken: Address;
   tokenId: bigint;
   active: boolean;
   claimableReward: bigint;
@@ -23,14 +24,14 @@ type CachedAccountTier = Omit<
 };
 
 export type AccountCache = {
-  version: 3;
+  version: 4;
   cursor: string;
   complete: boolean;
   results: CachedAccountTier[];
 };
 
 export function emptyAccountCache(): AccountCache {
-  return { version: 3, cursor: "0", complete: false, results: [] };
+  return { version: 4, cursor: "0", complete: false, results: [] };
 }
 
 export function accountCacheKey(
@@ -38,7 +39,7 @@ export function accountCacheKey(
   factory: Address,
   wallet: Address,
 ) {
-  return `backed-by-fans:account:v3:${chainId}:${factory.toLowerCase()}:${wallet.toLowerCase()}`;
+  return `backed-by-fans:account:v4:${chainId}:${factory.toLowerCase()}:${wallet.toLowerCase()}`;
 }
 
 function cachedResult(
@@ -76,7 +77,7 @@ export function mergeAccountPage(
     ),
   );
   return {
-    version: 3,
+    version: 4,
     cursor: page.resumeOffset.toString(),
     complete: page.complete,
     results: [...results.values()],
@@ -87,7 +88,7 @@ function validCache(value: unknown): value is AccountCache {
   if (!value || typeof value !== "object") return false;
   const cache = value as Partial<AccountCache>;
   if (
-    cache.version !== 3 ||
+    cache.version !== 4 ||
     typeof cache.cursor !== "string" ||
     typeof cache.complete !== "boolean" ||
     !Array.isArray(cache.results)
@@ -99,6 +100,7 @@ function validCache(value: unknown): value is AccountCache {
     return cache.results.every((result) => {
       if (
         !isAddress(result.tier) ||
+        !isAddress(result.paymentToken) ||
         typeof result.name !== "string" ||
         typeof result.creatorOwned !== "boolean" ||
         typeof result.active !== "boolean"

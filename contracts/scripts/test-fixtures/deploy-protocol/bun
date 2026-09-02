@@ -7,7 +7,6 @@ if [[ "$*" == "x wagmi generate" ]]; then
   [[ -n "${BBF_WAGMI_FOUNDRY_PROJECT:-}" ]]
   [[ -n "${BBF_WAGMI_OUTPUT:-}" ]]
   if [[ "${MOCK_BUN_REQUIRE_PRESERVED_BROADCASTS:-0}" == "1" ]]; then
-    [[ -f "$BBF_WAGMI_FOUNDRY_PROJECT/broadcast/TestnetUSDG.s.sol/46630/run-latest.json" ]]
     [[ -f "$BBF_WAGMI_FOUNDRY_PROJECT/broadcast/DeployDirectProtocol.s.sol/4663/run-latest.json" ]]
   fi
   mkdir -p "$(dirname "$BBF_WAGMI_OUTPUT")"

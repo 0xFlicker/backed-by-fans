@@ -10,6 +10,7 @@ import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
 import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
+import {IMembershipFactory} from "../src/interfaces/IMembershipFactory.sol";
 import {IMembershipRenderer} from "../src/interfaces/IMembershipRenderer.sol";
 import {IOnchainMediaStoreFactory} from "../src/interfaces/IOnchainMediaStoreFactory.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
@@ -103,6 +104,7 @@ contract FactoryAndFeesTest is Test {
     uint256 private constant _RENDERER_INITCODE_LIMIT = 176_000;
     uint256 private constant _MAX_TIER_DEPLOY_GAS = 6_500_000;
     MockUSDG private paymentToken;
+    MockUSDG private stockToken;
     OnchainMetadataRenderer private renderer;
     OnchainMediaStoreFactory private mediaStoreFactory;
     MembershipFactory private factory;
@@ -117,17 +119,29 @@ contract FactoryAndFeesTest is Test {
         nextOwner = makeAddr("nextOwner");
 
         paymentToken = new MockUSDG();
+        stockToken = new MockUSDG();
         renderer = new OnchainMetadataRenderer();
         mediaStoreFactory = new OnchainMediaStoreFactory();
         factory = new MembershipFactory(
-            paymentToken, address(mediaStoreFactory), address(this), feeRecipient
+            _tokens(paymentToken, stockToken),
+            address(mediaStoreFactory),
+            address(this),
+            feeRecipient
         );
     }
 
     function test_constructorSetsProtocolDependenciesAndNonAdminDeployer() public view {
         MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
 
-        assertEq(address(factory.paymentToken()), address(paymentToken));
+        assertEq(factory.paymentTokenCount(), 2);
+        address[] memory paymentTokens = factory.paymentTokens(0, 10);
+        assertEq(paymentTokens.length, 2);
+        assertEq(paymentTokens[0], address(paymentToken));
+        assertEq(paymentTokens[1], address(stockToken));
+        assertTrue(factory.isPaymentTokenListed(address(paymentToken)));
+        assertTrue(factory.isPaymentTokenEnabled(address(paymentToken)));
+        assertTrue(factory.isPaymentTokenListed(address(stockToken)));
+        assertTrue(factory.isPaymentTokenEnabled(address(stockToken)));
         assertEq(factory.mediaStoreFactory(), address(mediaStoreFactory));
         assertEq(factory.rendererSchema(), renderer.rendererSchema());
         assertEq(factory.mediaStoreFactoryRuntimeCodehash(), address(mediaStoreFactory).codehash);
@@ -136,6 +150,89 @@ contract FactoryAndFeesTest is Test {
         assertEq(factory.owner(), address(this));
         assertEq(factory.feeRecipient(), feeRecipient);
         assertEq(tierDeployer.factory(), address(factory));
+    }
+
+    function test_paymentTokenPaginationIsStableAndBounded() public view {
+        address[] memory firstPage = factory.paymentTokens(0, 1);
+        address[] memory secondPage = factory.paymentTokens(1, 10);
+        address[] memory emptyPage = factory.paymentTokens(2, 10);
+
+        assertEq(firstPage.length, 1);
+        assertEq(firstPage[0], address(paymentToken));
+        assertEq(secondPage.length, 1);
+        assertEq(secondPage[0], address(stockToken));
+        assertEq(emptyPage.length, 0);
+    }
+
+    function test_paymentTokenPaginationRejectsOversizedPage() public {
+        uint256 invalidPageSize = factory.maxPageSize() + 1;
+        vm.expectRevert(MembershipFactory.InvalidPageSize.selector);
+        factory.paymentTokens(0, invalidPageSize);
+    }
+
+    function test_ownerCanAppendDisableAndReenablePaymentTokenWithoutDuplicateEvents() public {
+        MockUSDG laterToken = new MockUSDG();
+
+        vm.expectEmit(true, true, false, true, address(factory));
+        emit IMembershipFactory.PaymentTokenListed(address(laterToken), 2);
+        vm.expectEmit(true, false, false, true, address(factory));
+        emit IMembershipFactory.PaymentTokenEnabled(address(laterToken));
+        factory.setPaymentTokenEnabled(address(laterToken), true);
+
+        vm.recordLogs();
+        factory.setPaymentTokenEnabled(address(laterToken), true);
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        vm.expectEmit(true, false, false, true, address(factory));
+        emit IMembershipFactory.PaymentTokenDisabled(address(laterToken));
+        factory.setPaymentTokenEnabled(address(laterToken), false);
+
+        vm.recordLogs();
+        factory.setPaymentTokenEnabled(address(laterToken), false);
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        factory.setPaymentTokenEnabled(address(laterToken), true);
+        assertEq(factory.paymentTokenCount(), 3);
+        address[] memory listed = factory.paymentTokens(0, 10);
+        assertEq(listed[2], address(laterToken));
+        assertTrue(factory.isPaymentTokenListed(address(laterToken)));
+        assertTrue(factory.isPaymentTokenEnabled(address(laterToken)));
+    }
+
+    function test_onlyOwnerCanChangePaymentTokenStatus() public {
+        vm.prank(creator);
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, creator)
+        );
+        factory.setPaymentTokenEnabled(address(stockToken), false);
+    }
+
+    function test_disabledPaymentTokenCannotPublishAndDoesNotConsumeSalt() public {
+        factory.setPaymentTokenEnabled(address(stockToken), false);
+        MembershipTypes.TierConfig memory config = _defaultConfig(creator);
+        config.paymentToken = address(stockToken);
+
+        vm.prank(creator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MembershipFactory.PaymentTokenNotEnabled.selector, address(stockToken)
+            )
+        );
+        factory.createTier(config);
+
+        assertFalse(factory.isTierSaltUsed(creator, config.tierSalt));
+    }
+
+    function test_existingTierKeepsItsSelectedTokenAfterDisable() public {
+        MembershipTypes.TierConfig memory config = _defaultConfig(creator);
+        config.paymentToken = address(stockToken);
+        MembershipTier tier = MembershipTier(_createTier(factory, creator, config));
+
+        factory.setPaymentTokenEnabled(address(stockToken), false);
+
+        assertEq(address(tier.paymentToken()), address(stockToken));
+        assertTrue(factory.isPaymentTokenListed(address(stockToken)));
+        assertFalse(factory.isPaymentTokenEnabled(address(stockToken)));
     }
 
     function test_deployerStoresExactStopPrefixedTierCreationCode() public view {
@@ -393,7 +490,7 @@ contract FactoryAndFeesTest is Test {
         MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
 
         vm.expectRevert(MembershipTierDeployer.OnlyFactory.selector);
-        tierDeployer.deploy(paymentToken, config);
+        tierDeployer.deploy(config);
     }
 
     function test_factoryOwnerHasNoTierAuthority() public {
@@ -437,29 +534,55 @@ contract FactoryAndFeesTest is Test {
     }
 
     function test_invalidFactoryConstructorConfigurationReverts() public {
-        vm.expectRevert(MembershipFactory.InvalidAddress.selector);
+        IERC20[] memory emptyTokens = new IERC20[](0);
+        vm.expectRevert(MembershipFactory.EmptyPaymentTokenList.selector);
+        new MembershipFactory(emptyTokens, address(mediaStoreFactory), address(this), feeRecipient);
+
+        IERC20[] memory invalidTokens = _tokens(IERC20(address(0)));
+        vm.expectRevert(
+            abi.encodeWithSelector(MembershipFactory.InvalidPaymentToken.selector, address(0))
+        );
         new MembershipFactory(
-            IERC20(address(0)), address(mediaStoreFactory), address(this), feeRecipient
+            invalidTokens, address(mediaStoreFactory), address(this), feeRecipient
         );
 
         vm.expectRevert(MembershipFactory.InvalidAddress.selector);
-        new MembershipFactory(paymentToken, address(0), address(this), feeRecipient);
+        new MembershipFactory(_tokens(paymentToken), address(0), address(this), feeRecipient);
 
-        vm.expectRevert(MembershipFactory.InvalidContract.selector);
+        address notToken = makeAddr("notToken");
+        vm.expectRevert(
+            abi.encodeWithSelector(MembershipFactory.InvalidPaymentToken.selector, notToken)
+        );
         new MembershipFactory(
-            IERC20(makeAddr("notToken")), address(mediaStoreFactory), address(this), feeRecipient
+            _tokens(IERC20(notToken)), address(mediaStoreFactory), address(this), feeRecipient
         );
 
         vm.expectRevert(MembershipFactory.InvalidContract.selector);
         new MembershipFactory(
-            paymentToken, makeAddr("notMediaFactory"), address(this), feeRecipient
+            _tokens(paymentToken), makeAddr("notMediaFactory"), address(this), feeRecipient
         );
 
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
-        new MembershipFactory(paymentToken, address(mediaStoreFactory), address(0), feeRecipient);
+        new MembershipFactory(
+            _tokens(paymentToken), address(mediaStoreFactory), address(0), feeRecipient
+        );
 
         vm.expectRevert(MembershipFactory.InvalidAddress.selector);
-        new MembershipFactory(paymentToken, address(mediaStoreFactory), address(this), address(0));
+        new MembershipFactory(
+            _tokens(paymentToken), address(mediaStoreFactory), address(this), address(0)
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MembershipFactory.DuplicatePaymentToken.selector, address(paymentToken)
+            )
+        );
+        new MembershipFactory(
+            _tokens(paymentToken, paymentToken),
+            address(mediaStoreFactory),
+            address(this),
+            feeRecipient
+        );
     }
 
     function test_invalidTierDurationAndRateTotalRevert() public {
@@ -523,17 +646,48 @@ contract FactoryAndFeesTest is Test {
         paymentToken.mint(address(factory), 1_000_000);
 
         vm.expectRevert(MembershipFactory.OnlyFeeRecipient.selector);
-        factory.withdrawProtocolFees();
+        factory.withdrawProtocolFees(paymentToken);
 
         vm.prank(feeRecipient);
-        uint256 amount = factory.withdrawProtocolFees();
+        uint256 amount = factory.withdrawProtocolFees(paymentToken);
 
         assertEq(amount, 1_000_000);
         assertEq(paymentToken.balanceOf(address(factory)), 0);
         assertEq(paymentToken.balanceOf(feeRecipient), 1_000_000);
 
         vm.prank(feeRecipient);
-        assertEq(factory.withdrawProtocolFees(), 0);
+        assertEq(factory.withdrawProtocolFees(paymentToken), 0);
+    }
+
+    function test_feesWithdrawIndependentlyByListedToken() public {
+        paymentToken.mint(address(factory), 1_000_000);
+        stockToken.mint(address(factory), 2 ether);
+
+        vm.prank(feeRecipient);
+        assertEq(factory.withdrawProtocolFees(stockToken), 2 ether);
+        assertEq(paymentToken.balanceOf(address(factory)), 1_000_000);
+        assertEq(stockToken.balanceOf(address(factory)), 0);
+
+        vm.prank(feeRecipient);
+        assertEq(factory.withdrawProtocolFees(paymentToken), 1_000_000);
+        assertEq(paymentToken.balanceOf(address(factory)), 0);
+        assertEq(paymentToken.balanceOf(feeRecipient), 1_000_000);
+        assertEq(stockToken.balanceOf(feeRecipient), 2 ether);
+    }
+
+    function test_unlistedTokenCannotBeWithdrawn() public {
+        MockUSDG unlistedToken = new MockUSDG();
+        unlistedToken.mint(address(factory), 1 ether);
+
+        vm.prank(feeRecipient);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MembershipFactory.PaymentTokenNotListed.selector, address(unlistedToken)
+            )
+        );
+        factory.withdrawProtocolFees(unlistedToken);
+
+        assertEq(unlistedToken.balanceOf(address(factory)), 1 ether);
     }
 
     function test_recipientChangeRedirectsPriorAndFutureFactoryBalances() public {
@@ -543,10 +697,10 @@ contract FactoryAndFeesTest is Test {
 
         vm.prank(feeRecipient);
         vm.expectRevert(MembershipFactory.OnlyFeeRecipient.selector);
-        factory.withdrawProtocolFees();
+        factory.withdrawProtocolFees(paymentToken);
 
         vm.prank(nextOwner);
-        assertEq(factory.withdrawProtocolFees(), 3_000_000);
+        assertEq(factory.withdrawProtocolFees(paymentToken), 3_000_000);
         assertEq(paymentToken.balanceOf(nextOwner), 3_000_000);
     }
 
@@ -573,7 +727,7 @@ contract FactoryAndFeesTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(SafeERC20.SafeERC20FailedOperation.selector, address(token))
         );
-        hostileFactory.withdrawProtocolFees();
+        hostileFactory.withdrawProtocolFees(token);
 
         assertEq(token.balanceOf(address(hostileFactory)), 500_000);
         assertEq(token.balanceOf(feeRecipient), 0);
@@ -586,7 +740,7 @@ contract FactoryAndFeesTest is Test {
 
         vm.prank(feeRecipient);
         vm.expectRevert(MembershipFactory.InexactTokenTransfer.selector);
-        hostileFactory.withdrawProtocolFees();
+        hostileFactory.withdrawProtocolFees(token);
 
         assertEq(token.balanceOf(address(hostileFactory)), 500_000);
         assertEq(token.balanceOf(feeRecipient), 0);
@@ -594,8 +748,9 @@ contract FactoryAndFeesTest is Test {
 
     function test_reentrantRecipientCannotDoubleWithdraw() public {
         AdversarialFeeToken token = new AdversarialFeeToken();
-        MembershipFactory hostileFactory =
-            new MembershipFactory(token, address(mediaStoreFactory), address(this), feeRecipient);
+        MembershipFactory hostileFactory = new MembershipFactory(
+            _tokens(token), address(mediaStoreFactory), address(this), feeRecipient
+        );
         ReentrantFeeRecipient recipient = new ReentrantFeeRecipient(hostileFactory, address(token));
         hostileFactory.setFeeRecipient(address(recipient));
         token.mint(address(hostileFactory), 500_000);
@@ -634,8 +789,9 @@ contract FactoryAndFeesTest is Test {
         returns (AdversarialFeeToken token, MembershipFactory hostileFactory)
     {
         token = new AdversarialFeeToken();
-        hostileFactory =
-            new MembershipFactory(token, address(mediaStoreFactory), address(this), feeRecipient);
+        hostileFactory = new MembershipFactory(
+            _tokens(token), address(mediaStoreFactory), address(this), feeRecipient
+        );
     }
 
     function _createTier(
@@ -652,7 +808,20 @@ contract FactoryAndFeesTest is Test {
         view
         returns (MembershipTypes.TierConfig memory config)
     {
-        config = MembershipTestConfig.defaultConfig(tierCreator, address(renderer));
+        config = MembershipTestConfig.defaultConfig(
+            tierCreator, address(renderer), address(paymentToken)
+        );
+    }
+
+    function _tokens(IERC20 token) private pure returns (IERC20[] memory tokens_) {
+        tokens_ = new IERC20[](1);
+        tokens_[0] = token;
+    }
+
+    function _tokens(IERC20 first, IERC20 second) private pure returns (IERC20[] memory tokens_) {
+        tokens_ = new IERC20[](2);
+        tokens_[0] = first;
+        tokens_[1] = second;
     }
 
     function _nativeMedia(MembershipTypes.MediaRecord memory record)

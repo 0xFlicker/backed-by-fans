@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatUnits } from "viem";
 
 import type { TierSummary } from "@/contracts/types";
 import { ReadStateView } from "@/components/ReadState";
@@ -17,6 +16,8 @@ import {
   classifyReadError,
   unavailableDeploymentState,
 } from "@/lib/read-state";
+import { readAcceptedPaymentTokens } from "@/lib/payment-token-read";
+import { formatRawTokenAmount } from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 
 function summariesFromState(
@@ -60,7 +61,12 @@ export function CatalogExplorer() {
         page.addresses,
         page.capturedBlock,
       );
-      return { page, summaries };
+      const paymentTokens = await readAcceptedPaymentTokens(client, {
+        chainId: deployment.chainId,
+        factory: deployment.factoryAddress,
+        blockNumber: page.capturedBlock,
+      });
+      return { page, summaries, paymentTokens };
     },
   });
 
@@ -98,8 +104,12 @@ export function CatalogExplorer() {
   }
 
   if (!catalog.data) return null;
-  const { page, summaries: summaryState } = catalog.data;
+  const { page, summaries: summaryState, paymentTokens } = catalog.data;
   const summaries = summariesFromState(summaryState);
+  const tokenData =
+    paymentTokens.status === "valid" || paymentTokens.status === "partial"
+      ? paymentTokens.data
+      : [];
 
   return (
     <div className="catalog-stack">
@@ -116,28 +126,41 @@ export function CatalogExplorer() {
         </div>
       ) : (
         <ul className="tier-list">
-          {summaries.map((tier, index) => (
-            <li key={tier.address}>
-              <Link
-                className="tier-row"
-                href={`/chains/${chainId}/tiers/${tier.address}` as Route}
-              >
-                <span className="tier-number font-mono">
-                  {String(Number(page.offset) + index + 1).padStart(2, "0")}
-                </span>
-                <span>
-                  <strong className="font-display">{tier.name}</strong>
-                  <small>{tier.symbol}</small>
-                </span>
-                <span className="tier-price">
-                  {tier.pricePerPeriod === 0n
-                    ? "Choose your support"
-                    : `${formatUnits(tier.pricePerPeriod, 6)} USDG`}
-                </span>
-                <span aria-hidden="true">↗</span>
-              </Link>
-            </li>
-          ))}
+          {summaries.map((tier, index) => {
+            const token = tokenData.find(
+              (candidate) =>
+                candidate.address.toLowerCase() ===
+                tier.paymentToken.toLowerCase(),
+            );
+            return (
+              <li key={tier.address}>
+                <Link
+                  className="tier-row"
+                  href={`/chains/${chainId}/tiers/${tier.address}` as Route}
+                >
+                  <span className="tier-number font-mono">
+                    {String(Number(page.offset) + index + 1).padStart(2, "0")}
+                  </span>
+                  <span>
+                    <strong className="font-display">{tier.name}</strong>
+                    <small>{tier.symbol}</small>
+                  </span>
+                  <span className="tier-price">
+                    {tier.pricePerPeriod === 0n
+                      ? "Choose your support"
+                      : token
+                        ? `${formatRawTokenAmount({
+                            raw: tier.pricePerPeriod,
+                            decimals: token.decimals,
+                            multiplier: token.uiMultiplier,
+                          })} ${token.symbol}`
+                        : "Payment token unavailable"}
+                  </span>
+                  <span aria-hidden="true">↗</span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
 

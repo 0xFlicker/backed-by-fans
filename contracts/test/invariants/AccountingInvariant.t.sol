@@ -57,6 +57,7 @@ contract AccountingHandler is Test {
         creator = creator_;
         feeRecipient = feeRecipient_;
         _actors = actors_;
+        _book.initialize(address(paymentToken_));
 
         for (uint256 i; i < actors_.length; ++i) {
             vm.prank(actors_[i]);
@@ -165,7 +166,7 @@ contract AccountingHandler is Test {
     function withdrawProtocolFees() external {
         uint256 expected = _book.protocolProceeds;
         vm.prank(feeRecipient);
-        uint256 withdrawn = factory.withdrawProtocolFees();
+        uint256 withdrawn = factory.withdrawProtocolFees(paymentToken);
         assertEq(withdrawn, expected);
         assertEq(_book.withdrawProtocolProceeds(), expected);
         ghostProtocolWithdrawn += withdrawn;
@@ -224,7 +225,7 @@ contract AccountingHandler is Test {
             frozenAccount = feeRecipient;
             caller = feeRecipient;
             target = address(factory);
-            callData = abi.encodeCall(MembershipFactory.withdrawProtocolFees, ());
+            callData = abi.encodeCall(MembershipFactory.withdrawProtocolFees, (paymentToken));
         } else {
             uint256 tokenId = tier.tokenOf(actor);
             if (tokenId == 0) return;
@@ -300,6 +301,10 @@ contract AccountingHandler is Test {
         return _book.protocolProceeds;
     }
 
+    function modelPaymentToken() external view returns (address) {
+        return _book.paymentToken;
+    }
+
     function modelRewardReserve() external view returns (uint256) {
         return _book.rewardReserve;
     }
@@ -325,7 +330,13 @@ contract AccountingHandler is Test {
             ? _referrer[tokenId]
             : address(0);
         _book.applyPayment(
-            tokenId, gross, tier.protocolFeeBps(), tier.rewardBps(), tier.referralBps(), referrer
+            address(paymentToken),
+            tokenId,
+            gross,
+            tier.protocolFeeBps(),
+            tier.rewardBps(),
+            tier.referralBps(),
+            referrer
         );
         ghostGrossIn += gross;
         ghostRewardAllocated += Math.mulDiv(gross, tier.rewardBps(), 10_000);
@@ -376,11 +387,14 @@ contract AccountingInvariantTest is StdInvariant, Test {
         address creator = makeAddr("invariantCreator");
         address feeRecipient = makeAddr("invariantFeeRecipient");
         _factory = new MembershipFactory(
-            _paymentToken, address(mediaStoreFactory), address(this), feeRecipient
+            MembershipTestConfig.paymentTokens(_paymentToken),
+            address(mediaStoreFactory),
+            address(this),
+            feeRecipient
         );
 
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(_paymentToken));
         config.maxPrepaidPeriods = 0;
         vm.prank(creator);
         _tier = MembershipTier(_factory.createTier(config));
@@ -411,6 +425,9 @@ contract AccountingInvariantTest is StdInvariant, Test {
     }
 
     function invariant_slowPaymentAndLifecycleModelsStayEquivalent() public view {
+        assertEq(address(_tier.paymentToken()), address(_paymentToken));
+        assertEq(_handler.modelPaymentToken(), address(_paymentToken));
+        assertTrue(_factory.isPaymentTokenListed(address(_paymentToken)));
         assertEq(_tier.creatorProceeds(), _handler.modelCreatorProceeds());
         assertEq(_paymentToken.balanceOf(address(_factory)), _handler.modelProtocolProceeds());
         assertEq(_tier.rewardReserve(), _handler.modelRewardReserve());

@@ -25,20 +25,31 @@ receipts, and captured-block verification evidence are still unavailable.
 
 ## Unassisted script
 
-Without implementation coaching, the creator must create and share a tier,
-inspect immutable economics, manage metadata/caps/pause, grant/revoke, preview
-and execute a refund/top-up, withdraw proceeds, and explain ownership transfer.
-The supporter must discover/verify the tier, join with a deliberate referral
-choice, gift, renew, distinguish active from historical state, expire/sync,
-claim rewards/referrals where applicable, and recover from a failed or uncertain
-transaction. Both must explain permanent shares, dilution, fixed payout
-destinations, refund limitations, and capacity races.
+Without implementation coaching, begin with a fresh wallet and the official
+Robinhood testnet faucet. Record gas and each faucet token received. The creator
+must create and share tiers priced in USDG, AMD, NFLX, PLTR, AMZN, and TSLA;
+inspect immutable token/raw economics; manage metadata/caps/pause; preview and
+replace the renderer; grant/revoke; preview and execute a token-specific
+refund/top-up; withdraw proceeds; and explain ownership transfer. The supporter
+must discover and verify each tier, join and renew with every Stock Token, gift,
+distinguish active from historical state, expire/sync, claim rewards/referrals
+where applicable, and recover from wrong-network, insufficient-assets, and RPC
+errors.
+
+Record Stock Token display multipliers separately from raw contract amounts.
+The browser should show the current scaled amount while approvals, transfers,
+fees, refunds, claims, and tier terms remain raw. Both participants must explain
+permanent shares, dilution, fixed payout destinations, refund limitations,
+capacity races, and that Stock Tokens are testnet-only for this release.
 
 ## Evidence and disposition
 
 - Screen/transaction record with privacy consent: **OPEN**
 - Direct before/after reads and custody reconciliation: **OPEN**
 - Accessibility/device notes: **OPEN**
+- Renderer preview/update and `/skill` notes: **OPEN**
+- Wrong-network, faucet, insufficient-assets, and RPC-recovery notes: **OPEN**
+- Per-token create/join/renew transaction inventory: **OPEN**
 - Confusions, failures, severity, owner, and resolution: **OPEN**
 - Participant confirmation that the final workflow was unassisted: **OPEN**
 - Independent reviewer disposition: **OPEN**

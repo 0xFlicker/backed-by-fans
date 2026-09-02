@@ -1,10 +1,11 @@
-import { getAddress, isAddress, parseUnits, type Address } from "viem";
+import { getAddress, isAddress, type Address } from "viem";
 
 import {
   previewPaymentSplit,
   type SplitPreview,
 } from "@/features/creator/config";
 import { isSameAddress } from "@/lib/address";
+import { displayedToRaw } from "@/lib/token-amount";
 
 export type MembershipActionState =
   | "unready"
@@ -93,11 +94,16 @@ export function validateGift(
   return undefined;
 }
 
-export function parseUsdg(value: string): bigint | undefined {
-  const normalized = value.trim();
-  if (!/^\d+(?:\.\d{1,6})?$/.test(normalized)) return undefined;
+export function parsePaymentAmount(
+  value: string,
+  token: { decimals: number; uiMultiplier: bigint },
+): bigint | undefined {
   try {
-    const parsed = parseUnits(normalized, 6);
+    const parsed = displayedToRaw({
+      displayed: value,
+      decimals: token.decimals,
+      multiplier: token.uiMultiplier,
+    });
     return parsed >= 0n ? parsed : undefined;
   } catch {
     return undefined;

@@ -17,6 +17,5 @@ export function deploymentWriteGuard(input: {
   return {
     enabled: true as const,
     factory: input.deployment.factoryAddress,
-    paymentToken: input.deployment.usdgAddress,
   };
 }

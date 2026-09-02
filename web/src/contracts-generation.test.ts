@@ -20,11 +20,12 @@ import { fileURLToPath } from "node:url";
 import { foundry } from "@wagmi/cli/plugins";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
+
 const temporaryProjects: string[] = [];
 const temporaryLocks: string[] = [];
 const testnetFactory = "0x1111111111111111111111111111111111111111";
 const mainnetFactory = "0x2222222222222222222222222222222222222222";
-const testnetUsdg = "0x3333333333333333333333333333333333333333";
 
 type DeploymentFixture = {
   address: string;
@@ -79,6 +80,68 @@ afterEach(async () => {
       .splice(0)
       .map((directory) => rm(directory, { recursive: true, force: true })),
   ]);
+});
+
+describe("generated MembershipFactory ABI", () => {
+  it("contains the multi-token constructor, registry, tier tuple, and token withdrawal", () => {
+    const constructor = membershipFactoryAbi.find(
+      (item) => item.type === "constructor",
+    );
+    expect(constructor?.inputs[0]).toMatchObject({ type: "address[]" });
+
+    const createTier = membershipFactoryAbi.find(
+      (item) => item.type === "function" && item.name === "createTier",
+    );
+    expect(createTier?.inputs[0]).toMatchObject({
+      type: "tuple",
+      components: expect.arrayContaining([
+        expect.objectContaining({ name: "paymentToken", type: "address" }),
+      ]),
+    });
+
+    for (const functionName of [
+      "paymentTokenCount",
+      "paymentTokens",
+      "isPaymentTokenListed",
+      "isPaymentTokenEnabled",
+      "setPaymentTokenEnabled",
+      "withdrawProtocolFees",
+    ]) {
+      expect(
+        membershipFactoryAbi.some(
+          (item) => item.type === "function" && item.name === functionName,
+        ),
+      ).toBe(true);
+    }
+    const withdrawal = membershipFactoryAbi.find(
+      (item) =>
+        item.type === "function" && item.name === "withdrawProtocolFees",
+    );
+    expect(withdrawal?.inputs).toEqual([
+      expect.objectContaining({ name: "token", type: "address" }),
+    ]);
+  });
+});
+
+describe("generated MembershipTier ABI", () => {
+  it("contains mutable renderer writes and metadata refresh events", () => {
+    const setRenderer = membershipTierAbi.find(
+      (item) => item.type === "function" && item.name === "setRenderer",
+    );
+    expect(setRenderer?.inputs).toEqual([
+      expect.objectContaining({ name: "newRenderer", type: "address" }),
+    ]);
+    expect(
+      membershipTierAbi.some(
+        (item) => item.type === "event" && item.name === "TierRendererUpdated",
+      ),
+    ).toBe(true);
+    expect(
+      membershipTierAbi.some(
+        (item) => item.type === "event" && item.name === "BatchMetadataUpdate",
+      ),
+    ).toBe(true);
+  });
 });
 
 type ProcessResult = {
@@ -325,7 +388,7 @@ describe("Wagmi Foundry broadcast generation", () => {
     },
   );
 
-  it("preserves testnet USDG and both protocol networks in one staged project", async () => {
+  it("preserves both protocol networks without an internal payment-token deployment", async () => {
     const project = await mkdtemp(join(tmpdir(), "bbf-wagmi-staged-"));
     temporaryProjects.push(project);
     await writeFile(
@@ -333,7 +396,7 @@ describe("Wagmi Foundry broadcast generation", () => {
       "[profile.default]\nout = 'out'\n",
     );
 
-    for (const contractName of ["MembershipFactory", "TestnetUSDG"]) {
+    for (const contractName of ["MembershipFactory"]) {
       const artifactDirectory = join(project, "out", `${contractName}.sol`);
       await mkdir(artifactDirectory, { recursive: true });
       await writeFile(
@@ -365,11 +428,6 @@ describe("Wagmi Foundry broadcast generation", () => {
       );
     }
 
-    await writeBroadcast("TestnetUSDG.s.sol", 46_630, {
-      transactionType: "CREATE2",
-      contractName: "TestnetUSDG",
-      contractAddress: testnetUsdg,
-    });
     for (const [chainId, address] of [
       [46_630, testnetFactory],
       [4_663, mainnetFactory],
@@ -390,18 +448,13 @@ describe("Wagmi Foundry broadcast generation", () => {
     const plugin = foundry({
       project,
       includeBroadcasts: true,
-      include: [
-        "MembershipFactory.sol/MembershipFactory.json",
-        "TestnetUSDG.sol/TestnetUSDG.json",
-      ],
+      include: ["MembershipFactory.sol/MembershipFactory.json"],
       forge: { build: false, clean: false, rebuild: false },
     });
     const contracts = await plugin.contracts();
     expect(
       contracts.find(({ name }) => name === "MembershipFactory")?.address,
     ).toEqual({ 4_663: mainnetFactory, 46_630: testnetFactory });
-    expect(
-      contracts.find(({ name }) => name === "TestnetUSDG")?.address,
-    ).toEqual({ 46_630: testnetUsdg });
+    expect(contracts.some(({ name }) => name === "TestnetUSDG")).toBe(false);
   });
 });

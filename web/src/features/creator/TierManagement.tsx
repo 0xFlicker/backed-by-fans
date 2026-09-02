@@ -4,7 +4,7 @@ import { useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import {
-  formatUnits,
+  erc20Abi,
   getAddress,
   zeroAddress,
   type Address,
@@ -15,7 +15,7 @@ import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 import { ReadStateView } from "@/components/ReadState";
 import { TransactionFlow } from "@/components/TransactionFlow";
 import { WalletControl } from "@/components/WalletControl";
-import { membershipTierAbi, usdgAbi } from "@/contracts";
+import { membershipTierAbi } from "@/contracts";
 import type { TierManagementSnapshot } from "@/contracts/types";
 import {
   managementPermissions,
@@ -26,6 +26,7 @@ import {
   validateSupplyCap,
 } from "@/features/creator/management";
 import { readTierManagementState } from "@/features/creator/management-read";
+import { RendererManagementControl } from "@/features/creator/RendererManagementControl";
 import { receiptProvesMembershipRefund } from "@/features/protocol/payout-reconciliation";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import {
@@ -49,6 +50,10 @@ import {
   unavailableDeploymentState,
 } from "@/lib/read-state";
 import { useWalletPublicClient } from "@/lib/use-wallet-public-client";
+import {
+  formatRawTokenAmount,
+  scheduledDisplayAdjustment,
+} from "@/lib/token-amount";
 import {
   decodeTransactionError,
   initialTransactionState,
@@ -110,19 +115,39 @@ function ManagementControls({
   const [description, setDescription] = useState(snapshot.description);
   const [externalURI, setExternalURI] = useState(snapshot.externalURI);
   const [newOwner, setNewOwner] = useState("");
+  const paymentTokenState = snapshot.paymentTokenState;
+  const paymentLabel = (raw: bigint) =>
+    paymentTokenState
+      ? `${formatRawTokenAmount({
+          raw,
+          decimals: paymentTokenState.decimals,
+          multiplier: paymentTokenState.uiMultiplier,
+        })} ${paymentTokenState.symbol}`
+      : "Payment token unavailable";
+  const scheduledPeriodPrice = paymentTokenState
+    ? scheduledDisplayAdjustment({
+        raw: snapshot.pricePerPeriod,
+        decimals: paymentTokenState.decimals,
+        currentMultiplier: paymentTokenState.uiMultiplier,
+        futureMultiplier: paymentTokenState.newUIMultiplier,
+        effectiveAt: new Date(Number(paymentTokenState.effectiveAt) * 1_000),
+      })
+    : undefined;
   const permissions = managementPermissions(snapshot, account.address);
+  const managementDeployment = getDeployment(publicConfig, expectedChainId);
   const authenticity: AuthenticityResult = {
     status: "verified",
     capturedBlock,
     tier: snapshot.address,
     tierIdentity: snapshot.tierIdentity,
+    paymentToken: snapshot.paymentToken,
     renderer: snapshot.renderer,
     art: snapshot.art,
     media: snapshot.media,
     protocolDependencies: snapshot.protocolDependencies,
   };
   const guard = getWriteGuard({
-    deployment: getDeployment(publicConfig, expectedChainId),
+    deployment: managementDeployment,
     walletChainId: account.isConnected ? account.chainId : undefined,
     expectedChainId,
     authenticity,
@@ -130,6 +155,7 @@ function ManagementControls({
   const writesVerified =
     fresh &&
     guard.enabled &&
+    Boolean(paymentTokenState) &&
     (gas.data ?? 0n) > 0n &&
     !write.isPending &&
     !isTransactionInFlight(transaction.phase);
@@ -179,14 +205,14 @@ function ManagementControls({
         if (approvalCancelled) {
           dispatch({
             type: "CANCELLED",
-            error: "The wallet cancelled the USDG approval.",
+            error: `The wallet cancelled the ${paymentTokenState?.symbol ?? "token"} approval.`,
           });
           return undefined;
         }
         if (approvalReceipt.status === "reverted") {
           dispatch({
             type: "REVERTED",
-            error: "The USDG approval reverted onchain.",
+            error: `The ${paymentTokenState?.symbol ?? "token"} approval reverted onchain.`,
           });
           return undefined;
         }
@@ -342,6 +368,7 @@ function ManagementControls({
       | "setSupplyCap"
       | "setMaxPrepaidPeriods"
       | "setTierMetadata"
+      | "setRenderer"
       | "grantTime"
       | "revokeGrantTime"
       | "refund"
@@ -440,7 +467,7 @@ function ManagementControls({
         if (preview.topUp > 0n) {
           const allowance = await client.readContract({
             address: snapshot.paymentToken,
-            abi: usdgAbi,
+            abi: erc20Abi,
             functionName: "allowance",
             args: [owner, snapshot.address],
           });
@@ -450,7 +477,7 @@ function ManagementControls({
                 account: owner,
                 chainId: expectedChainId,
                 address: snapshot.paymentToken,
-                abi: usdgAbi,
+                abi: erc20Abi,
                 functionName: "approve",
                 args: [snapshot.address, preview.topUp],
               });
@@ -622,7 +649,15 @@ function ManagementControls({
           <dl className="management-facts">
             <div>
               <dt>Price</dt>
-              <dd>{formatUnits(snapshot.pricePerPeriod, 6)} USDG</dd>
+              <dd>{paymentLabel(snapshot.pricePerPeriod)}</dd>
+            </div>
+            <div>
+              <dt>Payment token</dt>
+              <dd>{paymentTokenState?.symbol ?? snapshot.paymentToken}</dd>
+            </div>
+            <div>
+              <dt>Raw contract price</dt>
+              <dd>{snapshot.pricePerPeriod.toString()} units</dd>
             </div>
             <div>
               <dt>Period</dt>
@@ -637,6 +672,14 @@ function ManagementControls({
               <dd>{(snapshot.referralBps / 100).toFixed(2)}%</dd>
             </div>
           </dl>
+          {scheduledPeriodPrice ? (
+            <p className="small-copy" role="status">
+              Starting {scheduledPeriodPrice.effectiveAt.toLocaleString()}, the
+              period price will display as{" "}
+              {scheduledPeriodPrice.futureFormatted} {paymentTokenState?.symbol}
+              . The raw contract price does not change.
+            </p>
+          ) : null}
           <p className="small-copy">
             Price, period, token, reward, referral, and the fixed 1% protocol
             fee cannot be edited here or by the protocol operator.
@@ -849,11 +892,11 @@ function ManagementControls({
               <dl className="refund-preview" aria-live="polite">
                 <div>
                   <dt>Gross refund</dt>
-                  <dd>{formatUnits(currentRefundPreview.gross, 6)} USDG</dd>
+                  <dd>{paymentLabel(currentRefundPreview.gross)}</dd>
                 </div>
                 <div>
                   <dt>Exact owner top-up</dt>
-                  <dd>{formatUnits(currentRefundPreview.topUp, 6)} USDG</dd>
+                  <dd>{paymentLabel(currentRefundPreview.topUp)}</dd>
                 </div>
               </dl>
             )}
@@ -874,7 +917,7 @@ function ManagementControls({
           <section className="control-group">
             <div>
               <p className="eyebrow">Creator proceeds</p>
-              <h2>{formatUnits(snapshot.creatorProceeds, 6)} USDG</h2>
+              <h2>{paymentLabel(snapshot.creatorProceeds)}</h2>
               <p>
                 Withdrawal has one fixed destination: the current tier owner. No
                 redirect is available.
@@ -948,6 +991,26 @@ function ManagementControls({
               Update metadata
             </button>
           </section>
+
+          {managementDeployment.status === "ready" ? (
+            <RendererManagementControl
+              canUpdate={canOwnerWrite}
+              client={client}
+              deployment={managementDeployment}
+              onUpdate={(renderer) =>
+                void perform(
+                  "Update artwork renderer",
+                  tierWrite("setRenderer", [renderer]),
+                  () =>
+                    reconcileSnapshot((next) =>
+                      isSameAddress(next.renderer, renderer),
+                    ),
+                )
+              }
+              owner={account.address}
+              snapshot={snapshot}
+            />
+          ) : null}
 
           <section className="control-group">
             <div>

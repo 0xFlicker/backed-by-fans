@@ -23,6 +23,7 @@ library MembershipModel {
     /// @dev Slow payment oracle. Reward allocation is applied eagerly to every issued token,
     ///      rather than using the production cumulative-index/debt representation.
     struct PaymentBook {
+        address paymentToken;
         uint256 creatorProceeds;
         uint256 protocolProceeds;
         uint256 rewardReserve;
@@ -33,6 +34,16 @@ library MembershipModel {
         mapping(uint256 tokenId => uint256 scaledReward) scaledRewards;
         mapping(uint256 tokenId => uint256 wholeCredit) rewardCredits;
         mapping(address referrer => uint256 amount) referralCredits;
+    }
+
+    error PaymentTokenMismatch(address expected, address actual);
+
+    function initialize(PaymentBook storage book, address paymentToken) internal {
+        address existing = book.paymentToken;
+        if (existing != address(0) && existing != paymentToken) {
+            revert PaymentTokenMismatch(existing, paymentToken);
+        }
+        book.paymentToken = paymentToken;
     }
 
     function addPaidTime(Lifecycle storage state, uint64 timestamp, uint64 duration) internal {
@@ -115,6 +126,7 @@ library MembershipModel {
 
     function applyPayment(
         PaymentBook storage book,
+        address paymentToken,
         uint256 tokenId,
         uint256 gross,
         uint16 protocolFeeBps,
@@ -122,6 +134,9 @@ library MembershipModel {
         uint16 referralBps,
         address referrer
     ) internal {
+        if (book.paymentToken != paymentToken) {
+            revert PaymentTokenMismatch(book.paymentToken, paymentToken);
+        }
         uint256 protocolFee = Math.mulDiv(gross, protocolFeeBps, 10_000);
         uint256 reward = Math.mulDiv(gross, rewardBps, 10_000);
         uint256 referral = referrer == address(0) ? 0 : Math.mulDiv(gross, referralBps, 10_000);

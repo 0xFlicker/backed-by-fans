@@ -4,8 +4,10 @@ pragma solidity =0.8.36;
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Test} from "forge-std/Test.sol";
 
+import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
+import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {MockUSDG} from "./mocks/MockUSDG.sol";
@@ -170,6 +172,53 @@ contract PaymentsAndTimeTest is Test {
         assertEq(tier.expiresAt(tokenId), _START + 2 * _PERIOD);
     }
 
+    function test_twoFactorySelectedTokensTransferAndAccountInTheirOwnRawUnits() public {
+        MockUSDG secondToken = new MockUSDG();
+        OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
+        MembershipFactory factory = new MembershipFactory(
+            MembershipTestConfig.paymentTokens(paymentToken, secondToken),
+            address(mediaStoreFactory),
+            address(this),
+            address(this)
+        );
+
+        MembershipTypes.TierConfig memory firstConfig = _config();
+        firstConfig.tierSalt = keccak256("first-payment-token");
+        MembershipTier firstTier = MembershipTier(factory.createTier(firstConfig));
+
+        MembershipTypes.TierConfig memory secondConfig = _config();
+        secondConfig.tierSalt = keccak256("second-payment-token");
+        secondConfig.paymentToken = address(secondToken);
+        secondConfig.pricePerPeriod = 25_000_000;
+        MembershipTier secondTier = MembershipTier(factory.createTier(secondConfig));
+
+        paymentToken.mint(member, firstConfig.pricePerPeriod);
+        secondToken.mint(member, secondConfig.pricePerPeriod);
+        vm.startPrank(member);
+        paymentToken.approve(address(firstTier), type(uint256).max);
+        secondToken.approve(address(secondTier), type(uint256).max);
+        firstTier.purchase(1, address(0));
+        secondTier.purchase(1, address(0));
+        vm.stopPrank();
+
+        assertEq(address(firstTier.paymentToken()), address(paymentToken));
+        assertEq(address(secondTier.paymentToken()), address(secondToken));
+        assertEq(paymentToken.balanceOf(address(factory)), 100_000);
+        assertEq(secondToken.balanceOf(address(factory)), 250_000);
+        assertEq(paymentToken.balanceOf(address(firstTier)), 9_900_000);
+        assertEq(secondToken.balanceOf(address(secondTier)), 24_750_000);
+        assertEq(paymentToken.balanceOf(address(secondTier)), 0);
+        assertEq(secondToken.balanceOf(address(firstTier)), 0);
+        assertEq(
+            paymentToken.balanceOf(address(factory)) + paymentToken.balanceOf(address(firstTier)),
+            firstConfig.pricePerPeriod
+        );
+        assertEq(
+            secondToken.balanceOf(address(factory)) + secondToken.balanceOf(address(secondTier)),
+            secondConfig.pricePerPeriod
+        );
+    }
+
     function test_zeroPriceSelfActionAddsOnePeriodWithOrWithoutContribution() public {
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = 0;
@@ -284,6 +333,9 @@ contract PaymentsAndTimeTest is Test {
     }
 
     function _config() private view returns (MembershipTypes.TierConfig memory) {
-        return MembershipTestConfig.defaultConfig(address(this), address(renderer));
+        return
+            MembershipTestConfig.defaultConfig(
+                address(this), address(renderer), address(paymentToken)
+            );
     }
 }

@@ -2,6 +2,7 @@ import { getAddress, isAddress, type Address, type PublicClient } from "viem";
 
 import { membershipTierAbi, membershipFactoryAbi } from "@/contracts";
 import type { AccountTierResult } from "@/features/membership/account-cache";
+import { readProtocolDependencies } from "@/features/protocol/protocol-read";
 import {
   tierBindingFailures,
   verifyTierAuthenticity,
@@ -117,6 +118,7 @@ async function inspectTier(
         tier: input.tier,
         name,
         creatorOwned,
+        paymentToken: authenticity.paymentToken,
         tokenId,
         active,
         claimableReward,
@@ -136,6 +138,7 @@ async function inspectTier(
 type BatchCandidate = {
   tier: Address;
   name: string;
+  paymentToken: Address;
   tokenId: bigint;
   claimableReferral: bigint;
   owner: Address;
@@ -153,6 +156,19 @@ async function inspectTiersWithMulticall(
     blockNumber: bigint;
   },
 ) {
+  const protocol = await readProtocolDependencies(
+    client,
+    input.deployment,
+    input.blockNumber,
+  );
+  if (protocol.status !== "valid") {
+    return {
+      results: [],
+      skipped: input.tiers.map(
+        (tier) => `${tier}: accepted payment-token registry unavailable`,
+      ),
+    };
+  }
   const interfaceIds = membershipInterfaces.map(({ id }) => id);
   const contracts = input.tiers.flatMap((tier) => [
     {
@@ -231,9 +247,13 @@ async function inspectTiersWithMulticall(
       registered,
       tierFactory,
       tierToken,
+      tokenListed:
+        isAddress(tierToken as string) &&
+        protocol.data.paymentTokens.some((token) =>
+          isSameAddress(token, tierToken as Address),
+        ),
       supportedInterfaces: supported,
       factory: input.deployment.factoryAddress,
-      paymentToken: input.deployment.usdgAddress,
       tierRenderer,
     });
     if (
@@ -249,6 +269,7 @@ async function inspectTiersWithMulticall(
     candidates.push({
       tier,
       name,
+      paymentToken: getAddress(tierToken as string),
       tokenId,
       claimableReferral,
       owner: getAddress(owner as string),
@@ -356,6 +377,7 @@ async function inspectTiersWithMulticall(
       tier: candidate.tier,
       name: candidate.name,
       creatorOwned,
+      paymentToken: candidate.paymentToken,
       tokenId: candidate.tokenId,
       active: claim.active,
       claimableReward: claim.claimableReward,

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPaymentPreview,
   classifyMembershipState,
-  parseUsdg,
+  parsePaymentAmount,
   validateGift,
 } from "@/features/membership/state";
 import { isSameAddress } from "@/lib/address";
@@ -131,10 +131,11 @@ describe("supporter membership state", () => {
     ).toBe(true);
   });
 
-  it("parses USDG without inventing precision or accepting negatives", () => {
-    expect(parseUsdg("10.000001")).toBe(10_000_001n);
-    expect(parseUsdg("0")).toBe(0n);
-    expect(parseUsdg("0.0000001")).toBeUndefined();
-    expect(parseUsdg("-1")).toBeUndefined();
+  it("parses the selected token without inventing precision or accepting negatives", () => {
+    const token = { decimals: 6, uiMultiplier: 10n ** 18n };
+    expect(parsePaymentAmount("10.000001", token)).toBe(10_000_001n);
+    expect(parsePaymentAmount("0", token)).toBe(0n);
+    expect(parsePaymentAmount("0.0000001", token)).toBeUndefined();
+    expect(parsePaymentAmount("-1", token)).toBeUndefined();
   });
 });

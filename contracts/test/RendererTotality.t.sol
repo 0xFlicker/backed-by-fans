@@ -456,7 +456,7 @@ contract RendererTotalityTest is Test {
 
     function _token() private view returns (MembershipTypes.TokenRenderData memory token) {
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), address(renderer));
+            MembershipTestConfig.defaultConfig(address(this), address(renderer), address(0));
         token = MembershipTypes.TokenRenderData({
             tierName: config.name,
             description: config.metadata.description,

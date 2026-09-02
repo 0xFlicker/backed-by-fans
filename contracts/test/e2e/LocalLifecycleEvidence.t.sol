@@ -11,6 +11,7 @@ import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {RealImageFixtures} from "../helpers/RealImageFixtures.sol";
+import {MockScaledToken} from "../mocks/MockScaledToken.sol";
 import {MockUSDG} from "../mocks/MockUSDG.sol";
 
 /// @notice Local-only lifecycle evidence. This is neither a public-testnet pilot nor an audit.
@@ -18,6 +19,7 @@ contract LocalLifecycleEvidenceTest is Test {
     uint64 private constant _START = 1_000_000;
 
     MockUSDG private paymentToken;
+    MockScaledToken private scaledPaymentToken;
     MembershipFactory private factory;
     MembershipTier private tier;
 
@@ -46,14 +48,18 @@ contract LocalLifecycleEvidenceTest is Test {
         nextProtocolOwner = makeAddr("nextProtocolOwner");
 
         paymentToken = new MockUSDG();
+        scaledPaymentToken = new MockScaledToken("AMD", "AMD");
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
+        IERC20[] memory paymentTokens = new IERC20[](2);
+        paymentTokens[0] = paymentToken;
+        paymentTokens[1] = scaledPaymentToken;
         factory = new MembershipFactory(
-            IERC20(address(paymentToken)), address(mediaStoreFactory), address(this), feeRecipient
+            paymentTokens, address(mediaStoreFactory), address(this), feeRecipient
         );
 
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken));
         bytes memory nativeJPEG = RealImageFixtures.jpeg(0x42);
         vm.prank(creator);
         address mediaStore = mediaStoreFactory.store(nativeJPEG, MembershipTypes.MediaMIME.JPEG);
@@ -70,6 +76,14 @@ contract LocalLifecycleEvidenceTest is Test {
 
         _fundAndApprove(member, 100_000_000);
         _fundAndApprove(giftPayer, 100_000_000);
+    }
+
+    function test_localFixtureExposesUnscaledAndScaledPaymentTokens() public view {
+        address[] memory tokens = factory.paymentTokens(0, 2);
+        assertEq(tokens.length, 2);
+        assertEq(tokens[0], address(paymentToken));
+        assertEq(tokens[1], address(scaledPaymentToken));
+        assertEq(scaledPaymentToken.uiMultiplier(), 1e18);
     }
 
     function test_localCreatorToSupporterLifecycleConservesEveryCustodyBucket() public {
@@ -173,7 +187,7 @@ contract LocalLifecycleEvidenceTest is Test {
         vm.prank(nextProtocolOwner);
         factory.setFeeRecipient(nextFeeRecipient);
         vm.prank(nextFeeRecipient);
-        assertEq(factory.withdrawProtocolFees(), 300_000);
+        assertEq(factory.withdrawProtocolFees(paymentToken), 300_000);
 
         assertEq(factory.owner(), nextProtocolOwner);
         assertEq(factory.pendingOwner(), address(0));

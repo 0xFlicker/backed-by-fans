@@ -156,7 +156,7 @@ contract CapacityAndPauseTest is Test {
     function _deployTier(uint64 supplyCap) private returns (MembershipTierHarness deployedTier) {
         MockUSDG token = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTypes.TierConfig memory config = _config(address(renderer));
+        MembershipTypes.TierConfig memory config = _config(address(renderer), address(token));
         config.supplyCap = supplyCap;
         deployedTier = new MembershipTierHarness(address(this), token, address(renderer), config);
         _fundAndApprove(deployedTier, member);
@@ -175,9 +175,13 @@ contract CapacityAndPauseTest is Test {
         token.approve(address(target), type(uint256).max);
     }
 
-    function _config(address renderer_) private view returns (MembershipTypes.TierConfig memory) {
+    function _config(address renderer_, address paymentToken_)
+        private
+        view
+        returns (MembershipTypes.TierConfig memory)
+    {
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), renderer_);
+            MembershipTestConfig.defaultConfig(address(this), renderer_, paymentToken_);
         config.supplyCap = 1;
         return config;
     }

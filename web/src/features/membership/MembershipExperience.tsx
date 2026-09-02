@@ -7,7 +7,7 @@ import { useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import {
-  formatUnits,
+  erc20Abi,
   getAddress,
   isAddress,
   zeroAddress,
@@ -17,11 +17,7 @@ import {
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 
 import { WalletControl } from "@/components/WalletControl";
-import {
-  membershipTierAbi,
-  onchainMetadataRendererAbi,
-  usdgAbi,
-} from "@/contracts";
+import { membershipTierAbi, onchainMetadataRendererAbi } from "@/contracts";
 import type { TierSupporterSnapshot } from "@/contracts/types";
 import { parseUint64Input } from "@/features/creator/management";
 import { decodeRendererTokenURI } from "@/features/creator-studio/renderer-preview";
@@ -36,7 +32,7 @@ import { RendererDetails } from "@/features/membership/RendererDetails";
 import {
   buildPaymentPreview,
   classifyMembershipState,
-  parseUsdg,
+  parsePaymentAmount,
   validateGift,
 } from "@/features/membership/state";
 import {
@@ -57,6 +53,11 @@ import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain } from "@/lib/chains";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import type { ReadState } from "@/lib/read-state";
+import { robinhoodTestnetFaucetUrl } from "@/lib/testnet-funding";
+import {
+  formatRawTokenAmount,
+  scheduledDisplayAdjustment,
+} from "@/lib/token-amount";
 import {
   decodeTransactionError,
   initialTransactionState,
@@ -71,12 +72,12 @@ function formatPeriod(seconds: bigint) {
   return days > 0n ? `${days} days` : `${seconds} seconds`;
 }
 
-function transactionStatusCopy(phase: string) {
+function transactionStatusCopy(phase: string, symbol: string) {
   switch (phase) {
     case "simulation":
       return "Checking the details…";
     case "approval":
-      return "Approve USDG in your wallet.";
+      return `Approve ${symbol} in your wallet.`;
     case "signature":
       return "Confirm in your wallet.";
     case "submission":
@@ -179,6 +180,25 @@ export function MembershipExperience({
   const [giftRecipient, setGiftRecipient] = useState("");
   const [giftPeriods, setGiftPeriods] = useState("1");
   const [preparedAction, setPreparedAction] = useState("");
+  const paymentTokenState = snapshot.paymentTokenState;
+  const paymentLabel = (raw: bigint) =>
+    paymentTokenState
+      ? `${formatRawTokenAmount({
+          raw,
+          decimals: paymentTokenState.decimals,
+          multiplier: paymentTokenState.uiMultiplier,
+        })} ${paymentTokenState.symbol}`
+      : "Payment token unavailable";
+  const scheduledPeriodPrice = paymentTokenState
+    ? scheduledDisplayAdjustment({
+        raw: snapshot.pricePerPeriod,
+        decimals: paymentTokenState.decimals,
+        currentMultiplier: paymentTokenState.uiMultiplier,
+        futureMultiplier: paymentTokenState.newUIMultiplier,
+        effectiveAt: new Date(Number(paymentTokenState.effectiveAt) * 1_000),
+        referenceTime: new Date(Number(snapshot.capturedTimestamp) * 1_000),
+      })
+    : undefined;
   const artworkTokenId = snapshot.credential?.tokenId ?? 1n;
   const artworkContext = {
     token: {
@@ -243,6 +263,7 @@ export function MembershipExperience({
     capturedBlock,
     tier: snapshot.address,
     tierIdentity: snapshot.tierIdentity,
+    paymentToken: snapshot.paymentToken,
     renderer: snapshot.renderer,
     art: snapshot.art,
     media: snapshot.media,
@@ -268,11 +289,14 @@ export function MembershipExperience({
   const writesVerified =
     fresh &&
     guard.enabled &&
+    Boolean(paymentTokenState) &&
     (snapshot.walletEthBalance ?? 0n) > 0n &&
     !write.isPending &&
     !isTransactionInFlight(transaction.phase);
   const periodValue = parseUint64Input(periods, { allowZero: false });
-  const contributionValue = parseUsdg(contribution);
+  const contributionValue = paymentTokenState
+    ? parsePaymentAmount(contribution, paymentTokenState)
+    : undefined;
   const primaryInputValid =
     snapshot.pricePerPeriod === 0n
       ? contributionValue !== undefined
@@ -387,7 +411,7 @@ export function MembershipExperience({
         account: account.address,
         chainId: expectedChainId,
         address: snapshot.paymentToken,
-        abi: usdgAbi,
+        abi: erc20Abi,
         functionName: "approve",
         args: [snapshot.address, amount],
       });
@@ -430,14 +454,14 @@ export function MembershipExperience({
         if (approvalCancelled) {
           dispatch({
             type: "CANCELLED",
-            error: "The wallet cancelled the USDG approval.",
+            error: `The wallet cancelled the ${paymentTokenState?.symbol ?? "token"} approval.`,
           });
           return undefined;
         }
         if (approvalReceipt.status === "reverted") {
           dispatch({
             type: "REVERTED",
-            error: "The USDG approval reverted onchain.",
+            error: `The ${paymentTokenState?.symbol ?? "token"} approval reverted onchain.`,
           });
           return undefined;
         }
@@ -624,7 +648,7 @@ export function MembershipExperience({
     capacityFull ||
     exceedsPrepaymentLimit ||
     !primaryInputValid ||
-    (snapshot.walletUsdgBalance ?? 0n) < selfPreview.gross;
+    (snapshot.walletPaymentTokenBalance ?? 0n) < selfPreview.gross;
 
   const network = getSupportedChain(expectedChainId);
   const explorerUrl = network.blockExplorers?.default.url;
@@ -633,9 +657,9 @@ export function MembershipExperience({
   const creatorClaim = snapshot.creatorProceeds ?? 0n;
   const hasClaims = rewardClaim > 0n || referralClaim > 0n || creatorClaim > 0n;
   const fundingShortfall =
-    snapshot.walletUsdgBalance !== undefined &&
-    snapshot.walletUsdgBalance < selfPreview.gross
-      ? selfPreview.gross - snapshot.walletUsdgBalance
+    snapshot.walletPaymentTokenBalance !== undefined &&
+    snapshot.walletPaymentTokenBalance < selfPreview.gross
+      ? selfPreview.gross - snapshot.walletPaymentTokenBalance
       : 0n;
   const displayedHash = transaction.replacementHash ?? transaction.hash;
   const isCreator = Boolean(
@@ -763,7 +787,7 @@ export function MembershipExperience({
       <dl className="membership-essentials" aria-label="Membership terms">
         <div>
           <dt>Price</dt>
-          <dd>{formatUnits(snapshot.pricePerPeriod, 6)} USDG</dd>
+          <dd>{paymentLabel(snapshot.pricePerPeriod)}</dd>
         </div>
         <div>
           <dt>Membership period</dt>
@@ -830,7 +854,9 @@ export function MembershipExperience({
             {!walletReady && <WalletControl />}
             {snapshot.pricePerPeriod === 0n ? (
               <label className="creator-field">
-                <span>Optional USDG contribution</span>
+                <span>
+                  Optional {paymentTokenState?.symbol ?? "token"} contribution
+                </span>
                 <input
                   aria-invalid={contributionValue === undefined}
                   inputMode="decimal"
@@ -859,7 +885,7 @@ export function MembershipExperience({
             >
               <div>
                 <dt>Total</dt>
-                <dd>{formatUnits(selfPreview.gross, 6)} USDG</dd>
+                <dd>{paymentLabel(selfPreview.gross)}</dd>
               </div>
               <div>
                 <dt>Access added</dt>
@@ -874,32 +900,69 @@ export function MembershipExperience({
                 <dd>{formatMembershipDate(selfPreview.resultingExpiration)}</dd>
               </div>
             </dl>
+            {scheduledPeriodPrice ? (
+              <p className="small-copy" role="status">
+                Starting {scheduledPeriodPrice.effectiveAt.toLocaleString()},
+                one period will display as{" "}
+                {scheduledPeriodPrice.futureFormatted}{" "}
+                {paymentTokenState?.symbol}. The raw contract price does not
+                change.
+              </p>
+            ) : null}
             <p className="small-copy" aria-live="polite">
               {!primaryInputValid ? (
                 snapshot.pricePerPeriod === 0n ? (
-                  "Enter a valid USDG contribution."
+                  `Enter a valid ${paymentTokenState?.symbol ?? "token"} contribution.`
                 ) : (
                   "Enter 1 or more whole periods."
                 )
               ) : selfPreview.exactApproval > 0n ? (
                 <>
                   Your wallet will first request an exact{" "}
-                  {formatUnits(selfPreview.exactApproval, 6)} USDG approval.
+                  {paymentLabel(selfPreview.exactApproval)} approval.
                 </>
               ) : (
-                "Your current USDG allowance covers this payment."
+                `Your current ${paymentTokenState?.symbol ?? "token"} allowance covers this payment.`
               )}
             </p>
             {fundingShortfall > 0n && (
               <p className="funding-notice" role="status">
-                Add {formatUnits(fundingShortfall, 6)} USDG to this wallet to
-                continue. Your balance is{" "}
-                {formatUnits(snapshot.walletUsdgBalance ?? 0n, 6)} USDG.
+                Add {paymentLabel(fundingShortfall)} to this wallet to continue.
+                Your balance is{" "}
+                {paymentLabel(snapshot.walletPaymentTokenBalance ?? 0n)}.
+                {expectedChainId === 46_630 ? (
+                  <>
+                    {" "}
+                    Get test assets from the{" "}
+                    <Link
+                      href={robinhoodTestnetFaucetUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      official faucet
+                    </Link>
+                    .
+                  </>
+                ) : null}
               </p>
             )}
             {walletReady && (snapshot.walletEthBalance ?? 0n) === 0n && (
               <p className="funding-notice" role="status">
                 Add a small amount of ETH on {network.name} for gas.
+                {expectedChainId === 46_630 ? (
+                  <>
+                    {" "}
+                    Get test ETH from the{" "}
+                    <Link
+                      href={robinhoodTestnetFaucetUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      official faucet
+                    </Link>
+                    .
+                  </>
+                ) : null}
               </p>
             )}
             {capacityFull && (
@@ -935,7 +998,12 @@ export function MembershipExperience({
                 role={transaction.error ? "alert" : "status"}
               >
                 <strong>{preparedAction}</strong>
-                <span>{transactionStatusCopy(transaction.phase)}</span>
+                <span>
+                  {transactionStatusCopy(
+                    transaction.phase,
+                    paymentTokenState?.symbol ?? "token",
+                  )}
+                </span>
                 {transaction.error && <span>{transaction.error}</span>}
                 {displayedHash && explorerUrl && (
                   <a
@@ -990,7 +1058,7 @@ export function MembershipExperience({
                   <dl className="payment-preview">
                     <div>
                       <dt>Total</dt>
-                      <dd>{formatUnits(giftPreview.gross, 6)} USDG</dd>
+                      <dd>{paymentLabel(giftPreview.gross)}</dd>
                     </div>
                     <div>
                       <dt>Access added</dt>
@@ -1024,7 +1092,7 @@ export function MembershipExperience({
                     snapshot.paused ||
                     giftCapacityFull ||
                     giftExceedsPrepaymentLimit ||
-                    (snapshot.walletUsdgBalance ?? 0n) <
+                    (snapshot.walletPaymentTokenBalance ?? 0n) <
                       (giftPreview?.gross ?? 0n)
                   }
                   onClick={() => void sendGift()}
@@ -1050,7 +1118,7 @@ export function MembershipExperience({
                   <div className="claim-row">
                     <div>
                       <strong>Membership rewards</strong>
-                      <span>{formatUnits(rewardClaim, 6)} USDG</span>
+                      <span>{paymentLabel(rewardClaim)}</span>
                     </div>
                     <button
                       className="button button-outline"
@@ -1083,7 +1151,7 @@ export function MembershipExperience({
                   <div className="claim-row">
                     <div>
                       <strong>Referral proceeds</strong>
-                      <span>{formatUnits(referralClaim, 6)} USDG</span>
+                      <span>{paymentLabel(referralClaim)}</span>
                     </div>
                     <button
                       className="button button-outline"
@@ -1117,7 +1185,7 @@ export function MembershipExperience({
                     <div className="claim-row">
                       <div>
                         <strong>Creator proceeds</strong>
-                        <span>{formatUnits(creatorClaim, 6)} USDG</span>
+                        <span>{paymentLabel(creatorClaim)}</span>
                       </div>
                       <button
                         className="button button-outline"
@@ -1146,8 +1214,8 @@ export function MembershipExperience({
                     </div>
                   )}
                 <p className="small-copy">
-                  Claims always pay this connected wallet. If USDG cannot reach
-                  it, the funds remain available here.
+                  Claims always pay this connected wallet. If the payment token
+                  cannot reach it, the funds remain available here.
                 </p>
               </section>
             )}

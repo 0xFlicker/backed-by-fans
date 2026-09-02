@@ -15,6 +15,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {TierIdentity} from "./TierIdentity.sol";
 import {IERC5192} from "./interfaces/IERC5192.sol";
 import {IERC5643} from "./interfaces/IERC5643.sol";
+import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipRenderer} from "./interfaces/IMembershipRenderer.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
 import {RendererPrimitives} from "./renderer/RendererPrimitives.sol";
@@ -39,7 +40,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     address public immutable override factory;
     IERC20 public immutable override paymentToken;
-    address public immutable override renderer;
+    address public override renderer;
     bytes32 public immutable override tierIdentity;
     uint256 public immutable override pricePerPeriod;
     uint64 public immutable override periodDuration;
@@ -84,6 +85,8 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error InvalidPeriodDuration();
     error InvalidPeriods();
     error InvalidRateTotal();
+    error InvalidRenderer();
+    error InvalidRendererSchema(bytes32 expected, bytes32 actual);
     error InvalidTierSalt();
     error InexactTokenTransfer();
     error IncorrectPricingMode();
@@ -147,6 +150,39 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     /// @inheritdoc IMembershipTier
     function mediaConfig() external view override returns (MembershipTypes.MediaConfig memory) {
         return _media;
+    }
+
+    /// @inheritdoc IMembershipTier
+    function setRenderer(address newRenderer) external override onlyOwner {
+        if (newRenderer == renderer) return;
+        if (newRenderer == address(0) || newRenderer.code.length == 0) {
+            revert InvalidRenderer();
+        }
+
+        bytes32 expectedSchema = IMembershipFactory(factory).rendererSchema();
+        bytes32 observedSchema;
+        try IMembershipRenderer(newRenderer).rendererSchema() returns (bytes32 schema) {
+            observedSchema = schema;
+        } catch {
+            revert InvalidRenderer();
+        }
+        if (observedSchema != expectedSchema) {
+            revert InvalidRendererSchema(expectedSchema, observedSchema);
+        }
+        try IMembershipRenderer(newRenderer).validateConfiguration(_art, _media) {}
+        catch (bytes memory reason) {
+            if (reason.length != 0) {
+                assembly ("memory-safe") {
+                    revert(add(reason, 0x20), mload(reason))
+                }
+            }
+            revert InvalidRenderer();
+        }
+
+        address previousRenderer = renderer;
+        renderer = newRenderer;
+        emit TierRendererUpdated(previousRenderer, newRenderer);
+        if (totalMinted != 0) emit BatchMetadataUpdate(1, totalMinted);
     }
 
     /// @inheritdoc IERC5192

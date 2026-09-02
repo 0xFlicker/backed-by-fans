@@ -2,6 +2,7 @@
 pragma solidity =0.8.36;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
 import {
@@ -15,8 +16,9 @@ import {MembershipTierDeployer} from "../../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
 import {RendererPreviewHarness} from "../../src/RendererPreviewHarness.sol";
 import {RobinhoodProtocolConfig} from "../../src/RobinhoodProtocolConfig.sol";
-import {TestnetUSDG} from "../../src/TestnetUSDG.sol";
+import {ERC8056InterfaceIds} from "../../src/interfaces/IERC8056.sol";
 import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory.sol";
+import {MockScaledToken} from "../mocks/MockScaledToken.sol";
 import {MockUSDG} from "../mocks/MockUSDG.sol";
 
 contract WrongDecimalsUSDG is ERC20 {
@@ -25,9 +27,9 @@ contract WrongDecimalsUSDG is ERC20 {
 
 /// @dev Mainnet fork tests cover the exact Paxos code hashes. This harness isolates other guards.
 contract DeployProtocolHarness is DeployProtocol {
-    function _validateUSDGState(address) internal view override {}
+    function _validateMainnetUSDGState(address) internal view override {}
 
-    function validatedDeploymentState(address paymentToken)
+    function validatedDeploymentState()
         external
         view
         returns (
@@ -42,7 +44,7 @@ contract DeployProtocolHarness is DeployProtocol {
             OnchainMetadataRenderer deployedRenderer,
             RendererPreviewHarness deployedPreviewHarness,
             MembershipFactory deployedFactory
-        ) = _validatedDeploymentState(paymentToken);
+        ) = _validatedDeploymentState();
         return (
             address(deployedMediaStoreFactory),
             address(deployedRenderer),
@@ -51,7 +53,7 @@ contract DeployProtocolHarness is DeployProtocol {
         );
     }
 
-    function validatedCompletedDeployment(address paymentToken)
+    function validatedCompletedDeployment()
         external
         view
         returns (
@@ -66,7 +68,7 @@ contract DeployProtocolHarness is DeployProtocol {
             OnchainMetadataRenderer deployedRenderer,
             RendererPreviewHarness deployedPreviewHarness,
             MembershipFactory deployedFactory
-        ) = _validatedCompletedDeployment(paymentToken);
+        ) = _validatedCompletedDeployment();
         return (
             address(deployedMediaStoreFactory),
             address(deployedRenderer),
@@ -89,7 +91,6 @@ contract DeploymentScriptsTest is Test {
     uint256 private constant _ANVIL_CHAIN_ID = 31_337;
     uint256 private constant _ROBINHOOD_INITCODE_LIMIT = 196_608;
     uint256 private constant _NITRO_SEQUENCER_TX_DATA_LIMIT = 95_000;
-    address private constant _EXPECTED_TESTNET_USDG = 0xAB97dbB8f4ae0B4a3cc0D6963D75334B1c40da09;
     bytes private constant _CREATE2_DEPLOYER_RUNTIME =
         hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3";
 
@@ -106,7 +107,9 @@ contract DeploymentScriptsTest is Test {
     }
 
     function test_publicDeploymentUsesDirectCreate2AndChecksAllBindings() public {
-        assertEq(_publicDeployment.validateInputs(), _publicDeployment.ROBINHOOD_MAINNET_USDG());
+        IERC20[] memory paymentTokens = _publicDeployment.validateInputs();
+        assertEq(paymentTokens.length, 1);
+        assertEq(address(paymentTokens[0]), _publicDeployment.ROBINHOOD_MAINNET_USDG());
 
         (
             OnchainMediaStoreFactory mediaStoreFactory,
@@ -114,30 +117,23 @@ contract DeploymentScriptsTest is Test {
             RendererPreviewHarness previewHarness,
             MembershipFactory factory
         ) = _deployProtocol();
-        _assertExpectedDeployment(
-            mediaStoreFactory,
-            renderer,
-            previewHarness,
-            factory,
-            _publicDeployment.ROBINHOOD_MAINNET_USDG()
-        );
+        _assertExpectedDeployment(mediaStoreFactory, renderer, previewHarness, factory);
     }
 
-    function test_directFactoryInitcodePinsChainSpecificPaymentToken() public {
+    function test_directFactoryInitcodePinsExactChainSpecificPaymentTokenLists() public {
         bytes32 mainnetInitcodeHash = keccak256(_publicDeployment.factoryInitCode());
         PredictedDeployment memory mainnet = _predictedDeployment();
-        assertEq(_publicDeployment.ROBINHOOD_TESTNET_USDG(), _EXPECTED_TESTNET_USDG);
         assertTrue(mainnet.mediaStoreFactory != address(0));
         assertTrue(mainnet.renderer != address(0));
         assertTrue(mainnet.previewHarness != address(0));
         assertTrue(mainnet.factory != address(0));
 
         uint256 snapshot = vm.snapshotState();
-        _deployAndAssertPredicted(mainnet, _publicDeployment.ROBINHOOD_MAINNET_USDG());
+        _deployAndAssertPredicted(mainnet);
         vm.revertToState(snapshot);
 
         vm.chainId(_TESTNET_CHAIN_ID);
-        _deployTestnetUSDG();
+        _installTestnetPaymentTokens();
         bytes32 testnetInitcodeHash = keccak256(_publicDeployment.factoryInitCode());
         PredictedDeployment memory testnet = _predictedDeployment();
 
@@ -146,10 +142,16 @@ contract DeploymentScriptsTest is Test {
         assertEq(testnet.renderer, mainnet.renderer);
         assertEq(testnet.previewHarness, mainnet.previewHarness);
         assertNotEq(testnet.factory, mainnet.factory);
-        _deployAndAssertPredicted(testnet, _publicDeployment.ROBINHOOD_TESTNET_USDG());
-        assertTrue(
-            _publicDeployment.ROBINHOOD_TESTNET_USDG() != _publicDeployment.ROBINHOOD_MAINNET_USDG()
-        );
+        _deployAndAssertPredicted(testnet);
+
+        IERC20[] memory testnetTokens = _publicDeployment.configuredPaymentTokens();
+        assertEq(testnetTokens.length, 6);
+        assertEq(address(testnetTokens[0]), _publicDeployment.ROBINHOOD_TESTNET_USDG());
+        assertEq(address(testnetTokens[1]), _publicDeployment.ROBINHOOD_TESTNET_AMD());
+        assertEq(address(testnetTokens[2]), _publicDeployment.ROBINHOOD_TESTNET_NFLX());
+        assertEq(address(testnetTokens[3]), _publicDeployment.ROBINHOOD_TESTNET_PLTR());
+        assertEq(address(testnetTokens[4]), _publicDeployment.ROBINHOOD_TESTNET_AMZN());
+        assertEq(address(testnetTokens[5]), _publicDeployment.ROBINHOOD_TESTNET_TSLA());
     }
 
     function test_directFactoryInitcodeFitsRobinhoodProtocolLimit() public view {
@@ -167,7 +169,7 @@ contract DeploymentScriptsTest is Test {
         if (releaseChainId == 0) return;
         if (releaseChainId == _TESTNET_CHAIN_ID) {
             vm.chainId(_TESTNET_CHAIN_ID);
-            _deployTestnetUSDG();
+            _installTestnetPaymentTokens();
         } else {
             assertEq(releaseChainId, _MAINNET_CHAIN_ID);
         }
@@ -224,12 +226,7 @@ contract DeploymentScriptsTest is Test {
             RendererPreviewHarness previewHarness,
             MembershipFactory factory
         ) = _deployProtocol();
-        address paymentToken = releaseChainId == _TESTNET_CHAIN_ID
-            ? _publicDeployment.ROBINHOOD_TESTNET_USDG()
-            : _publicDeployment.ROBINHOOD_MAINNET_USDG();
-        _assertExpectedDeployment(
-            mediaStoreFactory, renderer, previewHarness, factory, paymentToken
-        );
+        _assertExpectedDeployment(mediaStoreFactory, renderer, previewHarness, factory);
         emit log_named_bytes32("BBF_RELEASE_FACTORY_RUNTIME_HASH", address(factory).codehash);
     }
 
@@ -245,18 +242,13 @@ contract DeploymentScriptsTest is Test {
         assertEq(result.length, 20);
         (,,, address expectedFactory) = _publicDeployment.predictedAddresses();
         _assertExpectedDeployment(
-            mediaStoreFactory,
-            renderer,
-            previewHarness,
-            MembershipFactory(expectedFactory),
-            _publicDeployment.ROBINHOOD_MAINNET_USDG()
+            mediaStoreFactory, renderer, previewHarness, MembershipFactory(expectedFactory)
         );
     }
 
     function test_existingDeploymentIsValidatedAtEachDirectStep() public {
-        address paymentToken = _publicDeployment.ROBINHOOD_MAINNET_USDG();
         (address mediaStoreFactory, address renderer, address previewHarness, address factory) =
-            _publicDeployment.validatedDeploymentState(paymentToken);
+            _publicDeployment.validatedDeploymentState();
         assertEq(mediaStoreFactory, address(0));
         assertEq(renderer, address(0));
         assertEq(previewHarness, address(0));
@@ -264,7 +256,7 @@ contract DeploymentScriptsTest is Test {
 
         OnchainMediaStoreFactory deployedMediaStoreFactory = _deployMediaStoreFactory();
         (mediaStoreFactory, renderer, previewHarness, factory) =
-            _publicDeployment.validatedDeploymentState(paymentToken);
+            _publicDeployment.validatedDeploymentState();
         assertEq(mediaStoreFactory, address(deployedMediaStoreFactory));
         assertEq(renderer, address(0));
         assertEq(previewHarness, address(0));
@@ -272,7 +264,7 @@ contract DeploymentScriptsTest is Test {
 
         OnchainMetadataRenderer deployedRenderer = _deployRenderer();
         (mediaStoreFactory, renderer, previewHarness, factory) =
-            _publicDeployment.validatedDeploymentState(paymentToken);
+            _publicDeployment.validatedDeploymentState();
         assertEq(mediaStoreFactory, address(deployedMediaStoreFactory));
         assertEq(renderer, address(deployedRenderer));
         assertEq(previewHarness, address(0));
@@ -280,39 +272,37 @@ contract DeploymentScriptsTest is Test {
 
         RendererPreviewHarness deployedPreviewHarness = _deployPreviewHarness();
         (mediaStoreFactory, renderer, previewHarness, factory) =
-            _publicDeployment.validatedDeploymentState(paymentToken);
+            _publicDeployment.validatedDeploymentState();
         assertEq(previewHarness, address(deployedPreviewHarness));
         assertEq(factory, address(0));
 
         MembershipFactory deployedFactory = _deployFactory();
         (mediaStoreFactory, renderer, previewHarness, factory) =
-            _publicDeployment.validatedDeploymentState(paymentToken);
+            _publicDeployment.validatedDeploymentState();
         assertEq(mediaStoreFactory, address(deployedMediaStoreFactory));
         assertEq(renderer, address(deployedRenderer));
         assertEq(factory, address(deployedFactory));
     }
 
     function test_completedDeploymentGateRejectsPartialStateAndAcceptsCompleteState() public {
-        address paymentToken = _publicDeployment.ROBINHOOD_MAINNET_USDG();
-
         vm.expectRevert(RobinhoodDeploymentGuard.ProtocolDeploymentIncomplete.selector);
-        _publicDeployment.validatedCompletedDeployment(paymentToken);
+        _publicDeployment.validatedCompletedDeployment();
 
         _deployMediaStoreFactory();
         vm.expectRevert(RobinhoodDeploymentGuard.ProtocolDeploymentIncomplete.selector);
-        _publicDeployment.validatedCompletedDeployment(paymentToken);
+        _publicDeployment.validatedCompletedDeployment();
 
         _deployRenderer();
         vm.expectRevert(RobinhoodDeploymentGuard.ProtocolDeploymentIncomplete.selector);
-        _publicDeployment.validatedCompletedDeployment(paymentToken);
+        _publicDeployment.validatedCompletedDeployment();
 
         _deployPreviewHarness();
         vm.expectRevert(RobinhoodDeploymentGuard.ProtocolDeploymentIncomplete.selector);
-        _publicDeployment.validatedCompletedDeployment(paymentToken);
+        _publicDeployment.validatedCompletedDeployment();
 
         _deployFactory();
         (address mediaStoreFactory, address renderer, address previewHarness, address factory) =
-            _publicDeployment.validatedCompletedDeployment(paymentToken);
+            _publicDeployment.validatedCompletedDeployment();
         (
             address expectedMediaStoreFactory,
             address expectedRenderer,
@@ -326,7 +316,6 @@ contract DeploymentScriptsTest is Test {
     }
 
     function test_existingArbitraryRendererRuntimeIsNeverAdopted() public {
-        address paymentToken = _publicDeployment.ROBINHOOD_MAINNET_USDG();
         _deployMediaStoreFactory();
         (, address expectedRenderer,,) = _publicDeployment.predictedAddresses();
         vm.etch(expectedRenderer, hex"00");
@@ -339,7 +328,7 @@ contract DeploymentScriptsTest is Test {
                 keccak256(hex"00")
             )
         );
-        _publicDeployment.validatedDeploymentState(paymentToken);
+        _publicDeployment.validatedDeploymentState();
     }
 
     function test_publicDeploymentRejectsUnsupportedChains() public {
@@ -410,7 +399,9 @@ contract DeploymentScriptsTest is Test {
     function test_publicDeploymentRejectsMissingOrWrongCanonicalTokenSurface() public {
         address canonicalUSDG = _publicDeployment.ROBINHOOD_MAINNET_USDG();
         vm.etch(canonicalUSDG, "");
-        vm.expectRevert(ProtocolDeployment.InvalidUSDGContract.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(ProtocolDeployment.InvalidPaymentToken.selector, canonicalUSDG)
+        );
         _publicDeployment.validateInputs();
 
         WrongDecimalsUSDG wrongDecimals = new WrongDecimalsUSDG();
@@ -419,22 +410,33 @@ contract DeploymentScriptsTest is Test {
         vm.mockCall(canonicalUSDG, abi.encodeWithSignature("name()"), abi.encode("Wrong USDG"));
         vm.mockCall(canonicalUSDG, abi.encodeWithSignature("symbol()"), abi.encode("USDG"));
         vm.mockCall(canonicalUSDG, abi.encodeWithSignature("decimals()"), abi.encode(uint8(18)));
-        vm.expectRevert(ProtocolDeployment.InvalidUSDGContract.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(ProtocolDeployment.InvalidPaymentToken.selector, canonicalUSDG)
+        );
         _publicDeployment.validateInputs();
     }
 
     function test_mainnetRequiresReviewedProxyAndImplementationState() public {
-        vm.expectRevert(ProtocolDeployment.InvalidUSDGContract.selector);
+        address canonicalUSDG = _strictDeployment.ROBINHOOD_MAINNET_USDG();
+        vm.expectRevert(
+            abi.encodeWithSelector(ProtocolDeployment.InvalidPaymentToken.selector, canonicalUSDG)
+        );
         _strictDeployment.validateInputs();
     }
 
-    function test_testnetAcceptsOnlyTheDeterministicLolDollar() public {
+    function test_testnetAcceptsOnlyTheExactExternalSixTokenManifest() public {
         vm.chainId(_TESTNET_CHAIN_ID);
-        _deployTestnetUSDG();
-        assertEq(_strictDeployment.validateInputs(), _strictDeployment.ROBINHOOD_TESTNET_USDG());
+        _installTestnetPaymentTokens();
+        IERC20[] memory tokens = _strictDeployment.validateInputs();
+        assertEq(tokens.length, 6);
+        assertEq(address(tokens[0]), _strictDeployment.ROBINHOOD_TESTNET_USDG());
+        assertEq(address(tokens[5]), _strictDeployment.ROBINHOOD_TESTNET_TSLA());
 
-        vm.etch(_strictDeployment.ROBINHOOD_TESTNET_USDG(), hex"00");
-        vm.expectRevert();
+        address missingToken = _strictDeployment.ROBINHOOD_TESTNET_AMD();
+        vm.etch(missingToken, hex"");
+        vm.expectRevert(
+            abi.encodeWithSelector(ProtocolDeployment.InvalidPaymentToken.selector, missingToken)
+        );
         _strictDeployment.validateInputs();
     }
 
@@ -452,7 +454,9 @@ contract DeploymentScriptsTest is Test {
             MembershipFactory factory
         ) = localDeployment.deploy(address(localUSDG), protocolOwner, feeRecipient);
 
-        assertEq(address(factory.paymentToken()), address(localUSDG));
+        assertEq(factory.paymentTokenCount(), 1);
+        assertTrue(factory.isPaymentTokenListed(address(localUSDG)));
+        assertTrue(factory.isPaymentTokenEnabled(address(localUSDG)));
         assertTrue(address(renderer).code.length != 0);
         assertTrue(address(previewHarness).code.length != 0);
         assertEq(factory.mediaStoreFactory(), address(mediaStoreFactory));
@@ -490,9 +494,7 @@ contract DeploymentScriptsTest is Test {
         ) = _publicDeployment.predictedAddresses();
     }
 
-    function _deployAndAssertPredicted(PredictedDeployment memory predicted, address paymentToken)
-        private
-    {
+    function _deployAndAssertPredicted(PredictedDeployment memory predicted) private {
         (
             OnchainMediaStoreFactory mediaStoreFactory,
             OnchainMetadataRenderer renderer,
@@ -503,7 +505,7 @@ contract DeploymentScriptsTest is Test {
         assertEq(address(renderer), predicted.renderer);
         assertEq(address(previewHarness), predicted.previewHarness);
         assertEq(address(factory), predicted.factory);
-        assertEq(address(factory.paymentToken()), paymentToken);
+        _assertFactoryPaymentTokens(factory);
     }
 
     function _deployMediaStoreFactory()
@@ -549,14 +551,6 @@ contract DeploymentScriptsTest is Test {
         factory = MembershipFactory(expectedFactory);
     }
 
-    function _deployTestnetUSDG() private returns (TestnetUSDG token) {
-        address expected = _publicDeployment.ROBINHOOD_TESTNET_USDG();
-        if (expected.code.length == 0) {
-            _callCreate2(_publicDeployment.TESTNET_USDG_SALT(), type(TestnetUSDG).creationCode);
-        }
-        token = TestnetUSDG(expected);
-    }
-
     function _callCreate2(bytes32 salt, bytes memory initCode) private returns (address deployed) {
         address create2Deployer = _publicDeployment.CREATE2_DEPLOYER();
         address expected = vm.computeCreate2Address(salt, keccak256(initCode), create2Deployer);
@@ -587,8 +581,7 @@ contract DeploymentScriptsTest is Test {
         OnchainMediaStoreFactory mediaStoreFactory,
         OnchainMetadataRenderer renderer,
         RendererPreviewHarness previewHarness,
-        MembershipFactory factory,
-        address paymentToken
+        MembershipFactory factory
     ) private view {
         (
             address expectedMediaStoreFactory,
@@ -600,7 +593,7 @@ contract DeploymentScriptsTest is Test {
         assertEq(address(renderer), expectedRenderer);
         assertEq(address(previewHarness), expectedPreviewHarness);
         assertEq(address(factory), expectedFactory);
-        assertEq(address(factory.paymentToken()), paymentToken);
+        _assertFactoryPaymentTokens(factory);
         assertEq(factory.rendererSchema(), renderer.rendererSchema());
         assertEq(factory.mediaStoreFactory(), address(mediaStoreFactory));
         assertEq(factory.mediaStoreFactoryRuntimeCodehash(), address(mediaStoreFactory).codehash);
@@ -613,12 +606,74 @@ contract DeploymentScriptsTest is Test {
         assertEq(tierDeployer.factory(), address(factory));
     }
 
+    function _assertFactoryPaymentTokens(MembershipFactory factory) private view {
+        IERC20[] memory expectedTokens = _publicDeployment.configuredPaymentTokens();
+        assertEq(factory.paymentTokenCount(), expectedTokens.length);
+        address[] memory observedTokens = factory.paymentTokens(0, expectedTokens.length);
+        assertEq(observedTokens.length, expectedTokens.length);
+        for (uint256 i; i < expectedTokens.length; ++i) {
+            address expectedToken = address(expectedTokens[i]);
+            assertEq(observedTokens[i], expectedToken);
+            assertTrue(factory.isPaymentTokenListed(expectedToken));
+            assertTrue(factory.isPaymentTokenEnabled(expectedToken));
+        }
+    }
+
     function _installCanonicalUSDG(address token) private {
         MockUSDG implementation = new MockUSDG();
         vm.etch(token, address(implementation).code);
         vm.mockCall(token, abi.encodeWithSignature("name()"), abi.encode("Global Dollar"));
         vm.mockCall(token, abi.encodeWithSignature("symbol()"), abi.encode("USDG"));
         vm.mockCall(token, abi.encodeWithSignature("decimals()"), abi.encode(uint8(6)));
+    }
+
+    function _installTestnetPaymentTokens() private {
+        _installCanonicalUSDG(_publicDeployment.ROBINHOOD_TESTNET_USDG());
+        MockScaledToken implementation = new MockScaledToken("Stock Token", "STOCK");
+        _installScaledToken(
+            _publicDeployment.ROBINHOOD_TESTNET_AMD(), "AMD Stock Token", "AMD", implementation
+        );
+        _installScaledToken(
+            _publicDeployment.ROBINHOOD_TESTNET_NFLX(), "NFLX Stock Token", "NFLX", implementation
+        );
+        _installScaledToken(
+            _publicDeployment.ROBINHOOD_TESTNET_PLTR(), "PLTR Stock Token", "PLTR", implementation
+        );
+        _installScaledToken(
+            _publicDeployment.ROBINHOOD_TESTNET_AMZN(), "AMZN Stock Token", "AMZN", implementation
+        );
+        _installScaledToken(
+            _publicDeployment.ROBINHOOD_TESTNET_TSLA(), "TSLA Stock Token", "TSLA", implementation
+        );
+    }
+
+    function _installScaledToken(
+        address token,
+        string memory name,
+        string memory symbol,
+        MockScaledToken implementation
+    ) private {
+        vm.etch(token, address(implementation).code);
+        vm.mockCall(token, abi.encodeWithSignature("name()"), abi.encode(name));
+        vm.mockCall(token, abi.encodeWithSignature("symbol()"), abi.encode(symbol));
+        vm.mockCall(token, abi.encodeWithSignature("decimals()"), abi.encode(uint8(18)));
+        vm.mockCall(
+            token,
+            abi.encodeWithSignature(
+                "supportsInterface(bytes4)", ERC8056InterfaceIds.SCALED_UI_AMOUNT
+            ),
+            abi.encode(true)
+        );
+        vm.mockCall(
+            token,
+            abi.encodeWithSignature(
+                "supportsInterface(bytes4)", ERC8056InterfaceIds.PENDING_UI_MULTIPLIER
+            ),
+            abi.encode(true)
+        );
+        vm.mockCall(token, abi.encodeWithSignature("uiMultiplier()"), abi.encode(1e18));
+        vm.mockCall(token, abi.encodeWithSignature("newUIMultiplier()"), abi.encode(1e18));
+        vm.mockCall(token, abi.encodeWithSignature("effectiveAt()"), abi.encode(uint256(0)));
     }
 
     function _installProtocolSafe() private {

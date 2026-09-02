@@ -338,14 +338,14 @@ contract MembershipInvariantTest is StdInvariant, Test {
         OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
         address creator = makeAddr("membershipInvariantCreator");
         _factory = new MembershipFactory(
-            _paymentToken,
+            MembershipTestConfig.paymentTokens(_paymentToken),
             address(mediaStoreFactory),
             address(this),
             makeAddr("membershipInvariantFees")
         );
 
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(_paymentToken));
         config.pricePerPeriod = 0;
         config.supplyCap = 2;
         config.maxPrepaidPeriods = 0;
@@ -376,6 +376,8 @@ contract MembershipInvariantTest is StdInvariant, Test {
     }
 
     function invariant_identityLocksSharesAndOccupancyRemainConsistent() public view {
+        assertEq(address(_tier.paymentToken()), address(_paymentToken));
+        assertTrue(_factory.isPaymentTokenListed(address(_paymentToken)));
         uint256 totalMinted = _tier.totalMinted();
         uint256 countedOccupancy;
         for (uint256 tokenId = 1; tokenId <= totalMinted; ++tokenId) {
@@ -426,7 +428,7 @@ contract RewardSettlementIndependenceTest is Test {
         AdversarialERC20 token = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), address(renderer));
+            MembershipTestConfig.defaultConfig(address(this), address(renderer), address(token));
         config.pricePerPeriod = 0;
         MembershipTier frequent = new MembershipTier(makeAddr("frequentFactory"), token, config);
         MembershipTier deferred = new MembershipTier(makeAddr("deferredFactory"), token, config);
@@ -477,7 +479,7 @@ contract FrozenGiftLifecycleTest is Test {
         AdversarialERC20 token = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), address(renderer));
+            MembershipTestConfig.defaultConfig(address(this), address(renderer), address(token));
         config.supplyCap = 1;
         MembershipTier tier = new MembershipTier(makeAddr("giftFactory"), token, config);
         address payer = makeAddr("giftPayer");

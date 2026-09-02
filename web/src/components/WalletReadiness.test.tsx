@@ -5,8 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const mainnetFactory = getAddress("0x1111111111111111111111111111111111111111");
 const testnetFactory = getAddress("0x2222222222222222222222222222222222222222");
-const mainnetUsdg = getAddress("0x3333333333333333333333333333333333333333");
-const testnetUsdg = getAddress("0x4444444444444444444444444444444444444444");
+const testnetToken = getAddress("0x4444444444444444444444444444444444444444");
 
 vi.mock("wagmi", () => ({
   useAccount: () => ({
@@ -23,7 +22,6 @@ vi.mock("@/lib/config", () => ({
     status: "ready",
     chainId,
     factoryAddress: chainId === robinhood.id ? mainnetFactory : testnetFactory,
-    usdgAddress: chainId === robinhood.id ? mainnetUsdg : testnetUsdg,
   }),
   publicConfig: {},
 }));
@@ -36,7 +34,6 @@ vi.mock("@/lib/use-active-network", () => ({
       status: "ready",
       chainId: robinhood.id,
       factoryAddress: mainnetFactory,
-      usdgAddress: mainnetUsdg,
     },
   }),
 }));
@@ -48,7 +45,23 @@ describe("WalletReadiness", () => {
     render(
       <WalletReadiness
         expectedChainId={robinhoodTestnet.id}
-        verifiedBalances={{ eth: 1n, usdg: 2_000_000n }}
+        paymentToken={{
+          chainId: robinhoodTestnet.id,
+          factory: testnetFactory,
+          address: testnetToken,
+          registryIndex: 0,
+          listed: true,
+          enabled: true,
+          name: "Global Dollar",
+          symbol: "USDG",
+          decimals: 6,
+          scaledUI: false,
+          uiMultiplier: 10n ** 18n,
+          newUIMultiplier: 10n ** 18n,
+          effectiveAt: 0n,
+          readBlock: 1n,
+        }}
+        verifiedBalances={{ eth: 1n, paymentToken: 2_000_000n }}
       />,
     );
 
@@ -56,6 +69,6 @@ describe("WalletReadiness", () => {
       0,
     );
     expect(screen.queryByText(robinhood.name)).not.toBeInTheDocument();
-    expect(screen.getByText(/transfer USDG.*testnet/i)).toBeVisible();
+    expect(screen.getByText("2 USDG")).toBeVisible();
   });
 });

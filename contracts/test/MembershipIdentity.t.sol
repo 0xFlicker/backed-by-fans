@@ -15,6 +15,7 @@ import {NonReceiverWallet} from "./mocks/NonReceiverWallet.sol";
 
 contract MembershipIdentityTest is Test {
     MembershipTier private tier;
+    MockUSDG private paymentToken;
     address private member;
     address private other;
 
@@ -23,9 +24,9 @@ contract MembershipIdentityTest is Test {
         member = makeAddr("member");
         other = makeAddr("other");
 
-        MockUSDG token = new MockUSDG();
+        paymentToken = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(address(this), token, _config(address(renderer)));
+        tier = new MembershipTier(address(this), paymentToken, _config(address(renderer)));
     }
 
     function test_grantsMintOnePersistentSequentialCredentialPerRecipient() public {
@@ -122,6 +123,6 @@ contract MembershipIdentityTest is Test {
     }
 
     function _config(address renderer_) private view returns (MembershipTypes.TierConfig memory) {
-        return MembershipTestConfig.defaultConfig(address(this), renderer_);
+        return MembershipTestConfig.defaultConfig(address(this), renderer_, address(paymentToken));
     }
 }

@@ -8,7 +8,6 @@ const deployment: ReadyDeployment = {
   status: "ready",
   chainId: 46630,
   factoryAddress: getAddress("0x1111111111111111111111111111111111111111"),
-  usdgAddress: getAddress("0x2222222222222222222222222222222222222222"),
   rendererAddress: getAddress("0x3333333333333333333333333333333333333333"),
   previewHarnessAddress: getAddress(
     "0x4444444444444444444444444444444444444444",
@@ -26,7 +25,6 @@ describe("deployment write guard", () => {
     ).toEqual({
       enabled: true,
       factory: deployment.factoryAddress,
-      paymentToken: deployment.usdgAddress,
     });
   });
 

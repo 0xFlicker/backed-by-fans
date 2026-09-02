@@ -25,6 +25,11 @@ test("renders the exact provisional brand shell without starter identity", async
   await expect(
     page.getByRole("link", { name: "Create a membership", exact: true }),
   ).toBeVisible();
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    new URL("/", page.url()).toString(),
+  );
+  await expect(page.getByText("Testnet", { exact: true })).toBeVisible();
   await expect(page.getByText(/working brand direction/i)).toBeVisible();
   await expect(page.locator("body")).not.toContainText(
     /vercel|next\.js template/i,

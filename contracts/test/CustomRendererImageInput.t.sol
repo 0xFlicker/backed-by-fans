@@ -74,14 +74,17 @@ contract CustomRendererImageInputTest is Test {
         mediaStoreFactory = new OnchainMediaStoreFactory();
         renderer = new ImageInputRenderer();
         factory = new MembershipFactory(
-            paymentToken, address(mediaStoreFactory), address(this), makeAddr("feeRecipient")
+            MembershipTestConfig.paymentTokens(paymentToken),
+            address(mediaStoreFactory),
+            address(this),
+            makeAddr("feeRecipient")
         );
     }
 
     function test_previewContextPassesBrowserNativeMediaWithoutPreservationRules() public view {
         bytes memory browserImage = RealImageFixtures.png();
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken));
         config.media.digest = keccak256("configured-media");
         MembershipTypes.TokenRenderData memory token = MembershipTypes.TokenRenderData({
             tierName: config.name,
@@ -110,7 +113,7 @@ contract CustomRendererImageInputTest is Test {
         address store = mediaStoreFactory.store(payload, MembershipTypes.MediaMIME.PNG);
         MembershipTypes.MediaRecord memory record = mediaStoreFactory.mediaRecord(store);
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken));
         config.media = MembershipTypes.MediaConfig({
             mime: record.mime,
             store: record.store,

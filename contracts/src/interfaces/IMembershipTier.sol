@@ -21,6 +21,7 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     event SupplyCapUpdated(uint64 previousCap, uint64 newCap);
     event MaxPrepaidPeriodsUpdated(uint64 previousMaximum, uint64 newMaximum);
     event TierMetadataUpdated(string description, string externalURI);
+    event TierRendererUpdated(address indexed previousRenderer, address indexed newRenderer);
     event PaymentProcessed(
         address indexed payer,
         address indexed recipient,
@@ -168,4 +169,6 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     function setMaxPrepaidPeriods(uint64 newMaximum) external;
 
     function setTierMetadata(MembershipTypes.TierMetadata calldata newMetadata) external;
+
+    function setRenderer(address newRenderer) external;
 }

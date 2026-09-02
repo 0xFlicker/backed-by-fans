@@ -16,6 +16,12 @@ block, and page `tiers(offset, limit)` at the same block. `limit` cannot exceed
 `maxPageSize()` (100). The registry is append-only, but an unpinned sequence of
 reads can otherwise mix two different views of the registry.
 
+Accepted payment tokens are independently enumerable through
+`paymentTokenCount()` and `paymentTokens(offset, limit)`. Read each token's
+metadata and optional ERC-8056 multiplier at the same captured block. A disabled
+token remains listed so existing tiers retain their canonical interpretation;
+disablement blocks only new tier publication.
+
 ## Identity, activity, and capacity
 
 Each recipient is minted at most one sequential ERC-721 credential. The token
@@ -82,14 +88,17 @@ Use events for discovery and user feedback, then reread authoritative state at
 the confirmed block. Important protocol events include:
 
 - factory: `TierCreated`, `TierTermsConfigured`, `TierMetadataConfigured`,
-  `FeeRecipientUpdated`, and `ProtocolFeesWithdrawn`;
+  `PaymentTokenListed`, `PaymentTokenEnabled`, `PaymentTokenDisabled`,
+  `FeeRecipientUpdated`, and token-addressed `ProtocolFeesWithdrawn`;
 - lifecycle: `MembershipTimeUpdated`, `SubscriptionUpdate`,
   `MembershipSynchronized`, `PauseUpdated`, cap changes, and metadata updates;
 - accounting: `PaymentProcessed`, `PaymentAllocated`, `ReferralLocked`,
   `SharesIssued`, `RewardPerShareUpdated`, the three claim/withdraw events, and
   `MembershipRefunded`; and
 - ownership: OpenZeppelin `OwnershipTransferStarted` and
-  `OwnershipTransferred` for both factory and tier.
+  `OwnershipTransferred` for both factory and tier; and
+- presentation: `TierRendererUpdated` plus conditional ERC-4906
+  `BatchMetadataUpdate` after an owner-authorized renderer replacement.
 
 An event index is optional convenience infrastructure, never a source of truth.
 Wagmi and viem exclusively own receipt waiting, polling, replacement detection,

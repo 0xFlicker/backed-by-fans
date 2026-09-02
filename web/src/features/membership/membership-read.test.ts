@@ -23,7 +23,6 @@ const deployment = {
   status: "ready" as const,
   chainId: 46630 as const,
   factoryAddress: factory,
-  usdgAddress: token,
   rendererAddress: getAddress("0x4444444444444444444444444444444444444444"),
   previewHarnessAddress: getAddress(
     "0x6666666666666666666666666666666666666666",
@@ -33,7 +32,7 @@ const renderer = getAddress("0x4444444444444444444444444444444444444444");
 const protocolDependencies: ProtocolDependencySnapshot = {
   chainId: 46630,
   factory,
-  paymentToken: token,
+  paymentTokens: [token],
   rendererSchema: `0x${"03".repeat(32)}`,
   renderer,
   rendererName: "Founding Six",
@@ -202,7 +201,7 @@ describe("supporter direct reads", () => {
     expect(state).toMatchObject({
       status: "valid",
       data: {
-        walletUsdgBalance: 20n,
+        walletPaymentTokenBalance: 20n,
         walletEthBalance: 30n,
         allowance: 40n,
         claimableReferral: 50n,

@@ -1,11 +1,12 @@
 import {
+  erc20Abi,
   multicall3Abi,
   zeroAddress,
   type Address,
   type PublicClient,
 } from "viem";
 
-import { membershipTierAbi, usdgAbi } from "@/contracts";
+import { membershipTierAbi } from "@/contracts";
 import type {
   ReferralStatus,
   SupporterCredential,
@@ -257,7 +258,7 @@ export async function readTierSupporterState(
     const wallet = input.wallet;
     const multicallStatus = await verifyMulticall3(client, blockNumber);
     let tokenId: bigint;
-    let usdgBalance: bigint;
+    let paymentTokenBalance: bigint;
     let ethBalance: bigint;
     let allowance: bigint;
     let referralClaim: bigint;
@@ -275,8 +276,8 @@ export async function readTierSupporterState(
             args: [wallet],
           },
           {
-            address: input.deployment.usdgAddress,
-            abi: usdgAbi,
+            address: tier.data.paymentToken,
+            abi: erc20Abi,
             functionName: "balanceOf",
             args: [wallet],
           },
@@ -287,8 +288,8 @@ export async function readTierSupporterState(
             args: [wallet],
           },
           {
-            address: input.deployment.usdgAddress,
-            abi: usdgAbi,
+            address: tier.data.paymentToken,
+            abi: erc20Abi,
             functionName: "allowance",
             args: [wallet, input.tier],
           },
@@ -301,13 +302,8 @@ export async function readTierSupporterState(
         ],
         blockNumber,
       );
-      [tokenId, usdgBalance, ethBalance, allowance, referralClaim] = values as [
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-      ];
+      [tokenId, paymentTokenBalance, ethBalance, allowance, referralClaim] =
+        values as [bigint, bigint, bigint, bigint, bigint];
 
       const detailContracts =
         tokenId === 0n ? [] : credentialContracts(input.tier, tokenId);
@@ -334,7 +330,7 @@ export async function readTierSupporterState(
           : undefined;
       }
     } else {
-      [tokenId, usdgBalance, ethBalance, allowance, referralClaim] =
+      [tokenId, paymentTokenBalance, ethBalance, allowance, referralClaim] =
         await Promise.all([
           client.readContract({
             address: input.tier,
@@ -344,16 +340,16 @@ export async function readTierSupporterState(
             blockNumber,
           }),
           client.readContract({
-            address: input.deployment.usdgAddress,
-            abi: usdgAbi,
+            address: tier.data.paymentToken,
+            abi: erc20Abi,
             functionName: "balanceOf",
             args: [wallet],
             blockNumber,
           }),
           client.getBalance({ address: wallet, blockNumber }),
           client.readContract({
-            address: input.deployment.usdgAddress,
-            abi: usdgAbi,
+            address: tier.data.paymentToken,
+            abi: erc20Abi,
             functionName: "allowance",
             args: [wallet, input.tier],
             blockNumber,
@@ -388,7 +384,7 @@ export async function readTierSupporterState(
         ...tier.data,
         capturedTimestamp: block.timestamp,
         wallet,
-        walletUsdgBalance: usdgBalance,
+        walletPaymentTokenBalance: paymentTokenBalance,
         walletEthBalance: ethBalance,
         allowance,
         claimableReferral: referralClaim,

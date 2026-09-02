@@ -11,7 +11,7 @@ from a green local test.
 
 | Gate | Status | Required evidence |
 | --- | --- | --- |
-| Testnet payment token | OPEN | Deploy and verify the deterministic LOL Dollar test token, then complete the live product pilot with minted USDG. |
+| Testnet payment tokens | OPEN | Verify the external USDG, AMD, NFLX, PLTR, AMZN, and TSLA launch manifest, then complete the live product pilot using faucet-accessible assets. |
 | Public testnet deployment and source verification | BLOCKED | Checked-in Foundry broadcast, generated Wagmi address, exact source pages, and independent operator verification. |
 | Public testnet lifecycle | BLOCKED | Factory deployment, creator tier, payment, allocation, claim, refund, natural expiry, sync, creator ownership transfer, child verification, and production web build. |
 | Unassisted public testnet creator/supporter pilot | BLOCKED | Completed [pilot record](../pilots/testnet-pilot.md), participant consent, issues/disposition. |
@@ -29,13 +29,13 @@ from a green local test.
 
 ## Environment boundary
 
-Robinhood Chain mainnet is chain ID `4663`; testnet is `46630`. The official
-mainnet USDG address currently recorded by Robinhood is
+Robinhood Chain mainnet is chain ID `4663`; testnet is `46630`. The current
+mainnet release profile contains only USDG at
 `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`. Revalidate that address and the
 mainnet deployment-day authority inventory from official sources before a GO
-decision. Robinhood testnet intentionally uses the deterministic LOL Dollar
-contract documented in [deployment.md](deployment.md); it is public test
-infrastructure, not evidence about Paxos USDG or a mainnet token substitute.
+decision. Testnet uses the six external contracts recorded in
+[deployment.md](deployment.md). Those contracts and Stock Token behavior are
+test infrastructure, not authorization to enable Stock Tokens on mainnet.
 
 ## Final decision
 

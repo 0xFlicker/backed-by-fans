@@ -58,8 +58,6 @@ case "${1:-}" in
       *OnchainMetadataRenderer:deployedBytecode) printf '%s\n' "$MOCK_RENDERER_RUNTIME" ;;
       *RendererPreviewHarness:deployedBytecode) printf '%s\n' "$MOCK_PREVIEW_RUNTIME" ;;
       *MembershipFactory:deployedBytecode) printf '%s\n' "$MOCK_FACTORY_RUNTIME" ;;
-      *TestnetUSDG:bytecode) printf '0x6004\n' ;;
-      *TestnetUSDG:deployedBytecode) printf '%s\n' "$MOCK_TESTNET_USDG_RUNTIME" ;;
       *) echo "unexpected mock forge inspect invocation: $*" >&2; exit 1 ;;
     esac
     ;;

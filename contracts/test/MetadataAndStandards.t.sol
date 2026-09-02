@@ -266,7 +266,7 @@ contract MetadataAndStandardsTest is Test {
     }
 
     function _config() private view returns (MembershipTypes.TierConfig memory) {
-        return MembershipTestConfig.defaultConfig(address(this), address(renderer));
+        return MembershipTestConfig.defaultConfig(address(this), address(renderer), address(token));
     }
 
     function _deployTier(MembershipTypes.TierConfig memory config)

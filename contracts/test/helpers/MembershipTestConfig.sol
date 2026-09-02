@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 
 library MembershipTestConfig {
-    function defaultConfig(address creator, address renderer)
+    function defaultConfig(address creator, address renderer, address paymentToken)
         internal
         pure
         returns (MembershipTypes.TierConfig memory)
@@ -13,6 +15,7 @@ library MembershipTestConfig {
             creator: creator,
             tierSalt: keccak256(abi.encode("default-tier", creator)),
             renderer: renderer,
+            paymentToken: paymentToken,
             name: "Creator Backers",
             symbol: "BACK",
             pricePerPeriod: 10_000_000,
@@ -52,5 +55,20 @@ library MembershipTestConfig {
                 runtimeCodehash: bytes32(0)
             })
         });
+    }
+
+    function paymentTokens(IERC20 token) internal pure returns (IERC20[] memory tokens) {
+        tokens = new IERC20[](1);
+        tokens[0] = token;
+    }
+
+    function paymentTokens(IERC20 first, IERC20 second)
+        internal
+        pure
+        returns (IERC20[] memory tokens)
+    {
+        tokens = new IERC20[](2);
+        tokens[0] = first;
+        tokens[1] = second;
     }
 }

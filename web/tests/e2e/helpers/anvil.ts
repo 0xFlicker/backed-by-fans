@@ -19,7 +19,10 @@ export const anvilEnvironment = {
   member: process.env.BBF_ANVIL_MEMBER_ADDRESS,
   giftRecipient: process.env.BBF_ANVIL_GIFT_RECIPIENT_ADDRESS,
   newOwner: process.env.BBF_ANVIL_NEW_OWNER_ADDRESS,
-  usdg: process.env.NEXT_PUBLIC_ANVIL_USDG_ADDRESS,
+  freshWallet: process.env.BBF_ANVIL_FRESH_WALLET_ADDRESS,
+  paymentToken: process.env.BBF_ANVIL_PAYMENT_TOKEN_ADDRESS,
+  scaledPaymentToken: process.env.BBF_ANVIL_SCALED_PAYMENT_TOKEN_ADDRESS,
+  replacementRenderer: process.env.BBF_ANVIL_REPLACEMENT_RENDERER_ADDRESS,
 } as const;
 
 export const anvilEnabled = Object.values(anvilEnvironment).every(Boolean);

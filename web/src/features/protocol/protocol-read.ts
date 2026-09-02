@@ -1,12 +1,13 @@
-import { keccak256, type Address, type PublicClient } from "viem";
-
 import {
-  onchainMetadataRendererAbi,
-  membershipFactoryAbi,
-  usdgAbi,
-} from "@/contracts";
+  erc20Abi,
+  getAddress,
+  keccak256,
+  type Address,
+  type PublicClient,
+} from "viem";
+
+import { onchainMetadataRendererAbi, membershipFactoryAbi } from "@/contracts";
 import type { ProtocolDependencySnapshot } from "@/contracts/types";
-import { isSameAddress } from "@/lib/address";
 import type { DeploymentAvailability } from "@/lib/config";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
@@ -15,7 +16,7 @@ export type ProtocolSnapshot = ProtocolDependencySnapshot & {
   pendingOwner: Address;
   feeRecipient: Address;
   protocolFeeBps: number;
-  protocolBalance: bigint;
+  protocolBalances: readonly { token: Address; raw: bigint }[];
   tierCount: bigint;
 };
 
@@ -23,6 +24,55 @@ export const membershipRendererSchema =
   "0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4" as const;
 
 const maxRendererManifestEngines = 64;
+const paymentTokenPageSize = 100n;
+
+async function readPaymentTokenAddresses(
+  client: PublicClient,
+  factory: Address,
+  blockNumber: bigint,
+) {
+  const count = await client.readContract({
+    address: factory,
+    abi: membershipFactoryAbi,
+    functionName: "paymentTokenCount",
+    blockNumber,
+  });
+  const paymentTokens: Address[] = [];
+  for (let offset = 0n; offset < count; offset += paymentTokenPageSize) {
+    const page = await client.readContract({
+      address: factory,
+      abi: membershipFactoryAbi,
+      functionName: "paymentTokens",
+      args: [offset, paymentTokenPageSize],
+      blockNumber,
+    });
+    paymentTokens.push(...page.map((address) => getAddress(address)));
+  }
+  if (paymentTokens.length !== Number(count) || paymentTokens.length === 0) {
+    throw new Error("The accepted payment-token registry is incomplete.");
+  }
+  if (
+    new Set(paymentTokens.map((token) => token.toLowerCase())).size !==
+    paymentTokens.length
+  ) {
+    throw new Error("The accepted payment-token registry contains duplicates.");
+  }
+  const listed = await Promise.all(
+    paymentTokens.map((token) =>
+      client.readContract({
+        address: factory,
+        abi: membershipFactoryAbi,
+        functionName: "isPaymentTokenListed",
+        args: [token],
+        blockNumber,
+      }),
+    ),
+  );
+  if (listed.some((value) => !value)) {
+    throw new Error("An enumerated payment token is not listed.");
+  }
+  return paymentTokens;
+}
 
 export type ProtocolDependencyReadState =
   | Extract<ReadState<ProtocolDependencySnapshot>, { status: "valid" }>
@@ -64,17 +114,16 @@ export async function readProtocolDependencies(
     }
 
     const [
-      boundToken,
+      paymentTokens,
       rendererSchema,
       mediaStoreFactory,
       mediaStoreFactoryRuntimeCodehash,
     ] = await Promise.all([
-      client.readContract({
-        address: deployment.factoryAddress,
-        abi: membershipFactoryAbi,
-        functionName: "paymentToken",
-        blockNumber: capturedBlock,
-      }),
+      readPaymentTokenAddresses(
+        client,
+        deployment.factoryAddress,
+        capturedBlock,
+      ),
       client.readContract({
         address: deployment.factoryAddress,
         abi: membershipFactoryAbi,
@@ -96,9 +145,6 @@ export async function readProtocolDependencies(
     ]);
 
     const failedChecks: string[] = [];
-    if (!isSameAddress(boundToken, deployment.usdgAddress)) {
-      failedChecks.push("factory USDG binding");
-    }
     if (rendererSchema !== membershipRendererSchema) {
       failedChecks.push("renderer schema");
     }
@@ -211,7 +257,7 @@ export async function readProtocolDependencies(
       data: {
         chainId: deployment.chainId,
         factory: deployment.factoryAddress,
-        paymentToken: deployment.usdgAddress,
+        paymentTokens,
         rendererSchema,
         renderer: deployment.rendererAddress,
         rendererName: rendererManifest.name,
@@ -243,7 +289,7 @@ export async function readProtocolState(
 
   try {
     const blockNumber = dependencies.capturedBlock;
-    const [owner, pendingOwner, feeRecipient, feeBps, tierCount, balance] =
+    const [owner, pendingOwner, feeRecipient, feeBps, tierCount, balances] =
       await Promise.all([
         client.readContract({
           address: dependencies.data.factory,
@@ -275,13 +321,18 @@ export async function readProtocolState(
           functionName: "tierCount",
           blockNumber,
         }),
-        client.readContract({
-          address: dependencies.data.paymentToken,
-          abi: usdgAbi,
-          functionName: "balanceOf",
-          args: [dependencies.data.factory],
-          blockNumber,
-        }),
+        Promise.all(
+          dependencies.data.paymentTokens.map(async (token) => ({
+            token,
+            raw: await client.readContract({
+              address: token,
+              abi: erc20Abi,
+              functionName: "balanceOf",
+              args: [dependencies.data.factory],
+              blockNumber,
+            }),
+          })),
+        ),
       ]);
 
     return {
@@ -293,7 +344,7 @@ export async function readProtocolState(
         pendingOwner,
         feeRecipient,
         protocolFeeBps: feeBps,
-        protocolBalance: balance,
+        protocolBalances: balances,
         tierCount,
       },
     };
