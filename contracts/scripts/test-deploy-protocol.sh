@@ -50,7 +50,11 @@ fail() {
 }
 
 assert_contains() {
-  grep -F -- "$2" "$1" >/dev/null || fail "expected '$2' in $1"
+  if ! grep -F -- "$2" "$1" >/dev/null; then
+    echo "deploy-protocol wrapper test: contents of $1:" >&2
+    sed -n '1,160p' "$1" >&2
+    fail "expected '$2' in $1"
+  fi
 }
 
 assert_not_contains() {
