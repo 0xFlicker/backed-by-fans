@@ -67,7 +67,9 @@
     "address": "0xeAA4B38A99f766117C1D493a21012fec25f70505",
     "singleton": "0xEdd160fEBBD92E350D4D398fb636302fccd67C7e",
     "version": "1.5.0",
-    "owners": ["0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"],
+    "owners": [
+      "0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"
+    ],
     "threshold": 1,
     "modules": [],
     "guard": "0x0000000000000000000000000000000000000000",
