@@ -54,6 +54,29 @@ Permanent terms stored by each tier.
 All proceeds, liabilities, claims, refunds, allowances, and transfers remain raw integers in
 `paymentToken` units. Multiplier changes do not mutate this entity.
 
+### MembershipRewardState
+
+Permanent and current reward state for one sequential membership record.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `tokenOf[wallet]` | `uint256` | Permanent wallet-to-record association |
+| `sharesOf[tokenId]` | `uint256` | Lifetime shares; never decreases |
+| `rewardEligible[tokenId]` | `bool` | Whether lifetime shares receive new allocations |
+| `totalRewardShares` | `uint256` | Sum of shares for all eligible records |
+| `rewardCredit[tokenId]` | `uint256` | Settled whole-unit reward retained through burn |
+| ERC-721 owner | `address or none` | Wallet while minted; none after creator sync burn |
+
+**Transitions**:
+
+- Positive payment or grant restoration remints the permanent token ID when needed, reacquires
+  capacity, advances the reward checkpoint to the current index, and reactivates lifetime shares.
+- Refund and complete grant-only revocation settle and suspend immediately.
+- Natural expiration remains eligible until owner sync.
+- Owner sync settles, suspends, releases occupancy, and burns without changing lifetime identity,
+  shares, referral state, reward credit, or `totalMinted`.
+- A capacity failure reverts restoration, remint, eligibility, time, and payment atomically.
+
 ### TierRendererState
 
 Owner-controlled presentation pointer stored by each tier.

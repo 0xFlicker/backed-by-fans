@@ -168,7 +168,7 @@ contract PaymentsAndTimeTest is Test {
         assertEq(tier.totalReferralLiability(), 0);
         assertEq(tier.totalProtectedLiability(), 1_000_000);
         assertEq(tier.sharesOf(tokenId), gross);
-        assertEq(tier.totalShares(), gross);
+        assertEq(tier.totalRewardShares(), gross);
         assertEq(tier.expiresAt(tokenId), _START + 2 * _PERIOD);
     }
 

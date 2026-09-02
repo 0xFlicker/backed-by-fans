@@ -1,6 +1,6 @@
 ---
 title: Backed By Fans public testnet pilot record
-status: ready-for-staging
+status: replacement-required
 date: 2026-09-02
 ---
 
@@ -9,13 +9,14 @@ date: 2026-09-02
 This is an unexecuted template. It is **not** evidence of a public pilot, user
 approval, audit, deployment, or launch readiness.
 
-The source-verified testnet protocol is promoted and its generated bindings are
-active. The human pilot has not run; staged-browser, participant, and canonical
-browser evidence remain open.
+The previously source-verified testnet protocol is promoted, but the
+expired-membership sync and reward-suspension fast follow changes the tier
+runtime and reward denominator. A replacement factory has not been authorized
+or deployed. The prior candidate cannot satisfy the new pilot or mainnet gates.
 
 ## Candidate
 
-- Foundry broadcast and generated factory: **PROMOTED** —
+- Prior Foundry broadcast and generated factory: **SUPERSEDED PENDING REPLACEMENT** —
   `0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C`
 - Source commit and promoted candidate: **RECORDED** —
   `222005218daee91d40c92b90c62716f7aa7a9864`, current prefix `4`
@@ -24,6 +25,8 @@ browser evidence remain open.
 - Supporter participant/consent record: **OPEN**
 - Facilitator/observer: **OPEN**
 - Start/end UTC: **OPEN**
+- Replacement factory, recreated pilot tiers, and generated binding: **BLOCKED
+  ON EXPLICIT TESTNET DEPLOYMENT APPROVAL**
 
 ## Unassisted script
 
@@ -34,15 +37,19 @@ inspect immutable token/raw economics; manage metadata/caps/pause; preview and
 replace the renderer; grant/revoke; preview and execute a token-specific
 refund/top-up; withdraw proceeds; and explain ownership transfer. The supporter
 must discover and verify each tier, join and renew with every Stock Token, gift,
-distinguish active from historical state, expire/sync, claim rewards/referrals
+distinguish active, unsynced-expired, and creator-synced burned state; batch
+sync expired NFTs as the creator; claim accrued rewards while burned; rejoin
+with the same token ID; claim rewards/referrals
 where applicable, and recover from wrong-network, insufficient-assets, and RPC
 errors.
 
 Record Stock Token display multipliers separately from raw contract amounts.
 The browser should show the current scaled amount while approvals, transfers,
 fees, refunds, claims, and tier terms remain raw. Both participants must explain
-permanent shares, dilution, fixed payout destinations, refund limitations,
-capacity races, and that Stock Tokens are testnet-only for this release.
+lifetime shares, reward suspension/reactivation, creator-controlled burn,
+dilution, fixed payout destinations, refund limitations, capacity races,
+third-party indexing delay, and that Stock Tokens are testnet-only for this
+release.
 
 ## Evidence and disposition
 

@@ -818,6 +818,13 @@ export const membershipTierAbi = [
   {
     type: "function",
     inputs: [],
+    name: "MAX_SYNC_BATCH_SIZE",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
     name: "MAX_URI_BYTES",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
@@ -1245,6 +1252,13 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "rewardEligible",
+    outputs: [{ name: "eligible", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [],
     name: "rewardPerShare",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
@@ -1365,9 +1379,13 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
-    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
-    name: "synchronize",
-    outputs: [{ name: "released", internalType: "bool", type: "bool" }],
+    inputs: [
+      { name: "tokenIds", internalType: "uint256[]", type: "uint256[]" },
+    ],
+    name: "synchronizeExpiredMemberships",
+    outputs: [
+      { name: "burnedCount", internalType: "uint256", type: "uint256" },
+    ],
     stateMutability: "nonpayable",
   },
   {
@@ -1426,7 +1444,7 @@ export const membershipTierAbi = [
   {
     type: "function",
     inputs: [],
-    name: "totalShares",
+    name: "totalRewardShares",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
@@ -1546,6 +1564,31 @@ export const membershipTierAbi = [
         name: "tokenId",
         internalType: "uint256",
         type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "recipient",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "suspendedShares",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "ExpiredMembershipSynchronized",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
         indexed: false,
       },
     ],
@@ -1606,25 +1649,6 @@ export const membershipTierAbi = [
       },
     ],
     name: "MembershipRefunded",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "tokenId",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: true,
-      },
-      {
-        name: "recipient",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-    ],
-    name: "MembershipSynchronized",
   },
   {
     type: "event",
@@ -1869,6 +1893,32 @@ export const membershipTierAbi = [
         type: "uint256",
         indexed: true,
       },
+      { name: "eligible", internalType: "bool", type: "bool", indexed: false },
+      {
+        name: "eligibleShares",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "totalRewardShares",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "RewardEligibilityUpdated",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
       {
         name: "reward",
         internalType: "uint256",
@@ -2100,8 +2150,21 @@ export const membershipTierAbi = [
     ],
     name: "InvalidRendererSchema",
   },
+  {
+    type: "error",
+    inputs: [
+      { name: "provided", internalType: "uint256", type: "uint256" },
+      { name: "maximum", internalType: "uint256", type: "uint256" },
+    ],
+    name: "InvalidSyncBatchSize",
+  },
   { type: "error", inputs: [], name: "InvalidText" },
   { type: "error", inputs: [], name: "InvalidTierSalt" },
+  {
+    type: "error",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "InvalidTokenId",
+  },
   { type: "error", inputs: [], name: "NativeValueRejected" },
   { type: "error", inputs: [], name: "NoGrantTime" },
   {
@@ -4115,6 +4178,15 @@ export const useReadMembershipTierMaxSymbolBytes =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"MAX_SYNC_BATCH_SIZE"`
+ */
+export const useReadMembershipTierMaxSyncBatchSize =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "MAX_SYNC_BATCH_SIZE",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"MAX_URI_BYTES"`
  */
 export const useReadMembershipTierMaxUriBytes =
@@ -4438,6 +4510,15 @@ export const useReadMembershipTierRewardBps =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"rewardEligible"`
+ */
+export const useReadMembershipTierRewardEligible =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "rewardEligible",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"rewardPerShare"`
  */
 export const useReadMembershipTierRewardPerShare =
@@ -4561,12 +4642,12 @@ export const useReadMembershipTierTotalReferralLiability =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"totalShares"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"totalRewardShares"`
  */
-export const useReadMembershipTierTotalShares =
+export const useReadMembershipTierTotalRewardShares =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
-    functionName: "totalShares",
+    functionName: "totalRewardShares",
   });
 
 /**
@@ -4729,12 +4810,12 @@ export const useWriteMembershipTierSetTierMetadata =
   });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"synchronize"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"synchronizeExpiredMemberships"`
  */
-export const useWriteMembershipTierSynchronize =
+export const useWriteMembershipTierSynchronizeExpiredMemberships =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipTierAbi,
-    functionName: "synchronize",
+    functionName: "synchronizeExpiredMemberships",
   });
 
 /**
@@ -4924,12 +5005,12 @@ export const useSimulateMembershipTierSetTierMetadata =
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"synchronize"`
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"synchronizeExpiredMemberships"`
  */
-export const useSimulateMembershipTierSynchronize =
+export const useSimulateMembershipTierSynchronizeExpiredMemberships =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipTierAbi,
-    functionName: "synchronize",
+    functionName: "synchronizeExpiredMemberships",
   });
 
 /**
@@ -5002,6 +5083,15 @@ export const useWatchMembershipTierCreatorProceedsWithdrawnEvent =
   });
 
 /**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"ExpiredMembershipSynchronized"`
+ */
+export const useWatchMembershipTierExpiredMembershipSynchronizedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    eventName: "ExpiredMembershipSynchronized",
+  });
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"Locked"`
  */
 export const useWatchMembershipTierLockedEvent =
@@ -5026,15 +5116,6 @@ export const useWatchMembershipTierMembershipRefundedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipTierAbi,
     eventName: "MembershipRefunded",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"MembershipSynchronized"`
- */
-export const useWatchMembershipTierMembershipSynchronizedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: membershipTierAbi,
-    eventName: "MembershipSynchronized",
   });
 
 /**
@@ -5125,6 +5206,15 @@ export const useWatchMembershipTierRewardClaimedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipTierAbi,
     eventName: "RewardClaimed",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"RewardEligibilityUpdated"`
+ */
+export const useWatchMembershipTierRewardEligibilityUpdatedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    eventName: "RewardEligibilityUpdated",
   });
 
 /**

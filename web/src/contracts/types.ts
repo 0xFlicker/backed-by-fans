@@ -69,12 +69,14 @@ export type ReferralStatus = "unset" | "locked-none" | "locked-address";
 export type SupporterCredential = {
   tokenId: bigint;
   owner: Address;
+  minted: boolean;
   active: boolean;
   occupied: boolean;
   expiration: bigint;
   paidSeconds: bigint;
   grantSeconds: bigint;
   shares: bigint;
+  rewardEligible: boolean;
   claimableReward: bigint;
   refundableGross: bigint;
   referralStatus: ReferralStatus;

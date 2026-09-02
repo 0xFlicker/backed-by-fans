@@ -131,8 +131,9 @@ contract AccountingHandler is Test {
     }
 
     function refund(uint256 actorSeed) external {
-        uint256 tokenId = tier.tokenOf(_actor(actorSeed));
-        if (tokenId == 0) return;
+        address actor = _actor(actorSeed);
+        uint256 tokenId = tier.tokenOf(actor);
+        if (tokenId == 0 || tier.balanceOf(actor) == 0) return;
 
         (uint64 paidSeconds,,) = _lifecycle[tokenId].projected(_timestamp());
         uint256 expectedRefund =
@@ -149,9 +150,23 @@ contract AccountingHandler is Test {
         assertEq(refunded, expectedRefund);
         assertEq(ownerTopUp, expectedTopUp);
         assertEq(_book.applyRefund(expectedRefund), expectedTopUp);
+        _book.deactivateRewards(tokenId);
         _lifecycle[tokenId].refundTime(_timestamp());
         ghostOwnerTopUps += ownerTopUp;
         ghostRefunded += refunded;
+    }
+
+    function synchronizeExpired(uint256 actorSeed) external {
+        uint256 tokenId = tier.tokenOf(_actor(actorSeed));
+        if (tokenId == 0) return;
+
+        bool expectedBurn = _lifecycle[tokenId].synchronize(_timestamp());
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        vm.prank(creator);
+        uint256 burned = tier.synchronizeExpiredMemberships(tokenIds);
+        assertEq(burned, expectedBurn ? 1 : 0);
+        if (expectedBurn) _book.deactivateRewards(tokenId);
     }
 
     function withdrawCreatorProceeds() external {
@@ -228,7 +243,7 @@ contract AccountingHandler is Test {
             callData = abi.encodeCall(MembershipFactory.withdrawProtocolFees, (paymentToken));
         } else {
             uint256 tokenId = tier.tokenOf(actor);
-            if (tokenId == 0) return;
+            if (tokenId == 0 || tier.balanceOf(actor) == 0) return;
             (uint64 paidSeconds,,) = _lifecycle[tokenId].projected(_timestamp());
             uint256 grossRefund = MembershipModel.fixedRefund(
                 paidSeconds, tier.pricePerPeriod(), tier.periodDuration()
@@ -313,8 +328,12 @@ contract AccountingHandler is Test {
         return _book.totalReferralLiability;
     }
 
-    function modelTotalShares() external view returns (uint256) {
-        return _book.totalShares;
+    function modelTotalRewardShares() external view returns (uint256) {
+        return _book.totalRewardShares;
+    }
+
+    function modelRewardEligible(uint256 tokenId) external view returns (bool) {
+        return _book.rewardEligible[tokenId];
     }
 
     function modelTokenCount() external view returns (uint256) {
@@ -323,6 +342,13 @@ contract AccountingHandler is Test {
 
     function actorAt(uint256 index) external view returns (address) {
         return _actors[index];
+    }
+
+    function recipientFor(uint256 tokenId) external view returns (address) {
+        for (uint256 i; i < _actors.length; ++i) {
+            if (tier.tokenOf(_actors[i]) == tokenId) return _actors[i];
+        }
+        return address(0);
     }
 
     function _applyModelPayment(uint256 tokenId, uint256 gross) private {
@@ -408,7 +434,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
         _handler =
             new AccountingHandler(_paymentToken, _factory, _tier, creator, feeRecipient, actors);
 
-        bytes4[] memory selectors = new bytes4[](11);
+        bytes4[] memory selectors = new bytes4[](12);
         selectors[0] = AccountingHandler.purchase.selector;
         selectors[1] = AccountingHandler.gift.selector;
         selectors[2] = AccountingHandler.claimReward.selector;
@@ -420,6 +446,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
         selectors[8] = AccountingHandler.donateToFactory.selector;
         selectors[9] = AccountingHandler.failedExit.selector;
         selectors[10] = AccountingHandler.warp.selector;
+        selectors[11] = AccountingHandler.synchronizeExpired.selector;
         targetContract(address(_handler));
         targetSelector(FuzzSelector({addr: address(_handler), selectors: selectors}));
     }
@@ -432,39 +459,13 @@ contract AccountingInvariantTest is StdInvariant, Test {
         assertEq(_paymentToken.balanceOf(address(_factory)), _handler.modelProtocolProceeds());
         assertEq(_tier.rewardReserve(), _handler.modelRewardReserve());
         assertEq(_tier.totalReferralLiability(), _handler.modelReferralLiability());
-        assertEq(_tier.totalShares(), _handler.modelTotalShares());
+        assertEq(_tier.totalRewardShares(), _handler.modelTotalRewardShares());
 
         uint256 totalMinted = _handler.modelTokenCount();
         assertEq(_tier.totalMinted(), totalMinted);
         uint256 modeledOccupancy;
         for (uint256 tokenId = 1; tokenId <= totalMinted; ++tokenId) {
-            assertEq(_tier.sharesOf(tokenId), _handler.modelShares(tokenId));
-            assertEq(_tier.claimableReward(tokenId), _handler.modelClaimableReward(tokenId));
-
-            (
-                uint64 modelPaid,
-                uint64 modelGrant,
-                uint64 modelCheckpoint,
-                uint64 modelExpiration,
-                bool modelActive,
-                bool modelOccupied
-            ) = _handler.modelLifecycle(tokenId);
-            (uint64 paidSeconds, uint64 grantSeconds, uint64 checkpoint) =
-                _tier.timeBalances(tokenId);
-            assertEq(paidSeconds, modelPaid);
-            assertEq(grantSeconds, modelGrant);
-            assertEq(checkpoint, modelCheckpoint);
-            assertEq(_tier.expiresAt(tokenId), modelExpiration);
-            assertEq(_tier.isActiveToken(tokenId), modelActive);
-            assertEq(_tier.isOccupied(tokenId), modelOccupied);
-            if (modelOccupied) ++modeledOccupancy;
-
-            (MembershipTypes.ReferralStatus actualStatus, address actualReferrer) =
-                _tier.referralOf(tokenId);
-            (MembershipTypes.ReferralStatus modelStatus, address modelReferrer) =
-                _handler.modelReferral(tokenId);
-            assertEq(uint256(actualStatus), uint256(modelStatus));
-            assertEq(actualReferrer, modelReferrer);
+            if (_assertTokenModel(tokenId)) ++modeledOccupancy;
         }
         assertEq(_tier.occupiedSupply(), modeledOccupancy);
 
@@ -474,6 +475,47 @@ contract AccountingInvariantTest is StdInvariant, Test {
                 _tier.claimableReferral(currentActor), _handler.modelReferralCredit(currentActor)
             );
         }
+    }
+
+    function _assertTokenModel(uint256 tokenId) private view returns (bool modelOccupied) {
+        assertEq(_tier.sharesOf(tokenId), _handler.modelShares(tokenId));
+        assertEq(_tier.rewardEligible(tokenId), _handler.modelRewardEligible(tokenId));
+        assertEq(_tier.claimableReward(tokenId), _handler.modelClaimableReward(tokenId));
+
+        modelOccupied = _assertTokenLifecycle(tokenId);
+        _assertTokenReferral(tokenId);
+    }
+
+    function _assertTokenLifecycle(uint256 tokenId) private view returns (bool modelOccupied) {
+        (
+            uint64 modelPaid,
+            uint64 modelGrant,
+            uint64 modelCheckpoint,
+            uint64 modelExpiration,
+            bool modelActive,
+            bool occupied
+        ) = _handler.modelLifecycle(tokenId);
+        (uint64 paidSeconds, uint64 grantSeconds, uint64 checkpoint) = _tier.timeBalances(tokenId);
+        assertEq(paidSeconds, modelPaid);
+        assertEq(grantSeconds, modelGrant);
+        assertEq(checkpoint, modelCheckpoint);
+        address recipient = _handler.recipientFor(tokenId);
+        assertTrue(recipient != address(0));
+        if (_tier.balanceOf(recipient) != 0) {
+            assertEq(_tier.expiresAt(tokenId), modelExpiration);
+        }
+        assertEq(_tier.isActiveToken(tokenId), modelActive);
+        assertEq(_tier.isOccupied(tokenId), occupied);
+        return occupied;
+    }
+
+    function _assertTokenReferral(uint256 tokenId) private view {
+        (MembershipTypes.ReferralStatus actualStatus, address actualReferrer) =
+            _tier.referralOf(tokenId);
+        (MembershipTypes.ReferralStatus modelStatus, address modelReferrer) =
+            _handler.modelReferral(tokenId);
+        assertEq(uint256(actualStatus), uint256(modelStatus));
+        assertEq(actualReferrer, modelReferrer);
     }
 
     function invariant_accountingConservationAndProtectedLiabilities() public view {

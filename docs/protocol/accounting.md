@@ -48,6 +48,30 @@ claimable; it is protected and never becomes creator proceeds or surplus. Thus:
 cumulative reward allocations = cumulative successful reward claims + rewardReserve
 ```
 
+## Reward eligibility and membership sync
+
+`sharesOf(tokenId)` is a lifetime record and never decreases. Only eligible
+shares participate in new allocations:
+
+```text
+totalRewardShares = sum(sharesOf(tokenId) for each rewardEligible tokenId)
+```
+
+A refund suspends the record immediately. Revoking the final remaining
+grant-only time does the same. Natural expiration alone does not change the
+denominator; the cutoff is the creator's successful
+`synchronizeExpiredMemberships` transaction. Sync settles the record through
+that transaction's reward index, removes its lifetime shares from
+`totalRewardShares`, and burns the NFT without reducing `rewardReserve` or any
+stored credit.
+
+The permanently associated wallet can claim that accrued credit while the NFT
+is burned. Rewards allocated during the inactive interval do not accrue to the
+record. A purchase, contribution, gift, or grant remints the same token ID and
+sets its reward checkpoint to the current index before lifetime shares are
+reactivated or new shares are issued. The inactive interval is therefore never
+backfilled.
+
 ## Refunds
 
 Only unused paid time is refundable. Grant time is cleared but has no gross
@@ -79,8 +103,9 @@ reverts without changing membership or accounting state. A lower top-up is
 accepted. The current tier owner supplies only the exact shortfall, then the
 entire gross goes to the credential owner. The transaction clears paid and grant time and
 reduces creator proceeds before interaction. Failure of the top-up or outbound
-delivery restores all state. Identity, shares, referral lock, and occupied slot
-remain until normal synchronization.
+delivery restores all state. The permanent record, shares, referral lock, and
+occupied slot remain until creator sync. Reward eligibility is suspended by the
+successful refund itself.
 
 The ERC-5643 `cancelSubscription(tokenId)` adapter cannot express a ceiling and
 therefore authorizes the full execution-time top-up. It exists for standards

@@ -4,6 +4,11 @@ Status: **replacement testnet deployment promoted.** The active deployment adds 
 payment tokens and owner-mutable tier renderers. Mainnet remains inspection-only and is not
 authorized by this runbook.
 
+Fast-follow status: the promoted factory predates expired-membership synchronization and reward
+suspension. It is not the mainnet candidate. A new replacement factory, pilot tiers, canonical
+website cutover, and public pilot require separate deployment approval after this change is
+reviewed; this worktree does not authorize or record that deployment.
+
 ## Release boundary
 
 | Network                 | Chain ID | Initial payment tokens                     | Encrypted account        |

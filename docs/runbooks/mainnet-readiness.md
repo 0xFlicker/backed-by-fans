@@ -12,13 +12,13 @@ from a green local test.
 | Gate | Status | Required evidence |
 | --- | --- | --- |
 | Testnet payment tokens | OPEN | Verify the external USDG, AMD, NFLX, PLTR, AMZN, and TSLA launch manifest, then complete the live product pilot using faucet-accessible assets. |
-| Public testnet deployment and source verification | BLOCKED | Checked-in Foundry broadcast, generated Wagmi address, exact source pages, and independent operator verification. |
-| Public testnet lifecycle | BLOCKED | Factory deployment, creator tier, payment, allocation, claim, refund, natural expiry, sync, creator ownership transfer, child verification, and production web build. |
+| Public testnet deployment and source verification | BLOCKED | Replacement expired-sync factory deployment, checked-in Foundry broadcast, generated Wagmi address, exact source pages, and independent operator verification. |
+| Public testnet lifecycle | BLOCKED | Replacement factory deployment, creator tier, payment, allocation, claim, refund, natural expiry, owner batch sync/burn, accrued claim while burned, same-ID rejoin, creator ownership transfer, child verification, and production web build. |
 | Unassisted public testnet creator/supporter pilot | BLOCKED | Completed [pilot record](../pilots/testnet-pilot.md), participant consent, issues/disposition. |
 | Brand and name launch readiness | BLOCKED | Every item in the [brand checklist](../brand/backed-by-fans-launch-readiness.md) has professional evidence. |
 | Artifact freeze | OPEN | Signed commit, source/dependency digests, standard JSON, compiler/build settings, web build digest. Depends on resolved pilot/reviews. |
-| Independent accounting review | BLOCKED | Signed report over the frozen factory-created tier, scripts, immutables, rounding and USDG assumptions; exact artifact digest; findings/dispositions. |
-| Independent security audit | BLOCKED | Signed final report over that same scope/artifact; every high/critical closed and each medium explicitly approved; retest evidence. |
+| Independent accounting review | BLOCKED | Fresh signed report over the frozen factory-created tier, `totalRewardShares`, eligibility transitions, inactive-period exclusion, liabilities, scripts, immutables, rounding and USDG assumptions; exact artifact digest; findings/dispositions. The previous review does not cover the new denominator. |
+| Independent security audit | BLOCKED | Fresh signed final report covering burn/remint, owner batch authority, capacity races, permanent claims, and the new reward denominator over that same scope/artifact; every high/critical closed and each medium explicitly approved; retest evidence. |
 | Reproducible build | OPEN | Two independent clean builds match frozen creation/runtime and web artifact digests. Cannot pass before freeze. |
 | Production Safe configuration/rehearsal | BLOCKED | Evidence from the [Safe runbook](safe.md) that owner, threshold, modules, guard, and fallback exactly match the approved 1-of-1 policy; explicit acceptance of sole-signer compromise/loss risk; and rehearsed custody, backup, recovery, transaction review, and incident response. |
 | Production deployment identities | BLOCKED | Protocol owner, fee recipient, deployer, operational roles and separation approved. |
