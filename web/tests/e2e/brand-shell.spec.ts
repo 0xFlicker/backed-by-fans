@@ -16,7 +16,7 @@ test("renders the exact provisional brand shell without starter identity", async
   await expect(
     page.getByRole("heading", {
       level: 2,
-      name: "Support the work. Keep the membership.",
+      name: "Support the work.",
     }),
   ).toBeVisible();
   await expect(

@@ -63,7 +63,7 @@ export default function HomePage() {
         </div>
         <div className="principle-copy reveal">
           <h2 className="font-display">
-            Support the work. Keep the membership.
+            Support the work.
           </h2>
           <p>
             Creators set the terms. Supporters join directly and keep a record
