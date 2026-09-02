@@ -9,7 +9,7 @@ import styles from "@/features/creator-studio/CreatorStudio.module.css";
 
 export type ArtStyleSelection = number | `created:${Address}` | "custom";
 
-export type CreatedRendererOption = {
+export type RendererLibraryOption = {
   address: Address;
   name: string;
 };
@@ -67,7 +67,7 @@ export function artEngineForManifestName(
 
 export function EnginePicker({
   engines,
-  createdRenderers,
+  rendererLibrary,
   value,
   onChange,
   customAddress,
@@ -76,7 +76,7 @@ export function EnginePicker({
   disabled = false,
 }: {
   engines: readonly string[];
-  createdRenderers: readonly CreatedRendererOption[];
+  rendererLibrary: readonly RendererLibraryOption[];
   value: ArtStyleSelection;
   onChange: (selection: ArtStyleSelection) => void;
   customAddress: string;
@@ -85,7 +85,7 @@ export function EnginePicker({
   disabled?: boolean;
 }) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  const optionCount = createdRenderers.length + engines.length + 1;
+  const optionCount = rendererLibrary.length + engines.length + 1;
   const hasSelectedEngine =
     value === "custom" ||
     (typeof value === "string" && value.startsWith("created:")) ||
@@ -95,9 +95,9 @@ export function EnginePicker({
       value < engines.length);
 
   function selectionAt(index: number): ArtStyleSelection {
-    const created = createdRenderers[index];
+    const created = rendererLibrary[index];
     if (created) return `created:${created.address}`;
-    const engineIndex = index - createdRenderers.length;
+    const engineIndex = index - rendererLibrary.length;
     return engineIndex === engines.length ? "custom" : engineIndex;
   }
 
@@ -127,7 +127,7 @@ export function EnginePicker({
         className={styles.engineList}
         role="radiogroup"
       >
-        {createdRenderers.map((renderer, index) => {
+        {rendererLibrary.map((renderer, index) => {
           const selection = `created:${renderer.address}` as const;
           const selected = value === selection;
           return (
@@ -169,7 +169,7 @@ export function EnginePicker({
                 short: "Renderer style",
                 description: "Defined by this renderer.",
               };
-          const optionIndex = createdRenderers.length + index;
+          const optionIndex = rendererLibrary.length + index;
           const selected = index === value;
           return (
             <button

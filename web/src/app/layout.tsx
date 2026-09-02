@@ -21,12 +21,12 @@ export const metadata: Metadata = {
     template: "%s | Backed By Fans",
   },
   description:
-    "Creator-owned memberships for the people who make the work possible.",
+    "Create an onchain NFT your fans can join directly, with terms you control and membership building blocks.",
   applicationName: "Backed By Fans",
   openGraph: {
     title: "Creator-owned. Backed By Fans.",
     description:
-      "Create a membership your fans can join directly, with terms you control and a membership record they keep.",
+      "Create an onchain NFT your fans can join directly, with terms you control and membership building blocks.",
     siteName: "Backed By Fans",
     type: "website",
   },
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Creator-owned. Backed By Fans.",
     description:
-      "Creator-owned memberships for the people who make the work possible.",
+      "Create an onchain NFT your fans can join directly, with terms you control and membership building blocks.",
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],

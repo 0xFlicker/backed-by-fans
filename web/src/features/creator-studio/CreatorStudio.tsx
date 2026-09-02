@@ -51,7 +51,7 @@ export type CreatorStudioProps = {
   preview: PreviewGalleryModel;
   renderer?: StudioRenderer;
   rendererChoice: RendererChoice;
-  createdRenderers: readonly StudioRenderer[];
+  rendererLibrary: readonly StudioRenderer[];
   styleEngines: readonly string[];
   customRendererAddress: string;
   customRendererState: CustomRendererState;
@@ -88,7 +88,7 @@ export function CreatorStudio({
   preview,
   renderer,
   rendererChoice,
-  createdRenderers,
+  rendererLibrary,
   styleEngines,
   customRendererAddress,
   customRendererState,
@@ -130,7 +130,7 @@ export function CreatorStudio({
     rendererChoice === "original" ? styleEngines[selectedEngine] : undefined;
   const selectedArtEngine = artEngineForManifestName(selectedEngineName);
   const artToolsAvailable =
-    rendererChoice === "custom" || selectedArtEngine === art.engine;
+    rendererChoice !== "original" || selectedArtEngine === art.engine;
   const canUndoEngine = Boolean(
     engineUndo &&
     renderer &&
@@ -157,7 +157,7 @@ export function CreatorStudio({
 
     if (typeof selection === "string") {
       const address = selection.slice("created:".length) as Address;
-      const nextRenderer = createdRenderers.find((candidate) =>
+      const nextRenderer = rendererLibrary.find((candidate) =>
         isSameAddress(candidate.address, address),
       );
       if (!nextRenderer) return;
@@ -287,7 +287,7 @@ export function CreatorStudio({
           <EnginePicker
             customAddress={customRendererAddress}
             customState={customRendererState}
-            createdRenderers={createdRenderers}
+            rendererLibrary={rendererLibrary}
             disabled={disabled}
             engines={styleEngines}
             onChange={changeStyle}

@@ -4,7 +4,19 @@ permissions: {}
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - "contracts/**"
+      - "scripts/**"
+      - ".gitmodules"
+      - ".github/workflows/contracts.yml"
   pull_request:
+    paths:
+      - "contracts/**"
+      - "scripts/**"
+      - ".gitmodules"
+      - ".github/workflows/contracts.yml"
   workflow_dispatch:
 
 jobs:
