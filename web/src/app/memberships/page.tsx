@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
 import { CatalogExplorer } from "@/components/CatalogExplorer";
+import { readServerCatalogState } from "@/lib/server-catalog";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Explore memberships",
@@ -8,7 +11,9 @@ export const metadata: Metadata = {
     "Browse factory-registered Backed By Fans memberships at one captured onchain block.",
 };
 
-export default function MembershipsPage() {
+export default async function MembershipsPage() {
+  const initialCatalog = await readServerCatalogState();
+
   return (
     <section className="page-shell catalog-page">
       <div className="page-intro">
@@ -17,7 +22,7 @@ export default function MembershipsPage() {
           Find the creators you want to keep showing up for.
         </h1>
       </div>
-      <CatalogExplorer />
+      <CatalogExplorer initialState={initialCatalog} />
     </section>
   );
 }

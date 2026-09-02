@@ -8,28 +8,30 @@ import { useQuery } from "@tanstack/react-query";
 import type { TierSummary } from "@/contracts/types";
 import { ReadStateView } from "@/components/ReadState";
 import {
-  catalogPageLimit,
-  readCatalogPage,
-  readTierSummaries,
-} from "@/lib/direct-read";
+  readCatalogSnapshot,
+  type CatalogInitialState,
+  type CatalogSnapshot,
+} from "@/lib/catalog-read";
 import {
   classifyReadError,
+  type ReadState,
   unavailableDeploymentState,
 } from "@/lib/read-state";
-import { readAcceptedPaymentTokens } from "@/lib/payment-token-read";
 import { formatRawTokenAmount } from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 
-function summariesFromState(
-  state: Awaited<ReturnType<typeof readTierSummaries>>,
-): TierSummary[] {
+function summariesFromState(state: ReadState<TierSummary[]>): TierSummary[] {
   if (state.status === "valid" || state.status === "stale") return state.data;
   return state.status === "partial" && Array.isArray(state.data)
     ? (state.data as TierSummary[])
     : [];
 }
 
-export function CatalogExplorer() {
+export function CatalogExplorer({
+  initialState,
+}: {
+  initialState?: CatalogInitialState;
+}) {
   const { chainId, client, deployment } = useActiveNetwork();
   const [pageRequest, setPageRequest] = useState<{
     chainId: number;
@@ -48,26 +50,21 @@ export function CatalogExplorer() {
       activePageRequest.capturedBlock?.toString(),
     ],
     enabled: deployment.status === "ready" && Boolean(client),
-    queryFn: async () => {
+    queryFn: (): Promise<CatalogSnapshot> => {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
       if (!client) throw new Error("No public client is available.");
-      const page = await readCatalogPage(client, deployment.factoryAddress, {
+      return readCatalogSnapshot(client, deployment, {
         offset: activePageRequest.offset,
-        limit: catalogPageLimit,
-        blockNumber: activePageRequest.capturedBlock,
+        capturedBlock: activePageRequest.capturedBlock,
       });
-      const summaries = await readTierSummaries(
-        client,
-        page.addresses,
-        page.capturedBlock,
-      );
-      const paymentTokens = await readAcceptedPaymentTokens(client, {
-        chainId: deployment.chainId,
-        factory: deployment.factoryAddress,
-        blockNumber: page.capturedBlock,
-      });
-      return { page, summaries, paymentTokens };
     },
+    initialData:
+      initialState?.status === "ready" &&
+      initialState.chainId === chainId &&
+      activePageRequest.offset === 0n &&
+      activePageRequest.capturedBlock === undefined
+        ? initialState.data
+        : undefined,
   });
 
   if (deployment.status !== "ready") {
@@ -75,6 +72,14 @@ export function CatalogExplorer() {
   }
 
   if (catalog.isLoading) {
+    if (initialState?.status === "failed" && initialState.chainId === chainId) {
+      return (
+        <ReadStateView
+          onRetry={() => void catalog.refetch()}
+          state={initialState.state}
+        />
+      );
+    }
     return (
       <ReadStateView
         state={{
