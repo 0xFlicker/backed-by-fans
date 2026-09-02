@@ -10,7 +10,7 @@ import {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const membershipFactoryAbi = [
   {
@@ -676,14 +676,14 @@ export const membershipFactoryAbi = [
 ] as const;
 
 /**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const membershipFactoryAddress = {
-  46630: "0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C",
+  46630: "0x6C06126E121667c6f06Bd426Cde706EDde862fd9",
 } as const;
 
 /**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const membershipFactoryConfig = {
   address: membershipFactoryAddress,
@@ -3567,7 +3567,7 @@ export const usdgAbi = [
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactory = /*#__PURE__*/ createUseReadContract({
   abi: membershipFactoryAbi,
@@ -3577,7 +3577,7 @@ export const useReadMembershipFactory = /*#__PURE__*/ createUseReadContract({
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"deployer"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryDeployer =
   /*#__PURE__*/ createUseReadContract({
@@ -3589,7 +3589,7 @@ export const useReadMembershipFactoryDeployer =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"feeRecipient"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryFeeRecipient =
   /*#__PURE__*/ createUseReadContract({
@@ -3601,7 +3601,7 @@ export const useReadMembershipFactoryFeeRecipient =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isPaymentTokenEnabled"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryIsPaymentTokenEnabled =
   /*#__PURE__*/ createUseReadContract({
@@ -3613,7 +3613,7 @@ export const useReadMembershipFactoryIsPaymentTokenEnabled =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isPaymentTokenListed"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryIsPaymentTokenListed =
   /*#__PURE__*/ createUseReadContract({
@@ -3625,7 +3625,7 @@ export const useReadMembershipFactoryIsPaymentTokenListed =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isRegisteredTier"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryIsRegisteredTier =
   /*#__PURE__*/ createUseReadContract({
@@ -3637,7 +3637,7 @@ export const useReadMembershipFactoryIsRegisteredTier =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isTierSaltUsed"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryIsTierSaltUsed =
   /*#__PURE__*/ createUseReadContract({
@@ -3649,7 +3649,7 @@ export const useReadMembershipFactoryIsTierSaltUsed =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"maxPageSize"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryMaxPageSize =
   /*#__PURE__*/ createUseReadContract({
@@ -3661,7 +3661,7 @@ export const useReadMembershipFactoryMaxPageSize =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"mediaStoreFactory"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryMediaStoreFactory =
   /*#__PURE__*/ createUseReadContract({
@@ -3673,7 +3673,7 @@ export const useReadMembershipFactoryMediaStoreFactory =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"mediaStoreFactoryRuntimeCodehash"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryMediaStoreFactoryRuntimeCodehash =
   /*#__PURE__*/ createUseReadContract({
@@ -3685,7 +3685,7 @@ export const useReadMembershipFactoryMediaStoreFactoryRuntimeCodehash =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"owner"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryOwner =
   /*#__PURE__*/ createUseReadContract({
@@ -3697,7 +3697,7 @@ export const useReadMembershipFactoryOwner =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"paymentTokenCount"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryPaymentTokenCount =
   /*#__PURE__*/ createUseReadContract({
@@ -3709,7 +3709,7 @@ export const useReadMembershipFactoryPaymentTokenCount =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"paymentTokens"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryPaymentTokens =
   /*#__PURE__*/ createUseReadContract({
@@ -3721,7 +3721,7 @@ export const useReadMembershipFactoryPaymentTokens =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"pendingOwner"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryPendingOwner =
   /*#__PURE__*/ createUseReadContract({
@@ -3733,7 +3733,7 @@ export const useReadMembershipFactoryPendingOwner =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"predictTierIdentity"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryPredictTierIdentity =
   /*#__PURE__*/ createUseReadContract({
@@ -3745,7 +3745,7 @@ export const useReadMembershipFactoryPredictTierIdentity =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"protocolFeeBps"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryProtocolFeeBps =
   /*#__PURE__*/ createUseReadContract({
@@ -3757,7 +3757,7 @@ export const useReadMembershipFactoryProtocolFeeBps =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"rendererSchema"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryRendererSchema =
   /*#__PURE__*/ createUseReadContract({
@@ -3769,7 +3769,7 @@ export const useReadMembershipFactoryRendererSchema =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"renounceOwnership"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryRenounceOwnership =
   /*#__PURE__*/ createUseReadContract({
@@ -3781,7 +3781,7 @@ export const useReadMembershipFactoryRenounceOwnership =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"tierCount"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryTierCount =
   /*#__PURE__*/ createUseReadContract({
@@ -3793,7 +3793,7 @@ export const useReadMembershipFactoryTierCount =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"tierForIdentity"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryTierForIdentity =
   /*#__PURE__*/ createUseReadContract({
@@ -3805,7 +3805,7 @@ export const useReadMembershipFactoryTierForIdentity =
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"tiers"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useReadMembershipFactoryTiers =
   /*#__PURE__*/ createUseReadContract({
@@ -3817,7 +3817,7 @@ export const useReadMembershipFactoryTiers =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWriteMembershipFactory = /*#__PURE__*/ createUseWriteContract({
   abi: membershipFactoryAbi,
@@ -3827,7 +3827,7 @@ export const useWriteMembershipFactory = /*#__PURE__*/ createUseWriteContract({
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"acceptOwnership"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWriteMembershipFactoryAcceptOwnership =
   /*#__PURE__*/ createUseWriteContract({
@@ -3839,7 +3839,7 @@ export const useWriteMembershipFactoryAcceptOwnership =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"createTier"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWriteMembershipFactoryCreateTier =
   /*#__PURE__*/ createUseWriteContract({
@@ -3851,7 +3851,7 @@ export const useWriteMembershipFactoryCreateTier =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setFeeRecipient"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWriteMembershipFactorySetFeeRecipient =
   /*#__PURE__*/ createUseWriteContract({
@@ -3863,7 +3863,7 @@ export const useWriteMembershipFactorySetFeeRecipient =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setPaymentTokenEnabled"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWriteMembershipFactorySetPaymentTokenEnabled =
   /*#__PURE__*/ createUseWriteContract({
@@ -3875,7 +3875,7 @@ export const useWriteMembershipFactorySetPaymentTokenEnabled =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"transferOwnership"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWriteMembershipFactoryTransferOwnership =
   /*#__PURE__*/ createUseWriteContract({
@@ -3887,7 +3887,7 @@ export const useWriteMembershipFactoryTransferOwnership =
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"withdrawProtocolFees"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWriteMembershipFactoryWithdrawProtocolFees =
   /*#__PURE__*/ createUseWriteContract({
@@ -3899,7 +3899,7 @@ export const useWriteMembershipFactoryWithdrawProtocolFees =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useSimulateMembershipFactory =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3910,7 +3910,7 @@ export const useSimulateMembershipFactory =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"acceptOwnership"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useSimulateMembershipFactoryAcceptOwnership =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3922,7 +3922,7 @@ export const useSimulateMembershipFactoryAcceptOwnership =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"createTier"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useSimulateMembershipFactoryCreateTier =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3934,7 +3934,7 @@ export const useSimulateMembershipFactoryCreateTier =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setFeeRecipient"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useSimulateMembershipFactorySetFeeRecipient =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3946,7 +3946,7 @@ export const useSimulateMembershipFactorySetFeeRecipient =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setPaymentTokenEnabled"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useSimulateMembershipFactorySetPaymentTokenEnabled =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3958,7 +3958,7 @@ export const useSimulateMembershipFactorySetPaymentTokenEnabled =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"transferOwnership"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useSimulateMembershipFactoryTransferOwnership =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3970,7 +3970,7 @@ export const useSimulateMembershipFactoryTransferOwnership =
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"withdrawProtocolFees"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useSimulateMembershipFactoryWithdrawProtocolFees =
   /*#__PURE__*/ createUseSimulateContract({
@@ -3982,7 +3982,7 @@ export const useSimulateMembershipFactoryWithdrawProtocolFees =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -3993,7 +3993,7 @@ export const useWatchMembershipFactoryEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"FeeRecipientUpdated"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryFeeRecipientUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4005,7 +4005,7 @@ export const useWatchMembershipFactoryFeeRecipientUpdatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"OwnershipTransferStarted"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryOwnershipTransferStartedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4017,7 +4017,7 @@ export const useWatchMembershipFactoryOwnershipTransferStartedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"OwnershipTransferred"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryOwnershipTransferredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4029,7 +4029,7 @@ export const useWatchMembershipFactoryOwnershipTransferredEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"PaymentTokenDisabled"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryPaymentTokenDisabledEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4041,7 +4041,7 @@ export const useWatchMembershipFactoryPaymentTokenDisabledEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"PaymentTokenEnabled"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryPaymentTokenEnabledEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4053,7 +4053,7 @@ export const useWatchMembershipFactoryPaymentTokenEnabledEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"PaymentTokenListed"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryPaymentTokenListedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4065,7 +4065,7 @@ export const useWatchMembershipFactoryPaymentTokenListedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"ProtocolFeesWithdrawn"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryProtocolFeesWithdrawnEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4077,7 +4077,7 @@ export const useWatchMembershipFactoryProtocolFeesWithdrawnEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierArtConfigured"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryTierArtConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4089,7 +4089,7 @@ export const useWatchMembershipFactoryTierArtConfiguredEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierCreated"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryTierCreatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4101,7 +4101,7 @@ export const useWatchMembershipFactoryTierCreatedEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierMetadataConfigured"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryTierMetadataConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4113,7 +4113,7 @@ export const useWatchMembershipFactoryTierMetadataConfiguredEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierRendererConfigured"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryTierRendererConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
@@ -4125,7 +4125,7 @@ export const useWatchMembershipFactoryTierRendererConfiguredEvent =
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierTermsConfigured"`
  *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C)
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x6C06126E121667c6f06Bd426Cde706EDde862fd9)
  */
 export const useWatchMembershipFactoryTierTermsConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
