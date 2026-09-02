@@ -1,18 +1,18 @@
 ---
 title: Backed By Fans public testnet pilot record
-status: staged-browser-testing-open
+status: canonical-browser-testing-open
 date: 2026-09-02
 ---
 
 # Public testnet pilot record
 
 This is an unexecuted human-pilot template. It is **not** evidence of a public
-pilot, user approval, audit, canonical-domain deployment, or launch readiness.
+pilot, user approval, audit, or launch readiness.
 
 The source-verified testnet protocol is promoted, its generated bindings are
-active, and a protected Vercel artifact has passed authenticated route-level
-smoke checks. The human pilot has not run; staged-browser, participant, live
-transaction, and canonical-browser evidence remain open.
+active, and the exact protected Vercel artifact now serves from the approved canonical domain. The
+human pilot has not run; staged-browser, participant, live transaction, and named
+canonical-browser evidence remain open.
 
 ## Candidate
 
@@ -27,6 +27,10 @@ transaction, and canonical-browser evidence remain open.
   `dpl_CzysrFBvrFG9DLygVv9EixCt7D2A`
 - Authenticated route smoke: **PASS** — HTTP 200 for `/`, `/create`, `/render`, `/skill`, and
   `/llms.txt`
+- Canonical domain assignment: **PASS** — `https://backedbyfans.xyz` points to
+  `dpl_CzysrFBvrFG9DLygVv9EixCt7D2A` without a rebuild; managed HTTPS is active
+- Canonical route smoke: **PASS** — HTTP 200 for `/`, `/create`, `/render`, `/skill`, and
+  `/llms.txt`; Chrome confirmed the `/skill` agent prompt and public toolkit links
 - Staged browser journey matrix: **OPEN**
 - Captured block/hash and second-RPC verification: **OPEN**
 - Creator participant/consent record: **OPEN**

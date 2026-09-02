@@ -254,11 +254,18 @@ The operator authorized authenticated Vercel setup and a staging-only production
 
 The project framework preset is `nextjs`. Authenticated route-level checks returned HTTP 200 for
 `/`, `/create`, `/render`, `/skill`, and `/llms.txt`. This is deployment smoke evidence only; the
-staged browser and live testnet transaction matrix remains open. No custom domain is assigned, and
-this artifact is not yet approved for canonical-domain promotion.
+staged browser and live testnet transaction matrix remains open.
 
-Only after the staged artifact and domain assignment receive separate operator approval, promote
-that same production build without rebuilding:
+The operator explicitly approved the `backedbyfans.xyz` domain assignment on 2026-09-02. Cloudflare
+keeps authoritative DNS and supplies DNS-only Vercel verification and apex routing records. Vercel
+issued the managed certificate and assigned the canonical domain directly to deployment
+`dpl_CzysrFBvrFG9DLygVv9EixCt7D2A` without rebuilding. Public HTTPS checks returned HTTP 200 for
+`/`, `/create`, `/render`, `/skill`, and `/llms.txt`; a Chrome inspection also confirmed that
+`https://backedbyfans.xyz/skill` presents the canonical agent prompt and public toolkit links. These
+checks do not complete the named canonical-browser or live testnet transaction matrix.
+
+For a future candidate, only after the staged artifact and domain assignment receive separate
+operator approval, promote that same production build without rebuilding:
 
 ```sh
 vercel promote https://STAGED-PRODUCTION-DEPLOYMENT.vercel.app
