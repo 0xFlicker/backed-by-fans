@@ -32,6 +32,12 @@ jobs:
       - name: Show Forge version
         run: forge --version
 
+      - name: Prepare clean-room provenance tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ripgrep
+          git submodule foreach --recursive 'git fetch --tags --force'
+
       - name: Check clean-room provenance
         run: ./scripts/check-clean-room.sh
 
