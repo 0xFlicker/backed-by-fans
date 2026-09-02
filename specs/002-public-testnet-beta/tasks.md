@@ -296,7 +296,7 @@ media customization through the complete Creator Studio.
 - [x] T089 [US6] Regenerate ABI coverage and update presentation read, write, authenticity, and receipt reconciliation models in `web/src/contracts.ts`, `web/src/contracts/types.ts`, `web/src/features/creator/management.ts`, and `web/src/features/creator/management-read.ts`
 - [x] T090 [US6] Replace the inline renderer editor with a compact Edit artwork entry and dedicated full-width `/chains/[chainId]/tiers/[tierAddress]/manage/artwork` page that reuses the complete Creator Studio and canonical media deployment/library flows in `web/src/features/creator/`, `web/src/features/creator-studio/`, and `web/src/app/chains/[chainId]/tiers/[tierAddress]/manage/artwork/`
 - [x] T091 [US6] Pass focused/full Foundry, generation, Vitest, typecheck, lint, production-build, and configured Anvil browser suites; update deployment fixtures and remove stale renderer-only language without touching mainnet or production hosting
-- [ ] T092 [US6] Prepare the reviewed Robinhood Chain testnet replacement deployment and stop before broadcast with exact operator password, deployment, verification, and Wagmi-generation instructions
+- [x] T092 [US6] Prepare the reviewed Robinhood Chain testnet replacement deployment and stop before broadcast with exact operator password, deployment, verification, and Wagmi-generation instructions
 
 ---
 

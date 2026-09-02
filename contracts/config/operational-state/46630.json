@@ -47,20 +47,20 @@
       }
     ],
     "mediaStoreFactory": {
-      "address": "0xF62F64da02bF67dfF4223aa5264270254823Cf65",
-      "runtimeCodehash": "0x2ce449f3ddfceb7f8b90a31ab390edbc2c8ca77201b4977ac1af3cd09f582c83"
+      "address": "0x394a8C875FDC0807a5729B764927e5A1A02660f2",
+      "runtimeCodehash": "0x138078d52528c16007e6130f796018cfe4b90be611b2bdf34e609e0b036688f3"
     },
     "renderer": {
-      "address": "0x2E73800F227c59fe7A4Be673D246afdcdF88878A",
-      "runtimeCodehash": "0xbb5195bacf9748241223acbeee3ff59cd1800b63b90326a61a3adf2b145628a8"
+      "address": "0xB0E87290e796Bbcc9CDE8B7E33e2eC872DeaDb73",
+      "runtimeCodehash": "0xe3a3b57c72b318de1c8dbb6840092084de6a994ba90d0052fd250cc1d0bb327b"
     },
     "previewHarness": {
       "address": "0x35ACe5985a9088699197cd1931fc3083dee229B6",
       "runtimeCodehash": "0x0a4c43cc7583986bc35eaf86a492341f952567ca2fa6b9fe3eaf62fcefb06604"
     },
     "membershipFactory": {
-      "address": "0x6C06126E121667c6f06Bd426Cde706EDde862fd9",
-      "runtimeCodehash": "0x35e90d6caac5c6c09252cc2c002100b12d151ee2ff791455e4a68017b1973982"
+      "address": "0x6C9099dd8Bc2924adA8499c2e1a2E764bCBBBd3D",
+      "runtimeCodehash": "0x81bb762d4e0c7d906c9e64f0ea5594194ef9a3ed1f2aa5416e2a01e61851c362"
     }
   },
   "safe": {
