@@ -681,10 +681,6 @@ function ManagementControls({
               <dd>{paymentTokenState?.symbol ?? snapshot.paymentToken}</dd>
             </div>
             <div>
-              <dt>Raw contract price</dt>
-              <dd>{snapshot.pricePerPeriod.toString()} units</dd>
-            </div>
-            <div>
               <dt>Period</dt>
               <dd>{(snapshot.periodDuration / 86_400n).toString()} days</dd>
             </div>
