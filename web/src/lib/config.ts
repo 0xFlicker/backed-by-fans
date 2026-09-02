@@ -9,16 +9,11 @@ import {
   type SupportedChainId,
 } from "@/lib/chains";
 
-export const officialMainnetUsdg = getAddress(
-  "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
-);
-
 export type PublicEnvironment = {
   walletConnectProjectId?: string;
   siteUrl?: string;
   anvilRpcUrl?: string;
   anvilFactoryAddress?: string;
-  anvilUsdgAddress?: string;
   anvilRendererAddress?: string;
   anvilPreviewHarnessAddress?: string;
   anvilRendererRegistryAddress?: string;
@@ -28,7 +23,6 @@ export type ReadyDeployment = {
   status: "ready";
   chainId: SupportedChainId;
   factoryAddress: Address;
-  usdgAddress: Address;
   rendererAddress: Address;
   previewHarnessAddress: Address;
   rendererRegistryAddress?: Address;
@@ -95,28 +89,6 @@ function generatedFactoryAddresses(): Partial<
   return addresses;
 }
 
-function generatedUsdgAddresses(): Partial<Record<SupportedChainId, Address>> {
-  const exports = generatedContracts as Record<string, unknown>;
-  const addresses: Partial<Record<SupportedChainId, Address>> = {
-    [robinhood.id]: officialMainnetUsdg,
-  };
-  const value = exports.testnetUsdgAddress;
-  if (value === undefined) return addresses;
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("The generated TestnetUSDG deployment map is invalid.");
-  }
-  const testnetAddress = (value as Record<number, unknown>)[
-    robinhoodTestnet.id
-  ];
-  if (testnetAddress !== undefined) {
-    addresses[robinhoodTestnet.id] = parseRequiredAddress(
-      testnetAddress,
-      `Generated TestnetUSDG address for chain ${robinhoodTestnet.id}`,
-    );
-  }
-  return addresses;
-}
-
 function generatedTestnetAddress(
   exportName: string,
   contractName: string,
@@ -172,7 +144,6 @@ export function buildPublicConfig(
   factoryAddresses: Partial<
     Record<number, string>
   > = generatedFactoryAddresses(),
-  usdgAddresses: Partial<Record<number, string>> = generatedUsdgAddresses(),
   rendererAddresses: Partial<
     Record<number, string>
   > = generatedRendererAddresses(),
@@ -187,7 +158,6 @@ export function buildPublicConfig(
   const deployments: Partial<Record<SupportedChainId, ReadyDeployment>> = {};
 
   const publicFactoryAddress = factoryAddresses[robinhoodTestnet.id];
-  const publicUsdgAddress = usdgAddresses[robinhoodTestnet.id];
   const publicRendererAddress = rendererAddresses[robinhoodTestnet.id];
   const publicPreviewHarnessAddress =
     previewHarnessAddresses[robinhoodTestnet.id];
@@ -195,7 +165,6 @@ export function buildPublicConfig(
     rendererRegistryAddresses[robinhoodTestnet.id];
   if (
     publicFactoryAddress &&
-    publicUsdgAddress &&
     publicRendererAddress &&
     publicPreviewHarnessAddress
   ) {
@@ -205,10 +174,6 @@ export function buildPublicConfig(
       factoryAddress: parseRequiredAddress(
         publicFactoryAddress,
         `MembershipFactory address for chain ${robinhoodTestnet.id}`,
-      ),
-      usdgAddress: parseRequiredAddress(
-        publicUsdgAddress,
-        `USDG address for chain ${robinhoodTestnet.id}`,
       ),
       rendererAddress: parseRequiredAddress(
         publicRendererAddress,
@@ -232,13 +197,12 @@ export function buildPublicConfig(
   const localDeploymentValues = [
     environment.anvilRpcUrl?.trim(),
     environment.anvilFactoryAddress?.trim(),
-    environment.anvilUsdgAddress?.trim(),
   ];
   const hasAnyLocalDeploymentValue = localDeploymentValues.some(Boolean);
   const hasEveryLocalDeploymentValue = localDeploymentValues.every(Boolean);
   if (hasAnyLocalDeploymentValue && !hasEveryLocalDeploymentValue) {
     throw new Error(
-      "Anvil configuration requires its RPC URL, factory address, and USDG address together.",
+      "Anvil configuration requires its RPC URL and factory address together.",
     );
   }
   const localRendererValues = [
@@ -277,10 +241,6 @@ export function buildPublicConfig(
       factoryAddress: parseRequiredAddress(
         environment.anvilFactoryAddress,
         "Anvil MembershipFactory address",
-      ),
-      usdgAddress: parseRequiredAddress(
-        environment.anvilUsdgAddress,
-        "Anvil USDG address",
       ),
       rendererAddress: parseRequiredAddress(
         environment.anvilRendererAddress,
@@ -340,7 +300,6 @@ export const publicConfig = buildPublicConfig({
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
   anvilRpcUrl: process.env.NEXT_PUBLIC_ANVIL_RPC_URL,
   anvilFactoryAddress: process.env.NEXT_PUBLIC_ANVIL_FACTORY_ADDRESS,
-  anvilUsdgAddress: process.env.NEXT_PUBLIC_ANVIL_USDG_ADDRESS,
   anvilRendererAddress: process.env.NEXT_PUBLIC_ANVIL_RENDERER_ADDRESS,
   anvilPreviewHarnessAddress:
     process.env.NEXT_PUBLIC_ANVIL_PREVIEW_HARNESS_ADDRESS,

@@ -5,6 +5,7 @@ import {
   createDefaultArtConfig,
   defaultEngineControls,
   engineControlDefinitions,
+  fromContractArtConfig,
   switchCompositionEngine,
   toContractArtConfig,
   undoEngineSwitch,
@@ -39,6 +40,16 @@ describe("Creator Studio art configuration", () => {
       secondary: 0,
       tertiary: 50,
     });
+  });
+
+  it("hydrates published contract art back into editable studio controls", () => {
+    const original = createDefaultArtConfig("loom", 10n);
+    original.engineControls = { warp: 20, weft: 2, tension: 11 };
+    original.global.palette = 4;
+
+    expect(fromContractArtConfig(toContractArtConfig(original))).toEqual(
+      original,
+    );
   });
 
   it("rejects out-of-range and incompatible hidden engine controls", () => {

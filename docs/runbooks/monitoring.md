@@ -16,13 +16,13 @@ change, rerun it immediately and begin a fresh short observation window.
 - Tier solvency: token balance falls below `creatorProceeds + rewardReserve +
   totalReferralLiability`.
 - Authority: factory/tier owner, pending owner, fee recipient, deployer binding,
-  renderer, or canonical payment token differs from the reviewed deployment.
+  tier renderer, or tier payment token differs from the reviewed state.
 - Runtime: code hash or code presence differs at factory, renderer, tier
-  deployer, testnet USDG, or any monitored registered tier.
+  deployer, preview harness, any launch token, or any monitored registered tier.
 - Mainnet USDG: proxy implementation, authority, runtime hash, decimals, or
   pause state differs from the deployment-day observation.
-- Registry: a tier presented as official fails `isRegisteredTier` or its
-  immutable factory/token/interface wiring.
+- Registry: a tier presented as official fails `isRegisteredTier`, its
+  immutable factory/payment-token wiring, or its required interfaces.
 - Operational: unexpected pause/cap/metadata change, failed fixed-destination
   exits, abnormal RPC disagreement, or Blockscout verification regression.
 

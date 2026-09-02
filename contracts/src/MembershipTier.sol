@@ -15,8 +15,10 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {TierIdentity} from "./TierIdentity.sol";
 import {IERC5192} from "./interfaces/IERC5192.sol";
 import {IERC5643} from "./interfaces/IERC5643.sol";
+import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipRenderer} from "./interfaces/IMembershipRenderer.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
+import {IOnchainMediaStoreFactory} from "./interfaces/IOnchainMediaStoreFactory.sol";
 import {RendererPrimitives} from "./renderer/RendererPrimitives.sol";
 import {TextValidation} from "./renderer/TextValidation.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
@@ -31,6 +33,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     uint256 public constant MAX_SYMBOL_BYTES = 16;
     uint256 public constant MAX_DESCRIPTION_BYTES = 500;
     uint256 public constant MAX_URI_BYTES = 2048;
+    uint256 public constant MAX_SYNC_BATCH_SIZE = 100;
     uint256 public constant MAX_RENDERABLE_MEDIA_BYTES =
         RendererPrimitives.MAX_RENDERABLE_MEDIA_BYTES;
 
@@ -39,7 +42,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     address public immutable override factory;
     IERC20 public immutable override paymentToken;
-    address public immutable override renderer;
+    address public override renderer;
     bytes32 public immutable override tierIdentity;
     uint256 public immutable override pricePerPeriod;
     uint64 public immutable override periodDuration;
@@ -62,6 +65,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     mapping(uint256 tokenId => MembershipTypes.MembershipState state) internal _membershipStates;
     mapping(uint256 tokenId => MembershipTypes.ReferralState state) private _referralStates;
     mapping(uint256 tokenId => uint256 shares) public override sharesOf;
+    mapping(uint256 tokenId => bool eligible) public override rewardEligible;
     mapping(uint256 tokenId => uint256 index) private _tokenRewardIndex;
     mapping(uint256 tokenId => uint256 credit) private _rewardCredit;
     mapping(uint256 tokenId => uint256 scaledRemainder) private _rewardRemainder;
@@ -69,7 +73,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     mapping(uint256 tokenId => MembershipTypes.RefundCursor cursor) private _refundCursors;
     mapping(address referrer => uint256 amount) public override claimableReferral;
 
-    uint256 public override totalShares;
+    uint256 public override totalRewardShares;
     uint256 public override rewardPerShare;
     uint256 public override creatorProceeds;
     uint256 public override rewardReserve;
@@ -83,7 +87,10 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error InvalidPaidDuration();
     error InvalidPeriodDuration();
     error InvalidPeriods();
+    error InvalidSyncBatchSize(uint256 provided, uint256 maximum);
+    error InvalidTokenId(uint256 tokenId);
     error InvalidRateTotal();
+    error InvalidRenderer();
     error InvalidTierSalt();
     error InexactTokenTransfer();
     error IncorrectPricingMode();
@@ -147,6 +154,52 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     /// @inheritdoc IMembershipTier
     function mediaConfig() external view override returns (MembershipTypes.MediaConfig memory) {
         return _media;
+    }
+
+    /// @inheritdoc IMembershipTier
+    function setPresentation(
+        address newRenderer,
+        MembershipTypes.ArtConfig calldata newArt,
+        MembershipTypes.MediaConfig calldata newMedia
+    ) external override onlyOwner {
+        bytes32 previousArtHash = keccak256(abi.encode(_art));
+        bytes32 newArtHash = keccak256(abi.encode(newArt));
+        bytes32 previousMediaHash = keccak256(abi.encode(_media));
+        bytes32 newMediaHash = keccak256(abi.encode(newMedia));
+        if (
+            newRenderer == renderer && newArtHash == previousArtHash
+                && newMediaHash == previousMediaHash
+        ) return;
+        if (newRenderer.code.length == 0) revert InvalidRenderer();
+        _validateMedia(newMedia);
+        if (newMediaHash != previousMediaHash && newMedia.store != address(0)) {
+            IMembershipFactory tierFactory = IMembershipFactory(factory);
+            address mediaFactory = tierFactory.mediaStoreFactory();
+            if (mediaFactory.codehash != tierFactory.mediaStoreFactoryRuntimeCodehash()) {
+                revert InvalidMediaConfig();
+            }
+            IOnchainMediaStoreFactory(mediaFactory).validateOnchainMedia(msg.sender, newMedia);
+        }
+
+        if (
+            IMembershipRenderer(newRenderer).rendererSchema()
+                != IMembershipFactory(factory).rendererSchema()
+        ) revert InvalidRenderer();
+        IMembershipRenderer(newRenderer).validateConfiguration(newArt, newMedia);
+
+        address previousRenderer = renderer;
+        renderer = newRenderer;
+        _art = newArt;
+        _media = newMedia;
+        emit PresentationUpdated(
+            previousRenderer,
+            newRenderer,
+            previousArtHash,
+            newArtHash,
+            previousMediaHash,
+            newMediaHash
+        );
+        if (totalMinted != 0) emit BatchMetadataUpdate(1, totalMinted);
     }
 
     /// @inheritdoc IERC5192
@@ -244,7 +297,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     /// @inheritdoc IMembershipTier
     function isActiveToken(uint256 tokenId) external view override returns (bool) {
-        _requireOwned(tokenId);
+        _requireKnownToken(tokenId);
         return _isActiveToken(tokenId);
     }
 
@@ -255,7 +308,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         override
         returns (uint64 paidSeconds, uint64 grantSeconds, uint64 effectiveCheckpoint)
     {
-        _requireOwned(tokenId);
+        _requireKnownToken(tokenId);
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
         uint64 timestamp = _currentTimestamp();
         bool changed;
@@ -269,7 +322,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     /// @inheritdoc IMembershipTier
     function isOccupied(uint256 tokenId) external view override returns (bool) {
-        _requireOwned(tokenId);
+        _requireKnownToken(tokenId);
         return _membershipStates[tokenId].occupied;
     }
 
@@ -312,7 +365,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         override
         returns (MembershipTypes.ReferralStatus status, address referrer)
     {
-        _requireOwned(tokenId);
+        _requireKnownToken(tokenId);
         MembershipTypes.ReferralState storage state = _referralStates[tokenId];
         return (state.status, state.referrer);
     }
@@ -324,7 +377,8 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     /// @inheritdoc IMembershipTier
     function claimableReward(uint256 tokenId) public view override returns (uint256) {
-        _requireOwned(tokenId);
+        _requireKnownToken(tokenId);
+        if (!rewardEligible[tokenId]) return _rewardCredit[tokenId];
         uint256 indexDelta = rewardPerShare - _tokenRewardIndex[tokenId];
         uint256 wholeCredit = _rewardCredit[tokenId];
         if (indexDelta == 0) return wholeCredit;
@@ -354,8 +408,9 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     /// @inheritdoc IMembershipTier
     function claimReward(uint256 tokenId) external override nonReentrant returns (uint256 amount) {
-        address recipient = _requireOwned(tokenId);
-        if (recipient != msg.sender) revert TokenOwnerOnly();
+        _requireKnownToken(tokenId);
+        address recipient = msg.sender;
+        if (tokenOf[recipient] != tokenId) revert TokenOwnerOnly();
 
         _settleReward(tokenId);
         amount = _rewardCredit[tokenId];
@@ -441,21 +496,41 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         if (revokedSeconds == 0) revert NoGrantTime();
         state.grantSeconds = 0;
         _emitTimeUpdate(tokenId, state);
+        if (state.paidSeconds == 0) _deactivateRewardEligibility(tokenId);
     }
 
     /// @inheritdoc IMembershipTier
-    function synchronize(uint256 tokenId) external override returns (bool released) {
-        address recipient = _requireOwned(tokenId);
-        MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
-        if (_isActiveToken(tokenId) || !state.occupied) return false;
+    function synchronizeExpiredMemberships(uint256[] calldata tokenIds)
+        external
+        override
+        onlyOwner
+        returns (uint256 burnedCount)
+    {
+        uint256 length = tokenIds.length;
+        if (length == 0 || length > MAX_SYNC_BATCH_SIZE) {
+            revert InvalidSyncBatchSize(length, MAX_SYNC_BATCH_SIZE);
+        }
 
-        _checkpointTime(tokenId);
+        for (uint256 i; i < length; ++i) {
+            uint256 tokenId = tokenIds[i];
+            _requireKnownToken(tokenId);
 
-        state.occupied = false;
-        --occupiedSupply;
-        emit MembershipSynchronized(tokenId, recipient);
-        emit MetadataUpdate(tokenId);
-        return true;
+            address recipient = _ownerOf(tokenId);
+            if (recipient == address(0) || _isActiveToken(tokenId)) continue;
+
+            _checkpointTime(tokenId);
+            MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
+            uint256 suspendedShares = _deactivateRewardEligibility(tokenId);
+
+            if (state.occupied) {
+                state.occupied = false;
+                --occupiedSupply;
+            }
+
+            super._update(address(0), tokenId, address(0));
+            emit ExpiredMembershipSynchronized(tokenId, recipient, suspendedShares);
+            ++burnedCount;
+        }
     }
 
     /// @inheritdoc IMembershipTier
@@ -576,6 +651,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         state.paidSeconds = 0;
         state.grantSeconds = 0;
         _emitTimeUpdate(tokenId, state);
+        _deactivateRewardEligibility(tokenId);
 
         if (ownerTopUp != 0) _pullExact(tierOwner, ownerTopUp);
         if (grossRefund != 0) _pushExact(recipient, grossRefund);
@@ -619,10 +695,11 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         }
         uint256 creator = gross - protocolFee - reward - referral;
 
+        _activateRewardEligibility(tokenId);
         _settleReward(tokenId);
         sharesOf[tokenId] += gross;
-        totalShares += gross;
-        emit SharesIssued(tokenId, gross, sharesOf[tokenId], totalShares);
+        totalRewardShares += gross;
+        emit SharesIssued(tokenId, gross, sharesOf[tokenId], totalRewardShares);
 
         creatorProceeds += creator;
         if (referral != 0) {
@@ -642,15 +719,16 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         if (reward == 0) return;
 
         rewardReserve += reward;
-        uint256 indexIncrease = Math.mulDiv(reward, _REWARD_SCALE, totalShares);
+        uint256 indexIncrease = Math.mulDiv(reward, _REWARD_SCALE, totalRewardShares);
         rewardPerShare += indexIncrease;
 
-        uint256 directRemainder = mulmod(reward, _REWARD_SCALE, totalShares) / _REWARD_SCALE;
+        uint256 directRemainder = mulmod(reward, _REWARD_SCALE, totalRewardShares) / _REWARD_SCALE;
         if (directRemainder != 0) _rewardCredit[tokenId] += directRemainder;
         emit RewardPerShareUpdated(tokenId, reward, rewardPerShare, directRemainder);
     }
 
     function _settleReward(uint256 tokenId) internal {
+        if (!rewardEligible[tokenId]) return;
         uint256 currentIndex = rewardPerShare;
         uint256 indexDelta = currentIndex - _tokenRewardIndex[tokenId];
         if (indexDelta != 0) {
@@ -874,6 +952,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
             _mint(recipient, tokenId);
             emit Locked(tokenId);
+            _activateRewardEligibility(tokenId);
             return tokenId;
         }
 
@@ -887,6 +966,34 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
             state.occupied = true;
             ++occupiedSupply;
         }
+        if (_ownerOf(tokenId) == address(0)) {
+            _mint(recipient, tokenId);
+            emit Locked(tokenId);
+        }
+        _activateRewardEligibility(tokenId);
+    }
+
+    function _activateRewardEligibility(uint256 tokenId) internal {
+        if (rewardEligible[tokenId]) return;
+
+        _tokenRewardIndex[tokenId] = rewardPerShare;
+        rewardEligible[tokenId] = true;
+        uint256 eligibleShares = sharesOf[tokenId];
+        totalRewardShares += eligibleShares;
+        emit RewardEligibilityUpdated(tokenId, true, eligibleShares, totalRewardShares);
+    }
+
+    function _deactivateRewardEligibility(uint256 tokenId)
+        internal
+        returns (uint256 suspendedShares)
+    {
+        if (!rewardEligible[tokenId]) return 0;
+
+        _settleReward(tokenId);
+        rewardEligible[tokenId] = false;
+        suspendedShares = sharesOf[tokenId];
+        totalRewardShares -= suspendedShares;
+        emit RewardEligibilityUpdated(tokenId, false, suspendedShares, totalRewardShares);
     }
 
     function _emitTimeUpdate(uint256 tokenId, MembershipTypes.MembershipState storage state)
@@ -956,6 +1063,10 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     function _requireNotPaused() internal view {
         if (paused) revert TierPaused();
+    }
+
+    function _requireKnownToken(uint256 tokenId) internal view {
+        if (tokenId == 0 || tokenId > totalMinted) revert InvalidTokenId(tokenId);
     }
 
     function _currentTimestamp() internal view returns (uint64 timestamp) {

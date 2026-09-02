@@ -77,7 +77,7 @@ const media: TierMediaConfig = {
 const protocolDependencies: ProtocolDependencySnapshot = {
   chainId: 46630,
   factory,
-  paymentToken,
+  paymentTokens: [paymentToken],
   rendererSchema,
   renderer,
   rendererName: "Founding Six",
@@ -91,6 +91,7 @@ const config: TierPublicationConfig = {
   creator,
   tierSalt,
   renderer,
+  paymentToken,
   name: "Creator membership",
   symbol: "FANS",
   pricePerPeriod: 10_000_000n,

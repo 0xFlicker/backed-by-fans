@@ -31,7 +31,9 @@ contract ClaimsAndWithdrawalsTest is Test {
         tier = new MembershipTier(
             address(this),
             paymentToken,
-            MembershipTestConfig.defaultConfig(address(this), address(renderer))
+            MembershipTestConfig.defaultConfig(
+                address(this), address(renderer), address(paymentToken)
+            )
         );
         paymentToken.mint(member, 100_000_000);
         vm.prank(member);
@@ -109,6 +111,56 @@ contract ClaimsAndWithdrawalsTest is Test {
         assertEq(tier.claimReward(tokenId), 500_000);
         assertEq(paymentToken.balanceOf(address(tier)), 0);
     }
+
+    function test_twoTokenClaimsAndRefundsRemainIndependent() public {
+        MockUSDG secondToken = new MockUSDG();
+        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
+        MembershipTypes.TierConfig memory secondConfig = MembershipTestConfig.defaultConfig(
+            address(this), address(renderer), address(secondToken)
+        );
+        secondConfig.tierSalt = keccak256("second-claims-token");
+        MembershipTier secondTier = new MembershipTier(address(this), secondToken, secondConfig);
+        address secondMember = makeAddr("secondMember");
+        address secondReferrer = makeAddr("secondReferrer");
+        secondToken.mint(secondMember, secondConfig.pricePerPeriod);
+        vm.prank(secondMember);
+        secondToken.approve(address(secondTier), type(uint256).max);
+
+        vm.prank(member);
+        uint256 firstTokenId = tier.purchase(1, referrer);
+        vm.prank(secondMember);
+        uint256 secondTokenId = secondTier.purchase(1, secondReferrer);
+
+        uint256 secondBalanceBefore = secondToken.balanceOf(address(secondTier));
+        uint256 secondCreatorBefore = secondTier.creatorProceeds();
+        uint256 secondRewardBefore = secondTier.rewardReserve();
+        uint256 secondReferralBefore = secondTier.totalReferralLiability();
+
+        tier.withdrawCreatorProceeds();
+        vm.prank(referrer);
+        tier.claimReferral();
+        vm.prank(member);
+        tier.claimReward(firstTokenId);
+
+        assertEq(secondToken.balanceOf(address(secondTier)), secondBalanceBefore);
+        assertEq(secondTier.creatorProceeds(), secondCreatorBefore);
+        assertEq(secondTier.rewardReserve(), secondRewardBefore);
+        assertEq(secondTier.totalReferralLiability(), secondReferralBefore);
+
+        (uint256 refundAmount, uint256 ownerTopUp) = secondTier.previewRefund(secondTokenId);
+        secondToken.mint(address(this), ownerTopUp);
+        secondToken.approve(address(secondTier), ownerTopUp);
+        uint256 firstTokenBalanceBefore = paymentToken.balanceOf(address(tier));
+        secondTier.refund(secondTokenId, refundAmount, ownerTopUp);
+
+        assertEq(paymentToken.balanceOf(address(tier)), firstTokenBalanceBefore);
+        assertEq(tier.creatorProceeds(), 0);
+        assertEq(tier.rewardReserve(), 0);
+        assertEq(tier.totalReferralLiability(), 0);
+        assertEq(secondTier.creatorProceeds(), 0);
+        assertEq(secondTier.rewardReserve(), secondRewardBefore);
+        assertEq(secondTier.totalReferralLiability(), secondReferralBefore);
+    }
 }
 
 contract ReentrantRewardClaimant {
@@ -159,7 +211,9 @@ contract AdversarialPaymentsAndExitsTest is Test {
             feeVault,
             paymentToken,
             address(renderer),
-            MembershipTestConfig.defaultConfig(address(this), address(renderer))
+            MembershipTestConfig.defaultConfig(
+                address(this), address(renderer), address(paymentToken)
+            )
         );
         paymentToken.mint(member, 100_000_000);
         vm.prank(member);
@@ -227,7 +281,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         assertFalse(paymentToken.lastCallbackSucceeded());
         assertEq(tier.sharesOf(tokenId), 10_000_000);
         assertEq(tier.expiresAt(tokenId), block.timestamp + 30 days);
-        assertEq(tier.totalShares(), 10_000_000);
+        assertEq(tier.totalRewardShares(), 10_000_000);
     }
 
     function test_existingMemberTimeIsCheckpointedBeforeInboundTokenCallback() public {
@@ -360,7 +414,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         assertEq(tier.tokenOf(member), 0);
         assertEq(tier.totalMinted(), 0);
         assertEq(tier.occupiedSupply(), 0);
-        assertEq(tier.totalShares(), 0);
+        assertEq(tier.totalRewardShares(), 0);
         assertEq(tier.creatorProceeds(), 0);
         assertEq(tier.rewardReserve(), 0);
         assertEq(tier.totalReferralLiability(), 0);

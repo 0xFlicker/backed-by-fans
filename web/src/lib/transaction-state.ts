@@ -73,7 +73,10 @@ export function transactionReducer(
       return { phase: "simulation", message: "Checking the transaction." };
     case "SIMULATED":
       return event.approvalRequired
-        ? { phase: "approval", message: "USDG approval is required first." }
+        ? {
+            phase: "approval",
+            message: "Payment-token approval is required first.",
+          }
         : { phase: "signature", message: "Ready for your wallet signature." };
     case "APPROVED":
     case "SIGN":

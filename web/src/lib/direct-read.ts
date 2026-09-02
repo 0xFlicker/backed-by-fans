@@ -10,6 +10,7 @@ import { membershipTierAbi, membershipFactoryAbi } from "@/contracts";
 import type { CatalogPage, TierSnapshot, TierSummary } from "@/contracts/types";
 import { verifyTierAuthenticity } from "@/lib/authenticity";
 import type { ReadyDeployment } from "@/lib/config";
+import { readAcceptedPaymentTokens } from "@/lib/payment-token-read";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
 export const catalogPageLimit = 24;
@@ -28,6 +29,7 @@ const summaryFields = [
   "name",
   "symbol",
   "owner",
+  "paymentToken",
   "pricePerPeriod",
   "periodDuration",
   "paused",
@@ -100,9 +102,10 @@ function summaryFromResults(
     typeof results[0] !== "string" ||
     typeof results[1] !== "string" ||
     typeof results[2] !== "string" ||
-    typeof results[3] !== "bigint" ||
+    typeof results[3] !== "string" ||
     typeof results[4] !== "bigint" ||
-    typeof results[5] !== "boolean"
+    typeof results[5] !== "bigint" ||
+    typeof results[6] !== "boolean"
   ) {
     return undefined;
   }
@@ -111,9 +114,10 @@ function summaryFromResults(
     name: results[0],
     symbol: results[1],
     creator: getAddress(results[2]),
-    pricePerPeriod: results[3],
-    periodDuration: results[4],
-    paused: results[5],
+    paymentToken: getAddress(results[3]),
+    pricePerPeriod: results[4],
+    periodDuration: results[5],
+    paused: results[6],
   };
 }
 
@@ -332,6 +336,23 @@ export async function readTierSnapshotState(
       };
     }
 
+    const paymentTokens = await readAcceptedPaymentTokens(client, {
+      chainId: input.deployment.chainId,
+      factory: authenticity.protocolDependencies.factory,
+      blockNumber,
+    });
+    const paymentTokenState =
+      paymentTokens.status === "valid" || paymentTokens.status === "partial"
+        ? paymentTokens.data.find(
+            (token) =>
+              token.address.toLowerCase() ===
+              authenticity.paymentToken.toLowerCase(),
+          )
+        : undefined;
+    if (!paymentTokenState) {
+      throw new Error("The tier payment token metadata is unavailable.");
+    }
+
     const snapshot: TierSnapshot = {
       address: input.tier,
       name: values[0] as string,
@@ -350,7 +371,8 @@ export async function readTierSnapshotState(
       supplyCap: values[10] as bigint,
       occupiedSupply: values[11] as bigint,
       maxPrepaidPeriods: values[12] as bigint,
-      paymentToken: authenticity.protocolDependencies.paymentToken,
+      paymentToken: authenticity.paymentToken,
+      paymentTokenState,
       factory: authenticity.protocolDependencies.factory,
       renderer: authenticity.renderer,
       protocolDependencies: authenticity.protocolDependencies,

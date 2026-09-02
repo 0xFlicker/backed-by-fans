@@ -60,7 +60,7 @@ const media: TierMediaConfig = {
 const protocolDependencies: ProtocolDependencySnapshot = {
   chainId: 46630,
   factory,
-  paymentToken: token,
+  paymentTokens: [token],
   rendererSchema: `0x${"03".repeat(32)}`,
   renderer: canonicalRenderer,
   rendererName: "Founding Six",
@@ -74,7 +74,6 @@ const deployment: ReadyDeployment = {
   status: "ready",
   chainId: 46630,
   factoryAddress: factory,
-  usdgAddress: token,
   rendererAddress: canonicalRenderer,
   previewHarnessAddress: previewHarness,
 };
@@ -91,6 +90,7 @@ function authenticityClient(
     readContract: vi.fn(({ functionName }: { functionName: string }) => {
       const values: Record<string, unknown> = {
         isRegisteredTier: registered,
+        isPaymentTokenListed: true,
         factory,
         paymentToken: token,
         renderer,
@@ -115,6 +115,7 @@ function verifiedResult(
     capturedBlock: 9n,
     tier,
     tierIdentity,
+    paymentToken: token,
     renderer,
     art,
     media,
@@ -149,6 +150,17 @@ describe("tier authenticity and write guard", () => {
         authenticity: result,
       }),
     ).toMatchObject({ enabled: false });
+  });
+
+  it("rejects a tier whose immutable payment token is no longer factory-listed", async () => {
+    const result = await verifyTierAuthenticity(
+      authenticityClient(true, { isPaymentTokenListed: false }),
+      { deployment, tier },
+    );
+    expect(result).toMatchObject({
+      status: "interface-mismatch",
+      failedChecks: expect.arrayContaining(["tier payment token listing"]),
+    });
   });
 
   it("enables a write for a compatible direct renderer after all tier bindings verify", async () => {
@@ -264,6 +276,7 @@ describe("tier authenticity and write guard", () => {
         }
         const values: Record<string, unknown> = {
           isRegisteredTier: true,
+          isPaymentTokenListed: true,
           factory,
           paymentToken: token,
           renderer,
@@ -303,6 +316,7 @@ describe("tier authenticity and write guard", () => {
       ({ functionName }: { functionName: string }) => {
         const values: Record<string, unknown> = {
           isRegisteredTier: true,
+          isPaymentTokenListed: true,
           factory,
           paymentToken: token,
           renderer,

@@ -12,8 +12,12 @@ vi.mock("@/lib/authenticity", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/authenticity")>()),
   verifyTierAuthenticity: vi.fn(),
 }));
+vi.mock("@/features/protocol/protocol-read", () => ({
+  readProtocolDependencies: vi.fn(),
+}));
 
 import { discoverAccountPage } from "@/features/membership/account-discovery";
+import { readProtocolDependencies } from "@/features/protocol/protocol-read";
 import { verifyTierAuthenticity } from "@/lib/authenticity";
 import { readCatalogPage, verifyMulticall3 } from "@/lib/direct-read";
 
@@ -26,7 +30,7 @@ const renderer = getAddress("0x6666666666666666666666666666666666666666");
 const protocolDependencies = {
   chainId: 46630,
   factory,
-  paymentToken: token,
+  paymentTokens: [token],
   rendererSchema: `0x${"03".repeat(32)}`,
   renderer,
   rendererName: "Founding Six",
@@ -67,13 +71,17 @@ const deployment = {
   status: "ready" as const,
   chainId: 46630 as const,
   factoryAddress: factory,
-  usdgAddress: token,
   rendererAddress: renderer,
   previewHarnessAddress: protocolDependencies.previewHarness,
 };
 
 describe("bounded account discovery", () => {
   beforeEach(() => {
+    vi.mocked(readProtocolDependencies).mockResolvedValue({
+      status: "valid",
+      capturedBlock: 80n,
+      data: protocolDependencies,
+    });
     vi.mocked(readCatalogPage).mockResolvedValue({
       capturedBlock: 80n,
       total: 20n,
@@ -91,6 +99,7 @@ describe("bounded account discovery", () => {
               capturedBlock: 80n,
               tier: tierA,
               tierIdentity,
+              paymentToken: token,
               renderer,
               art,
               media,
@@ -214,6 +223,7 @@ describe("bounded account discovery", () => {
         tier: tierA,
         name: "Room",
         creatorOwned: false,
+        paymentToken: token,
         tokenId: 1n,
         active: true,
         claimableReward: 2n,
@@ -299,6 +309,7 @@ describe("bounded account discovery", () => {
         tier: tierA,
         name: "Creator room",
         creatorOwned: true,
+        paymentToken: token,
         tokenId: 0n,
         active: false,
         claimableReward: 0n,

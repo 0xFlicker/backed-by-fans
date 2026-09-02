@@ -11,6 +11,7 @@ import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {RealImageFixtures} from "../helpers/RealImageFixtures.sol";
+import {MockScaledToken} from "../mocks/MockScaledToken.sol";
 import {MockUSDG} from "../mocks/MockUSDG.sol";
 
 /// @notice Local-only lifecycle evidence. This is neither a public-testnet pilot nor an audit.
@@ -18,6 +19,7 @@ contract LocalLifecycleEvidenceTest is Test {
     uint64 private constant _START = 1_000_000;
 
     MockUSDG private paymentToken;
+    MockScaledToken private scaledPaymentToken;
     MembershipFactory private factory;
     MembershipTier private tier;
 
@@ -46,14 +48,18 @@ contract LocalLifecycleEvidenceTest is Test {
         nextProtocolOwner = makeAddr("nextProtocolOwner");
 
         paymentToken = new MockUSDG();
+        scaledPaymentToken = new MockScaledToken("AMD", "AMD");
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
+        IERC20[] memory paymentTokens = new IERC20[](2);
+        paymentTokens[0] = paymentToken;
+        paymentTokens[1] = scaledPaymentToken;
         factory = new MembershipFactory(
-            IERC20(address(paymentToken)), address(mediaStoreFactory), address(this), feeRecipient
+            paymentTokens, address(mediaStoreFactory), address(this), feeRecipient
         );
 
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken));
         bytes memory nativeJPEG = RealImageFixtures.jpeg(0x42);
         vm.prank(creator);
         address mediaStore = mediaStoreFactory.store(nativeJPEG, MembershipTypes.MediaMIME.JPEG);
@@ -70,6 +76,14 @@ contract LocalLifecycleEvidenceTest is Test {
 
         _fundAndApprove(member, 100_000_000);
         _fundAndApprove(giftPayer, 100_000_000);
+    }
+
+    function test_localFixtureExposesUnscaledAndScaledPaymentTokens() public view {
+        address[] memory tokens = factory.paymentTokens(0, 2);
+        assertEq(tokens.length, 2);
+        assertEq(tokens[0], address(paymentToken));
+        assertEq(tokens[1], address(scaledPaymentToken));
+        assertEq(scaledPaymentToken.uiMultiplier(), 1e18);
     }
 
     function test_localCreatorToSupporterLifecycleConservesEveryCustodyBucket() public {
@@ -120,7 +134,7 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(tier.revokeGrantTime(grantToken), 30 days);
         assertFalse(tier.isActive(grantRecipient));
         assertTrue(tier.isOccupied(grantToken));
-        assertTrue(tier.synchronize(grantToken));
+        assertEq(_syncAs(tier, grantToken, creator), 1);
         assertFalse(tier.isOccupied(grantToken));
         _assertTierCustody(0);
 
@@ -143,16 +157,16 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(tier.ownerOf(memberToken), member);
         assertEq(tier.balanceOf(member), 1);
         assertTrue(tier.isOccupied(memberToken));
-        assertTrue(tier.synchronize(memberToken));
+        assertEq(_syncAs(tier, memberToken, nextCreator), 1);
         _assertTierCustody(0);
 
         vm.warp(_START + 31 days);
-        string memory afterglowTokenURI = tier.tokenURI(memberToken);
-        assertNotEq(keccak256(bytes(activeTokenURI)), keccak256(bytes(afterglowTokenURI)));
+        vm.expectRevert();
+        tier.tokenURI(memberToken);
         assertFalse(tier.isActive(giftRecipient));
         assertEq(tier.activeBalanceOf(giftRecipient), 0);
         assertTrue(tier.isOccupied(giftToken));
-        assertTrue(tier.synchronize(giftToken));
+        assertEq(_syncAs(tier, giftToken, nextCreator), 1);
         assertEq(tier.occupiedSupply(), 0);
 
         assertEq(tier.claimableReward(memberToken), 1_083_333);
@@ -173,7 +187,7 @@ contract LocalLifecycleEvidenceTest is Test {
         vm.prank(nextProtocolOwner);
         factory.setFeeRecipient(nextFeeRecipient);
         vm.prank(nextFeeRecipient);
-        assertEq(factory.withdrawProtocolFees(), 300_000);
+        assertEq(factory.withdrawProtocolFees(paymentToken), 300_000);
 
         assertEq(factory.owner(), nextProtocolOwner);
         assertEq(factory.pendingOwner(), address(0));
@@ -203,5 +217,15 @@ contract LocalLifecycleEvidenceTest is Test {
         uint256 liabilities =
             tier.creatorProceeds() + tier.rewardReserve() + tier.totalReferralLiability();
         assertEq(paymentToken.balanceOf(address(tier)), liabilities + expectedSurplus);
+    }
+
+    function _syncAs(MembershipTier target, uint256 tokenId, address tierOwner)
+        private
+        returns (uint256 burnedCount)
+    {
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        vm.prank(tierOwner);
+        burnedCount = target.synchronizeExpiredMemberships(tokenIds);
     }
 }

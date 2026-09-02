@@ -1,11 +1,12 @@
 import {
+  erc20Abi,
   multicall3Abi,
   zeroAddress,
   type Address,
   type PublicClient,
 } from "viem";
 
-import { membershipTierAbi, usdgAbi } from "@/contracts";
+import { membershipTierAbi } from "@/contracts";
 import type {
   ReferralStatus,
   SupporterCredential,
@@ -48,6 +49,41 @@ async function readMulticallValues(
   );
 }
 
+async function readCredentialMulticallValues(
+  client: PublicClient,
+  contracts: Record<string, unknown>[],
+  blockNumber: bigint,
+) {
+  const results = (await client.multicall({
+    contracts: contracts as never,
+    allowFailure: true,
+    blockNumber,
+    multicallAddress: multicall3Address,
+  })) as MulticallResult[];
+  if (results.length !== contracts.length) {
+    throw new Error("The batched membership detail read was incomplete.");
+  }
+  for (let index = 0; index < 8; index += 1) {
+    if (results[index]?.status !== "success") {
+      throw new Error("A permanent membership record read failed.");
+    }
+  }
+  const minted =
+    results[0]?.status === "success" && (results[0].result as bigint) !== 0n;
+  if (minted && results[8]?.status !== "success") {
+    throw new Error("The live membership refund read failed.");
+  }
+  if (contracts.length > 9 && results[9]?.status !== "success") {
+    throw new Error("The creator proceeds read failed.");
+  }
+
+  const values = results.map((result) =>
+    result.status === "success" ? result.result : undefined,
+  );
+  if (!minted) values[8] = [0n, 0n];
+  return values;
+}
+
 export type GiftRecipientState = {
   tokenId: bigint;
   expiration: bigint;
@@ -80,14 +116,7 @@ export async function readGiftRecipientState(
       referrer: zeroAddress,
     };
   }
-  const [expiration, active, occupied, time, referral] = await Promise.all([
-    client.readContract({
-      address: input.tier,
-      abi: membershipTierAbi,
-      functionName: "expiresAt",
-      args: [tokenId],
-      blockNumber: input.blockNumber,
-    }),
+  const [active, occupied, time, referral] = await Promise.all([
     client.readContract({
       address: input.tier,
       abi: membershipTierAbi,
@@ -119,7 +148,7 @@ export async function readGiftRecipientState(
   ]);
   return {
     tokenId,
-    expiration,
+    expiration: time[2] + time[0] + time[1],
     active,
     occupied,
     paidSeconds: time[0],
@@ -132,37 +161,127 @@ async function readCredential(
   client: PublicClient,
   tier: Address,
   tokenId: bigint,
+  wallet: Address,
   blockNumber: bigint,
 ): Promise<SupporterCredential> {
-  const values = await Promise.all(
-    credentialContracts(tier, tokenId).map((contract) =>
-      client.readContract({ ...contract, blockNumber } as never),
-    ),
-  );
-  return credentialFromValues(tokenId, values);
-}
-
-function credentialFromValues(tokenId: bigint, values: unknown[]) {
   const [
-    owner,
+    balance,
     active,
     occupied,
-    expiration,
     time,
     referral,
     shares,
     reward,
+    rewardEligible,
+  ] = await Promise.all([
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "balanceOf",
+      args: [wallet],
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "isActiveToken",
+      args: [tokenId],
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "isOccupied",
+      args: [tokenId],
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "timeBalances",
+      args: [tokenId],
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "referralOf",
+      args: [tokenId],
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "sharesOf",
+      args: [tokenId],
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "claimableReward",
+      args: [tokenId],
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "rewardEligible",
+      args: [tokenId],
+      blockNumber,
+    }),
+  ]);
+  const refund =
+    balance !== 0n
+      ? await client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "previewRefund",
+          args: [tokenId],
+          blockNumber,
+        })
+      : ([0n, 0n] as const);
+  return credentialFromValues(tokenId, wallet, [
+    balance,
+    active,
+    occupied,
+    time,
+    referral,
+    shares,
+    reward,
+    rewardEligible,
+    refund,
+  ]);
+}
+
+function credentialFromValues(
+  tokenId: bigint,
+  wallet: Address,
+  values: unknown[],
+) {
+  const [
+    balance,
+    active,
+    occupied,
+    time,
+    referral,
+    shares,
+    reward,
+    rewardEligible,
     refund,
   ] = values;
+  const timeValues = time as readonly bigint[];
   return {
     tokenId,
-    owner: owner as Address,
+    owner: wallet,
+    minted: (balance as bigint) !== 0n,
     active: active as boolean,
     occupied: occupied as boolean,
-    expiration: expiration as bigint,
-    paidSeconds: (time as readonly bigint[])[0],
-    grantSeconds: (time as readonly bigint[])[1],
+    expiration: timeValues[2] + timeValues[0] + timeValues[1],
+    paidSeconds: timeValues[0],
+    grantSeconds: timeValues[1],
     shares: shares as bigint,
+    rewardEligible: rewardEligible as boolean,
     claimableReward: reward as bigint,
     refundableGross: (refund as readonly bigint[])[0],
     referralStatus: referralStatus((referral as readonly [number, Address])[0]),
@@ -173,13 +292,14 @@ function credentialFromValues(tokenId: bigint, values: unknown[]) {
 function credentialContracts(
   tier: Address,
   tokenId: bigint,
+  wallet: Address,
 ): Record<string, unknown>[] {
   return [
     {
       address: tier,
       abi: membershipTierAbi,
-      functionName: "ownerOf",
-      args: [tokenId],
+      functionName: "balanceOf",
+      args: [wallet],
     },
     {
       address: tier,
@@ -191,12 +311,6 @@ function credentialContracts(
       address: tier,
       abi: membershipTierAbi,
       functionName: "isOccupied",
-      args: [tokenId],
-    },
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "expiresAt",
       args: [tokenId],
     },
     {
@@ -221,6 +335,12 @@ function credentialContracts(
       address: tier,
       abi: membershipTierAbi,
       functionName: "claimableReward",
+      args: [tokenId],
+    },
+    {
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "rewardEligible",
       args: [tokenId],
     },
     {
@@ -257,7 +377,7 @@ export async function readTierSupporterState(
     const wallet = input.wallet;
     const multicallStatus = await verifyMulticall3(client, blockNumber);
     let tokenId: bigint;
-    let usdgBalance: bigint;
+    let paymentTokenBalance: bigint;
     let ethBalance: bigint;
     let allowance: bigint;
     let referralClaim: bigint;
@@ -275,8 +395,8 @@ export async function readTierSupporterState(
             args: [wallet],
           },
           {
-            address: input.deployment.usdgAddress,
-            abi: usdgAbi,
+            address: tier.data.paymentToken,
+            abi: erc20Abi,
             functionName: "balanceOf",
             args: [wallet],
           },
@@ -287,8 +407,8 @@ export async function readTierSupporterState(
             args: [wallet],
           },
           {
-            address: input.deployment.usdgAddress,
-            abi: usdgAbi,
+            address: tier.data.paymentToken,
+            abi: erc20Abi,
             functionName: "allowance",
             args: [wallet, input.tier],
           },
@@ -301,16 +421,11 @@ export async function readTierSupporterState(
         ],
         blockNumber,
       );
-      [tokenId, usdgBalance, ethBalance, allowance, referralClaim] = values as [
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-        bigint,
-      ];
+      [tokenId, paymentTokenBalance, ethBalance, allowance, referralClaim] =
+        values as [bigint, bigint, bigint, bigint, bigint];
 
       const detailContracts =
-        tokenId === 0n ? [] : credentialContracts(input.tier, tokenId);
+        tokenId === 0n ? [] : credentialContracts(input.tier, tokenId, wallet);
       const creatorIndex = detailContracts.length;
       if (isSameAddress(wallet, tier.data.creator)) {
         detailContracts.push({
@@ -320,21 +435,24 @@ export async function readTierSupporterState(
         });
       }
       if (detailContracts.length > 0) {
-        const detailValues = await readMulticallValues(
-          client,
-          detailContracts,
-          blockNumber,
-        );
-        credential =
+        const detailValues =
           tokenId === 0n
-            ? undefined
-            : credentialFromValues(tokenId, detailValues.slice(0, 9));
+            ? await readMulticallValues(client, detailContracts, blockNumber)
+            : await readCredentialMulticallValues(
+                client,
+                detailContracts,
+                blockNumber,
+              );
+        if (tokenId !== 0n) {
+          const credentialValues = detailValues.slice(0, 9);
+          credential = credentialFromValues(tokenId, wallet, credentialValues);
+        }
         creatorProceeds = isSameAddress(wallet, tier.data.creator)
           ? (detailValues[creatorIndex] as bigint)
           : undefined;
       }
     } else {
-      [tokenId, usdgBalance, ethBalance, allowance, referralClaim] =
+      [tokenId, paymentTokenBalance, ethBalance, allowance, referralClaim] =
         await Promise.all([
           client.readContract({
             address: input.tier,
@@ -344,16 +462,16 @@ export async function readTierSupporterState(
             blockNumber,
           }),
           client.readContract({
-            address: input.deployment.usdgAddress,
-            abi: usdgAbi,
+            address: tier.data.paymentToken,
+            abi: erc20Abi,
             functionName: "balanceOf",
             args: [wallet],
             blockNumber,
           }),
           client.getBalance({ address: wallet, blockNumber }),
           client.readContract({
-            address: input.deployment.usdgAddress,
-            abi: usdgAbi,
+            address: tier.data.paymentToken,
+            abi: erc20Abi,
             functionName: "allowance",
             args: [wallet, input.tier],
             blockNumber,
@@ -369,7 +487,7 @@ export async function readTierSupporterState(
       [credential, creatorProceeds] = await Promise.all([
         tokenId === 0n
           ? undefined
-          : readCredential(client, input.tier, tokenId, blockNumber),
+          : readCredential(client, input.tier, tokenId, wallet, blockNumber),
         isSameAddress(wallet, tier.data.creator)
           ? client.readContract({
               address: input.tier,
@@ -388,7 +506,7 @@ export async function readTierSupporterState(
         ...tier.data,
         capturedTimestamp: block.timestamp,
         wallet,
-        walletUsdgBalance: usdgBalance,
+        walletPaymentTokenBalance: paymentTokenBalance,
         walletEthBalance: ethBalance,
         allowance,
         claimableReferral: referralClaim,

@@ -1212,6 +1212,64 @@ dd {
   font-weight: 680;
 }
 
+.payment-token-picker {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+.payment-token-options {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.payment-token-option {
+  align-items: center;
+  background: var(--house-light);
+  border: 1.5px solid var(--backstage);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 5.5rem;
+  padding: 0.9rem;
+}
+
+.payment-token-option[data-selected="true"] {
+  box-shadow: inset 0 -5px 0 var(--acid);
+}
+
+.payment-token-option > span:not(.payment-token-balance) {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.payment-token-option small,
+.payment-token-balance {
+  color: var(--muted-ink);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.payment-token-balance {
+  grid-column: 2;
+}
+
+.payment-token-notice {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-top: 0.85rem;
+}
+
+.payment-token-notice p {
+  margin: 0;
+}
+
 .split-preview {
   background: var(--backstage);
   border-radius: var(--radius-large);
@@ -1527,6 +1585,64 @@ dd {
 .manage-page,
 .protocol-page {
   max-width: 86rem;
+}
+
+.artwork-studio-page {
+  max-width: 100rem;
+}
+
+.artwork-management-studio {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.artwork-management-header {
+  align-items: end;
+  display: flex;
+  gap: 2rem;
+  justify-content: space-between;
+}
+
+.artwork-management-header h1 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  font-weight: 400;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  margin: 0.35rem 0 1rem;
+}
+
+.artwork-management-header p:not(.eyebrow) {
+  color: var(--muted);
+  max-width: 50rem;
+}
+
+.studio-commit-actions,
+.renderer-management-summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.studio-commit-actions {
+  justify-content: end;
+}
+
+.renderer-management-summary {
+  margin-top: 1rem;
+}
+
+.renderer-management-summary span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.renderer-management-summary code {
+  overflow-wrap: anywhere;
 }
 
 .management-heading {
@@ -2249,6 +2365,15 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .artwork-management-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .studio-commit-actions {
+    justify-content: start;
+  }
+
   .membership-artwork-copy {
     max-width: 42rem;
   }
@@ -2392,6 +2517,8 @@ dd {
 
   .creator-steps ol,
   .creator-field-grid,
+  .payment-token-options,
+  .renderer-management-options,
   .split-preview,
   .terms-review,
   .operator-strip,

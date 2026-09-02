@@ -95,9 +95,6 @@ test("@anvil rediscovers and revalidates the connected creator's permanent media
   await page.getByRole("button", { name: /^art studio$/i }).click();
   await expectOriginalRenderer(page);
   await page.getByText("Add an image", { exact: true }).click();
-  const nativeMode = page.getByRole("radio", { name: /Add your image/i });
-  await expect(nativeMode).toBeEnabled();
-  await nativeMode.check();
 
   await expect(
     page.getByRole("heading", {
@@ -155,11 +152,12 @@ test("@anvil deliberately continues in memory when creative autosave is inaccess
   await expectOriginalRenderer(page);
   await page.getByText("Add an image", { exact: true }).click();
   await expect(
-    page.getByRole("radio", { name: /Generated artwork/i }),
-  ).toBeEnabled();
+    page.getByRole("button", { name: "Using generated artwork" }),
+  ).toBeDisabled();
+  await expect(page.getByLabel("Add new image")).toBeEnabled();
 });
 
-test("@anvil cancels stale local image work when the creator changes media mode", async ({
+test("@anvil uploads an image without a media-mode gate and can return to generated artwork", async ({
   page,
 }, testInfo) => {
   test.setTimeout(60_000);
@@ -171,37 +169,23 @@ test("@anvil cancels stale local image work when the creator changes media mode"
   const creator = requiredAnvilAddress("creator");
 
   await installAnvilWallet(page, creator);
-  await page.addInitScript(() => {
-    const decode = window.createImageBitmap.bind(window);
-    Object.defineProperty(window, "createImageBitmap", {
-      configurable: true,
-      value: async (source: ImageBitmapSource) => {
-        await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000));
-        return decode(source);
-      },
-    });
-  });
   await page.goto("/create");
   await connectAnvilWallet(page, creator);
   await page.getByRole("button", { name: /^art studio$/i }).click();
   await expectOriginalRenderer(page);
 
   await page.getByText("Add an image", { exact: true }).click();
-  await page.getByRole("radio", { name: /Add your image/i }).check();
   await page
     .getByLabel("Add new image")
     .setInputFiles(
       resolve(process.cwd(), "public/brand/backstage-membership-hero-v1.png"),
     );
-  await expect(page.getByText(/Preparing image/i)).toBeVisible();
-
-  await page.getByRole("radio", { name: /Generated artwork/i }).check();
-  await page.getByRole("radio", { name: /Add your image/i }).check();
-
-  await expect(page.getByLabel("Add new image")).toBeEnabled();
-  await expect(page.getByText(/Preparing image/i)).toHaveCount(0);
-  await page.waitForTimeout(1_100);
+  await expect(page.getByAltText("New image")).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Use generated artwork" }).click();
   await expect(page.getByAltText("New image")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Using generated artwork" }),
+  ).toBeDisabled();
   await expect(page.getByLabel("Add new image")).toBeEnabled();
 });
 
@@ -309,9 +293,7 @@ test("expands Art Studio controls on desktop and collapses them on mobile", asyn
     await expect(
       page.getByRole("checkbox", { name: "Show tier text" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("radio", { name: /Add your image/i }),
-    ).toBeVisible();
+    await expect(page.getByLabel("Add new image")).toBeVisible();
   } else {
     expect(geometry.artwork.open).toBe(false);
     expect(geometry.image.open).toBe(false);
@@ -321,9 +303,7 @@ test("expands Art Studio controls on desktop and collapses them on mobile", asyn
     await expect(
       page.getByRole("checkbox", { name: "Show tier text" }),
     ).toBeHidden();
-    await expect(
-      page.getByRole("radio", { name: /Add your image/i }),
-    ).toBeHidden();
+    await expect(page.getByLabel("Add new image")).toBeHidden();
     await page.getByText("Customize artwork", { exact: true }).click();
   }
 
@@ -352,14 +332,14 @@ test("walks through defaults, arbitrary splits, risks, and immutable review", as
   await page.getByLabel("Symbol").fill("FANS");
 
   await page.getByRole("button", { name: /^price & period$/i }).click();
-  await expect(page.getByLabel("Price per period (USDG)")).toHaveValue("10");
+  await expect(
+    page.getByRole("textbox", { name: /^Price per period/ }),
+  ).toHaveValue("10");
   await expect(page.getByLabel("Days per period")).toHaveValue("30");
 
   await page.getByRole("button", { name: /^support split$/i }).click();
   await page.getByLabel("Membership rewards (%)").fill("33.33");
   await page.getByLabel("Referral share (%)").fill("65.67");
-  await expect(page.getByText(/creator with referral/i)).toBeVisible();
-  await expect(page.getByText("0 USDG", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: /^risks$/i }).click();
   await expect(

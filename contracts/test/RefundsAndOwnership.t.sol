@@ -38,7 +38,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         paymentToken = new MockUSDG();
         renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken));
         tier = new MembershipTier(makeAddr("factory"), paymentToken, config);
         _fundAndApprove(member, 100_000_000);
         _fundAndApprove(payer, 100_000_000);
@@ -185,13 +185,15 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         assertEq(tier.ownerOf(tokenId), member);
         assertEq(tier.sharesOf(tokenId), shares);
         assertEq(tier.claimableReward(tokenId), 500_000);
+        assertFalse(tier.rewardEligible(tokenId));
+        assertEq(tier.totalRewardShares(), 0);
         (MembershipTypes.ReferralStatus status, address lockedReferrer) = tier.referralOf(tokenId);
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.LockedAddress));
         assertEq(lockedReferrer, referrer);
         assertTrue(tier.isOccupied(tokenId));
 
-        vm.prank(payer);
-        assertTrue(tier.synchronize(tokenId));
+        vm.prank(creator);
+        assertEq(_sync(tokenId), 1);
         assertFalse(tier.isOccupied(tokenId));
     }
 
@@ -323,6 +325,12 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         paymentToken.mint(account, amount);
         vm.prank(account);
         paymentToken.approve(address(tier), type(uint256).max);
+    }
+
+    function _sync(uint256 tokenId) private returns (uint256 burnedCount) {
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        burnedCount = tier.synchronizeExpiredMemberships(tokenIds);
     }
 }
 
@@ -486,7 +494,7 @@ contract ZeroPriceRefundsTest is Test {
 
     function _deployZeroTier() private returns (MembershipTier zeroTier) {
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(creator, address(renderer));
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken));
         config.pricePerPeriod = 0;
         config.maxPrepaidPeriods = 0;
         zeroTier = new MembershipTier(makeAddr("zeroFactory"), paymentToken, config);
@@ -542,7 +550,7 @@ contract AdversarialRefundsTest is Test {
         tier = new MembershipTier(
             makeAddr("adversarialFactory"),
             paymentToken,
-            MembershipTestConfig.defaultConfig(creator, address(renderer))
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken))
         );
         paymentToken.mint(member, 100_000_000);
         paymentToken.mint(creator, 100_000_000);

@@ -17,6 +17,7 @@ member="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 gift_recipient="0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
 new_owner="0x90F79bf6EB2c4f870365E785982E1f101E93b906"
 render_probe="0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+fresh_wallet="0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
 temp_dir="$(mktemp -d)"
 anvil_pid=""
 web_pid=""
@@ -143,6 +144,15 @@ usdg="$({
     --broadcast \
     --json
 } | jq -er '.deployedTo')"
+scaled_payment_token="$({
+  forge create test/mocks/MockScaledToken.sol:MockScaledToken \
+    --rpc-url "$rpc_url" \
+    --unlocked \
+    --from "$creator" \
+    --broadcast \
+    --json \
+    --constructor-args "Local AMD Stock Token" "AMD"
+} | jq -er '.deployedTo')"
 
 # Foundry 1.7.1's `forge script` executor models Ethereum's 49,152-byte
 # EIP-3860 initcode limit. Robinhood and this Anvil configuration permit the
@@ -157,6 +167,14 @@ media_store_factory="$({
     --json
 } | jq -er '.deployedTo')"
 renderer="$({
+  forge create src/OnchainMetadataRenderer.sol:OnchainMetadataRenderer \
+    --rpc-url "$rpc_url" \
+    --unlocked \
+    --from "$creator" \
+    --broadcast \
+    --json
+} | jq -er '.deployedTo')"
+replacement_renderer="$({
   forge create src/OnchainMetadataRenderer.sol:OnchainMetadataRenderer \
     --rpc-url "$rpc_url" \
     --unlocked \
@@ -184,16 +202,26 @@ factory="$({
   forge create src/MembershipFactory.sol:MembershipFactory \
     --rpc-url "$rpc_url" \
     --unlocked \
-    --from "$creator" \
-    --broadcast \
-    --json \
-    --constructor-args "$usdg" "$media_store_factory" "$creator" "$creator"
+  --from "$creator" \
+  --broadcast \
+  --json \
+    --constructor-args "[$usdg,$scaled_payment_token]" "$media_store_factory" "$creator" "$creator"
 } | jq -er '.deployedTo')"
 
 require_equal \
-  "$(cast call "$factory" 'paymentToken()(address)' --rpc-url "$rpc_url")" \
+  "$(cast call "$factory" 'paymentTokenCount()(uint256)' --rpc-url "$rpc_url")" \
+  "2" \
+  "Factory payment-token count"
+require_equal \
+  "$(cast call "$factory" 'paymentTokens(uint256,uint256)(address[])' 0 2 \
+    --rpc-url "$rpc_url" --json | jq -er '.[0][0]')" \
   "$usdg" \
-  "Factory payment token"
+  "Factory first payment token"
+require_equal \
+  "$(cast call "$factory" 'paymentTokens(uint256,uint256)(address[])' 0 2 \
+    --rpc-url "$rpc_url" --json | jq -er '.[0][1]')" \
+  "$scaled_payment_token" \
+  "Factory second payment token"
 require_equal \
   "$(cast call "$factory" 'mediaStoreFactory()(address)' --rpc-url "$rpc_url")" \
   "$media_store_factory" \
@@ -233,9 +261,9 @@ tier_salt="0x8b390fcf87bf5ea112fd26e41d77d06f13744880fda7e48fc25bda05af0a56a6"
 tier_metadata="(\"An Anvil-backed creator membership.\",\"\")"
 art_config="(0,0x0123456789abcdef0123456789abcdef,0,64,56,2,52,0,1,0,50,50,36,55,52,48,44)"
 media_config="(1,$media_store,$media_length,$media_digest,$media_runtime_codehash)"
-tier_config="($creator,$tier_salt,$renderer,\"Local Creator Circle\",\"LOCAL\",10000000,2592000,500,100,0,12,$tier_metadata,$art_config,$media_config)"
+tier_config="($creator,$tier_salt,$renderer,$usdg,\"Local Creator Circle\",\"LOCAL\",10000000,2592000,500,100,0,12,$tier_metadata,$art_config,$media_config)"
 cast send "$factory" \
-  'createTier((address,bytes32,address,string,string,uint256,uint64,uint16,uint16,uint64,uint64,(string,string),(uint16,uint128,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8),(uint8,address,uint32,bytes32,bytes32)))' \
+  'createTier((address,bytes32,address,address,string,string,uint256,uint64,uint16,uint16,uint64,uint64,(string,string),(uint16,uint128,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8,uint8),(uint8,address,uint32,bytes32,bytes32)))' \
   "$tier_config" \
   --rpc-url "$rpc_url" \
   --unlocked \
@@ -281,6 +309,14 @@ cast send "$usdg" 'mint(address,uint256)' "$render_probe" 1000000000 \
   --rpc-url "$rpc_url" \
   --unlocked \
   --from "$creator" >/dev/null
+cast send "$scaled_payment_token" 'mint(address,uint256)' "$creator" 1000000000000000000 \
+  --rpc-url "$rpc_url" \
+  --unlocked \
+  --from "$creator" >/dev/null
+cast send "$scaled_payment_token" 'mint(address,uint256)' "$member" 1000000000000000000 \
+  --rpc-url "$rpc_url" \
+  --unlocked \
+  --from "$creator" >/dev/null
 
 render_snapshot="$(cast rpc --rpc-url "$rpc_url" evm_snapshot | jq -er '.')"
 cast send "$usdg" 'approve(address,uint256)' "$tier" 10000000 \
@@ -311,7 +347,6 @@ echo "Media-backed active/afterglow tokenURI responses verified (${#active_token
 
 export NEXT_PUBLIC_ANVIL_RPC_URL="$rpc_url"
 export NEXT_PUBLIC_ANVIL_FACTORY_ADDRESS="$factory"
-export NEXT_PUBLIC_ANVIL_USDG_ADDRESS="$usdg"
 export NEXT_PUBLIC_ANVIL_RENDERER_ADDRESS="$renderer"
 export NEXT_PUBLIC_ANVIL_PREVIEW_HARNESS_ADDRESS="$preview_harness"
 export NEXT_PUBLIC_ANVIL_RENDERER_REGISTRY_ADDRESS="$renderer_registry"
@@ -319,10 +354,46 @@ export NEXT_PUBLIC_SITE_URL="$web_url"
 export BBF_ANVIL_RPC_URL="$rpc_url"
 export BBF_ANVIL_CREATOR_ADDRESS="$creator"
 export BBF_ANVIL_TIER_ADDRESS="$tier"
+export BBF_ANVIL_PAYMENT_TOKEN_ADDRESS="$usdg"
+export BBF_ANVIL_SCALED_PAYMENT_TOKEN_ADDRESS="$scaled_payment_token"
+export BBF_ANVIL_REPLACEMENT_RENDERER_ADDRESS="$replacement_renderer"
 export BBF_ANVIL_MEMBER_ADDRESS="$member"
 export BBF_ANVIL_GIFT_RECIPIENT_ADDRESS="$gift_recipient"
 export BBF_ANVIL_NEW_OWNER_ADDRESS="$new_owner"
+export BBF_ANVIL_FRESH_WALLET_ADDRESS="$fresh_wallet"
 export BBF_ANVIL_MEDIA_STORE_ADDRESS="$media_store"
+
+(
+  cd "$web_dir"
+  bun -e '
+    import { createPublicClient, http } from "viem";
+    import { localAnvil } from "./src/lib/chains";
+    import { getDeployment, publicConfig } from "./src/lib/config";
+    import { verifyTierAuthenticity } from "./src/lib/authenticity";
+    import { readTierSnapshotState } from "./src/lib/direct-read";
+    import { readProtocolDependencies } from "./src/features/protocol/protocol-read";
+    import { readAcceptedPaymentTokens } from "./src/lib/payment-token-read";
+    const [rpcUrl, tier] = Bun.argv.slice(1);
+    const deployment = getDeployment(publicConfig, 31337);
+    if (deployment.status !== "ready") throw new Error(deployment.detail);
+    const client = createPublicClient({ chain: localAnvil, transport: http(rpcUrl) });
+    const protocol = await readProtocolDependencies(client, deployment);
+    const authenticity = await verifyTierAuthenticity(client, { tier, deployment });
+    const tokens = await readAcceptedPaymentTokens(client, {
+      chainId: 31337,
+      factory: deployment.factoryAddress,
+    });
+    const state = await readTierSnapshotState(client, { tier, deployment });
+    if (state.status !== "valid") {
+      throw new Error(
+        `Local tier direct-read preflight failed: ${JSON.stringify(
+          { protocol, authenticity, tokens, state },
+          (_key, value) => typeof value === "bigint" ? value.toString() : value,
+        )}`,
+      );
+    }
+  ' "$rpc_url" "$tier"
+)
 
 capture_public_generation_state >"$public_generation_after"
 if ! diff -u "$public_generation_before" "$public_generation_after"; then
@@ -368,6 +439,9 @@ if ! PLAYWRIGHT_BASE_URL="$web_url" bunx playwright test \
   tests/e2e/rpc-recovery.spec.ts \
   tests/e2e/custom-renderer-address.spec.ts \
   tests/e2e/renderer-sharing.spec.ts \
+  tests/e2e/fresh-wallet-beta.spec.ts \
+  tests/e2e/payment-token-selection.spec.ts \
+  tests/e2e/renderer-update.spec.ts \
   --grep '@anvil' \
   --workers=1; then
   token_id="$(cast call "$tier" 'tokenOf(address)(uint256)' "$member" --rpc-url "$rpc_url")"

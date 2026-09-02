@@ -17,6 +17,7 @@ interface IMembershipFactory {
     );
     event TierTermsConfigured(
         address indexed tier,
+        address indexed paymentToken,
         uint256 pricePerPeriod,
         uint64 periodDuration,
         uint16 rewardBps,
@@ -34,10 +35,11 @@ interface IMembershipFactory {
         bytes32 mediaDigest
     );
     event TierRendererConfigured(address indexed tier, address indexed renderer);
+    event PaymentTokenListed(address indexed token, uint256 indexed tokenIndex);
+    event PaymentTokenEnabled(address indexed token);
+    event PaymentTokenDisabled(address indexed token);
     event FeeRecipientUpdated(address indexed previousRecipient, address indexed newRecipient);
-    event ProtocolFeesWithdrawn(address indexed recipient, uint256 amount);
-
-    function paymentToken() external view returns (IERC20);
+    event ProtocolFeesWithdrawn(address indexed token, address indexed recipient, uint256 amount);
 
     function rendererSchema() external view returns (bytes32);
 
@@ -52,6 +54,17 @@ interface IMembershipFactory {
     function protocolFeeBps() external pure returns (uint16);
 
     function maxPageSize() external pure returns (uint256);
+
+    function paymentTokenCount() external view returns (uint256);
+
+    function paymentTokens(uint256 offset, uint256 limit)
+        external
+        view
+        returns (address[] memory page);
+
+    function isPaymentTokenListed(address token) external view returns (bool);
+
+    function isPaymentTokenEnabled(address token) external view returns (bool);
 
     function createTier(MembershipTypes.TierConfig calldata config) external returns (address tier);
 
@@ -69,5 +82,7 @@ interface IMembershipFactory {
 
     function setFeeRecipient(address newRecipient) external;
 
-    function withdrawProtocolFees() external returns (uint256 amount);
+    function setPaymentTokenEnabled(address token, bool enabled) external;
+
+    function withdrawProtocolFees(IERC20 token) external returns (uint256 amount);
 }

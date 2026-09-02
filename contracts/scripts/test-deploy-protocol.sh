@@ -30,7 +30,9 @@ public_state="$test_dir/public-prefix"
 local_state="$test_dir/local-prefix"
 anvil_ready="$test_dir/anvil-ready"
 operational_state="$contracts_dir/config/operational-state/46630.json"
+payment_token_manifest="$contracts_dir/config/payment-tokens/46630.json"
 reviewed_operational_state="$test_dir/reviewed-operational-state.json"
+reviewed_payment_token_manifest="$test_dir/reviewed-payment-token-manifest.json"
 deployment_lock=""
 
 cleanup_test() {
@@ -48,7 +50,11 @@ fail() {
 }
 
 assert_contains() {
-  grep -F -- "$2" "$1" >/dev/null || fail "expected '$2' in $1"
+  if ! grep -F -- "$2" "$1" >/dev/null; then
+    echo "deploy-protocol wrapper test: contents of $1:" >&2
+    sed -n '1,160p' "$1" >&2
+    fail "expected '$2' in $1"
+  fi
 }
 
 assert_not_contains() {
@@ -83,12 +89,14 @@ reset_project_state() {
   rm -rf "$contracts_dir/deployments/protocol" "$contracts_dir/broadcast"
   rm -f "$project_root/web/src/contracts.ts"
   cp "$reviewed_operational_state" "$operational_state"
+  cp "$reviewed_payment_token_manifest" "$payment_token_manifest"
 }
 
 real_cast="$(command -v cast)"
 export REAL_CAST="$real_cast"
 export MOCK_LOG="$mock_log"
 export MOCK_GIT_ROOT="$project_root"
+export MOCK_GIT_OPERATIONAL_HEAD="$reviewed_operational_state"
 export MOCK_CHAIN_ID=46630
 export MOCK_DEPLOYER=0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
 export MOCK_PROTOCOL_OWNER=0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
@@ -101,7 +109,7 @@ export MOCK_PREVIEW_RUNTIME=0x600f
 export MOCK_SECOND_RENDERER_RUNTIME=0x600e
 export MOCK_RENDERER_SCHEMA=0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4
 export MOCK_FACTORY_RUNTIME=0x600c
-export MOCK_TESTNET_USDG_RUNTIME=0x600d
+export MOCK_PAYMENT_TOKEN_RUNTIME=0x600d
 export MOCK_CREATE2_RUNTIME=0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3
 export MOCK_CREATE2_ADDRESS=0x4e59b44847b379578588920cA78FbF26c0B4956C
 export MOCK_SAFE_ADDRESS=0xeAA4B38A99f766117C1D493a21012fec25f70505
@@ -111,16 +119,22 @@ create2_deployer=0x4e59b44847b379578588920cA78FbF26c0B4956C
 media_salt="$($real_cast keccak 'Backed By Fans media store factory v4')"
 renderer_salt="$($real_cast keccak 'Backed By Fans renderer v4')"
 preview_salt="$($real_cast keccak 'Backed By Fans renderer preview harness v1')"
-factory_salt="$($real_cast keccak 'Backed By Fans factory v5')"
+factory_salt="$($real_cast keccak 'Backed By Fans factory v6')"
 export MOCK_MEDIA_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$media_salt" --init-code 0x6001)"
 export MOCK_RENDERER_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$renderer_salt" --init-code 0x6002)"
 export MOCK_PREVIEW_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$preview_salt" --init-code 0x6005)"
 export MOCK_SECOND_RENDERER_ADDRESS=0x9999999999999999999999999999999999999999
-testnet_usdg_salt="$($real_cast keccak 'Backed By Fans testnet USDG v1')"
-export MOCK_TESTNET_USDG_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$testnet_usdg_salt" --init-code 0x6004)"
+export MOCK_TESTNET_USDG_ADDRESS=0x7E955252E15c84f5768B83c41a71F9eba181802F
+export MOCK_TESTNET_AMD_ADDRESS=0x71178BAc73cBeb415514eB542a8995b82669778d
+export MOCK_TESTNET_NFLX_ADDRESS=0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93
+export MOCK_TESTNET_PLTR_ADDRESS=0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0
+export MOCK_TESTNET_AMZN_ADDRESS=0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02
+export MOCK_TESTNET_TSLA_ADDRESS=0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E
+export MOCK_PAYMENT_TOKEN_ADDRESSES="$MOCK_TESTNET_USDG_ADDRESS $MOCK_TESTNET_AMD_ADDRESS $MOCK_TESTNET_NFLX_ADDRESS $MOCK_TESTNET_PLTR_ADDRESS $MOCK_TESTNET_AMZN_ADDRESS $MOCK_TESTNET_TSLA_ADDRESS"
+payment_token_array="[$(printf '%s' "$MOCK_PAYMENT_TOKEN_ADDRESSES" | tr ' ' ',')]"
 factory_constructor_args="$($real_cast abi-encode \
-  'constructor(address,address,address,address)' \
-  "$MOCK_TESTNET_USDG_ADDRESS" \
+  'constructor(address[],address,address,address)' \
+  "$payment_token_array" \
   "$MOCK_MEDIA_ADDRESS" \
   "$MOCK_SAFE_ADDRESS" \
   "$MOCK_SAFE_ADDRESS")"
@@ -131,28 +145,34 @@ export MOCK_RENDERER_RUNTIME_HASH="$($real_cast keccak "$MOCK_RENDERER_RUNTIME")
 export MOCK_PREVIEW_RUNTIME_HASH="$($real_cast keccak "$MOCK_PREVIEW_RUNTIME")"
 export MOCK_SECOND_RENDERER_RUNTIME_HASH="$($real_cast keccak "$MOCK_SECOND_RENDERER_RUNTIME")"
 export MOCK_FACTORY_RUNTIME_HASH="$($real_cast keccak "$MOCK_FACTORY_RUNTIME")"
-export MOCK_TESTNET_USDG_RUNTIME_HASH="$($real_cast keccak "$MOCK_TESTNET_USDG_RUNTIME")"
+export MOCK_PAYMENT_TOKEN_RUNTIME_HASH="$($real_cast keccak "$MOCK_PAYMENT_TOKEN_RUNTIME")"
 
-mkdir -p "$wrapper_dir" "$project_root/web/src" "$contracts_dir/config/operational-state"
+mkdir -p "$wrapper_dir" "$project_root/web/src" \
+  "$contracts_dir/config/operational-state" "$contracts_dir/config/payment-tokens"
 cp "$script_dir/deploy-protocol.sh" "$script_dir/public-chain-common.sh" "$wrapper_dir/"
 cp "$script_dir/../config/operational-state/46630.json" "$operational_state"
+cp "$script_dir/../config/payment-tokens/46630.json" "$payment_token_manifest"
+jq --arg runtime "$MOCK_PAYMENT_TOKEN_RUNTIME_HASH" \
+  '.releaseStatus = "validated" | .initialTokens[].runtimeCodehash = $runtime' \
+  "$payment_token_manifest" >"${payment_token_manifest}.tmp"
+mv "${payment_token_manifest}.tmp" "$payment_token_manifest"
 jq \
   --arg implementation "$MOCK_RENDERER_ADDRESS" \
   --arg runtime_hash "$MOCK_RENDERER_RUNTIME_HASH" \
-  --arg payment_token "$MOCK_TESTNET_USDG_ADDRESS" \
-  --arg payment_runtime "$MOCK_TESTNET_USDG_RUNTIME_HASH" \
+  --argjson payment_tokens "$(jq -c '.initialTokens | map({
+    symbol,
+    address,
+    runtimeCodehash,
+    implementation: null,
+    implementationRuntimeCodehash: null
+  })' "$payment_token_manifest")" \
   --arg media "$MOCK_MEDIA_ADDRESS" \
   --arg media_runtime "$MOCK_MEDIA_RUNTIME_HASH" \
   --arg preview "$MOCK_PREVIEW_ADDRESS" \
   --arg preview_runtime "$MOCK_PREVIEW_RUNTIME_HASH" \
   --arg factory "$MOCK_FACTORY_ADDRESS" \
   --arg factory_runtime "$MOCK_FACTORY_RUNTIME_HASH" \
-  '.deployment.paymentToken = {
-      address: $payment_token,
-      runtimeCodehash: $payment_runtime,
-      implementation: null,
-      implementationRuntimeCodehash: null
-    }
+  '.deployment.paymentTokens = $payment_tokens
    | .deployment.mediaStoreFactory = {address: $media, runtimeCodehash: $media_runtime}
    | .deployment.renderer = {address: $implementation, runtimeCodehash: $runtime_hash}
    | .deployment.previewHarness = {address: $preview, runtimeCodehash: $preview_runtime}
@@ -160,11 +180,13 @@ jq \
   "$operational_state" >"${operational_state}.tmp"
 mv "${operational_state}.tmp" "$operational_state"
 cp "$operational_state" "$reviewed_operational_state"
+cp "$payment_token_manifest" "$reviewed_payment_token_manifest"
 deploy_wrapper="$wrapper_dir/deploy-protocol.sh"
 export PATH="$mock_bin:$PATH"
 export TMPDIR="$test_dir"
 unset ROBINHOOD_TESTNET_RPC_URL ROBINHOOD_MAINNET_RPC_URL
 unset ETH_PASSWORD PRIVATE_KEY ETH_PRIVATE_KEY CAST_PRIVATE_KEY MNEMONIC MNEMONIC_PATH
+unset FOUNDRY_PROFILE
 
 reset_project_state
 canonical_project_root="$(cd "$project_root" && pwd -P)"
@@ -181,7 +203,80 @@ rm "$deployment_lock/owner"
 rmdir "$deployment_lock"
 
 reset_project_state
+jq '.releaseStatus = "pending"' "$payment_token_manifest" \
+  >"${payment_token_manifest}.tmp"
+mv "${payment_token_manifest}.tmp" "$payment_token_manifest"
+run_expect_failure "$deploy_wrapper" testnet dry-run
+assert_contains "$test_dir/stderr" "payment-token manifest is not release-validated"
+assert_not_contains "$mock_log" "cast send $create2_deployer"
+
+reset_project_state
+jq '.initialTokens[1].address = .initialTokens[0].address' "$payment_token_manifest" \
+  >"${payment_token_manifest}.tmp"
+mv "${payment_token_manifest}.tmp" "$payment_token_manifest"
+run_expect_failure "$deploy_wrapper" testnet dry-run
+assert_contains "$test_dir/stderr" "payment-token manifest is not release-validated"
+assert_not_contains "$mock_log" "cast send $create2_deployer"
+
+reset_project_state
+prepared_factory_bytecode=0x6013
+prepared_factory_runtime=0x6014
+prepared_factory_init_code="${prepared_factory_bytecode}${factory_constructor_args#0x}"
+prepared_factory_address="$($real_cast create2 \
+  --deployer "$create2_deployer" \
+  --salt "$factory_salt" \
+  --init-code "$prepared_factory_init_code")"
+prepared_factory_runtime_hash="$($real_cast keccak "$prepared_factory_runtime")"
+env \
+  MOCK_FACTORY_BYTECODE="$prepared_factory_bytecode" \
+  MOCK_FACTORY_RUNTIME="$prepared_factory_runtime" \
+  MOCK_FACTORY_RUNTIME_HASH="$prepared_factory_runtime_hash" \
+  "$deploy_wrapper" testnet prepare
+assert_jq "$operational_state" \
+  --arg address "$prepared_factory_address" \
+  --arg runtime "$prepared_factory_runtime_hash" \
+  '.deployment.membershipFactory == {address: $address, runtimeCodehash: $runtime}'
+assert_jq "$operational_state" \
+  --arg safe "$MOCK_SAFE_ADDRESS" \
+  '.safe.address == $safe and .factory.owner == $safe and .factory.feeRecipient == $safe'
+assert_not_contains "$mock_log" "anvil --fork-url"
+assert_not_contains "$mock_log" "cast wallet address"
+assert_not_contains "$mock_log" "cast send"
+assert_not_contains "$mock_log" "cast mktx"
+assert_not_contains "$mock_log" "cast publish"
+assert_not_contains "$mock_log" "forge verify-contract"
+assert_not_contains "$mock_log" "bun x wagmi generate"
+[[ ! -e "$contracts_dir/deployments/protocol/46630/candidate.json" ]] \
+  || fail "prepare wrote a public recovery journal"
+
+cp "$operational_state" "$test_dir/prepared-operational-state.json"
+: >"$mock_log"
+env \
+  MOCK_GIT_DIRTY_OPERATIONAL=1 \
+  MOCK_FACTORY_BYTECODE="$prepared_factory_bytecode" \
+  MOCK_FACTORY_RUNTIME="$prepared_factory_runtime" \
+  MOCK_FACTORY_RUNTIME_HASH="$prepared_factory_runtime_hash" \
+  "$deploy_wrapper" testnet prepare
+cmp -s "$test_dir/prepared-operational-state.json" "$operational_state" \
+  || fail "repeated prepare changed an already-prepared manifest"
+assert_not_contains "$mock_log" "cast send"
+
+reset_project_state
+jq '.safe.threshold = 2' "$operational_state" >"${operational_state}.tmp"
+mv "${operational_state}.tmp" "$operational_state"
+run_expect_failure env \
+  MOCK_GIT_DIRTY_OPERATIONAL=1 \
+  MOCK_FACTORY_BYTECODE="$prepared_factory_bytecode" \
+  MOCK_FACTORY_RUNTIME="$prepared_factory_runtime" \
+  MOCK_FACTORY_RUNTIME_HASH="$prepared_factory_runtime_hash" \
+  "$deploy_wrapper" testnet prepare
+assert_contains "$test_dir/stderr" "uncommitted changes outside the generated deployment fields"
+assert_jq "$operational_state" '.safe.threshold == 2'
+assert_not_contains "$mock_log" "cast send"
+
+reset_project_state
 "$deploy_wrapper" testnet dry-run
+assert_contains "$mock_log" "FOUNDRY_PROFILE=robinhood forge clean"
 assert_contains "$mock_log" "FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860"
 assert_contains "$mock_log" "anvil --fork-url https://rpc.testnet.chain.robinhood.com --chain-id 46630"
 assert_count "$mock_log" "cast send $create2_deployer --data <raw-create2-calldata> --rpc-url http://127.0.0.1:" 4
@@ -198,17 +293,27 @@ assert_not_contains "$mock_log" ":DeployProtocol --rpc-url"
   || fail "dry-run wrote a public recovery journal"
 
 reset_project_state
-run_expect_failure env MOCK_FACTORY_BYTECODE_BYTES=94841 "$deploy_wrapper" testnet dry-run
+env MOCK_PREEXISTING_PREVIEW_HARNESS=1 "$deploy_wrapper" testnet broadcast
+candidate="$contracts_dir/deployments/protocol/46630/candidate.json"
+active="$contracts_dir/broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json"
+assert_count "$mock_log" "cast send $create2_deployer --data <raw-create2-calldata> --rpc-url http://127.0.0.1:" 3
+assert_count "$mock_log" "cast mktx $create2_deployer <raw-create2-calldata> --rpc-url https://rpc.testnet.chain.robinhood.com" 3
+assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 3
+[[ "$(cat "$public_state")" == "3" ]] \
+  || fail "broadcast did not deploy the three missing public components"
+assert_jq "$candidate" \
+  '[.components[].status] == ["deployed", "deployed", "validated-existing", "deployed"]'
+assert_jq "$candidate" '.status == "promoted" and .currentPrefix == 4'
+[[ -f "$active" ]] || fail "sparse existing-component broadcast was not promoted"
+
+reset_project_state
+run_expect_failure env MOCK_FACTORY_BYTECODE_BYTES=94617 "$deploy_wrapper" testnet dry-run
 assert_contains "$test_dir/stderr" \
   "membership factory raw CREATE2 transaction data is 95001 bytes; Robinhood Nitro sequencer limit is 95000"
 assert_not_contains "$mock_log" "cast send $create2_deployer"
 
 reset_project_state
-mkdir -p \
-  "$contracts_dir/broadcast/TestnetUSDG.s.sol/46630" \
-  "$contracts_dir/broadcast/DeployDirectProtocol.s.sol/4663"
-printf '{"transactions":[]}\n' \
-  >"$contracts_dir/broadcast/TestnetUSDG.s.sol/46630/run-latest.json"
+mkdir -p "$contracts_dir/broadcast/DeployDirectProtocol.s.sol/4663"
 printf '{"transactions":[]}\n' \
   >"$contracts_dir/broadcast/DeployDirectProtocol.s.sol/4663/run-latest.json"
 env MOCK_BUN_REQUIRE_PRESERVED_BROADCASTS=1 "$deploy_wrapper" testnet broadcast
@@ -238,7 +343,20 @@ assert_jq "$active" '.chain == 46630 and (.transactions | length) == 4'
 assert_jq "$active" '[.transactions[].transactionType] == ["CALL", "CALL", "CALL", "CALL"]'
 assert_jq "$active" '[.transactions[].additionalContracts[0].contractName] == ["OnchainMediaStoreFactory", "OnchainMetadataRenderer", "RendererPreviewHarness", "MembershipFactory"]'
 assert_jq "$active" '.deploymentPlan.components[0].allowedPredecessor == "empty" and .deploymentPlan.components[3].allowedPredecessor == "renderer preview harness"'
-assert_jq "$active" '.commit == "1111111111111111111111111111111111111111" and .deploymentPlan.schemaVersion == 4 and .deploymentPlan.sourceCommit == .commit and .deploymentPlan.operationalStateBlob == "2222222222222222222222222222222222222222"'
+assert_jq "$active" '
+  .commit == "1111111111111111111111111111111111111111"
+  and .deploymentPlan.schemaVersion == 5
+  and (.deploymentPlan.paymentTokens | map(.address | ascii_downcase)) == [
+    "0x7e955252e15c84f5768b83c41a71f9eba181802f",
+    "0x71178bac73cbeb415514eb542a8995b82669778d",
+    "0x3b8262a63d25f0477c4dde23f83cfe22cb768c93",
+    "0x1fbe1a0e43594b3455993b5de5fd0a7a266298d0",
+    "0x5884ad2f920c162cfbbacc88c9c51aa75ec09e02",
+    "0xc9f9c86933092bbbfff3ccb4b105a4a94bf3bd4e"
+  ]
+  and .deploymentPlan.sourceCommit == .commit
+  and .deploymentPlan.operationalStateBlob == "2222222222222222222222222222222222222222"'
+assert_not_contains "$mock_log" "TestnetUSDG"
 assert_jq "$candidate" '.buildConfigHash | test("^0x[0-9a-f]{64}$")'
 assert_jq "$candidate" '.forgeVersion == "forge Version: 1.7.1" and .solcVersion == "0.8.36" and .buildConfig.optimizer_runs == 200'
 
@@ -251,8 +369,8 @@ assert_contains "$test_dir/stderr" "status is validating promoted addresses and 
 assert_contains "$mock_log" "cast code $MOCK_MEDIA_ADDRESS --rpc-url"
 
 # A promoted journal is complete relative to the plan it recorded. Preserve the
-# valid three-component shape used by the preceding protocol release so adding a
-# fourth component to a later release does not strand its recovery journal.
+# schema-v4 payment-token field and valid three-component shape used by a
+# preceding release so a later schema/component expansion cannot strand it.
 previous_timestamped=""
 for historical_active in "$(dirname "$active")"/run-[0-9]*.json; do
   if cmp -s "$active" "$historical_active"; then
@@ -263,11 +381,26 @@ done
 [[ -n "$previous_timestamped" ]] \
   || fail "initial active broadcast has no timestamped history record"
 jq \
-  '.components = .components[:3] | .currentPrefix = 3' \
+  --arg token "$MOCK_TESTNET_USDG_ADDRESS" \
+  --arg runtime "$MOCK_PAYMENT_TOKEN_RUNTIME_HASH" \
+  '.schemaVersion = 4
+   | .paymentToken = {address: $token, runtimeCodeHash: $runtime}
+   | del(.paymentTokenManifest, .paymentTokenManifestBlob, .paymentTokens)
+   | .components = .components[:3]
+   | .currentPrefix = 3' \
   "$candidate" >"${candidate}.tmp"
 mv "${candidate}.tmp" "$candidate"
 jq \
+  --arg token "$MOCK_TESTNET_USDG_ADDRESS" \
+  --arg runtime "$MOCK_PAYMENT_TOKEN_RUNTIME_HASH" \
   '.transactions = .transactions[:3]
+   | .deploymentPlan.schemaVersion = 4
+   | .deploymentPlan.paymentToken = {address: $token, runtimeCodeHash: $runtime}
+   | del(
+       .deploymentPlan.paymentTokenManifest,
+       .deploymentPlan.paymentTokenManifestBlob,
+       .deploymentPlan.paymentTokens
+     )
    | .deploymentPlan.components = .deploymentPlan.components[:3]' \
   "$active" >"${active}.tmp"
 mv "${active}.tmp" "$active"
@@ -275,6 +408,20 @@ cp "$active" "$previous_timestamped"
 
 previous_active="$test_dir/previous-active.json"
 cp "$active" "$previous_active"
+: >"$mock_log"
+run_expect_failure env \
+  MOCK_GIT_HEAD=3333333333333333333333333333333333333333 \
+  MOCK_OPERATIONAL_BLOB=3333333333333333333333333333333333333333 \
+  MOCK_MEDIA_BYTECODE=0x6011 \
+  "$deploy_wrapper" testnet broadcast
+assert_contains "$test_dir/stderr" "reviewed media store factory"
+[[ -f "$candidate" ]] \
+  || fail "rejected replacement plan archived the promoted candidate"
+[[ ! -e "$contracts_dir/deployments/protocol/46630/candidate-111111111111-promoted.json" ]] \
+  || fail "rejected replacement plan created a promoted archive"
+assert_not_contains "$mock_log" "cast wallet address"
+assert_not_contains "$mock_log" "cast publish <signed-transaction>"
+
 : >"$mock_log"
 env \
   MOCK_GIT_HEAD=3333333333333333333333333333333333333333 \
@@ -284,6 +431,8 @@ promoted_archive="$contracts_dir/deployments/protocol/46630/candidate-1111111111
 [[ -f "$promoted_archive" ]] || fail "superseded promoted journal was not archived"
 assert_jq "$promoted_archive" \
   '.status == "promoted"
+   and .schemaVersion == 4
+   and .paymentToken.address == "0x7E955252E15c84f5768B83c41a71F9eba181802F"
    and .sourceCommit == "1111111111111111111111111111111111111111"
    and .currentPrefix == 3
    and (.components | length) == 3'

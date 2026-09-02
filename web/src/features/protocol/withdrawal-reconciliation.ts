@@ -8,6 +8,7 @@ export function receiptProvesProtocolWithdrawal(
   receipt: SuccessfulReceiptLogs,
   input: {
     factory: Address;
+    token: Address;
     recipient: Address;
     amount: bigint;
   },
@@ -21,6 +22,7 @@ export function receiptProvesProtocolWithdrawal(
   }).some(
     (event) =>
       isSameAddress(event.address, input.factory) &&
+      isSameAddress(event.args.token, input.token) &&
       isSameAddress(event.args.recipient, input.recipient) &&
       event.args.amount >= input.amount,
   );

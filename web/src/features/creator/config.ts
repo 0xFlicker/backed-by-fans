@@ -1,12 +1,8 @@
-import {
-  isAddress,
-  parseUnits,
-  zeroAddress,
-  zeroHash,
-  type Address,
-} from "viem";
+import { isAddress, zeroAddress, zeroHash, type Address } from "viem";
 
 import type { TierPublicationConfig } from "@/features/protocol/registry-reconciliation";
+import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
+import { displayedToRaw } from "@/lib/token-amount";
 
 export const protocolFeeBps = 100;
 export const bpsDenominator = 10_000;
@@ -18,7 +14,8 @@ export type CreatorForm = {
   symbol: string;
   description: string;
   externalURI: string;
-  priceUsd: string;
+  paymentToken: string;
+  displayedPrice: string;
   periodDays: string;
   rewardPercent: string;
   referralPercent: string;
@@ -55,7 +52,8 @@ export const defaultCreatorForm: CreatorForm = {
   symbol: "",
   description: "",
   externalURI: "",
-  priceUsd: "10",
+  paymentToken: "",
+  displayedPrice: "10",
   periodDays: "30",
   rewardPercent: "5",
   referralPercent: "1",
@@ -125,6 +123,7 @@ export function evaluateCreatorForm(
   form: CreatorForm,
   creator?: Address,
   creative?: TierCreativeConfig,
+  paymentToken?: AcceptedPaymentToken,
 ): CreatorFormResult {
   const errors: CreatorFormResult["errors"] = {};
   const name = form.name.trim();
@@ -158,14 +157,29 @@ export function evaluateCreatorForm(
   }
 
   let pricePerPeriod: bigint | undefined;
-  try {
-    pricePerPeriod = parseUnits(form.priceUsd.trim(), 6);
-    if (pricePerPeriod < 0n) pricePerPeriod = undefined;
-  } catch {
-    pricePerPeriod = undefined;
-  }
-  if (pricePerPeriod === undefined) {
-    errors.priceUsd = "Enter 0 or more, with up to 6 decimal places.";
+  const selectedPaymentToken = form.paymentToken.trim();
+  if (
+    !paymentToken ||
+    !isAddress(selectedPaymentToken) ||
+    paymentToken.address.toLowerCase() !== selectedPaymentToken.toLowerCase()
+  ) {
+    errors.paymentToken = "Choose an available payment token.";
+  } else if (!paymentToken.enabled) {
+    errors.paymentToken =
+      "This payment token is not available for new memberships.";
+  } else {
+    try {
+      pricePerPeriod = displayedToRaw({
+        displayed: form.displayedPrice,
+        decimals: paymentToken.decimals,
+        multiplier: paymentToken.uiMultiplier,
+      });
+    } catch (error) {
+      errors.displayedPrice =
+        error instanceof Error
+          ? error.message
+          : "Enter a valid payment amount.";
+    }
   }
 
   const periodDays = parseWholeUint64(form.periodDays);
@@ -239,6 +253,7 @@ export function evaluateCreatorForm(
   if (
     !creator ||
     !creative ||
+    !paymentToken ||
     creativeError ||
     Object.keys(errors).length > 0 ||
     pricePerPeriod === undefined ||
@@ -259,6 +274,7 @@ export function evaluateCreatorForm(
       creator,
       tierSalt: creative.tierSalt,
       renderer: creative.renderer,
+      paymentToken: paymentToken.address,
       name,
       symbol,
       pricePerPeriod,

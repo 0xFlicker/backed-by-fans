@@ -18,16 +18,19 @@ has evidence and approval.
 
 ## Public configuration
 
-Copy `.env.example` to `.env.local` for local development. Every supported
-variable starts with `NEXT_PUBLIC_`, is intentionally public, and is frozen into
-the browser bundle during `next build`. Never place a secret, private RPC
-credential, wallet key, or server token in these variables.
+Copy `.env.example` to `.env.local` for local development. `ROBINHOOD_*_RPC_URL`
+values are server-only and may contain provider credentials. Values beginning
+with `NEXT_PUBLIC_` are intentionally public and frozen into the browser bundle
+during `next build`; never put a secret, private RPC credential, wallet key, or
+server token in one of them.
 
 `bun run generate` uses Wagmi CLI's Foundry and React plugins to write
 `src/contracts.ts`. Public factory addresses come only from successful checked-in
 Foundry `run-latest.json` broadcasts. Robinhood testnet and mainnet coexist in
 one generated map; missing deployments render an explicit unavailable state.
-The application pins canonical USDG independently for both public chains.
+The active factory is the source of truth for accepted payment tokens. The
+public beta defaults to Robinhood testnet, where the current factory lists
+external USDG plus the five configured Stock Tokens.
 
 Tier trust comes from registration by the generated factory plus verified tier
 factory, canonical-token, and interface bindings. The browser does not perform
@@ -41,8 +44,7 @@ already using.
 - `/llms.txt` is the root agent index for the hosted renderer materials.
 - `/render` is a public, account-free lab for importing a renderer package,
   previewing representative membership states through the canonical Robinhood
-  testnet RPC, approving or rejecting what is shown, and preparing a deployment
-  for the creator's connected wallet.
+  testnet RPC, and preparing a deployment for the creator's connected wallet.
 - A local image may be selected for preview. It stays in page memory and is sent
   directly to the canonical RPC as call data; the app has no renderer upload,
   bucket, session database, paid-RPC proxy, or hosted compilation service.
@@ -50,9 +52,12 @@ already using.
   loopback helper on `127.0.0.1`. If browser policy blocks loopback, the same
   package can be saved locally and selected in the page. Neither path needs
   SIWE, OAuth, an account, a private key export, or a backend token.
-- A deployed renderer is reused by pasting its contract address on the same
-  chain. Membership details expose that address for direct copying; there is no
-  user-renderer registry or catalog.
+- Renderer deployments register the created address to the connected wallet in
+  the onchain renderer registry. The create flow lists that wallet's renderers
+  first, then the built-in set, then a custom address field. There is no public
+  renderer feed or hosted catalog.
+- A deployed renderer can also be reused by copying its contract address from a
+  membership and pasting it on the same chain.
 
 Renderer deployment is a normal creator-wallet action in the browser. It is
 separate from replacing the immutable protocol contracts. A Robinhood testnet
@@ -68,9 +73,9 @@ before bindings are regenerated with `bun run generate`.
 - `/chains/[chainId]/tiers/[tierAddress]/manage` verifies factory registration and expected
   interfaces before exposing tier-owner pause, limits, grants, revocation,
   refund, withdrawal, metadata, and two-step ownership controls.
-- `/protocol` verifies the configured factory, deployer, renderer, and USDG
-  binding before exposing the separate protocol-owner and fixed fee-recipient
-  controls.
+- `/protocol` verifies the configured factory, deployer, renderer, media-store
+  dependency, and accepted-payment-token state before exposing the separate
+  protocol-owner and fixed fee-recipient controls.
 
 All writes simulate first and pass the exact simulated request to wagmi's
 connected-wallet mutation. Wagmi/viem then owns submission, receipt waiting,
@@ -98,7 +103,7 @@ destinations; the application never offers a redirect field.
   The cache is optional, erasable, scoped to the exact chain/factory/wallet,
   and never authorizes a write. A tier address can always be opened directly.
 
-Purchases approve only the exact additional USDG amount shown by the preview.
+Purchases approve only the exact additional payment-token amount shown by the preview.
 Approval success is not reported as membership success: purchase simulation,
 receipt confirmation, and a fresh read must still complete. Claims and refunds
 retain their contract-defined destinations; a frozen recipient sees the exact

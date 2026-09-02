@@ -16,7 +16,7 @@ test("renders the exact provisional brand shell without starter identity", async
   await expect(
     page.getByRole("heading", {
       level: 2,
-      name: "Support the work. Keep the membership.",
+      name: "Support the work.",
     }),
   ).toBeVisible();
   await expect(
@@ -25,15 +25,20 @@ test("renders the exact provisional brand shell without starter identity", async
   await expect(
     page.getByRole("link", { name: "Create a membership", exact: true }),
   ).toBeVisible();
+  const expectedSiteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    expectedSiteUrl.replace(/\/$/, ""),
+  );
+  await expect(page.getByText("Testnet", { exact: true })).toBeVisible();
   await expect(page.getByText(/working brand direction/i)).toBeVisible();
   await expect(page.locator("body")).not.toContainText(
     /vercel|next\.js template/i,
   );
 
   const horizontalOverflow = await page.evaluate(
-    () =>
-      document.documentElement.scrollWidth >
-      document.documentElement.clientWidth,
+    () => document.body.scrollWidth > document.documentElement.clientWidth,
   );
   expect(horizontalOverflow).toBe(false);
 });
@@ -109,9 +114,7 @@ test("keeps primary actions touch-sized and supports 200% content zoom", async (
     ).toBeVisible();
     expect(
       await page.evaluate(
-        () =>
-          document.documentElement.scrollWidth >
-          document.documentElement.clientWidth,
+        () => document.body.scrollWidth > document.documentElement.clientWidth,
       ),
     ).toBe(false);
   }

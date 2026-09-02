@@ -16,6 +16,14 @@ case "${args[0]:-}" in
       printf '%s\n' "${MOCK_GIT_HEAD:-1111111111111111111111111111111111111111}"
     fi
     ;;
+  show)
+    if [[ "${args[1]:-}" == HEAD:contracts/config/operational-state/* ]]; then
+      cat "$MOCK_GIT_OPERATIONAL_HEAD"
+    else
+      echo "unexpected mock git show invocation: $*" >&2
+      exit 1
+    fi
+    ;;
   status)
     if [[ "${MOCK_GIT_DIRTY:-0}" == "1" ]]; then
       printf '%s\n' " M contracts/src/MembershipFactory.sol"
@@ -43,6 +51,9 @@ case "${args[0]:-}" in
     elif [[ "${MOCK_GIT_UNTRACKED_MAINNET_BROADCAST:-0}" == "1" ]]; then
       printf '%s\n' "contracts/broadcast/DeployDirectProtocol.s.sol/4663/run-latest.json"
     fi
+    ;;
+  hash-object)
+    printf '%s\n' "${MOCK_PAYMENT_TOKEN_MANIFEST_BLOB:-4444444444444444444444444444444444444444}"
     ;;
   *)
     echo "unexpected mock git invocation: $*" >&2

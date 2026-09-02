@@ -76,7 +76,7 @@ contract GrantsAndCapacityTest is Test {
         assertFalse(tier.isActive(member));
         assertTrue(tier.isOccupied(tokenId));
         assertEq(tier.occupiedSupply(), 1);
-        assertTrue(tier.synchronize(tokenId));
+        assertEq(_sync(tokenId), 1);
         assertFalse(tier.isOccupied(tokenId));
         assertEq(tier.occupiedSupply(), 0);
     }
@@ -113,7 +113,7 @@ contract GrantsAndCapacityTest is Test {
 
         assertEq(tier.revokeGrantTime(tokenId), _PERIOD);
         assertFalse(tier.isActive(member));
-        assertTrue(tier.synchronize(tokenId));
+        assertEq(_sync(tokenId), 1);
         assertEq(tier.occupiedSupply(), 0);
     }
 
@@ -130,7 +130,7 @@ contract GrantsAndCapacityTest is Test {
 
     function _config(address renderer_) private view returns (MembershipTypes.TierConfig memory) {
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), renderer_);
+            MembershipTestConfig.defaultConfig(address(this), renderer_, address(paymentToken));
         config.supplyCap = 1;
         return config;
     }
@@ -138,5 +138,11 @@ contract GrantsAndCapacityTest is Test {
     function _purchase() private returns (uint256 tokenId) {
         vm.prank(member);
         tokenId = tier.purchase(1, address(0));
+    }
+
+    function _sync(uint256 tokenId) private returns (uint256 burnedCount) {
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        burnedCount = tier.synchronizeExpiredMemberships(tokenIds);
     }
 }

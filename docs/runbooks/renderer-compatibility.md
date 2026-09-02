@@ -23,7 +23,7 @@ anvil --chain-id 31337 --code-size-limit 98304 --gas-limit 100000000
 That chain-31337 node remains useful for the product lifecycle and visual gallery. It is not the
 release preflight. The public deployment wrapper starts a fork with the target Robinhood chain ID
 itself (`46630` for testnet), the same code-size and gas controls, and the target state for the Safe,
-USDG, and canonical CREATE2 deployer.
+six launch tokens, and canonical CREATE2 deployer.
 
 Use `FOUNDRY_PROFILE=robinhood` for build, script, and deployment commands. Foundry 1.7.1's in-process test VM cannot configure Robinhood's raised EIP-3860 initcode limit. `forge build` has an `--ignore-eip-3860` flag, but `forge test` does not. Large-media creation transactions must therefore be proven against the configured Anvil or Robinhood fork. Test-only `--code-size-limit` and aggregate gas overrides may be used to deploy test harnesses; explicit production artifact and per-call assertions remain authoritative.
 
@@ -71,15 +71,16 @@ cd contracts
 ```
 
 The wrapper builds with `FOUNDRY_PROFILE=robinhood` and `--ignore-eip-3860`, recomputes the exact
-salt/initcode/runtime tuple for media factory, renderer, and membership factory, and proves it
-against the Solidity release constants and creation bytecode. It then starts a chain-46630 Anvil fork and submits the
-canonical deployer's raw `salt || initcode` calldata from an impersonated approved deployer. This
-exercises the actual three-contract order and raised initcode envelope without a public write or
+salt/initcode/runtime tuple for media factory, renderer, preview harness, and membership factory,
+and proves it against the Solidity release constants and creation bytecode. It then starts a
+chain-46630 Anvil fork and submits the canonical deployer's raw `salt || initcode` calldata from an
+impersonated approved deployer. This exercises the actual four-contract order and raised initcode
+envelope without a public write or
 keystore password.
 
 An authorized public run repeats that preflight, then uses the encrypted Foundry account through
 Cast's terminal password prompt. The release is not promoted until every runtime hash and factory
-dependency getter passes and Blockscout verifies all three sources. A partial sequence remains only
+dependency getter passes and Blockscout verifies all four sources. A partial sequence remains only
 in `deployments/protocol/46630/candidate.json`; it cannot enable Wagmi addresses.
 
 The recovery order is fixed:
@@ -88,7 +89,8 @@ The recovery order is fixed:
 | -------------------------- | ----------------------------------------- |
 | `OnchainMediaStoreFactory` | no candidate code                         |
 | `OnchainMetadataRenderer`  | exact media factory runtime               |
-| `MembershipFactory`        | exact media factory and renderer runtimes |
+| `RendererPreviewHarness`   | exact media factory and renderer runtimes |
+| `MembershipFactory`        | exact preview-harness prefix              |
 
 Any non-prefix state, bytecode mismatch, or final immutable/dependency mismatch is a release stop.
 
@@ -98,23 +100,22 @@ call-gas headroom against the 100M local ceiling. If a later renderer exceeds ei
 ceiling or loses acceptable call headroom, do not enable it. Lower `MAX_RENDERABLE_MEDIA_BYTES`
 only as a coordinated protocol, renderer, Studio, tests and documentation change.
 
-## Renderer registry compatibility
+## Renderer compatibility
 
-The factory admits renderer contracts implementing the fixed
-`BackedByFans.MembershipRenderer.v1` schema. Each renderer exposes its name, bounded `uint16`
-engine count and per-engine names, configuration validation, SVG preview, token-URI preview and
-the production `renderTokenURI` entry point. A new renderer registration appends a version and
-snapshots its exact runtime code hash in a disabled state. Governance must explicitly enable it
-before creators can publish new tiers with that version.
+Creators may publish or later select any direct renderer contract implementing the fixed
+`BackedByFans.MembershipRenderer.v1` schema. A renderer exposes its name, bounded `uint16` engine
+count and engine names, configuration validation, SVG preview, token-URI preview, and the production
+`renderTokenURI` entry point. There is no platform renderer registry gate.
 
-Each published tier snapshots the renderer version, address and runtime code hash. Disabling a
-registry version affects only future tier creation. Both the factory admission path and every
-published tier reject changed renderer bytecode. This guarantee assumes direct immutable renderer
-contracts: a proxy can change behavior without changing its proxy runtime, so proxies and other
-mutable indirection are not admissible renderer releases.
+Before tier publication or owner-authorized replacement, the protocol checks code presence, schema,
+and the renderer's acceptance of the tier's current art/media configuration. A successful
+replacement stores the new address and emits ERC-4906 metadata refresh for existing credentials.
+It does not change art/media inputs or membership/economic state. The old renderer remains active if
+validation or the write fails.
 
-Every renderer release must pass the full compatibility and visual suite before enablement. The
-schema check proves ABI shape, not aesthetic quality, totality, returndata size or gas safety.
+The compatibility checks prove mechanical interface behavior, not aesthetic quality. The creator
+previews the actual result and decides whether to use it. Renderer authors should still exercise the
+full local visual, gas, and response-size suite before sharing an address.
 
 ## Storage deployment evidence
 

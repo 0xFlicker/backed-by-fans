@@ -1,32 +1,44 @@
 "use client";
 
-import { formatEther, formatUnits, type Address } from "viem";
+import { erc20Abi, formatEther, type Address } from "viem";
 import { useAccount, useBalance, useReadContract } from "wagmi";
 
-import { usdgAbi } from "@/contracts";
 import { ReadStateView } from "@/components/ReadState";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { getDeployment, publicConfig } from "@/lib/config";
+import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
 import {
   classifyReadError,
   unavailableDeploymentState,
   type ReadState,
 } from "@/lib/read-state";
+import { testnetFundingReadiness } from "@/lib/testnet-funding";
+import { formatRawTokenAmount } from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 
 type VerifiedBalances = {
   eth: bigint;
-  usdg: bigint;
+  paymentToken?: bigint;
 };
+
+function tokenValue(value: bigint, token: AcceptedPaymentToken) {
+  return `${formatRawTokenAmount({
+    raw: value,
+    decimals: token.decimals,
+    multiplier: token.uiMultiplier,
+  })} ${token.symbol}`;
+}
 
 function WalletBalanceGrid({
   balances,
   estimatedCost,
   networkName,
+  paymentToken,
 }: {
   balances: VerifiedBalances;
   estimatedCost?: bigint;
   networkName: string;
+  paymentToken?: AcceptedPaymentToken;
 }) {
   return (
     <dl className="readiness-grid">
@@ -35,22 +47,68 @@ function WalletBalanceGrid({
         <dd>{networkName}</dd>
       </div>
       <div>
-        <dt>Network fee (ETH)</dt>
-        <dd>{Number(formatEther(balances.eth)).toFixed(5)}</dd>
+        <dt>Network fee balance</dt>
+        <dd>{Number(formatEther(balances.eth)).toFixed(5)} ETH</dd>
       </div>
       <div>
-        <dt>USDG balance</dt>
-        <dd>{formatUnits(balances.usdg, 6)}</dd>
-      </div>
-      <div>
-        <dt>Estimated cost</dt>
+        <dt>Payment token</dt>
         <dd>
-          {estimatedCost === undefined
-            ? "Choose an action to estimate"
-            : `${formatUnits(estimatedCost, 6)} USDG`}
+          {paymentToken && balances.paymentToken !== undefined
+            ? tokenValue(balances.paymentToken, paymentToken)
+            : (paymentToken?.symbol ?? "Choose a payment token")}
+        </dd>
+      </div>
+      <div>
+        <dt>Next payment</dt>
+        <dd>
+          {paymentToken && estimatedCost !== undefined
+            ? tokenValue(estimatedCost, paymentToken)
+            : "Choose an action to estimate"}
         </dd>
       </div>
     </dl>
+  );
+}
+
+function FundingGuidance({
+  chainId,
+  gasBalance,
+  paymentTokenBalance,
+  estimatedCost,
+  paymentToken,
+}: {
+  chainId: SupportedChainId;
+  gasBalance?: bigint;
+  paymentTokenBalance?: bigint;
+  estimatedCost?: bigint;
+  paymentToken?: AcceptedPaymentToken;
+}) {
+  const readiness = testnetFundingReadiness({
+    chainId,
+    gasBalance,
+    paymentTokenBalance,
+    requiredPayment: estimatedCost,
+  });
+  if (readiness.faucetUrl) {
+    const missing = [
+      readiness.gasShortfall ? "test ETH" : undefined,
+      readiness.paymentTokenShortfall ? paymentToken?.symbol : undefined,
+    ].filter(Boolean);
+    return (
+      <p className="readiness-guidance">
+        Need {missing.join(" and ")}? Get test assets from the{" "}
+        <a href={readiness.faucetUrl} rel="noreferrer" target="_blank">
+          official Robinhood Chain testnet faucet
+        </a>
+        .
+      </p>
+    );
+  }
+  return (
+    <p className="readiness-guidance">
+      Keep enough ETH for network fees and enough{" "}
+      {paymentToken?.symbol ?? "of the payment token"} for the next action.
+    </p>
   );
 }
 
@@ -62,29 +120,28 @@ function ConnectedWalletReadiness({
   networkName,
 }: {
   account: Address;
-  paymentToken: Address;
+  paymentToken: AcceptedPaymentToken;
   estimatedCost?: bigint;
-  chainId: 4663 | 46630 | 31337;
+  chainId: SupportedChainId;
   networkName: string;
 }) {
   const gas = useBalance({ address: account, chainId });
-  const usdg = useReadContract({
-    address: paymentToken,
-    abi: usdgAbi,
+  const tokenBalance = useReadContract({
+    address: paymentToken.address,
+    abi: erc20Abi,
     functionName: "balanceOf",
     args: [account],
     chainId,
   });
 
-  if (gas.isLoading || usdg.isLoading) {
+  if (gas.isLoading || tokenBalance.isLoading) {
     return (
       <ReadStateView
         state={{ status: "loading", label: "Checking wallet balances." }}
       />
     );
   }
-
-  const error = gas.error ?? usdg.error;
+  const error = gas.error ?? tokenBalance.error;
   if (error) {
     const classified = classifyReadError(error);
     const state: ReadState<never> =
@@ -97,23 +154,77 @@ function ConnectedWalletReadiness({
           };
     return <ReadStateView state={state} />;
   }
+  if (gas.data === undefined || tokenBalance.data === undefined) return null;
 
-  return gas.data !== undefined && usdg.data !== undefined ? (
-    <WalletBalanceGrid
-      balances={{ eth: gas.data.value, usdg: usdg.data }}
-      estimatedCost={estimatedCost}
-      networkName={networkName}
-    />
-  ) : null;
+  return (
+    <>
+      <WalletBalanceGrid
+        balances={{ eth: gas.data.value, paymentToken: tokenBalance.data }}
+        estimatedCost={estimatedCost}
+        networkName={networkName}
+        paymentToken={paymentToken}
+      />
+      <FundingGuidance
+        chainId={chainId}
+        estimatedCost={estimatedCost}
+        gasBalance={gas.data.value}
+        paymentToken={paymentToken}
+        paymentTokenBalance={tokenBalance.data}
+      />
+    </>
+  );
+}
+
+function ConnectedGasReadiness({
+  account,
+  chainId,
+  networkName,
+}: {
+  account: Address;
+  chainId: SupportedChainId;
+  networkName: string;
+}) {
+  const gas = useBalance({ address: account, chainId });
+  if (gas.isLoading) {
+    return (
+      <ReadStateView
+        state={{ status: "loading", label: "Checking wallet balance." }}
+      />
+    );
+  }
+  if (gas.error) {
+    const classified = classifyReadError(gas.error);
+    return (
+      <ReadStateView
+        state={
+          classified.status === "rate-limited"
+            ? classified
+            : { ...classified, reason: "rpc-unavailable" }
+        }
+      />
+    );
+  }
+  if (!gas.data) return null;
+  return (
+    <>
+      <WalletBalanceGrid
+        balances={{ eth: gas.data.value }}
+        networkName={networkName}
+      />
+      <FundingGuidance chainId={chainId} gasBalance={gas.data.value} />
+    </>
+  );
 }
 
 export function WalletReadiness({
   estimatedCost,
   expectedChainId,
+  paymentToken,
   verifiedBalances,
 }: {
   estimatedCost?: bigint;
   expectedChainId?: SupportedChainId;
+  paymentToken?: AcceptedPaymentToken;
   verifiedBalances?: VerifiedBalances;
 }) {
   const account = useAccount();
@@ -128,19 +239,13 @@ export function WalletReadiness({
   if (deployment.status !== "ready") {
     return <ReadStateView state={unavailableDeploymentState(deployment)} />;
   }
-
   if (!account.address || !account.isConnected) {
     return (
       <div className="readiness-empty">
         <p>Connect a wallet to check the network and balances.</p>
-        <p>
-          Keep USDG and a small amount of ETH on Robinhood Chain. Backed By Fans
-          does not provide a fiat checkout.
-        </p>
       </div>
     );
   }
-
   if (!chain) {
     return (
       <ReadStateView
@@ -153,28 +258,38 @@ export function WalletReadiness({
       />
     );
   }
-
-  return (
-    <>
-      {verifiedBalances ? (
+  if (verifiedBalances) {
+    return (
+      <>
         <WalletBalanceGrid
           balances={verifiedBalances}
           estimatedCost={estimatedCost}
           networkName={chain.name}
+          paymentToken={paymentToken}
         />
-      ) : (
-        <ConnectedWalletReadiness
-          account={account.address}
-          estimatedCost={estimatedCost}
-          paymentToken={deployment.usdgAddress}
+        <FundingGuidance
           chainId={deployment.chainId}
-          networkName={chain.name}
+          estimatedCost={estimatedCost}
+          gasBalance={verifiedBalances.eth}
+          paymentToken={paymentToken}
+          paymentTokenBalance={verifiedBalances.paymentToken}
         />
-      )}
-      <p className="readiness-guidance">
-        Need funds? Transfer USDG and a small amount of ETH to this wallet on{" "}
-        {chain.name}. Backed By Fans does not provide a fiat checkout.
-      </p>
-    </>
+      </>
+    );
+  }
+  return paymentToken ? (
+    <ConnectedWalletReadiness
+      account={account.address}
+      chainId={deployment.chainId}
+      estimatedCost={estimatedCost}
+      networkName={chain.name}
+      paymentToken={paymentToken}
+    />
+  ) : (
+    <ConnectedGasReadiness
+      account={account.address}
+      chainId={deployment.chainId}
+      networkName={chain.name}
+    />
   );
 }

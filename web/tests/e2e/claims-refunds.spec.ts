@@ -1,8 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { formatUnits, zeroAddress, type Address } from "viem";
+import { zeroAddress, type Address } from "viem";
 
 import { membershipTierAbi, usdgAbi } from "../../src/contracts";
+import { formatRawTokenAmount } from "../../src/lib/token-amount";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -16,6 +17,9 @@ import {
   snapshotAnvil,
   switchAnvilAccount,
 } from "./helpers/anvil";
+
+const usdgDisplay = (raw: bigint) =>
+  `${formatRawTokenAmount({ raw, decimals: 6, multiplier: 10n ** 18n })} USDG`;
 
 const localTokenControlAbi = [
   {
@@ -33,7 +37,7 @@ const localTokenControlAbi = [
 async function seedPurchase(referrer: Address = zeroAddress) {
   const member = requiredAnvilAddress("member");
   const tier = requiredAnvilAddress("tier");
-  const usdg = requiredAnvilAddress("usdg");
+  const usdg = requiredAnvilAddress("paymentToken");
   expectSuccessfulReceipt(
     await sendContract({
       account: member,
@@ -118,7 +122,7 @@ test.describe("configured Anvil claims and refunds", () => {
     const creator = requiredAnvilAddress("creator");
     const member = requiredAnvilAddress("member");
     const tier = requiredAnvilAddress("tier");
-    const usdg = requiredAnvilAddress("usdg");
+    const usdg = requiredAnvilAddress("paymentToken");
     const client = anvilPublicClient();
 
     try {
@@ -205,12 +209,8 @@ test.describe("configured Anvil claims and refunds", () => {
         args: [1n],
       });
       const refundPreview = page.locator(".refund-preview");
-      await expect(refundPreview).toContainText(
-        `${formatUnits(grossRefund, 6)} USDG`,
-      );
-      await expect(refundPreview).toContainText(
-        `${formatUnits(ownerTopUp, 6)} USDG`,
-      );
+      await expect(refundPreview).toContainText(usdgDisplay(grossRefund));
+      await expect(refundPreview).toContainText(usdgDisplay(ownerTopUp));
 
       const refund = page.getByRole("button", {
         name: "Approve exact top-up and refund",

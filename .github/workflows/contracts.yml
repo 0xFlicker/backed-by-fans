@@ -32,25 +32,28 @@ jobs:
       - name: Show Forge version
         run: forge --version
 
+      - name: Prepare clean-room provenance tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ripgrep
+          git submodule foreach --recursive 'git fetch --tags --force'
+
       - name: Check clean-room provenance
         run: ./scripts/check-clean-room.sh
 
       - name: Run Forge fmt
-        run: forge fmt --check
+        run: forge fmt --check src script test
 
       - name: Run Forge build
         run: forge build --ignore-eip-3860
 
       - name: Validate deployment tooling
         run: |
-          bash -n ../scripts/verify-local.sh ../scripts/test-web-anvil.sh ../web/scripts/generate-contracts.sh scripts/public-chain-common.sh scripts/create-safe.sh scripts/test-create-safe.sh scripts/deploy-protocol.sh scripts/test-deploy-protocol.sh
+          bash -n ../scripts/verify-local.sh ../scripts/test-web-anvil.sh ../web/scripts/generate-contracts.sh scripts/public-chain-common.sh scripts/create-safe.sh scripts/test-create-safe.sh scripts/deploy-protocol.sh scripts/test-deploy-protocol.sh scripts/manage-payment-tokens.sh scripts/test-manage-payment-tokens.sh
           ./scripts/test-create-safe.sh
           ./scripts/test-deploy-protocol.sh
+          ./scripts/test-manage-payment-tokens.sh
           forge test --match-path "test/deployment/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv
-
-      - name: Run canonical Robinhood testnet USDG fork checks
-        if: ${{ vars.RUN_ROBINHOOD_FORK_TESTS == 'true' }}
-        run: ../scripts/check-testnet-usdg.sh https://rpc.testnet.chain.robinhood.com
 
       - name: Run unit and fuzz tests
         run: forge test --no-match-path "test/{invariants,deployment,fork}/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv

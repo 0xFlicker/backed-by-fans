@@ -16,25 +16,39 @@ block, and page `tiers(offset, limit)` at the same block. `limit` cannot exceed
 `maxPageSize()` (100). The registry is append-only, but an unpinned sequence of
 reads can otherwise mix two different views of the registry.
 
+Accepted payment tokens are independently enumerable through
+`paymentTokenCount()` and `paymentTokens(offset, limit)`. Read each token's
+metadata and optional ERC-8056 multiplier at the same captured block. A disabled
+token remains listed so existing tiers retain their canonical interpretation;
+disablement blocks only new tier publication.
+
 ## Identity, activity, and capacity
 
-Each recipient is minted at most one sequential ERC-721 credential. The token
-is permanent and soulbound: `ownerOf`, `balanceOf`, and `tokenOf` describe
-historical identity, not current membership. Never authorize access from those
-values alone.
+Each recipient receives at most one sequential token ID. `tokenOf(recipient)`
+is the permanent wallet-to-record association. The ERC-721 is soulbound while
+minted, but the current tier owner can burn it after expiration. Never authorize
+access from `tokenOf` alone.
 
-Use `isActive(account)`, `isActiveToken(tokenId)`, or `activeBalanceOf(account)`
-for current authorization. `expiresAt(tokenId)` is the authoritative expiration
-view. `timeBalances(tokenId)` separates remaining paid seconds from later grant
-seconds; time consumes paid first. These views derive elapsed time without
-requiring a metadata refresh or checkpoint transaction.
+Before creator sync, use `isActive(account)`, `isActiveToken(tokenId)`, or
+`activeBalanceOf(account)` for current authorization. `expiresAt(tokenId)` is
+the strict ERC-5643 expiration view while the NFT exists. `timeBalances(tokenId)`
+separates remaining paid seconds from later grant seconds and remains readable
+for a known burned record; time consumes paid first.
 
 Capacity is deliberately separate from activity. An expired or refunded token
-may still return `isOccupied(tokenId) == true` until anyone calls
-`synchronize(tokenId)`. An active token is a no-op to `synchronize`; an inactive,
-occupied token releases exactly one slot. Use `occupiedSupply`, not `totalMinted`
-or active balances, when presenting supply availability. A final purchase can
-still lose a capacity race between simulation and confirmation.
+may still return `isOccupied(tokenId) == true` until the current tier owner calls
+`synchronizeExpiredMemberships(tokenIds)`. The batch must contain 1 through 100
+known IDs. Duplicates, already-burned IDs, and memberships renewed before
+execution are skipped; an unknown ID reverts the whole batch. Each still-expired
+NFT is burned and releases its slot. Use `occupiedSupply`, not `totalMinted` or
+active balances, when presenting supply availability. A rejoin can still lose a
+capacity race between simulation and confirmation.
+
+After creator sync, ordinary ERC-721 gates become accurate because `ownerOf`
+reverts and `balanceOf` no longer counts the expired NFT. Third-party systems
+that must work before sync still need `isActive` or `activeBalanceOf`. Indexers
+may show a burned NFT briefly while they ingest the standard zero-address
+`Transfer` event.
 
 ## Payments and attribution
 
@@ -55,15 +69,20 @@ not lock a recipient's choice; once the recipient has locked a referrer, later
 gifts use that existing attribution. Self-referral is allowed.
 
 Every positive gross payment permanently issues reward shares to the recipient
-token. Shares never disappear after expiry, synchronization, or refund. New
-shares do not receive rewards allocated before they existed, but do participate
-in the reward cut from the payment that created them.
+record. `sharesOf` never decreases. `rewardEligible(tokenId)` determines whether
+those lifetime shares are currently included in `totalRewardShares`: refunds
+and revocation of all remaining grant-only time suspend them immediately, while
+natural expiration suspends them only when the creator syncs. Accrued rewards
+remain claimable. Rejoining by purchase, contribution, gift, or grant remints
+the same token ID, advances its reward checkpoint past the inactive interval,
+reactivates lifetime shares, and adds any new payment shares.
 
 ## Fixed payout identities
 
 Payout destinations cannot be redirected by a caller:
 
-- reward claims go to the current owner of the credential token;
+- reward claims go to the wallet permanently associated by `tokenOf`, including
+  while its NFT is burned;
 - referral claims go to the locked referrer address;
 - creator proceeds go to the current tier owner;
 - protocol fees go to the factory's current fee recipient; and
@@ -82,14 +101,19 @@ Use events for discovery and user feedback, then reread authoritative state at
 the confirmed block. Important protocol events include:
 
 - factory: `TierCreated`, `TierTermsConfigured`, `TierMetadataConfigured`,
-  `FeeRecipientUpdated`, and `ProtocolFeesWithdrawn`;
+  `PaymentTokenListed`, `PaymentTokenEnabled`, `PaymentTokenDisabled`,
+  `FeeRecipientUpdated`, and token-addressed `ProtocolFeesWithdrawn`;
 - lifecycle: `MembershipTimeUpdated`, `SubscriptionUpdate`,
-  `MembershipSynchronized`, `PauseUpdated`, cap changes, and metadata updates;
+  `ExpiredMembershipSynchronized`, the standard burn `Transfer`, `PauseUpdated`,
+  cap changes, and metadata updates;
 - accounting: `PaymentProcessed`, `PaymentAllocated`, `ReferralLocked`,
-  `SharesIssued`, `RewardPerShareUpdated`, the three claim/withdraw events, and
-  `MembershipRefunded`; and
+  `SharesIssued`, `RewardEligibilityUpdated`, `RewardPerShareUpdated`, the three
+  claim/withdraw events, and `MembershipRefunded`; and
 - ownership: OpenZeppelin `OwnershipTransferStarted` and
-  `OwnershipTransferred` for both factory and tier.
+  `OwnershipTransferred` for both factory and tier; and
+- presentation: `PresentationUpdated` plus conditional ERC-4906
+  `BatchMetadataUpdate` after an owner-authorized renderer, art configuration,
+  or media configuration update.
 
 An event index is optional convenience infrastructure, never a source of truth.
 Wagmi and viem exclusively own receipt waiting, polling, replacement detection,
@@ -111,3 +135,8 @@ adapter, not a supporter-controlled cancellation right. Because the standard
 signature has no top-up ceiling, it deliberately permits any required owner
 top-up; operator interfaces should pause, wait for confirmation, preview, and
 use the canonical bounded refund before unpausing.
+
+ERC-721 and ERC-5643 functions that require an existing NFT, including
+`ownerOf`, `tokenURI`, `expiresAt`, and `isRenewable`, revert while a membership
+is burned. Restoration is intentionally available only through the canonical
+purchase, contribution, gift, and grant paths.

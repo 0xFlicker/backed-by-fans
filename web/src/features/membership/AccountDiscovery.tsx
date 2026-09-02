@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatUnits, isAddress, type Address } from "viem";
+import { isAddress, type Address } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
@@ -18,11 +18,13 @@ import {
 } from "@/features/membership/account-cache";
 import { discoverAccountPage } from "@/features/membership/account-discovery";
 import type { ReadyDeployment } from "@/lib/config";
+import { readAcceptedPaymentTokens } from "@/lib/payment-token-read";
 import {
   classifyReadError,
   unavailableDeploymentState,
 } from "@/lib/read-state";
 import { useActiveNetwork } from "@/lib/use-active-network";
+import { formatRawTokenAmount } from "@/lib/token-amount";
 
 function DirectTierAccess({ chainId }: { chainId: number }) {
   const [value, setValue] = useState("");
@@ -126,6 +128,39 @@ function HydratedDiscovery({
         offset,
       }),
   });
+  const paymentTokens = useQuery({
+    queryKey: [
+      "account-payment-tokens",
+      deployment.chainId,
+      deployment.factoryAddress,
+      wallet,
+    ],
+    queryFn: () =>
+      readAcceptedPaymentTokens(client, {
+        chainId: deployment.chainId,
+        factory: deployment.factoryAddress,
+        wallet,
+      }),
+  });
+  const tokenData =
+    paymentTokens.data?.status === "valid" ||
+    paymentTokens.data?.status === "partial"
+      ? paymentTokens.data.data
+      : [];
+
+  function claimLabel(raw: bigint, paymentToken: Address) {
+    const token = tokenData.find(
+      (candidate) =>
+        candidate.address.toLowerCase() === paymentToken.toLowerCase(),
+    );
+    return token
+      ? `${formatRawTokenAmount({
+          raw,
+          decimals: token.decimals,
+          multiplier: token.uiMultiplier,
+        })} ${token.symbol}`
+      : "Payment token unavailable";
+  }
 
   const currentCache = useMemo(() => {
     if (!discovery.data) return savedCache;
@@ -254,7 +289,10 @@ function HydratedDiscovery({
                         <div>
                           <dt>Rewards ready to collect</dt>
                           <dd>
-                            {formatUnits(BigInt(tier.claimableReward), 6)} USDG
+                            {claimLabel(
+                              BigInt(tier.claimableReward),
+                              tier.paymentToken,
+                            )}
                           </dd>
                         </div>
                       )}
@@ -262,8 +300,10 @@ function HydratedDiscovery({
                         <div>
                           <dt>Referral earnings ready</dt>
                           <dd>
-                            {formatUnits(BigInt(tier.claimableReferral), 6)}{" "}
-                            USDG
+                            {claimLabel(
+                              BigInt(tier.claimableReferral),
+                              tier.paymentToken,
+                            )}
                           </dd>
                         </div>
                       )}
@@ -272,8 +312,10 @@ function HydratedDiscovery({
                           <div>
                             <dt>Creator earnings ready</dt>
                             <dd>
-                              {formatUnits(BigInt(tier.creatorProceeds), 6)}{" "}
-                              USDG
+                              {claimLabel(
+                                BigInt(tier.creatorProceeds),
+                                tier.paymentToken,
+                              )}
                             </dd>
                           </div>
                         )}

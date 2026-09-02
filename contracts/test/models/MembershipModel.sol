@@ -23,16 +23,28 @@ library MembershipModel {
     /// @dev Slow payment oracle. Reward allocation is applied eagerly to every issued token,
     ///      rather than using the production cumulative-index/debt representation.
     struct PaymentBook {
+        address paymentToken;
         uint256 creatorProceeds;
         uint256 protocolProceeds;
         uint256 rewardReserve;
         uint256 totalReferralLiability;
-        uint256 totalShares;
+        uint256 totalRewardShares;
         uint256 tokenCount;
         mapping(uint256 tokenId => uint256 shares) shares;
+        mapping(uint256 tokenId => bool eligible) rewardEligible;
         mapping(uint256 tokenId => uint256 scaledReward) scaledRewards;
         mapping(uint256 tokenId => uint256 wholeCredit) rewardCredits;
         mapping(address referrer => uint256 amount) referralCredits;
+    }
+
+    error PaymentTokenMismatch(address expected, address actual);
+
+    function initialize(PaymentBook storage book, address paymentToken) internal {
+        address existing = book.paymentToken;
+        if (existing != address(0) && existing != paymentToken) {
+            revert PaymentTokenMismatch(existing, paymentToken);
+        }
+        book.paymentToken = paymentToken;
     }
 
     function addPaidTime(Lifecycle storage state, uint64 timestamp, uint64 duration) internal {
@@ -115,6 +127,7 @@ library MembershipModel {
 
     function applyPayment(
         PaymentBook storage book,
+        address paymentToken,
         uint256 tokenId,
         uint256 gross,
         uint16 protocolFeeBps,
@@ -122,14 +135,18 @@ library MembershipModel {
         uint16 referralBps,
         address referrer
     ) internal {
+        if (book.paymentToken != paymentToken) {
+            revert PaymentTokenMismatch(book.paymentToken, paymentToken);
+        }
         uint256 protocolFee = Math.mulDiv(gross, protocolFeeBps, 10_000);
         uint256 reward = Math.mulDiv(gross, rewardBps, 10_000);
         uint256 referral = referrer == address(0) ? 0 : Math.mulDiv(gross, referralBps, 10_000);
         uint256 creator = gross - protocolFee - reward - referral;
 
         if (book.shares[tokenId] == 0) ++book.tokenCount;
+        activateRewards(book, tokenId);
         book.shares[tokenId] += gross;
-        book.totalShares += gross;
+        book.totalRewardShares += gross;
         book.creatorProceeds += creator;
         book.protocolProceeds += protocolFee;
         book.rewardReserve += reward;
@@ -139,11 +156,26 @@ library MembershipModel {
         }
 
         if (reward == 0) return;
-        uint256 indexIncrease = Math.mulDiv(reward, REWARD_SCALE, book.totalShares);
+        uint256 indexIncrease = Math.mulDiv(reward, REWARD_SCALE, book.totalRewardShares);
         for (uint256 currentTokenId = 1; currentTokenId <= book.tokenCount; ++currentTokenId) {
-            book.scaledRewards[currentTokenId] += book.shares[currentTokenId] * indexIncrease;
+            if (book.rewardEligible[currentTokenId]) {
+                book.scaledRewards[currentTokenId] += book.shares[currentTokenId] * indexIncrease;
+            }
         }
-        book.rewardCredits[tokenId] += mulmod(reward, REWARD_SCALE, book.totalShares) / REWARD_SCALE;
+        book.rewardCredits[tokenId] += mulmod(reward, REWARD_SCALE, book.totalRewardShares)
+        / REWARD_SCALE;
+    }
+
+    function activateRewards(PaymentBook storage book, uint256 tokenId) internal {
+        if (book.rewardEligible[tokenId]) return;
+        book.rewardEligible[tokenId] = true;
+        book.totalRewardShares += book.shares[tokenId];
+    }
+
+    function deactivateRewards(PaymentBook storage book, uint256 tokenId) internal {
+        if (!book.rewardEligible[tokenId]) return;
+        book.rewardEligible[tokenId] = false;
+        book.totalRewardShares -= book.shares[tokenId];
     }
 
     function claimableReward(PaymentBook storage book, uint256 tokenId)

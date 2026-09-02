@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "chainId": 4663,
+  "releaseStatus": "inspection-only",
+  "initialTokens": [
+    {
+      "symbol": "USDG",
+      "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "expectedDecimals": 6,
+      "requiresScaledUI": false,
+      "observedName": "Global Dollar",
+      "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6"
+    }
+  ]
+}

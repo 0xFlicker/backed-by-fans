@@ -25,7 +25,7 @@ contract CapacityAndPauseTest is Test {
         tier = _deployTier(1);
     }
 
-    function test_expiredMemberKeepsSlotUntilPermissionlessIdempotentSync() public {
+    function test_expiredMemberKeepsSlotUntilOwnerIdempotentSync() public {
         uint256 tokenId = tier.grantTime(member, 1);
         vm.warp(tier.expiresAt(tokenId));
 
@@ -33,12 +33,11 @@ contract CapacityAndPauseTest is Test {
         assertTrue(tier.isOccupied(tokenId));
         assertEq(tier.occupiedSupply(), 1);
 
-        vm.prank(competitor);
-        assertTrue(tier.synchronize(tokenId));
+        assertEq(_sync(tier, tokenId), 1);
         assertFalse(tier.isOccupied(tokenId));
         assertEq(tier.occupiedSupply(), 0);
 
-        assertFalse(tier.synchronize(tokenId));
+        assertEq(_sync(tier, tokenId), 0);
         assertEq(tier.occupiedSupply(), 0);
     }
 
@@ -47,7 +46,7 @@ contract CapacityAndPauseTest is Test {
         MembershipTypes.MembershipState memory beforeState = tier.storedTimeState(tokenId);
         vm.warp(_START + 15 days);
 
-        assertFalse(tier.synchronize(tokenId));
+        assertEq(_sync(tier, tokenId), 0);
 
         MembershipTypes.MembershipState memory afterState = tier.storedTimeState(tokenId);
         assertEq(afterState.checkpoint, beforeState.checkpoint);
@@ -75,7 +74,7 @@ contract CapacityAndPauseTest is Test {
     function test_synchronizedMemberCanLoseCapacityRace() public {
         uint256 tokenId = tier.grantTime(member, 1);
         vm.warp(tier.expiresAt(tokenId));
-        assertTrue(tier.synchronize(tokenId));
+        assertEq(_sync(tier, tokenId), 1);
 
         tier.grantTime(competitor, 1);
 
@@ -99,7 +98,7 @@ contract CapacityAndPauseTest is Test {
         assertEq(uncappedTier.supplyCap(), 2);
 
         vm.warp(_START + _PERIOD);
-        assertTrue(uncappedTier.synchronize(uncappedTier.tokenOf(member)));
+        assertEq(_sync(uncappedTier, uncappedTier.tokenOf(member)), 1);
         uncappedTier.setSupplyCap(1);
         assertEq(uncappedTier.supplyCap(), 1);
 
@@ -156,7 +155,7 @@ contract CapacityAndPauseTest is Test {
     function _deployTier(uint64 supplyCap) private returns (MembershipTierHarness deployedTier) {
         MockUSDG token = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        MembershipTypes.TierConfig memory config = _config(address(renderer));
+        MembershipTypes.TierConfig memory config = _config(address(renderer), address(token));
         config.supplyCap = supplyCap;
         deployedTier = new MembershipTierHarness(address(this), token, address(renderer), config);
         _fundAndApprove(deployedTier, member);
@@ -168,6 +167,12 @@ contract CapacityAndPauseTest is Test {
         tokenId = target.purchase(1, address(0));
     }
 
+    function _sync(MembershipTier target, uint256 tokenId) private returns (uint256 burnedCount) {
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        burnedCount = target.synchronizeExpiredMemberships(tokenIds);
+    }
+
     function _fundAndApprove(MembershipTier target, address buyer) private {
         MockUSDG token = MockUSDG(address(target.paymentToken()));
         token.mint(buyer, 100_000_000);
@@ -175,9 +180,13 @@ contract CapacityAndPauseTest is Test {
         token.approve(address(target), type(uint256).max);
     }
 
-    function _config(address renderer_) private view returns (MembershipTypes.TierConfig memory) {
+    function _config(address renderer_, address paymentToken_)
+        private
+        view
+        returns (MembershipTypes.TierConfig memory)
+    {
         MembershipTypes.TierConfig memory config =
-            MembershipTestConfig.defaultConfig(address(this), renderer_);
+            MembershipTestConfig.defaultConfig(address(this), renderer_, paymentToken_);
         config.supplyCap = 1;
         return config;
     }

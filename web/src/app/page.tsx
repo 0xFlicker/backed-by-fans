@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
 import { BackingStackMark } from "@/components/BackingStackMark";
 import { CatalogExplorer } from "@/components/CatalogExplorer";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+  },
+};
 
 export default function HomePage() {
   return (
@@ -55,9 +62,7 @@ export default function HomePage() {
           />
         </div>
         <div className="principle-copy reveal">
-          <h2 className="font-display">
-            Support the work. Keep the membership.
-          </h2>
+          <h2 className="font-display">Support the work.</h2>
           <p>
             Creators set the terms. Supporters join directly and keep a record
             of their membership.

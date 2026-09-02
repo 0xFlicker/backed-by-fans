@@ -10,7 +10,7 @@ import {
 
 import { onchainMetadataRendererAbi } from "@/contracts";
 
-export type CanonicalRendererChainId = 46_630 | 31_337;
+export type CanonicalRendererChainId = 4_663 | 46_630 | 31_337;
 
 export type RendererAddressErrorCode =
   | "invalid-address"

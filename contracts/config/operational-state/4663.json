@@ -1,24 +1,31 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "chainId": 4663,
   "deployment": {
-    "paymentToken": {
-      "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
-      "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",
-      "implementation": "0x68184C449E1a8f34fA18d289737129FD27B66f8F",
-      "implementationRuntimeCodehash": "0x3a551ac5c744af57e68a1d1431ac403c0f516ffd7d224a75746aee11fc4f3baf"
-    },
+    "paymentTokens": [
+      {
+        "symbol": "USDG",
+        "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",
+        "implementation": "0x68184C449E1a8f34fA18d289737129FD27B66f8F",
+        "implementationRuntimeCodehash": "0x3a551ac5c744af57e68a1d1431ac403c0f516ffd7d224a75746aee11fc4f3baf"
+      }
+    ],
     "mediaStoreFactory": {
-      "address": "0x2f397e956313420769D406776Ac3037ED4beB827",
-      "runtimeCodehash": "0xd46d0310bac3082245018ae4aea7b22bcc67b9e9308fecf65a7298988edccd05"
+      "address": "0xF62F64da02bF67dfF4223aa5264270254823Cf65",
+      "runtimeCodehash": "0x2ce449f3ddfceb7f8b90a31ab390edbc2c8ca77201b4977ac1af3cd09f582c83"
     },
     "renderer": {
-      "address": "0x537CCE4581D6ab2c7D2F5b887e95f5991730238B",
-      "runtimeCodehash": "0xeba10f717236b9a0a4ddde0feb909364b2514cc240c9065c0d11341734014a97"
+      "address": "0x2E73800F227c59fe7A4Be673D246afdcdF88878A",
+      "runtimeCodehash": "0xbb5195bacf9748241223acbeee3ff59cd1800b63b90326a61a3adf2b145628a8"
+    },
+    "previewHarness": {
+      "address": "0x35ACe5985a9088699197cd1931fc3083dee229B6",
+      "runtimeCodehash": "0x0a4c43cc7583986bc35eaf86a492341f952567ca2fa6b9fe3eaf62fcefb06604"
     },
     "membershipFactory": {
-      "address": "0x8b6d94D6f1E74EE9E5F2D77175D0E9AB5eB1762b",
-      "runtimeCodehash": "0x8ad785e7e270f45e86c1f75501c8815903e830e11c1fd98f2b53f7720d9dc881"
+      "address": "0x1b44Cc8674c26A6d8530A24e8912F889b7fdf73e",
+      "runtimeCodehash": "0x3f3a900b6a4adcd4bcc07e1c222b2d2ce1face8be1525a910f684e17ac28b734"
     }
   },
   "safe": {

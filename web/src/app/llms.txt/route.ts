@@ -14,15 +14,15 @@ export function GET() {
 - [Complete renderer skill](${site}/skill/SKILL.md): Agent instructions for dependencies, implementation, local testing, preview, and deployment.
 - [Renderer interface](${site}/skill/references/interface.md): Contract inputs, outputs, media behavior, and fixed compatibility surface.
 - [Local renderer testing](${site}/skill/references/local-testing.md): Foundry tests and representative local gallery workflow.
-- [Browser deployment](${site}/skill/references/deployment.md): Browser preview, creator approval, and wallet deployment.
+- [Browser deployment](${site}/skill/references/deployment.md): Browser preview and creator-wallet deployment.
 - [Download the toolkit](${site}/skill/onchain-render-skill.tar.gz): Self-contained skill, scripts, Foundry template, references, and tests.
-- [Preview a renderer](${site}/render): Public browser tool for representative previews and creator approval.
+- [Preview a renderer](${site}/render): Public browser tool for representative previews and deployment preparation.
 
 ## Product boundaries
 
 - Robinhood testnet, chain ID 46630, is the supported public chain for custom renderers.
-- Renderers are shared directly by contract address. There is no renderer registry or cross-chain lookup.
-- Mechanical checks establish interface behavior for tested inputs. The creator approves or rejects the design.
+- Browser deployments are recorded in the creator's onchain renderer list for later rediscovery. The list is not an approval gate; compatible renderers can still be shared and used directly by contract address.
+- There is no cross-chain lookup. Mechanical checks establish interface behavior for tested inputs, and the creator decides whether to use the design.
 - Renderer deployment uses the creator's browser wallet. Agents never need a private key export.
 `;
 

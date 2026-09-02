@@ -53,8 +53,8 @@ jobs:
       - name: Typecheck generated application types
         run: bun run typecheck
 
-      - name: Install Playwright Chromium
-        run: bunx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium firefox webkit
 
       - name: Run browser tests
         run: bun run test:e2e

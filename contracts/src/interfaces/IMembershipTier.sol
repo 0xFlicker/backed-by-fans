@@ -16,11 +16,24 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     event MembershipTimeUpdated(
         uint256 indexed tokenId, uint64 paidSeconds, uint64 grantSeconds, uint64 expiration
     );
-    event MembershipSynchronized(uint256 indexed tokenId, address indexed recipient);
+    event ExpiredMembershipSynchronized(
+        uint256 indexed tokenId, address indexed recipient, uint256 suspendedShares
+    );
+    event RewardEligibilityUpdated(
+        uint256 indexed tokenId, bool eligible, uint256 eligibleShares, uint256 totalRewardShares
+    );
     event PauseUpdated(bool paused);
     event SupplyCapUpdated(uint64 previousCap, uint64 newCap);
     event MaxPrepaidPeriodsUpdated(uint64 previousMaximum, uint64 newMaximum);
     event TierMetadataUpdated(string description, string externalURI);
+    event PresentationUpdated(
+        address indexed previousRenderer,
+        address indexed newRenderer,
+        bytes32 previousArtHash,
+        bytes32 newArtHash,
+        bytes32 previousMediaHash,
+        bytes32 newMediaHash
+    );
     event PaymentProcessed(
         address indexed payer,
         address indexed recipient,
@@ -124,7 +137,9 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function sharesOf(uint256 tokenId) external view returns (uint256);
 
-    function totalShares() external view returns (uint256);
+    function rewardEligible(uint256 tokenId) external view returns (bool);
+
+    function totalRewardShares() external view returns (uint256);
 
     function rewardPerShare() external view returns (uint256);
 
@@ -159,7 +174,9 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function revokeGrantTime(uint256 tokenId) external returns (uint64 revokedSeconds);
 
-    function synchronize(uint256 tokenId) external returns (bool released);
+    function synchronizeExpiredMemberships(uint256[] calldata tokenIds)
+        external
+        returns (uint256 burnedCount);
 
     function setPaused(bool newPaused) external;
 
@@ -168,4 +185,10 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     function setMaxPrepaidPeriods(uint64 newMaximum) external;
 
     function setTierMetadata(MembershipTypes.TierMetadata calldata newMetadata) external;
+
+    function setPresentation(
+        address newRenderer,
+        MembershipTypes.ArtConfig calldata newArt,
+        MembershipTypes.MediaConfig calldata newMedia
+    ) external;
 }

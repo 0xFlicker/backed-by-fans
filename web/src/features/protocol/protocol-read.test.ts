@@ -10,6 +10,7 @@ import type { ReadyDeployment } from "@/lib/config";
 
 const factory = getAddress("0x1111111111111111111111111111111111111111");
 const paymentToken = getAddress("0x2222222222222222222222222222222222222222");
+const stockToken = getAddress("0x9999999999999999999999999999999999999999");
 const renderer = getAddress("0x3333333333333333333333333333333333333333");
 const mediaStoreFactory = getAddress(
   "0x4444444444444444444444444444444444444444",
@@ -33,7 +34,6 @@ const deployment = {
   status: "ready",
   chainId: 46630,
   factoryAddress: factory,
-  usdgAddress: paymentToken,
   rendererAddress: renderer,
   previewHarnessAddress: previewHarness,
 } satisfies ReadyDeployment & {
@@ -47,6 +47,7 @@ function protocolClient(
     previewHarnessCode?: `0x${string}`;
     mediaStoreFactoryHash?: `0x${string}`;
     rendererSchema?: `0x${string}`;
+    tokenListed?: boolean;
   } = {},
 ) {
   const readContract = vi.fn(
@@ -74,7 +75,9 @@ function protocolClient(
         }
       }
       const values: Record<string, unknown> = {
-        paymentToken,
+        paymentTokenCount: 2n,
+        paymentTokens: [paymentToken, stockToken],
+        isPaymentTokenListed: input.tokenListed ?? true,
         rendererSchema: membershipRendererSchema,
         mediaStoreFactory,
         mediaStoreFactoryRuntimeCodehash:
@@ -84,7 +87,7 @@ function protocolClient(
         feeRecipient,
         protocolFeeBps: 100,
         tierCount: 4n,
-        balanceOf: 9n,
+        balanceOf: address === paymentToken ? 9n : 4n,
       };
       return Promise.resolve(values[functionName]);
     },
@@ -116,7 +119,7 @@ describe("protocol dependency reads", () => {
       data: {
         chainId: 46630,
         factory,
-        paymentToken,
+        paymentTokens: [paymentToken, stockToken],
         rendererSchema: membershipRendererSchema,
         renderer,
         rendererName: "FOUNDING SIX",
@@ -127,6 +130,10 @@ describe("protocol dependency reads", () => {
         owner,
         protocolFeeBps: 100,
         tierCount: 4n,
+        protocolBalances: [
+          { token: paymentToken, raw: 9n },
+          { token: stockToken, raw: 4n },
+        ],
       },
     });
     const functionNames = vi
@@ -141,6 +148,14 @@ describe("protocol dependency reads", () => {
     for (const call of vi.mocked(client.getBytecode).mock.calls) {
       expect(call[0]).toMatchObject({ blockNumber: 40n });
     }
+  });
+
+  it("rejects an enumerated token that is not factory-listed", async () => {
+    const result = await readProtocolDependencies(
+      protocolClient({ tokenListed: false }),
+      deployment,
+    );
+    expect(result).toMatchObject({ status: "unavailable" });
   });
 
   it("rejects a direct renderer without code", async () => {

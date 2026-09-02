@@ -103,6 +103,15 @@ case "${1:-}" in
   call)
     address="$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')"
     signature="${3:-}"
+    token_symbol=""
+    case "$address" in
+      "$(printf '%s' "$MOCK_TESTNET_USDG_ADDRESS" | tr '[:upper:]' '[:lower:]')") token_symbol="USDG" ;;
+      "$(printf '%s' "$MOCK_TESTNET_AMD_ADDRESS" | tr '[:upper:]' '[:lower:]')") token_symbol="AMD" ;;
+      "$(printf '%s' "$MOCK_TESTNET_NFLX_ADDRESS" | tr '[:upper:]' '[:lower:]')") token_symbol="NFLX" ;;
+      "$(printf '%s' "$MOCK_TESTNET_PLTR_ADDRESS" | tr '[:upper:]' '[:lower:]')") token_symbol="PLTR" ;;
+      "$(printf '%s' "$MOCK_TESTNET_AMZN_ADDRESS" | tr '[:upper:]' '[:lower:]')") token_symbol="AMZN" ;;
+      "$(printf '%s' "$MOCK_TESTNET_TSLA_ADDRESS" | tr '[:upper:]' '[:lower:]')") token_symbol="TSLA" ;;
+    esac
     case "$signature" in
       "masterCopy()(address)")
         printf '["0xEdd160fEBBD92E350D4D398fb636302fccd67C7e"]\n'
@@ -126,9 +135,18 @@ case "${1:-}" in
           printf '["0x0000000000000000000000000000000000000000000000000000000000000000"]\n'
         fi
         ;;
-      "decimals()(uint8)") printf '[6]\n' ;;
-      "symbol()(string)") printf '["USDG"]\n' ;;
-      "name()(string)") printf '["LOL Dollar"]\n' ;;
+      "decimals()(uint8)")
+        [[ "$token_symbol" == "USDG" ]] && printf '[6]\n' || printf '[18]\n'
+        ;;
+      "symbol()(string)") printf '["%s"]\n' "$token_symbol" ;;
+      "name()(string)") printf '["%s"]\n' "$token_symbol" ;;
+      "supportsInterface(bytes4)(bool)")
+        [[ "$token_symbol" != "USDG" ]] && printf '[true]\n' || printf '[false]\n'
+        ;;
+      "uiMultiplier()(uint256)"|"newUIMultiplier()(uint256)")
+        printf '[1000000000000000000]\n'
+        ;;
+      "effectiveAt()(uint256)") printf '[0]\n' ;;
       "owner()(address)")
         if [[ "$address" == "$(printf '%s' "$MOCK_TESTNET_USDG_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
           printf '["%s"]\n' "$MOCK_PROTOCOL_OWNER"
@@ -136,7 +154,16 @@ case "${1:-}" in
           printf '["%s"]\n' "${MOCK_FACTORY_OWNER:-0xeAA4B38A99f766117C1D493a21012fec25f70505}"
         fi
         ;;
-      "paymentToken()(address)") printf '["%s"]\n' "$MOCK_TESTNET_USDG_ADDRESS" ;;
+      "paymentTokenCount()(uint256)") printf '[6]\n' ;;
+      "paymentTokens(uint256,uint256)(address[])")
+        printf '[["%s","%s","%s","%s","%s","%s"]]\n' \
+          "$MOCK_TESTNET_USDG_ADDRESS" "$MOCK_TESTNET_AMD_ADDRESS" \
+          "$MOCK_TESTNET_NFLX_ADDRESS" "$MOCK_TESTNET_PLTR_ADDRESS" \
+          "$MOCK_TESTNET_AMZN_ADDRESS" "$MOCK_TESTNET_TSLA_ADDRESS"
+        ;;
+      "isPaymentTokenListed(address)(bool)"|"isPaymentTokenEnabled(address)(bool)")
+        printf '[true]\n'
+        ;;
       "mediaStoreFactory()(address)") printf '["%s"]\n' "$MOCK_MEDIA_ADDRESS" ;;
       "rendererSchema()(bytes32)") printf '["%s"]\n' "$MOCK_RENDERER_SCHEMA" ;;
       "rendererCount()(uint32)") printf '[%s]\n' "${MOCK_RENDERER_COUNT:-1}" ;;
@@ -169,14 +196,18 @@ case "${1:-}" in
       state_file="$MOCK_LOCAL_STATE"
     fi
     prefix="$(cat "$state_file")"
+    factory_prefix=4
+    if [[ "${MOCK_PREEXISTING_PREVIEW_HARNESS:-}" == "1" ]]; then
+      factory_prefix=3
+    fi
     if [[ "$address" == "$(printf '%s' "$MOCK_CREATE2_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
       printf '%s\n' "$MOCK_CREATE2_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_SAFE_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
       printf '0x00\n'
-    elif [[ "$address" == "$(printf '%s' "$MOCK_TESTNET_USDG_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
-      printf '%s\n' "$MOCK_TESTNET_USDG_RUNTIME"
+    elif [[ " $(printf '%s' "$MOCK_PAYMENT_TOKEN_ADDRESSES" | tr '[:upper:]' '[:lower:]') " == *" $address "* ]]; then
+      printf '%s\n' "$MOCK_PAYMENT_TOKEN_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_TIER_DEPLOYER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
-      && "$prefix" -ge 4 ]]; then
+      && "$prefix" -ge "$factory_prefix" ]]; then
       printf '0x60dd\n'
     elif [[ "$address" == "$(printf '%s' "$MOCK_MEDIA_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
       && "$prefix" -ge 1 ]]; then
@@ -185,14 +216,14 @@ case "${1:-}" in
       && "$prefix" -ge 2 ]]; then
       printf '%s\n' "$MOCK_RENDERER_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_PREVIEW_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
-      && "$prefix" -ge 3 ]]; then
+      && ("$prefix" -ge 3 || "${MOCK_PREEXISTING_PREVIEW_HARNESS:-}" == "1") ]]; then
       printf '%s\n' "$MOCK_PREVIEW_RUNTIME"
     elif [[ -n "${MOCK_SECOND_RENDERER_ADDRESS:-}" \
       && "$address" == "$(printf '%s' "$MOCK_SECOND_RENDERER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
       && "$prefix" -ge 4 ]]; then
       printf '%s\n' "$MOCK_SECOND_RENDERER_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_FACTORY_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
-      && "$prefix" -ge 4 ]]; then
+      && "$prefix" -ge "$factory_prefix" ]]; then
       printf '%s\n' "$MOCK_FACTORY_RUNTIME"
     else
       printf '0x\n'

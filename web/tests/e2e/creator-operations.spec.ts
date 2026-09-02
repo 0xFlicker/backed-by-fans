@@ -1,11 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { formatUnits, zeroAddress } from "viem";
+import { zeroAddress } from "viem";
 
-import {
-  membershipFactoryAbi,
-  membershipTierAbi,
-  usdgAbi,
-} from "../../src/contracts";
+import { membershipTierAbi, usdgAbi } from "../../src/contracts";
+import { formatRawTokenAmount } from "../../src/lib/token-amount";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -15,10 +12,14 @@ import {
   installAnvilWallet,
   requiredAnvilAddress,
   revertAnvil,
+  rpcRequest,
   sendContract,
   snapshotAnvil,
   switchAnvilAccount,
 } from "./helpers/anvil";
+
+const usdgDisplay = (raw: bigint) =>
+  `${formatRawTokenAmount({ raw, decimals: 6, multiplier: 10n ** 18n })} USDG`;
 
 const tier = "0x2222222222222222222222222222222222222222";
 
@@ -34,7 +35,7 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
   const recipient = requiredAnvilAddress("giftRecipient");
   const newOwner = requiredAnvilAddress("newOwner");
   const configuredTier = requiredAnvilAddress("tier");
-  const usdg = requiredAnvilAddress("usdg");
+  const usdg = requiredAnvilAddress("paymentToken");
   const client = anvilPublicClient();
 
   try {
@@ -131,10 +132,10 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
     const refundPreview = page.locator(".refund-preview");
     await expect(
       refundPreview.getByText("Gross refund").locator(".."),
-    ).toContainText(`${formatUnits(grossRefund, 6)} USDG`);
+    ).toContainText(usdgDisplay(grossRefund));
     await expect(
       refundPreview.getByText("Exact owner top-up").locator(".."),
-    ).toContainText(`${formatUnits(ownerTopUp, 6)} USDG`);
+    ).toContainText(usdgDisplay(ownerTopUp));
     await page
       .getByRole("button", { name: "Approve exact top-up and refund" })
       .click();
@@ -164,19 +165,17 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
   }
 });
 
-test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi", async ({
+test("@anvil creator sync burns an expired NFT while its member can claim and rejoin", async ({
   page,
 }, testInfo) => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
   test.skip(testInfo.project.name !== "desktop", "One mutation is sufficient.");
   const snapshot = await snapshotAnvil();
   const creator = requiredAnvilAddress("creator");
   const member = requiredAnvilAddress("member");
-  const newRecipient = requiredAnvilAddress("giftRecipient");
-  const factory = requiredAnvilAddress("factory");
   const configuredTier = requiredAnvilAddress("tier");
-  const usdg = requiredAnvilAddress("usdg");
+  const usdg = requiredAnvilAddress("paymentToken");
   const client = anvilPublicClient();
 
   try {
@@ -198,34 +197,70 @@ test("@anvil performs protocol withdrawal and fee-recipient writes through wagmi
         args: [1n, zeroAddress],
       }),
     );
+    const tokenId = await client.readContract({
+      address: configuredTier,
+      abi: membershipTierAbi,
+      functionName: "tokenOf",
+      args: [member],
+    });
+    const accrued = await client.readContract({
+      address: configuredTier,
+      abi: membershipTierAbi,
+      functionName: "claimableReward",
+      args: [tokenId],
+    });
+    expect(accrued).toBeGreaterThan(0n);
+    await rpcRequest("evm_increaseTime", [2_592_001]);
+    await rpcRequest("evm_mine");
 
     await installAnvilWallet(page, creator);
-    await page.goto("/protocol");
+    await page.goto(`/chains/31337/tiers/${configuredTier}/manage`);
     await connectAnvilWallet(page, creator);
-
     await page
-      .getByRole("button", { name: "Withdraw to fee recipient" })
+      .getByRole("button", { name: "Scan for expired memberships" })
       .click();
-    await expectReconciled(page, "Withdraw protocol fees");
+    await expect(page.getByText(/found 1 expired/i)).toBeVisible();
+    await page
+      .getByRole("button", { name: "Sync next 1 expired membership" })
+      .click();
+    await expectReconciled(page, "Sync 1 expired membership");
     await expect(
       client.readContract({
-        address: usdg,
-        abi: usdgAbi,
+        address: configuredTier,
+        abi: membershipTierAbi,
         functionName: "balanceOf",
-        args: [factory],
+        args: [member],
       }),
     ).resolves.toBe(0n);
-
-    await page.getByLabel("New fee recipient").fill(newRecipient);
-    await page.getByRole("button", { name: "Set fee recipient" }).click();
-    await expectReconciled(page, "Change protocol fee recipient");
     await expect(
       client.readContract({
-        address: factory,
-        abi: membershipFactoryAbi,
-        functionName: "feeRecipient",
+        address: configuredTier,
+        abi: membershipTierAbi,
+        functionName: "claimableReward",
+        args: [tokenId],
       }),
-    ).resolves.toBe(newRecipient);
+    ).resolves.toBe(accrued);
+
+    await page.goto(`/chains/31337/tiers/${configuredTier}`);
+    await switchAnvilAccount(page, member);
+    await expect(page.getByText("Burned after creator sync")).toBeVisible();
+    await page
+      .locator(".claim-row")
+      .filter({ hasText: "Membership rewards" })
+      .getByRole("button", { name: "Claim to this wallet" })
+      .click();
+    await expectReconciled(page, "Claim membership rewards");
+
+    await page.getByRole("button", { name: "Rejoin this membership" }).click();
+    await expectReconciled(page, "Rejoin this membership");
+    await expect(
+      client.readContract({
+        address: configuredTier,
+        abi: membershipTierAbi,
+        functionName: "ownerOf",
+        args: [tokenId],
+      }),
+    ).resolves.toBe(member);
   } finally {
     await revertAnvil(snapshot);
   }
@@ -241,15 +276,6 @@ test("fails registered-tier management closed without deployment config", async 
   page,
 }) => {
   await page.goto(`/chains/31337/tiers/${tier}/manage`);
-  await expect(page.getByText("Onchain state unavailable")).toBeVisible();
-  await expect(page.getByText(/not deployed/i)).toBeVisible();
-});
-
-test("fails protocol administration closed without a verified factory", async ({
-  page,
-}) => {
-  await page.goto("/protocol");
-  await page.getByLabel("Membership network").selectOption("4663");
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
   await expect(page.getByText(/not deployed/i)).toBeVisible();
 });

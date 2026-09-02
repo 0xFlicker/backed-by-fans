@@ -16,7 +16,6 @@ import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import {
   bytesToHex,
-  formatUnits,
   zeroAddress,
   type Address,
   type Hex,
@@ -42,6 +41,7 @@ import {
   type CreatorForm,
   type TierConfig,
 } from "@/features/creator/config";
+import { PaymentTokenPicker } from "@/features/creator/PaymentTokenPicker";
 import {
   CreatorStudio,
   type RendererChoice,
@@ -111,6 +111,11 @@ import {
 } from "@/features/protocol/write-reconciliation";
 import { deploymentWriteGuard } from "@/features/protocol/deployment-write-guard";
 import { isSameAddress } from "@/lib/address";
+import {
+  readAcceptedPaymentTokens,
+  type AcceptedPaymentToken,
+} from "@/lib/payment-token-read";
+import { formatRawTokenAmount } from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 import {
   decodeTransactionError,
@@ -265,8 +270,14 @@ function Field({
   );
 }
 
-function usd(value: bigint) {
-  return `${formatUnits(value, 6)} USDG`;
+function formattedPayment(value: bigint, token?: AcceptedPaymentToken) {
+  return token
+    ? `${formatRawTokenAmount({
+        raw: value,
+        decimals: token.decimals,
+        multiplier: token.uiMultiplier,
+      })} ${token.symbol}`
+    : value.toString();
 }
 
 function publicationStepStatus(phase: TransactionPhase, waiting = false) {
@@ -467,6 +478,50 @@ export function CreateTierWizard() {
     ),
     queryFn: () => client!.getBalance({ address: account.address! }),
   });
+  const paymentTokens = useQuery({
+    queryKey: [
+      "creator-payment-tokens",
+      deployment.status === "ready" ? deployment.chainId : undefined,
+      deployment.status === "ready" ? deployment.factoryAddress : undefined,
+      account.address,
+    ],
+    enabled: Boolean(deployment.status === "ready" && client),
+    retry: false,
+    queryFn: async () => {
+      if (deployment.status !== "ready" || !client) {
+        throw new Error("Payment tokens are unavailable on this network.");
+      }
+      return readAcceptedPaymentTokens(client, {
+        chainId: deployment.chainId,
+        factory: deployment.factoryAddress,
+        wallet: account.address,
+      });
+    },
+  });
+  const acceptedPaymentTokens = useMemo(
+    () =>
+      paymentTokens.data?.status === "valid" ||
+      paymentTokens.data?.status === "partial"
+        ? paymentTokens.data.data
+        : [],
+    [paymentTokens.data],
+  );
+  const effectivePaymentTokenAddress =
+    form.paymentToken ||
+    acceptedPaymentTokens.find((token) => token.enabled)?.address ||
+    "";
+  const effectiveForm = useMemo(
+    () =>
+      form.paymentToken || !effectivePaymentTokenAddress
+        ? form
+        : { ...form, paymentToken: effectivePaymentTokenAddress },
+    [effectivePaymentTokenAddress, form],
+  );
+  const selectedPaymentToken = acceptedPaymentTokens.find(
+    (token) =>
+      token.address.toLowerCase() ===
+      effectivePaymentTokenAddress.toLowerCase(),
+  );
   const switchChain = useSwitchChain();
   const contractArt = useMemo(
     () => ({ ...toContractArtConfig(art), engine: rendererEngine }),
@@ -658,8 +713,14 @@ export function CreateTierWizard() {
     [contractArt, publicationMedia, selectedRenderer, tierSalt],
   );
   const result = useMemo(
-    () => evaluateCreatorForm(form, account.address, creative),
-    [account.address, creative, form],
+    () =>
+      evaluateCreatorForm(
+        effectiveForm,
+        account.address,
+        creative,
+        selectedPaymentToken,
+      ),
+    [account.address, creative, effectiveForm, selectedPaymentToken],
   );
   const guard = deploymentWriteGuard({
     deployment,
@@ -1846,14 +1907,6 @@ export function CreateTierWizard() {
       mediaForPublication = stored;
     }
 
-    const publicationResult = evaluateCreatorForm(form, creator, {
-      tierSalt,
-      renderer: selectedRenderer.address,
-      art: contractArt,
-      media: mediaForPublication,
-    });
-    if (!publicationResult.config) return;
-    const config = publicationResult.config;
     const scopedDispatch: typeof dispatch = (event) => {
       if (sameCreatorProtocolScope(currentCreatorScopeRef.current, scope)) {
         dispatch(event);
@@ -1865,6 +1918,41 @@ export function CreateTierWizard() {
     let waitingForReceipt = false;
     try {
       scopedDispatch({ type: "SIMULATE" });
+      const refreshedTokens = await readAcceptedPaymentTokens(client, {
+        chainId: dependencies.chainId,
+        factory,
+        wallet: creator,
+      });
+      if (
+        refreshedTokens.status === "rate-limited" ||
+        refreshedTokens.status === "unavailable"
+      ) {
+        throw new Error(refreshedTokens.label);
+      }
+      const refreshedPaymentToken = refreshedTokens.data.find(
+        (token) =>
+          token.address.toLowerCase() ===
+          effectivePaymentTokenAddress.toLowerCase(),
+      );
+      const publicationResult = evaluateCreatorForm(
+        effectiveForm,
+        creator,
+        {
+          tierSalt,
+          renderer: selectedRenderer.address,
+          art: contractArt,
+          media: mediaForPublication,
+        },
+        refreshedPaymentToken,
+      );
+      if (!publicationResult.config) {
+        throw new Error(
+          publicationResult.errors.paymentToken ??
+            publicationResult.errors.displayedPrice ??
+            "Review the membership terms before publishing.",
+        );
+      }
+      const config = publicationResult.config;
       const { request } = await simulateContract(wagmiConfig, {
         account: creator,
         chainId: dependencies.chainId,
@@ -2184,20 +2272,37 @@ export function CreateTierWizard() {
           <div className="creator-step-panel">
             <h2 id="step-price">Set price and renewal</h2>
             <p>Price and period are permanent. Supporters renew manually.</p>
+            <PaymentTokenPicker
+              onRetry={() => void paymentTokens.refetch()}
+              onSelect={(address) => {
+                setForm((current) => ({
+                  ...current,
+                  paymentToken: address,
+                }));
+                resetCompletion();
+              }}
+              selected={selectedPaymentToken?.address}
+              state={paymentTokens.data}
+            />
+            {result.errors.paymentToken ? (
+              <p className="field-error" role="alert">
+                {result.errors.paymentToken}
+              </p>
+            ) : null}
             <div className="creator-field-grid">
               <Field
-                error={result.errors.priceUsd}
+                error={result.errors.displayedPrice}
                 hint="Permanent. Enter 0 to let supporters choose the amount."
                 id="tier-price"
-                label="Price per period (USDG)"
+                label={`Price per period${selectedPaymentToken ? ` (${selectedPaymentToken.symbol})` : ""}`}
               >
                 <input
                   aria-describedby="tier-price-hint tier-price-error"
                   id="tier-price"
                   inputMode="decimal"
                   min="0"
-                  onChange={update("priceUsd")}
-                  value={form.priceUsd}
+                  onChange={update("displayedPrice")}
+                  value={form.displayedPrice}
                 />
               </Field>
               <Field
@@ -2263,28 +2368,55 @@ export function CreateTierWizard() {
               <div className="split-preview" aria-label="Payment split preview">
                 <div>
                   <p>One payment</p>
-                  <strong>{usd(result.split.gross)}</strong>
+                  <strong>
+                    {formattedPayment(result.split.gross, selectedPaymentToken)}
+                  </strong>
                 </div>
                 <dl>
                   <div>
                     <dt>Platform fee</dt>
-                    <dd>{usd(result.split.protocol)}</dd>
+                    <dd>
+                      {formattedPayment(
+                        result.split.protocol,
+                        selectedPaymentToken,
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt>Membership rewards</dt>
-                    <dd>{usd(result.split.reward)}</dd>
+                    <dd>
+                      {formattedPayment(
+                        result.split.reward,
+                        selectedPaymentToken,
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt>Referral</dt>
-                    <dd>{usd(result.split.referral)}</dd>
+                    <dd>
+                      {formattedPayment(
+                        result.split.referral,
+                        selectedPaymentToken,
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt>Creator with referral</dt>
-                    <dd>{usd(result.split.creatorReferred)}</dd>
+                    <dd>
+                      {formattedPayment(
+                        result.split.creatorReferred,
+                        selectedPaymentToken,
+                      )}
+                    </dd>
                   </div>
                   <div>
                     <dt>Creator without referral</dt>
-                    <dd>{usd(result.split.creatorUnreferred)}</dd>
+                    <dd>
+                      {formattedPayment(
+                        result.split.creatorUnreferred,
+                        selectedPaymentToken,
+                      )}
+                    </dd>
                   </div>
                 </dl>
               </div>
@@ -2391,8 +2523,17 @@ export function CreateTierWizard() {
                   <div>
                     <dt>Price / period</dt>
                     <dd>
-                      {form.priceUsd || "Not set"} USDG /{" "}
+                      {form.displayedPrice || "Not set"}{" "}
+                      {selectedPaymentToken?.symbol ?? "token"} /{" "}
                       {form.periodDays || "Not set"} days
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Payment token</dt>
+                    <dd>
+                      {selectedPaymentToken
+                        ? `${selectedPaymentToken.name} (${selectedPaymentToken.symbol})`
+                        : "Not set"}
                     </dd>
                   </div>
                   <div>
@@ -2467,6 +2608,23 @@ export function CreateTierWizard() {
                   <summary>Technical details</summary>
                   <dl>
                     <div>
+                      <dt>Payment token</dt>
+                      <dd>
+                        <code>
+                          {selectedPaymentToken?.address ?? "Not set"}
+                        </code>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Raw price per period</dt>
+                      <dd>
+                        <code>
+                          {result.config?.pricePerPeriod.toString() ??
+                            "Not set"}
+                        </code>
+                      </dd>
+                    </div>
+                    <div>
                       <dt>Collection seed</dt>
                       <dd>
                         <code>
@@ -2529,7 +2687,7 @@ export function CreateTierWizard() {
                     Switch to {active.chain?.name ?? "a supported network"}
                   </button>
                 )}
-              <WalletReadiness />
+              <WalletReadiness paymentToken={selectedPaymentToken} />
             </div>
 
             <section

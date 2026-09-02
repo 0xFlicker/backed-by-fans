@@ -74,7 +74,7 @@ export function TierReadPanel({
         state={{
           status: "loading",
           label:
-            "Checking factory registration, USDG binding, and membership interfaces.",
+            "Checking factory registration, payment terms, and membership interfaces.",
         }}
       />
     );

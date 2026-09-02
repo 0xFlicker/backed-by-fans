@@ -30,8 +30,8 @@ forge --version
 The reported Forge version must be `1.7.1`. No deployer key belongs in a dotenv
 file; use Foundry's encrypted keystore as described in `.env.example`.
 
-The repeatable broadcast, Wagmi generation, source verification, and official
-testnet USDG evidence are documented in the
+The repeatable broadcast, Wagmi generation, source verification, and external
+testnet-token evidence are documented in the
 [deployment runbook](../docs/runbooks/deployment.md).
 Create the chain's Safe first with the canonical Safe v1.5.0 L2 workflow in the
 [Safe runbook](../docs/runbooks/safe.md):
@@ -46,11 +46,11 @@ verifies that it resolves to the approved deployer address. The same determinist
 Safe address is used on testnet and mainnet; mainnet creation has a separate
 explicit confirmation gate.
 
-The public renderer and production factory deploy directly through Foundry's
-canonical CREATE2 deployer. The production factory has no constructor arguments;
-its constructor selects USDG from `block.chainid`, so mainnet and testnet use the
-same factory initcode and therefore the same protocol addresses. Rehearse or
-broadcast only through the guarded wrapper:
+The media factory, default renderer, preview harness, and production factory
+deploy directly through Foundry's canonical CREATE2 deployer. The factory
+constructor receives the chain's reviewed initial token list, media factory,
+protocol owner, and fee recipient, so each release has a chain-specific payload
+and address. Rehearse or broadcast only through the guarded wrapper:
 
 ```sh
 ./scripts/deploy-protocol.sh testnet dry-run
@@ -64,27 +64,17 @@ Foundry's durable artifact with
 the complete deployment onchain without a signer, then lets Foundry resume
 verification. It refuses partial deployments; do not rebroadcast a complete one.
 
-Robinhood testnet uses the deployer-mintable `LOL Dollar` token with symbol
-`USDG`. Deploy it before the protocol, then mint human-readable amounts to test
-wallets:
+Robinhood testnet uses the reviewed external USDG, AMD, NFLX, PLTR, AMZN, and
+TSLA token contracts recorded in `config/payment-tokens/46630.json`. The protocol
+does not deploy or mint a substitute USDG. Mainnet remains bound to canonical
+Paxos USDG only and additionally requires the exact `4663` confirmation value
+and every human release gate.
 
-```sh
-./scripts/deploy-testnet-usdg.sh dry-run
-./scripts/deploy-testnet-usdg.sh broadcast
-./scripts/mint-testnet-usdg.sh 0xRecipient 100 broadcast
-```
-
-The app refers to this token only as USDG. Mainnet remains bound to canonical
-Paxos USDG and additionally requires the exact `4663` confirmation value and
-every human release gate.
-
-Commit the successful public Foundry broadcasts under
-`broadcast/TestnetUSDG.s.sol/` and `broadcast/DeployDirectProtocol.s.sol/`.
-Wagmi CLI consumes both: the first supplies the testnet USDG address and the
-second supplies the factory address. Anvil uses chain `31337` and a temporary
+Commit the successful public Foundry broadcast under
+`broadcast/DeployDirectProtocol.s.sol/`. Wagmi CLI consumes that deployment for
+the factory address. Anvil uses chain `31337` and a temporary
 `FOUNDRY_BROADCAST` directory, so local evidence cannot modify the public
-address map. Minting uses the separate `MintTestnetUSDG.s.sol` script so a mint
-cannot overwrite the token deployment record Wagmi consumes.
+address map.
 
 The [local lifecycle evidence](../docs/release/local-evidence.md) exercises the
 complete creator/supporter and custody path deterministically. It is deliberately

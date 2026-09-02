@@ -432,6 +432,59 @@ function percentageFor(
   );
 }
 
+function valueForPercentage(
+  percentage: number,
+  definition: NumericControlDefinition,
+) {
+  const raw =
+    definition.min + ((definition.max - definition.min) * percentage) / 100;
+  const stepped =
+    definition.min +
+    Math.round((raw - definition.min) / definition.step) * definition.step;
+  return Math.max(definition.min, Math.min(definition.max, stepped));
+}
+
+export function fromContractArtConfig(
+  config: TierArtConfig,
+): AnyStudioArtConfig {
+  const engine = artEngineNames[config.engine];
+  if (!engine) throw new Error("The tier uses an unsupported art engine.");
+  const definitions = engineControlDefinitions[engine] as Record<
+    string,
+    NumericControlDefinition
+  >;
+  const slots = [config.primary, config.secondary, config.tertiary];
+  const engineControls = Object.fromEntries(
+    Object.entries(definitions).map(([key, definition], index) => [
+      key,
+      valueForPercentage(slots[index] ?? 50, definition),
+    ]),
+  );
+  const imageFit = (Object.keys(imageFitIndex) as ImageFit[]).find(
+    (candidate) => imageFitIndex[candidate] === config.imageFit,
+  );
+  if (!imageFit) throw new Error("The tier uses an unsupported image fit.");
+  return {
+    engine,
+    collectionSeed: config.collectionSeed,
+    global: {
+      palette: config.palette,
+      intensity: config.intensity,
+      density: config.density,
+      symmetry: config.symmetry,
+      typographyScale: config.typographyScale,
+      typographyStyle: config.typographyStyle,
+      textVisibility: config.textVisibility,
+      imageFit,
+      focalX: config.focalX,
+      focalY: config.focalY,
+      grain: config.grain,
+      mediaMix: config.mediaMix,
+    },
+    engineControls,
+  } as AnyStudioArtConfig;
+}
+
 function contractEngineSlots(config: StudioArtConfig) {
   const definitions = engineControlDefinitions[config.engine] as Record<
     string,

@@ -8,6 +8,31 @@ vi.mock("viem", async (importOriginal) => {
 vi.mock("@/lib/authenticity", () => ({
   verifyTierAuthenticity: vi.fn(),
 }));
+vi.mock("@/lib/payment-token-read", () => ({
+  readAcceptedPaymentTokens: vi.fn().mockResolvedValue({
+    status: "valid",
+    capturedBlock: 12n,
+    failures: [],
+    data: [
+      {
+        chainId: 46_630,
+        factory: "0x1111111111111111111111111111111111111111",
+        address: "0x3333333333333333333333333333333333333333",
+        registryIndex: 0,
+        listed: true,
+        enabled: true,
+        name: "Global Dollar",
+        symbol: "USDG",
+        decimals: 6,
+        scaledUI: false,
+        uiMultiplier: 10n ** 18n,
+        newUIMultiplier: 10n ** 18n,
+        effectiveAt: 0n,
+        readBlock: 12n,
+      },
+    ],
+  }),
+}));
 
 import { verifyTierAuthenticity } from "@/lib/authenticity";
 import type {
@@ -38,14 +63,13 @@ const deployment = {
   status: "ready" as const,
   chainId: 46630 as const,
   factoryAddress: factory,
-  usdgAddress: tierB,
   rendererAddress: canonicalRenderer,
   previewHarnessAddress: previewHarness,
 };
 const protocolDependencies: ProtocolDependencySnapshot = {
   chainId: 46630,
   factory,
-  paymentToken: tierB,
+  paymentTokens: [tierB],
   rendererSchema: `0x${"01".repeat(32)}`,
   renderer: canonicalRenderer,
   rendererName: "Founding Six",
@@ -152,6 +176,7 @@ describe("direct reads", () => {
       "Front Row",
       "FRONT",
       factory,
+      tierB,
       1_000_000n,
       2_592_000n,
       false,
@@ -161,6 +186,7 @@ describe("direct reads", () => {
         "name",
         "symbol",
         "owner",
+        "paymentToken",
         "pricePerPeriod",
         "periodDuration",
         "paused",
@@ -190,7 +216,7 @@ describe("direct reads", () => {
         },
       ],
     });
-    expect(readContract).toHaveBeenCalledTimes(6);
+    expect(readContract).toHaveBeenCalledTimes(7);
   });
 
   it("batches a verified tier snapshot into one Multicall3 read", async () => {
@@ -199,6 +225,7 @@ describe("direct reads", () => {
       capturedBlock: 12n,
       tier: tierA,
       tierIdentity,
+      paymentToken: tierB,
       renderer,
       art,
       media,

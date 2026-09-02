@@ -33,6 +33,7 @@ export type AuthenticityResult =
       capturedBlock: bigint;
       tier: Address;
       tierIdentity: Hex;
+      paymentToken: Address;
       renderer: Address;
       art: TierArtConfig;
       media: TierMediaConfig;
@@ -62,9 +63,9 @@ export function tierBindingFailures(input: {
   registered: unknown;
   tierFactory: unknown;
   tierToken: unknown;
+  tokenListed: unknown;
   supportedInterfaces: unknown[];
   factory: Address;
-  paymentToken: Address;
   tierRenderer?: unknown;
   tierIdentity?: unknown;
   identityTier?: unknown;
@@ -78,11 +79,8 @@ export function tierBindingFailures(input: {
   ) {
     failedChecks.push("tier factory binding");
   }
-  if (
-    !isAddress(input.tierToken as string) ||
-    !isSameAddress(input.tierToken as Address, input.paymentToken)
-  ) {
-    failedChecks.push("tier USDG binding");
+  if (!isAddress(input.tierToken as string) || input.tokenListed !== true) {
+    failedChecks.push("tier payment token listing");
   }
   if (!isAddress(input.tierRenderer as string)) {
     failedChecks.push("tier renderer binding");
@@ -283,7 +281,7 @@ export async function verifyTierAuthenticity(
     const readLabels = [
       "factory registration",
       "tier factory binding",
-      "tier USDG binding",
+      "tier payment token",
       "tier renderer binding",
       "tier identity",
       "tier art config",
@@ -380,6 +378,17 @@ export async function verifyTierAuthenticity(
     const media = values[6];
     const supportedInterfaces = values.slice(7);
 
+    let tokenListed: unknown;
+    if (isAddress(tierToken as string)) {
+      tokenListed = await client.readContract({
+        address: protocol.data.factory,
+        abi: membershipFactoryAbi,
+        functionName: "isPaymentTokenListed",
+        args: [getAddress(tierToken as Address)],
+        blockNumber: capturedBlock,
+      });
+    }
+
     let identityTier: unknown;
     if (isBytes32(tierIdentity)) {
       identityTier = await client.readContract({
@@ -396,12 +405,12 @@ export async function verifyTierAuthenticity(
         registered,
         tierFactory,
         tierToken,
+        tokenListed,
         tierRenderer,
         tierIdentity,
         identityTier,
         supportedInterfaces,
         factory: protocol.data.factory,
-        paymentToken: protocol.data.paymentToken,
         tier,
       }),
     );
@@ -477,6 +486,7 @@ export async function verifyTierAuthenticity(
       capturedBlock,
       tier,
       tierIdentity,
+      paymentToken: getAddress(tierToken as Address),
       renderer: getAddress(tierRenderer as Address),
       art,
       media,
@@ -513,10 +523,6 @@ export function getWriteGuard(input: {
     !isSameAddress(
       input.authenticity.protocolDependencies.factory,
       input.deployment.factoryAddress,
-    ) ||
-    !isSameAddress(
-      input.authenticity.protocolDependencies.paymentToken,
-      input.deployment.usdgAddress,
     )
   ) {
     return {
@@ -529,7 +535,7 @@ export function getWriteGuard(input: {
     enabled: true,
     factory: input.authenticity.protocolDependencies.factory,
     tier: input.authenticity.tier,
-    paymentToken: input.authenticity.protocolDependencies.paymentToken,
+    paymentToken: input.authenticity.paymentToken,
     capturedBlock: input.authenticity.capturedBlock,
   };
 }

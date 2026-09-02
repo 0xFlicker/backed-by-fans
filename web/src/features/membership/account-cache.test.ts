@@ -11,6 +11,7 @@ import {
 const wallet = getAddress("0x1111111111111111111111111111111111111111");
 const factory = getAddress("0x2222222222222222222222222222222222222222");
 const tier = getAddress("0x3333333333333333333333333333333333333333");
+const paymentToken = getAddress("0x6666666666666666666666666666666666666666");
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -44,6 +45,7 @@ describe("account discovery cache", () => {
           tier,
           name: "The listening room",
           creatorOwned: false,
+          paymentToken,
           tokenId: 1n,
           active: true,
           claimableReward: 2_000_000n,
@@ -71,6 +73,7 @@ describe("account discovery cache", () => {
           tier,
           name: "Room",
           creatorOwned: true,
+          paymentToken,
           tokenId: 1n,
           active: false,
           claimableReward: 1n,
@@ -89,6 +92,7 @@ describe("account discovery cache", () => {
           tier,
           name: "Room",
           creatorOwned: true,
+          paymentToken,
           tokenId: 1n,
           active: true,
           claimableReward: 5n,
@@ -119,6 +123,7 @@ describe("account discovery cache", () => {
           tier,
           name: "Room",
           creatorOwned: false,
+          paymentToken,
           tokenId: 1n,
           active: true,
           claimableReward: 4n,
@@ -153,6 +158,7 @@ describe("account discovery cache", () => {
             tier,
             name: "Room",
             creatorOwned: false,
+            paymentToken,
             tokenId: 1n,
             active: true,
             claimableReward: 1n,
@@ -182,6 +188,7 @@ describe("account discovery cache", () => {
           tier,
           name: "Room",
           creatorOwned: false,
+          paymentToken,
           tokenId: 1n,
           active: true,
           claimableReward: 5n,

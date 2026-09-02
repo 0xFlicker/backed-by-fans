@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 
@@ -10,7 +12,11 @@ import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {RendererPreviewHarness} from "../src/RendererPreviewHarness.sol";
 import {RobinhoodProtocolConfig} from "../src/RobinhoodProtocolConfig.sol";
-import {TestnetUSDG} from "../src/TestnetUSDG.sol";
+import {
+    ERC8056InterfaceIds,
+    IScaledUIAmount,
+    IScaledUIAmountNewUIMultiplier
+} from "../src/interfaces/IERC8056.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 
@@ -38,31 +44,33 @@ interface IProtocolSafe {
 abstract contract ProtocolDeployment is Script {
     error DeploymentInvariantFailed();
     error InvalidOperationalAddress();
-    error InvalidUSDGContract();
+    error InvalidPaymentToken(address token);
 
-    function _validateInputs(address paymentToken, address protocolOwner, address feeRecipient)
+    function _validateLocalToken(address paymentToken, address protocolOwner, address feeRecipient)
         internal
         view
     {
         if (protocolOwner == address(0) || feeRecipient == address(0)) {
             revert InvalidOperationalAddress();
         }
-        if (paymentToken.code.length == 0) revert InvalidUSDGContract();
+        if (paymentToken.code.length == 0) revert InvalidPaymentToken(paymentToken);
 
         try IERC20Metadata(paymentToken).decimals() returns (uint8 decimals) {
-            if (decimals != 6) revert InvalidUSDGContract();
+            if (decimals != 6) revert InvalidPaymentToken(paymentToken);
         } catch {
-            revert InvalidUSDGContract();
+            revert InvalidPaymentToken(paymentToken);
         }
         try IERC20Metadata(paymentToken).symbol() returns (string memory symbol) {
-            if (keccak256(bytes(symbol)) != keccak256("USDG")) revert InvalidUSDGContract();
+            if (keccak256(bytes(symbol)) != keccak256("USDG")) {
+                revert InvalidPaymentToken(paymentToken);
+            }
         } catch {
-            revert InvalidUSDGContract();
+            revert InvalidPaymentToken(paymentToken);
         }
         try IERC20Metadata(paymentToken).name() returns (string memory name) {
-            if (bytes(name).length == 0) revert InvalidUSDGContract();
+            if (bytes(name).length == 0) revert InvalidPaymentToken(paymentToken);
         } catch {
-            revert InvalidUSDGContract();
+            revert InvalidPaymentToken(paymentToken);
         }
     }
 
@@ -79,7 +87,10 @@ abstract contract ProtocolDeployment is Script {
         renderer = new OnchainMetadataRenderer();
         previewHarness = new RendererPreviewHarness();
         factory = new MembershipFactory(
-            IERC20Metadata(paymentToken), address(mediaStoreFactory), protocolOwner, feeRecipient
+            _singletonPaymentToken(paymentToken),
+            address(mediaStoreFactory),
+            protocolOwner,
+            feeRecipient
         );
     }
 
@@ -88,7 +99,7 @@ abstract contract ProtocolDeployment is Script {
         OnchainMetadataRenderer renderer,
         RendererPreviewHarness previewHarness,
         MembershipFactory factory,
-        address paymentToken,
+        IERC20[] memory paymentTokens,
         address protocolOwner,
         address feeRecipient
     ) internal view {
@@ -96,7 +107,8 @@ abstract contract ProtocolDeployment is Script {
         if (
             address(mediaStoreFactory).code.length == 0 || address(renderer).code.length == 0
                 || address(previewHarness).code.length == 0 || address(factory).code.length == 0
-                || tierDeployer.code.length == 0 || address(factory.paymentToken()) != paymentToken
+                || tierDeployer.code.length == 0
+                || factory.paymentTokenCount() != paymentTokens.length
                 || factory.owner() != protocolOwner
                 || factory.rendererSchema() != renderer.rendererSchema()
                 || factory.mediaStoreFactory() != address(mediaStoreFactory)
@@ -106,6 +118,25 @@ abstract contract ProtocolDeployment is Script {
         ) {
             revert DeploymentInvariantFailed();
         }
+
+        address[] memory observedTokens = factory.paymentTokens(0, paymentTokens.length);
+        if (observedTokens.length != paymentTokens.length) revert DeploymentInvariantFailed();
+        for (uint256 i; i < paymentTokens.length; ++i) {
+            address expectedToken = address(paymentTokens[i]);
+            if (
+                observedTokens[i] != expectedToken || !factory.isPaymentTokenListed(expectedToken)
+                    || !factory.isPaymentTokenEnabled(expectedToken)
+            ) revert DeploymentInvariantFailed();
+        }
+    }
+
+    function _singletonPaymentToken(address paymentToken)
+        internal
+        pure
+        returns (IERC20[] memory tokens)
+    {
+        tokens = new IERC20[](1);
+        tokens[0] = IERC20(paymentToken);
     }
 
     function _logDeployment(
@@ -127,12 +158,17 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     uint256 public constant ROBINHOOD_MAINNET_CHAIN_ID = RobinhoodProtocolConfig.MAINNET_CHAIN_ID;
     uint256 public constant ROBINHOOD_TESTNET_CHAIN_ID = RobinhoodProtocolConfig.TESTNET_CHAIN_ID;
     address public constant ROBINHOOD_MAINNET_USDG = RobinhoodProtocolConfig.MAINNET_USDG;
+    address public constant ROBINHOOD_TESTNET_USDG = RobinhoodProtocolConfig.TESTNET_USDG;
+    address public constant ROBINHOOD_TESTNET_AMD = RobinhoodProtocolConfig.TESTNET_AMD;
+    address public constant ROBINHOOD_TESTNET_NFLX = RobinhoodProtocolConfig.TESTNET_NFLX;
+    address public constant ROBINHOOD_TESTNET_PLTR = RobinhoodProtocolConfig.TESTNET_PLTR;
+    address public constant ROBINHOOD_TESTNET_AMZN = RobinhoodProtocolConfig.TESTNET_AMZN;
+    address public constant ROBINHOOD_TESTNET_TSLA = RobinhoodProtocolConfig.TESTNET_TSLA;
     address public constant INITIAL_PROTOCOL_AUTHORITY =
         RobinhoodProtocolConfig.INITIAL_PROTOCOL_AUTHORITY;
     address public constant SAFE_L2_SINGLETON = RobinhoodProtocolConfig.SAFE_L2_SINGLETON;
     address public constant APPROVED_DEPLOYER = RobinhoodProtocolConfig.APPROVED_DEPLOYER;
     address public constant CREATE2_DEPLOYER = RobinhoodProtocolConfig.CREATE2_DEPLOYER;
-    bytes32 public constant TESTNET_USDG_SALT = RobinhoodProtocolConfig.TESTNET_USDG_SALT;
     bytes32 public constant MEDIA_STORE_FACTORY_SALT =
         RobinhoodProtocolConfig.MEDIA_STORE_FACTORY_SALT;
     bytes32 public constant INITIAL_RENDERER_SALT = RobinhoodProtocolConfig.INITIAL_RENDERER_SALT;
@@ -164,8 +200,8 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     error InvalidProtocolSafe();
     error ProtocolDeploymentIncomplete();
 
-    function ROBINHOOD_TESTNET_USDG() public pure returns (address) {
-        return RobinhoodProtocolConfig.testnetPaymentToken();
+    function configuredPaymentTokens() public view returns (IERC20[] memory) {
+        return RobinhoodProtocolConfig.initialPaymentTokens();
     }
 
     function predictedAddresses()
@@ -191,7 +227,7 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
         return abi.encodePacked(
             type(MembershipFactory).creationCode,
             abi.encode(
-                address(RobinhoodProtocolConfig.canonicalPaymentToken()),
+                RobinhoodProtocolConfig.initialPaymentTokens(),
                 RobinhoodProtocolConfig.mediaStoreFactory(),
                 INITIAL_PROTOCOL_AUTHORITY,
                 INITIAL_PROTOCOL_AUTHORITY
@@ -199,9 +235,9 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
         );
     }
 
-    function _validatePublicInputs() internal view returns (address paymentToken) {
-        paymentToken = address(RobinhoodProtocolConfig.canonicalPaymentToken());
-        _validateInputs(paymentToken, INITIAL_PROTOCOL_AUTHORITY, INITIAL_PROTOCOL_AUTHORITY);
+    function _validatePublicInputs() internal view returns (IERC20[] memory paymentTokens) {
+        paymentTokens = RobinhoodProtocolConfig.initialPaymentTokens();
+        _validatePublicPaymentTokens(paymentTokens);
         _validateProtocolSafe();
 
         bytes32 observedCreate2DeployerHash = CREATE2_DEPLOYER.codehash;
@@ -211,7 +247,83 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
             );
         }
 
-        _validateUSDGState(paymentToken);
+        if (block.chainid == ROBINHOOD_MAINNET_CHAIN_ID) {
+            _validateMainnetUSDGState(address(paymentTokens[0]));
+        }
+    }
+
+    function _validatePublicPaymentTokens(IERC20[] memory paymentTokens) private view {
+        uint256 expectedCount = block.chainid == ROBINHOOD_TESTNET_CHAIN_ID ? 6 : 1;
+        if (paymentTokens.length != expectedCount) revert DeploymentInvariantFailed();
+
+        for (uint256 i; i < paymentTokens.length; ++i) {
+            address token = address(paymentTokens[i]);
+            uint8 expectedDecimals = i == 0 ? 6 : 18;
+            string memory expectedSymbol;
+            if (i == 0) expectedSymbol = "USDG";
+            else if (i == 1) expectedSymbol = "AMD";
+            else if (i == 2) expectedSymbol = "NFLX";
+            else if (i == 3) expectedSymbol = "PLTR";
+            else if (i == 4) expectedSymbol = "AMZN";
+            else expectedSymbol = "TSLA";
+            _validatePaymentTokenSurface(token, expectedDecimals, expectedSymbol, i != 0);
+        }
+    }
+
+    function _validatePaymentTokenSurface(
+        address token,
+        uint8 expectedDecimals,
+        string memory expectedSymbol,
+        bool expectedScaled
+    ) private view {
+        if (token.code.length == 0) revert InvalidPaymentToken(token);
+        try IERC20Metadata(token).decimals() returns (uint8 observedDecimals) {
+            if (observedDecimals != expectedDecimals) revert InvalidPaymentToken(token);
+        } catch {
+            revert InvalidPaymentToken(token);
+        }
+        try IERC20Metadata(token).symbol() returns (string memory observedSymbol) {
+            if (keccak256(bytes(observedSymbol)) != keccak256(bytes(expectedSymbol))) {
+                revert InvalidPaymentToken(token);
+            }
+        } catch {
+            revert InvalidPaymentToken(token);
+        }
+        try IERC20Metadata(token).name() returns (string memory observedName) {
+            if (bytes(observedName).length == 0) revert InvalidPaymentToken(token);
+        } catch {
+            revert InvalidPaymentToken(token);
+        }
+
+        bool supportsCore = _supportsInterface(token, ERC8056InterfaceIds.SCALED_UI_AMOUNT);
+        bool supportsPending = _supportsInterface(token, ERC8056InterfaceIds.PENDING_UI_MULTIPLIER);
+        if (supportsCore != expectedScaled || supportsPending != expectedScaled) {
+            revert InvalidPaymentToken(token);
+        }
+        if (!expectedScaled) return;
+
+        try IScaledUIAmount(token).uiMultiplier() returns (uint256 multiplier) {
+            if (multiplier == 0) revert InvalidPaymentToken(token);
+        } catch {
+            revert InvalidPaymentToken(token);
+        }
+        try IScaledUIAmountNewUIMultiplier(token).newUIMultiplier() returns (uint256 multiplier) {
+            if (multiplier == 0) revert InvalidPaymentToken(token);
+        } catch {
+            revert InvalidPaymentToken(token);
+        }
+        try IScaledUIAmountNewUIMultiplier(token).effectiveAt() returns (uint256) {}
+        catch {
+            revert InvalidPaymentToken(token);
+        }
+    }
+
+    function _supportsInterface(address token, bytes4 interfaceId) private view returns (bool) {
+        try IERC165(token).supportsInterface(interfaceId) returns (bool supported) {
+            return supported;
+        } catch {
+            return false;
+        }
     }
 
     function _validateProtocolSafe() private view {
@@ -255,22 +367,9 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
         }
     }
 
-    function _validateUSDGState(address paymentToken) internal view virtual {
-        if (block.chainid == ROBINHOOD_TESTNET_CHAIN_ID) {
-            if (
-                paymentToken != ROBINHOOD_TESTNET_USDG()
-                    || paymentToken.codehash != keccak256(type(TestnetUSDG).runtimeCode)
-            ) revert InvalidUSDGContract();
-            try TestnetUSDG(paymentToken).owner() returns (address owner) {
-                if (owner != APPROVED_DEPLOYER) revert InvalidUSDGContract();
-            } catch {
-                revert InvalidUSDGContract();
-            }
-            return;
-        }
-
+    function _validateMainnetUSDGState(address paymentToken) internal view virtual {
         if (paymentToken.codehash != ROBINHOOD_MAINNET_USDG_PROXY_RUNTIME_CODE_HASH) {
-            revert InvalidUSDGContract();
+            revert InvalidPaymentToken(paymentToken);
         }
 
         address implementation =
@@ -280,17 +379,17 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
                 || implementation.codehash
                     != ROBINHOOD_MAINNET_USDG_IMPLEMENTATION_RUNTIME_CODE_HASH
         ) {
-            revert InvalidUSDGContract();
+            revert InvalidPaymentToken(paymentToken);
         }
 
         try IMainnetUSDGDeploymentTarget(paymentToken).paused() returns (bool isPaused) {
-            if (isPaused) revert InvalidUSDGContract();
+            if (isPaused) revert InvalidPaymentToken(paymentToken);
         } catch {
-            revert InvalidUSDGContract();
+            revert InvalidPaymentToken(paymentToken);
         }
     }
 
-    function _validatedDeploymentState(address paymentToken)
+    function _validatedDeploymentState()
         internal
         view
         returns (
@@ -361,14 +460,14 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
                 renderer,
                 previewHarness,
                 factory,
-                paymentToken,
+                RobinhoodProtocolConfig.initialPaymentTokens(),
                 INITIAL_PROTOCOL_AUTHORITY,
                 INITIAL_PROTOCOL_AUTHORITY
             );
         }
     }
 
-    function _validatedCompletedDeployment(address paymentToken)
+    function _validatedCompletedDeployment()
         internal
         view
         returns (
@@ -378,9 +477,7 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
             MembershipFactory factory
         )
     {
-        (
-            mediaStoreFactory, renderer, previewHarness, factory
-        ) = _validatedDeploymentState(paymentToken);
+        (mediaStoreFactory, renderer, previewHarness, factory) = _validatedDeploymentState();
         if (
             address(mediaStoreFactory) == address(0) || address(renderer) == address(0)
                 || address(previewHarness) == address(0) || address(factory) == address(0)
@@ -397,7 +494,7 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
 contract DeployProtocol is RobinhoodDeploymentGuard {
     error MainnetConfirmationRequired(uint256 provided);
 
-    function validateInputs() external view returns (address paymentToken) {
+    function validateInputs() external view returns (IERC20[] memory paymentTokens) {
         return _validatePublicInputs();
     }
 
@@ -438,7 +535,7 @@ contract DeployLocalProtocol is ProtocolDeployment {
             renderer,
             previewHarness,
             factory,
-            paymentToken,
+            _singletonPaymentToken(paymentToken),
             protocolOwner,
             feeRecipient
         );
@@ -462,7 +559,7 @@ contract DeployLocalProtocol is ProtocolDeployment {
             renderer,
             previewHarness,
             factory,
-            paymentToken,
+            _singletonPaymentToken(paymentToken),
             protocolOwner,
             feeRecipient
         );
@@ -480,6 +577,6 @@ contract DeployLocalProtocol is ProtocolDeployment {
         view
     {
         if (block.chainid != ANVIL_CHAIN_ID) revert UnexpectedLocalChain(block.chainid);
-        _validateInputs(paymentToken, protocolOwner, feeRecipient);
+        _validateLocalToken(paymentToken, protocolOwner, feeRecipient);
     }
 }
