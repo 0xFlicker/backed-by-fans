@@ -196,6 +196,10 @@ case "${1:-}" in
       state_file="$MOCK_LOCAL_STATE"
     fi
     prefix="$(cat "$state_file")"
+    factory_prefix=4
+    if [[ "${MOCK_PREEXISTING_PREVIEW_HARNESS:-}" == "1" ]]; then
+      factory_prefix=3
+    fi
     if [[ "$address" == "$(printf '%s' "$MOCK_CREATE2_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
       printf '%s\n' "$MOCK_CREATE2_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_SAFE_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
@@ -203,7 +207,7 @@ case "${1:-}" in
     elif [[ " $(printf '%s' "$MOCK_PAYMENT_TOKEN_ADDRESSES" | tr '[:upper:]' '[:lower:]') " == *" $address "* ]]; then
       printf '%s\n' "$MOCK_PAYMENT_TOKEN_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_TIER_DEPLOYER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
-      && "$prefix" -ge 4 ]]; then
+      && "$prefix" -ge "$factory_prefix" ]]; then
       printf '0x60dd\n'
     elif [[ "$address" == "$(printf '%s' "$MOCK_MEDIA_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
       && "$prefix" -ge 1 ]]; then
@@ -212,14 +216,14 @@ case "${1:-}" in
       && "$prefix" -ge 2 ]]; then
       printf '%s\n' "$MOCK_RENDERER_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_PREVIEW_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
-      && "$prefix" -ge 3 ]]; then
+      && ("$prefix" -ge 3 || "${MOCK_PREEXISTING_PREVIEW_HARNESS:-}" == "1") ]]; then
       printf '%s\n' "$MOCK_PREVIEW_RUNTIME"
     elif [[ -n "${MOCK_SECOND_RENDERER_ADDRESS:-}" \
       && "$address" == "$(printf '%s' "$MOCK_SECOND_RENDERER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
       && "$prefix" -ge 4 ]]; then
       printf '%s\n' "$MOCK_SECOND_RENDERER_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_FACTORY_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
-      && "$prefix" -ge 4 ]]; then
+      && "$prefix" -ge "$factory_prefix" ]]; then
       printf '%s\n' "$MOCK_FACTORY_RUNTIME"
     else
       printf '0x\n'

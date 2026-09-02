@@ -231,6 +231,20 @@ assert_not_contains "$mock_log" ":DeployProtocol --rpc-url"
   || fail "dry-run wrote a public recovery journal"
 
 reset_project_state
+env MOCK_PREEXISTING_PREVIEW_HARNESS=1 "$deploy_wrapper" testnet broadcast
+candidate="$contracts_dir/deployments/protocol/46630/candidate.json"
+active="$contracts_dir/broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json"
+assert_count "$mock_log" "cast send $create2_deployer --data <raw-create2-calldata> --rpc-url http://127.0.0.1:" 3
+assert_count "$mock_log" "cast mktx $create2_deployer <raw-create2-calldata> --rpc-url https://rpc.testnet.chain.robinhood.com" 3
+assert_count "$mock_log" "cast publish <signed-transaction> --rpc-url https://rpc.testnet.chain.robinhood.com --async" 3
+[[ "$(cat "$public_state")" == "3" ]] \
+  || fail "broadcast did not deploy the three missing public components"
+assert_jq "$candidate" \
+  '[.components[].status] == ["deployed", "deployed", "validated-existing", "deployed"]'
+assert_jq "$candidate" '.status == "promoted" and .currentPrefix == 4'
+[[ -f "$active" ]] || fail "sparse existing-component broadcast was not promoted"
+
+reset_project_state
 run_expect_failure env MOCK_FACTORY_BYTECODE_BYTES=94617 "$deploy_wrapper" testnet dry-run
 assert_contains "$test_dir/stderr" \
   "membership factory raw CREATE2 transaction data is 95001 bytes; Robinhood Nitro sequencer limit is 95000"

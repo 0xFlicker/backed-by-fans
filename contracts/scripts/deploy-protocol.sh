@@ -863,10 +863,8 @@ inspect_prefix() {
   if [[ "${component_present[1]}" == "1" && "${component_present[0]}" != "1" ]]; then
     fail "renderer exists without its media store factory predecessor"
   fi
-  if [[ "${component_present[2]}" == "1" \
-    && ("${component_present[0]}" != "1" || "${component_present[1]}" != "1") ]]; then
-    fail "renderer preview harness exists without both predecessors"
-  fi
+  # The preview harness is standalone. Its deterministic address can remain
+  # unchanged while earlier protocol artifacts move to new addresses.
   if [[ "${component_present[3]}" == "1" \
     && ("${component_present[0]}" != "1" || "${component_present[1]}" != "1" \
       || "${component_present[2]}" != "1") ]]; then
