@@ -996,16 +996,22 @@ plan_json() {
 }
 
 journal_fingerprint() {
-  jq -S -c '{
-    schemaVersion, chainId, sourceCommit, operationalStatePath,
-    operationalStateBlob, buildConfigHash, buildConfig,
-    forgeVersion, solcVersion, deployer, create2Deployer,
-    paymentTokenManifest, paymentTokenManifestBlob, paymentTokens,
-    components: [.components[] | {
-      order, contractName, artifact, salt, initCodeHash, runtimeCodeHash,
-      expectedAddress, allowedPredecessor
-    }]
-  }' "$1"
+  jq -S -c '
+    {
+      schemaVersion, chainId, sourceCommit, operationalStatePath,
+      operationalStateBlob, buildConfigHash, buildConfig,
+      forgeVersion, solcVersion, deployer, create2Deployer,
+      components: [.components[] | {
+        order, contractName, artifact, salt, initCodeHash, runtimeCodeHash,
+        expectedAddress, allowedPredecessor
+      }]
+    }
+    + if .schemaVersion == 4 then
+        {paymentToken}
+      else
+        {paymentTokenManifest, paymentTokenManifestBlob, paymentTokens}
+      end
+  ' "$1"
 }
 
 immutable_plan_fingerprint() {
