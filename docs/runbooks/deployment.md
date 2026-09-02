@@ -259,33 +259,36 @@ Record the resulting deployment URL and ID, source commit, active factory, and p
 production deployment. Test that exact URL. A normal preview-to-production promotion rebuilds with
 the production environment and therefore does not satisfy the exact-artifact gate.
 
-### Current staged beta artifact
+### Current testnet beta web artifact
 
-The operator authorized authenticated Vercel setup and a staging-only production build on
-2026-09-02. The reviewed target is:
+The operator authorized the replacement production-environment build and canonical routing update
+on 2026-09-02. The reviewed target is:
 
 | Field | Value |
 | --- | --- |
 | Vercel team/project | `flicks-projects/backed-by-fans` |
 | Vercel project ID | `prj_dmeAPJm04v3JmKWmTROhdxnrBdMa` |
 | Source branch | `codex/testnet-beta-release` |
-| Source commit | `a2f7d540758823c97c73356b7c555eedad8c2adb` |
-| Staged deployment | `https://backed-by-fans-1zhln29wb-flicks-projects.vercel.app` |
-| Deployment ID | `dpl_CzysrFBvrFG9DLygVv9EixCt7D2A` |
-| Active factory | `0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C` |
-| Prior known-good production deployment | None; this is the project's first valid staged artifact |
+| Source commit | `f7a90aef2f735639c7e7f5ef224b228c5f65d645` |
+| Staged deployment | `https://backed-by-fans-pjawlazsb-flicks-projects.vercel.app` |
+| Deployment ID | `dpl_CEqhSfBmuMn3tK79Qwg54MwHYgsV` |
+| Active factory | `0x6C06126E121667c6f06Bd426Cde706EDde862fd9` |
+| Prior known-good production deployment | `dpl_CzysrFBvrFG9DLygVv9EixCt7D2A` |
 
-The project framework preset is `nextjs`. Authenticated route-level checks returned HTTP 200 for
-`/`, `/create`, `/render`, `/skill`, and `/llms.txt`. This is deployment smoke evidence only; the
-staged browser and live testnet transaction matrix remains open.
+The Vercel project is connected to `0xFlicker/backed-by-fans`, uses `main` as the repository's normal
+production branch, and sets the Git Root Directory to `web`. The project framework preset is
+`nextjs`. Authenticated checks of the staged artifact returned HTTP 200 for `/`, `/create`,
+`/account`, `/render`, `/skill`, and `/llms.txt`; its JavaScript bundles contained the replacement
+factory address and not the superseded factory address. This is deployment smoke evidence only; the
+browser and live testnet transaction matrix remains open.
 
 The operator explicitly approved the `backedbyfans.xyz` domain assignment on 2026-09-02. Cloudflare
 keeps authoritative DNS and supplies DNS-only Vercel verification and apex routing records. Vercel
-issued the managed certificate and assigned the canonical domain directly to deployment
-`dpl_CzysrFBvrFG9DLygVv9EixCt7D2A` without rebuilding. Public HTTPS checks returned HTTP 200 for
-`/`, `/create`, `/render`, `/skill`, and `/llms.txt`; a Chrome inspection also confirmed that
-`https://backedbyfans.xyz/skill` presents the canonical agent prompt and public toolkit links. These
-checks do not complete the named canonical-browser or live testnet transaction matrix.
+issued the managed certificate. The canonical domain now points directly to replacement deployment
+`dpl_CEqhSfBmuMn3tK79Qwg54MwHYgsV` without rebuilding. Public HTTPS checks returned HTTP 200 for
+`/`, `/create`, `/account`, `/render`, `/skill`, and `/llms.txt`; the live JavaScript bundles contain
+factory `0x6C06126E121667c6f06Bd426Cde706EDde862fd9`. These checks do not complete the named
+canonical-browser or live testnet transaction matrix.
 
 For a future candidate, only after the staged artifact and domain assignment receive separate
 operator approval, promote that same production build without rebuilding:

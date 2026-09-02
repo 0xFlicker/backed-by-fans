@@ -1,6 +1,6 @@
 ---
 title: Backed By Fans public testnet pilot record
-status: replacement-web-staging-open
+status: replacement-pilot-tiers-open
 date: 2026-09-02
 ---
 
@@ -10,10 +10,9 @@ This is an unexecuted human-pilot template. It is **not** evidence of a public
 pilot, user approval, audit, or launch readiness.
 
 The expired-membership sync and reward-suspension replacement protocol is
-source-verified and promoted on testnet. Its generated bindings are recorded,
-but the previously protected Vercel artifact still contains the superseded
-factory binding. Replacement web staging, pilot-tier recreation, browser
-evidence, participant evidence, and the human pilot remain open.
+source-verified and promoted on testnet. Its generated bindings are live at the
+canonical domain. Pilot-tier recreation, browser evidence, participant evidence,
+and the human pilot remain open.
 
 ## Candidate
 
@@ -24,18 +23,21 @@ evidence, participant evidence, and the human pilot remain open.
   `0xfbae8757bbec8046baffb197403e71a73d99f6eead6f54d37bdbac5703af41ab`
 - Replacement source commit and promoted candidate: **RECORDED** —
   `c5819f732c540519e1d0e3ada11be7799dea03ee`, current prefix `4`
-- Prior staged web source commit: **RECORDED, SUPERSEDED FOR THE REPLACEMENT PILOT** —
-  `a2f7d540758823c97c73356b7c555eedad8c2adb`
-- Prior protected staged deployment: **SERVING, SUPERSEDED FOR THE REPLACEMENT PILOT** —
-  `https://backed-by-fans-1zhln29wb-flicks-projects.vercel.app`,
-  `dpl_CzysrFBvrFG9DLygVv9EixCt7D2A`
+- Replacement web source commit: **RECORDED** —
+  `f7a90aef2f735639c7e7f5ef224b228c5f65d645`
+- Replacement protected staged deployment: **READY AND CANONICAL** —
+  `https://backed-by-fans-pjawlazsb-flicks-projects.vercel.app`,
+  `dpl_CEqhSfBmuMn3tK79Qwg54MwHYgsV`
 - Prior authenticated route smoke: **PASS** — HTTP 200 for `/`, `/create`, `/render`, `/skill`, and
   `/llms.txt`
-- Canonical domain assignment for the prior artifact: **PASS** — `https://backedbyfans.xyz` points
-  to `dpl_CzysrFBvrFG9DLygVv9EixCt7D2A` without a rebuild; managed HTTPS is active
-- Prior canonical route smoke: **PASS** — HTTP 200 for `/`, `/create`, `/render`, `/skill`, and
-  `/llms.txt`; Chrome confirmed the `/skill` agent prompt and public toolkit links
-- Replacement web staging and exact-artifact promotion: **OPEN**
+- Canonical domain assignment for the replacement artifact: **PASS** —
+  `https://backedbyfans.xyz` points to `dpl_CEqhSfBmuMn3tK79Qwg54MwHYgsV` without a rebuild;
+  managed HTTPS is active
+- Replacement canonical route smoke: **PASS** — HTTP 200 for `/`, `/create`, `/account`, `/render`,
+  `/skill`, and `/llms.txt`; the live bundles contain the replacement factory address and not the
+  superseded factory address
+- Vercel Git integration: **CONNECTED** — repository `0xFlicker/backed-by-fans`, Root Directory
+  `web`; future pull-request pushes create previews and `main` is the normal production branch
 - Replacement pilot-tier recreation: **OPEN**
 - Replacement staged browser journey matrix: **OPEN**
 - Captured block/hash and second-RPC verification: **OPEN**
