@@ -167,7 +167,7 @@ async function importPackage(page: Page) {
   });
 }
 
-test("imports, previews, approves, and invalidates browser-held renderer work", async ({
+test("imports, previews, and updates browser-held renderer work", async ({
   page,
 }) => {
   await installPreviewRpc(page);
@@ -175,15 +175,26 @@ test("imports, previews, approves, and invalidates browser-held renderer work", 
   await importPackage(page);
 
   await expect(page.getByText("Ready to preview 6 examples.")).toBeVisible();
-  await expect(page.getByText("Connect wallet")).not.toBeVisible();
+  const deploymentSummary = page.getByRole("region", {
+    name: "Deployment summary",
+  });
+  await expect(deploymentSummary).toBeVisible();
+  await expect(
+    page.getByRole("banner").getByRole("button", { name: "Connect wallet" }),
+  ).toBeHidden();
+  await expect(
+    deploymentSummary.getByRole("button", { name: "Connect wallet" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Approve renderer" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Reject renderer" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Preview 6 examples" }).click();
   await expect(
     page.getByRole("img", { name: /Membership example/i }),
   ).toHaveCount(6);
-  await page.getByRole("button", { name: "Approve renderer" }).click();
-  await expect(
-    page.getByRole("region", { name: "Deployment summary" }),
-  ).toBeVisible();
 
   await page.getByLabel("Choose JPEG or PNG").setInputFiles({
     name: "creator.jpg",
@@ -191,9 +202,10 @@ test("imports, previews, approves, and invalidates browser-held renderer work", 
     buffer: await readFile(imageFixture),
   });
   await expect(page.getByText("creator.jpg")).toBeVisible();
+  await expect(deploymentSummary).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Deployment summary" }),
-  ).toHaveCount(0);
+    deploymentSummary.getByText("Image size estimate"),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Preview 6 examples" }).click();
   const transformed = page.getByRole("img", { name: /Membership example/i });
@@ -303,7 +315,9 @@ test("uses the optional loopback handoff without an account or source-image tran
   await expect(
     page.getByRole("img", { name: /Membership example/i }),
   ).toHaveCount(6);
-  await expect(page.getByText("Connect wallet")).not.toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Deployment summary" }),
+  ).toBeVisible();
 });
 
 test("falls back to manual import when loopback is unavailable", async ({

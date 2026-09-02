@@ -1,27 +1,27 @@
 # Robinhood public deployment runbook
 
-Status: **replacement testnet deployment not yet broadcast.** The reviewed candidate adds six
-external payment tokens and owner-mutable tier renderers. Mainnet remains inspection-only and is not
+Status: **replacement testnet deployment promoted.** The active deployment adds six external
+payment tokens and owner-mutable tier renderers. Mainnet remains inspection-only and is not
 authorized by this runbook.
 
 ## Release boundary
 
-| Network | Chain ID | Initial payment tokens | Encrypted account |
-| --- | ---: | --- | --- |
-| Robinhood Chain Testnet | `46630` | external USDG, AMD, NFLX, PLTR, AMZN, TSLA | `backed-by-fans-testnet` |
-| Robinhood Chain Mainnet | `4663` | canonical Paxos USDG only | `backed-by-fans` |
+| Network                 | Chain ID | Initial payment tokens                     | Encrypted account        |
+| ----------------------- | -------: | ------------------------------------------ | ------------------------ |
+| Robinhood Chain Testnet |  `46630` | external USDG, AMD, NFLX, PLTR, AMZN, TSLA | `backed-by-fans-testnet` |
+| Robinhood Chain Mainnet |   `4663` | canonical Paxos USDG only                  | `backed-by-fans`         |
 
 The exact token addresses, metadata, decimals, runtime hashes, and observed ERC-8056 state are in
 `contracts/config/payment-tokens/<chain-id>.json`. Testnet uses:
 
-| Symbol | Address |
-| --- | --- |
-| USDG | `0x7E955252E15c84f5768B83c41a71F9eba181802F` |
-| AMD | `0x71178BAc73cBeb415514eB542a8995b82669778d` |
-| NFLX | `0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93` |
-| PLTR | `0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0` |
-| AMZN | `0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02` |
-| TSLA | `0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E` |
+| Symbol | Address                                      |
+| ------ | -------------------------------------------- |
+| USDG   | `0x7E955252E15c84f5768B83c41a71F9eba181802F` |
+| AMD    | `0x71178BAc73cBeb415514eB542a8995b82669778d` |
+| NFLX   | `0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93` |
+| PLTR   | `0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0` |
+| AMZN   | `0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02` |
+| TSLA   | `0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E` |
 
 There is no Backed By Fans test USDG deployment or mint path. Mainnet's only configured token is
 Paxos USDG at `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`; revalidate it before any future
@@ -33,12 +33,17 @@ deployer is `0x4e59b44847b379578588920cA78FbF26c0B4956C`.
 
 ## Deployment graph
 
-The wrapper deploys exactly four contracts, in order:
+The wrapper evaluates four ordered protocol components:
 
 1. `OnchainMediaStoreFactory`
 2. `OnchainMetadataRenderer`
 3. `RendererPreviewHarness`
 4. `MembershipFactory`
+
+The promoted candidate deployed the media-store factory, renderer, and membership factory. It
+validated and reused the already-correct preview harness at
+`0x35ACe5985a9088699197cd1931fc3083dee229B6`, so the public broadcast contained three transactions,
+not a redundant fourth deployment.
 
 The factory constructor receives the ordered initial token list, media-store factory, protocol
 owner, and fee recipient. The default renderer and preview harness are separate direct contracts.
@@ -55,8 +60,8 @@ Robinhood admits larger code and initcode than Ethereum's default EIP-3860 envel
 sequencer limits transaction data to 95,000 bytes. Foundry's in-process broadcaster rejects the
 reviewed renderer before the Robinhood RPC can evaluate it. `contracts/scripts/deploy-protocol.sh`
 therefore builds with the Robinhood profile, derives exact CREATE2 payloads, rejects oversize
-payloads, rehearses the exact four-call sequence on a chain-`46630` fork, and only then submits raw
-transactions through the canonical deployer.
+payloads, rehearses the candidate graph on a chain-`46630` fork, and only then submits the missing
+raw transactions through the canonical deployer.
 
 The wrapper also requires the operational state to be tracked and byte-identical to `HEAD`, checks
 the manifest and all constructor dependencies, journals each signed transaction hash and nonce
@@ -92,8 +97,8 @@ does not load the signing account and performs no write.
 ```
 
 The dry-run forks the configured Robinhood testnet RPC at chain ID `46630`, configures the reviewed
-code-size and gas envelope, impersonates the approved deployer inside Anvil, and sends the exact four
-raw CREATE2 calls. It must confirm:
+code-size and gas envelope, impersonates the approved deployer inside Anvil, and reconciles the exact
+candidate graph. It must confirm:
 
 - the exact six manifest tokens, in order, are listed and enabled;
 - all four runtimes and the tier deployer have code;
@@ -112,9 +117,9 @@ Only after explicit operator approval:
 ./scripts/deploy-protocol.sh testnet broadcast
 ```
 
-This sends four public testnet transactions from the approved encrypted deployer. The terminal asks
-for its keystore password. The resulting factory is owned by the Safe. No chain-`4663` transaction
-is sent and this command does not authorize mainnet.
+This sends only the missing public testnet transactions from the approved encrypted deployer. The
+terminal asks for its keystore password. The resulting factory is owned by the Safe. No chain-`4663`
+transaction is sent and this command does not authorize mainnet.
 
 If a process stops after submission, preserve
 `contracts/deployments/protocol/46630/candidate.json` and rerun the same broadcast command. The
@@ -192,12 +197,54 @@ and protocol fees are inspected and withdrawn independently by token.
 
 ## 6. Stage and promote the web app
 
-After the verified protocol promotion, build and test the web app with the generated active factory,
-chain `46630`, `NEXT_PUBLIC_SITE_URL=https://backedbyfans.xyz`, a domain-restricted production RPC,
-and the production WalletConnect configuration. Authenticated Vercel staging and canonical-domain
-promotion each require their own explicit operator approval. Stage once, test that exact artifact,
-and promote it without rebuilding. Routing rollback changes only the web deployment; it cannot roll
-back onchain state.
+The promoted testnet deployment is:
+
+| Component           | Active address                               |
+| ------------------- | -------------------------------------------- |
+| Membership factory  | `0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C` |
+| Media-store factory | `0xF62F64da02bF67dfF4223aa5264270254823Cf65` |
+| Default renderer    | `0x2E73800F227c59fe7A4Be673D246afdcdF88878A` |
+| Preview harness     | `0x35ACe5985a9088699197cd1931fc3083dee229B6` |
+| Renderer registry   | `0x4d421062e1Af4AB12e4f65ba475F169f633d745A` |
+
+The Vercel project must use `web` as its Root Directory. Its reviewed production environment
+contract is:
+
+- `NEXT_PUBLIC_SITE_URL=https://backedbyfans.xyz`;
+- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` set to the public WalletConnect project ID;
+- `ROBINHOOD_TESTNET_RPC_URL` set to the production server RPC for chain `46630`;
+- `ROBINHOOD_MAINNET_RPC_URL` set only if inspection-only mainnet reads are intentionally enabled;
+- no production contract-address environment variables: `web/src/contracts.ts` is the generated
+  active source. The `NEXT_PUBLIC_ANVIL_*` values are local evidence inputs and do not belong in
+  Vercel;
+- no secret or paid RPC credential in a `NEXT_PUBLIC_` value. Apply provider-side project/domain
+  restrictions wherever the provider supports them.
+
+Before an authenticated deployment, record the reviewed Vercel project, source commit, environment
+scope, and staging-only target. Do not assign `backedbyfans.xyz` or another production domain to the
+staged artifact. Authenticated Vercel staging and canonical-domain promotion each require their own
+explicit operator approval.
+
+After the reviewed source commit and Vercel settings have been approved, stage a production build
+from the linked repository root without assigning any domain:
+
+```sh
+vercel --prod --skip-domain
+```
+
+Record the resulting deployment URL and ID, source commit, active factory, and prior known-good
+production deployment. Test that exact URL. A normal preview-to-production promotion rebuilds with
+the production environment and therefore does not satisfy the exact-artifact gate.
+
+Only after the staged artifact and domain assignment receive separate operator approval, promote
+that same production build without rebuilding:
+
+```sh
+vercel promote https://STAGED-PRODUCTION-DEPLOYMENT.vercel.app
+```
+
+Confirm that the promoted deployment ID is the staged deployment ID before running canonical-domain
+tests. Routing rollback changes only the web deployment; it cannot roll back onchain state.
 
 ## Mainnet boundary
 

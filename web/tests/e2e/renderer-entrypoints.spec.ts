@@ -36,9 +36,7 @@ test("makes the renderer skill and preview route publicly discoverable", async (
   );
 
   const horizontalOverflow = await page.evaluate(
-    () =>
-      document.documentElement.scrollWidth >
-      document.documentElement.clientWidth,
+    () => document.body.scrollWidth > document.documentElement.clientWidth,
   );
   expect(horizontalOverflow).toBe(false);
 
@@ -50,8 +48,11 @@ test("serves the root agent index and raw skill files", async ({ request }) => {
   const llms = await request.get("/llms.txt");
   expect(llms.ok()).toBe(true);
   expect(llms.headers()["content-type"]).toContain("text/plain");
-  expect(await llms.text()).toContain("/skill/SKILL.md");
-  expect(await llms.text()).toContain("/render");
+  const llmsText = await llms.text();
+  expect(llmsText).toContain("/skill/SKILL.md");
+  expect(llmsText).toContain("/render");
+  expect(llmsText).toContain("creator's onchain renderer list");
+  expect(llmsText).not.toContain("There is no renderer registry");
 
   const skill = await request.get("/skill/SKILL.md");
   expect(skill.ok()).toBe(true);

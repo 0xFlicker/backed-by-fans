@@ -1,7 +1,7 @@
 ---
 title: Backed By Fans public testnet pilot record
-status: blocked
-date: 2026-08-26
+status: ready-for-staging
+date: 2026-09-02
 ---
 
 # Public testnet pilot record
@@ -9,14 +9,16 @@ date: 2026-08-26
 This is an unexecuted template. It is **not** evidence of a public pilot, user
 approval, audit, deployment, or launch readiness.
 
-Blocker: no public, source-verified factory is
-recorded. Operational identities, a funded encrypted deployer, broadcast
-receipts, and captured-block verification evidence are still unavailable.
+The source-verified testnet protocol is promoted and its generated bindings are
+active. The human pilot has not run; staged-browser, participant, and canonical
+browser evidence remain open.
 
 ## Candidate
 
-- Foundry broadcast and generated address: **OPEN**
-- Source commit and frozen artifact digest: **OPEN**
+- Foundry broadcast and generated factory: **PROMOTED** —
+  `0x768ef9DdF0515e5EF8741dbEc06627c2edcA527C`
+- Source commit and promoted candidate: **RECORDED** —
+  `222005218daee91d40c92b90c62716f7aa7a9864`, current prefix `4`
 - Captured block/hash and second-RPC verification: **OPEN**
 - Creator participant/consent record: **OPEN**
 - Supporter participant/consent record: **OPEN**
@@ -53,7 +55,7 @@ capacity races, and that Stock Tokens are testnet-only for this release.
 - Confusions, failures, severity, owner, and resolution: **OPEN**
 - Participant confirmation that the final workflow was unassisted: **OPEN**
 - Independent reviewer disposition: **OPEN**
-- Final result: **BLOCKED / NOT RUN**
+- Final result: **READY FOR STAGING / NOT RUN**
 
 The deterministic local lifecycle test is development evidence only. It cannot
 satisfy this public, human, unassisted pilot gate.

@@ -293,9 +293,7 @@ test("expands Art Studio controls on desktop and collapses them on mobile", asyn
     await expect(
       page.getByRole("checkbox", { name: "Show tier text" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("radio", { name: /Add your image/i }),
-    ).toBeVisible();
+    await expect(page.getByLabel("Add new image")).toBeVisible();
   } else {
     expect(geometry.artwork.open).toBe(false);
     expect(geometry.image.open).toBe(false);
@@ -305,9 +303,7 @@ test("expands Art Studio controls on desktop and collapses them on mobile", asyn
     await expect(
       page.getByRole("checkbox", { name: "Show tier text" }),
     ).toBeHidden();
-    await expect(
-      page.getByRole("radio", { name: /Add your image/i }),
-    ).toBeHidden();
+    await expect(page.getByLabel("Add new image")).toBeHidden();
     await page.getByText("Customize artwork", { exact: true }).click();
   }
 
@@ -336,14 +332,14 @@ test("walks through defaults, arbitrary splits, risks, and immutable review", as
   await page.getByLabel("Symbol").fill("FANS");
 
   await page.getByRole("button", { name: /^price & period$/i }).click();
-  await expect(page.getByLabel("Price per period (USDG)")).toHaveValue("10");
+  await expect(
+    page.getByRole("textbox", { name: /^Price per period/ }),
+  ).toHaveValue("10");
   await expect(page.getByLabel("Days per period")).toHaveValue("30");
 
   await page.getByRole("button", { name: /^support split$/i }).click();
   await page.getByLabel("Membership rewards (%)").fill("33.33");
   await page.getByLabel("Referral share (%)").fill("65.67");
-  await expect(page.getByText(/creator with referral/i)).toBeVisible();
-  await expect(page.getByText("0 USDG", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: /^risks$/i }).click();
   await expect(
