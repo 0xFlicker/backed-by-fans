@@ -30,6 +30,73 @@
   max-width: 42rem;
 }
 
+.rendererStudioHeader {
+  align-items: end;
+  display: flex;
+  gap: 2rem;
+  justify-content: space-between;
+  padding: clamp(1.5rem, 4vw, 3.5rem);
+}
+
+.rendererStudioHeader h1 {
+  font-size: clamp(3rem, 6vw, 6rem);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.88;
+  margin: 0;
+  max-width: 12ch;
+  text-wrap: balance;
+}
+
+.rendererStudioHeader p:not(.kicker) {
+  color: #d9dbe3;
+  line-height: 1.65;
+  margin: 1rem 0 0;
+  max-width: 42rem;
+}
+
+.studioBackButton {
+  background: transparent;
+  border: 1.5px solid white;
+  border-radius: var(--radius-small);
+  color: white;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 740;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.85rem;
+}
+
+.studioBackButton:hover {
+  background: var(--encore);
+  border-color: var(--encore);
+  color: var(--backstage);
+}
+
+.rendererEntrySummary {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.85rem 0;
+}
+
+.rendererEntrySummary span {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rendererEntrySummary code {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.76rem;
+}
+
 .kicker,
 .stageKicker {
   font-size: 0.68rem;
@@ -661,6 +728,23 @@ details[open] > .customizationSummary::after {
   font-weight: 700;
 }
 
+.rendererUpdateAction {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.rendererUpdateAction p {
+  color: var(--muted-ink);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.rendererUpdateAction button {
+  justify-self: start;
+}
+
 .seedLine {
   align-items: center;
   color: var(--muted-ink);
@@ -1073,6 +1157,11 @@ details[open] > .customizationSummary::after {
     display: block;
   }
 
+  .rendererStudioHeader {
+    align-items: start;
+    display: grid;
+  }
+
   .customizationGrid {
     grid-template-columns: 1fr;
   }
@@ -1084,7 +1173,8 @@ details[open] > .customizationSummary::after {
 }
 
 @container (max-width: 42rem) {
-  .studioHeader h1 {
+  .studioHeader h1,
+  .rendererStudioHeader h1 {
     font-size: clamp(3rem, 14vw, 4.7rem);
   }
 
@@ -1148,6 +1238,7 @@ details[open] > .customizationSummary::after {
   .surpriseButton,
   .undoButton,
   .engineChoice,
+  .studioBackButton,
   .tokenSample {
     animation: none;
     transition: none;

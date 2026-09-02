@@ -1270,60 +1270,6 @@ dd {
   margin: 0;
 }
 
-.renderer-management-options {
-  display: grid;
-  gap: 0.7rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.renderer-management-options label {
-  align-items: start;
-  border: 1.5px solid var(--backstage);
-  border-radius: var(--radius-small);
-  cursor: pointer;
-  display: grid;
-  gap: 0.65rem;
-  grid-template-columns: auto minmax(0, 1fr);
-  padding: 0.85rem;
-}
-
-.renderer-management-options span {
-  display: grid;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.renderer-management-options small {
-  color: var(--muted-ink);
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.68rem;
-  overflow-wrap: anywhere;
-}
-
-.renderer-management-preview {
-  align-items: center;
-  aspect-ratio: 1;
-  background: var(--backstage);
-  border-radius: var(--radius-medium);
-  color: white;
-  display: grid;
-  justify-items: center;
-  overflow: hidden;
-}
-
-.renderer-management-preview img {
-  display: block;
-  height: 100%;
-  object-fit: contain;
-  width: 100%;
-}
-
-.renderer-management-preview p {
-  max-width: 28rem;
-  padding: 1rem;
-  text-align: center;
-}
-
 .split-preview {
   background: var(--backstage);
   border-radius: var(--radius-large);

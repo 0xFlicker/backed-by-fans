@@ -1,9 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { getAddress, zeroAddress, type PublicClient } from "viem";
+import {
+  decodeFunctionData,
+  encodeFunctionResult,
+  getAddress,
+  zeroAddress,
+  type PublicClient,
+} from "viem";
 import { describe, expect, it, vi } from "vitest";
 
+import { onchainMetadataRendererAbi } from "@/contracts";
 import type { TierManagementSnapshot } from "@/contracts/types";
 import { RendererManagementControl } from "@/features/creator/RendererManagementControl";
 import { resolveRendererAddress } from "@/features/creator-studio/renderer-address";
@@ -110,17 +117,15 @@ const deployment: ReadyDeployment = {
 };
 const svg =
   '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>';
-const tokenURI = `data:application/json;base64,${btoa(
-  JSON.stringify({
-    name: "Night Shift #7",
-    description: snapshot.description,
-    image: `data:image/svg+xml;base64,${btoa(svg)}`,
-    external_url: snapshot.externalURI,
-    attributes: [],
-  }),
-)}`;
+const rendererResult = encodeFunctionResult({
+  abi: onchainMetadataRendererAbi,
+  functionName: "previewSVG",
+  result: svg,
+});
 
-function renderControl(readContract = vi.fn().mockResolvedValue(tokenURI)) {
+function renderControl(
+  call = vi.fn().mockResolvedValue({ data: rendererResult }),
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
@@ -129,7 +134,7 @@ function renderControl(readContract = vi.fn().mockResolvedValue(tokenURI)) {
     <QueryClientProvider client={queryClient}>
       <RendererManagementControl
         canUpdate
-        client={{ readContract } as unknown as PublicClient}
+        client={{ call } as unknown as PublicClient}
         deployment={deployment}
         onUpdate={onUpdate}
         owner={owner}
@@ -137,7 +142,7 @@ function renderControl(readContract = vi.fn().mockResolvedValue(tokenURI)) {
       />
     </QueryClientProvider>,
   );
-  return { onUpdate, readContract };
+  return { call, onUpdate };
 }
 
 describe("renderer management", () => {
@@ -157,33 +162,37 @@ describe("renderer management", () => {
       }),
     );
     const user = userEvent.setup();
-    const { onUpdate, readContract } = renderControl();
+    const { call, onUpdate } = renderControl();
 
+    await user.click(screen.getByRole("button", { name: "Open Art Studio" }));
     await waitFor(() => expect(screen.getAllByRole("radio")).toHaveLength(4));
     const labels = screen.getByRole("radiogroup", { name: "Artwork renderer" });
     expect(labels.textContent).toMatch(
-      /Current.*Your renderer 1.*Original.*Custom/s,
+      /Current.*Your renderer 1.*Original.*Custom/is,
     );
     expect(
-      screen.getByText(/existing and future membership tokens/i),
+      screen.getByText(/every existing and future membership/i),
     ).toBeVisible();
 
     await user.click(screen.getByRole("radio", { name: /Your renderer 1/i }));
-    const update = screen.getByRole("button", {
-      name: "Update artwork for every membership",
-    });
+    expect(
+      screen.getByLabelText("Representative membership tokens"),
+    ).toBeVisible();
+    const update = screen.getByRole("button", { name: "Update artwork" });
     await waitFor(() => expect(update).toBeEnabled());
     await user.click(update);
     expect(onUpdate).toHaveBeenCalledWith(createdRenderer);
 
-    const previewCall = readContract.mock.calls.at(-1)?.[0] as {
-      functionName: string;
-      args: readonly [
-        { token: { art: typeof art; media: typeof media; tierName: string } },
-      ];
+    const previewCall = call.mock.calls.at(-1)?.[0] as { data: `0x${string}` };
+    const decoded = decodeFunctionData({
+      abi: onchainMetadataRendererAbi,
+      data: previewCall.data,
+    });
+    expect(decoded.functionName).toBe("previewSVG");
+    const context = decoded.args?.[0] as unknown as {
+      token: { tierName: string; art: typeof art; media: typeof media };
     };
-    expect(previewCall.functionName).toBe("previewTokenURI");
-    expect(previewCall.args[0].token).toMatchObject({
+    expect(context.token).toMatchObject({
       tierName: snapshot.name,
       art,
       media,
@@ -203,25 +212,22 @@ describe("renderer management", () => {
         engines: ["Engine"],
       }),
     );
-    const readContract = vi.fn(({ address }: { address: string }) =>
-      address.toLowerCase() === currentRenderer.toLowerCase()
+    const call = vi.fn(({ to }: { to: string }) =>
+      to.toLowerCase() === currentRenderer.toLowerCase()
         ? Promise.reject(new Error("RPC unavailable"))
-        : Promise.resolve(tokenURI),
+        : Promise.resolve({ data: rendererResult }),
     );
     const user = userEvent.setup();
-    const { onUpdate } = renderControl(readContract);
+    const { onUpdate } = renderControl(call);
 
-    expect(
-      await screen.findByText(/could not preview the membership/i),
-    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Open Art Studio" }));
+    expect(await screen.findByText("RPC unavailable")).toBeVisible();
     await user.click(screen.getByRole("radio", { name: /Custom/i }));
     await user.type(
       screen.getByLabelText("Renderer contract address"),
       customRenderer,
     );
-    const update = screen.getByRole("button", {
-      name: "Update artwork for every membership",
-    });
+    const update = screen.getByRole("button", { name: "Update artwork" });
     await waitFor(() => expect(update).toBeEnabled());
     await user.click(update);
     expect(onUpdate).toHaveBeenCalledWith(customRenderer);

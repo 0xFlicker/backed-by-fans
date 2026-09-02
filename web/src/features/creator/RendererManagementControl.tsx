@@ -4,12 +4,14 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Address, PublicClient } from "viem";
 
-import { onchainMetadataRendererAbi } from "@/contracts";
 import type { TierManagementSnapshot } from "@/contracts/types";
-import { decodeRendererTokenURI } from "@/features/creator-studio/renderer-preview";
-import { svgPreviewDataURI } from "@/features/creator-studio/PreviewGallery";
+import styles from "@/features/creator-studio/CreatorStudio.module.css";
+import {
+  PreviewGallery,
+  type PreviewSelection,
+} from "@/features/creator-studio/PreviewGallery";
 import { resolveRendererAddress } from "@/features/creator-studio/renderer-address";
-import { makeRendererPreviewContext } from "@/features/creator-studio/studio-protocol";
+import { useContractPreviews } from "@/features/creator-studio/use-contract-previews";
 import { readCreatedRendererAddresses } from "@/features/renderer-registry/registry-read";
 import type { ReadyDeployment } from "@/lib/config";
 
@@ -17,6 +19,10 @@ type Choice = "current" | "default" | "custom" | `created:${Address}`;
 
 function sameAddress(left: Address, right: Address) {
   return left.toLowerCase() === right.toLowerCase();
+}
+
+function shortAddress(address: Address) {
+  return `${address.slice(0, 8)}...${address.slice(-6)}`;
 }
 
 export function RendererManagementControl({
@@ -34,8 +40,13 @@ export function RendererManagementControl({
   canUpdate: boolean;
   onUpdate: (renderer: Address) => void;
 }) {
+  const [studioOpen, setStudioOpen] = useState(false);
   const [choice, setChoice] = useState<Choice>("current");
   const [customAddress, setCustomAddress] = useState("");
+  const [selection, setSelection] = useState<PreviewSelection>({
+    tokenId: 7,
+    state: "active",
+  });
   const created = useQuery({
     queryKey: [
       "management-created-renderers",
@@ -76,7 +87,7 @@ export function RendererManagementControl({
       candidate,
       snapshot.protocolDependencies.rendererSchema,
     ],
-    enabled: candidate.trim().length === 42,
+    enabled: studioOpen && candidate.trim().length === 42,
     retry: false,
     queryFn: () =>
       resolveRendererAddress(client, {
@@ -85,148 +96,229 @@ export function RendererManagementControl({
         expectedSchema: snapshot.protocolDependencies.rendererSchema,
       }),
   });
-  const preview = useQuery({
-    queryKey: [
-      "management-renderer-preview",
-      resolution.data?.address,
-      snapshot.tierIdentity,
-      snapshot.renderer,
-    ],
-    enabled: Boolean(resolution.data),
-    retry: false,
-    queryFn: async () => {
-      const context = makeRendererPreviewContext({
-        tierName: snapshot.name,
-        description: snapshot.description,
-        externalURI: snapshot.externalURI,
-        tierIdentity: snapshot.tierIdentity,
-        art: snapshot.art,
-        media: snapshot.media,
-        tokenId: 7,
-        state: "active",
-        referenceTimestamp: BigInt(Math.floor(Date.now() / 1_000)),
-      });
-      const tokenURI = await client.readContract({
-        address: resolution.data!.address,
-        abi: onchainMetadataRendererAbi,
-        functionName: "previewTokenURI",
-        args: [context],
-      });
-      return decodeRendererTokenURI(tokenURI);
-    },
+  const draft = useMemo(
+    () => ({
+      tierName: snapshot.name,
+      description: snapshot.description,
+      externalURI: snapshot.externalURI,
+      tierIdentity: snapshot.tierIdentity,
+      art: snapshot.art,
+      media: snapshot.media,
+    }),
+    [snapshot],
+  );
+  const previews = useContractPreviews({
+    client,
+    protocol: snapshot.protocolDependencies,
+    renderer: resolution.data?.address,
+    draft,
+    selection,
+    enabled: studioOpen && Boolean(resolution.data),
+    blockedMessage: "Choose a renderer to preview this membership.",
   });
   const changed = Boolean(
     resolution.data && !sameAddress(resolution.data.address, snapshot.renderer),
   );
+  const previewReady = previews.model.focusedSVG.status === "ready";
+
+  if (!studioOpen) {
+    return (
+      <section className="control-group renderer-management">
+        <div>
+          <p className="eyebrow">Artwork renderer</p>
+          <h2>Change your membership artwork</h2>
+          <p>
+            Reopen Art Studio to try another renderer with this tier’s current
+            art and image settings. A change updates existing and future
+            membership tokens.
+          </p>
+        </div>
+        <div className={styles.rendererEntrySummary}>
+          <span>Current renderer</span>
+          <code title={snapshot.renderer}>
+            {shortAddress(snapshot.renderer)}
+          </code>
+        </div>
+        <button
+          className="button button-outline"
+          disabled={!canUpdate}
+          onClick={() => setStudioOpen(true)}
+          type="button"
+        >
+          Open Art Studio
+        </button>
+      </section>
+    );
+  }
 
   return (
-    <section className="control-group renderer-management">
-      <div>
-        <p className="eyebrow">Artwork renderer</p>
-        <h2>Change every membership image</h2>
-        <p>
-          A renderer change updates the artwork for existing and future
-          membership tokens. Payment terms, membership time, and your current
-          art settings stay the same.
-        </p>
-      </div>
-      <div
-        aria-label="Artwork renderer"
-        className="renderer-management-options"
-        role="radiogroup"
-      >
-        <label>
-          <input
-            checked={choice === "current"}
-            name="management-renderer"
-            onChange={() => setChoice("current")}
-            type="radio"
-          />
-          <span>
-            <strong>Current</strong>
-            <small>{snapshot.renderer}</small>
-          </span>
-        </label>
-        {createdChoices.map((address, index) => (
-          <label key={address}>
-            <input
-              checked={choice === `created:${address}`}
-              name="management-renderer"
-              onChange={() => setChoice(`created:${address}`)}
-              type="radio"
-            />
-            <span>
-              <strong>Your renderer {index + 1}</strong>
-              <small>{address}</small>
-            </span>
-          </label>
-        ))}
-        {!sameAddress(snapshot.renderer, deployment.rendererAddress) ? (
-          <label>
-            <input
-              checked={choice === "default"}
-              name="management-renderer"
-              onChange={() => setChoice("default")}
-              type="radio"
-            />
-            <span>
-              <strong>Original</strong>
-              <small>Backed By Fans renderer</small>
-            </span>
-          </label>
-        ) : null}
-        <label>
-          <input
-            checked={choice === "custom"}
-            name="management-renderer"
-            onChange={() => setChoice("custom")}
-            type="radio"
-          />
-          <span>
-            <strong>Custom</strong>
-            <small>Use a renderer contract address</small>
-          </span>
-        </label>
-      </div>
-      {choice === "custom" ? (
-        <label className="creator-field">
-          <span>Renderer contract address</span>
-          <input
-            className="font-mono"
-            onChange={(event) => setCustomAddress(event.target.value)}
-            placeholder="0x…"
-            spellCheck={false}
-            value={customAddress}
-          />
-        </label>
-      ) : null}
-      <div className="renderer-management-preview">
-        {preview.data ? (
-          // Renderer data URIs must bypass image optimization.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            alt={`${snapshot.name} artwork with the selected renderer`}
-            src={svgPreviewDataURI(preview.data.svg)}
-          />
-        ) : resolution.isFetching || preview.isFetching ? (
-          <p role="status">Loading artwork preview...</p>
-        ) : resolution.error || preview.error ? (
-          <p role="alert">
-            This renderer could not preview the membership. Choose another
-            renderer or try again.
+    <section aria-label="Update membership artwork" className={styles.studio}>
+      <header className={styles.rendererStudioHeader}>
+        <div>
+          <p className={styles.kicker}>Art Studio</p>
+          <h1>Update your membership artwork</h1>
+          <p>
+            Choose a renderer and review it across representative memberships.
+            Your existing art and image settings stay the same.
           </p>
-        ) : (
-          <p>Select a renderer to preview it with this membership.</p>
-        )}
+        </div>
+        <button
+          className={styles.studioBackButton}
+          onClick={() => setStudioOpen(false)}
+          type="button"
+        >
+          Back to tier controls
+        </button>
+      </header>
+
+      <div className={styles.workbench}>
+        <div className={styles.previewColumn}>
+          <PreviewGallery
+            model={previews.model}
+            onRefreshSet={previews.refreshSet}
+            onRetryFocused={previews.retryFocused}
+            onSelectionChange={setSelection}
+            selection={selection}
+          />
+        </div>
+
+        <div className={styles.toolColumn}>
+          <fieldset
+            aria-label="Artwork renderer"
+            className={styles.enginePicker}
+          >
+            <legend>Choose a renderer</legend>
+            <p className={styles.sectionHint}>
+              Your renderers appear first, followed by the original design and a
+              contract address option.
+            </p>
+            <div
+              aria-label="Artwork renderer"
+              className={styles.engineList}
+              role="radiogroup"
+            >
+              <button
+                aria-checked={choice === "current"}
+                className={styles.engineChoice}
+                data-engine="stack"
+                onClick={() => setChoice("current")}
+                role="radio"
+                type="button"
+              >
+                <span className={styles.engineNumber}>01</span>
+                <span className={styles.engineCopy}>
+                  <strong>CURRENT</strong>
+                  <span>Current membership artwork</span>
+                  <small>{snapshot.renderer}</small>
+                </span>
+              </button>
+              {createdChoices.map((address, index) => (
+                <button
+                  aria-checked={choice === `created:${address}`}
+                  className={styles.engineChoice}
+                  data-engine="afterimage"
+                  key={address}
+                  onClick={() => setChoice(`created:${address}`)}
+                  role="radio"
+                  type="button"
+                >
+                  <span className={styles.engineNumber}>
+                    {String(index + 2).padStart(2, "0")}
+                  </span>
+                  <span className={styles.engineCopy}>
+                    <strong>YOUR RENDERER {index + 1}</strong>
+                    <span>Deployed from your wallet</span>
+                    <small>{address}</small>
+                  </span>
+                </button>
+              ))}
+              {!sameAddress(snapshot.renderer, deployment.rendererAddress) ? (
+                <button
+                  aria-checked={choice === "default"}
+                  className={styles.engineChoice}
+                  data-engine="loom"
+                  onClick={() => setChoice("default")}
+                  role="radio"
+                  type="button"
+                >
+                  <span className={styles.engineNumber}>
+                    {String(createdChoices.length + 2).padStart(2, "0")}
+                  </span>
+                  <span className={styles.engineCopy}>
+                    <strong>ORIGINAL</strong>
+                    <span>Backed By Fans renderer</span>
+                    <small>{deployment.rendererAddress}</small>
+                  </span>
+                </button>
+              ) : null}
+              <button
+                aria-checked={choice === "custom"}
+                className={styles.engineChoice}
+                data-engine="custom"
+                onClick={() => setChoice("custom")}
+                role="radio"
+                type="button"
+              >
+                <span className={styles.engineNumber}>
+                  {String(
+                    createdChoices.length +
+                      (sameAddress(
+                        snapshot.renderer,
+                        deployment.rendererAddress,
+                      )
+                        ? 2
+                        : 3),
+                  ).padStart(2, "0")}
+                </span>
+                <span className={styles.engineCopy}>
+                  <strong>CUSTOM</strong>
+                  <span>Use a renderer contract address</span>
+                </span>
+              </button>
+              {choice === "custom" ? (
+                <div className={styles.customRendererField}>
+                  <label htmlFor="management-renderer-address">
+                    Renderer contract address
+                  </label>
+                  <input
+                    aria-invalid={Boolean(resolution.error)}
+                    id="management-renderer-address"
+                    onChange={(event) => setCustomAddress(event.target.value)}
+                    placeholder="0x..."
+                    spellCheck={false}
+                    value={customAddress}
+                  />
+                  {resolution.error ? (
+                    <p role="alert">
+                      This address is not a compatible renderer. Check it and
+                      try again.
+                    </p>
+                  ) : (
+                    <p>Paste a compatible renderer on this network.</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </fieldset>
+
+          <div className={styles.rendererUpdateAction}>
+            <p>
+              Updating changes the artwork for every existing and future
+              membership. Payment terms and membership time do not change.
+            </p>
+            <button
+              className={styles.primaryButton}
+              disabled={!canUpdate || !changed || !previewReady}
+              onClick={() =>
+                resolution.data && onUpdate(resolution.data.address)
+              }
+              type="button"
+            >
+              Update artwork
+            </button>
+          </div>
+        </div>
       </div>
-      <button
-        className="button button-outline"
-        disabled={!canUpdate || !changed || !preview.data}
-        onClick={() => resolution.data && onUpdate(resolution.data.address)}
-        type="button"
-      >
-        Update artwork for every membership
-      </button>
     </section>
   );
 }
