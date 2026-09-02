@@ -185,6 +185,7 @@ export PATH="$mock_bin:$PATH"
 export TMPDIR="$test_dir"
 unset ROBINHOOD_TESTNET_RPC_URL ROBINHOOD_MAINNET_RPC_URL
 unset ETH_PASSWORD PRIVATE_KEY ETH_PRIVATE_KEY CAST_PRIVATE_KEY MNEMONIC MNEMONIC_PATH
+unset FOUNDRY_PROFILE
 
 reset_project_state
 canonical_project_root="$(cd "$project_root" && pwd -P)"
