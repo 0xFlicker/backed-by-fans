@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-01
 
-**Status**: Ready for implementation
+**Status**: Revised; ready for planning
 
 **Input**: User description: "Launch Backed By Fans as a public Robinhood Chain testnet beta at
 `backedbyfans.xyz`. Let the protocol maintain an enumerable set of accepted payment tokens and let
@@ -15,9 +15,9 @@ while displayed Stock Token amounts adjust after corporate actions. A future mai
 will accept USDG only."
 
 **Scope amendment**: "Because this protocol version already replaces the tier contract, let the
-current tier owner replace its renderer address after publication so creators can correct or evolve
-artwork. Renderer replacement changes presentation only; art/media inputs, payment terms, membership
-state, and accounting remain unchanged."
+current tier owner reopen the complete Creator Studio after publication and update the renderer,
+renderer engine, art direction, and optional onchain image. Presentation changes apply to existing and
+future membership artwork while payment terms, membership state, and accounting remain unchanged."
 
 ## Clarifications
 
@@ -30,6 +30,15 @@ state, and accounting remain unchanged."
 - Q: Which contracts form the testnet launch set, and should Backed By Fans deploy its own test USDG?
   → A: Use the supplied external USDG, AMD, NFLX, PLTR, AMZN, and TSLA addresses recorded in FR-014;
   do not deploy an internal USDG substitute.
+
+### Session 2026-09-02
+
+- Q: Should published-tier artwork management remain renderer-only? → A: No. Reopen the complete
+  Creator Studio on a dedicated full-width artwork route and let the current tier owner update the
+  renderer, every exposed engine and art control, and the optional onchain image.
+- Q: Should this require a broader redesign of the tier-management page? → A: No. Keep management as
+  the operational summary with an Edit artwork entry point; treat a broader management UX refresh as
+  separate work.
 - Q: Where should accepted-token administration live? → A: Seed launch tokens in the deployment
   script and use reviewed Safe/deployer CLI commands for later status and fee operations; do not build
   a Backed By Fans operator web interface.
@@ -182,37 +191,45 @@ testnet, then confirm the same URL remains clearly labeled as a testnet beta thr
 
 ---
 
-### User Story 6 - Update a Published Membership's Renderer (Priority: P2)
+### User Story 6 - Fully Customize Published Membership Artwork (Priority: P2)
 
-The current owner of a membership tier can replace its renderer contract when they want to correct
-artwork, refresh the design, or intentionally change how existing and future membership tokens look.
-The creator can preview the candidate with the tier's existing art and media configuration before
-choosing to submit the update. Payment terms and membership state do not change.
+The current owner of a membership tier can reopen the complete Art Studio for a published tier and
+change its renderer, any engine and art-direction setting exposed by that renderer, and its optional
+onchain image. The creator previews the complete proposed presentation before saving it. Existing and
+future membership tokens then use the updated presentation, while payment terms and membership state
+do not change.
 
 **Why this priority**: Renderer contracts are already capable of producing dynamic output, so treating
 the renderer address as permanently fixed does not create immutable artwork. Explicit owner control
 makes that presentation boundary honest and lets creators correct or evolve their membership design
 without redeploying the economic tier.
 
-**Independent Test**: Publish a tier and mint representative active and expired credentials, transfer
-tier ownership to a second wallet, replace the renderer from the new owner's management page, and
-confirm every credential uses the new renderer while its owner, payment token, raw price, time,
-claims, referrals, and accounting remain unchanged.
+**Independent Test**: Publish an image-backed tier and mint representative active and expired
+credentials, transfer tier ownership to a second wallet, open the dedicated artwork page, change the
+renderer engine and art controls, replace or remove the image, and save. Confirm every credential uses
+the complete new presentation while its owner, payment token, raw price, time, claims, referrals, and
+accounting remain unchanged.
 
 **Acceptance Scenarios**:
 
-1. **Given** a published tier, **When** its current owner selects a compatible same-chain renderer and
-   submits the update, **Then** the tier records that renderer and all token metadata reads use it.
-2. **Given** a tier with existing credentials, **When** its renderer changes, **Then** indexers and
-   clients receive the standard metadata-refresh signal for the affected token range.
-3. **Given** tier ownership has transferred, **When** the former owner attempts a renderer update,
+1. **Given** a published tier, **When** its current owner opens Edit artwork, **Then** a dedicated
+   full-width page loads the complete Creator Studio with the tier's current renderer, selected engine,
+   art controls, image, image-placement settings, and representative previews.
+2. **Given** a renderer exposes multiple engines, **When** the owner edits a published tier, **Then**
+   every engine and applicable configuration control available during creation remains available.
+3. **Given** a tier with or without an image, **When** its owner selects an existing onchain image,
+   uploads and deploys a replacement, removes the image, or changes its placement, **Then** the studio
+   previews that exact proposal and can save it as part of the tier's presentation.
+4. **Given** a tier with existing credentials, **When** its complete presentation changes, **Then**
+   indexers and clients receive the standard metadata-refresh signal for the affected token range.
+5. **Given** tier ownership has transferred, **When** the former owner attempts a presentation update,
    **Then** the transaction fails and the current owner remains the only authorized updater.
-4. **Given** a renderer address that is zero, has no code, exposes the wrong renderer schema, or
-   rejects the tier's existing art/media configuration, **When** an update is attempted, **Then** the
-   transaction fails and the prior renderer remains active.
-5. **Given** an otherwise compatible renderer that is not in a renderer registry, **When** the tier
+6. **Given** a renderer address that is zero, has no code, exposes the wrong renderer schema, or
+   rejects the proposed art/media configuration, **When** an update is attempted, **Then** the
+   transaction fails and the complete prior presentation remains active.
+7. **Given** an otherwise compatible renderer that is not in a renderer registry, **When** the tier
    owner chooses it, **Then** the update does not require platform registration or curation.
-6. **Given** a successful renderer update, **When** any payment, renewal, refund, claim, referral,
+8. **Given** a successful presentation update, **When** any payment, renewal, refund, claim, referral,
    ownership, or expiration state is inspected, **Then** it is unchanged by the presentation update.
 
 ### Edge Cases
@@ -239,10 +256,16 @@ claims, referrals, and accounting remain unchanged.
 - A stale link targets a pre-beta test deployment rather than the active beta protocol version.
 - The production website is available while its configured RPC is unavailable or rate-limited.
 - A renderer previews successfully but later changes its own output or begins reverting.
-- A tier owner selects a new renderer while credentials are active, expired, or not yet minted.
-- Tier ownership changes while a renderer-update transaction is awaiting submission or confirmation.
-- A candidate renderer supports the expected schema but rejects the tier's already-stored art or
-  media configuration.
+- A tier owner changes presentation while credentials are active, expired, synchronized, or not yet
+  minted.
+- Tier ownership changes while a presentation-update transaction is awaiting submission or
+  confirmation.
+- A candidate renderer supports the expected schema but rejects the proposed art or media
+  configuration.
+- A new image store deploys successfully but the subsequent presentation update is canceled, replaced,
+  or reverted.
+- The owner removes an existing image and returns the tier to generated artwork.
+- An RPC failure occurs while switching renderer engines, controls, images, or representative states.
 
 ## Requirements _(mandatory)_
 
@@ -366,27 +389,32 @@ claims, referrals, and accounting remain unchanged.
   through reviewed CLI calldata submitted by the protocol Safe or authorized deployer; no Backed By
   Fans operator web interface is included in this feature.
 
-#### Mutable Tier Renderer
+#### Mutable Tier Presentation
 
-- **FR-049**: A tier's current owner MUST be able to replace the tier's renderer contract address.
-- **FR-050**: Renderer-update authority MUST follow the tier's existing two-step ownership state; a
+- **FR-049**: A tier's current owner MUST be able to replace the complete presentation tuple of
+  renderer address, art configuration, and media configuration.
+- **FR-050**: Presentation-update authority MUST follow the tier's existing two-step ownership state; a
   former, pending, or unrelated owner MUST NOT be able to update it.
-- **FR-051**: A renderer update MUST reject a zero address, an address without contract code, a
-  renderer with the wrong schema, or a renderer that rejects the tier's current art and media
-  configuration.
+- **FR-051**: A presentation update MUST reject a zero renderer, a renderer without contract code, a
+  renderer with the wrong schema, a renderer that rejects the proposed art/media configuration, or a
+  media configuration that is not accepted by the canonical media-store rules.
 - **FR-052**: A compatible renderer MUST remain usable by direct same-chain address without a
   renderer-registry entry, platform listing, or curation approval.
-- **FR-053**: A failed renderer update MUST leave the prior renderer active.
-- **FR-054**: A successful renderer update MUST emit the previous and replacement addresses and MUST
-  emit the standard batch metadata-refresh signal for every existing tier credential.
-- **FR-055**: `tokenURI` and renderer-detail reads MUST use the tier's current renderer after a
-  successful update.
-- **FR-056**: Changing a renderer MUST NOT change the tier's payment token, raw price, period,
+- **FR-053**: Renderer, art, and media assignment MUST be atomic; any failed presentation update MUST
+  leave the complete prior presentation active.
+- **FR-054**: A successful presentation update MUST emit an event identifying the previous and new
+  renderer and the previous and new art/media configuration hashes, and MUST emit the standard batch
+  metadata-refresh signal for every existing tier credential.
+- **FR-055**: `tokenURI`, renderer-detail reads, and management reads MUST use the tier's current
+  renderer, art configuration, and media configuration after a successful update.
+- **FR-056**: Changing presentation MUST NOT change the tier's payment token, raw price, period,
   creator/supporter balances, membership time, capacity, rewards, referrals, fees, claims, ownership,
-  art configuration, or media configuration.
-- **FR-057**: Tier management MUST show the current renderer, let the current owner preview and select
-  a compatible replacement using the tier's existing art/media inputs, explain that the change affects
-  all existing and future membership artwork, and leave the final aesthetic decision to that owner.
+  name, symbol, description, or external URI.
+- **FR-057**: Tier management MUST link to a dedicated full-width artwork route that reuses the complete
+  Creator Studio from publication. It MUST load the current presentation, expose every available
+  renderer engine and applicable art control, support selecting, replacing, removing, positioning, and
+  sizing an image, preview representative active/afterglow states, explain that saving affects all
+  existing and future membership artwork, and leave the final aesthetic decision to the owner.
 
 #### Expired Membership Sync and Reward Suspension
 
@@ -420,9 +448,9 @@ claims, referrals, and accounting remain unchanged.
 
 - **Accepted Payment Token**: A chain-scoped token approved for new membership tiers, including its
   contract address, enabled state, display metadata, decimal precision, and scaled-amount capability.
-- **Tier Renderer State**: The tier's current owner-controlled renderer address paired with immutable
-  tier art/media inputs; replacing the address changes presentation for all credentials but not
-  membership economics or state.
+- **Tier Presentation State**: The tier's current owner-controlled renderer address, selected engine,
+  art configuration, and media configuration; replacing the tuple changes artwork for all credentials
+  but not membership economics or state.
 - **Scaled UI Amount**: The current human-readable amount derived from a raw token amount and the
   token's current UI multiplier; it changes for display without changing settlement accounting.
 - **Membership Payment Terms**: The immutable payment token, immutable raw price per period, period
@@ -455,9 +483,10 @@ claims, referrals, and accounting remain unchanged.
   account, renderer, agent-skill, and faucet smoke journeys on Robinhood Chain testnet.
 - **SC-008**: The future mainnet deployment profile contains exactly one initially enabled payment
   token, canonical USDG, and no mainnet transaction is submitted as part of this beta feature.
-- **SC-009**: In owner, former-owner, invalid-renderer, and successful-replacement tests, 100% of
-  unauthorized or incompatible updates preserve the prior renderer, while a successful update changes
-  every tested credential's renderer output and changes none of its economic or membership state.
+- **SC-009**: In owner, former-owner, invalid-presentation, image-replacement, image-removal, and
+  successful-update tests, 100% of unauthorized or incompatible updates preserve the complete prior
+  presentation, while a successful update changes every tested credential's artwork and changes none
+  of its economic or membership state.
 
 ## Assumptions
 
@@ -473,8 +502,9 @@ claims, referrals, and accounting remain unchanged.
   deployment is identified explicitly and earlier contracts remain onchain without being promoted.
 - The existing wallet transaction lifecycle remains responsible for connection, chain switching,
   submission, receipt handling, replacement, cancellation, and revert reporting.
-- Tier art and media configuration remain fixed in this feature; renderer replacement reuses those
-  inputs and does not provide an art/media mutation path.
+- A newly uploaded image is deployed through the canonical media-store flow before the tier
+  presentation update. If media deployment succeeds but the tier update does not, the prior tier
+  presentation remains active and the deployed media remains available for retry or later reuse.
 - The beta continues to use direct onchain reads and does not require a mandatory backend, indexer,
   account system, or custodial signer.
 - The user controls `backedbyfans.xyz`; DNS and hosting promotion are operator-authorized release

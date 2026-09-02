@@ -210,31 +210,60 @@ keeping the product explanation factual.
 
 **Source**: [Robinhood Chain brand guidelines](https://docs.robinhood.com/chain/brand-guidelines/)
 
-## Decision 12: Let the current tier owner replace presentation, not membership terms
+## Decision 12: Let the current tier owner fully customize presentation, not membership terms
 
-**Decision**: Change `MembershipTier.renderer` from immutable storage to an owner-only mutable address.
-`setRenderer` validates code, the factory's expected renderer schema, and the candidate's acceptance
-of the tier's existing art/media configuration before assignment. It emits previous/new addresses and
-the standard batch metadata-refresh event. Art/media configuration and all economic/member state stay
-unchanged.
+**Decision**: Store the renderer, art configuration, and media configuration as one owner-controlled
+presentation. Replace the renderer-only mutation with an atomic `setPresentation` operation that
+validates the renderer's code and schema, validates the complete proposed art/media configuration,
+and assigns all three values together. It emits previous/new presentation identity and the standard
+batch metadata-refresh event. Economic and membership state stay unchanged.
 
 **Rationale**: An immutable address does not guarantee immutable artwork because the renderer contract
 can already produce time-dependent or otherwise dynamic output. Explicit tier-owner control is more
-honest and useful: creators can correct a mistake or intentionally refresh presentation without
-redeploying the tier or disturbing memberships. Using the current `Ownable2Step` owner also makes
-authority transfer with the tier instead of remaining attached to the original creator.
+honest and useful. The same principle applies to the engine, art direction, and image inputs that the
+renderer consumes: creators need the complete studio to correct a mistake or intentionally refresh
+presentation without redeploying the tier or disturbing memberships. Using the current
+`Ownable2Step` owner also makes authority transfer with the tier instead of remaining attached to the
+original creator.
 
 **Alternatives considered**:
 
 - Keep the address immutable: rejected because it prevents creator-directed correction without
   preventing renderer-directed visual change.
-- Make art/media configuration mutable in the same operation: rejected because it broadens this
-  change beyond the requested renderer boundary and complicates media validation and storage policy.
+- Keep art/media fixed while changing only the renderer: rejected because it produces a partial
+  management studio and prevents creators from using the same customization model after publication.
+- Add separate renderer, art, and media setters: rejected because partial success could leave an
+  unintended combination active and require multiple metadata refreshes.
 - Route updates through the factory owner or renderer registry: rejected because presentation belongs
   to the tier owner and compatible direct renderer addresses intentionally bypass platform curation.
 - Pin renderer runtime codehash: rejected because the existing renderer contract deliberately does not
   promise static bytecode/output identity and the product presents results for creator judgment rather
   than certifying permanence.
+
+## Decision 13: Reopen Art Studio on a dedicated tier artwork route
+
+**Decision**: Keep tier management as the operational summary and link its artwork section to a
+dedicated full-width `/chains/{chainId}/tiers/{tierAddress}/manage/artwork` route. The route reuses the
+complete creation-time Creator Studio, initializes it from the tier's current presentation, and saves
+through the established wallet transaction lifecycle.
+
+For an existing onchain image or image removal, the tier presentation update is one transaction. For
+a new local image, the existing canonical media-store deployment runs first, followed by the atomic
+tier presentation update. A successful media deployment is reusable even if the later tier update is
+canceled or fails.
+
+**Rationale**: The management page's locked-economics sidebar intentionally constrains its controls
+column. Compressing the studio into that column hides renderer engines and image tools and makes the
+preview secondary. A dedicated route preserves the studio's established preview-first hierarchy
+without coupling this work to a broader management-page redesign.
+
+**Alternatives considered**:
+
+- Expand the studio inline inside tier management: rejected because it remains constrained by the
+  locked-terms layout and makes a long operational page substantially harder to navigate.
+- Redesign the entire management page in the same change: rejected because the dedicated artwork
+  route solves the immediate information-architecture problem while leaving a broader management UX
+  pass independently reviewable.
 
 ## Resolved unknowns
 
