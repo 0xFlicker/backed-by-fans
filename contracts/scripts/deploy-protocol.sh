@@ -345,6 +345,7 @@ load_payment_token_manifest() {
 }
 
 build_deployment_plan() {
+  FOUNDRY_PROFILE=robinhood forge clean
   FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
   load_payment_token_manifest
 

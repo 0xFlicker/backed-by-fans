@@ -38,6 +38,9 @@ case "${1:-}" in
   build)
     exit 0
     ;;
+  clean)
+    exit 0
+    ;;
   test)
     printf 'BBF_RELEASE_FACTORY_RUNTIME_HASH %s\n' "$MOCK_FACTORY_RUNTIME_HASH"
     ;;

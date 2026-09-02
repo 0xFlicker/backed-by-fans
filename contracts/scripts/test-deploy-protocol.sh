@@ -214,6 +214,7 @@ assert_not_contains "$mock_log" "cast send $create2_deployer"
 
 reset_project_state
 "$deploy_wrapper" testnet dry-run
+assert_contains "$mock_log" "FOUNDRY_PROFILE=robinhood forge clean"
 assert_contains "$mock_log" "FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860"
 assert_contains "$mock_log" "anvil --fork-url https://rpc.testnet.chain.robinhood.com --chain-id 46630"
 assert_count "$mock_log" "cast send $create2_deployer --data <raw-create2-calldata> --rpc-url http://127.0.0.1:" 4

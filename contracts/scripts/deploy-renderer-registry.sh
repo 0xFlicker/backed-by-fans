@@ -32,6 +32,7 @@ bbf_configure_public_network testnet
 bbf_reject_broadcast_override "Renderer registry deployment"
 cd "$project_dir"
 bbf_verify_public_chain "Renderer registry deployment"
+forge clean
 
 registry_address="${RENDERER_REGISTRY_ADDRESS:-}"
 if [[ -z "$registry_address" && -f "$broadcast_file" ]]; then
