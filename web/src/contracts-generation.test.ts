@@ -124,16 +124,18 @@ describe("generated MembershipFactory ABI", () => {
 });
 
 describe("generated MembershipTier ABI", () => {
-  it("contains mutable renderer writes and metadata refresh events", () => {
-    const setRenderer = membershipTierAbi.find(
-      (item) => item.type === "function" && item.name === "setRenderer",
+  it("contains atomic presentation writes and metadata refresh events", () => {
+    const setPresentation = membershipTierAbi.find(
+      (item) => item.type === "function" && item.name === "setPresentation",
     );
-    expect(setRenderer?.inputs).toEqual([
+    expect(setPresentation?.inputs).toEqual([
       expect.objectContaining({ name: "newRenderer", type: "address" }),
+      expect.objectContaining({ name: "newArt", type: "tuple" }),
+      expect.objectContaining({ name: "newMedia", type: "tuple" }),
     ]);
     expect(
       membershipTierAbi.some(
-        (item) => item.type === "event" && item.name === "TierRendererUpdated",
+        (item) => item.type === "event" && item.name === "PresentationUpdated",
       ),
     ).toBe(true);
     expect(

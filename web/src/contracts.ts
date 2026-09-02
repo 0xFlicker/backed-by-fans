@@ -1320,8 +1320,54 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
-    inputs: [{ name: "newRenderer", internalType: "address", type: "address" }],
-    name: "setRenderer",
+    inputs: [
+      { name: "newRenderer", internalType: "address", type: "address" },
+      {
+        name: "newArt",
+        internalType: "struct MembershipTypes.ArtConfig",
+        type: "tuple",
+        components: [
+          { name: "engine", internalType: "uint16", type: "uint16" },
+          { name: "collectionSeed", internalType: "uint128", type: "uint128" },
+          { name: "palette", internalType: "uint8", type: "uint8" },
+          { name: "intensity", internalType: "uint8", type: "uint8" },
+          { name: "density", internalType: "uint8", type: "uint8" },
+          { name: "symmetry", internalType: "uint8", type: "uint8" },
+          { name: "typographyScale", internalType: "uint8", type: "uint8" },
+          { name: "typographyStyle", internalType: "uint8", type: "uint8" },
+          { name: "textVisibility", internalType: "uint8", type: "uint8" },
+          {
+            name: "imageFit",
+            internalType: "enum MembershipTypes.ImageFit",
+            type: "uint8",
+          },
+          { name: "focalX", internalType: "uint8", type: "uint8" },
+          { name: "focalY", internalType: "uint8", type: "uint8" },
+          { name: "grain", internalType: "uint8", type: "uint8" },
+          { name: "mediaMix", internalType: "uint8", type: "uint8" },
+          { name: "primary", internalType: "uint8", type: "uint8" },
+          { name: "secondary", internalType: "uint8", type: "uint8" },
+          { name: "tertiary", internalType: "uint8", type: "uint8" },
+        ],
+      },
+      {
+        name: "newMedia",
+        internalType: "struct MembershipTypes.MediaConfig",
+        type: "tuple",
+        components: [
+          {
+            name: "mime",
+            internalType: "enum MembershipTypes.MediaMIME",
+            type: "uint8",
+          },
+          { name: "store", internalType: "address", type: "address" },
+          { name: "length", internalType: "uint32", type: "uint32" },
+          { name: "digest", internalType: "bytes32", type: "bytes32" },
+          { name: "runtimeCodehash", internalType: "bytes32", type: "bytes32" },
+        ],
+      },
+    ],
+    name: "setPresentation",
     outputs: [],
     stateMutability: "nonpayable",
   },
@@ -1819,6 +1865,49 @@ export const membershipTierAbi = [
     anonymous: false,
     inputs: [
       {
+        name: "previousRenderer",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "newRenderer",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "previousArtHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+      {
+        name: "newArtHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+      {
+        name: "previousMediaHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+      {
+        name: "newMediaHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+    ],
+    name: "PresentationUpdated",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
         name: "referrer",
         internalType: "address",
         type: "address",
@@ -2032,25 +2121,6 @@ export const membershipTierAbi = [
     type: "event",
     anonymous: false,
     inputs: [
-      {
-        name: "previousRenderer",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "newRenderer",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-    ],
-    name: "TierRendererUpdated",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
       { name: "from", internalType: "address", type: "address", indexed: true },
       { name: "to", internalType: "address", type: "address", indexed: true },
       {
@@ -2142,14 +2212,6 @@ export const membershipTierAbi = [
   { type: "error", inputs: [], name: "InvalidPeriods" },
   { type: "error", inputs: [], name: "InvalidRateTotal" },
   { type: "error", inputs: [], name: "InvalidRenderer" },
-  {
-    type: "error",
-    inputs: [
-      { name: "expected", internalType: "bytes32", type: "bytes32" },
-      { name: "actual", internalType: "bytes32", type: "bytes32" },
-    ],
-    name: "InvalidRendererSchema",
-  },
   {
     type: "error",
     inputs: [
@@ -4783,12 +4845,12 @@ export const useWriteMembershipTierSetPaused =
   });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setRenderer"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setPresentation"`
  */
-export const useWriteMembershipTierSetRenderer =
+export const useWriteMembershipTierSetPresentation =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipTierAbi,
-    functionName: "setRenderer",
+    functionName: "setPresentation",
   });
 
 /**
@@ -4978,12 +5040,12 @@ export const useSimulateMembershipTierSetPaused =
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setRenderer"`
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setPresentation"`
  */
-export const useSimulateMembershipTierSetRenderer =
+export const useSimulateMembershipTierSetPresentation =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipTierAbi,
-    functionName: "setRenderer",
+    functionName: "setPresentation",
   });
 
 /**
@@ -5182,6 +5244,15 @@ export const useWatchMembershipTierPaymentProcessedEvent =
   });
 
 /**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"PresentationUpdated"`
+ */
+export const useWatchMembershipTierPresentationUpdatedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    eventName: "PresentationUpdated",
+  });
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"ReferralClaimed"`
  */
 export const useWatchMembershipTierReferralClaimedEvent =
@@ -5260,15 +5331,6 @@ export const useWatchMembershipTierTierMetadataUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipTierAbi,
     eventName: "TierMetadataUpdated",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"TierRendererUpdated"`
- */
-export const useWatchMembershipTierTierRendererUpdatedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: membershipTierAbi,
-    eventName: "TierRendererUpdated",
   });
 
 /**

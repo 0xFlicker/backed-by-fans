@@ -278,8 +278,8 @@ without coupling this work to a broader management-page redesign.
 - Testnet funding: official faucet; no Backed By Fans faucet.
 - Mainnet scope: profile inspection only, USDG-only; no deployment.
 - Production release: staged artifact, explicit promotion, route-only rollback.
-- Published renderer: mutable only by the current tier owner after compatibility checks; all other
-  tier presentation inputs and membership/economic state remain fixed.
+- Published presentation: renderer, art, and media are mutable together only by the current tier
+  owner after compatibility checks; membership and economic state remain fixed.
 
 The exact five testnet Stock Token addresses are a deployment input to freeze and validate before
 broadcast, not an unresolved feature requirement.

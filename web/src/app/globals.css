@@ -1587,6 +1587,64 @@ dd {
   max-width: 86rem;
 }
 
+.artwork-studio-page {
+  max-width: 100rem;
+}
+
+.artwork-management-studio {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.artwork-management-header {
+  align-items: end;
+  display: flex;
+  gap: 2rem;
+  justify-content: space-between;
+}
+
+.artwork-management-header h1 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  font-weight: 400;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  margin: 0.35rem 0 1rem;
+}
+
+.artwork-management-header p:not(.eyebrow) {
+  color: var(--muted);
+  max-width: 50rem;
+}
+
+.studio-commit-actions,
+.renderer-management-summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.studio-commit-actions {
+  justify-content: end;
+}
+
+.renderer-management-summary {
+  margin-top: 1rem;
+}
+
+.renderer-management-summary span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.renderer-management-summary code {
+  overflow-wrap: anywhere;
+}
+
 .management-heading {
   align-items: start;
   display: flex;
@@ -2305,6 +2363,15 @@ dd {
   .membership-artwork,
   .supporter-columns {
     grid-template-columns: 1fr;
+  }
+
+  .artwork-management-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .studio-commit-actions {
+    justify-content: start;
   }
 
   .membership-artwork-copy {

@@ -8,9 +8,11 @@ import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {IMembershipRenderer} from "../src/interfaces/IMembershipRenderer.sol";
+import {IOnchainMediaStoreFactory} from "../src/interfaces/IOnchainMediaStoreFactory.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
+import {RealImageFixtures} from "./helpers/RealImageFixtures.sol";
 import {MockUSDG} from "./mocks/MockUSDG.sol";
 
 contract TaggedRenderer is IMembershipRenderer {
@@ -78,7 +80,14 @@ contract WrongUpdateRenderer {
 }
 
 contract CustomRendererAddressTest is Test {
-    event TierRendererUpdated(address indexed previousRenderer, address indexed newRenderer);
+    event PresentationUpdated(
+        address indexed previousRenderer,
+        address indexed newRenderer,
+        bytes32 previousArtHash,
+        bytes32 newArtHash,
+        bytes32 previousMediaHash,
+        bytes32 newMediaHash
+    );
 
     MockUSDG private paymentToken;
     OnchainMetadataRenderer private canonicalRenderer;
@@ -147,16 +156,41 @@ contract CustomRendererAddressTest is Test {
         factory.createTier(config);
     }
 
-    function test_currentOwnerCanReplaceRendererByDirectAddress() public {
+    function test_currentOwnerCanReplaceCompletePresentation() public {
         MembershipTier tier = _createTier();
         TaggedRenderer replacement = new TaggedRenderer("replacement", false);
+        MembershipTypes.ArtConfig memory previousArt = tier.artConfig();
+        MembershipTypes.MediaConfig memory previousMedia = tier.mediaConfig();
+        bytes32 previousArtHash = keccak256(abi.encode(previousArt));
+        MembershipTypes.ArtConfig memory nextArt = previousArt;
+        nextArt.palette = 4;
+        nextArt.intensity = 88;
 
-        vm.expectEmit(true, true, false, false, address(tier));
-        emit TierRendererUpdated(address(canonicalRenderer), address(replacement));
+        bytes memory payload = RealImageFixtures.png();
         vm.prank(creator);
-        tier.setRenderer(address(replacement));
+        address store = mediaStoreFactory.store(payload, MembershipTypes.MediaMIME.PNG);
+        MembershipTypes.MediaConfig memory nextMedia =
+            _nativeMedia(mediaStoreFactory.mediaRecord(store));
 
+        vm.recordLogs();
+        vm.prank(creator);
+        tier.setPresentation(address(replacement), nextArt, nextMedia);
+
+        assertTrue(
+            _hasPresentationUpdate(
+                vm.getRecordedLogs(),
+                address(tier),
+                address(canonicalRenderer),
+                address(replacement),
+                previousArtHash,
+                keccak256(abi.encode(nextArt)),
+                keccak256(abi.encode(previousMedia)),
+                keccak256(abi.encode(nextMedia))
+            )
+        );
         assertEq(tier.renderer(), address(replacement));
+        assertEq(keccak256(abi.encode(tier.artConfig())), keccak256(abi.encode(nextArt)));
+        assertEq(keccak256(abi.encode(tier.mediaConfig())), keccak256(abi.encode(nextMedia)));
     }
 
     function test_rendererReplacementRefreshesAllMintedMetadata() public {
@@ -165,10 +199,12 @@ contract CustomRendererAddressTest is Test {
         vm.prank(creator);
         uint256 tokenId = tier.grantTime(member, 1);
         TaggedRenderer replacement = new TaggedRenderer("replacement", false);
+        MembershipTypes.ArtConfig memory art = tier.artConfig();
+        MembershipTypes.MediaConfig memory media = tier.mediaConfig();
         vm.recordLogs();
 
         vm.prank(creator);
-        tier.setRenderer(address(replacement));
+        tier.setPresentation(address(replacement), art, media);
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
         assertEq(tier.tokenURI(tokenId), "replacement");
@@ -180,23 +216,25 @@ contract CustomRendererAddressTest is Test {
         address nextOwner = makeAddr("nextOwner");
         address outsider = makeAddr("outsider");
         TaggedRenderer replacement = new TaggedRenderer("replacement", false);
+        MembershipTypes.ArtConfig memory art = tier.artConfig();
+        MembershipTypes.MediaConfig memory media = tier.mediaConfig();
 
         vm.prank(creator);
         tier.transferOwnership(nextOwner);
         vm.prank(nextOwner);
         vm.expectRevert();
-        tier.setRenderer(address(replacement));
+        tier.setPresentation(address(replacement), art, media);
         vm.prank(outsider);
         vm.expectRevert();
-        tier.setRenderer(address(replacement));
+        tier.setPresentation(address(replacement), art, media);
 
         vm.prank(nextOwner);
         tier.acceptOwnership();
         vm.prank(creator);
         vm.expectRevert();
-        tier.setRenderer(address(replacement));
+        tier.setPresentation(address(replacement), art, media);
         vm.prank(nextOwner);
-        tier.setRenderer(address(replacement));
+        tier.setPresentation(address(replacement), art, media);
         assertEq(tier.renderer(), address(replacement));
     }
 
@@ -204,22 +242,18 @@ contract CustomRendererAddressTest is Test {
         MembershipTier tier = _createTier();
         TaggedRenderer rejecting = new TaggedRenderer("rejecting", true);
         WrongUpdateRenderer wrong = new WrongUpdateRenderer();
+        MembershipTypes.ArtConfig memory art = tier.artConfig();
+        MembershipTypes.MediaConfig memory media = tier.mediaConfig();
 
         vm.startPrank(creator);
         vm.expectRevert(MembershipTier.InvalidRenderer.selector);
-        tier.setRenderer(address(0));
+        tier.setPresentation(address(0), art, media);
         vm.expectRevert(MembershipTier.InvalidRenderer.selector);
-        tier.setRenderer(makeAddr("eoa"));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MembershipTier.InvalidRendererSchema.selector,
-                factory.rendererSchema(),
-                bytes32(uint256(1))
-            )
-        );
-        tier.setRenderer(address(wrong));
+        tier.setPresentation(makeAddr("eoa"), art, media);
+        vm.expectRevert(MembershipTier.InvalidRenderer.selector);
+        tier.setPresentation(address(wrong), art, media);
         vm.expectRevert("configuration rejected");
-        tier.setRenderer(address(rejecting));
+        tier.setPresentation(address(rejecting), art, media);
         vm.stopPrank();
 
         assertEq(tier.renderer(), address(canonicalRenderer));
@@ -232,9 +266,12 @@ contract CustomRendererAddressTest is Test {
         uint256 tokenId = tier.grantTime(member, 2);
         bytes32 beforeState = _stateHash(tier, tokenId);
         TaggedRenderer replacement = new TaggedRenderer("replacement", false);
+        MembershipTypes.ArtConfig memory nextArt = tier.artConfig();
+        MembershipTypes.MediaConfig memory media = tier.mediaConfig();
+        nextArt.grain = 77;
 
         vm.prank(creator);
-        tier.setRenderer(address(replacement));
+        tier.setPresentation(address(replacement), nextArt, media);
 
         assertEq(_stateHash(tier, tokenId), beforeState);
     }
@@ -261,10 +298,88 @@ contract CustomRendererAddressTest is Test {
                 tier.occupiedSupply(),
                 tier.totalMinted(),
                 tier.expiresAt(tokenId),
-                tier.artConfig(),
-                tier.mediaConfig()
+                tier.claimableReward(tokenId)
             )
         );
+    }
+
+    function test_presentationRejectsMediaFromAnotherCreatorAndPreservesAllFields() public {
+        MembershipTier tier = _createTier();
+        MembershipTypes.ArtConfig memory previousArt = tier.artConfig();
+        MembershipTypes.MediaConfig memory previousMedia = tier.mediaConfig();
+        TaggedRenderer replacement = new TaggedRenderer("replacement", false);
+        address otherCreator = makeAddr("otherCreator");
+        vm.prank(otherCreator);
+        address store =
+            mediaStoreFactory.store(RealImageFixtures.png(), MembershipTypes.MediaMIME.PNG);
+        MembershipTypes.MediaConfig memory invalidMedia =
+            _nativeMedia(mediaStoreFactory.mediaRecord(store));
+
+        vm.prank(creator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IOnchainMediaStoreFactory.MediaCreatorMismatch.selector,
+                store,
+                creator,
+                otherCreator
+            )
+        );
+        tier.setPresentation(address(replacement), previousArt, invalidMedia);
+
+        assertEq(tier.renderer(), address(canonicalRenderer));
+        assertEq(keccak256(abi.encode(tier.artConfig())), keccak256(abi.encode(previousArt)));
+        assertEq(keccak256(abi.encode(tier.mediaConfig())), keccak256(abi.encode(previousMedia)));
+    }
+
+    function test_newOwnerCanKeepMediaStoredByThePreviousOwner() public {
+        vm.prank(creator);
+        address store =
+            mediaStoreFactory.store(RealImageFixtures.png(), MembershipTypes.MediaMIME.PNG);
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            creator, address(canonicalRenderer), address(paymentToken)
+        );
+        config.media = _nativeMedia(mediaStoreFactory.mediaRecord(store));
+        vm.prank(creator);
+        MembershipTier tier = MembershipTier(factory.createTier(config));
+        address nextOwner = makeAddr("nextOwner");
+        TaggedRenderer replacement = new TaggedRenderer("replacement", false);
+
+        vm.prank(creator);
+        tier.transferOwnership(nextOwner);
+        vm.prank(nextOwner);
+        tier.acceptOwnership();
+        MembershipTypes.ArtConfig memory art = tier.artConfig();
+        vm.prank(nextOwner);
+        tier.setPresentation(address(replacement), art, config.media);
+
+        assertEq(tier.renderer(), address(replacement));
+        assertEq(keccak256(abi.encode(tier.mediaConfig())), keccak256(abi.encode(config.media)));
+    }
+
+    function test_completePresentationNoOpEmitsNoMetadataRefresh() public {
+        MembershipTier tier = _createTier();
+        MembershipTypes.ArtConfig memory art = tier.artConfig();
+        MembershipTypes.MediaConfig memory media = tier.mediaConfig();
+        vm.recordLogs();
+
+        vm.prank(creator);
+        tier.setPresentation(address(canonicalRenderer), art, media);
+
+        assertEq(vm.getRecordedLogs().length, 0);
+    }
+
+    function _nativeMedia(MembershipTypes.MediaRecord memory record)
+        private
+        pure
+        returns (MembershipTypes.MediaConfig memory)
+    {
+        return MembershipTypes.MediaConfig({
+            mime: record.mime,
+            store: record.store,
+            length: record.length,
+            digest: record.digest,
+            runtimeCodehash: record.runtimeCodehash
+        });
     }
 
     function _hasBatchRefresh(Vm.Log[] memory logs, address emitter, uint256 from, uint256 to)
@@ -278,6 +393,34 @@ contract CustomRendererAddressTest is Test {
                 (uint256 observedFrom, uint256 observedTo) =
                     abi.decode(logs[i].data, (uint256, uint256));
                 return observedFrom == from && observedTo == to;
+            }
+        }
+        return false;
+    }
+
+    function _hasPresentationUpdate(
+        Vm.Log[] memory logs,
+        address emitter,
+        address previousRenderer,
+        address newRenderer,
+        bytes32 previousArtHash,
+        bytes32 newArtHash,
+        bytes32 previousMediaHash,
+        bytes32 newMediaHash
+    ) private pure returns (bool) {
+        bytes32 signature = keccak256(
+            "PresentationUpdated(address,address,bytes32,bytes32,bytes32,bytes32)"
+        );
+        for (uint256 i; i < logs.length; ++i) {
+            if (
+                logs[i].emitter == emitter && logs[i].topics[0] == signature
+                    && address(uint160(uint256(logs[i].topics[1]))) == previousRenderer
+                    && address(uint160(uint256(logs[i].topics[2]))) == newRenderer
+            ) {
+                (bytes32 oldArt, bytes32 nextArt, bytes32 oldMedia, bytes32 nextMedia) =
+                    abi.decode(logs[i].data, (bytes32, bytes32, bytes32, bytes32));
+                return oldArt == previousArtHash && nextArt == newArtHash
+                    && oldMedia == previousMediaHash && nextMedia == newMediaHash;
             }
         }
         return false;

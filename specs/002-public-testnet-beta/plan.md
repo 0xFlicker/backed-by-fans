@@ -22,10 +22,10 @@ The six confirmed testnet launch tokens are seeded by the launch manifest. Privi
 fee operations use reviewed CLI calldata through the protocol Safe or authorized deployer; this plan
 adds no Backed By Fans operator web interface and no internally deployed USDG token.
 
-The same replacement protocol also makes each tier's renderer address owner-updatable. The current
-tier owner may replace presentation after the candidate passes the existing schema and configuration
-checks; successful updates emit old/new renderer identity and an ERC-4906 batch metadata refresh.
-Tier art/media inputs and every economic or membership term remain unchanged.
+The same replacement protocol also makes each tier's complete artwork presentation owner-updatable.
+The current tier owner may reopen the full Creator Studio and atomically replace the renderer, art
+configuration, and media configuration after validation. Successful updates emit old/new presentation
+identity and an ERC-4906 batch metadata refresh. Every economic and membership term remains unchanged.
 
 ## Technical Context
 
@@ -52,8 +52,8 @@ but not deployed.
 tiers; batch independent token metadata, balance, allowance, and multiplier reads; avoid introducing
 an additional network service into creator or supporter journeys.
 
-**Constraints**: One immutable payment token per tier; raw-unit accounting only; renderer mutable only
-by the current tier owner while art/media and economics remain fixed; no oracle-based USD conversion;
+**Constraints**: One immutable payment token per tier; raw-unit accounting only; renderer, art, and
+media mutable only as one validated tuple by the current tier owner while economics remain fixed; no oracle-based USD conversion;
 no arbitrary creator-supplied payment tokens; ERC-8056 multiplier affects display only; no silent
 token fallback; wagmi/viem owns user wallet lifecycle; no backend, indexer, internal USDG deployment,
 or operator web UI; Safe/CLI protocol administration only; explicit operator approval/password before
@@ -112,20 +112,21 @@ rounding, parsing, formatting, and labels. Every payment-bearing surface consume
 token or multiplier read failure is scoped to that token/action, shown clearly, and recoverable by a
 normal retry; it never substitutes USDG or locks unrelated controls.
 
-### 3. Renderer presentation follows current tier ownership
+### 3. Artwork presentation follows current tier ownership
 
-Change `MembershipTier.renderer` from immutable storage to owner-controlled storage and add
-`setRenderer(address)`. The setter checks deployed code, the factory's renderer schema, and the new
-renderer's acceptance of the tier's existing art/media configuration before changing state. It does
-not require renderer-registry membership. A failed call leaves the current renderer untouched; a
-successful call emits previous/replacement addresses and `BatchMetadataUpdate(1, totalMinted)` when
+Replace the pre-release renderer-only setter with
+`setPresentation(address, ArtConfig, MediaConfig)`. The setter checks deployed code, the factory's
+renderer schema, canonical media-store provenance, and the renderer's acceptance of the complete
+proposed art/media configuration before atomically changing state. It does not require renderer-registry
+membership. A failed call leaves the complete presentation untouched; a successful call emits
+previous/new renderer and configuration identities plus `BatchMetadataUpdate(1, totalMinted)` when
 credentials exist.
 
-Tier management reuses the existing renderer discovery, defaults, Custom address, and preview
-machinery against the tier's current immutable art/media inputs. It makes the scope plain—every
-existing and future credential can render differently—but does not manufacture a platform approval
-claim. The current owner makes the aesthetic decision and submits through the established wallet
-lifecycle. Ownership transfer automatically transfers renderer-update authority.
+Tier management links to a dedicated full-width artwork route that reuses the complete creation-time
+Creator Studio. It restores the current renderer engine, art controls, and image, and supports existing
+media, new media deployment, image removal, and all placement controls. The current owner makes the
+aesthetic decision and submits through the established wallet lifecycle. Ownership transfer
+automatically transfers presentation-update authority.
 
 ### 4. Deployment records become multi-token and versioned
 
@@ -243,8 +244,8 @@ needed.
 2. Add the selected token to tier configuration and publication events; remove the factory-global
    payment-token assumption.
 3. Make protocol-fee inspection and withdrawal token-specific.
-4. Make the renderer address owner-updatable with schema/config validation and metadata refresh while
-   preserving immutable art/media and all economic state.
+4. Make renderer, art, and media owner-updatable as one validated presentation with metadata refresh
+   while preserving all economic and membership state.
 5. Extend adversarial-token, factory, payment, claim, fee, renderer, ownership-transfer, fuzz,
    invariant, and local lifecycle tests across multiple tokens, disablement, exact-transfer failures,
    and renderer replacement.
@@ -279,8 +280,8 @@ needed.
 3. Replace hard-coded USDG/6-decimal labels, parsing, balances, allowances, shortfalls, proceeds,
    claims, refunds, fees, and transaction messages throughout existing routes.
 4. Add plain testnet/faucet guidance only where network, gas, or payment-token funding is relevant.
-5. Add owner-only renderer replacement to tier management using existing renderer choices and
-   preview behavior, with clear whole-tier artwork scope and no extra approval ceremony.
+5. Add a compact Edit artwork entry to tier management and a dedicated full-width route that reuses
+   the complete Creator Studio for owner-only presentation updates.
 6. Preserve existing creator studio, renderer, `/render`, and `/skill` designs and routes.
 
 ### Phase E — Public beta operations
@@ -302,7 +303,7 @@ needed.
 | Exact six external testnet tokens are configured             | Checked-in confirmed addresses plus code/metadata/ERC-8056 preflight before broadcast                                     |
 | Web amount math and rounding are consistent                  | Table-driven Vitest coverage including clarified examples and multiplier transitions                                      |
 | Creator/supporter flows use the selected token               | Component tests plus Playwright against local contracts                                                                   |
-| Renderer replacement changes presentation only               | Foundry owner/ownership-transfer/configuration/state-preservation tests plus tier-management component and browser replay |
+| Artwork update changes presentation only                      | Foundry owner/ownership-transfer/configuration/media/state-preservation tests plus full-studio component and browser replay |
 | Testnet protocol is active                                   | Approved transaction receipts, post-deployment direct reads, promoted deployment record, and generated-interface check    |
 | Fresh faucet and all five Stock Token journeys work live     | Staged testnet evidence for a fresh faucet wallet and create/join/renew with each Stock Token                             |
 | Public beta works at the domain                              | Named creator, supporter, account, renderer, skill, faucet, and token-selection journeys at the canonical domain          |

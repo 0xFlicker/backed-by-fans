@@ -34,8 +34,8 @@ Follow [accepted-payment-tokens.md](./contracts/accepted-payment-tokens.md):
 3. validate the selected token before tier publication consumes state;
 4. keep the tier's immutable token and raw accounting;
 5. make protocol-fee withdrawal token-specific;
-6. follow [mutable-tier-renderer.md](./contracts/mutable-tier-renderer.md) to replace the immutable
-   renderer pointer with owner-only validated replacement and metadata refresh;
+6. follow [mutable-tier-renderer.md](./contracts/mutable-tier-renderer.md) to add owner-only atomic
+   renderer/art/media replacement and metadata refresh;
 7. update unit, adversarial, fuzz, invariant, and lifecycle tests.
 
 Focused checks while iterating:
@@ -78,7 +78,7 @@ Update and test in this order:
 4. account discovery and claims;
 5. creator management, refunds, and proceeds;
 6. protocol fee balances and withdrawals;
-7. owner-only tier renderer preview and replacement in creator management;
+7. owner-only complete presentation editing on the dedicated artwork route;
 8. common wallet readiness, catalog, and transaction messages;
 9. faucet and explicit testnet copy.
 

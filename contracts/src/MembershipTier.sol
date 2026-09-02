@@ -18,6 +18,7 @@ import {IERC5643} from "./interfaces/IERC5643.sol";
 import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipRenderer} from "./interfaces/IMembershipRenderer.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
+import {IOnchainMediaStoreFactory} from "./interfaces/IOnchainMediaStoreFactory.sol";
 import {RendererPrimitives} from "./renderer/RendererPrimitives.sol";
 import {TextValidation} from "./renderer/TextValidation.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
@@ -90,7 +91,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error InvalidTokenId(uint256 tokenId);
     error InvalidRateTotal();
     error InvalidRenderer();
-    error InvalidRendererSchema(bytes32 expected, bytes32 actual);
     error InvalidTierSalt();
     error InexactTokenTransfer();
     error IncorrectPricingMode();
@@ -157,35 +157,48 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     /// @inheritdoc IMembershipTier
-    function setRenderer(address newRenderer) external override onlyOwner {
-        if (newRenderer == renderer) return;
-        if (newRenderer == address(0) || newRenderer.code.length == 0) {
-            revert InvalidRenderer();
+    function setPresentation(
+        address newRenderer,
+        MembershipTypes.ArtConfig calldata newArt,
+        MembershipTypes.MediaConfig calldata newMedia
+    ) external override onlyOwner {
+        bytes32 previousArtHash = keccak256(abi.encode(_art));
+        bytes32 newArtHash = keccak256(abi.encode(newArt));
+        bytes32 previousMediaHash = keccak256(abi.encode(_media));
+        bytes32 newMediaHash = keccak256(abi.encode(newMedia));
+        if (
+            newRenderer == renderer && newArtHash == previousArtHash
+                && newMediaHash == previousMediaHash
+        ) return;
+        if (newRenderer.code.length == 0) revert InvalidRenderer();
+        _validateMedia(newMedia);
+        if (newMediaHash != previousMediaHash && newMedia.store != address(0)) {
+            IMembershipFactory tierFactory = IMembershipFactory(factory);
+            address mediaFactory = tierFactory.mediaStoreFactory();
+            if (mediaFactory.codehash != tierFactory.mediaStoreFactoryRuntimeCodehash()) {
+                revert InvalidMediaConfig();
+            }
+            IOnchainMediaStoreFactory(mediaFactory).validateOnchainMedia(msg.sender, newMedia);
         }
 
-        bytes32 expectedSchema = IMembershipFactory(factory).rendererSchema();
-        bytes32 observedSchema;
-        try IMembershipRenderer(newRenderer).rendererSchema() returns (bytes32 schema) {
-            observedSchema = schema;
-        } catch {
-            revert InvalidRenderer();
-        }
-        if (observedSchema != expectedSchema) {
-            revert InvalidRendererSchema(expectedSchema, observedSchema);
-        }
-        try IMembershipRenderer(newRenderer).validateConfiguration(_art, _media) {}
-        catch (bytes memory reason) {
-            if (reason.length != 0) {
-                assembly ("memory-safe") {
-                    revert(add(reason, 0x20), mload(reason))
-                }
-            }
-            revert InvalidRenderer();
-        }
+        if (
+            IMembershipRenderer(newRenderer).rendererSchema()
+                != IMembershipFactory(factory).rendererSchema()
+        ) revert InvalidRenderer();
+        IMembershipRenderer(newRenderer).validateConfiguration(newArt, newMedia);
 
         address previousRenderer = renderer;
         renderer = newRenderer;
-        emit TierRendererUpdated(previousRenderer, newRenderer);
+        _art = newArt;
+        _media = newMedia;
+        emit PresentationUpdated(
+            previousRenderer,
+            newRenderer,
+            previousArtHash,
+            newArtHash,
+            previousMediaHash,
+            newMediaHash
+        );
         if (totalMinted != 0) emit BatchMetadataUpdate(1, totalMinted);
     }
 

@@ -103,7 +103,6 @@ test("@anvil publishes displayed Stock Token terms as refreshed immutable raw un
 
     await page.goto(`/chains/31337/tiers/${tier}/manage`);
     await expect(page.getByText("0.05 AMD", { exact: true })).toBeVisible();
-    await expect(page.getByText("25000000000000000 units")).toBeVisible();
 
     // A later stock action changes only presentation. Wallet calls and contract
     // accounting continue to use the tier's immutable 0.025 raw-token price.

@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { expect, test } from "@playwright/test";
 import { erc20Abi, zeroAddress, type Address, type PublicClient } from "viem";
 
@@ -31,8 +33,6 @@ async function nonPresentationState(client: PublicClient, tier: Address) {
       "creatorProceeds",
       "rewardReserve",
       "totalReferralLiability",
-      "artConfig",
-      "mediaConfig",
     ].map((functionName) =>
       client.readContract({
         address: tier,
@@ -128,22 +128,62 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
       functionName: "tokenOf",
       args: [expiredMember],
     });
+    const beforeArt = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "artConfig",
+    });
+    const beforeMedia = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "mediaConfig",
+    });
     const before = await nonPresentationState(client, tier);
 
     await installAnvilWallet(page, newOwner);
     await page.goto(`/chains/31337/tiers/${tier}/manage`);
     await connectAnvilWallet(page, newOwner);
     await expect(page.getByText("This wallet operates the tier")).toBeVisible();
+    await page.getByRole("link", { name: "Edit artwork" }).click();
+    await expect(page).toHaveURL(`/chains/31337/tiers/${tier}/manage/artwork`);
     await expect(
-      page.getByText(/existing and future membership/i),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "Open Art Studio" }).click();
-    await expect(
-      page.getByRole("heading", { name: "Update your membership artwork" }),
+      page.getByRole("heading", { name: /Update .* artwork/ }),
     ).toBeVisible();
     await expect(
       page.getByLabel("Representative membership tokens"),
     ).toBeVisible();
+    await expect(
+      page.getByRole("radiogroup", { name: "Art styles" }).getByRole("radio"),
+    ).toHaveCount(7);
+    await expect(page.getByLabel("Add new image")).toBeVisible();
+    await page.getByRole("radio", { name: /CHORUS/i }).click();
+    await page.getByRole("button", { name: "Use generated artwork" }).click();
+    await page.getByRole("button", { name: "Save artwork" }).click();
+    await expectReconciled(page);
+
+    const updatedArt = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "artConfig",
+    });
+    const updatedMedia = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "mediaConfig",
+    });
+    expect(updatedArt.engine).toBe(1);
+    expect(updatedArt).not.toEqual(beforeArt);
+    expect(updatedMedia.store).toBe(zeroAddress);
+    expect(updatedMedia).not.toEqual(beforeMedia);
+
+    await page
+      .getByLabel("Add new image")
+      .setInputFiles(
+        resolve(process.cwd(), "public/brand/backstage-membership-hero-v1.png"),
+      );
+    await expect(page.getByAltText("New image")).toBeVisible({
+      timeout: 30_000,
+    });
     await page.getByRole("radio", { name: /Custom/i }).click();
     await page
       .getByRole("textbox", { name: "Renderer contract address" })
@@ -151,16 +191,30 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
     await expect(
       page.getByRole("img", { name: /membership artwork, token 7/i }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Update artwork" }).click();
-    await expectReconciled(page, "Update artwork renderer");
+    await page.getByRole("button", { name: "Save artwork" }).click();
+    await expectReconciled(page);
 
-    await expect(
-      client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "renderer",
-      }),
-    ).resolves.toBe(replacementRenderer);
+    await expect
+      .poll(() =>
+        client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "renderer",
+        }),
+      )
+      .toBe(replacementRenderer);
+    await expect
+      .poll(
+        async () =>
+          (
+            await client.readContract({
+              address: tier,
+              abi: membershipTierAbi,
+              functionName: "mediaConfig",
+            })
+          ).store,
+      )
+      .not.toBe(zeroAddress);
     expect(await nonPresentationState(client, tier)).toEqual(before);
     await expect(
       client.readContract({

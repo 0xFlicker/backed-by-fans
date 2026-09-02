@@ -111,8 +111,9 @@ the confirmed block. Important protocol events include:
   claim/withdraw events, and `MembershipRefunded`; and
 - ownership: OpenZeppelin `OwnershipTransferStarted` and
   `OwnershipTransferred` for both factory and tier; and
-- presentation: `TierRendererUpdated` plus conditional ERC-4906
-  `BatchMetadataUpdate` after an owner-authorized renderer replacement.
+- presentation: `PresentationUpdated` plus conditional ERC-4906
+  `BatchMetadataUpdate` after an owner-authorized renderer, art configuration,
+  or media configuration update.
 
 An event index is optional convenience infrastructure, never a source of truth.
 Wagmi and viem exclusively own receipt waiting, polling, replacement detection,

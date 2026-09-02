@@ -370,7 +370,6 @@ function ManagementControls({
       | "setSupplyCap"
       | "setMaxPrepaidPeriods"
       | "setTierMetadata"
-      | "setRenderer"
       | "grantTime"
       | "revokeGrantTime"
       | "refund"
@@ -1028,19 +1027,6 @@ function ManagementControls({
           {managementDeployment.status === "ready" ? (
             <RendererManagementControl
               canUpdate={canOwnerWrite}
-              client={client}
-              deployment={managementDeployment}
-              onUpdate={(renderer) =>
-                void perform(
-                  "Update artwork renderer",
-                  tierWrite("setRenderer", [renderer]),
-                  () =>
-                    reconcileSnapshot((next) =>
-                      isSameAddress(next.renderer, renderer),
-                    ),
-                )
-              }
-              owner={account.address}
               snapshot={snapshot}
             />
           ) : null}

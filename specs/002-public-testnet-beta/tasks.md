@@ -184,10 +184,11 @@ intact, and a failing token cannot hide or block another token's fee withdrawal.
 
 ---
 
-## Phase 7: User Story 6 — Update a Published Membership's Renderer (Priority: P2)
+## Phase 7: User Story 6 — Fully Customize Published Membership Artwork (Priority: P2)
 
-**Goal**: The current tier owner can preview and replace the renderer for all existing/future
-credentials without changing art/media inputs or any membership/economic state.
+**Goal**: The current tier owner can reopen the complete Creator Studio and atomically update the
+renderer, art configuration, and media configuration for all existing/future credentials without
+changing membership/economic state.
 
 **Independent Test**: Mint active and expired credentials, transfer tier ownership, replace the
 renderer from the new owner's management page, and compare complete before/after non-presentation
@@ -201,13 +202,13 @@ state while every `tokenURI` uses the replacement.
 
 ### Implementation for User Story 6
 
-- [x] T052 [US6] Change tier renderer storage to current-owner mutable, validate code/schema/current art-media before assignment, emit old/new identity plus conditional ERC-4906 refresh, and expose `setRenderer` in `contracts/src/MembershipTier.sol` and `contracts/src/interfaces/IMembershipTier.sol`
+- [x] T052 [US6] Introduce the initial current-owner renderer update slice with renderer validation and conditional ERC-4906 refresh in `contracts/src/MembershipTier.sol` and `contracts/src/interfaces/IMembershipTier.sol`; superseded by Phase 11's atomic presentation update
 - [x] T053 [US6] Regenerate the tier ABI and update renderer postcondition/authenticity and public renderer-detail reads without adding a registry gate or runtime-codehash pin in `web/src/contracts.ts`, `web/src/contracts/types.ts`, `web/src/lib/authenticity.ts`, `web/src/features/protocol/registry-reconciliation.ts`, and `web/src/features/membership/RendererDetails.tsx`
 - [x] T054 [US6] Add renderer-update draft validation, current-owner permission, existing art/media preview composition, and transaction-state reconciliation in `web/src/features/creator/management.ts` and `web/src/features/creator/management-read.ts`
 - [x] T055 [US6] Add the normal renderer selector/preview/update control to tier management, preserve usable controls after preview/RPC failure, and pass `web/tests/e2e/renderer-update.spec.ts` in `web/src/features/creator/TierManagement.tsx`
 
-**Checkpoint**: Renderer replacement is owner-controlled presentation only, works with compatible
-direct addresses, refreshes metadata, and preserves every tested membership/economic field.
+**Checkpoint**: The earlier renderer-only slice is complete but superseded by Phase 11's full
+presentation customization requirements.
 
 ---
 
@@ -278,9 +279,24 @@ for inactive records before mainnet scope is frozen.
 - [x] T079 Add unit, fuzz/invariant, event, capacity, standards, remint, custody, rounding, zero-share, invalid-ID, and maximum-batch gas coverage in `contracts/test/`
 - [x] T080 Add direct block-pinned creator scanning, 100-ID wallet batches, stale-scan reset, receipt-plus-state reconciliation, burned-member claims/rejoin UX, and generated bindings in `web/src/`
 - [x] T081 Add focused web tests and configured Anvil browser coverage for scans, failures, batching, wallet changes, burned claims, and rejoin in `web/src/` and `web/tests/e2e/`
-- [ ] T082 After explicit operator approval, deploy and verify a replacement testnet factory, recreate pilot tiers, regenerate active bindings, and promote only that replacement to the canonical website
 - [ ] T083 Repeat the public testnet pilot against the replacement and record creator/supporter, third-party gate, indexing-delay, capacity-race, claim, and rejoin evidence
 - [ ] T084 Freeze the replacement artifacts and obtain fresh independent accounting/security review, reproducible-build evidence, deployment approval, and mainnet GO
+
+---
+
+## Phase 11: Full Published Artwork Customization
+
+**Purpose**: Supersede the renderer-only management slice with owner-controlled renderer, art, and
+media customization through the complete Creator Studio.
+
+- [x] T085 [P] [US6] Add failing owner/non-owner, proposed renderer/art/media validation, atomic rollback, exact presentation event, metadata refresh, image removal/replacement, and unchanged economics/membership tests in `contracts/test/CustomRendererAddress.t.sol`, `contracts/test/MetadataAndStandards.t.sol`, and `contracts/test/RefundsAndOwnership.t.sol`
+- [x] T086 [P] [US6] Add failing component tests for restoring every current studio input, all canonical renderer engines, existing/new/removed image paths, preview-error recovery, and receipt-driven reconciliation in `web/src/features/creator/` and `web/src/features/creator-studio/`
+- [x] T087 [P] [US6] Replace the renderer-only browser journey with a failing dedicated-route journey that edits controls and image presentation while preserving economic and membership state in `web/tests/e2e/renderer-update.spec.ts`
+- [x] T088 [US6] Replace pre-release `setRenderer` with owner-only atomic `setPresentation(renderer, art, media)`, canonical media validation, exact presentation identity event, and ERC-4906 refresh in `contracts/src/MembershipTier.sol`, `contracts/src/interfaces/IMembershipTier.sol`, and `contracts/src/types/MembershipTypes.sol`
+- [x] T089 [US6] Regenerate ABI coverage and update presentation read, write, authenticity, and receipt reconciliation models in `web/src/contracts.ts`, `web/src/contracts/types.ts`, `web/src/features/creator/management.ts`, and `web/src/features/creator/management-read.ts`
+- [x] T090 [US6] Replace the inline renderer editor with a compact Edit artwork entry and dedicated full-width `/chains/[chainId]/tiers/[tierAddress]/manage/artwork` page that reuses the complete Creator Studio and canonical media deployment/library flows in `web/src/features/creator/`, `web/src/features/creator-studio/`, and `web/src/app/chains/[chainId]/tiers/[tierAddress]/manage/artwork/`
+- [x] T091 [US6] Pass focused/full Foundry, generation, Vitest, typecheck, lint, production-build, and configured Anvil browser suites; update deployment fixtures and remove stale renderer-only language without touching mainnet or production hosting
+- [ ] T092 [US6] Prepare the reviewed Robinhood Chain testnet replacement deployment and stop before broadcast with exact operator password, deployment, verification, and Wagmi-generation instructions
 
 ---
 

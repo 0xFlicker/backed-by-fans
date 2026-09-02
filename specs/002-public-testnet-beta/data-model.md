@@ -77,27 +77,29 @@ Permanent and current reward state for one sequential membership record.
   shares, referral state, reward credit, or `totalMinted`.
 - A capacity failure reverts restoration, remint, eligibility, time, and payment atomically.
 
-### TierRendererState
+### TierPresentationState
 
-Owner-controlled presentation pointer stored by each tier.
+Owner-controlled artwork tuple stored by each tier.
 
-| Field      | Type          | Mutability                  | Meaning                                   |
-| ---------- | ------------- | --------------------------- | ----------------------------------------- |
-| `renderer` | `address`     | Current owner only          | Contract used by every `tokenURI` call    |
-| `art`      | `ArtConfig`   | Fixed in this feature       | Existing renderer design inputs           |
-| `media`    | `MediaConfig` | Fixed in this feature       | Existing optional onchain image reference |
-| `owner`    | `address`     | Existing two-step ownership | Wallet authorized to replace `renderer`   |
+| Field      | Type          | Mutability                  | Meaning                                      |
+| ---------- | ------------- | --------------------------- | -------------------------------------------- |
+| `renderer` | `address`     | Current owner only          | Contract used by every `tokenURI` call       |
+| `art`      | `ArtConfig`   | Current owner only          | Engine, composition, and image placement     |
+| `media`    | `MediaConfig` | Current owner only          | Optional validated onchain image reference   |
+| `owner`    | `address`     | Existing two-step ownership | Wallet authorized to replace the full tuple  |
 
 **Rules**:
 
-- A candidate must have code, expose the factory's expected renderer schema, and accept the stored
+- A candidate must have code, expose the factory's expected renderer schema, and accept the proposed
   `art` and `media` configuration.
+- Non-empty media must be a currently valid canonical media-store record attributable to the current
+  owner; empty media returns the tier to generated artwork.
 - Registry membership is not part of compatibility.
-- Validation completes before the renderer storage write, so any failure preserves the old address.
-- A successful update emits previous and new renderer addresses.
+- Validation completes before any storage write, so a failure preserves the entire old presentation.
+- A successful update emits previous/new renderer and art/media configuration identities.
 - If credentials exist, a successful update emits `BatchMetadataUpdate(1, totalMinted)`.
-- Ownership transfer changes renderer-update authority automatically.
-- Renderer replacement does not write any payment, membership, ownership, art, or media field.
+- Ownership transfer changes presentation-update authority automatically.
+- Presentation replacement does not write any payment, membership, ownership, or accounting field.
 
 ### ProtocolFeeBalance
 
@@ -197,7 +199,7 @@ Optional explanatory data for a scaled token.
 
 The future value is informational and never used in current approval or payment calls.
 
-### RendererUpdateDraft
+### PresentationUpdateDraft
 
 Browser-only management state for the current tier owner.
 
@@ -205,7 +207,7 @@ Browser-only management state for the current tier owner.
 | ------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
 | `currentRenderer`   | `Address`                     | Renderer currently read from the tier                                                     |
 | `candidateRenderer` | `Address`                     | Default, owner-deployed, or Custom same-chain choice                                      |
-| `art` / `media`     | existing tier snapshot        | Fixed inputs used for candidate preview                                                   |
+| `art` / `media`     | editable studio state          | Proposed engine, controls, image, and placement                                            |
 | `previewState`      | idle/loading/ready/error      | Observed result for creator judgment, not certification                                   |
 | `submissionState`   | established transaction state | wagmi/viem-owned connect, submit, receipt, replacement, cancellation, and error lifecycle |
 
@@ -264,20 +266,21 @@ raw tier/payment state unchanged
   -> future wallet writes still use original raw values
 ```
 
-### Renderer replacement
+### Presentation replacement
 
 ```text
-current renderer
-  -> current owner selects direct same-chain candidate
-  -> browser previews with existing tier art/media
-  -> owner decides whether to submit setRenderer(candidate)
-  -> contract validates code + schema + existing configuration
-  -> successful receipt changes renderer and emits metadata refresh
-  -> all tokenURI calls use candidate
+current renderer + art + media
+  -> current owner opens dedicated artwork studio
+  -> owner edits renderer engine, controls, and optional image
+  -> new local media is deployed first when required
+  -> owner submits setPresentation(renderer, art, media)
+  -> contract validates code + schema + media provenance + proposed configuration
+  -> successful receipt atomically changes presentation and emits metadata refresh
+  -> all tokenURI calls use the new tuple
 ```
 
 Any validation failure, unauthorized caller, canceled/replaced transaction, or revert leaves the
-current renderer and every other tier field unchanged. A later change in the renderer contract's own
+current presentation and every other tier field unchanged. A later change in the renderer contract's own
 output is outside tier storage and requires no Backed By Fans state transition.
 
 ## Display examples

@@ -27,7 +27,7 @@ library MembershipTypes {
         string externalURI;
     }
 
-    /// @notice Immutable, bounded art direction shared by every token in a tier.
+    /// @notice Bounded creator-controlled art direction shared by every token in a tier.
     /// @dev Engine-specific fields are interpreted by the selected engine and remain inert elsewhere.
     struct ArtConfig {
         uint16 engine;
@@ -49,7 +49,7 @@ library MembershipTypes {
         uint8 tertiary;
     }
 
-    /// @notice Immutable onchain media identity approved with the tier artwork.
+    /// @notice Creator-controlled onchain media identity used by the tier artwork.
     /// @dev Every field is zero for generated-only artwork. Otherwise every field is required.
     struct MediaConfig {
         MediaMIME mime;
