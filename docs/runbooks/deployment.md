@@ -74,7 +74,25 @@ before publication, verifies exact runtime hashes and sources, and promotes Wagm
 the complete graph passes. It rejects private-key, mnemonic, password-file, and password environment
 inputs. Broadcast prompts in the terminal for the encrypted Foundry account password.
 
-## 1. Validate a clean reviewed checkout
+## 1. Prepare a replacement deployment plan
+
+When protocol bytecode changes, generate the replacement component addresses and runtime hashes
+before running the strict release gates:
+
+```sh
+./scripts/deploy-protocol.sh testnet prepare
+git diff -- contracts/config/operational-state/46630.json
+```
+
+`prepare` reads the committed operational state, preserves its payment tokens, Safe, owner, pending
+owner, and fee recipient, and atomically replaces only the four deterministic component records. It
+performs build, Solidity-plan parity, public-chain identity, dependency, and runtime checks without
+starting Anvil, loading a signing account, writing a recovery journal, generating web bindings, or
+submitting a transaction. Review and commit the generated manifest with the release source before
+continuing. Repeating `prepare` with the same plan is safe; unrelated uncommitted manifest changes
+are rejected.
+
+## 2. Validate a clean reviewed checkout
 
 Deployment dry-run and broadcast require committed reviewed source. From `contracts/`:
 
@@ -95,7 +113,7 @@ FOUNDRY_PROFILE=robinhood forge test \
 Keep RPC URLs in `contracts/.env`. Never put a password, private key, or mnemonic there. `status`
 does not load the signing account and performs no write.
 
-## 2. Rehearse the exact testnet deployment
+## 3. Rehearse the exact testnet deployment
 
 ```sh
 ./scripts/deploy-protocol.sh testnet dry-run
@@ -114,7 +132,7 @@ candidate graph. It must confirm:
 This creates no public transaction, public recovery journal, active broadcast pointer, or generated
 address. Set `BBF_ANVIL_PORT` only if the random local port is unavailable.
 
-## 3. Operator-approved testnet broadcast
+## 4. Operator-approved testnet broadcast
 
 Only after explicit operator approval:
 
@@ -147,7 +165,7 @@ RECOVER_DROPPED_TRANSACTION_HASH=0x... \
 
 That command does not resubmit. Run `broadcast` separately for a fresh password-authorized send.
 
-## 4. Promote records and Wagmi bindings
+## 5. Promote records and Wagmi bindings
 
 A successful broadcast and source verification produce:
 
@@ -166,7 +184,7 @@ bun run generate:check
 The deployment wrapper stages generation and installs the active pointer last. A partial deployment
 never becomes a Wagmi address source.
 
-## 5. Operate accepted payment tokens
+## 6. Operate accepted payment tokens
 
 Accepted-token administration is Safe/deployer CLI only. There is no operator page in the web app.
 Read operations need no signer:
@@ -200,7 +218,7 @@ Enabling a previously unlisted token first checks code, ERC-20 metadata, and coh
 and pending interfaces. Disabling affects only new tier publication. Existing tiers remain usable,
 and protocol fees are inspected and withdrawn independently by token.
 
-## 6. Stage and promote the web app
+## 7. Stage and promote the web app
 
 The promoted testnet deployment is:
 

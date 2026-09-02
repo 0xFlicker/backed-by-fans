@@ -92,6 +92,7 @@ real_cast="$(command -v cast)"
 export REAL_CAST="$real_cast"
 export MOCK_LOG="$mock_log"
 export MOCK_GIT_ROOT="$project_root"
+export MOCK_GIT_OPERATIONAL_HEAD="$reviewed_operational_state"
 export MOCK_CHAIN_ID=46630
 export MOCK_DEPLOYER=0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
 export MOCK_PROTOCOL_OWNER=0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
@@ -211,6 +212,62 @@ mv "${payment_token_manifest}.tmp" "$payment_token_manifest"
 run_expect_failure "$deploy_wrapper" testnet dry-run
 assert_contains "$test_dir/stderr" "payment-token manifest is not release-validated"
 assert_not_contains "$mock_log" "cast send $create2_deployer"
+
+reset_project_state
+prepared_factory_bytecode=0x6013
+prepared_factory_runtime=0x6014
+prepared_factory_init_code="${prepared_factory_bytecode}${factory_constructor_args#0x}"
+prepared_factory_address="$($real_cast create2 \
+  --deployer "$create2_deployer" \
+  --salt "$factory_salt" \
+  --init-code "$prepared_factory_init_code")"
+prepared_factory_runtime_hash="$($real_cast keccak "$prepared_factory_runtime")"
+env \
+  MOCK_FACTORY_BYTECODE="$prepared_factory_bytecode" \
+  MOCK_FACTORY_RUNTIME="$prepared_factory_runtime" \
+  MOCK_FACTORY_RUNTIME_HASH="$prepared_factory_runtime_hash" \
+  "$deploy_wrapper" testnet prepare
+assert_jq "$operational_state" \
+  --arg address "$prepared_factory_address" \
+  --arg runtime "$prepared_factory_runtime_hash" \
+  '.deployment.membershipFactory == {address: $address, runtimeCodehash: $runtime}'
+assert_jq "$operational_state" \
+  --arg safe "$MOCK_SAFE_ADDRESS" \
+  '.safe.address == $safe and .factory.owner == $safe and .factory.feeRecipient == $safe'
+assert_not_contains "$mock_log" "anvil --fork-url"
+assert_not_contains "$mock_log" "cast wallet address"
+assert_not_contains "$mock_log" "cast send"
+assert_not_contains "$mock_log" "cast mktx"
+assert_not_contains "$mock_log" "cast publish"
+assert_not_contains "$mock_log" "forge verify-contract"
+assert_not_contains "$mock_log" "bun x wagmi generate"
+[[ ! -e "$contracts_dir/deployments/protocol/46630/candidate.json" ]] \
+  || fail "prepare wrote a public recovery journal"
+
+cp "$operational_state" "$test_dir/prepared-operational-state.json"
+: >"$mock_log"
+env \
+  MOCK_GIT_DIRTY_OPERATIONAL=1 \
+  MOCK_FACTORY_BYTECODE="$prepared_factory_bytecode" \
+  MOCK_FACTORY_RUNTIME="$prepared_factory_runtime" \
+  MOCK_FACTORY_RUNTIME_HASH="$prepared_factory_runtime_hash" \
+  "$deploy_wrapper" testnet prepare
+cmp -s "$test_dir/prepared-operational-state.json" "$operational_state" \
+  || fail "repeated prepare changed an already-prepared manifest"
+assert_not_contains "$mock_log" "cast send"
+
+reset_project_state
+jq '.safe.threshold = 2' "$operational_state" >"${operational_state}.tmp"
+mv "${operational_state}.tmp" "$operational_state"
+run_expect_failure env \
+  MOCK_GIT_DIRTY_OPERATIONAL=1 \
+  MOCK_FACTORY_BYTECODE="$prepared_factory_bytecode" \
+  MOCK_FACTORY_RUNTIME="$prepared_factory_runtime" \
+  MOCK_FACTORY_RUNTIME_HASH="$prepared_factory_runtime_hash" \
+  "$deploy_wrapper" testnet prepare
+assert_contains "$test_dir/stderr" "uncommitted changes outside the generated deployment fields"
+assert_jq "$operational_state" '.safe.threshold == 2'
+assert_not_contains "$mock_log" "cast send"
 
 reset_project_state
 "$deploy_wrapper" testnet dry-run
@@ -346,6 +403,20 @@ cp "$active" "$previous_timestamped"
 
 previous_active="$test_dir/previous-active.json"
 cp "$active" "$previous_active"
+: >"$mock_log"
+run_expect_failure env \
+  MOCK_GIT_HEAD=3333333333333333333333333333333333333333 \
+  MOCK_OPERATIONAL_BLOB=3333333333333333333333333333333333333333 \
+  MOCK_MEDIA_BYTECODE=0x6011 \
+  "$deploy_wrapper" testnet broadcast
+assert_contains "$test_dir/stderr" "reviewed media store factory"
+[[ -f "$candidate" ]] \
+  || fail "rejected replacement plan archived the promoted candidate"
+[[ ! -e "$contracts_dir/deployments/protocol/46630/candidate-111111111111-promoted.json" ]] \
+  || fail "rejected replacement plan created a promoted archive"
+assert_not_contains "$mock_log" "cast wallet address"
+assert_not_contains "$mock_log" "cast publish <signed-transaction>"
+
 : >"$mock_log"
 env \
   MOCK_GIT_HEAD=3333333333333333333333333333333333333333 \
