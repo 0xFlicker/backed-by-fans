@@ -18,6 +18,7 @@ const tier = getAddress("0x4444444444444444444444444444444444444444");
 const creator = getAddress("0x5555555555555555555555555555555555555555");
 const token = getAddress("0x6666666666666666666666666666666666666666");
 const artworkRevision = `0x${"77".repeat(32)}` as const;
+const secondTier = getAddress("0x7777777777777777777777777777777777777777");
 
 const initialState: CatalogInitialState = {
   status: "ready",
@@ -128,26 +129,116 @@ describe("CatalogExplorer", () => {
     );
 
     expect(screen.getByRole("link", { name: /Genesis Fans/i })).toBeVisible();
+    expect(screen.getByText("Membership for Genesis fans.")).toBeVisible();
     expect(screen.getByText("0.5 AMD")).toBeVisible();
     expect(screen.queryByText("Reading onchain")).not.toBeInTheDocument();
     expect(screen.getByText("Block 123")).toBeVisible();
   });
 
-  it("renders collection artwork tiles with a revisioned image route", () => {
+  it("renders collection artwork with a revisioned image route", () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <CatalogExplorer initialState={initialState} presentation="tiles" />
+        <CatalogExplorer initialState={initialState} />
       </QueryClientProvider>,
     );
 
-    expect(
-      screen.getByRole("img", { name: "Genesis Fans collection artwork" }),
-    ).toHaveAttribute(
+    const artwork = screen.getByRole("img", {
+      name: "Genesis Fans collection artwork",
+    });
+    expect(artwork).toHaveAttribute(
       "src",
       expect.stringContaining(
         `/api/chains/46630/tiers/${tier}/artwork?v=${artworkRevision}`,
       ),
     );
+    expect(artwork).toHaveAttribute("loading", "eager");
+    expect(artwork).toHaveAttribute("fetchpriority", "high");
     expect(screen.getByRole("link", { name: /Genesis Fans/i })).toBeVisible();
+  });
+
+  it("lazy-loads artwork after the first membership", () => {
+    const firstSummary =
+      initialState.status === "ready" &&
+      initialState.data.summaries.status === "valid"
+        ? initialState.data.summaries.data[0]
+        : undefined;
+    if (!firstSummary || initialState.status !== "ready") {
+      throw new Error("Expected a ready catalog fixture.");
+    }
+    const twoMemberships: CatalogInitialState = {
+      ...initialState,
+      data: {
+        ...initialState.data,
+        page: {
+          ...initialState.data.page,
+          total: 2n,
+          addresses: [tier, secondTier],
+        },
+        summaries: {
+          status: "valid",
+          capturedBlock: 123n,
+          data: [
+            firstSummary,
+            {
+              ...firstSummary,
+              address: secondTier,
+              name: "Second Membership",
+              symbol: "SECOND",
+            },
+          ],
+        },
+      },
+    };
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CatalogExplorer initialState={twoMemberships} />
+      </QueryClientProvider>,
+    );
+
+    const artwork = screen.getAllByRole("img");
+    expect(artwork[0]).toHaveAttribute("loading", "eager");
+    expect(artwork[1]).toHaveAttribute("loading", "lazy");
+    expect(artwork[1]).toHaveAttribute("fetchpriority", "auto");
+  });
+
+  it("shows paused state and pagination availability from the snapshot", () => {
+    if (
+      initialState.status !== "ready" ||
+      initialState.data.summaries.status !== "valid"
+    ) {
+      throw new Error("Expected a ready catalog fixture.");
+    }
+    const lastPage: CatalogInitialState = {
+      ...initialState,
+      data: {
+        ...initialState.data,
+        page: {
+          ...initialState.data.page,
+          offset: 24n,
+          total: 25n,
+          nextOffset: null,
+        },
+        summaries: {
+          ...initialState.data.summaries,
+          data: [
+            {
+              ...initialState.data.summaries.data[0],
+              paused: true,
+            },
+          ],
+        },
+      },
+    };
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CatalogExplorer initialState={lastPage} />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText("Membership paused")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Previous page" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
   });
 });

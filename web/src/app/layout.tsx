@@ -18,7 +18,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(publicConfig.siteUrl),
   title: {
-    default: "Backed By Fans — Creator-owned memberships",
+    default: "Backed By Fans | Creator-owned memberships",
     template: "%s | Backed By Fans",
   },
   description:
@@ -66,7 +66,7 @@ export default async function RootLayout({
               <span>Backed By Fans</span>
             </Link>
             <nav aria-label="Primary navigation" className="primary-nav">
-              <Link href="/memberships">Explore</Link>
+              <Link href="/about">About</Link>
               <Link href="/account">My account</Link>
               <Link href="/create">For creators</Link>
               <Link href="/skill">Make art</Link>

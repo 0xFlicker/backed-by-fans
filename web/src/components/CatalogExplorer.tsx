@@ -87,10 +87,8 @@ function tierPrice(
 
 export function CatalogExplorer({
   initialState,
-  presentation = "list",
 }: {
   initialState?: CatalogInitialState;
-  presentation?: "list" | "tiles";
 }) {
   const { chainId, client, deployment } = useActiveNetwork();
   const [pageRequest, setPageRequest] = useState<{
@@ -189,7 +187,7 @@ export function CatalogExplorer({
         <div className="empty-room">
           <h2>No memberships.</h2>
         </div>
-      ) : presentation === "tiles" ? (
+      ) : (
         <ul className="catalog-grid">
           {summaries.map((tier, index) => (
             <li key={tier.address}>
@@ -207,44 +205,24 @@ export function CatalogExplorer({
                     <strong className="font-display">{tier.name}</strong>
                     <span aria-hidden="true">↗</span>
                   </span>
+                  {tier.description.trim() ? (
+                    <span className="catalog-card-description">
+                      {tier.description}
+                    </span>
+                  ) : null}
                   <span className="catalog-card-meta">
                     <span>{tier.symbol}</span>
                     <span>{tierPrice(tier, tokenData)}</span>
                   </span>
-                  {tier.paused && (
+                  {tier.paused ? (
                     <span className="catalog-card-status">
                       Membership paused
                     </span>
-                  )}
+                  ) : null}
                 </span>
               </Link>
             </li>
           ))}
-        </ul>
-      ) : (
-        <ul className="tier-list">
-          {summaries.map((tier, index) => {
-            return (
-              <li key={tier.address}>
-                <Link
-                  className="tier-row"
-                  href={`/chains/${chainId}/tiers/${tier.address}` as Route}
-                >
-                  <span className="tier-number font-mono">
-                    {String(Number(page.offset) + index + 1).padStart(2, "0")}
-                  </span>
-                  <span>
-                    <strong className="font-display">{tier.name}</strong>
-                    <small>{tier.symbol}</small>
-                  </span>
-                  <span className="tier-price">
-                    {tierPrice(tier, tokenData)}
-                  </span>
-                  <span aria-hidden="true">↗</span>
-                </Link>
-              </li>
-            );
-          })}
         </ul>
       )}
 

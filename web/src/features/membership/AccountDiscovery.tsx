@@ -282,7 +282,7 @@ function HydratedDiscovery({
             <div className="empty-room">
               <h3>No memberships are connected to this wallet.</h3>
               <p>Explore memberships to find a creator to support.</p>
-              <Link className="button button-dark" href="/memberships">
+              <Link className="button button-dark" href="/">
                 Explore memberships
               </Link>
             </div>
