@@ -81,10 +81,6 @@ export default async function RootLayout({
               <BackingStackMark className="footer-mark" />
               <p>Creator-owned. Backed By Fans.</p>
             </div>
-            <p>
-              Working brand direction. Professional name and asset clearance
-              remain open before public launch.
-            </p>
           </footer>
         </AppProviders>
       </body>

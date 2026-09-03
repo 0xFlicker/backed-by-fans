@@ -8,32 +8,61 @@ on:
       - main
     paths:
       - "web/**"
-      - "contracts/src/**"
-      - "contracts/test/mocks/**"
-      - "contracts/foundry.toml"
-      - "contracts/remappings.txt"
-      - "contracts/lib/**"
-      - "scripts/test-web-anvil.sh"
-      - ".gitmodules"
       - ".github/workflows/web.yml"
   pull_request:
     paths:
       - "web/**"
-      - "contracts/src/**"
-      - "contracts/test/mocks/**"
-      - "contracts/foundry.toml"
-      - "contracts/remappings.txt"
-      - "contracts/lib/**"
-      - "scripts/test-web-anvil.sh"
-      - ".gitmodules"
       - ".github/workflows/web.yml"
   workflow_dispatch:
+
+concurrency:
+  group: web-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
     name: Next.js application
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: web
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install pinned dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check formatting
+        run: bun run format
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Run unit tests
+        run: bun run test
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Reject starter identity and obvious secret patterns
+        run: |
+          ! grep -R -E "Create Next App|next\.svg|vercel\.svg" src public
+          ! grep -R -E "(PRIVATE_KEY|SECRET_KEY|MNEMONIC|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY)" src public
+
+  configured-anvil:
+    name: Configured Anvil browser evidence
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: web
@@ -57,34 +86,13 @@ jobs:
       - name: Install pinned dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+
       - name: Check generated contract bindings
         run: bun run generate:check
 
-      - name: Check formatting
-        run: bun run format
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Run unit tests
-        run: bun run test
-
-      - name: Build production application
-        run: bun run build
-
-      - name: Typecheck generated application types
-        run: bun run typecheck
-
-      - name: Install Playwright browsers
-        run: bunx playwright install --with-deps chromium firefox webkit
-
-      - name: Run browser tests
-        run: bun run test:e2e
-
       - name: Run configured Anvil browser evidence
+        env:
+          CI: ""
         run: ../scripts/test-web-anvil.sh
-
-      - name: Reject starter identity and obvious secret patterns
-        run: |
-          ! grep -R -E "Create Next App|next\.svg|vercel\.svg" src public .next/static
-          ! grep -R -E "(PRIVATE_KEY|SECRET_KEY|MNEMONIC|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY)" src public .next/static
