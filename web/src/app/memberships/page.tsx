@@ -22,7 +22,7 @@ export default async function MembershipsPage() {
           Find the creators you want to keep showing up for.
         </h1>
       </div>
-      <CatalogExplorer initialState={initialCatalog} />
+      <CatalogExplorer initialState={initialCatalog} presentation="tiles" />
     </section>
   );
 }

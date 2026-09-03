@@ -108,7 +108,7 @@ export function tierBindingFailures(input: {
   return failedChecks;
 }
 
-function isTierArtConfig(value: unknown): value is TierArtConfig {
+export function isTierArtConfig(value: unknown): value is TierArtConfig {
   if (!value || typeof value !== "object") return false;
   const art = value as Record<string, unknown>;
   const numericFields = [
@@ -143,7 +143,7 @@ function isZeroBytes32(value: unknown): value is Hex {
   return isBytes32(value) && /^0x0{64}$/.test(value);
 }
 
-function isTierMediaConfig(value: unknown): value is TierMediaConfig {
+export function isTierMediaConfig(value: unknown): value is TierMediaConfig {
   if (!value || typeof value !== "object") return false;
   const media = value as Record<string, unknown>;
   if (

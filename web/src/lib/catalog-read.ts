@@ -1,6 +1,6 @@
 import type { PublicClient } from "viem";
 
-import type { TierSummary } from "@/contracts/types";
+import type { CatalogTierSummary } from "@/contracts/types";
 import {
   catalogPageLimit,
   readCatalogPage,
@@ -16,7 +16,7 @@ import type { SupportedChainId } from "@/lib/chains";
 
 export type CatalogSnapshot = {
   page: Awaited<ReturnType<typeof readCatalogPage>>;
-  summaries: ReadState<TierSummary[]>;
+  summaries: ReadState<CatalogTierSummary[]>;
   paymentTokens: AcceptedPaymentTokenReadState;
 };
 

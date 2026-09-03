@@ -5,9 +5,10 @@ vi.mock("viem", async (importOriginal) => {
   const actual = await importOriginal<typeof import("viem")>();
   return { ...actual, keccak256: vi.fn(actual.keccak256) };
 });
-vi.mock("@/lib/authenticity", () => ({
-  verifyTierAuthenticity: vi.fn(),
-}));
+vi.mock("@/lib/authenticity", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/authenticity")>();
+  return { ...actual, verifyTierAuthenticity: vi.fn() };
+});
 vi.mock("@/lib/payment-token-read", () => ({
   readAcceptedPaymentTokens: vi.fn().mockResolvedValue({
     status: "valid",
@@ -176,20 +177,30 @@ describe("direct reads", () => {
       "Front Row",
       "FRONT",
       factory,
+      "Independent membership",
+      "https://example.com/front-row",
       tierB,
       1_000_000n,
       2_592_000n,
       false,
+      renderer,
+      art,
+      media,
     ];
     const readContract = vi.fn(({ functionName }: { functionName: string }) => {
       const index = [
         "name",
         "symbol",
         "owner",
+        "description",
+        "externalURI",
         "paymentToken",
         "pricePerPeriod",
         "periodDuration",
         "paused",
+        "renderer",
+        "artConfig",
+        "mediaConfig",
       ].indexOf(functionName);
       return Promise.resolve(values[index]);
     });
@@ -216,7 +227,7 @@ describe("direct reads", () => {
         },
       ],
     });
-    expect(readContract).toHaveBeenCalledTimes(7);
+    expect(readContract).toHaveBeenCalledTimes(12);
   });
 
   it("batches a verified tier snapshot into one Multicall3 read", async () => {

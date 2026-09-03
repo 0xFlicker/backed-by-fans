@@ -40,6 +40,15 @@ export type TierSummary = {
   paused: boolean;
 };
 
+export type CatalogTierSummary = TierSummary & {
+  description: string;
+  externalURI: string;
+  renderer: Address;
+  art: TierArtConfig;
+  media: TierMediaConfig;
+  artworkRevision: Hex;
+};
+
 export type TierSnapshot = TierSummary & {
   description: string;
   externalURI: string;

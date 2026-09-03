@@ -1,11 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import type { TierSummary } from "@/contracts/types";
+import type { CatalogTierSummary } from "@/contracts/types";
 import { ReadStateView } from "@/components/ReadState";
 import {
   readCatalogSnapshot,
@@ -17,20 +18,79 @@ import {
   type ReadState,
   unavailableDeploymentState,
 } from "@/lib/read-state";
+import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
 import { formatRawTokenAmount } from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 
-function summariesFromState(state: ReadState<TierSummary[]>): TierSummary[] {
+function summariesFromState(
+  state: ReadState<CatalogTierSummary[]>,
+): CatalogTierSummary[] {
   if (state.status === "valid" || state.status === "stale") return state.data;
   return state.status === "partial" && Array.isArray(state.data)
-    ? (state.data as TierSummary[])
+    ? (state.data as CatalogTierSummary[])
     : [];
+}
+
+function CatalogArtwork({
+  chainId,
+  tier,
+  eager,
+}: {
+  chainId: number;
+  tier: CatalogTierSummary;
+  eager: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  const src = `/api/chains/${chainId}/tiers/${tier.address}/artwork?v=${tier.artworkRevision}`;
+
+  return (
+    <div className="catalog-card-artwork">
+      {!failed && (
+        <Image
+          alt={`${tier.name} collection artwork`}
+          className="catalog-card-image"
+          fetchPriority={eager ? "high" : "auto"}
+          fill
+          loading={eager ? "eager" : "lazy"}
+          onError={() => setFailed(true)}
+          sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
+          src={src}
+          unoptimized
+        />
+      )}
+      {failed && (
+        <span className="catalog-card-artwork-fallback">
+          Artwork unavailable
+        </span>
+      )}
+    </div>
+  );
+}
+
+function tierPrice(
+  tier: CatalogTierSummary,
+  tokenData: readonly AcceptedPaymentToken[],
+) {
+  const token = tokenData.find(
+    (candidate) =>
+      candidate.address.toLowerCase() === tier.paymentToken.toLowerCase(),
+  );
+  if (tier.pricePerPeriod === 0n) return "Choose your support";
+  return token
+    ? `${formatRawTokenAmount({
+        raw: tier.pricePerPeriod,
+        decimals: token.decimals,
+        multiplier: token.uiMultiplier,
+      })} ${token.symbol}`
+    : "Payment token unavailable";
 }
 
 export function CatalogExplorer({
   initialState,
+  presentation = "list",
 }: {
   initialState?: CatalogInitialState;
+  presentation?: "list" | "tiles";
 }) {
   const { chainId, client, deployment } = useActiveNetwork();
   const [pageRequest, setPageRequest] = useState<{
@@ -129,14 +189,41 @@ export function CatalogExplorer({
         <div className="empty-room">
           <h2>No memberships.</h2>
         </div>
+      ) : presentation === "tiles" ? (
+        <ul className="catalog-grid">
+          {summaries.map((tier, index) => (
+            <li key={tier.address}>
+              <Link
+                className="catalog-card"
+                href={`/chains/${chainId}/tiers/${tier.address}` as Route}
+              >
+                <CatalogArtwork
+                  chainId={chainId}
+                  eager={index === 0}
+                  tier={tier}
+                />
+                <span className="catalog-card-copy">
+                  <span className="catalog-card-heading">
+                    <strong className="font-display">{tier.name}</strong>
+                    <span aria-hidden="true">↗</span>
+                  </span>
+                  <span className="catalog-card-meta">
+                    <span>{tier.symbol}</span>
+                    <span>{tierPrice(tier, tokenData)}</span>
+                  </span>
+                  {tier.paused && (
+                    <span className="catalog-card-status">
+                      Membership paused
+                    </span>
+                  )}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       ) : (
         <ul className="tier-list">
           {summaries.map((tier, index) => {
-            const token = tokenData.find(
-              (candidate) =>
-                candidate.address.toLowerCase() ===
-                tier.paymentToken.toLowerCase(),
-            );
             return (
               <li key={tier.address}>
                 <Link
@@ -151,15 +238,7 @@ export function CatalogExplorer({
                     <small>{tier.symbol}</small>
                   </span>
                   <span className="tier-price">
-                    {tier.pricePerPeriod === 0n
-                      ? "Choose your support"
-                      : token
-                        ? `${formatRawTokenAmount({
-                            raw: tier.pricePerPeriod,
-                            decimals: token.decimals,
-                            multiplier: token.uiMultiplier,
-                          })} ${token.symbol}`
-                        : "Payment token unavailable"}
+                    {tierPrice(tier, tokenData)}
                   </span>
                   <span aria-hidden="true">↗</span>
                 </Link>
