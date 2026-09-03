@@ -1,52 +1,16 @@
 import { expect, test } from "@playwright/test";
-import { getAbiItem, getAddress, toFunctionSelector } from "viem";
+import { getAddress } from "viem";
 
-import {
-  onchainMetadataRendererAbi,
-  membershipTierAbi,
-} from "../../src/contracts";
+import { membershipTierAbi } from "../../src/contracts";
 import {
   anvilEnabled,
   anvilPublicClient,
   connectAnvilWallet,
   installAnvilWallet,
   requiredAnvilAddress,
-  requiredAnvilRpc,
   revertAnvil,
   snapshotAnvil,
 } from "./helpers/anvil";
-
-const previewTokenURISelector = toFunctionSelector(
-  getAbiItem({
-    abi: onchainMetadataRendererAbi,
-    name: "previewTokenURI",
-  }),
-);
-
-type JsonRpcRequest = {
-  method?: string;
-  params?: readonly unknown[];
-};
-
-function isRendererArtworkRequest(request: JsonRpcRequest, renderer: string) {
-  const call = request.params?.[0];
-  if (
-    request.method !== "eth_call" ||
-    typeof call !== "object" ||
-    call === null ||
-    Array.isArray(call)
-  ) {
-    return false;
-  }
-
-  const { data, to } = call as { data?: unknown; to?: unknown };
-  return (
-    typeof to === "string" &&
-    to.toLowerCase() === renderer.toLowerCase() &&
-    typeof data === "string" &&
-    data.startsWith(previewTokenURISelector)
-  );
-}
 
 test.describe("@anvil renderer sharing through memberships", () => {
   test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
@@ -76,14 +40,11 @@ test.describe("@anvil renderer sharing through memberships", () => {
       await installAnvilWallet(page, receivingCreator);
 
       await page.goto(`/chains/31337/tiers/${sourceTier}`);
-      await page.getByText("Reuse this artwork", { exact: true }).click();
+      await page.getByText("Contract Addresses", { exact: true }).click();
       await expect(page.getByText(renderer, { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Copy renderer address" }).click();
       await expect(
-        page.getByText(
-          "Paste it into the renderer field for another membership.",
-          { exact: true },
-        ),
+        page.getByRole("button", { name: "Renderer address copied" }),
       ).toBeVisible();
 
       const copiedRenderer = getAddress(
@@ -131,7 +92,7 @@ test.describe("@anvil renderer sharing through memberships", () => {
       await expect(
         page.getByRole("heading", { level: 1, name: "Shared renderer circle" }),
       ).toBeVisible();
-      await page.getByText("Reuse this artwork", { exact: true }).click();
+      await page.getByText("Contract Addresses", { exact: true }).click();
       await expect(page.getByText(renderer, { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Copy renderer address" }).click();
       await expect
@@ -155,30 +116,18 @@ test.describe("@anvil renderer sharing through memberships", () => {
     });
 
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.route(`${requiredAnvilRpc()}/`, async (route) => {
-      let request: JsonRpcRequest;
-      try {
-        request = route.request().postDataJSON() as JsonRpcRequest;
-      } catch {
-        await route.continue();
-        return;
-      }
-
-      if (isRendererArtworkRequest(request, renderer)) {
-        await route.abort("connectionfailed");
-        return;
-      }
-      await route.continue();
-    });
+    await page.route("**/api/chains/31337/tiers/*/artwork*", (route) =>
+      route.abort("connectionfailed"),
+    );
 
     await page.goto(`/chains/31337/tiers/${sourceTier}`);
     await expect(
-      page.getByText("Canonical art is temporarily unavailable.", {
+      page.getByText("Collection artwork is temporarily unavailable.", {
         exact: true,
       }),
     ).toBeVisible();
 
-    await page.getByText("Reuse this artwork", { exact: true }).click();
+    await page.getByText("Contract Addresses", { exact: true }).click();
     await expect(page.getByText(renderer, { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Copy renderer address" }).click();
     await expect

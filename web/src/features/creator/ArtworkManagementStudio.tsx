@@ -53,7 +53,7 @@ import {
 } from "@/features/creator-studio/studio-protocol";
 import type { StudioMediaDraft } from "@/features/creator-studio/studio-draft";
 import { useContractPreviews } from "@/features/creator-studio/use-contract-previews";
-import { readCreatedRendererAddresses } from "@/features/renderer-registry/registry-read";
+import { useRendererLibrary } from "@/features/creator-studio/use-renderer-library";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import {
   creatorMediaPageSize,
@@ -220,33 +220,12 @@ export function ArtworkManagementStudio({
     snapshot.renderer,
   ]);
 
-  const createdRenderers = useQuery({
-    queryKey: [
-      "artwork-management-renderers",
-      deployment.rendererRegistryAddress,
-      snapshot.creator,
-    ],
-    enabled: Boolean(deployment.rendererRegistryAddress),
-    retry: false,
-    queryFn: async () => {
-      const addresses = await readCreatedRendererAddresses(
-        client,
-        deployment.rendererRegistryAddress!,
-        snapshot.creator,
-      );
-      const results = await Promise.allSettled(
-        addresses.map((address) =>
-          resolveRendererAddress(client, {
-            address,
-            canonicalChainId: deployment.chainId,
-            expectedSchema: snapshot.protocolDependencies.rendererSchema,
-          }),
-        ),
-      );
-      return results.flatMap((result) =>
-        result.status === "fulfilled" ? [result.value] : [],
-      );
-    },
+  const rendererLibrary = useRendererLibrary({
+    client,
+    registry: deployment.rendererRegistryAddress,
+    owner: snapshot.creator,
+    canonicalChainId: deployment.chainId,
+    expectedSchema: snapshot.protocolDependencies.rendererSchema,
   });
 
   const libraryOffset = BigInt(mediaPage * creatorMediaPageSize);
@@ -622,7 +601,7 @@ export function ArtworkManagementStudio({
 
       <CreatorStudio
         art={art}
-        createdRenderers={createdRenderers.data ?? []}
+        rendererLibrary={rendererLibrary.data ?? []}
         customRendererAddress={rendererAddress}
         customRendererState={rendererState}
         disabled={inFlight}

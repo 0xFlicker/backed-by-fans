@@ -8,7 +8,7 @@ export default function NotFound() {
         There’s no membership room at this address.
       </h1>
       <p>Return to the catalog or check the link a creator shared with you.</p>
-      <Link className="button button-applause" href="/memberships">
+      <Link className="button button-applause" href="/">
         Explore memberships
       </Link>
     </section>

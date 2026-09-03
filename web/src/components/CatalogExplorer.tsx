@@ -5,31 +5,87 @@ import type { Route } from "next";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import type { TierSummary } from "@/contracts/types";
 import { ReadStateView } from "@/components/ReadState";
+import { ResilientArtworkImage } from "@/components/ResilientArtworkImage";
+import type { CatalogTierSummary } from "@/contracts/types";
 import {
-  catalogPageLimit,
-  readCatalogPage,
-  readTierSummaries,
-} from "@/lib/direct-read";
+  readCatalogSnapshot,
+  type CatalogInitialState,
+  type CatalogSnapshot,
+} from "@/lib/catalog-read";
 import {
   classifyReadError,
+  type ReadState,
   unavailableDeploymentState,
 } from "@/lib/read-state";
-import { readAcceptedPaymentTokens } from "@/lib/payment-token-read";
+import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
 import { formatRawTokenAmount } from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 
 function summariesFromState(
-  state: Awaited<ReturnType<typeof readTierSummaries>>,
-): TierSummary[] {
+  state: ReadState<CatalogTierSummary[]>,
+): CatalogTierSummary[] {
   if (state.status === "valid" || state.status === "stale") return state.data;
   return state.status === "partial" && Array.isArray(state.data)
-    ? (state.data as TierSummary[])
+    ? (state.data as CatalogTierSummary[])
     : [];
 }
 
-export function CatalogExplorer() {
+function CatalogArtwork({
+  chainId,
+  tier,
+  eager,
+}: {
+  chainId: number;
+  tier: CatalogTierSummary;
+  eager: boolean;
+}) {
+  const src = `/api/chains/${chainId}/tiers/${tier.address}/artwork?v=${tier.artworkRevision}`;
+
+  return (
+    <div className="catalog-card-artwork">
+      <ResilientArtworkImage
+        alt={`${tier.name} collection artwork`}
+        className="catalog-card-image"
+        fallback={
+          <span className="catalog-card-artwork-fallback">
+            Artwork unavailable
+          </span>
+        }
+        fetchPriority={eager ? "high" : "auto"}
+        fill
+        loading={eager ? "eager" : "lazy"}
+        sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
+        src={src}
+        unoptimized
+      />
+    </div>
+  );
+}
+
+function tierPrice(
+  tier: CatalogTierSummary,
+  tokenData: readonly AcceptedPaymentToken[],
+) {
+  const token = tokenData.find(
+    (candidate) =>
+      candidate.address.toLowerCase() === tier.paymentToken.toLowerCase(),
+  );
+  if (tier.pricePerPeriod === 0n) return "Choose your support";
+  return token
+    ? `${formatRawTokenAmount({
+        raw: tier.pricePerPeriod,
+        decimals: token.decimals,
+        multiplier: token.uiMultiplier,
+      })} ${token.symbol}`
+    : "Payment token unavailable";
+}
+
+export function CatalogExplorer({
+  initialState,
+}: {
+  initialState?: CatalogInitialState;
+}) {
   const { chainId, client, deployment } = useActiveNetwork();
   const [pageRequest, setPageRequest] = useState<{
     chainId: number;
@@ -48,26 +104,21 @@ export function CatalogExplorer() {
       activePageRequest.capturedBlock?.toString(),
     ],
     enabled: deployment.status === "ready" && Boolean(client),
-    queryFn: async () => {
+    queryFn: (): Promise<CatalogSnapshot> => {
       if (deployment.status !== "ready") throw new Error(deployment.detail);
       if (!client) throw new Error("No public client is available.");
-      const page = await readCatalogPage(client, deployment.factoryAddress, {
+      return readCatalogSnapshot(client, deployment, {
         offset: activePageRequest.offset,
-        limit: catalogPageLimit,
-        blockNumber: activePageRequest.capturedBlock,
+        capturedBlock: activePageRequest.capturedBlock,
       });
-      const summaries = await readTierSummaries(
-        client,
-        page.addresses,
-        page.capturedBlock,
-      );
-      const paymentTokens = await readAcceptedPaymentTokens(client, {
-        chainId: deployment.chainId,
-        factory: deployment.factoryAddress,
-        blockNumber: page.capturedBlock,
-      });
-      return { page, summaries, paymentTokens };
     },
+    initialData:
+      initialState?.status === "ready" &&
+      initialState.chainId === chainId &&
+      activePageRequest.offset === 0n &&
+      activePageRequest.capturedBlock === undefined
+        ? initialState.data
+        : undefined,
   });
 
   if (deployment.status !== "ready") {
@@ -75,6 +126,14 @@ export function CatalogExplorer() {
   }
 
   if (catalog.isLoading) {
+    if (initialState?.status === "failed" && initialState.chainId === chainId) {
+      return (
+        <ReadStateView
+          onRetry={() => void catalog.refetch()}
+          state={initialState.state}
+        />
+      );
+    }
     return (
       <ReadStateView
         state={{
@@ -125,42 +184,41 @@ export function CatalogExplorer() {
           <h2>No memberships.</h2>
         </div>
       ) : (
-        <ul className="tier-list">
-          {summaries.map((tier, index) => {
-            const token = tokenData.find(
-              (candidate) =>
-                candidate.address.toLowerCase() ===
-                tier.paymentToken.toLowerCase(),
-            );
-            return (
-              <li key={tier.address}>
-                <Link
-                  className="tier-row"
-                  href={`/chains/${chainId}/tiers/${tier.address}` as Route}
-                >
-                  <span className="tier-number font-mono">
-                    {String(Number(page.offset) + index + 1).padStart(2, "0")}
-                  </span>
-                  <span>
+        <ul className="catalog-grid">
+          {summaries.map((tier, index) => (
+            <li key={tier.address}>
+              <Link
+                className="catalog-card"
+                href={`/chains/${chainId}/tiers/${tier.address}` as Route}
+              >
+                <CatalogArtwork
+                  chainId={chainId}
+                  eager={index === 0}
+                  tier={tier}
+                />
+                <span className="catalog-card-copy">
+                  <span className="catalog-card-heading">
                     <strong className="font-display">{tier.name}</strong>
-                    <small>{tier.symbol}</small>
+                    <span aria-hidden="true">↗</span>
                   </span>
-                  <span className="tier-price">
-                    {tier.pricePerPeriod === 0n
-                      ? "Choose your support"
-                      : token
-                        ? `${formatRawTokenAmount({
-                            raw: tier.pricePerPeriod,
-                            decimals: token.decimals,
-                            multiplier: token.uiMultiplier,
-                          })} ${token.symbol}`
-                        : "Payment token unavailable"}
+                  {tier.description.trim() ? (
+                    <span className="catalog-card-description">
+                      {tier.description}
+                    </span>
+                  ) : null}
+                  <span className="catalog-card-meta">
+                    <span>{tier.symbol}</span>
+                    <span>{tierPrice(tier, tokenData)}</span>
                   </span>
-                  <span aria-hidden="true">↗</span>
-                </Link>
-              </li>
-            );
-          })}
+                  {tier.paused ? (
+                    <span className="catalog-card-status">
+                      Membership paused
+                    </span>
+                  ) : null}
+                </span>
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
 

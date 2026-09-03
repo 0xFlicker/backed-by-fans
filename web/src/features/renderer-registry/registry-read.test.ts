@@ -1,7 +1,10 @@
 import { getAddress, type PublicClient } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
-import { readCreatedRendererAddresses } from "@/features/renderer-registry/registry-read";
+import {
+  readCreatedRendererAddresses,
+  readRendererLibraryAddresses,
+} from "@/features/renderer-registry/registry-read";
 
 const registry = getAddress("0x1111111111111111111111111111111111111111");
 const creator = getAddress("0x2222222222222222222222222222222222222222");
@@ -41,5 +44,43 @@ describe("readCreatedRendererAddresses", () => {
       ),
     ).resolves.toEqual([]);
     expect(readContract).toHaveBeenCalledOnce();
+  });
+});
+
+describe("readRendererLibraryAddresses", () => {
+  it("returns created renderers first, followed by saved renderers", async () => {
+    const created = getAddress("0x3333333333333333333333333333333333333333");
+    const saved = getAddress("0x4444444444444444444444444444444444444444");
+    const readContract = vi.fn().mockImplementation(({ functionName }) => {
+      if (functionName === "createdRendererCount") return 1n;
+      if (functionName === "savedRendererCount") return 1n;
+      if (functionName === "createdRenderers") return [created];
+      if (functionName === "savedRenderers") return [saved];
+      throw new Error(`Unexpected function ${functionName}`);
+    });
+
+    await expect(
+      readRendererLibraryAddresses(
+        { readContract } as unknown as PublicClient,
+        registry,
+        creator,
+      ),
+    ).resolves.toEqual([created, saved]);
+  });
+
+  it("deduplicates an address without disturbing registry order", async () => {
+    const renderer = getAddress("0x5555555555555555555555555555555555555555");
+    const readContract = vi.fn().mockImplementation(({ functionName }) => {
+      if (functionName.endsWith("Count")) return 1n;
+      return [renderer];
+    });
+
+    await expect(
+      readRendererLibraryAddresses(
+        { readContract } as unknown as PublicClient,
+        registry,
+        creator,
+      ),
+    ).resolves.toEqual([renderer]);
   });
 });

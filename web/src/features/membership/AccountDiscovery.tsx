@@ -3,11 +3,13 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { isAddress, type Address } from "viem";
+import type { Address } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
+import { ResilientArtworkImage } from "@/components/ResilientArtworkImage";
 import {
   accountCacheKey,
   emptyAccountCache,
@@ -17,8 +19,16 @@ import {
   type AccountCache,
 } from "@/features/membership/account-cache";
 import { discoverAccountPage } from "@/features/membership/account-discovery";
-import type { ReadyDeployment } from "@/lib/config";
-import { readAcceptedPaymentTokens } from "@/lib/payment-token-read";
+import type { AccountDiscoveryPage } from "@/features/membership/account-discovery";
+import {
+  getDeployment,
+  publicConfig,
+  type ReadyDeployment,
+} from "@/lib/config";
+import {
+  readAcceptedPaymentTokens,
+  type AcceptedPaymentTokenReadState,
+} from "@/lib/payment-token-read";
 import {
   classifyReadError,
   unavailableDeploymentState,
@@ -26,64 +36,58 @@ import {
 import { useActiveNetwork } from "@/lib/use-active-network";
 import { formatRawTokenAmount } from "@/lib/token-amount";
 
-function DirectTierAccess({ chainId }: { chainId: number }) {
-  const [value, setValue] = useState("");
-  const valid = isAddress(value.trim());
-
-  return (
-    <details className="direct-tier-access">
-      <summary>Already have a membership link?</summary>
-      <div className="direct-tier-access-body">
-        <div>
-          <p className="eyebrow">Add a membership</p>
-          <h2 className="font-display">Open it by address.</h2>
-          <p>
-            Paste a membership address to open it directly. This is useful if it
-            is not showing in your list yet.
-          </p>
-        </div>
-        <label className="creator-field">
-          <span>Membership address</span>
-          <input
-            aria-describedby="direct-tier-guidance"
-            className="font-mono"
-            onInput={(event) => setValue(event.currentTarget.value)}
-            placeholder="0x…"
-            spellCheck={false}
-            value={value}
-          />
-        </label>
-        <div>
-          <p className="field-guidance" id="direct-tier-guidance">
-            {value && !valid
-              ? "Enter the complete address, starting with 0x."
-              : "We will confirm that this is a Backed By Fans membership before you can make changes."}
-          </p>
-          {valid ? (
-            <Link
-              className="button button-dark"
-              href={`/chains/${chainId}/tiers/${value.trim()}` as Route}
-            >
-              Open membership
-            </Link>
-          ) : (
-            <button className="button button-dark" disabled type="button">
-              Open membership
-            </button>
-          )}
-        </div>
-      </div>
-    </details>
-  );
-}
-
 type ConnectedDiscoveryProps = {
   cacheKey: string;
   deployment: ReadyDeployment;
+  initialPage?: AccountDiscoveryPage;
+  initialPaymentTokens?: AcceptedPaymentTokenReadState;
   wallet: Address;
 };
 
+type AccountDiscoveryProps = {
+  initialDiscovery?: {
+    chainId: ReadyDeployment["chainId"];
+    wallet: Address;
+    page: AccountDiscoveryPage;
+    paymentTokens: AcceptedPaymentTokenReadState;
+  };
+};
+
 const subscribeToHydration = () => () => undefined;
+
+function AccountArtwork({
+  chainId,
+  eager,
+  name,
+  tier,
+}: {
+  chainId: number;
+  eager: boolean;
+  name: string;
+  tier: Address;
+}) {
+  const src = `/api/chains/${chainId}/tiers/${tier}/artwork`;
+
+  return (
+    <span className="account-card-artwork">
+      <ResilientArtworkImage
+        alt={`${name} collection artwork`}
+        className="account-card-image"
+        fallback={
+          <span className="account-card-artwork-fallback">
+            Artwork temporarily unavailable
+          </span>
+        }
+        fetchPriority={eager ? "high" : "auto"}
+        fill
+        loading={eager ? "eager" : "lazy"}
+        sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
+        src={src}
+        unoptimized
+      />
+    </span>
+  );
+}
 
 function ConnectedDiscovery(props: ConnectedDiscoveryProps) {
   const hydrated = useSyncExternalStore(
@@ -92,7 +96,7 @@ function ConnectedDiscovery(props: ConnectedDiscoveryProps) {
     () => false,
   );
 
-  if (!hydrated) {
+  if (!hydrated && !props.initialPage) {
     return (
       <ReadStateView
         state={{
@@ -109,14 +113,30 @@ function ConnectedDiscovery(props: ConnectedDiscoveryProps) {
 function HydratedDiscovery({
   cacheKey,
   deployment,
+  initialPage,
+  initialPaymentTokens,
   wallet,
 }: ConnectedDiscoveryProps) {
   const client = usePublicClient({ chainId: deployment.chainId })!;
   const [savedCache, setSavedCache] = useState<AccountCache>(() =>
-    loadAccountCache(window.localStorage, cacheKey),
+    initialPage
+      ? mergeAccountPage(emptyAccountCache(), {
+          resumeOffset:
+            initialPage.skipped.length > 0
+              ? initialPage.offset
+              : initialPage.scannedTo,
+          complete:
+            initialPage.nextOffset === null && initialPage.skipped.length === 0,
+          capturedBlock: initialPage.capturedBlock,
+          scannedTiers: initialPage.scannedTiers,
+          results: initialPage.results,
+        })
+      : loadAccountCache(window.localStorage, cacheKey),
   );
-  const [offset, setOffset] = useState(() =>
-    savedCache.complete ? 0n : BigInt(savedCache.cursor),
+  const [offset, setOffset] = useState(
+    () =>
+      initialPage?.offset ??
+      (savedCache.complete ? 0n : BigInt(savedCache.cursor)),
   );
   const [request, setRequest] = useState(0);
   const discovery = useQuery({
@@ -127,6 +147,7 @@ function HydratedDiscovery({
         wallet,
         offset,
       }),
+    initialData: initialPage?.offset === offset ? initialPage : undefined,
   });
   const paymentTokens = useQuery({
     queryKey: [
@@ -141,6 +162,7 @@ function HydratedDiscovery({
         factory: deployment.factoryAddress,
         wallet,
       }),
+    initialData: initialPaymentTokens,
   });
   const tokenData =
     paymentTokens.data?.status === "valid" ||
@@ -186,14 +208,6 @@ function HydratedDiscovery({
     setSavedCache(currentCache);
   }
 
-  function eraseCache() {
-    window.localStorage.removeItem(cacheKey);
-    const empty = emptyAccountCache();
-    setSavedCache(empty);
-    setOffset(0n);
-    setRequest((value) => value + 1);
-  }
-
   function advance(nextOffset: bigint) {
     keepCurrentPage();
     setOffset(nextOffset);
@@ -212,6 +226,20 @@ function HydratedDiscovery({
             support and the ones you run.
           </p>
         </div>
+        <button
+          aria-label="Refresh memberships"
+          className="account-refresh"
+          disabled={discovery.isFetching}
+          onClick={() => {
+            keepCurrentPage();
+            setOffset(0n);
+            setRequest((value) => value + 1);
+          }}
+          type="button"
+        >
+          <ArrowClockwiseIcon aria-hidden="true" size={18} weight="bold" />
+          <span>{discovery.isFetching ? "Refreshing" : "Refresh"}</span>
+        </button>
       </div>
 
       {discovery.isLoading && (
@@ -248,167 +276,175 @@ function HydratedDiscovery({
 
           {currentCache.results.length === 0 ? (
             <div className="empty-room">
-              <p className="eyebrow">Nothing here yet</p>
               <h3>No memberships are connected to this wallet.</h3>
-              <p>
-                If you have a membership link, you can open it directly below.
-              </p>
+              <p>Explore memberships to find a creator to support.</p>
+              <Link className="button button-dark" href="/">
+                Explore memberships
+              </Link>
             </div>
           ) : (
             <ul className="account-tier-list">
-              {currentCache.results.map((tier) => (
-                <li key={tier.tier}>
-                  <div className="account-tier-identity">
-                    <strong className="font-display">{tier.name}</strong>
-                    <span className="membership-state">
-                      {tier.creatorOwned && tier.active
-                        ? "You are a member and the creator"
-                        : tier.creatorOwned
-                          ? "You manage this membership"
-                          : tier.tokenId === "0"
-                            ? "You have no active membership"
-                            : tier.active
-                              ? "Your membership is active"
-                              : "Your membership has ended"}
-                    </span>
-                    <details className="membership-reference">
-                      <summary>Membership details</summary>
-                      <dl>
-                        <div>
-                          <dt>Membership address</dt>
-                          <dd className="font-mono">{tier.tier}</dd>
-                        </div>
-                      </dl>
-                    </details>
-                  </div>
-                  {(BigInt(tier.claimableReward) > 0n ||
-                    BigInt(tier.claimableReferral) > 0n ||
-                    BigInt(tier.creatorProceeds) > 0n) && (
-                    <dl>
-                      {BigInt(tier.claimableReward) > 0n && (
-                        <div>
-                          <dt>Rewards ready to collect</dt>
-                          <dd>
-                            {claimLabel(
-                              BigInt(tier.claimableReward),
-                              tier.paymentToken,
-                            )}
-                          </dd>
-                        </div>
-                      )}
-                      {BigInt(tier.claimableReferral) > 0n && (
-                        <div>
-                          <dt>Referral earnings ready</dt>
-                          <dd>
-                            {claimLabel(
-                              BigInt(tier.claimableReferral),
-                              tier.paymentToken,
-                            )}
-                          </dd>
-                        </div>
-                      )}
-                      {tier.creatorOwned &&
-                        BigInt(tier.creatorProceeds) > 0n && (
-                          <div>
-                            <dt>Creator earnings ready</dt>
-                            <dd>
-                              {claimLabel(
-                                BigInt(tier.creatorProceeds),
-                                tier.paymentToken,
-                              )}
-                            </dd>
-                          </div>
-                        )}
-                    </dl>
-                  )}
-                  <div className="account-tier-actions">
-                    <Link
-                      className="button button-light"
-                      href={
-                        `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route
-                      }
-                    >
-                      View membership
-                    </Link>
-                    {tier.creatorOwned && (
+              {currentCache.results.map((tier, index) => {
+                const hasClaim =
+                  BigInt(tier.claimableReward) > 0n ||
+                  BigInt(tier.claimableReferral) > 0n ||
+                  BigInt(tier.creatorProceeds) > 0n;
+                const viewHref =
+                  `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route;
+
+                return (
+                  <li key={tier.tier}>
+                    <article className="account-membership-card">
                       <Link
-                        className="button button-dark"
-                        href={
-                          `/chains/${deployment.chainId}/tiers/${tier.tier}/manage` as Route
-                        }
+                        aria-label={`View ${tier.name}`}
+                        className="account-card-artwork-link"
+                        href={viewHref}
                       >
-                        Manage membership
+                        <AccountArtwork
+                          chainId={deployment.chainId}
+                          eager={index === 0}
+                          name={tier.name}
+                          tier={tier.tier}
+                        />
                       </Link>
-                    )}
-                  </div>
-                </li>
-              ))}
+                      <div className="account-card-copy">
+                        <div className="account-card-identity">
+                          <strong className="font-display">{tier.name}</strong>
+                          <span className="membership-state">
+                            {tier.creatorOwned && tier.active
+                              ? "Member and creator"
+                              : tier.creatorOwned
+                                ? "You are the creator"
+                                : tier.tokenId === "0"
+                                  ? "Not currently a member"
+                                  : tier.active
+                                    ? "Membership active"
+                                    : "Membership ended"}
+                          </span>
+                        </div>
+
+                        {hasClaim && (
+                          <dl className="account-card-balances">
+                            {BigInt(tier.claimableReward) > 0n && (
+                              <div>
+                                <dt>Rewards ready</dt>
+                                <dd>
+                                  {claimLabel(
+                                    BigInt(tier.claimableReward),
+                                    tier.paymentToken,
+                                  )}
+                                </dd>
+                              </div>
+                            )}
+                            {BigInt(tier.claimableReferral) > 0n && (
+                              <div>
+                                <dt>Referral earnings</dt>
+                                <dd>
+                                  {claimLabel(
+                                    BigInt(tier.claimableReferral),
+                                    tier.paymentToken,
+                                  )}
+                                </dd>
+                              </div>
+                            )}
+                            {tier.creatorOwned &&
+                              BigInt(tier.creatorProceeds) > 0n && (
+                                <div>
+                                  <dt>Creator earnings</dt>
+                                  <dd>
+                                    {claimLabel(
+                                      BigInt(tier.creatorProceeds),
+                                      tier.paymentToken,
+                                    )}
+                                  </dd>
+                                </div>
+                              )}
+                          </dl>
+                        )}
+
+                        <div className="account-tier-actions">
+                          <Link
+                            className={`button ${tier.creatorOwned ? "button-light" : "button-dark"}`}
+                            href={viewHref}
+                          >
+                            View membership
+                          </Link>
+                          {tier.creatorOwned && (
+                            <Link
+                              className="button button-dark"
+                              href={
+                                `/chains/${deployment.chainId}/tiers/${tier.tier}/manage` as Route
+                              }
+                            >
+                              Manage membership
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  </li>
+                );
+              })}
             </ul>
           )}
 
-          <div className="creator-actions">
-            {hasSkipped ? (
-              <button
-                className="button button-dark"
-                onClick={() => {
-                  keepCurrentPage();
-                  setRequest((value) => value + 1);
-                }}
-                type="button"
-              >
-                Try again
-              </button>
-            ) : page.nextOffset !== null ? (
-              <button
-                className="button button-dark"
-                onClick={() => advance(page.nextOffset as bigint)}
-                type="button"
-              >
-                Find more memberships
-              </button>
-            ) : (
-              <button
-                className="button button-light"
-                onClick={() => {
-                  keepCurrentPage();
-                  setOffset(0n);
-                  setRequest((value) => value + 1);
-                }}
-                type="button"
-              >
-                Check again
-              </button>
-            )}
-          </div>
-
-          <details className="account-list-settings">
-            <summary>List settings</summary>
-            <div>
-              <p>
-                This list is saved on this device to make future visits faster.
-              </p>
-              <button
-                className="text-button"
-                onClick={eraseCache}
-                type="button"
-              >
-                Clear saved list
-              </button>
+          {(hasSkipped || page.nextOffset !== null) && (
+            <div className="account-pagination-actions">
+              {hasSkipped ? (
+                <button
+                  className="button button-dark"
+                  onClick={() => {
+                    keepCurrentPage();
+                    setRequest((value) => value + 1);
+                  }}
+                  type="button"
+                >
+                  Try again
+                </button>
+              ) : (
+                <button
+                  className="button button-dark"
+                  onClick={() => advance(page.nextOffset as bigint)}
+                  type="button"
+                >
+                  Find more memberships
+                </button>
+              )}
             </div>
-          </details>
+          )}
         </>
       )}
     </section>
   );
 }
 
-export function AccountDiscovery() {
+export function AccountDiscovery({ initialDiscovery }: AccountDiscoveryProps) {
   const account = useAccount();
-  const { chainId, deployment } = useActiveNetwork();
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
+  const active = useActiveNetwork();
+  const chainId =
+    !hydrated && initialDiscovery ? initialDiscovery.chainId : active.chainId;
+  const deployment =
+    !hydrated && initialDiscovery
+      ? getDeployment(publicConfig, initialDiscovery.chainId)
+      : active.deployment;
+  const wallet =
+    !hydrated && initialDiscovery ? initialDiscovery.wallet : account.address;
+  const connected = !hydrated && initialDiscovery ? true : account.isConnected;
+  const matchingInitial =
+    initialDiscovery &&
+    wallet?.toLowerCase() === initialDiscovery.wallet.toLowerCase() &&
+    chainId === initialDiscovery.chainId
+      ? initialDiscovery
+      : undefined;
 
   const key =
-    deployment.status === "ready" && account.isConnected && account.address
-      ? accountCacheKey(chainId, deployment.factoryAddress, account.address)
+    deployment.status === "ready" && connected && wallet
+      ? accountCacheKey(chainId, deployment.factoryAddress, wallet)
       : undefined;
 
   return (
@@ -429,7 +465,7 @@ export function AccountDiscovery() {
           heading="Memberships unavailable"
           state={unavailableDeploymentState(deployment)}
         />
-      ) : !account.isConnected || !account.address ? (
+      ) : !connected || !wallet ? (
         <ReadStateView
           heading="Your memberships"
           state={{
@@ -443,11 +479,11 @@ export function AccountDiscovery() {
           cacheKey={key as string}
           deployment={deployment}
           key={key}
-          wallet={account.address}
+          initialPage={matchingInitial?.page}
+          initialPaymentTokens={matchingInitial?.paymentTokens}
+          wallet={wallet}
         />
       )}
-
-      <DirectTierAccess chainId={chainId} />
     </div>
   );
 }

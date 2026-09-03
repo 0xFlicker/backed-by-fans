@@ -7,11 +7,20 @@ import {
 } from "viem";
 
 import { membershipTierAbi, membershipFactoryAbi } from "@/contracts";
-import type { CatalogPage, TierSnapshot, TierSummary } from "@/contracts/types";
-import { verifyTierAuthenticity } from "@/lib/authenticity";
+import type {
+  CatalogPage,
+  CatalogTierSummary,
+  TierSnapshot,
+} from "@/contracts/types";
+import {
+  isTierArtConfig,
+  isTierMediaConfig,
+  verifyTierAuthenticity,
+} from "@/lib/authenticity";
 import type { ReadyDeployment } from "@/lib/config";
 import { readAcceptedPaymentTokens } from "@/lib/payment-token-read";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
+import { tierArtworkRevision } from "@/lib/tier-artwork-revision";
 
 export const catalogPageLimit = 24;
 export const maxCatalogPageLimit = 100;
@@ -29,10 +38,15 @@ const summaryFields = [
   "name",
   "symbol",
   "owner",
+  "description",
+  "externalURI",
   "paymentToken",
   "pricePerPeriod",
   "periodDuration",
   "paused",
+  "renderer",
+  "artConfig",
+  "mediaConfig",
 ] as const;
 
 export function validateTierRouteParam(value: string): Address | undefined {
@@ -97,28 +111,39 @@ export async function verifyMulticall3(
 function summaryFromResults(
   address: Address,
   results: unknown[],
-): TierSummary | undefined {
+): CatalogTierSummary | undefined {
   if (
     typeof results[0] !== "string" ||
     typeof results[1] !== "string" ||
     typeof results[2] !== "string" ||
     typeof results[3] !== "string" ||
-    typeof results[4] !== "bigint" ||
-    typeof results[5] !== "bigint" ||
-    typeof results[6] !== "boolean"
+    typeof results[4] !== "string" ||
+    typeof results[5] !== "string" ||
+    typeof results[6] !== "bigint" ||
+    typeof results[7] !== "bigint" ||
+    typeof results[8] !== "boolean" ||
+    typeof results[9] !== "string" ||
+    !isTierArtConfig(results[10]) ||
+    !isTierMediaConfig(results[11])
   ) {
     return undefined;
   }
-  return {
+  const summary = {
     address,
     name: results[0],
     symbol: results[1],
     creator: getAddress(results[2]),
-    paymentToken: getAddress(results[3]),
-    pricePerPeriod: results[4],
-    periodDuration: results[5],
-    paused: results[6],
+    description: results[3],
+    externalURI: results[4],
+    paymentToken: getAddress(results[5]),
+    pricePerPeriod: results[6],
+    periodDuration: results[7],
+    paused: results[8],
+    renderer: getAddress(results[9]),
+    art: results[10],
+    media: results[11],
   };
+  return { ...summary, artworkRevision: tierArtworkRevision(summary) };
 }
 
 async function readSummariesDirectly(
@@ -126,7 +151,7 @@ async function readSummariesDirectly(
   addresses: Address[],
   blockNumber: bigint,
 ) {
-  const summaries: TierSummary[] = [];
+  const summaries: CatalogTierSummary[] = [];
   const missing: string[] = [];
 
   for (const address of addresses) {
@@ -156,7 +181,7 @@ export async function readTierSummaries(
   client: PublicClient,
   addresses: Address[],
   blockNumber: bigint,
-): Promise<ReadState<TierSummary[]>> {
+): Promise<ReadState<CatalogTierSummary[]>> {
   if (addresses.length > catalogPageLimit) {
     throw new RangeError("Tier summaries must remain within one bounded page.");
   }
@@ -196,7 +221,7 @@ export async function readTierSummaries(
       blockNumber,
       multicallAddress: multicall3Address,
     });
-    const summaries: TierSummary[] = [];
+    const summaries: CatalogTierSummary[] = [];
     const missing: string[] = [];
 
     addresses.forEach((address, addressIndex) => {

@@ -49,54 +49,56 @@ export function WalletControl() {
         </select>
       </label>
       {activeChain?.testnet && <span className="testnet-badge">Testnet</span>}
-      <ConnectButton.Custom>
-        {({
-          account,
-          chain,
-          mounted,
-          openAccountModal,
-          openChainModal,
-          openConnectModal,
-        }) => {
-          const ready = mounted;
-          const connected = ready && account && chain;
+      <div className="wallet-account-slot">
+        <ConnectButton.Custom>
+          {({
+            account,
+            chain,
+            mounted,
+            openAccountModal,
+            openChainModal,
+            openConnectModal,
+          }) => {
+            const ready = mounted;
+            const connected = ready && account && chain;
 
-          if (!connected) {
+            if (!connected) {
+              return (
+                <button
+                  className="button button-small button-dark"
+                  disabled={!ready}
+                  onClick={openConnectModal}
+                  type="button"
+                >
+                  Connect wallet
+                </button>
+              );
+            }
+
+            if (chain.unsupported) {
+              return (
+                <button
+                  className="button button-small button-warning"
+                  onClick={openChainModal}
+                  type="button"
+                >
+                  <span aria-hidden="true">!</span> Wrong network
+                </button>
+              );
+            }
+
             return (
               <button
-                className="button button-small button-dark"
-                disabled={!ready}
-                onClick={openConnectModal}
+                className="button button-small button-dark font-mono"
+                onClick={openAccountModal}
                 type="button"
               >
-                Connect wallet
+                {account.displayName}
               </button>
             );
-          }
-
-          if (chain.unsupported) {
-            return (
-              <button
-                className="button button-small button-warning"
-                onClick={openChainModal}
-                type="button"
-              >
-                <span aria-hidden="true">!</span> Wrong network
-              </button>
-            );
-          }
-
-          return (
-            <button
-              className="button button-small button-dark font-mono"
-              onClick={openAccountModal}
-              type="button"
-            >
-              {account.displayName}
-            </button>
-          );
-        }}
-      </ConnectButton.Custom>
+          }}
+        </ConnectButton.Custom>
+      </div>
       {switchChain.error && (
         <span className="network-error" role="alert">
           Network switch rejected. Your current network was preserved.

@@ -1,73 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
 import type { Address } from "viem";
 
 type CopyState = "idle" | "copied" | "unavailable";
 
-const copyPresentation: Record<
-  CopyState,
-  { button: string; guidance: string }
-> = {
-  idle: { button: "Copy renderer address", guidance: "" },
-  copied: {
-    button: "Renderer address copied",
-    guidance: "Paste it into the renderer field for another membership.",
-  },
-  unavailable: {
-    button: "Copy unavailable",
-    guidance: "Select the address above and copy it manually.",
-  },
-};
-
-function chainName(chainId: number) {
-  if (chainId === 46_630) return "Robinhood Chain Testnet";
-  if (chainId === 31_337) return "local Anvil";
-  return "Robinhood Chain";
-}
-
-export function RendererDetails({
-  chainId,
-  renderer,
+export function CopyableAddress({
+  address,
+  explorerUrl,
+  label,
 }: {
-  chainId: number;
-  renderer: Address;
+  address: Address;
+  explorerUrl?: string;
+  label: string;
 }) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
-  const copy = copyPresentation[copyState];
+  const addressRef = useRef<HTMLSpanElement>(null);
 
-  async function copyRendererAddress() {
+  async function copyAddress() {
     try {
-      await navigator.clipboard.writeText(renderer);
+      await navigator.clipboard.writeText(address);
       setCopyState("copied");
     } catch {
+      const selection = window.getSelection();
+      if (selection && addressRef.current) {
+        const range = document.createRange();
+        range.selectNodeContents(addressRef.current);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
       setCopyState("unavailable");
     }
   }
 
+  const copyLabel = `Copy ${label.toLowerCase()} address`;
+
   return (
-    <details className="membership-reference">
-      <summary>Reuse this artwork</summary>
-      <p>
-        Copy the renderer address to try this artwork when creating another
-        membership on the same network. This address is on {chainName(chainId)}.
-      </p>
-      <dl aria-label="Renderer details">
-        <div>
-          <dt>Renderer address</dt>
-          <dd className="font-mono">{renderer}</dd>
-        </div>
-      </dl>
-      <button
-        className="text-button"
-        onClick={() => void copyRendererAddress()}
-        type="button"
-      >
-        {copy.button}
-      </button>
-      <span aria-live="polite" className="small-copy">
-        {copy.guidance}
+    <span className="copyable-address">
+      <span className="copyable-address-line">
+        <span className="font-mono" ref={addressRef}>
+          {address}
+        </span>
+        <button
+          aria-label={
+            copyState === "copied"
+              ? `${label} address copied`
+              : copyState === "unavailable"
+                ? `${label} address selected`
+                : copyLabel
+          }
+          className="copyable-address-button"
+          onClick={() => void copyAddress()}
+          title={copyState === "copied" ? "Copied" : copyLabel}
+          type="button"
+        >
+          {copyState === "copied" ? (
+            <CheckIcon aria-hidden="true" size={17} weight="bold" />
+          ) : (
+            <CopyIcon aria-hidden="true" size={17} weight="regular" />
+          )}
+        </button>
       </span>
-    </details>
+      {explorerUrl && (
+        <a
+          className="copyable-address-explorer"
+          href={`${explorerUrl}/address/${address}`}
+          rel="noreferrer"
+          target="_blank"
+        >
+          View on explorer
+        </a>
+      )}
+      <span aria-live="polite" className="sr-only">
+        {copyState === "copied"
+          ? `${label} address copied to the clipboard.`
+          : copyState === "unavailable"
+            ? `${label} address selected. Copy it manually.`
+            : ""}
+      </span>
+    </span>
   );
 }

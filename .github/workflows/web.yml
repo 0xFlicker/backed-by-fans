@@ -4,7 +4,29 @@ permissions: {}
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - "web/**"
+      - "contracts/src/**"
+      - "contracts/test/mocks/**"
+      - "contracts/foundry.toml"
+      - "contracts/remappings.txt"
+      - "contracts/lib/**"
+      - "scripts/test-web-anvil.sh"
+      - ".gitmodules"
+      - ".github/workflows/web.yml"
   pull_request:
+    paths:
+      - "web/**"
+      - "contracts/src/**"
+      - "contracts/test/mocks/**"
+      - "contracts/foundry.toml"
+      - "contracts/remappings.txt"
+      - "contracts/lib/**"
+      - "scripts/test-web-anvil.sh"
+      - ".gitmodules"
+      - ".github/workflows/web.yml"
   workflow_dispatch:
 
 jobs:

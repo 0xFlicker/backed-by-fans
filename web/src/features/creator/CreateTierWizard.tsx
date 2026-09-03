@@ -72,7 +72,7 @@ import {
 } from "@/features/creator-studio/PreviewGallery";
 import { decodeRendererTokenURI } from "@/features/creator-studio/renderer-preview";
 import { resolveRendererAddress } from "@/features/creator-studio/renderer-address";
-import { readCreatedRendererAddresses } from "@/features/renderer-registry/registry-read";
+import { useRendererLibrary } from "@/features/creator-studio/use-renderer-library";
 import {
   emptyMediaConfig,
   makeRendererPreviewContext,
@@ -413,50 +413,17 @@ export function CreateTierWizard() {
           : canonicalArtEngineManifestNames,
     };
   }, [deployment, protocol.data]);
-  const createdRenderers = useQuery({
-    queryKey: [
-      "creator-renderers",
+  const rendererLibrary = useRendererLibrary({
+    client,
+    registry:
       deployment.status === "ready"
         ? deployment.rendererRegistryAddress
         : undefined,
-      account.address,
-    ],
-    enabled: Boolean(
-      deployment.status === "ready" &&
-      deployment.rendererRegistryAddress &&
-      account.address &&
-      client,
-    ),
-    queryFn: async () => {
-      if (
-        deployment.status !== "ready" ||
-        !deployment.rendererRegistryAddress ||
-        !account.address ||
-        !client ||
-        (deployment.chainId !== 46_630 && deployment.chainId !== 31_337)
-      ) {
-        return [];
-      }
-      const addresses = await readCreatedRendererAddresses(
-        client,
-        deployment.rendererRegistryAddress,
-        account.address,
-      );
-      const canonicalChainId = deployment.chainId;
-      const resolutions = await Promise.allSettled(
-        addresses.map((address) =>
-          resolveRendererAddress(client, {
-            address,
-            canonicalChainId,
-            expectedSchema: membershipRendererSchema,
-          }),
-        ),
-      );
-      return resolutions.flatMap((resolution) =>
-        resolution.status === "fulfilled" ? [resolution.value] : [],
-      );
-    },
-    retry: false,
+    owner: account.address,
+    canonicalChainId:
+      deployment.status === "ready" ? deployment.chainId : undefined,
+    expectedSchema:
+      deployment.status === "ready" ? membershipRendererSchema : undefined,
   });
   const selectedRenderer =
     rendererChoice === "original" ? originalRenderer : rendererResolution;
@@ -2168,7 +2135,7 @@ export function CreateTierWizard() {
             </span>
             <CreatorStudio
               art={art}
-              createdRenderers={createdRenderers.data ?? []}
+              rendererLibrary={rendererLibrary.data ?? []}
               customRendererAddress={rendererAddress}
               customRendererState={rendererCustomState}
               disabled={

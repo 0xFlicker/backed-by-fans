@@ -3,20 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { getAddress } from "viem";
 import { describe, expect, it, vi } from "vitest";
 
-import { RendererDetails } from "@/features/membership/RendererDetails";
+import { CopyableAddress } from "@/features/membership/RendererDetails";
 
 const renderer = getAddress("0x6666666666666666666666666666666666666666");
 
 describe("renderer details", () => {
-  it("reveals and copies the renderer address with clear feedback", async () => {
+  it("shows and copies the renderer address without an expanding disclosure", async () => {
     const user = userEvent.setup();
     const writeText = vi
       .spyOn(navigator.clipboard, "writeText")
       .mockResolvedValue(undefined);
 
-    render(<RendererDetails chainId={46_630} renderer={renderer} />);
-
-    await user.click(screen.getByText("Reuse this artwork"));
+    render(<CopyableAddress address={renderer} label="Renderer" />);
 
     expect(screen.getByText(renderer)).toBeVisible();
 
@@ -30,14 +28,17 @@ describe("renderer details", () => {
     ).toBeVisible();
   });
 
-  it("explains same-testnet address sharing without registry or listing language", async () => {
-    const user = userEvent.setup();
-    render(<RendererDetails chainId={46_630} renderer={renderer} />);
+  it("links the address to the configured explorer", () => {
+    render(
+      <CopyableAddress
+        address={renderer}
+        explorerUrl="https://explorer.example"
+        label="Renderer"
+      />,
+    );
 
-    await user.click(screen.getByText("Reuse this artwork"));
-
-    expect(screen.getByText(/Robinhood Chain Testnet/i)).toBeVisible();
-    expect(screen.getByText(/same network/i)).toBeVisible();
-    expect(screen.queryByText(/registry|listing|submit/i)).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "View on explorer" }),
+    ).toHaveAttribute("href", `https://explorer.example/address/${renderer}`);
   });
 });

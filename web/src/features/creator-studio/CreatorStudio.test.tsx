@@ -52,12 +52,12 @@ const customRenderer = {
 
 function StudioHarness({
   renderer = foundingRenderer,
-  createdRenderers = [],
+  rendererLibrary = [],
   initialEngine = 0,
   initialRendererChoice = "original",
 }: {
   renderer?: RendererAddressResolution | null;
-  createdRenderers?: readonly StudioRenderer[];
+  rendererLibrary?: readonly StudioRenderer[];
   initialEngine?: number;
   initialRendererChoice?: CreatorStudioProps["rendererChoice"];
 } = {}) {
@@ -79,7 +79,7 @@ function StudioHarness({
   return (
     <CreatorStudio
       art={art}
-      createdRenderers={createdRenderers}
+      rendererLibrary={rendererLibrary}
       customRendererAddress={customAddress}
       customRendererState={{ status: "idle" }}
       media={media}
@@ -125,7 +125,7 @@ describe("CreatorStudio", () => {
 
   it("puts the connected creator's renderers before the six defaults and Custom", async () => {
     const user = userEvent.setup();
-    render(<StudioHarness createdRenderers={[customRenderer]} />);
+    render(<StudioHarness rendererLibrary={[customRenderer]} />);
 
     const choices = within(
       screen.getByRole("radiogroup", { name: "Art styles" }),
@@ -141,6 +141,8 @@ describe("CreatorStudio", () => {
       "data-renderer-address",
       customRenderer.address,
     );
+    expect(screen.getByText("Customize artwork")).toBeInTheDocument();
+    expect(screen.getByText("Add an image")).toBeInTheDocument();
   });
 
   it("places collapsed artwork and image controls together below the preview", () => {

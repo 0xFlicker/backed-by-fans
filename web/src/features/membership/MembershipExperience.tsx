@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import { useLayoutEffect, useReducer, useRef, useState } from "react";
@@ -17,18 +16,15 @@ import {
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 
 import { WalletControl } from "@/components/WalletControl";
-import { membershipTierAbi, onchainMetadataRendererAbi } from "@/contracts";
+import { ResilientArtworkImage } from "@/components/ResilientArtworkImage";
+import { membershipTierAbi } from "@/contracts";
 import type { TierSupporterSnapshot } from "@/contracts/types";
 import { parseUint64Input } from "@/features/creator/management";
-import { decodeRendererTokenURI } from "@/features/creator-studio/renderer-preview";
-import { svgPreviewDataURI } from "@/features/creator-studio/PreviewGallery";
 import { readGiftRecipientState } from "@/features/membership/membership-read";
 import { formatMembershipDate } from "@/features/membership/date";
-import {
-  captureSharedReferrer,
-  membershipShareUrl,
-} from "@/features/membership/referral";
-import { RendererDetails } from "@/features/membership/RendererDetails";
+import { captureSharedReferrer } from "@/features/membership/referral";
+import { CopyableAddress } from "@/features/membership/RendererDetails";
+import { ShareMembership } from "@/features/membership/ShareMembership";
 import {
   buildPaymentPreview,
   classifyMembershipState,
@@ -51,6 +47,7 @@ import { getWriteGuard, type AuthenticityResult } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
 import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain } from "@/lib/chains";
+import { tierArtworkRevision } from "@/lib/tier-artwork-revision";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import type { ReadState } from "@/lib/read-state";
 import { robinhoodTestnetFaucetUrl } from "@/lib/testnet-funding";
@@ -148,6 +145,39 @@ function membershipStatusTitle(credential: {
   return credential.occupied ? "Membership expired" : "Previous membership";
 }
 
+function publicExternalUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function CollectionArtwork({ name, src }: { name: string; src: string }) {
+  return (
+    <ResilientArtworkImage
+      alt={`${name} collection artwork`}
+      className="membership-artwork-image"
+      fallback={
+        <div className="membership-artwork-placeholder" role="alert">
+          <strong>Collection artwork is temporarily unavailable.</strong>
+          <span>The membership details are still available below.</span>
+        </div>
+      }
+      fetchPriority="high"
+      height={1200}
+      priority
+      sizes="(max-width: 1100px) 100vw, 58vw"
+      src={src}
+      unoptimized
+      width={1200}
+    />
+  );
+}
+
 export function MembershipExperience({
   snapshot,
   capturedBlock,
@@ -174,9 +204,6 @@ export function MembershipExperience({
   const [periods, setPeriods] = useState("1");
   const [contribution, setContribution] = useState("0");
   const sharedReferrer = useRef<Address | undefined>(undefined);
-  const [shareState, setShareState] = useState<
-    "idle" | "copied" | "unavailable"
-  >("idle");
   const [giftRecipient, setGiftRecipient] = useState("");
   const [giftPeriods, setGiftPeriods] = useState("1");
   const [preparedAction, setPreparedAction] = useState("");
@@ -199,52 +226,9 @@ export function MembershipExperience({
         referenceTime: new Date(Number(snapshot.capturedTimestamp) * 1_000),
       })
     : undefined;
-  const artworkTokenId = snapshot.credential?.tokenId ?? 1n;
-  const artworkContext = {
-    token: {
-      tierName: snapshot.name,
-      description: snapshot.description,
-      externalURI: snapshot.externalURI,
-      tierIdentity: snapshot.tierIdentity,
-      art: snapshot.art,
-      media: snapshot.media,
-      tokenId: artworkTokenId,
-      expiration:
-        snapshot.credential?.expiration ??
-        snapshot.capturedTimestamp + snapshot.periodDuration,
-      active: snapshot.credential?.active ?? true,
-    },
-    nativeMedia: "0x" as const,
-  };
-  const artwork = useQuery({
-    queryKey: [
-      "membership-artwork",
-      expectedChainId,
-      snapshot.address,
-      snapshot.credential?.minted ? "minted-token-uri" : "preview-token-uri",
-      artworkTokenId.toString(),
-      capturedBlock.toString(),
-    ],
-    queryFn: async () => {
-      const tokenURI = snapshot.credential?.minted
-        ? await client.readContract({
-            address: snapshot.address,
-            abi: membershipTierAbi,
-            functionName: "tokenURI",
-            args: [artworkTokenId],
-            blockNumber: capturedBlock,
-          })
-        : await client.readContract({
-            address: snapshot.renderer,
-            abi: onchainMetadataRendererAbi,
-            functionName: "previewTokenURI",
-            args: [artworkContext],
-            blockNumber: capturedBlock,
-          });
-      return decodeRendererTokenURI(tokenURI).svg;
-    },
-    staleTime: Infinity,
-  });
+  const artworkRevision = tierArtworkRevision(snapshot);
+  const artworkSrc = `/api/chains/${expectedChainId}/tiers/${snapshot.address}/artwork?v=${artworkRevision}`;
+  const externalUrl = publicExternalUrl(snapshot.externalURI);
   useLayoutEffect(() => {
     const captured = captureSharedReferrer({
       chainId: expectedChainId,
@@ -667,143 +651,74 @@ export function MembershipExperience({
   const managePath =
     `/chains/${expectedChainId}/tiers/${snapshot.address}/manage` as Route;
 
-  async function copyShareLink() {
-    if (!account.address) return;
-    try {
-      await navigator.clipboard.writeText(
-        membershipShareUrl({
-          origin: window.location.origin,
-          chainId: expectedChainId,
-          tier: snapshot.address,
-          referrer: account.address,
-        }),
-      );
-      setShareState("copied");
-    } catch {
-      setShareState("unavailable");
-    }
-  }
-
   return (
     <div className="membership-experience">
-      <section className="membership-artwork" aria-label="Membership artwork">
+      <section className="membership-hero" aria-label="Membership overview">
         <div className="membership-artwork-stage">
-          {artwork.isPending && (
-            <div className="membership-artwork-placeholder" role="status">
-              <span>Reading canonical art from the membership contract…</span>
-            </div>
-          )}
-          {artwork.isError && (
-            <div className="membership-artwork-placeholder" role="alert">
-              <strong>Canonical art is temporarily unavailable.</strong>
-              <span>
-                Refresh the membership to read it again from captured block{" "}
-                {capturedBlock.toString()}.
-              </span>
-            </div>
-          )}
-          {artwork.data && (
-            <Image
-              alt={`${snapshot.name} membership ${
-                snapshot.credential
-                  ? `#${snapshot.credential.tokenId.toString()}`
-                  : "collection preview"
-              }`}
-              className="membership-artwork-image"
-              height={1200}
-              sizes="(max-width: 960px) 100vw, 62vw"
-              src={svgPreviewDataURI(artwork.data)}
-              unoptimized
-              width={1200}
-            />
-          )}
-        </div>
-        <div className="membership-artwork-copy">
-          <p className="eyebrow">
-            {snapshot.credential ? "Your collectible" : "Collection preview"}
-          </p>
-          <h2 className="font-display">
-            {snapshot.credential
-              ? `Membership #${snapshot.credential.tokenId.toString()}`
-              : "Born entirely onchain"}
-          </h2>
-          <p>
-            {snapshot.credential
-              ? "The contract returns this self-contained SVG directly, including any creator image bytes stored on Robinhood Chain."
-              : "A deterministic first-token composition from this membership’s permanent art direction."}
-          </p>
-          <RendererDetails
-            chainId={snapshot.protocolDependencies.chainId}
-            renderer={snapshot.renderer}
+          <CollectionArtwork
+            key={artworkSrc}
+            name={snapshot.name}
+            src={artworkSrc}
           />
-          {snapshot.credential && (
-            <span className="membership-artwork-state">
-              {!snapshot.credential.minted
-                ? "NFT synced · membership record retained"
-                : snapshot.credential.active
-                  ? "Active composition"
-                  : "Afterglow composition"}
-            </span>
-          )}
         </div>
-      </section>
-
-      <div className="tier-identity">
-        <div>
-          <p className="eyebrow">Membership</p>
+        <div className="membership-hero-copy">
+          <div className="membership-identity-heading">
+            <p className="eyebrow">Onchain membership</p>
+            <span className="membership-symbol">{snapshot.symbol}</span>
+          </div>
           <h1 className="font-display">{snapshot.name}</h1>
-          <p>
+          <p className="membership-description">
             {snapshot.description ||
               "The creator has not added a description yet."}
           </p>
-        </div>
-        <div className="membership-identity-actions">
-          <span className="membership-symbol">{snapshot.symbol}</span>
-          {account.address && (
-            <div className="membership-action-links">
-              {isCreator && (
-                <Link
-                  className="button button-dark button-small"
-                  href={managePath}
-                >
-                  Manage membership
-                </Link>
-              )}
-              <button
-                className="text-button"
-                onClick={() => void copyShareLink()}
-                type="button"
-              >
-                {shareState === "copied"
-                  ? "Link copied"
-                  : shareState === "unavailable"
-                    ? "Copy unavailable"
-                    : "Copy share link"}
-              </button>
-            </div>
+          {externalUrl && (
+            <a
+              className="membership-external-link"
+              href={externalUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Visit creator link
+            </a>
           )}
-        </div>
-      </div>
+          <div className="membership-action-links">
+            {isCreator && (
+              <Link
+                className="button button-dark button-small"
+                href={managePath}
+              >
+                Manage membership
+              </Link>
+            )}
+            <ShareMembership
+              chainId={expectedChainId}
+              name={snapshot.name}
+              referrer={account.address}
+              tier={snapshot.address}
+            />
+          </div>
 
-      <dl className="membership-essentials" aria-label="Membership terms">
-        <div>
-          <dt>Price</dt>
-          <dd>{paymentLabel(snapshot.pricePerPeriod)}</dd>
+          <dl className="membership-essentials" aria-label="Membership terms">
+            <div>
+              <dt>Price</dt>
+              <dd>{paymentLabel(snapshot.pricePerPeriod)}</dd>
+            </div>
+            <div>
+              <dt>Period</dt>
+              <dd>{formatPeriod(snapshot.periodDuration)}</dd>
+            </div>
+            <div>
+              <dt>Members</dt>
+              <dd>
+                {snapshot.occupiedSupply.toString()}
+                {snapshot.supplyCap === 0n
+                  ? " active"
+                  : ` of ${snapshot.supplyCap.toString()}`}
+              </dd>
+            </div>
+          </dl>
         </div>
-        <div>
-          <dt>Membership period</dt>
-          <dd>{formatPeriod(snapshot.periodDuration)}</dd>
-        </div>
-        <div>
-          <dt>Members</dt>
-          <dd>
-            {snapshot.occupiedSupply.toString()}
-            {snapshot.supplyCap === 0n
-              ? " active"
-              : ` of ${snapshot.supplyCap.toString()}`}
-          </dd>
-        </div>
-      </dl>
+      </section>
 
       {snapshot.credential && (
         <section
@@ -1015,92 +930,6 @@ export function MembershipExperience({
               </div>
             )}
           </section>
-
-          {snapshot.pricePerPeriod > 0n && (
-            <details className="gift-action">
-              <summary>Gift this membership</summary>
-              <div>
-                <h2>Send membership time</h2>
-                <p>The recipient gets membership access without paying.</p>
-                <label className="creator-field">
-                  <span>Recipient wallet</span>
-                  <input
-                    className="font-mono"
-                    onChange={(event) => setGiftRecipient(event.target.value)}
-                    value={giftRecipient}
-                  />
-                  {giftRecipient && giftError && (
-                    <small role="alert">{giftError}</small>
-                  )}
-                </label>
-                <label className="creator-field">
-                  <span>Whole periods</span>
-                  <input
-                    inputMode="numeric"
-                    min="1"
-                    onChange={(event) => setGiftPeriods(event.target.value)}
-                    value={giftPeriods}
-                  />
-                </label>
-                {giftState.isLoading && (
-                  <p className="inline-status" role="status">
-                    Checking the recipient&apos;s membership.
-                  </p>
-                )}
-                {giftState.error && (
-                  <p className="inline-status" role="alert">
-                    Recipient details are unavailable. Try again.
-                  </p>
-                )}
-                {giftPreview && (
-                  <dl className="payment-preview">
-                    <div>
-                      <dt>Total</dt>
-                      <dd>{paymentLabel(giftPreview.gross)}</dd>
-                    </div>
-                    <div>
-                      <dt>Access added</dt>
-                      <dd>{formatPeriod(giftPreview.duration)}</dd>
-                    </div>
-                    <div>
-                      <dt>Membership through</dt>
-                      <dd>
-                        {formatMembershipDate(giftPreview.resultingExpiration)}
-                      </dd>
-                    </div>
-                  </dl>
-                )}
-                {giftCapacityFull && (
-                  <p className="inline-status" role="alert">
-                    This membership is currently full.
-                  </p>
-                )}
-                {giftExceedsPrepaymentLimit && (
-                  <p className="inline-status" role="alert">
-                    This gift would exceed the recipient&apos;s prepaid period
-                    limit.
-                  </p>
-                )}
-                <button
-                  className="button button-warning"
-                  disabled={
-                    !writesVerified ||
-                    Boolean(giftError) ||
-                    !giftPreview ||
-                    snapshot.paused ||
-                    giftCapacityFull ||
-                    giftExceedsPrepaymentLimit ||
-                    (snapshot.walletPaymentTokenBalance ?? 0n) <
-                      (giftPreview?.gross ?? 0n)
-                  }
-                  onClick={() => void sendGift()}
-                  type="button"
-                >
-                  Send gift
-                </button>
-              </div>
-            </details>
-          )}
         </div>
 
         {hasClaims && (
@@ -1216,6 +1045,92 @@ export function MembershipExperience({
             )}
           </aside>
         )}
+
+        {snapshot.pricePerPeriod > 0n && (
+          <details className="gift-action">
+            <summary>Gift this membership</summary>
+            <div>
+              <h2>Send membership time</h2>
+              <p>The recipient gets membership access without paying.</p>
+              <label className="creator-field">
+                <span>Recipient wallet</span>
+                <input
+                  className="font-mono"
+                  onChange={(event) => setGiftRecipient(event.target.value)}
+                  value={giftRecipient}
+                />
+                {giftRecipient && giftError && (
+                  <small role="alert">{giftError}</small>
+                )}
+              </label>
+              <label className="creator-field">
+                <span>Whole periods</span>
+                <input
+                  inputMode="numeric"
+                  min="1"
+                  onChange={(event) => setGiftPeriods(event.target.value)}
+                  value={giftPeriods}
+                />
+              </label>
+              {giftState.isLoading && (
+                <p className="inline-status" role="status">
+                  Checking the recipient&apos;s membership.
+                </p>
+              )}
+              {giftState.error && (
+                <p className="inline-status" role="alert">
+                  Recipient details are unavailable. Try again.
+                </p>
+              )}
+              {giftPreview && (
+                <dl className="payment-preview">
+                  <div>
+                    <dt>Total</dt>
+                    <dd>{paymentLabel(giftPreview.gross)}</dd>
+                  </div>
+                  <div>
+                    <dt>Access added</dt>
+                    <dd>{formatPeriod(giftPreview.duration)}</dd>
+                  </div>
+                  <div>
+                    <dt>Membership through</dt>
+                    <dd>
+                      {formatMembershipDate(giftPreview.resultingExpiration)}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+              {giftCapacityFull && (
+                <p className="inline-status" role="alert">
+                  This membership is currently full.
+                </p>
+              )}
+              {giftExceedsPrepaymentLimit && (
+                <p className="inline-status" role="alert">
+                  This gift would exceed the recipient&apos;s prepaid period
+                  limit.
+                </p>
+              )}
+              <button
+                className="button button-warning"
+                disabled={
+                  !writesVerified ||
+                  Boolean(giftError) ||
+                  !giftPreview ||
+                  snapshot.paused ||
+                  giftCapacityFull ||
+                  giftExceedsPrepaymentLimit ||
+                  (snapshot.walletPaymentTokenBalance ?? 0n) <
+                    (giftPreview?.gross ?? 0n)
+                }
+                onClick={() => void sendGift()}
+                type="button"
+              >
+                Send gift
+              </button>
+            </div>
+          </details>
+        )}
       </div>
 
       <details className="contract-facts">
@@ -1223,27 +1138,53 @@ export function MembershipExperience({
         <dl>
           <div>
             <dt>Membership</dt>
-            <dd className="font-mono">
-              {explorerUrl ? (
-                <a href={`${explorerUrl}/address/${snapshot.address}`}>
-                  {snapshot.address}
-                </a>
-              ) : (
-                snapshot.address
-              )}
+            <dd>
+              <CopyableAddress
+                address={snapshot.address}
+                explorerUrl={explorerUrl}
+                label="Membership"
+              />
             </dd>
           </div>
           <div>
             <dt>Creator</dt>
-            <dd className="font-mono">{snapshot.creator}</dd>
+            <dd>
+              <CopyableAddress
+                address={snapshot.creator}
+                explorerUrl={explorerUrl}
+                label="Creator"
+              />
+            </dd>
           </div>
           <div>
             <dt>Factory</dt>
-            <dd className="font-mono">{snapshot.factory}</dd>
+            <dd>
+              <CopyableAddress
+                address={snapshot.factory}
+                explorerUrl={explorerUrl}
+                label="Factory"
+              />
+            </dd>
           </div>
           <div>
             <dt>Payment token</dt>
-            <dd className="font-mono">{snapshot.paymentToken}</dd>
+            <dd>
+              <CopyableAddress
+                address={snapshot.paymentToken}
+                explorerUrl={explorerUrl}
+                label="Payment token"
+              />
+            </dd>
+          </div>
+          <div>
+            <dt>Renderer</dt>
+            <dd>
+              <CopyableAddress
+                address={snapshot.renderer}
+                explorerUrl={explorerUrl}
+                label="Renderer"
+              />
+            </dd>
           </div>
         </dl>
       </details>

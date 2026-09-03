@@ -11,22 +11,23 @@ import { AppProviders } from "@/components/AppProviders";
 import { BackingStackMark } from "@/components/BackingStackMark";
 import { WalletControl } from "@/components/WalletControl";
 import { publicConfig } from "@/lib/config";
+import { readServerWalletState } from "@/lib/server-wallet-state";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(publicConfig.siteUrl),
   title: {
-    default: "Backed By Fans — Creator-owned memberships",
+    default: "Backed By Fans | Creator-owned memberships",
     template: "%s | Backed By Fans",
   },
   description:
-    "Creator-owned memberships for the people who make the work possible.",
+    "Create an onchain NFT your fans can join directly, with terms you control and membership building blocks.",
   applicationName: "Backed By Fans",
   openGraph: {
     title: "Creator-owned. Backed By Fans.",
     description:
-      "Create a membership your fans can join directly, with terms you control and a membership record they keep.",
+      "Create an onchain NFT your fans can join directly, with terms you control and membership building blocks.",
     siteName: "Backed By Fans",
     type: "website",
   },
@@ -34,18 +35,24 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Creator-owned. Backed By Fans.",
     description:
-      "Creator-owned memberships for the people who make the work possible.",
+      "Create an onchain NFT your fans can join directly, with terms you control and membership building blocks.",
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const initialState = await readServerWalletState();
+
   return (
     <html className={`${GeistSans.variable} ${GeistMono.variable}`} lang="en">
       <body>
-        <AppProviders>
+        <AppProviders initialState={initialState}>
           <a className="skip-link" href="#main-content">
             Skip to content
           </a>
@@ -59,7 +66,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <span>Backed By Fans</span>
             </Link>
             <nav aria-label="Primary navigation" className="primary-nav">
-              <Link href="/memberships">Explore</Link>
+              <Link href="/about">About</Link>
               <Link href="/account">My account</Link>
               <Link href="/create">For creators</Link>
               <Link href="/skill">Make art</Link>

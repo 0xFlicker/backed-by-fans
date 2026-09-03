@@ -80,7 +80,7 @@ export function TierReadPanel({
     );
   }
 
-  if (tier.data.status === "valid") {
+  if (tier.data.status === "valid" || tier.data.status === "stale") {
     return (
       <MembershipExperience
         capturedBlock={tier.data.capturedBlock}
