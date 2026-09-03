@@ -27,6 +27,9 @@ export type CatalogArtwork = {
   etag: string;
   revision: Hex;
   capturedBlock: bigint;
+  name: string;
+  symbol: string;
+  description: string;
 };
 
 export async function readServerCatalogArtwork(
@@ -47,6 +50,7 @@ export async function readServerCatalogArtwork(
         args: [tier],
       },
       { address: tier, abi: membershipTierAbi, functionName: "name" },
+      { address: tier, abi: membershipTierAbi, functionName: "symbol" },
       { address: tier, abi: membershipTierAbi, functionName: "description" },
       { address: tier, abi: membershipTierAbi, functionName: "externalURI" },
       { address: tier, abi: membershipTierAbi, functionName: "tierIdentity" },
@@ -59,6 +63,7 @@ export async function readServerCatalogArtwork(
   const [
     registered,
     name,
+    symbol,
     description,
     externalURI,
     tierIdentity,
@@ -69,6 +74,7 @@ export async function readServerCatalogArtwork(
   if (!registered) throw new Error("The membership is not factory registered.");
   if (
     typeof name !== "string" ||
+    typeof symbol !== "string" ||
     typeof description !== "string" ||
     typeof externalURI !== "string" ||
     typeof tierIdentity !== "string" ||
@@ -119,5 +125,8 @@ export async function readServerCatalogArtwork(
     etag: `"${keccak256(bytesToHex(decoded.svgBytes))}"`,
     revision,
     capturedBlock,
+    name,
+    symbol,
+    description,
   };
 }
