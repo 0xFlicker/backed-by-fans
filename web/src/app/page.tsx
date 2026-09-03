@@ -18,7 +18,11 @@ export default async function HomePage() {
   const initialCatalog = await readServerCatalogState();
 
   return (
-    <section className="page-shell home-catalog-page">
+    <section
+      className="page-shell home-catalog-page"
+      data-catalog-source="server"
+      id="membership-catalog"
+    >
       <header className="home-catalog-intro">
         <p className="eyebrow">Explore memberships</p>
         <h1 className="font-display">Find a membership worth joining.</h1>

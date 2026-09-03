@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getAddress, zeroAddress } from "viem";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { artworkRetryDelayMs } from "@/components/ResilientArtworkImage";
 import type {
   ProtocolDependencySnapshot,
   TierArtConfig,
@@ -74,6 +75,8 @@ const media: TierMediaConfig = {
   runtimeCodehash: `0x${"00".repeat(32)}`,
 };
 const tierIdentity = `0x${"ab".repeat(32)}` as const;
+
+afterEach(() => vi.useRealTimers());
 
 const snapshot: TierSupporterSnapshot = {
   address: getAddress("0x2222222222222222222222222222222222222222"),
@@ -376,7 +379,7 @@ describe("supporter membership experience", () => {
   });
 
   it("keeps the renderer address available when artwork rendering fails", async () => {
-    const user = userEvent.setup();
+    vi.useFakeTimers();
     const writeText = vi
       .spyOn(navigator.clipboard, "writeText")
       .mockResolvedValue(undefined);
@@ -387,11 +390,19 @@ describe("supporter membership experience", () => {
         name: "The listening room collection artwork",
       }),
     );
+    act(() => vi.advanceTimersByTime(artworkRetryDelayMs));
+    fireEvent.error(
+      screen.getByRole("img", {
+        name: "The listening room collection artwork",
+      }),
+    );
+    vi.useRealTimers();
 
     expect(
       screen.getByText("Collection artwork is temporarily unavailable."),
     ).toBeVisible();
 
+    const user = userEvent.setup();
     await user.click(screen.getByText("Contract Addresses"));
 
     expect(screen.getByText(renderer)).toBeVisible();

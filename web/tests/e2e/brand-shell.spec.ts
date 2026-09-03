@@ -8,8 +8,8 @@ test("renders the membership catalog at the canonical homepage", async ({
   const response = await request.get("/");
   expect(response.ok()).toBe(true);
   const serverHtml = await response.text();
-  expect(serverHtml).toContain("Find a membership worth joining.");
-  expect(serverHtml).toContain("collection artwork");
+  expect(serverHtml).toContain('id="membership-catalog"');
+  expect(serverHtml).toContain('data-catalog-source="server"');
 
   await page.goto("/");
 

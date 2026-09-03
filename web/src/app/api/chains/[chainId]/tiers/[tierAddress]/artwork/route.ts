@@ -1,7 +1,8 @@
 import { getAddress } from "viem";
 
-import { getDeployment, publicConfig } from "@/lib/config";
+import { renderCatalogArtworkFallback } from "@/lib/catalog-artwork-fallback";
 import { parseSupportedChainId } from "@/lib/chains";
+import { getDeployment, publicConfig } from "@/lib/config";
 import { validateTierRouteParam } from "@/lib/direct-read";
 import { readServerCatalogArtwork } from "@/lib/server-catalog-artwork";
 import { getServerPublicClient } from "@/lib/server-rpc";
@@ -11,6 +12,8 @@ export const runtime = "nodejs";
 const browserCache = "public, max-age=60, stale-while-revalidate=60";
 const edgeCache =
   "public, max-age=300, stale-while-revalidate=3600, stale-if-error=86400";
+const fallbackBrowserCache = "public, max-age=0, must-revalidate";
+const fallbackEdgeCache = "public, max-age=15";
 
 export async function GET(
   request: Request,
@@ -55,6 +58,7 @@ export async function GET(
           "Cache-Control": browserCache,
           "Vercel-CDN-Cache-Control": edgeCache,
           ETag: artwork.etag,
+          "X-Backed-By-Fans-Artwork": "rendered",
         },
       });
     }
@@ -65,6 +69,7 @@ export async function GET(
         "Content-Type": "image/svg+xml; charset=utf-8",
         ETag: artwork.etag,
         "Vercel-CDN-Cache-Control": edgeCache,
+        "X-Backed-By-Fans-Artwork": "rendered",
         "X-Backed-By-Fans-Block": artwork.capturedBlock.toString(),
       },
     });
@@ -74,9 +79,13 @@ export async function GET(
       tier,
       error,
     });
-    return Response.json(
-      { error: "The collection artwork is temporarily unavailable." },
-      { status: 502, headers: { "Cache-Control": "no-store" } },
-    );
+    return new Response(renderCatalogArtworkFallback(getAddress(tier)), {
+      headers: {
+        "Cache-Control": fallbackBrowserCache,
+        "Content-Type": "image/svg+xml; charset=utf-8",
+        "Vercel-CDN-Cache-Control": fallbackEdgeCache,
+        "X-Backed-By-Fans-Artwork": "fallback",
+      },
+    });
   }
 }

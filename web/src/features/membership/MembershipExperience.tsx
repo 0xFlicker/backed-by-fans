@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import { useLayoutEffect, useReducer, useRef, useState } from "react";
@@ -17,6 +16,7 @@ import {
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 
 import { WalletControl } from "@/components/WalletControl";
+import { ResilientArtworkImage } from "@/components/ResilientArtworkImage";
 import { membershipTierAbi } from "@/contracts";
 import type { TierSupporterSnapshot } from "@/contracts/types";
 import { parseUint64Input } from "@/features/creator/management";
@@ -157,20 +157,18 @@ function publicExternalUrl(value: string) {
 }
 
 function CollectionArtwork({ name, src }: { name: string; src: string }) {
-  const [failed, setFailed] = useState(false);
-
-  return failed ? (
-    <div className="membership-artwork-placeholder" role="alert">
-      <strong>Collection artwork is temporarily unavailable.</strong>
-      <span>The membership details are still available below.</span>
-    </div>
-  ) : (
-    <Image
+  return (
+    <ResilientArtworkImage
       alt={`${name} collection artwork`}
       className="membership-artwork-image"
+      fallback={
+        <div className="membership-artwork-placeholder" role="alert">
+          <strong>Collection artwork is temporarily unavailable.</strong>
+          <span>The membership details are still available below.</span>
+        </div>
+      }
       fetchPriority="high"
       height={1200}
-      onError={() => setFailed(true)}
       priority
       sizes="(max-width: 1100px) 100vw, 58vw"
       src={src}

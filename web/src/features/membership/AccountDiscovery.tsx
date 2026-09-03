@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
@@ -10,6 +9,7 @@ import type { Address } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
+import { ResilientArtworkImage } from "@/components/ResilientArtworkImage";
 import {
   accountCacheKey,
   emptyAccountCache,
@@ -66,29 +66,25 @@ function AccountArtwork({
   name: string;
   tier: Address;
 }) {
-  const [failed, setFailed] = useState(false);
   const src = `/api/chains/${chainId}/tiers/${tier}/artwork`;
 
   return (
     <span className="account-card-artwork">
-      {!failed && (
-        <Image
-          alt={`${name} collection artwork`}
-          className="account-card-image"
-          fetchPriority={eager ? "high" : "auto"}
-          fill
-          loading={eager ? "eager" : "lazy"}
-          onError={() => setFailed(true)}
-          sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
-          src={src}
-          unoptimized
-        />
-      )}
-      {failed && (
-        <span className="account-card-artwork-fallback">
-          Artwork temporarily unavailable
-        </span>
-      )}
+      <ResilientArtworkImage
+        alt={`${name} collection artwork`}
+        className="account-card-image"
+        fallback={
+          <span className="account-card-artwork-fallback">
+            Artwork temporarily unavailable
+          </span>
+        }
+        fetchPriority={eager ? "high" : "auto"}
+        fill
+        loading={eager ? "eager" : "lazy"}
+        sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
+        src={src}
+        unoptimized
+      />
     </span>
   );
 }

@@ -1,13 +1,13 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import type { CatalogTierSummary } from "@/contracts/types";
 import { ReadStateView } from "@/components/ReadState";
+import { ResilientArtworkImage } from "@/components/ResilientArtworkImage";
+import type { CatalogTierSummary } from "@/contracts/types";
 import {
   readCatalogSnapshot,
   type CatalogInitialState,
@@ -40,29 +40,25 @@ function CatalogArtwork({
   tier: CatalogTierSummary;
   eager: boolean;
 }) {
-  const [failed, setFailed] = useState(false);
   const src = `/api/chains/${chainId}/tiers/${tier.address}/artwork?v=${tier.artworkRevision}`;
 
   return (
     <div className="catalog-card-artwork">
-      {!failed && (
-        <Image
-          alt={`${tier.name} collection artwork`}
-          className="catalog-card-image"
-          fetchPriority={eager ? "high" : "auto"}
-          fill
-          loading={eager ? "eager" : "lazy"}
-          onError={() => setFailed(true)}
-          sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
-          src={src}
-          unoptimized
-        />
-      )}
-      {failed && (
-        <span className="catalog-card-artwork-fallback">
-          Artwork unavailable
-        </span>
-      )}
+      <ResilientArtworkImage
+        alt={`${tier.name} collection artwork`}
+        className="catalog-card-image"
+        fallback={
+          <span className="catalog-card-artwork-fallback">
+            Artwork unavailable
+          </span>
+        }
+        fetchPriority={eager ? "high" : "auto"}
+        fill
+        loading={eager ? "eager" : "lazy"}
+        sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
+        src={src}
+        unoptimized
+      />
     </div>
   );
 }
