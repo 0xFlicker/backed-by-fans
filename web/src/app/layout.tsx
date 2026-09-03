@@ -11,6 +11,7 @@ import { AppProviders } from "@/components/AppProviders";
 import { BackingStackMark } from "@/components/BackingStackMark";
 import { WalletControl } from "@/components/WalletControl";
 import { publicConfig } from "@/lib/config";
+import { readServerWalletState } from "@/lib/server-wallet-state";
 
 import "./globals.css";
 
@@ -41,11 +42,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const initialState = await readServerWalletState();
+
   return (
     <html className={`${GeistSans.variable} ${GeistMono.variable}`} lang="en">
       <body>
-        <AppProviders>
+        <AppProviders initialState={initialState}>
           <a className="skip-link" href="#main-content">
             Skip to content
           </a>

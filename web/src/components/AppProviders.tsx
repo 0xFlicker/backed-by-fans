@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { WagmiProvider } from "wagmi";
+import { WagmiProvider, type State } from "wagmi";
 
 import { walletConfig } from "@/lib/wallet-config";
 
@@ -15,7 +15,13 @@ const rainbowTheme = lightTheme({
   overlayBlur: "small",
 });
 
-export function AppProviders({ children }: { children: ReactNode }) {
+export function AppProviders({
+  children,
+  initialState,
+}: {
+  children: ReactNode;
+  initialState?: State;
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -30,7 +36,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   );
 
   return (
-    <WagmiProvider config={walletConfig}>
+    <WagmiProvider config={walletConfig} initialState={initialState}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={rainbowTheme}>{children}</RainbowKitProvider>
       </QueryClientProvider>

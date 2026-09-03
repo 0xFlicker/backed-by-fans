@@ -36,7 +36,7 @@ test("@anvil copies and reuses a direct renderer", async ({
     await installAnvilWallet(page, creator);
 
     await page.goto(`/chains/31337/tiers/${sourceTier}`);
-    await page.getByText("Reuse this artwork", { exact: true }).click();
+    await page.getByText("Contract Addresses", { exact: true }).click();
     await expect(page.getByText(renderer, { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Copy renderer address" }).click();
 

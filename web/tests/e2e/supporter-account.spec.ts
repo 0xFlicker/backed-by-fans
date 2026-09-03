@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 
 const validTier = "0x2222222222222222222222222222222222222222";
 
-test("keeps direct membership access independent of discovery configuration", async ({
+test("keeps account recovery focused on retrying discovery", async ({
   page,
 }) => {
   await page.goto("/account");
@@ -20,17 +20,10 @@ test("keeps direct membership access independent of discovery configuration", as
   await expect(
     discoveryState.getByText(/^(Your memberships|Memberships unavailable)$/),
   ).toBeVisible();
-
-  await page.getByText("Already have a membership link?").click();
-  const input = page.getByLabel(/Membership address/);
-  await input.fill("not-an-address");
-  await expect(
-    page.getByText(/complete address, starting with 0x/i),
-  ).toBeVisible();
-  await input.fill(validTier);
-  await expect(
-    page.getByRole("link", { name: "Open membership" }),
-  ).toHaveAttribute("href", `/chains/46630/tiers/${validTier}`);
+  await expect(page.getByText("List settings")).toHaveCount(0);
+  await expect(page.getByText("Already have a membership link?")).toHaveCount(
+    0,
+  );
 });
 
 test("never turns an unavailable supporter read into balances or success", async ({

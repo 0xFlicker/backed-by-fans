@@ -16,7 +16,8 @@ import type { TierArtConfig, TierMediaConfig } from "@/contracts/types";
 import { decodeRendererTokenURI } from "@/features/creator-studio/renderer-preview";
 import { isTierArtConfig, isTierMediaConfig } from "@/lib/authenticity";
 import type { ReadyDeployment } from "@/lib/config";
-import { multicall3Address, tierArtworkRevision } from "@/lib/direct-read";
+import { multicall3Address } from "@/lib/direct-read";
+import { tierArtworkRevision } from "@/lib/tier-artwork-revision";
 
 const collectionPreviewTokenId = 0n;
 const collectionPreviewExpiration = (1n << 64n) - 1n;

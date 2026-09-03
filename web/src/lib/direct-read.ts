@@ -2,9 +2,7 @@ import {
   getAddress,
   isAddress,
   keccak256,
-  stringToHex,
   type Address,
-  type Hex,
   type PublicClient,
 } from "viem";
 
@@ -22,6 +20,7 @@ import {
 import type { ReadyDeployment } from "@/lib/config";
 import { readAcceptedPaymentTokens } from "@/lib/payment-token-read";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
+import { tierArtworkRevision } from "@/lib/tier-artwork-revision";
 
 export const catalogPageLimit = 24;
 export const maxCatalogPageLimit = 100;
@@ -49,46 +48,6 @@ const summaryFields = [
   "artConfig",
   "mediaConfig",
 ] as const;
-
-export function tierArtworkRevision(input: {
-  name: string;
-  description: string;
-  externalURI: string;
-  renderer: Address;
-  art: CatalogTierSummary["art"];
-  media: CatalogTierSummary["media"];
-}): Hex {
-  const { art, media } = input;
-  const values = [
-    input.name,
-    input.description,
-    input.externalURI,
-    input.renderer.toLowerCase(),
-    art.engine,
-    art.collectionSeed,
-    art.palette,
-    art.intensity,
-    art.density,
-    art.symmetry,
-    art.typographyScale,
-    art.typographyStyle,
-    art.textVisibility,
-    art.imageFit,
-    art.focalX,
-    art.focalY,
-    art.grain,
-    art.mediaMix,
-    art.primary,
-    art.secondary,
-    art.tertiary,
-    media.mime,
-    media.store.toLowerCase(),
-    media.length,
-    media.digest,
-    media.runtimeCodehash,
-  ];
-  return keccak256(stringToHex(values.map(String).join("\u001f")));
-}
 
 export function validateTierRouteParam(value: string): Address | undefined {
   return isAddress(value) ? getAddress(value) : undefined;

@@ -1,11 +1,12 @@
 import { http } from "viem";
-import { createConfig } from "wagmi";
+import { cookieStorage, createConfig, createStorage } from "wagmi";
 import { injected, walletConnect } from "wagmi/connectors";
 
 import { getSupportedChain, publicChains } from "@/lib/chains";
 import { publicConfig, type PublicConfig } from "@/lib/config";
 
 export function createWalletConfig(config: PublicConfig = publicConfig) {
+  const storage = createStorage({ storage: cookieStorage });
   const orderedPublicChains =
     config.defaultChainId === publicChains[1].id
       ? ([publicChains[1], publicChains[0]] as const)
@@ -32,6 +33,7 @@ export function createWalletConfig(config: PublicConfig = publicConfig) {
       chains: [...orderedPublicChains, getSupportedChain(31_337)],
       connectors,
       ssr: true,
+      storage,
       transports: {
         [publicChains[0].id]: http(),
         [publicChains[1].id]: http(),
@@ -44,6 +46,7 @@ export function createWalletConfig(config: PublicConfig = publicConfig) {
     chains: orderedPublicChains,
     connectors,
     ssr: true,
+    storage,
     transports: {
       [publicChains[0].id]: http(),
       [publicChains[1].id]: http(),
