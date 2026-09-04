@@ -64,6 +64,7 @@ describe("server catalog artwork", () => {
       .mockResolvedValue([
         true,
         "Genesis Fans",
+        "FANS",
         "A collection preview.",
         "https://example.com",
         `0x${"ab".repeat(32)}`,
@@ -83,6 +84,9 @@ describe("server catalog artwork", () => {
     );
 
     expect(result.svg).toBe(svg);
+    expect(result.name).toBe("Genesis Fans");
+    expect(result.symbol).toBe("FANS");
+    expect(result.description).toBe("A collection preview.");
     expect(result.capturedBlock).toBe(123n);
     expect(result.revision).toMatch(/^0x[0-9a-f]{64}$/);
     expect(readContract).toHaveBeenCalledWith(

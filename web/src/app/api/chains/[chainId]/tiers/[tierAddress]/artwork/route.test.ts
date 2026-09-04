@@ -44,6 +44,9 @@ describe("membership artwork route", () => {
       etag: '"artwork"',
       revision,
       capturedBlock: 123n,
+      name: "Genesis Fans",
+      symbol: "FANS",
+      description: "A collection preview.",
     });
 
     const response = await GET(
