@@ -78,6 +78,10 @@ a blocked asset, new arrivals during a sweep, cursor wraparound and a restart. T
 test retains its small eligible fixture and two-interval target; it does not promise collection of the
 entire population within60 seconds.
 
+Implemented runner signing uses the private runtime environment variable `BBF_RUNNER_PRIVATE_KEY`; never put it in `NEXT_PUBLIC_*` or command arguments. The CLI validates canonical BBF runtime/wiring and the Safe before processing. Each scheduled round visits one historical-member page and attempts one policy-bounded batch per available asset/bucket. `--once` completes one captured discovery sweep; it does not promise to exhaust a large inventory in one sweep. `--asset <address>` may be repeated to include donated assets outside the payment registry. Registered assets, the protocol token, ETH and their configured conversion currencies are discovered automatically. Logs contain current eligibility, raw amounts, viem receipts and resulting balances; RPC endpoints are redacted. A submission/receipt error stops the process without replay. Fork transactions use a fixed local gas price; public transactions use viem fee estimation.
+
+The public deployment wrapper's `prepare` action requires `PROTOCOL_TOKEN_ADDRESS` for an already-launched native-ETH Pons token and a committed checkout. It writes a schema-3 operational-state candidate with the token and current deterministic components for review. Until that real launch exists, the prior schema-2 public records remain historical and release actions fail closed. The local fork token must never be used to prepare public deployment state.
+
 ## Strict fork entrypoint
 
 New `scripts/test-protocol-fork.sh` extends shared Anvil bootstrap support. Required environment:
@@ -126,3 +130,24 @@ Persist before cleanup on success, failure and termination. Redact credentials a
 artifacts fail the relevant acceptance item. A successful subprocess or Safe outer receipt is not
 sufficient evidence. Two clean runs compare accounting/lifecycle requirements; incidental addresses,
 hashes and timestamps may differ when documented. Never compare different origin blocks as a replay.
+
+## Implemented Safe operator workflow
+
+Set `BBF_ADMIN_RPC_URL` to the current disposable loopback RPC and `BBF_FACTORY_ADDRESS` to its bootstrap factory. From the repository root:
+
+```sh
+./contracts/scripts/manage-payment-tokens.sh forknet list
+./contracts/scripts/manage-payment-tokens.sh forknet inspect "$PAYMENT_TOKEN"
+./contracts/scripts/manage-payment-tokens.sh forknet enable "$PAYMENT_TOKEN" > /tmp/token-enable.json
+./contracts/scripts/manage-buybacks.sh forknet inspect "$PAYMENT_TOKEN"
+./contracts/scripts/manage-buybacks.sh forknet prepare policy --input /tmp/policy.json --output /tmp/policy-safe.json
+jq '{chainId,safe,safeNonce,to,targetVersion,targetCodeHash,value,operation,decoded,previousRevision,expectedRevision,referenceEvidence,postconditions}' /tmp/policy-safe.json
+```
+
+Policy JSON contains `asset`, `expectedRevisionRaw`, `expectedSafeNonceRaw`, `policy` and `evidence`. Policy fields are decimal-string `validAfterRaw`, `validUntilRaw`, `batchCapRaw`, `totalBudgetRaw`, plus `rates`, each containing decimal-string `numeratorRaw`/`denominatorRaw` and integer `toleranceBps`. Evidence contains `reference` and `rationale`. Route input replaces policy/evidence with the typed `pools` array. Global pause needs `expectedSafeNonceRaw` and boolean `paused`; asset pause also needs `asset`. Unknown fields and existing output files are rejected. Inspect current nonce/revision and raw units before preparation. Optional ERC165 reverts are accepted; RPC failures remain errors.
+
+Review the decoded Call, zero value, Safe, target code/version, nonce, revisions, rates, expiry, finite exposure and linked evidence. Collect the Safe's required owner signatures using its normal signing workflow, then execute that exact transaction. Preparation never signs or submits. The local harness's `scripts/protocol-fork/safe-transactions.ts` uses two distinct disposable owner keys and viem simulation/submission/receipts. It verifies matching inner `ExecutionSuccess`, incremented nonce, and canonical target state including revision. An outer success with inner `ExecutionFailure` fails. Reinspect and prepare anew if nonce, code or revision changes; do not alter signed calldata.
+
+Public modes use generated factory addresses or an explicit operator factory and verify the new runtime and immutable wiring. Old deployments fail identity checks. Public deployment and signing gates remain separate. The Safe chooses economics and can pause processing; it cannot withdraw inventory, replace the token or accelerate earning. External Pons/issuer powers remain disclosed.
+
+Run `./contracts/scripts/test-manage-payment-tokens.sh` and `./contracts/scripts/test-manage-buybacks.sh` for CLI guards. Genuine signed execution receipts are retained in `../evidence/launch-safe-20260907-r4/transactions/`. Its node is stopped and its addresses are evidence only; browser acceptance remains pending.

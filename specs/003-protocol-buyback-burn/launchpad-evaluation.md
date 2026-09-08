@@ -8,6 +8,14 @@ while preparing this specification.
 
 ## Selection
 
+Implementation setup review on 2026-09-07 retains this selection and chooses a pinned
+disposable mainnet fork. No complete official launchpad testnet was established by the
+renewed first-party search. The selected historical block supports a header and factory
+state read; full archive/dependency validation is still pending. See the dated implementation
+review in [research.md](research.md) for the exact hash and G1–G6 boundaries. Verified Pons
+MIT source snapshots are retained in `contracts/external/pons/4663/`; upstream exchange
+licenses must be preserved separately.
+
 Use **Pons v2 as the first forknet integration candidate**. It has substantially better accessible
 integration evidence than Long. This is a research-backed priority, not a completed deployment
 compatibility finding. The implementation plan must establish the exact deployed version and pass

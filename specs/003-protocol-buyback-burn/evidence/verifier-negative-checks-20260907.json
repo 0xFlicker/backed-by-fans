@@ -1,0 +1,42 @@
+{
+  "sourceRun": "protocol-verify-20260907-r4",
+  "verifierSha256": "dbfc4b414e787f701cb1a10b3d80b2ff29a413ccf233f5990e77b0b35be08235",
+  "scope": "Offline diagnostic copies; their artifact indexes were updated deliberately while original pass labels were retained. Original artifacts remain unchanged.",
+  "checks": [
+    {
+      "case": "missing-stock",
+      "mutation": "remove",
+      "artifact": "browser/scenarios/asset-burn-refund-AMD.json",
+      "expectedFailure": "asset-burn-refund-AMD.json",
+      "passed": true
+    },
+    {
+      "case": "missing-graduation",
+      "mutation": "remove",
+      "artifact": "browser/scenarios/graduation-pool-compensation.json",
+      "expectedFailure": "graduation-pool-compensation.json",
+      "passed": true
+    },
+    {
+      "case": "missing-browser",
+      "mutation": "remove",
+      "artifact": "browser/report.json",
+      "expectedFailure": "report.json",
+      "passed": true
+    },
+    {
+      "case": "false-supply",
+      "mutation": "supply",
+      "artifact": "browser/scenarios/asset-burn-refund-AMD.json",
+      "expectedFailure": "no supply destruction",
+      "passed": true
+    },
+    {
+      "case": "false-inventory",
+      "mutation": "inventory",
+      "artifact": "browser/scenarios/asset-burn-refund-WETH.json",
+      "expectedFailure": "does not conserve raw units",
+      "passed": true
+    }
+  ]
+}

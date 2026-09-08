@@ -232,6 +232,36 @@ cannot substitute for the required origin-pinned integration.
 
 ## Verification still required
 
+### Implementation setup review, 2026-09-07
+
+The requirements review is complete: `checklists/protocol.md` records evidence for all 40
+criteria; `checklists/requirements.md` passes 16/16. This is requirements-quality approval,
+not implementation or authentic integration acceptance.
+
+Retain Pons v2 and select a disposable mainnet fork. A fresh review of the pinned official
+repository, Pons documentation and targeted first-party testnet searches did not establish a
+complete launchpad testnet. Robinhood testnet alone does not satisfy that requirement.
+The Pons documentation endpoint was accessible during one retrieval but redirected to its
+regional restriction page on a later retrieval; source inspection remains independently
+available. No capability failure justifies switching to Long.
+
+The factory's explorer-verified bundle has been retained under `contracts/external/pons/4663/`.
+Its Pons files carry MIT licenses; keep any imported Uniswap dependencies under their own
+licenses. These snapshots preserve the deployed curve's anti-sniping and launch-supply
+behavior. They are integration evidence, not a complete copied deployment or an independently
+recompiled bytecode match. Metadata/runtime reconciliation remains part of G1.
+
+A read-only probe through the configured mainnet endpoint returned origin block 57,010,735,
+hash `0xdfc65146f32cfd10afd9a620b68c3fc5d02077677ce06c46303e49e80f0a96cf`, and
+`launchEnabled() = true` at that same block. This establishes historical header and one
+contract-state read only; preflight must verify the entire dependency/asset set at the pin.
+No transactions were submitted. Endpoint credentials are excluded from retained evidence.
+
+G1 remains incomplete pending complete source/runtime/dependency and archive validation.
+G2 fresh launch/bonding, G3 authentic asset routes, G4 graduation/pool, G5 native compensation,
+and G6 signed Safe/browser/two-run acceptance remain unexecuted. No source or synthetic test
+may promote those gates to passed.
+
 | Claim | Current evidence | Required next evidence |
 | --- | --- | --- |
 | Deployed Pons supports candidate launch | Verified explorer source and latest getters | Origin-pinned archive reads and actual local launch |

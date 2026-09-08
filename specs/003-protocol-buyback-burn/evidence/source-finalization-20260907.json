@@ -1,0 +1,28 @@
+{
+  "acceptedSnapshotSha256": "9bb748e10c792ce309635ec50bfaf9c6516718da65c45b6090c880baaa27dba5",
+  "finalSnapshotSha256": "924d5714c960a2ce80d9da0cf5d17cb2763a5900abfddcf96a2ae4480de3dbdd",
+  "acceptedSourceEntryCount": 706,
+  "finalSourceEntryCount": 703,
+  "changedDocuments": {
+    "specs/003-protocol-buyback-burn/acceptance-evidence.md": {
+      "before": "e887c0097cd4cb7d5f16663a768cea37e3e2a23c0421c505b3b3ab730424dcbb",
+      "after": "23c267e2cab92f776a582b463b9d44cad8b2294de964d1137ee897938617d475"
+    },
+    "specs/003-protocol-buyback-burn/quickstart.md": {
+      "before": "b63d7d264dae8f10d883a60e10b743720435c40617838cdcb133752d648acf9b",
+      "after": "1d587302273cc23fc8d9185dcc7ee53c5e2e97dc2840eb2bdb78baabaa3893b8"
+    },
+    "specs/003-protocol-buyback-burn/tasks.md": {
+      "before": "00db0036e9f03695c554efdb7d4fc61f6d8dddbd0736d14799720e7481e65652",
+      "after": "c187f1e20eb0fa25d8ec6d6b83e9f03a9e7ce2214d1a9a8f59701f15fb2c8b04"
+    }
+  },
+  "removedAlreadyAbsentInventoryEntries": [
+    "contracts/broadcast/DeployDirectProtocol.s.sol/46630/run-latest.json",
+    "contracts/scripts/test-fixtures/payment-tokens/cast",
+    "contracts/test/mocks/ReentrantFeeRecipient.sol"
+  ],
+  "addedSourceFiles": [],
+  "runtimeAndTestFilesUnchanged": true,
+  "note": "Documentation/task finalization changed three Markdown files. Committing three files already absent during both accepted runs removed their deletion markers from git ls-files. Every application, contract, runner, test and configuration file retains its tested bytes. Evidence files are excluded from source snapshots."
+}

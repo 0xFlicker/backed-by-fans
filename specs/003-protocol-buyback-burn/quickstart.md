@@ -1,138 +1,181 @@
-# Validation quickstart: complete protocol forknet
+# Complete protocol forknet: operator quickstart
 
-**Status**: Implementation runbook contract. The strict fork entrypoint, runner and buyback scripts
-below must be implemented in the later implementation phase; they do not exist yet. Existing baseline
-commands are identified separately. This document records no passing software test or live environment.
+**Status**: Full local verification and two fresh complete fork runs passed on
+2026-09-07. Both reproduced all 34 scenarios, 12 success criteria and six
+integration gates, with 348 authentic contract tests and 57 production browser
+cases passing per run. See [final acceptance](acceptance-evidence.md#final-complete-acceptance--2026-09-07)
+for source identity, measured limits and evidence boundaries.
 
-## Prerequisites
+## Prerequisites and private configuration
 
-- Repository dependencies: pinned Foundry/Solidity0.8.36, Bun1.3.14, installed Playwright browser,
-  existing Slither0.11.6 when running full local verification.
-- Private Robinhood mainnet archive RPC with pinned historical state for every selected dependency.
-- Matching origin block number and hash; do not copy a `latest` research observation as archive proof.
-- Verified deployment manifest: exact Pons version/dependency source and runtime, Safe canonical code,
-  exchange/router/WETH wiring, authentic payment tokens, routes and acquisition methods.
-- Local-only test keys and funded test ETH. No real wallet signature, public deployment or upstream
-  transaction submission is needed for this milestone.
-- Retained evidence directory outside temporary cleanup, adequate disk and free loopback ports8547/3110.
-
-## Existing baseline checks
-
-These commands exist today and exercise the current product. After implementation they must also
-cover the changed model and generated bindings. They are not substitutes for strict integration.
+Use the repository's pinned Foundry/Solidity 0.8.36, Bun 1.3.14 and installed
+Playwright browsers. Full verification additionally requires Slither 0.11.6.
+Provide an archive RPC with historical Robinhood mainnet state through
+`BBF_FORK_RPC_URL` in your shell's private environment. The harness does not source
+`.env` files. Never put the credential in a command argument or evidence file.
 
 ```sh
 cd /Users/user/Development/backed-by-fans
+: "${BBF_FORK_RPC_URL:?Configure a private archive endpoint in the environment}"
+export BBF_FORK_BLOCK_NUMBER=57010735
+export BBF_FORK_BLOCK_HASH=0xdfc65146f32cfd10afd9a620b68c3fc5d02077677ce06c46303e49e80f0a96cf
+export BBF_FORK_INPUTS="$PWD/specs/003-protocol-buyback-burn/evidence/pinned-preflight-inputs-20260907.json"
+export BBF_FORK_EXECUTION_RPC_URL=http://127.0.0.1:18557
+export BBF_FORK_WEB_URL=http://127.0.0.1:3110
+```
+
+The origin is chain **4663**; execution is a disposable loopback fork on **31337**.
+Only test keys sign. Local test ETH funds the developer, test members, Safe signers
+and public callers. USDG and AMD are acquired through real markets; WETH is wrapped
+from test ETH. The protocol token and the separately unrouted token are newly
+launched through Pons. No public signing or origin-chain mutation occurs.
+
+Both ports must be free. Evidence must use a fresh absolute directory, independent
+of temporary state. One harness owns the checkout's production web build at a time;
+using different ports does not permit concurrent builds against the same `.next`.
+
+## Preflight and complete run
+
+A standalone read-only check retains 88 explicit source, runtime, role, origin,
+asset and route checks:
+
+```sh
+export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/preflight-review"
+./scripts/test-protocol-fork.sh preflight
+```
+
+Pass means every check in `preflight/report.json` passes. Unknown historical
+constructor arguments remain explicitly `null`; independently compiled runtime
+and immutable references are retained separately. A failed check never falls back
+to current state, mock liquidity or patched token permissions.
+
+Start a fresh complete run, which includes its own preflight:
+
+```sh
+export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/run-1"
+./scripts/test-protocol-fork.sh run --run-id run-1
+```
+
+The run executes Foundry tests and invariants, launches a fresh ETH-paired Pons token
+with vested trading buybacks and zero extra creator tax, purchases the developer's
+entire initial holding with test ETH, creates a canonical 2-of-3 Safe and immutable
+BBF contracts, configures finite policies through signed Safe transactions, builds
+the production web app and executes the browser/runner matrix. Scope remains the
+full [required scenario matrix](acceptance-evidence.md#required-scenario-matrix).
+
+Each stage writes a named log. An exception exits nonzero, records failure and
+stops only the run's owned processes. Branch receipts are exported before snapshot
+reversion, and public broadcasts/logs survive teardown. Fault injections and
+simulated Pons operator/administrator participation are explicitly labeled.
+
+Success for one run requires `lifecycle.json` status `passed` and
+`reconciliation.json` `runLocalPassed: true`. Its manifest remains `running`, with
+SC-008 and G6 pending, until a second independent run passes. A process exit alone
+is not complete acceptance. Source changes during execution fail reconciliation.
+
+## Second run and independent reconciliation
+
+Keep source files unchanged across the pair:
+
+```sh
+export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/run-2"
+./scripts/test-protocol-fork.sh run --run-id run-2
+bun scripts/protocol-fork/verify-evidence.ts artifacts/protocol-fork/run-1 artifacts/protocol-fork/run-2
+bun scripts/protocol-fork/verify-evidence.ts artifacts/protocol-fork/run-2 artifacts/protocol-fork/run-1
+```
+
+Both commands must succeed and both manifests must report `passed`, every G1–G6
+and SC-001–SC-012 passed, and all 34 named scenarios passed. The verifier checks
+artifact hashes, executed test names, successful traces, actual token-destruction
+receipts, raw-unit conservation, reserved refunds, independent runner replacement,
+real graduation and separate native vesting. Missing authentic Stock Token, pool,
+vesting or browser proof fails the gate even when synthetic tests pass.
+
+`reproduction.json` compares the two results. Run salts change addresses; local
+transaction timestamps and pool token ordering can change raw trade output. Each
+run must independently conserve its inputs and match purchased output to the
+measured supply reduction. The same origin and source hashes are mandatory.
+
+## Serve, inspect and stop
+
+```sh
+export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/manual-review"
+./scripts/test-protocol-fork.sh serve --run-id manual-review
+```
+
+Wait for the printed `Ready` URL. Open `/chains/31337/protocol` for wallet-free
+inventory, captured timestamps, conditional fee forecasts, Safe configuration and
+history, and the separate Pons compensation ledger. `bootstrap.json`, `fixture.json`
+and `browser-environment.json` identify local contracts and test accounts. Use an
+Anvil test wallet on chain 31337 for Creator Studio and membership actions.
+
+Publish 1% and 100% tiers, buy 12 periods, inspect earned versus unearned fees,
+and refund unused time. At 10%, 120 tokens over 12 periods after three periods
+produces 3 earned fees and 9 reserved fees toward a 90-token gross refund. Before
+checkpointing, the 3 earned fees are not immediately releasable. Public checkpoint
+and release make only that earned portion available to buy and burn. Earning is
+continuous over consumed paid seconds; it does not wait for a period boundary.
+At 100%, reserved fees fund the entire unused-time gross refund after earlier
+earned fees have burned. Forecasts describe existing paid schedules and remain
+conditional on refunds, gas, liquidity and valid policies.
+
+For configuration, follow the exact read/prepare commands, JSON fields, payload
+inspection and signed Safe execution in the
+[operator workflow](contracts/operations-and-evidence.md#implemented-safe-operator-workflow).
+The Safe can onboard assets, configure routes and finite policies, pause buybacks
+and nominate a validated successor Safe. It cannot withdraw fee inventory, change
+the protocol token, upgrade the contracts or accelerate earning. The public runner
+needs independently funded gas and no Safe key.
+
+In a second terminal, stop only this run:
+
+```sh
+cd /Users/user/Development/backed-by-fans
+./scripts/test-protocol-fork.sh stop --run-id manual-review
+```
+
+Wait for the supervisor's teardown message. Evidence remains; services and temporary
+state are removed. Restart with a **new** run ID and evidence directory. Occupied
+ports, stale ownership records and existing evidence paths cause an explicit error;
+the harness does not kill unrelated processes or silently overwrite evidence.
+
+The delivery check exercised `serve --run-id manual-review-20260907-stop` under
+`artifacts/protocol-fork/manual-review-20260907-stop`, reached readiness, then
+executed its matching `stop`. Both ports closed, its owned state record was
+removed, and bootstrap/preflight evidence and both accepted run directories
+survived. The retained lifecycle status is `terminated`, as expected for an
+intentional stop; it is not a failed acceptance run.
+
+## Complete local verification and CI
+
+With the same private origin settings and another fresh evidence directory:
+
+```sh
+export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/verify-local"
+export BBF_FORK_RUN_ID=verify-local
 ./scripts/verify-local.sh
 ```
 
-The verification script covers Foundry, CLI tests, Slither, web checks, build and browser suites.
-Run focused checks while implementing; run the complete entrypoint once the feature is coherent.
-Do not interpret relaxed unit-test code/gas limits as Robinhood deployment proof.
+This runs CLI guards, Foundry format/build/tests, Slither's high-severity gate,
+generated-binding drift, frozen web dependencies, format/lint/type/unit/build,
+standalone browser checks and the shared authentic fork harness. Relaxed unit-test
+code/gas limits are separate from deployment bytecode/gas assertions. Verification
+contains no commit, push, public deployment or public Safe execution.
 
-The current `./scripts/test-web-anvil.sh` supports a fork URL but still deploys mock payment assets and
-omits the Pons lifecycle. A green baseline fork run does not satisfy this feature.
+The manual GitHub Actions authentic-fork job requires the private
+`ROBINHOOD_MAINNET_RPC_URL` repository secret and retains artifacts on failure.
+Local completion does not prove that the secret is configured or that CI has run.
 
-## Strict preflight and first complete run
+## External powers and delivery boundary
 
-The following command interface is to be delivered by implementation. Configure the three private
-origin inputs in the shell through the usual secure local setup; never put credentials in evidence.
+Membership-fee purchases burn immediately and never enter Pons vesting. Ordinary
+Pons trading fees can separately pay developer compensation and purchase tokens
+for Pons's vested mechanism. Deposits, releases and claims are not burns. Pons
+administrators can change external configuration and redirect creator compensation;
+some fee conversions require their operator. Payment-token issuers can restrict
+transfers. These dependencies can leave an asset pending without granting BBF a
+rescue withdrawal. Token governance and a DAO are outside this feature.
 
-```sh
-cd /Users/user/Development/backed-by-fans
-: "${BBF_FORK_RPC_URL:?Set a private archive RPC}"
-: "${BBF_FORK_BLOCK_NUMBER:?Set the pinned origin block number}"
-: "${BBF_FORK_BLOCK_HASH:?Set its verified block hash}"
-export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/run-1"
-./scripts/test-protocol-fork.sh preflight
-./scripts/test-protocol-fork.sh run
-```
-
-Expected preflight: confirmed origin4663 and matching block/hash; successful pinned dependency/token
-reads; exact runtime/source/role manifest; public launch configuration; canonical Safe; exchange/pool
-wiring; and real required asset routes. Failure prints the precise failed gate and preserves its evidence.
-It never falls back to latest state, a mock token, changed permissions or invented liquidity.
-
-Expected run: local RPC31337, canonical test Safe, fresh ETH-paired Pons token with vested buybacks and
-zero extra creator tax, disclosed developer purchase, new BBF deployment, configured assets/policies,
-public runner and production-built web all using the same local environment. Test Safe signatures,
-nonce and inner execution outcomes are recorded.
-
-## Required journeys and pass criteria
-
-| Journey | Required outcome and retained evidence |
-| --- | --- |
-| Launch | Real factory receipt and token/curve identities; exact launch cost/developer purchase; actual taxes and Pons settings recorded |
-| Creator publication | 1%, intermediate and100% tiers; immutable terms; invalid rate/over-allocation rejected; token disable blocks new tiers only |
-| Membership lifecycle | Joins, renewals, gifts, contributions, grants, rewards/referrals, ownership/artwork updates and claims match the model; unchanged gross refunds use unearned protocol reserves first, then creator proceeds/top-up |
-| Accrual and collection | Verify continuous earning against consumed paid time and both stored/projected conservation equations before checkpointing; compare many tiny checkpoints to one; test12-period and fractional cases, generation resets and bounded historical collection across multiple tiers and more than100 IDs, including cursor wraparound, new arrivals and restart |
-| Reserved refund backing | At10%,120 tokens/12 periods after3 periods gives3 earned and9 reserve toward90 refund; at100% the reserve funds all unused-time gross refund without owner top-up, even after prior earned fees burn |
-| Bonding burn | Real earned membership-fee release, conversion and curve purchase while still bonding; positive acquired output equals actual supply destruction; unused input remains inventory |
-| Burn and graduation accounting | Equivalent purchases with and without buyer burns preserve the same curve reserves and graduation/seedability thresholds; launch supply reporting stays distinct from current supply |
-| Asset coverage | USDG, authentic Stock Token, WETH/non-stock, protocol-token direct burn and illiquid pending asset; raw/display scaling remains correct |
-| Safe controls | Actual signed token/route/policy/pause transactions cannot accelerate earning or spend reserves; invalid signatures, out-of-bound and direct unauthorized calls rejected; recorded public history |
-| Execution safety | Below-floor prices, expiry, budget replay, wrong revisions/pools/recipients, callbacks and failed burns cannot consume unauthorized funds |
-| Runner replacement | Stop A; independently fund B; next eligible processing within two30-second intervals without policy/authority changes |
-| Graduation | Buy through real threshold; test ready/swept/pool-not-ready states; public graduation and pool creation; memberships continue |
-| Pool burn | Real post-graduation hook-aware pool trade and actual burn; same membership protocol works afterward |
-| Pons compensation | Bonding/pool fees, real vault deposits, partial/additional/final vesting and creator claims; external operator dependence labeled separately |
-| Browser | Successful/failure wallet journeys and public reserve/earned/released/configuration/burn activity plus conditional fee-release forecasts; actual receipts/state assertions and retained successful traces |
-
-Full scenario details remain in [acceptance-evidence.md](acceptance-evidence.md). Every required
-scenario gets a pass/fail evidence reference, not just a successful test-process exit status.
-
-## Manual review of the same product
-
-New command interface to implement:
-
-```sh
-cd /Users/user/Development/backed-by-fans
-export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/review"
-./scripts/test-protocol-fork.sh serve
-```
-
-The command prints its run ID, loopback web/RPC endpoints and test account addresses. Use Creator
-Studio to publish1% and100% tiers, join and refund them, then inspect the chain-scoped protocol page.
-Membership success must remain distinct from reserved fees, earned fees awaiting collection and
-pending burns. Confirm refund previews include protocol reserve backing and conditional forecasts
-update after cancellation without being presented as guaranteed future buybacks. Public views show Safe changes without
-an admin screen. Apply configuration through documented scripts and test Safe execution; retain the
-before/after receipts and public view. `serve` must not expose archive credentials to browser code.
-
-For the12-token fee example after3 periods without collection, verify12 protected,9 unearned and3
-earned awaiting release, but0 immediately releasable. Checkpoint to make3 releasable, then release;
-9 remain protected and3 have been released. Compare all projections at the same block and coverage.
-
-Stop with `./scripts/test-protocol-fork.sh stop --run-id <printed-run-id>` after replacing the token
-with the actual run ID. Stop only that run's processes and export artifacts before cleanup. There is
-no claim the printed endpoints or balances remain available after shutdown.
-
-## Second clean run and evidence review
-
-Use the identical origin block/hash with a separate empty evidence directory:
-
-```sh
-cd /Users/user/Development/backed-by-fans
-export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/run-2"
-./scripts/test-protocol-fork.sh run
-```
-
-Compare run manifests and independent accounting outputs. Required equality is preservation of the
-specified outcomes and conservation laws. Document differences in local timestamps, nonces or addresses;
-do not substitute a resumed/snapshotted first run for a clean bootstrap.
-
-Both runs must retain manifest, exact sources/dependencies, code hashes, Safe and protocol receipts,
-per-asset ledgers, supply deltas, runner logs and successful browser traces. A missing required real
-Stock Token route, failed graduation, missing vesting proof or unavailable archive state is a failed
-acceptance item. Synthetic fault coverage does not erase that failure.
-
-## Completion and delivery boundary
-
-Before claiming implementation complete: all SC001–012 and required evidence scenarios pass, obsolete
-fee/withdrawal paths are removed, generated bindings are consistent, full local checks pass, and both
-clean fork runs are reproducible. Record software/source, authentic integration, simulated participant
-and browser evidence separately. Run the later checklist/tasks/analyze/implement/converge phases.
-
-Public deployment, security audit conclusions, issuer/legal clearance and production economics are
-not established by fork results. The feature delivers a working disposable protocol and evidence;
-public launch follows its own explicitly authorized milestone.
+A completed fork deliverable establishes the recorded local behavior. It does not
+establish a public launch, independent security audit, guaranteed future buybacks,
+investment return or Stock Token legal clearance.
