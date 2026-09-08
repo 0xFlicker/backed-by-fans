@@ -59,10 +59,10 @@ jobs:
           ! grep -R -E "(PRIVATE_KEY|SECRET_KEY|MNEMONIC|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY)" src public
 
   configured-anvil:
-    name: Configured Anvil browser evidence
+    name: Authentic protocol fork evidence
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: web
@@ -95,4 +95,17 @@ jobs:
       - name: Run configured Anvil browser evidence
         env:
           CI: ""
+          BBF_FORK_RPC_URL: ${{ secrets.ROBINHOOD_MAINNET_RPC_URL }}
+          BBF_FORK_BLOCK_NUMBER: "57010735"
+          BBF_FORK_BLOCK_HASH: "0xdfc65146f32cfd10afd9a620b68c3fc5d02077677ce06c46303e49e80f0a96cf"
+          BBF_FORK_INPUTS: ${{ github.workspace }}/specs/003-protocol-buyback-burn/evidence/pinned-preflight-inputs-20260907.json
+          BBF_FORK_EVIDENCE_DIR: ${{ runner.temp }}/bbf-fork-evidence
         run: ../scripts/test-web-anvil.sh
+
+      - name: Retain fork receipts and browser traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: protocol-fork-evidence
+          path: ${{ runner.temp }}/bbf-fork-evidence
+          if-no-files-found: error

@@ -1,6 +1,10 @@
 .DS_Store
 .idea/
 .vscode/
+__pycache__/
+
+# Generated operator evidence must not enter its own source snapshot.
+/artifacts/protocol-fork/
 
 # Local environment files are never committed.
 .env

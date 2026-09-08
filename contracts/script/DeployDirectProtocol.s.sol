@@ -10,6 +10,7 @@ import {console2} from "forge-std/console2.sol";
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
+import {PonsBuybackExecutor} from "../src/PonsBuybackExecutor.sol";
 import {RendererPreviewHarness} from "../src/RendererPreviewHarness.sol";
 import {RobinhoodProtocolConfig} from "../src/RobinhoodProtocolConfig.sol";
 import {
@@ -17,6 +18,8 @@ import {
     IScaledUIAmount,
     IScaledUIAmountNewUIMultiplier
 } from "../src/interfaces/IERC8056.sol";
+import {IProtocolBuybackVault} from "../src/interfaces/IProtocolBuybackVault.sol";
+import {ProtocolLaunchValidation} from "../src/libraries/ProtocolLaunchValidation.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 
@@ -46,13 +49,14 @@ abstract contract ProtocolDeployment is Script {
     error InvalidOperationalAddress();
     error InvalidPaymentToken(address token);
 
-    function _validateLocalToken(address paymentToken, address protocolOwner, address feeRecipient)
+    function _validateLocalToken(address paymentToken, address protocolOwner, address protocolToken)
         internal
         view
     {
-        if (protocolOwner == address(0) || feeRecipient == address(0)) {
+        if (protocolOwner == address(0) || protocolToken == address(0)) {
             revert InvalidOperationalAddress();
         }
+        if (protocolToken.code.length == 0) revert InvalidOperationalAddress();
         if (paymentToken.code.length == 0) revert InvalidPaymentToken(paymentToken);
 
         try IERC20Metadata(paymentToken).decimals() returns (uint8 decimals) {
@@ -74,7 +78,7 @@ abstract contract ProtocolDeployment is Script {
         }
     }
 
-    function _deployLocal(address paymentToken, address protocolOwner, address feeRecipient)
+    function _deployLocal(address paymentToken, address protocolOwner, address protocolToken)
         internal
         returns (
             OnchainMediaStoreFactory mediaStoreFactory,
@@ -90,7 +94,7 @@ abstract contract ProtocolDeployment is Script {
             _singletonPaymentToken(paymentToken),
             address(mediaStoreFactory),
             protocolOwner,
-            feeRecipient
+            protocolToken
         );
     }
 
@@ -101,19 +105,26 @@ abstract contract ProtocolDeployment is Script {
         MembershipFactory factory,
         IERC20[] memory paymentTokens,
         address protocolOwner,
-        address feeRecipient
+        address protocolToken
     ) internal view {
         address tierDeployer = factory.deployer();
+        address vault = factory.buybackVault();
+        address executor = IProtocolBuybackVault(vault).executor();
         if (
             address(mediaStoreFactory).code.length == 0 || address(renderer).code.length == 0
                 || address(previewHarness).code.length == 0 || address(factory).code.length == 0
-                || tierDeployer.code.length == 0
+                || tierDeployer.code.length == 0 || vault.code.length == 0
+                || IProtocolBuybackVault(vault).factory() != address(factory)
+                || IProtocolBuybackVault(vault).protocolToken() != protocolToken
+                || executor.code.length == 0
+                || PonsBuybackExecutor(payable(executor)).vault() != vault
+                || PonsBuybackExecutor(payable(executor)).protocolToken() != protocolToken
                 || factory.paymentTokenCount() != paymentTokens.length
                 || factory.owner() != protocolOwner
                 || factory.rendererSchema() != renderer.rendererSchema()
                 || factory.mediaStoreFactory() != address(mediaStoreFactory)
                 || factory.mediaStoreFactoryRuntimeCodehash() != address(mediaStoreFactory).codehash
-                || factory.pendingOwner() != address(0) || factory.feeRecipient() != feeRecipient
+                || factory.pendingOwner() != address(0) || factory.protocolToken() != protocolToken
                 || MembershipTierDeployer(tierDeployer).factory() != address(factory)
         ) {
             revert DeploymentInvariantFailed();
@@ -150,6 +161,8 @@ abstract contract ProtocolDeployment is Script {
         console2.log("Backed By Fans renderer preview harness", address(previewHarness));
         console2.log("Backed By Fans factory", address(factory));
         console2.log("Backed By Fans tier deployer", factory.deployer());
+        console2.log("Backed By Fans protocol token", factory.protocolToken());
+        console2.log("Backed By Fans buyback vault", factory.buybackVault());
     }
 }
 
@@ -200,6 +213,13 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     error InvalidProtocolSafe();
     error ProtocolDeploymentIncomplete();
 
+    /// @notice Already-launched token pinned into this replacement deployment. No fee recipient exists.
+    function configuredProtocolToken() public view returns (address token) {
+        token = vm.envAddress("PROTOCOL_TOKEN_ADDRESS");
+        if (token == address(0) || token.code.length == 0) revert InvalidOperationalAddress();
+        ProtocolLaunchValidation.validate(token);
+    }
+
     function configuredPaymentTokens() public view returns (IERC20[] memory) {
         return RobinhoodProtocolConfig.initialPaymentTokens();
     }
@@ -230,7 +250,7 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
                 RobinhoodProtocolConfig.initialPaymentTokens(),
                 RobinhoodProtocolConfig.mediaStoreFactory(),
                 INITIAL_PROTOCOL_AUTHORITY,
-                INITIAL_PROTOCOL_AUTHORITY
+                configuredProtocolToken()
             )
         );
     }
@@ -239,6 +259,7 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
         paymentTokens = RobinhoodProtocolConfig.initialPaymentTokens();
         _validatePublicPaymentTokens(paymentTokens);
         _validateProtocolSafe();
+        configuredProtocolToken();
 
         bytes32 observedCreate2DeployerHash = CREATE2_DEPLOYER.codehash;
         if (observedCreate2DeployerHash != CREATE2_DEPLOYER_CODE_HASH) {
@@ -253,20 +274,28 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     }
 
     function _validatePublicPaymentTokens(IERC20[] memory paymentTokens) private view {
-        uint256 expectedCount = block.chainid == ROBINHOOD_TESTNET_CHAIN_ID ? 6 : 1;
+        uint256 expectedCount = block.chainid == ROBINHOOD_TESTNET_CHAIN_ID ? 6 : 3;
         if (paymentTokens.length != expectedCount) revert DeploymentInvariantFailed();
 
         for (uint256 i; i < paymentTokens.length; ++i) {
             address token = address(paymentTokens[i]);
             uint8 expectedDecimals = i == 0 ? 6 : 18;
             string memory expectedSymbol;
-            if (i == 0) expectedSymbol = "USDG";
-            else if (i == 1) expectedSymbol = "AMD";
-            else if (i == 2) expectedSymbol = "NFLX";
-            else if (i == 3) expectedSymbol = "PLTR";
-            else if (i == 4) expectedSymbol = "AMZN";
-            else expectedSymbol = "TSLA";
-            _validatePaymentTokenSurface(token, expectedDecimals, expectedSymbol, i != 0);
+            if (i == 0) {
+                expectedSymbol = "USDG";
+            } else if (i == 1) {
+                expectedSymbol = "AMD";
+            } else if (i == 2) {
+                expectedSymbol = block.chainid == ROBINHOOD_MAINNET_CHAIN_ID ? "WETH" : "NFLX";
+            } else if (i == 3) {
+                expectedSymbol = "PLTR";
+            } else if (i == 4) {
+                expectedSymbol = "AMZN";
+            } else {
+                expectedSymbol = "TSLA";
+            }
+            bool expectedScaled = i != 0 && (block.chainid == ROBINHOOD_TESTNET_CHAIN_ID || i == 1);
+            _validatePaymentTokenSurface(token, expectedDecimals, expectedSymbol, expectedScaled);
         }
     }
 
@@ -462,7 +491,7 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
                 factory,
                 RobinhoodProtocolConfig.initialPaymentTokens(),
                 INITIAL_PROTOCOL_AUTHORITY,
-                INITIAL_PROTOCOL_AUTHORITY
+                configuredProtocolToken()
             );
         }
     }
@@ -522,12 +551,12 @@ contract DeployLocalProtocol is ProtocolDeployment {
     {
         address paymentToken = vm.envAddress("LOCAL_USDG_ADDRESS");
         address protocolOwner = vm.envAddress("PROTOCOL_OWNER");
-        address feeRecipient = vm.envAddress("FEE_RECIPIENT");
-        _validateLocalInputs(paymentToken, protocolOwner, feeRecipient);
+        address protocolToken = vm.envAddress("PROTOCOL_TOKEN_ADDRESS");
+        _validateLocalInputs(paymentToken, protocolOwner, protocolToken);
 
         vm.startBroadcast();
         (mediaStoreFactory, renderer, previewHarness, factory) =
-            _deployLocal(paymentToken, protocolOwner, feeRecipient);
+            _deployLocal(paymentToken, protocolOwner, protocolToken);
         vm.stopBroadcast();
 
         _checkDeployment(
@@ -537,12 +566,12 @@ contract DeployLocalProtocol is ProtocolDeployment {
             factory,
             _singletonPaymentToken(paymentToken),
             protocolOwner,
-            feeRecipient
+            protocolToken
         );
         _logDeployment(mediaStoreFactory, renderer, previewHarness, factory);
     }
 
-    function deploy(address paymentToken, address protocolOwner, address feeRecipient)
+    function deploy(address paymentToken, address protocolOwner, address protocolToken)
         external
         returns (
             OnchainMediaStoreFactory mediaStoreFactory,
@@ -551,9 +580,9 @@ contract DeployLocalProtocol is ProtocolDeployment {
             MembershipFactory factory
         )
     {
-        _validateLocalInputs(paymentToken, protocolOwner, feeRecipient);
+        _validateLocalInputs(paymentToken, protocolOwner, protocolToken);
         (mediaStoreFactory, renderer, previewHarness, factory) =
-            _deployLocal(paymentToken, protocolOwner, feeRecipient);
+            _deployLocal(paymentToken, protocolOwner, protocolToken);
         _checkDeployment(
             mediaStoreFactory,
             renderer,
@@ -561,22 +590,25 @@ contract DeployLocalProtocol is ProtocolDeployment {
             factory,
             _singletonPaymentToken(paymentToken),
             protocolOwner,
-            feeRecipient
+            protocolToken
         );
     }
 
-    function validateInputs(address paymentToken, address protocolOwner, address feeRecipient)
+    function validateInputs(address paymentToken, address protocolOwner, address protocolToken)
         external
         view
     {
-        _validateLocalInputs(paymentToken, protocolOwner, feeRecipient);
+        _validateLocalInputs(paymentToken, protocolOwner, protocolToken);
     }
 
-    function _validateLocalInputs(address paymentToken, address protocolOwner, address feeRecipient)
-        private
-        view
-    {
-        if (block.chainid != ANVIL_CHAIN_ID) revert UnexpectedLocalChain(block.chainid);
-        _validateLocalToken(paymentToken, protocolOwner, feeRecipient);
+    function _validateLocalInputs(
+        address paymentToken,
+        address protocolOwner,
+        address protocolToken
+    ) private view {
+        if (block.chainid != ANVIL_CHAIN_ID) {
+            revert UnexpectedLocalChain(block.chainid);
+        }
+        _validateLocalToken(paymentToken, protocolOwner, protocolToken);
     }
 }

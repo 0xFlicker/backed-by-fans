@@ -1,0 +1,1356 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Backed By Fans retained fork evidence",
+  "description": "Structural validation does not replace receipt, source, or accounting verification. No upstream URLs or signing keys belong in this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+    },
+    "mode": {
+      "enum": [
+        "preflight",
+        "run",
+        "serve"
+      ]
+    },
+    "status": {
+      "enum": [
+        "running",
+        "passed",
+        "failed",
+        "terminated"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "snapshotSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "commit",
+        "dirty",
+        "snapshotSha256"
+      ]
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name",
+          "version"
+        ]
+      },
+      "minItems": 1
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/dependency"
+      },
+      "minItems": 0
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "chainId": {
+          "const": 4663
+        },
+        "blockNumber": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "blockHash": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        }
+      },
+      "required": [
+        "chainId",
+        "blockNumber",
+        "blockHash"
+      ]
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "chainId": {
+          "const": 31337
+        },
+        "rpcUrl": {
+          "type": "string",
+          "pattern": "^http://(127\\.0\\.0\\.1|localhost|\\[::1\\]):[0-9]{1,5}/?$"
+        }
+      },
+      "required": [
+        "chainId",
+        "rpcUrl"
+      ]
+    },
+    "safe": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/definitions/safe"
+        }
+      ]
+    },
+    "deployments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "address": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "runtimeCodeHash": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{64}$"
+          },
+          "receipt": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{64}$"
+          }
+        },
+        "required": [
+          "role",
+          "address",
+          "runtimeCodeHash",
+          "receipt"
+        ]
+      },
+      "minItems": 0
+    },
+    "launch": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/definitions/launch"
+        }
+      ]
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/asset"
+      },
+      "minItems": 0
+    },
+    "funding": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "deployer",
+              "runner-a",
+              "runner-b",
+              "safe-owner",
+              "member"
+            ]
+          },
+          "account": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "amountWei": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "method": {
+            "enum": [
+              "local-test-eth",
+              "transfer"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          }
+        },
+        "required": [
+          "role",
+          "account",
+          "amountWei",
+          "method",
+          "evidence"
+        ]
+      },
+      "minItems": 0
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/receipt"
+      },
+      "minItems": 0
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "G1": {
+          "$ref": "#/definitions/result"
+        },
+        "G2": {
+          "$ref": "#/definitions/result"
+        },
+        "G3": {
+          "$ref": "#/definitions/result"
+        },
+        "G4": {
+          "$ref": "#/definitions/result"
+        },
+        "G5": {
+          "$ref": "#/definitions/result"
+        },
+        "G6": {
+          "$ref": "#/definitions/result"
+        }
+      },
+      "required": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6"
+      ]
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "SC-001": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-002": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-003": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-004": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-005": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-006": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-007": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-008": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-009": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-010": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-011": {
+          "$ref": "#/definitions/acceptance"
+        },
+        "SC-012": {
+          "$ref": "#/definitions/acceptance"
+        }
+      },
+      "required": [
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005",
+        "SC-006",
+        "SC-007",
+        "SC-008",
+        "SC-009",
+        "SC-010",
+        "SC-011",
+        "SC-012"
+      ]
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]+$"
+          },
+          "result": {
+            "$ref": "#/definitions/acceptance"
+          }
+        },
+        "required": [
+          "id",
+          "result"
+        ]
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "runId",
+    "mode",
+    "status",
+    "source",
+    "tools",
+    "dependencies",
+    "origin",
+    "execution",
+    "safe",
+    "deployments",
+    "launch",
+    "assets",
+    "funding",
+    "receipts",
+    "gates",
+    "acceptance",
+    "scenarios"
+  ],
+  "definitions": {
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked",
+            "not-run"
+          ]
+        },
+        "evidenceClass": {
+          "enum": [
+            "none",
+            "source",
+            "synthetic",
+            "authentic-fork",
+            "simulated-participation",
+            "fault-injection",
+            "browser"
+          ]
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "status",
+        "evidenceClass",
+        "artifacts",
+        "reason"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "passed"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "artifacts": {
+                "minItems": 1,
+                "type": "array"
+              },
+              "evidenceClass": {
+                "not": {
+                  "const": "none"
+                }
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked",
+            "not-run"
+          ]
+        },
+        "evidenceClass": {
+          "enum": [
+            "none",
+            "source",
+            "synthetic",
+            "authentic-fork",
+            "simulated-participation",
+            "fault-injection",
+            "browser"
+          ]
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "status",
+        "evidenceClass",
+        "artifacts",
+        "reason"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "passed"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "artifacts": {
+                "minItems": 1,
+                "type": "array"
+              },
+              "evidenceClass": {
+                "not": {
+                  "const": "none"
+                }
+              }
+            },
+            "type": "object"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "passed"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "evidenceClass": {
+                "enum": [
+                  "authentic-fork",
+                  "simulated-participation",
+                  "browser"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "address": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "runtimeCodeHash": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        "sourceRevision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceFiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "license": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "license"
+            ]
+          },
+          "minItems": 1
+        },
+        "compiler": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evmVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "optimizerRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "viaIR": {
+              "type": "boolean"
+            },
+            "inputSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "version",
+            "evmVersion",
+            "optimizerRuns",
+            "viaIR",
+            "inputSha256"
+          ]
+        },
+        "constructorArguments": {
+          "description": "Original creation argument bytes when supplied by the verified source record; null explicitly denotes unavailable historical arguments. Runtime and compiler-derived immutable associations remain independently verified.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^0x([0-9a-fA-F]{2})*$"
+            }
+          ]
+        },
+        "immutables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "name",
+              "value"
+            ]
+          },
+          "minItems": 0
+        },
+        "verification": {
+          "$ref": "#/definitions/result"
+        }
+      },
+      "required": [
+        "role",
+        "address",
+        "runtimeCodeHash",
+        "sourceRevision",
+        "sourceFiles",
+        "compiler",
+        "constructorArguments",
+        "immutables",
+        "verification"
+      ]
+    },
+    "safe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "owners": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true
+        },
+        "threshold": {
+          "const": 2
+        },
+        "singleton": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "proxyFactory": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "deploymentReceipt": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        }
+      },
+      "required": [
+        "address",
+        "owners",
+        "threshold",
+        "singleton",
+        "proxyFactory",
+        "deploymentReceipt"
+      ]
+    },
+    "launch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "factory": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "token": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "curve": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "developer": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "creatorFeeRecipient": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "pairToken": {
+          "const": "0x0000000000000000000000000000000000000000"
+        },
+        "preset": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "expectedEconomics": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        "launchFeeWei": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "developerPurchaseWei": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "developerTokensReceived": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "buybackEnabled": {
+          "const": true
+        },
+        "creatorTaxBps": {
+          "const": 0
+        },
+        "launchReceipt": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        "purchaseReceipt": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        "roleMap": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "role": {
+                "type": "string",
+                "minLength": 1
+              },
+              "address": {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{40}$"
+              },
+              "authority": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "role",
+              "address",
+              "authority"
+            ]
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "factory",
+        "token",
+        "curve",
+        "developer",
+        "creatorFeeRecipient",
+        "pairToken",
+        "preset",
+        "expectedEconomics",
+        "launchFeeWei",
+        "developerPurchaseWei",
+        "developerTokensReceived",
+        "buybackEnabled",
+        "creatorTaxBps",
+        "launchReceipt",
+        "purchaseReceipt",
+        "roleMap"
+      ]
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "kind": {
+          "enum": [
+            "usdg",
+            "stock",
+            "non-stock",
+            "protocol-token",
+            "illiquid"
+          ]
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "displayMultiplier": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "acquisition": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "method": {
+              "enum": [
+                "trade",
+                "transfer",
+                "simulated-holder-transfer",
+                "native-wrap"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
+            },
+            "amountRaw": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "receipt": {
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{64}$"
+            },
+            "evidence": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+            }
+          },
+          "required": [
+            "method",
+            "account",
+            "amountRaw",
+            "receipt",
+            "evidence"
+          ]
+        },
+        "routeEvidence": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        },
+        "policyEvidence": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        }
+      },
+      "required": [
+        "address",
+        "kind",
+        "symbol",
+        "decimals",
+        "displayMultiplier",
+        "acquisition",
+        "routeEvidence",
+        "policyEvidence"
+      ]
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hash": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        "blockHash": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        "blockNumber": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "chainId": {
+          "const": 31337
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "success",
+            "reverted"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceClass": {
+          "enum": [
+            "authentic-fork",
+            "simulated-participation",
+            "fault-injection",
+            "browser"
+          ]
+        },
+        "decodedEvidence": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        },
+        "safeInnerOutcome": {
+          "enum": [
+            "not-safe",
+            "ExecutionSuccess",
+            "ExecutionFailure"
+          ]
+        }
+      },
+      "required": [
+        "hash",
+        "blockHash",
+        "blockNumber",
+        "chainId",
+        "from",
+        "to",
+        "status",
+        "kind",
+        "evidenceClass",
+        "decodedEvidence",
+        "safeInnerOutcome"
+      ]
+    },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "runId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+        },
+        "chainId": {
+          "const": 31337
+        },
+        "scope": {
+          "const": "deployment-fragment-awaiting-receipts"
+        },
+        "safeOwners": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true
+        },
+        "safeThreshold": {
+          "const": 2
+        },
+        "developer": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "safe": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "ponsFactory": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "protocolToken": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "curve": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "factory": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "buybackVault": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "mediaStoreFactory": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "renderer": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "previewHarness": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "launchFeeWei": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "developerPurchaseWei": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "developerTokensPurchased": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        }
+      },
+      "required": [
+        "runId",
+        "chainId",
+        "scope",
+        "safeOwners",
+        "safeThreshold",
+        "developer",
+        "safe",
+        "ponsFactory",
+        "protocolToken",
+        "curve",
+        "factory",
+        "buybackVault",
+        "mediaStoreFactory",
+        "renderer",
+        "previewHarness",
+        "launchFeeWei",
+        "developerPurchaseWei",
+        "developerTokensPurchased"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "passed"
+          },
+          "mode": {
+            "enum": [
+              "run",
+              "serve"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "mode"
+        ],
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "safe": {
+            "$ref": "#/definitions/safe"
+          },
+          "launch": {
+            "$ref": "#/definitions/launch"
+          },
+          "dependencies": {
+            "minItems": 1,
+            "type": "array"
+          },
+          "deployments": {
+            "minItems": 1,
+            "type": "array"
+          },
+          "receipts": {
+            "minItems": 1,
+            "type": "array"
+          },
+          "scenarios": {
+            "minItems": 1,
+            "type": "array"
+          },
+          "gates": {
+            "properties": {
+              "G1": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "G2": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "G3": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "G4": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "G5": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "G6": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "acceptance": {
+            "properties": {
+              "SC-001": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-002": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-003": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-004": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-005": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-006": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-007": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-008": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-009": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-010": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-011": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              },
+              "SC-012": {
+                "properties": {
+                  "status": {
+                    "const": "passed"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "assets": {
+            "allOf": [
+              {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "usdg"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "stock"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "non-stock"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "protocol-token"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "illiquid"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "type": "array"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      }
+    }
+  ]
+}

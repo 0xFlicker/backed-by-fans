@@ -8,7 +8,8 @@ cd "$repo_root/contracts"
 ./scripts/check-clean-room.sh
 ./scripts/test-create-safe.sh
 ./scripts/test-deploy-protocol.sh
-./scripts/test-testnet-usdg.sh
+./scripts/test-manage-payment-tokens.sh
+./scripts/test-manage-buybacks.sh
 forge fmt --check
 FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
 FOUNDRY_PROFILE=robinhood forge test \
@@ -53,6 +54,7 @@ if rg -n 'PRIVATE_KEY|SECRET_KEY|MNEMONIC|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY' \
 fi
 
 cd "$repo_root"
+bash scripts/test-protocol-fork-cli.sh
 git diff --check
 
 echo "Local Backed By Fans verification passed. This is not public-pilot, audit, or deployment evidence."
