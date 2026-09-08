@@ -818,6 +818,7 @@ export function CreateTierWizard() {
           sourceBlob.current = undefined;
           setCandidate(undefined);
           setTierSalt(recovered.draft.tierSalt);
+          setForm(recovered.draft.terms);
           setArt(recovered.draft.art);
           setMedia(recovered.draft.media);
           if (
@@ -922,6 +923,7 @@ export function CreateTierWizard() {
           : media;
       try {
         persistUnsignedStudioDraft(window.localStorage, {
+          terms: form,
           scope: draftScope,
           tierSalt,
           art,
@@ -953,6 +955,7 @@ export function CreateTierWizard() {
   }, [
     art,
     currentConfirmedMedia,
+    form,
     draftAutosaveBypassKey,
     draftReadyKey,
     draftRecoveryRevision,
@@ -2294,10 +2297,39 @@ export function CreateTierWizard() {
         {step === "splits" && (
           <div className="creator-step-panel">
             <h2 id="step-splits">Split each payment</h2>
+            {form.protocolPercent === "100" && (
+              <p>
+                At 100%, creator proceeds, rewards and referrals must be zero.
+                The full payment stays reserved, earns over paid time, and backs
+                unused-time refunds.
+              </p>
+            )}
+            <p>
+              Membership access starts immediately. The protocol allocation
+              earns continuously as paid time is used, then funds periodic token
+              buybacks and burns. Unearned reserves help fund refunds.
+            </p>
             <p>
               Rewards are not equity, yield, dividends, or a promised return.
             </p>
             <div className="creator-field-grid">
+              <Field
+                error={result.errors.protocolPercent}
+                hint="Permanent. Minimum 1%, maximum 100%."
+                id="tier-protocol"
+                label="Protocol allocation (%)"
+              >
+                <input
+                  aria-describedby="tier-protocol-hint tier-protocol-error"
+                  id="tier-protocol"
+                  inputMode="decimal"
+                  min="1"
+                  max="100"
+                  step="0.01"
+                  onChange={update("protocolPercent")}
+                  value={form.protocolPercent}
+                />
+              </Field>
               <Field
                 error={result.errors.rewardPercent}
                 hint="Permanent."
@@ -2341,7 +2373,7 @@ export function CreateTierWizard() {
                 </div>
                 <dl>
                   <div>
-                    <dt>Platform fee</dt>
+                    <dt>Protocol buyback and burn</dt>
                     <dd>
                       {formattedPayment(
                         result.split.protocol,
@@ -2455,7 +2487,7 @@ export function CreateTierWizard() {
               />
               <span>
                 I understand the price, period, reward rate, referral rate,
-                payment currency, and 1% platform fee are permanent.
+                payment currency, and protocol allocation are permanent.
               </span>
             </label>
             <label className="acknowledgement">
@@ -2509,6 +2541,10 @@ export function CreateTierWizard() {
                       {form.rewardPercent || "0"}% /{" "}
                       {form.referralPercent || "0"}%
                     </dd>
+                  </div>
+                  <div>
+                    <dt>Protocol allocation</dt>
+                    <dd>{form.protocolPercent}%</dd>
                   </div>
                 </dl>
               </section>

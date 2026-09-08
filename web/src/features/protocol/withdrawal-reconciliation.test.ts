@@ -6,88 +6,29 @@ import {
 } from "viem";
 import { describe, expect, it } from "vitest";
 
-import { membershipTierAbi, membershipFactoryAbi } from "@/contracts";
-import {
-  receiptProvesCreatorWithdrawal,
-  receiptProvesProtocolWithdrawal,
-} from "@/features/protocol/withdrawal-reconciliation";
+import { membershipTierAbi } from "@/contracts";
+import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 
 const contract = getAddress("0x1111111111111111111111111111111111111111");
 const recipient = getAddress("0x2222222222222222222222222222222222222222");
-const token = getAddress("0x3333333333333333333333333333333333333333");
 
-function withdrawalLog(
-  abi: typeof membershipFactoryAbi | typeof membershipTierAbi,
-  eventName: "ProtocolFeesWithdrawn" | "CreatorProceedsWithdrawn",
-  indexedName: "recipient" | "owner",
-  amount: bigint,
-): Log {
-  const args =
-    eventName === "ProtocolFeesWithdrawn"
-      ? { token, [indexedName]: recipient }
-      : { [indexedName]: recipient };
+function withdrawalLog(amount: bigint): Log {
   return {
     address: contract,
     data: encodeAbiParameters([{ type: "uint256" }], [amount]),
     topics: encodeEventTopics({
-      abi,
-      eventName,
-      args,
+      abi: membershipTierAbi,
+      eventName: "CreatorProceedsWithdrawn",
+      args: { owner: recipient },
     }),
   } as Log;
 }
 
 describe("withdrawal receipt reconciliation", () => {
-  it("proves the exact protocol withdrawal even if later fees arrive", () => {
-    const receipt = {
-      status: "success" as const,
-      logs: [
-        withdrawalLog(
-          membershipFactoryAbi,
-          "ProtocolFeesWithdrawn",
-          "recipient",
-          9n,
-        ),
-      ],
-    };
-
-    expect(
-      receiptProvesProtocolWithdrawal(receipt, {
-        factory: contract,
-        token,
-        recipient,
-        amount: 9n,
-      }),
-    ).toBe(true);
-    expect(
-      receiptProvesProtocolWithdrawal(receipt, {
-        factory: contract,
-        token,
-        recipient,
-        amount: 10n,
-      }),
-    ).toBe(false);
-    expect(
-      receiptProvesProtocolWithdrawal(receipt, {
-        factory: contract,
-        token: getAddress("0x4444444444444444444444444444444444444444"),
-        recipient,
-        amount: 9n,
-      }),
-    ).toBe(false);
-  });
-
   it("requires the exact tier, owner, and amount", () => {
     const receipt = {
       status: "success" as const,
-      logs: [
-        withdrawalLog(
-          membershipTierAbi,
-          "CreatorProceedsWithdrawn",
-          "owner",
-          12n,
-        ),
-      ],
+      logs: [withdrawalLog(12n)],
     };
 
     expect(

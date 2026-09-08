@@ -1,5 +1,9 @@
 import { encodeAbiParameters, getAddress, keccak256, stringToHex } from "viem";
 import { describe, expect, it, vi } from "vitest";
+import {
+  defaultCreatorForm,
+  evaluateCreatorForm,
+} from "@/features/creator/config";
 
 import { createDefaultArtConfig } from "@/features/creator-studio/art-config";
 import {
@@ -28,6 +32,7 @@ const scope: StudioDraftScope = {
 
 function draft(): UnsignedStudioDraft {
   return {
+    terms: { ...defaultCreatorForm, protocolPercent: "12.34" },
     scope,
     tierSalt,
     art: createDefaultArtConfig("afterimage", 123n),
@@ -36,7 +41,7 @@ function draft(): UnsignedStudioDraft {
 }
 
 describe("unsigned Creator Studio draft recovery", () => {
-  it("persists only scoped creative inputs and revalidates a native pointer", async () => {
+  it("persists scoped unsigned terms and creative inputs and revalidates native media", async () => {
     const serialized = serializeUnsignedStudioDraft(draft());
     const validateConfirmedStore = vi.fn().mockResolvedValue(true);
     const recovered = await recoverUnsignedStudioDraft(serialized, scope, {
@@ -46,6 +51,7 @@ describe("unsigned Creator Studio draft recovery", () => {
     expect(recovered).toMatchObject({
       status: "ready",
       draft: {
+        terms: { protocolPercent: "12.34" },
         tierSalt,
         art: { engine: "afterimage", collectionSeed: 123n },
         media: { mode: "native", confirmedStore: address("5") },
@@ -56,9 +62,40 @@ describe("unsigned Creator Studio draft recovery", () => {
       scope.mediaRegistry,
     );
     expect(serialized).not.toMatch(
-      /imageBytes|candidateBytes|price|receipt|transactionHash|nonce|calldata|pending/i,
+      /imageBytes|candidateBytes|receipt|transactionHash|nonce|calldata|pending/i,
     );
   });
+
+  it.each(["100", "0.99", "100.01", "1.001"])(
+    "restores unsigned %s%% terms and applies current economic validation",
+    async (protocolPercent) => {
+      const saved = draft();
+      saved.terms = {
+        ...saved.terms,
+        protocolPercent,
+        rewardPercent: "0",
+        referralPercent: "0",
+      };
+      const recovered = await recoverUnsignedStudioDraft(
+        serializeUnsignedStudioDraft(saved),
+        scope,
+        { validateConfirmedStore: () => true },
+      );
+      expect(recovered.status).toBe("ready");
+      if (recovered.status !== "ready")
+        throw new Error("Expected a recoverable unsigned draft");
+      expect(recovered.draft.terms).toEqual(saved.terms);
+      const validation = evaluateCreatorForm(recovered.draft.terms);
+      if (protocolPercent === "100") {
+        expect(validation.errors.protocolPercent).toBeUndefined();
+        expect(validation.errors.rewardPercent).toBeUndefined();
+        expect(validation.errors.referralPercent).toBeUndefined();
+      } else {
+        expect(validation.errors.protocolPercent).toBeDefined();
+        expect(validation.config).toBeUndefined();
+      }
+    },
+  );
 
   it("preserves the permanent render identity across recovery", async () => {
     const before = draft();
@@ -184,7 +221,7 @@ describe("unsigned Creator Studio draft recovery", () => {
 
   it("scopes storage keys to chain, canonical factory, and creator", () => {
     expect(studioDraftStorageKey(scope)).toBe(
-      "backed-by-fans-creative-draft:4:46630:0x1111111111111111111111111111111111111111:0x2222222222222222222222222222222222222222:0x3333333333333333333333333333333333333333",
+      "backed-by-fans-creative-draft:5:46630:0x1111111111111111111111111111111111111111:0x2222222222222222222222222222222222222222:0x3333333333333333333333333333333333333333",
     );
   });
 

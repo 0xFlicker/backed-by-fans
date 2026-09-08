@@ -1,5 +1,6 @@
-import { getAddress, zeroAddress } from "viem";
-import { describe, expect, it } from "vitest";
+import { getAddress, zeroAddress, type PublicClient } from "viem";
+import { describe, expect, it, vi } from "vitest";
+import { readRefundFunding } from "@/features/creator/management-read";
 
 import type { TierManagementSnapshot } from "@/contracts/types";
 import {
@@ -19,6 +20,32 @@ const base = {
 } as TierManagementSnapshot;
 
 describe("creator management constraints", () => {
+  it("reads all refund funding components from one pinned contract response", async () => {
+    const readContract = vi.fn().mockResolvedValue([90n, 9n, 81n, 0n]);
+    const client = { readContract } as unknown as PublicClient;
+    expect(
+      await readRefundFunding(client, {
+        tier: owner,
+        tokenId: 12n,
+        blockNumber: 50n,
+      }),
+    ).toEqual({ gross: 90n, protocol: 9n, creator: 81n, topUp: 0n });
+    expect(readContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionName: "previewRefundComponents",
+        args: [12n],
+        blockNumber: 50n,
+      }),
+    );
+    readContract.mockRejectedValueOnce(new Error("RPC unavailable"));
+    await expect(
+      readRefundFunding(client, {
+        tier: owner,
+        tokenId: 12n,
+        blockNumber: 50n,
+      }),
+    ).rejects.toThrow("RPC unavailable");
+  });
   it("keeps revoke, refund, and owner operations available while grants pause", () => {
     expect(managementPermissions(base, owner)).toMatchObject({
       isOwner: true,

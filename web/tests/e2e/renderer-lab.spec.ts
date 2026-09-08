@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { getDeployment, publicConfig } from "../../src/lib/config";
 import {
   encodeAbiParameters,
   encodeFunctionResult,
@@ -30,6 +31,29 @@ const imageFixture = fileURLToPath(
     import.meta.url,
   ),
 );
+const hasPublicPreviewHarness =
+  getDeployment(publicConfig, 46_630).status === "ready";
+
+async function expectPreviewState(page: Page) {
+  const images = page.getByRole("img", { name: /Membership example/i });
+  if (hasPublicPreviewHarness) {
+    // This suite supplies a synthetic RPC result; authentic artwork is tested
+    // against the freshly deployed fork in the @anvil membership suite.
+    await expect(images).toHaveCount(6);
+  } else {
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "The canonical preview harness" }),
+    ).toHaveText(
+      "The canonical preview harness is not configured for this public build.",
+    );
+    await expect(images).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: /^Deploy renderer/ }),
+    ).toBeDisabled();
+  }
+}
 
 function byteLength(value: Hex) {
   return (value.length - 2) / 2;
@@ -192,9 +216,7 @@ test("imports, previews, and updates browser-held renderer work", async ({
     page.getByRole("button", { name: "Reject renderer" }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "Preview 6 examples" }).click();
-  await expect(
-    page.getByRole("img", { name: /Membership example/i }),
-  ).toHaveCount(6);
+  await expectPreviewState(page);
 
   await page.getByLabel("Choose JPEG or PNG").setInputFiles({
     name: "creator.jpg",
@@ -208,11 +230,13 @@ test("imports, previews, and updates browser-held renderer work", async ({
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Preview 6 examples" }).click();
-  const transformed = page.getByRole("img", { name: /Membership example/i });
-  await expect(transformed).toHaveCount(6);
-  expect(await transformed.first().getAttribute("src")).toContain(
-    "creator-image",
-  );
+  await expectPreviewState(page);
+  if (hasPublicPreviewHarness) {
+    const transformed = page.getByRole("img", { name: /Membership example/i });
+    expect(await transformed.first().getAttribute("src")).toContain(
+      "creator-image",
+    );
+  }
   expect(
     await page.evaluate(() =>
       Object.keys(localStorage).filter((key) => /renderer|image/i.test(key)),
@@ -312,9 +336,7 @@ test("uses the optional loopback handoff without an account or source-image tran
   await expect(page).toHaveURL(/\/render$/);
   await expect(page.getByText("Moonlit Memberships")).toBeVisible();
   await page.getByRole("button", { name: "Preview 6 examples" }).click();
-  await expect(
-    page.getByRole("img", { name: /Membership example/i }),
-  ).toHaveCount(6);
+  await expectPreviewState(page);
   await expect(
     page.getByRole("region", { name: "Deployment summary" }),
   ).toBeVisible();

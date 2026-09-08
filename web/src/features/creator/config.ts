@@ -4,7 +4,6 @@ import type { TierPublicationConfig } from "@/features/protocol/registry-reconci
 import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
 import { displayedToRaw } from "@/lib/token-amount";
 
-export const protocolFeeBps = 100;
 export const bpsDenominator = 10_000;
 export const secondsPerDay = 86_400n;
 export const uint64Max = (1n << 64n) - 1n;
@@ -17,6 +16,7 @@ export type CreatorForm = {
   paymentToken: string;
   displayedPrice: string;
   periodDays: string;
+  protocolPercent: string;
   rewardPercent: string;
   referralPercent: string;
   supplyCap: string;
@@ -55,6 +55,7 @@ export const defaultCreatorForm: CreatorForm = {
   paymentToken: "",
   displayedPrice: "10",
   periodDays: "30",
+  protocolPercent: "1",
   rewardPercent: "5",
   referralPercent: "1",
   supplyCap: "0",
@@ -102,6 +103,7 @@ function parsePercentToBps(value: string): number | undefined {
 
 export function previewPaymentSplit(
   gross: bigint,
+  protocolFeeBps: number,
   rewardBps: number,
   referralBps: number,
 ): SplitPreview {
@@ -188,6 +190,11 @@ export function evaluateCreatorForm(
     errors.periodDays = "Enter a whole number of days greater than 0.";
   }
 
+  const protocolFeeBps = parsePercentToBps(form.protocolPercent);
+  if (protocolFeeBps === undefined || protocolFeeBps < 100) {
+    errors.protocolPercent =
+      "Use a percentage from 1 to 100 with up to 2 decimals.";
+  }
   const rewardBps = parsePercentToBps(form.rewardPercent);
   if (rewardBps === undefined) {
     errors.rewardPercent =
@@ -201,10 +208,11 @@ export function evaluateCreatorForm(
   if (
     rewardBps !== undefined &&
     referralBps !== undefined &&
+    protocolFeeBps !== undefined &&
     rewardBps + referralBps + protocolFeeBps > bpsDenominator
   ) {
     errors.referralPercent =
-      "Rewards, referrals, and the 1% platform fee cannot exceed 100%.";
+      "Rewards, referrals, and the protocol allocation cannot exceed 100%.";
   }
 
   const supplyCap = parseWholeUint64(form.supplyCap);
@@ -218,10 +226,17 @@ export function evaluateCreatorForm(
 
   const split =
     pricePerPeriod !== undefined &&
+    protocolFeeBps !== undefined &&
+    protocolFeeBps >= 100 &&
     rewardBps !== undefined &&
     referralBps !== undefined &&
     rewardBps + referralBps + protocolFeeBps <= bpsDenominator
-      ? previewPaymentSplit(pricePerPeriod, rewardBps, referralBps)
+      ? previewPaymentSplit(
+          pricePerPeriod,
+          protocolFeeBps,
+          rewardBps,
+          referralBps,
+        )
       : undefined;
   const warnings: string[] = [];
   if (split && split.creatorReferred * 2n < split.gross) {
@@ -257,6 +272,7 @@ export function evaluateCreatorForm(
     creativeError ||
     Object.keys(errors).length > 0 ||
     pricePerPeriod === undefined ||
+    protocolFeeBps === undefined ||
     !periodDuration ||
     rewardBps === undefined ||
     referralBps === undefined ||
@@ -279,6 +295,7 @@ export function evaluateCreatorForm(
       symbol,
       pricePerPeriod,
       periodDuration,
+      protocolFeeBps,
       rewardBps,
       referralBps,
       supplyCap,

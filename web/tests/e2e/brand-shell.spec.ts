@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("renders the membership catalog at the canonical homepage", async ({
+test("renders the unavailable catalog at the canonical homepage before public deployment", async ({
   page,
   request,
 }) => {
@@ -20,11 +20,13 @@ test("renders the membership catalog at the canonical homepage", async ({
       name: "Find a membership worth joining.",
     }),
   ).toBeVisible();
-  await expect(page.locator(".catalog-card").first()).toBeVisible();
-  await expect(page.locator(".catalog-card img").first()).toHaveAttribute(
-    "src",
-    /\/api\/chains\/\d+\/tiers\/0x[a-fA-F0-9]{40}\/artwork\?v=0x[a-fA-F0-9]{64}/,
-  );
+  await expect(page.getByText("Onchain state unavailable")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Backed By Fans is not deployed on Robinhood Chain Testnet.",
+    ),
+  ).toBeVisible();
+  await expect(page.locator(".catalog-card")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "About" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Backed By Fans home" }),
@@ -36,7 +38,7 @@ test("renders the membership catalog at the canonical homepage", async ({
     expectedSiteUrl.replace(/\/$/, ""),
   );
   await expect(page.getByText("Testnet", { exact: true })).toBeVisible();
-  await expect(page.getByText(/working brand direction/i)).toBeVisible();
+  await expect(page.getByText("Creator-owned. Backed By Fans.")).toBeVisible();
   await expect(page.locator("body")).not.toContainText(
     /vercel|next\.js template/i,
   );

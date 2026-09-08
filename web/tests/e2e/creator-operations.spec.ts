@@ -242,6 +242,9 @@ test("@anvil creator sync burns an expired NFT while its member can claim and re
     ).resolves.toBe(accrued);
 
     await page.goto(`/chains/31337/tiers/${configuredTier}`);
+    // Full navigation recreates the test provider. Wait for wagmi to reconnect
+    // before emitting a new account event to its subscription.
+    await connectAnvilWallet(page, creator);
     await switchAnvilAccount(page, member);
     await expect(page.getByText("Burned after creator sync")).toBeVisible();
     await page

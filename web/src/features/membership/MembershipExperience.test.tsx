@@ -110,6 +110,7 @@ const snapshot: TierSupporterSnapshot = {
   externalURI: "",
   pricePerPeriod: 10_000_000n,
   periodDuration: 30n * 86_400n,
+  protocolFeeBps: 100,
   rewardBps: 500,
   referralBps: 100,
   supplyCap: 100n,
@@ -151,6 +152,9 @@ function credential(
     rewardEligible: true,
     claimableReward: 2_000_000n,
     refundableGross: 10_000_000n,
+    protocolRefundContribution: 100_000n,
+    creatorRefundContribution: 9_400_000n,
+    ownerTopUp: 500_000n,
     referralStatus: "locked-none" as const,
     referrer: zeroAddress,
     ...overrides,
@@ -186,6 +190,27 @@ describe("supporter membership experience", () => {
         throw new Error(`Unexpected read ${functionName}`);
       },
     );
+  });
+
+  it("shows each current refund funding component without implying a member can execute it", () => {
+    renderExperience({ ...snapshot, credential: credential() });
+    const funding = screen.getByRole("region", {
+      name: "Current refund backing",
+    });
+    expect(funding).toHaveTextContent(
+      "Unused-time refunds are initiated by the creator",
+    );
+    for (const [label, value] of [
+      ["Gross refund", "10 USDG"],
+      ["Unearned protocol reserve", "0.1 USDG"],
+      ["Creator proceeds used", "9.4 USDG"],
+      ["Owner top-up", "0.5 USDG"],
+    ]) {
+      expect(within(funding).getByText(label).parentElement).toHaveTextContent(
+        value,
+      );
+    }
+    expect(within(funding).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("presents join, active renewal, held-expiry, and synchronized history distinctly", () => {

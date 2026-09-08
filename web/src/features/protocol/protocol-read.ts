@@ -2,23 +2,35 @@ import {
   erc20Abi,
   getAddress,
   keccak256,
+  zeroAddress,
   type Address,
   type PublicClient,
 } from "viem";
 
-import { onchainMetadataRendererAbi, membershipFactoryAbi } from "@/contracts";
-import type { ProtocolDependencySnapshot } from "@/contracts/types";
+import {
+  onchainMetadataRendererAbi,
+  membershipFactoryAbi,
+  protocolBuybackVaultAbi,
+  ponsBuybackExecutorAbi,
+  iSafeAbi,
+} from "@/contracts";
+import { readTokenDisplay } from "@/lib/payment-token-read";
+import { tokenMultiplierScale } from "@/lib/token-amount";
+import { readPonsCompensation } from "./pons-read";
+import type {
+  ProtocolCustodyIdentity,
+  ProtocolDependencySnapshot,
+} from "@/contracts/types";
 import type { DeploymentAvailability } from "@/lib/config";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
-export type ProtocolSnapshot = ProtocolDependencySnapshot & {
-  owner: Address;
-  pendingOwner: Address;
-  feeRecipient: Address;
-  protocolFeeBps: number;
-  protocolBalances: readonly { token: Address; raw: bigint }[];
-  tierCount: bigint;
-};
+export type ProtocolSnapshot = ProtocolDependencySnapshot &
+  ProtocolCustodyIdentity & {
+    owner: Address;
+    pendingOwner: Address;
+    protocolBalances: readonly { token: Address; raw: bigint }[];
+    tierCount: bigint;
+  };
 
 export const membershipRendererSchema =
   "0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4" as const;
@@ -118,6 +130,8 @@ export async function readProtocolDependencies(
       rendererSchema,
       mediaStoreFactory,
       mediaStoreFactoryRuntimeCodehash,
+      vault,
+      protocolToken,
     ] = await Promise.all([
       readPaymentTokenAddresses(
         client,
@@ -142,9 +156,67 @@ export async function readProtocolDependencies(
         functionName: "mediaStoreFactoryRuntimeCodehash",
         blockNumber: capturedBlock,
       }),
+      client.readContract({
+        address: deployment.factoryAddress,
+        abi: membershipFactoryAbi,
+        functionName: "buybackVault",
+        blockNumber: capturedBlock,
+      }),
+      client.readContract({
+        address: deployment.factoryAddress,
+        abi: membershipFactoryAbi,
+        functionName: "protocolToken",
+        blockNumber: capturedBlock,
+      }),
     ]);
 
     const failedChecks: string[] = [];
+    // A historical fee-recipient factory must never authenticate tiers for the
+    // current custody model. These immutable reciprocal bindings identify it.
+    const [vaultFactory, vaultToken, executor] = await Promise.all([
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "factory",
+        blockNumber: capturedBlock,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "protocolToken",
+        blockNumber: capturedBlock,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "executor",
+        blockNumber: capturedBlock,
+      }),
+    ]);
+    const [executorVault, executorToken] = await Promise.all([
+      client.readContract({
+        address: executor,
+        abi: ponsBuybackExecutorAbi,
+        functionName: "vault",
+        blockNumber: capturedBlock,
+      }),
+      client.readContract({
+        address: executor,
+        abi: ponsBuybackExecutorAbi,
+        functionName: "protocolToken",
+        blockNumber: capturedBlock,
+      }),
+    ]);
+    if (
+      vault === zeroAddress ||
+      protocolToken === zeroAddress ||
+      executor === zeroAddress ||
+      getAddress(vaultFactory) !== getAddress(deployment.factoryAddress) ||
+      getAddress(vaultToken) !== getAddress(protocolToken) ||
+      getAddress(executorVault) !== getAddress(vault) ||
+      getAddress(executorToken) !== getAddress(protocolToken)
+    )
+      failedChecks.push("buyback protocol version and immutable custody");
     if (rendererSchema !== membershipRendererSchema) {
       failedChecks.push("renderer schema");
     }
@@ -289,7 +361,7 @@ export async function readProtocolState(
 
   try {
     const blockNumber = dependencies.capturedBlock;
-    const [owner, pendingOwner, feeRecipient, feeBps, tierCount, balances] =
+    const [owner, pendingOwner, buybackVault, protocolToken, tierCount] =
       await Promise.all([
         client.readContract({
           address: dependencies.data.factory,
@@ -306,13 +378,13 @@ export async function readProtocolState(
         client.readContract({
           address: dependencies.data.factory,
           abi: membershipFactoryAbi,
-          functionName: "feeRecipient",
+          functionName: "buybackVault",
           blockNumber,
         }),
         client.readContract({
           address: dependencies.data.factory,
           abi: membershipFactoryAbi,
-          functionName: "protocolFeeBps",
+          functionName: "protocolToken",
           blockNumber,
         }),
         client.readContract({
@@ -321,19 +393,19 @@ export async function readProtocolState(
           functionName: "tierCount",
           blockNumber,
         }),
-        Promise.all(
-          dependencies.data.paymentTokens.map(async (token) => ({
-            token,
-            raw: await client.readContract({
-              address: token,
-              abi: erc20Abi,
-              functionName: "balanceOf",
-              args: [dependencies.data.factory],
-              blockNumber,
-            }),
-          })),
-        ),
       ]);
+    const balances = await Promise.all(
+      dependencies.data.paymentTokens.map(async (token) => ({
+        token,
+        raw: await client.readContract({
+          address: token,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [buybackVault],
+          blockNumber,
+        }),
+      })),
+    );
 
     return {
       status: "valid",
@@ -342,8 +414,8 @@ export async function readProtocolState(
         ...dependencies.data,
         owner,
         pendingOwner,
-        feeRecipient,
-        protocolFeeBps: feeBps,
+        buybackVault,
+        protocolToken,
         protocolBalances: balances,
         tierCount,
       },
@@ -358,4 +430,381 @@ export async function readProtocolState(
           label: classified.label,
         };
   }
+}
+
+/** Asset custody is readable independently of external venue availability. */
+export async function readBuybackAsset(
+  client: PublicClient,
+  vault: Address,
+  asset: Address,
+  blockNumber: bigint,
+) {
+  const [membership, donation, route, policy, revision, paused] =
+    await Promise.all([
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "inventory",
+        args: [asset, 0],
+        blockNumber,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "inventory",
+        args: [asset, 1],
+        blockNumber,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "route",
+        args: [asset],
+        blockNumber,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "policy",
+        args: [asset],
+        blockNumber,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "revision",
+        args: [asset],
+        blockNumber,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "assetBuybacksPaused",
+        args: [asset],
+        blockNumber,
+      }),
+    ]);
+  const eligibility = await Promise.allSettled(
+    ([0, 1] as const).map((bucket) =>
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "processingStatus",
+        args: [asset, bucket],
+        blockNumber,
+      }),
+    ),
+  );
+  const metadata =
+    asset === zeroAddress
+      ? { symbol: "ETH", decimals: 18, uiMultiplier: tokenMultiplierScale }
+      : await readTokenDisplay(client, asset, blockNumber).catch(() => null);
+  return {
+    asset,
+    blockNumber,
+    membership,
+    donation,
+    route,
+    policy,
+    revision,
+    paused,
+    metadata,
+    conserved: [membership, donation].every(
+      (bucket) =>
+        bucket.available ===
+        bucket.totalReceived + bucket.totalConvertedIn - bucket.totalSpent,
+    ),
+    eligibility: eligibility.map((item) =>
+      item.status === "fulfilled"
+        ? { status: "valid" as const, data: item.value }
+        : {
+            status: "unavailable" as const,
+            label:
+              "Market eligibility is unavailable; recorded inventory is unchanged.",
+          },
+    ),
+  };
+}
+
+export async function readPublicBuybacks(
+  client: PublicClient,
+  deployment: DeploymentAvailability,
+  options: {
+    blockNumber?: bigint;
+    assetOffset?: number;
+    assetLimit?: number;
+  } = {},
+) {
+  const offset = options.assetOffset ?? 0,
+    limit = options.assetLimit ?? 100;
+  if (
+    !Number.isSafeInteger(offset) ||
+    offset < 0 ||
+    !Number.isSafeInteger(limit) ||
+    limit < 1 ||
+    limit > 100
+  )
+    throw new Error(
+      "Asset pages require a nonnegative offset and a limit of 1–100",
+    );
+  const dependencies = await readProtocolDependencies(
+    client,
+    deployment,
+    options.blockNumber,
+  );
+  if (dependencies.status !== "valid") return dependencies;
+  try {
+    const { factory, paymentTokens } = dependencies.data,
+      blockNumber = dependencies.capturedBlock;
+    const [block, safe, vault, protocolToken, tierCount] = await Promise.all([
+      client.getBlock({ blockNumber }),
+      client.readContract({
+        address: factory,
+        abi: membershipFactoryAbi,
+        functionName: "owner",
+        blockNumber,
+      }),
+      client.readContract({
+        address: factory,
+        abi: membershipFactoryAbi,
+        functionName: "buybackVault",
+        blockNumber,
+      }),
+      client.readContract({
+        address: factory,
+        abi: membershipFactoryAbi,
+        functionName: "protocolToken",
+        blockNumber,
+      }),
+      client.readContract({
+        address: factory,
+        abi: membershipFactoryAbi,
+        functionName: "tierCount",
+        blockNumber,
+      }),
+    ]);
+    const [
+      vaultFactory,
+      vaultToken,
+      executor,
+      buybacksPaused,
+      owners,
+      threshold,
+    ] = await Promise.all([
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "factory",
+        blockNumber,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "protocolToken",
+        blockNumber,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "executor",
+        blockNumber,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "buybacksPaused",
+        blockNumber,
+      }),
+      client.readContract({
+        address: safe,
+        abi: iSafeAbi,
+        functionName: "getOwners",
+        blockNumber,
+      }),
+      client.readContract({
+        address: safe,
+        abi: iSafeAbi,
+        functionName: "getThreshold",
+        blockNumber,
+      }),
+    ]);
+    const [executorVault, executorToken] = await Promise.all([
+      client.readContract({
+        address: executor,
+        abi: ponsBuybackExecutorAbi,
+        functionName: "vault",
+        blockNumber,
+      }),
+      client.readContract({
+        address: executor,
+        abi: ponsBuybackExecutorAbi,
+        functionName: "protocolToken",
+        blockNumber,
+      }),
+    ]);
+    if (
+      getAddress(vaultFactory) !== getAddress(factory) ||
+      getAddress(vaultToken) !== getAddress(protocolToken) ||
+      getAddress(executorVault) !== getAddress(vault) ||
+      getAddress(executorToken) !== getAddress(protocolToken)
+    )
+      throw new Error("Immutable buyback identity mismatch");
+    const assetMap = new Map(
+      [zeroAddress, protocolToken, ...paymentTokens].map((asset) => [
+        asset.toLowerCase(),
+        asset,
+      ]),
+    );
+    const allAssets = [...assetMap.values()];
+    const [assets, pons] = await Promise.all([
+      Promise.all(
+        allAssets.slice(offset, offset + limit).map(async (asset) => {
+          try {
+            return {
+              status: "valid" as const,
+              asset,
+              data: await readBuybackAsset(client, vault, asset, blockNumber),
+            };
+          } catch {
+            return {
+              status: "unavailable" as const,
+              asset,
+              label: "Recorded inventory is unavailable for this asset.",
+            };
+          }
+        }),
+      ),
+      readPonsCompensation(client, {
+        chainId: dependencies.data.chainId,
+        protocolToken,
+        blockNumber,
+      }),
+    ]);
+    return {
+      status: "valid" as const,
+      capturedBlock: blockNumber,
+      data: {
+        ...dependencies.data,
+        timestamp: block.timestamp,
+        safe,
+        owners,
+        threshold,
+        vault,
+        executor,
+        protocolToken,
+        tierCount,
+        buybacksPaused,
+        assets,
+        pons,
+        assetCoverage: {
+          offset,
+          count: assets.length,
+          total: allAssets.length,
+          nextOffset:
+            offset + assets.length < allAssets.length
+              ? offset + assets.length
+              : null,
+        },
+      },
+    };
+  } catch (error) {
+    return {
+      status: "unavailable" as const,
+      reason: "rpc-unavailable" as const,
+      label: classifyReadError(error).label,
+    };
+  }
+}
+export type PublicBuybacks = Extract<
+  Awaited<ReturnType<typeof readPublicBuybacks>>,
+  { status: "valid" }
+>["data"];
+
+/** Latest-first bounded event pages. Configuration and movement are not revenue. */
+export async function readProtocolActivityPage(
+  client: PublicClient,
+  context: {
+    factory: Address;
+    vault: Address;
+    fromBlock: bigint;
+    toBlock: bigint;
+    beforeLogIndex?: number;
+    limit?: number;
+  },
+) {
+  const limit = context.limit ?? 50;
+  if (
+    limit < 1 ||
+    limit > 50 ||
+    !Number.isSafeInteger(limit) ||
+    context.fromBlock < 0n ||
+    context.toBlock < context.fromBlock
+  )
+    throw new Error("Activity pages require valid blocks and a limit of 1–50");
+  const windowFrom =
+    context.toBlock - context.fromBlock >= 2000n
+      ? context.toBlock - 1999n
+      : context.fromBlock;
+  const events = [
+    ...protocolBuybackVaultAbi.filter((item) => item.type === "event"),
+    ...membershipFactoryAbi.filter(
+      (item) =>
+        item.type === "event" &&
+        [
+          "PaymentTokenListed",
+          "PaymentTokenEnabled",
+          "PaymentTokenDisabled",
+          "OwnershipTransferred",
+          "OwnershipTransferStarted",
+        ].includes(item.name),
+    ),
+  ];
+  const logs = await client.getLogs({
+    address: [context.factory, context.vault],
+    events,
+    fromBlock: windowFrom,
+    toBlock: context.toBlock,
+    strict: true,
+  });
+  const ordered = logs
+    .filter(
+      (log) =>
+        context.beforeLogIndex === undefined ||
+        log.blockNumber < context.toBlock ||
+        log.logIndex < context.beforeLogIndex,
+    )
+    .sort((a, b) =>
+      a.blockNumber === b.blockNumber
+        ? b.logIndex - a.logIndex
+        : a.blockNumber > b.blockNumber
+          ? -1
+          : 1,
+    );
+  const rows = ordered.slice(0, limit);
+  const truncated = ordered.length > limit;
+  const last = rows.at(-1);
+  const next =
+    truncated && last
+      ? { toBlock: last.blockNumber, beforeLogIndex: last.logIndex }
+      : windowFrom > context.fromBlock
+        ? { toBlock: windowFrom - 1n }
+        : null;
+  return {
+    rows,
+    next,
+    coverage: {
+      windowFrom,
+      windowTo: context.toBlock,
+      beforeLogIndex: context.beforeLogIndex,
+      completeWindow: context.beforeLogIndex === undefined && !truncated,
+      completeHistory:
+        context.beforeLogIndex === undefined &&
+        windowFrom === context.fromBlock &&
+        !truncated,
+      reachedStart: windowFrom === context.fromBlock && !truncated,
+    },
+    // These are movements between ledgers. Payment allocation is the revenue
+    // source; a vault receipt must never be added to it a second time.
+    ledger: "vault-and-configuration" as const,
+  };
 }

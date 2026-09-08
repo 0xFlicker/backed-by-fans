@@ -5,6 +5,8 @@ import {
   membershipRendererSchema,
   readProtocolDependencies,
   readProtocolState,
+  readBuybackAsset,
+  readProtocolActivityPage,
 } from "@/features/protocol/protocol-read";
 import type { ReadyDeployment } from "@/lib/config";
 
@@ -17,7 +19,7 @@ const mediaStoreFactory = getAddress(
 );
 const owner = getAddress("0x5555555555555555555555555555555555555555");
 const pendingOwner = getAddress("0x6666666666666666666666666666666666666666");
-const feeRecipient = getAddress("0x7777777777777777777777777777777777777777");
+const buybackVault = getAddress("0x7777777777777777777777777777777777777777");
 const previewHarness = getAddress("0x8888888888888888888888888888888888888888");
 const rendererCode = "0x6001600055" as const;
 const mediaStoreFactoryCode = "0x6002600055" as const;
@@ -30,6 +32,159 @@ const foundingEngineNames = [
   "MARQUEE",
   "AFTERIMAGE",
 ] as const;
+
+describe("public buyback ledgers and bounded history", () => {
+  it("preserves known per-source inventory when external eligibility reads fail", async () => {
+    const inventory = {
+      available: 40n,
+      totalReceived: 100n,
+      totalConvertedIn: 0n,
+      totalSpent: 60n,
+      totalBurned: 0n,
+    };
+    const client = {
+      readContract: vi.fn(
+        async ({ functionName }: { functionName: string }) => {
+          if (functionName === "processingStatus")
+            throw new Error("Pons unavailable");
+          return (
+            {
+              inventory,
+              route: { pools: [] },
+              policy: { terms: {}, spent: 60n },
+              revision: 2n,
+              assetBuybacksPaused: false,
+              name: "Scaled Stock Token",
+              symbol: "AMD",
+              decimals: 6,
+              supportsInterface: true,
+              uiMultiplier: 4n * 10n ** 18n,
+              newUIMultiplier: 4n * 10n ** 18n,
+              effectiveAt: 0n,
+            } as Record<string, unknown>
+          )[functionName];
+        },
+      ),
+    };
+    const result = await readBuybackAsset(
+      client as unknown as PublicClient,
+      buybackVault,
+      paymentToken,
+      40n,
+    );
+    expect(result.membership).toEqual(inventory);
+    expect(result.donation).toEqual(inventory);
+    expect(result.conserved).toBe(true);
+    expect(result.metadata?.uiMultiplier).toBe(4n * 10n ** 18n);
+    expect(result.eligibility.every((x) => x.status === "unavailable")).toBe(
+      true,
+    );
+    expect(
+      client.readContract.mock.calls.every(
+        ([call]) =>
+          (call as unknown as { blockNumber: bigint }).blockNumber === 40n,
+      ),
+    ).toBe(true);
+  });
+  it("distinguishes conversion receipts from newly allocated revenue", async () => {
+    const client = {
+      readContract: vi.fn(
+        async ({ functionName }: { functionName: string }) =>
+          (
+            ({
+              inventory: {
+                available: 40n,
+                totalReceived: 0n,
+                totalConvertedIn: 100n,
+                totalSpent: 60n,
+                totalBurned: 0n,
+              },
+              route: { pools: [] },
+              policy: {},
+              revision: 2n,
+              assetBuybacksPaused: false,
+              processingStatus: { status: 0 },
+              symbol: "ETH",
+              decimals: 18,
+            }) as Record<string, unknown>
+          )[functionName],
+      ),
+    };
+    const result = await readBuybackAsset(
+      client as unknown as PublicClient,
+      buybackVault,
+      paymentToken,
+      40n,
+    );
+    expect(result.membership.totalReceived).toBe(0n);
+    expect(result.membership.totalConvertedIn).toBe(100n);
+    expect(result.conserved).toBe(true);
+  });
+  it("pages fifty logs even inside one block without overstating scanned coverage", async () => {
+    const logs = Array.from({ length: 61 }, (_, i) => ({
+      blockNumber: 4000n,
+      logIndex: i,
+      eventName: "BuybackBurned",
+      args: { burned: 1n },
+      address: buybackVault,
+      transactionHash: `0x${"1".repeat(64)}`,
+    }));
+    const client = { getLogs: vi.fn().mockResolvedValue(logs) };
+    const context = {
+      factory,
+      vault: buybackVault,
+      fromBlock: 0n,
+      toBlock: 4000n,
+    };
+    const first = await readProtocolActivityPage(
+      client as unknown as PublicClient,
+      context,
+    );
+    expect(first.rows).toHaveLength(50);
+    expect(first.rows[0].logIndex).toBe(60);
+    expect(first.coverage).toMatchObject({
+      windowFrom: 2001n,
+      windowTo: 4000n,
+      completeWindow: false,
+      completeHistory: false,
+    });
+    const second = await readProtocolActivityPage(
+      client as unknown as PublicClient,
+      { ...context, ...first.next! },
+    );
+    expect(second.rows).toHaveLength(11);
+    expect(second.rows[0].logIndex).toBe(10);
+    expect(
+      new Set([...first.rows, ...second.rows].map((row) => row.logIndex)).size,
+    ).toBe(61);
+    expect(second.next).toEqual({ toBlock: 2000n });
+    expect(
+      client.getLogs.mock.calls.every(
+        ([call]) => call.toBlock - call.fromBlock <= 1999n,
+      ),
+    ).toBe(true);
+  });
+  it("returns a real empty window and exposes the earlier range, while RPC failure remains unavailable", async () => {
+    const client = { getLogs: vi.fn().mockResolvedValue([]) };
+    expect(
+      await readProtocolActivityPage(client as unknown as PublicClient, {
+        factory,
+        vault: buybackVault,
+        fromBlock: 0n,
+        toBlock: 4000n,
+      }),
+    ).toMatchObject({ rows: [], next: { toBlock: 2000n } });
+    client.getLogs.mockRejectedValueOnce(new Error("RPC unavailable"));
+    await expect(
+      readProtocolActivityPage(client as unknown as PublicClient, {
+        factory,
+        vault: buybackVault,
+        fromBlock: 0n,
+        toBlock: 40n,
+      }),
+    ).rejects.toThrow("RPC unavailable");
+  });
+});
 const deployment = {
   status: "ready",
   chainId: 46630,
@@ -84,8 +239,11 @@ function protocolClient(
           input.mediaStoreFactoryHash ?? keccak256(mediaStoreFactoryCode),
         owner,
         pendingOwner,
-        feeRecipient,
-        protocolFeeBps: 100,
+        buybackVault,
+        factory,
+        vault: buybackVault,
+        executor: owner,
+        protocolToken: paymentToken,
         tierCount: 4n,
         balanceOf: address === paymentToken ? 9n : 4n,
       };
@@ -128,7 +286,7 @@ describe("protocol dependency reads", () => {
         previewHarness,
         mediaStoreFactory,
         owner,
-        protocolFeeBps: 100,
+        protocolToken: paymentToken,
         tierCount: 4n,
         protocolBalances: [
           { token: paymentToken, raw: 9n },

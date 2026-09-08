@@ -1,11 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
 import { resolve } from "node:path";
 
-import { membershipFactoryAbi } from "../../src/contracts";
+import { erc20Abi } from "viem";
+import { membershipFactoryAbi, membershipTierAbi } from "../../src/contracts";
 import {
   anvilEnabled,
   anvilPublicClient,
   connectAnvilWallet,
+  expectReconciled,
+  expectSuccessfulReceipt,
+  rpcRequest,
+  sendContract,
+  switchAnvilAccount,
   installAnvilWallet,
   requiredAnvilAddress,
   revertAnvil,
@@ -24,59 +30,245 @@ async function expectOriginalRenderer(page: Page) {
   ).toHaveCount(0);
 }
 
-test("@anvil deploys and shares a creator-owned tier through the production UI", async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(90_000);
-  test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
-  test.skip(testInfo.project.name !== "desktop", "One mutation is sufficient.");
-  const snapshot = await snapshotAnvil();
-  const creator = requiredAnvilAddress("creator");
-  const factory = requiredAnvilAddress("factory");
-  const client = anvilPublicClient();
+for (const protocolPercent of ["1", "12.34", "100"]) {
+  test(`@anvil deploys and shares a creator-owned tier with ${protocolPercent}% protocol allocation`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(150_000);
+    test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
+    test.skip(
+      testInfo.project.name !== "desktop",
+      "One mutation is sufficient.",
+    );
+    const snapshot = await snapshotAnvil();
+    const creator = requiredAnvilAddress("creator");
+    const factory = requiredAnvilAddress("factory");
+    const client = anvilPublicClient();
 
-  try {
-    await installAnvilWallet(page, creator);
-    await page.goto("/create");
-    await connectAnvilWallet(page, creator);
-    await page.getByLabel("Membership name").fill("Anvil listening room");
-    await page.getByLabel("Symbol").fill("ANVIL");
-    await page.getByRole("button", { name: /^art studio$/i }).click();
-    await expectOriginalRenderer(page);
-    await page.getByRole("button", { name: /^risks$/i }).click();
-    await page.getByRole("checkbox").nth(0).check();
-    await page.getByRole("checkbox").nth(1).check();
-    await page.getByRole("button", { name: /^review$/i }).click();
+    try {
+      await installAnvilWallet(page, creator);
+      await page.goto("/create");
+      await connectAnvilWallet(page, creator);
+      await page.getByLabel("Membership name").fill("Anvil listening room");
+      await page.getByLabel("Symbol").fill("ANVIL");
+      if (protocolPercent === "100")
+        await page.setViewportSize({ width: 390, height: 844 });
+      await page.getByRole("button", { name: /^support split$/i }).click();
+      const allocation = page.getByLabel("Protocol allocation (%)");
+      await expect(allocation).toHaveValue("1");
+      await allocation.fill("");
+      await allocation.pressSequentially(protocolPercent);
+      if (protocolPercent === "100") {
+        await expect(page.getByText(/cannot exceed 100%/i)).toBeVisible();
+        await page.getByLabel("Membership rewards (%)").fill("0");
+        await page.getByLabel("Referral share (%)").fill("0");
+        await expect(page.getByText(/cannot exceed 100%/i)).toHaveCount(0);
+        await expect(
+          page.getByText(/At 100%, creator proceeds/i),
+        ).toBeVisible();
+      }
+      await page.getByRole("button", { name: /^art studio$/i }).click();
+      await expectOriginalRenderer(page);
+      await page.getByRole("button", { name: /^risks$/i }).click();
+      await page.getByRole("checkbox").nth(0).check();
+      await page.getByRole("checkbox").nth(1).check();
+      await page.getByRole("button", { name: /^review$/i }).click();
 
-    const deploy = page.getByRole("button", {
-      name: "Publish this membership",
-    });
-    await expect(deploy).toBeEnabled();
-    await deploy.click();
-    await expect(
-      page.getByRole("heading", { name: "Your membership is ready to share." }),
-    ).toBeVisible({ timeout: 30_000 });
+      const deploy = page.getByRole("button", {
+        name: "Publish this membership",
+      });
+      await expect(deploy).toBeEnabled();
+      await deploy.click();
+      await expect(
+        page.getByRole("heading", {
+          name: "Your membership is ready to share.",
+        }),
+      ).toBeVisible({ timeout: 30_000 });
 
-    const deployedTier = (await page
-      .locator(".creator-success code")
-      .first()
-      .innerText()) as `0x${string}`;
-    await expect(
-      client.readContract({
-        address: factory,
-        abi: membershipFactoryAbi,
-        functionName: "isRegisteredTier",
-        args: [deployedTier],
-      }),
-    ).resolves.toBe(true);
-    await page.getByRole("link", { name: "Open membership page" }).click();
-    await expect(
-      page.getByRole("heading", { level: 1, name: "Anvil listening room" }),
-    ).toBeVisible();
-  } finally {
-    await revertAnvil(snapshot);
-  }
-});
+      const deployedTier = (await page
+        .locator(".creator-success code")
+        .first()
+        .innerText()) as `0x${string}`;
+      await expect(
+        client.readContract({
+          address: factory,
+          abi: membershipFactoryAbi,
+          functionName: "isRegisteredTier",
+          args: [deployedTier],
+        }),
+      ).resolves.toBe(true);
+      await expect(
+        client.readContract({
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "protocolFeeBps",
+        }),
+      ).resolves.toBe(Math.round(Number(protocolPercent) * 100));
+      await page.getByRole("link", { name: "Open membership page" }).click();
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Anvil listening room" }),
+      ).toBeVisible();
+      if (protocolPercent === "100") {
+        const member = requiredAnvilAddress("member");
+        const collector = requiredAnvilAddress("freshWallet");
+        const asset = requiredAnvilAddress("paymentToken");
+        const vault = await client.readContract({
+          address: factory,
+          abi: membershipFactoryAbi,
+          functionName: "buybackVault",
+        });
+        await switchAnvilAccount(page, member);
+        await page.getByLabel("Periods", { exact: true }).fill("12");
+        await page
+          .getByRole("button", { name: "Join this membership" })
+          .click();
+        await expectReconciled(page, "Join this membership");
+        const tokenId = await client.readContract({
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "tokenOf",
+          args: [member],
+        });
+        const expires = await client.readContract({
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "expiresAt",
+          args: [tokenId],
+        });
+        const period = await client.readContract({
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "periodDuration",
+        });
+        await rpcRequest("evm_setNextBlockTimestamp", [
+          Number(expires - 9n * period),
+        ]);
+        await rpcRequest("evm_mine");
+        // No collector has touched the position: entitlement advances in the view alone.
+        const pending = await client.readContract({
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "protocolFeeState",
+          args: [tokenId],
+        });
+        expect(pending.unearned).toBe(90_000_000n);
+        expect(pending.uncheckpointedEarned).toBe(30_000_000n);
+        await expect(
+          client.readContract({
+            address: deployedTier,
+            abi: membershipTierAbi,
+            functionName: "protocolFeeEarnedHeld",
+          }),
+        ).resolves.toBe(0n);
+        await expect(
+          client.readContract({
+            address: asset,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [vault],
+          }),
+        ).resolves.toBe(0n);
+        expectSuccessfulReceipt(
+          await sendContract({
+            account: collector,
+            address: deployedTier,
+            abi: membershipTierAbi,
+            functionName: "accrueProtocolFees",
+            args: [[tokenId]],
+          }),
+        );
+        expectSuccessfulReceipt(
+          await sendContract({
+            account: collector,
+            address: deployedTier,
+            abi: membershipTierAbi,
+            functionName: "releaseProtocolFees",
+          }),
+        );
+        const released = await client.readContract({
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "totalProtocolFeeReleased",
+        });
+        expect(released).toBeGreaterThanOrEqual(30_000_000n);
+        await expect(
+          client.readContract({
+            address: asset,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [vault],
+          }),
+        ).resolves.toBe(released);
+        await page.goto(`/chains/31337/tiers/${deployedTier}/manage`);
+        await switchAnvilAccount(page, creator);
+        await page
+          .getByRole("button", { name: "Pause time increases" })
+          .click();
+        await expectReconciled(page, "Pause tier");
+        await page
+          .getByLabel("Membership token", { exact: true })
+          .fill(tokenId.toString());
+        await page.getByRole("button", { name: "Read refund preview" }).click();
+        const funding = await client.readContract({
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "previewRefundComponents",
+          args: [tokenId],
+        });
+        expect(funding[0]).toBeGreaterThan(0n);
+        expect(funding[1]).toBe(funding[0]);
+        expect(funding[2]).toBe(0n);
+        expect(funding[3]).toBe(0n);
+        const creatorBefore = await client.readContract({
+          address: asset,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [creator],
+        });
+        await expect(page.locator(".refund-preview")).toContainText(
+          "Unearned protocol reserve",
+        );
+        await page
+          .getByRole("button", { name: "Approve exact top-up and refund" })
+          .click();
+        await expectReconciled(page, `Refund membership #${tokenId}`);
+        await expect(
+          client.readContract({
+            address: asset,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [creator],
+          }),
+        ).resolves.toBe(creatorBefore);
+        await expect(
+          client.readContract({
+            address: asset,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [vault],
+          }),
+        ).resolves.toBe(released);
+        const remaining = await client.readContract({
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "timeBalances",
+          args: [tokenId],
+        });
+        expect(remaining[0]).toBe(0n);
+        const after = await client.readContract({
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "protocolFeeState",
+          args: [tokenId],
+        });
+        expect(after.generation).toBe(1n);
+        expect(after.unearned).toBe(0n);
+      }
+    } finally {
+      await revertAnvil(snapshot);
+    }
+  });
+}
 
 test("@anvil rediscovers and revalidates the connected creator's permanent media", async ({
   page,
@@ -397,7 +589,9 @@ test("treats an emptied split as zero without shifting its paired input", async 
   await expect(page.getByText(/use a percentage from 0 to 100/i)).toHaveCount(
     0,
   );
-  await expect(page.getByLabel("Payment split preview")).toBeVisible();
+  // Token-amount previews require an accepted token on a deployed protocol.
+  // This standalone form check covers normalization and layout without one.
+  await expect(reward).toHaveValue("");
 
   const rewardAfter = await documentY(reward);
   const referralAfter = await documentY(referral);

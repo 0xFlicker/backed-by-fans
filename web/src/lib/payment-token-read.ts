@@ -8,47 +8,18 @@ import {
   type PublicClient,
 } from "viem";
 
-import { membershipFactoryAbi } from "@/contracts";
+import {
+  membershipFactoryAbi,
+  ierc165Abi,
+  iScaledUiAmountAbi,
+  iScaledUiAmountNewUiMultiplierAbi,
+} from "@/contracts";
 import { classifyReadError } from "@/lib/read-state";
 import { tokenMultiplierScale } from "@/lib/token-amount";
 
 export const erc8056CoreInterfaceId = "0xa60bf13d" as const;
 export const erc8056PendingInterfaceId = "0x4bd27648" as const;
 export const paymentTokenPageSize = 100n;
-
-const erc165Abi = [
-  {
-    type: "function",
-    name: "supportsInterface",
-    stateMutability: "view",
-    inputs: [{ name: "interfaceId", type: "bytes4" }],
-    outputs: [{ name: "supported", type: "bool" }],
-  },
-] as const;
-
-const erc8056Abi = [
-  {
-    type: "function",
-    name: "uiMultiplier",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "multiplier", type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "newUIMultiplier",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "multiplier", type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "effectiveAt",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "timestamp", type: "uint256" }],
-  },
-] as const;
 
 export type AcceptedPaymentToken = {
   chainId: 4663 | 46630 | 31337;
@@ -122,85 +93,53 @@ async function readOptionalInterfaceSupport(
   }
 }
 
-async function readToken(
+export async function readTokenDisplay(
   client: PublicClient,
-  input: {
-    chainId: AcceptedPaymentToken["chainId"];
-    factory: Address;
-    address: Address;
-    registryIndex: number;
-    wallet?: Address;
-    blockNumber: bigint;
-  },
-): Promise<AcceptedPaymentToken> {
-  const contract = { address: input.address, blockNumber: input.blockNumber };
-  const [
-    listed,
-    enabled,
-    name,
-    symbol,
-    decimals,
-    supportsCore,
-    supportsPending,
-  ] = await Promise.all([
-    requiredRead("registry listing", () =>
-      client.readContract({
-        address: input.factory,
-        abi: membershipFactoryAbi,
-        functionName: "isPaymentTokenListed",
-        args: [input.address],
-        blockNumber: input.blockNumber,
-      }),
-    ),
-    requiredRead("publication status", () =>
-      client.readContract({
-        address: input.factory,
-        abi: membershipFactoryAbi,
-        functionName: "isPaymentTokenEnabled",
-        args: [input.address],
-        blockNumber: input.blockNumber,
-      }),
-    ),
-    requiredRead("token name", () =>
-      client.readContract({
-        ...contract,
-        abi: erc20Abi,
-        functionName: "name",
-      }),
-    ),
-    requiredRead("token symbol", () =>
-      client.readContract({
-        ...contract,
-        abi: erc20Abi,
-        functionName: "symbol",
-      }),
-    ),
-    requiredRead("token decimals", () =>
-      client.readContract({
-        ...contract,
-        abi: erc20Abi,
-        functionName: "decimals",
-      }),
-    ),
-    readOptionalInterfaceSupport("ERC-8056 core capability", () =>
-      client.readContract({
-        ...contract,
-        abi: erc165Abi,
-        functionName: "supportsInterface",
-        args: [erc8056CoreInterfaceId],
-      }),
-    ),
-    readOptionalInterfaceSupport("ERC-8056 pending capability", () =>
-      client.readContract({
-        ...contract,
-        abi: erc165Abi,
-        functionName: "supportsInterface",
-        args: [erc8056PendingInterfaceId],
-      }),
-    ),
-  ]);
+  address: Address,
+  blockNumber: bigint,
+) {
+  const contract = { address, blockNumber };
+  const [name, symbol, decimals, supportsCore, supportsPending] =
+    await Promise.all([
+      requiredRead("token name", () =>
+        client.readContract({
+          ...contract,
+          abi: erc20Abi,
+          functionName: "name",
+        }),
+      ),
+      requiredRead("token symbol", () =>
+        client.readContract({
+          ...contract,
+          abi: erc20Abi,
+          functionName: "symbol",
+        }),
+      ),
+      requiredRead("token decimals", () =>
+        client.readContract({
+          ...contract,
+          abi: erc20Abi,
+          functionName: "decimals",
+        }),
+      ),
+      readOptionalInterfaceSupport("ERC-8056 core capability", () =>
+        client.readContract({
+          ...contract,
+          abi: ierc165Abi,
+          functionName: "supportsInterface",
+          args: [erc8056CoreInterfaceId],
+        }),
+      ),
+      readOptionalInterfaceSupport("ERC-8056 pending capability", () =>
+        client.readContract({
+          ...contract,
+          abi: ierc165Abi,
+          functionName: "supportsInterface",
+          args: [erc8056PendingInterfaceId],
+        }),
+      ),
+    ]);
 
-  if (!listed) throw new TokenReadError("registry listing", "not listed");
   if (!name.trim()) throw new TokenReadError("token name", "empty name");
   if (!symbol.trim()) throw new TokenReadError("token symbol", "empty symbol");
   if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255) {
@@ -221,21 +160,21 @@ async function readToken(
       requiredRead("current UI multiplier", () =>
         client.readContract({
           ...contract,
-          abi: erc8056Abi,
+          abi: iScaledUiAmountAbi,
           functionName: "uiMultiplier",
         }),
       ),
       requiredRead("pending UI multiplier", () =>
         client.readContract({
           ...contract,
-          abi: erc8056Abi,
+          abi: iScaledUiAmountNewUiMultiplierAbi,
           functionName: "newUIMultiplier",
         }),
       ),
       requiredRead("UI multiplier schedule", () =>
         client.readContract({
           ...contract,
-          abi: erc8056Abi,
+          abi: iScaledUiAmountNewUiMultiplierAbi,
           functionName: "effectiveAt",
         }),
       ),
@@ -245,6 +184,51 @@ async function readToken(
     }
   }
 
+  return {
+    name,
+    symbol,
+    decimals,
+    scaledUI: supportsCore,
+    uiMultiplier,
+    newUIMultiplier,
+    effectiveAt,
+  };
+}
+
+export async function readAcceptedPaymentToken(
+  client: PublicClient,
+  input: {
+    chainId: AcceptedPaymentToken["chainId"];
+    factory: Address;
+    address: Address;
+    registryIndex: number;
+    wallet?: Address;
+    blockNumber: bigint;
+  },
+): Promise<AcceptedPaymentToken> {
+  const [listed, enabled, display] = await Promise.all([
+    requiredRead("registry listing", () =>
+      client.readContract({
+        address: input.factory,
+        abi: membershipFactoryAbi,
+        functionName: "isPaymentTokenListed",
+        args: [input.address],
+        blockNumber: input.blockNumber,
+      }),
+    ),
+    requiredRead("publication status", () =>
+      client.readContract({
+        address: input.factory,
+        abi: membershipFactoryAbi,
+        functionName: "isPaymentTokenEnabled",
+        args: [input.address],
+        blockNumber: input.blockNumber,
+      }),
+    ),
+    readTokenDisplay(client, input.address, input.blockNumber),
+  ]);
+  if (!listed) throw new TokenReadError("registry listing", "not listed");
+  const contract = { address: input.address, blockNumber: input.blockNumber };
   const walletRawBalance = input.wallet
     ? await requiredRead("wallet balance", () =>
         client.readContract({
@@ -263,13 +247,7 @@ async function readToken(
     registryIndex: input.registryIndex,
     listed,
     enabled,
-    name,
-    symbol,
-    decimals,
-    scaledUI: supportsCore,
-    uiMultiplier,
-    newUIMultiplier,
-    effectiveAt,
+    ...display,
     ...(walletRawBalance === undefined ? {} : { walletRawBalance }),
     readBlock: input.blockNumber,
   };
@@ -321,7 +299,7 @@ export async function readAcceptedPaymentTokens(
     for (const [registryIndex, address] of addresses.entries()) {
       try {
         data.push(
-          await readToken(client, {
+          await readAcceptedPaymentToken(client, {
             ...input,
             address,
             registryIndex,

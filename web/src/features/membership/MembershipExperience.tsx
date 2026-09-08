@@ -294,6 +294,7 @@ export function MembershipExperience({
     contribution: contributionValue ?? 0n,
     allowance: snapshot.allowance ?? 0n,
     rewardBps: snapshot.rewardBps,
+    protocolFeeBps: snapshot.protocolFeeBps,
     referralBps: snapshot.referralBps,
     referralApplies: snapshot.credential?.referralStatus === "locked-address",
   });
@@ -342,6 +343,7 @@ export function MembershipExperience({
           contribution: 0n,
           allowance: snapshot.allowance ?? 0n,
           rewardBps: snapshot.rewardBps,
+          protocolFeeBps: snapshot.protocolFeeBps,
           referralBps: snapshot.referralBps,
           referralApplies: giftState.data.referralStatus === "locked-address",
         })
@@ -700,6 +702,10 @@ export function MembershipExperience({
 
           <dl className="membership-essentials" aria-label="Membership terms">
             <div>
+              <dt>Protocol allocation</dt>
+              <dd>{snapshot.protocolFeeBps / 100}% of each payment</dd>
+            </div>
+            <div>
               <dt>Price</dt>
               <dd>{paymentLabel(snapshot.pricePerPeriod)}</dd>
             </div>
@@ -717,8 +723,43 @@ export function MembershipExperience({
               </dd>
             </div>
           </dl>
+          <p>
+            Access starts immediately. The protocol allocation earns
+            continuously as paid time is used and funds periodic token buybacks
+            and burns. Unearned reserves help fund unused-time refunds.
+          </p>
         </div>
       </section>
+
+      {snapshot.credential && (
+        <section aria-label="Current refund backing">
+          <p>
+            Unused-time refunds are initiated by the creator. Current funding:
+          </p>
+          <dl>
+            <div>
+              <dt>Gross refund</dt>
+              <dd>{paymentLabel(snapshot.credential.refundableGross)}</dd>
+            </div>
+            <div>
+              <dt>Unearned protocol reserve</dt>
+              <dd>
+                {paymentLabel(snapshot.credential.protocolRefundContribution)}
+              </dd>
+            </div>
+            <div>
+              <dt>Creator proceeds used</dt>
+              <dd>
+                {paymentLabel(snapshot.credential.creatorRefundContribution)}
+              </dd>
+            </div>
+            <div>
+              <dt>Owner top-up</dt>
+              <dd>{paymentLabel(snapshot.credential.ownerTopUp)}</dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
       {snapshot.credential && (
         <section

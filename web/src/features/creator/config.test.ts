@@ -66,6 +66,41 @@ function evaluate(
 }
 
 describe("creator tier configuration", () => {
+  it("defaults to 1% and accepts exact two-decimal protocol allocations", () => {
+    expect(defaultCreatorForm.protocolPercent).toBe("1");
+    expect(evaluate().config?.protocolFeeBps).toBe(100);
+    expect(
+      evaluate({ ...validCreatorForm, protocolPercent: "12.34" }).config
+        ?.protocolFeeBps,
+    ).toBe(1234);
+  });
+
+  it.each(["", "0", "0.99", "100.01", "1.001", "1e2", "-1"])(
+    "rejects invalid protocol allocation %s",
+    (protocolPercent) => {
+      const result = evaluate({ ...validCreatorForm, protocolPercent });
+      expect(result.config).toBeUndefined();
+      expect(result.errors.protocolPercent).toBeDefined();
+    },
+  );
+
+  it("permits 100% only with no rewards or referrals and reserves all gross", () => {
+    expect(
+      evaluate({ ...validCreatorForm, protocolPercent: "100" }).config,
+    ).toBeUndefined();
+    const result = evaluate({
+      ...validCreatorForm,
+      protocolPercent: "100",
+      rewardPercent: "0",
+      referralPercent: "0",
+    });
+    expect(result.config?.protocolFeeBps).toBe(10000);
+    expect(result.split).toMatchObject({
+      protocol: parseUnits("10", 6),
+      creatorReferred: 0n,
+      creatorUnreferred: 0n,
+    });
+  });
   it("keeps identity examples out of the submitted default form", () => {
     expect(defaultCreatorForm.name).toBe("");
     expect(defaultCreatorForm.symbol).toBe("");
@@ -208,7 +243,7 @@ describe("creator tier configuration", () => {
   });
 
   it("conserves gross in referred and unreferred split previews", () => {
-    const split = previewPaymentSplit(10_000_003n, 500, 100);
+    const split = previewPaymentSplit(10_000_003n, 100, 500, 100);
 
     expect(
       split.protocol + split.reward + split.referral + split.creatorReferred,

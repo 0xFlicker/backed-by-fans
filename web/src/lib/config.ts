@@ -89,7 +89,7 @@ function generatedFactoryAddresses(): Partial<
   return addresses;
 }
 
-function generatedTestnetAddress(
+function generatedPublicAddresses(
   exportName: string,
   contractName: string,
   addressLabel: string,
@@ -100,21 +100,20 @@ function generatedTestnetAddress(
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`The generated ${contractName} deployment map is invalid.`);
   }
-  const testnetAddress = (value as Record<number, unknown>)[
-    robinhoodTestnet.id
-  ];
-  return testnetAddress === undefined
-    ? {}
-    : {
-        [robinhoodTestnet.id]: parseRequiredAddress(
-          testnetAddress,
-          `Generated ${addressLabel} address for chain ${robinhoodTestnet.id}`,
-        ),
-      };
+  const addresses: Partial<Record<number, Address>> = {};
+  for (const chain of [robinhood, robinhoodTestnet]) {
+    const address = (value as Record<number, unknown>)[chain.id];
+    if (address !== undefined)
+      addresses[chain.id] = parseRequiredAddress(
+        address,
+        `Generated ${addressLabel} address for chain ${chain.id}`,
+      );
+  }
+  return addresses;
 }
 
 function generatedRendererAddresses(): Partial<Record<number, Address>> {
-  return generatedTestnetAddress(
+  return generatedPublicAddresses(
     "onchainMetadataRendererAddress",
     "OnchainMetadataRenderer",
     "canonical renderer",
@@ -122,7 +121,7 @@ function generatedRendererAddresses(): Partial<Record<number, Address>> {
 }
 
 function generatedPreviewHarnessAddresses(): Partial<Record<number, Address>> {
-  return generatedTestnetAddress(
+  return generatedPublicAddresses(
     "rendererPreviewHarnessAddress",
     "RendererPreviewHarness",
     "preview harness",
@@ -132,11 +131,16 @@ function generatedPreviewHarnessAddresses(): Partial<Record<number, Address>> {
 function generatedRendererRegistryAddresses(): Partial<
   Record<number, Address>
 > {
-  return generatedTestnetAddress(
+  return generatedPublicAddresses(
     "rendererRegistryAddress",
     "RendererRegistry",
     "renderer registry",
   );
+}
+
+/** The permissionless renderer registry is independent of a BBF fee deployment. */
+export function publicRendererRegistryAddress(chainId: SupportedChainId) {
+  return generatedRendererRegistryAddresses()[chainId];
 }
 
 export function buildPublicConfig(
@@ -157,37 +161,32 @@ export function buildPublicConfig(
   const siteUrl = parsePublicUrl(environment.siteUrl, "http://localhost:3000");
   const deployments: Partial<Record<SupportedChainId, ReadyDeployment>> = {};
 
-  const publicFactoryAddress = factoryAddresses[robinhoodTestnet.id];
-  const publicRendererAddress = rendererAddresses[robinhoodTestnet.id];
-  const publicPreviewHarnessAddress =
-    previewHarnessAddresses[robinhoodTestnet.id];
-  const publicRendererRegistryAddress =
-    rendererRegistryAddresses[robinhoodTestnet.id];
-  if (
-    publicFactoryAddress &&
-    publicRendererAddress &&
-    publicPreviewHarnessAddress
-  ) {
-    deployments[robinhoodTestnet.id] = {
+  for (const chain of [robinhood, robinhoodTestnet]) {
+    const factory = factoryAddresses[chain.id],
+      renderer = rendererAddresses[chain.id],
+      harness = previewHarnessAddresses[chain.id],
+      registry = rendererRegistryAddresses[chain.id];
+    if (!factory || !renderer || !harness) continue;
+    deployments[chain.id] = {
       status: "ready",
-      chainId: robinhoodTestnet.id,
+      chainId: chain.id,
       factoryAddress: parseRequiredAddress(
-        publicFactoryAddress,
-        `MembershipFactory address for chain ${robinhoodTestnet.id}`,
+        factory,
+        `MembershipFactory address for chain ${chain.id}`,
       ),
       rendererAddress: parseRequiredAddress(
-        publicRendererAddress,
-        `Canonical renderer address for chain ${robinhoodTestnet.id}`,
+        renderer,
+        `Canonical renderer address for chain ${chain.id}`,
       ),
       previewHarnessAddress: parseRequiredAddress(
-        publicPreviewHarnessAddress,
-        `Preview harness address for chain ${robinhoodTestnet.id}`,
+        harness,
+        `Preview harness address for chain ${chain.id}`,
       ),
-      ...(publicRendererRegistryAddress
+      ...(registry
         ? {
             rendererRegistryAddress: parseRequiredAddress(
-              publicRendererRegistryAddress,
-              `Renderer registry address for chain ${robinhoodTestnet.id}`,
+              registry,
+              `Renderer registry address for chain ${chain.id}`,
             ),
           }
         : {}),
@@ -232,6 +231,20 @@ export function buildPublicConfig(
   if (hasEveryLocalDeploymentValue) {
     anvilRpcUrl = parsePublicUrl(environment.anvilRpcUrl, "");
     if (!anvilRpcUrl) throw new Error("The Anvil RPC URL is invalid.");
+    const local = new URL(anvilRpcUrl);
+    if (
+      local.protocol !== "http:" ||
+      !["127.0.0.1", "localhost", "[::1]"].includes(local.hostname) ||
+      !local.port ||
+      local.username ||
+      local.password ||
+      local.search ||
+      local.hash ||
+      local.pathname !== "/"
+    )
+      throw new Error(
+        "Anvil requires an uncredentialed loopback HTTP endpoint.",
+      );
   }
 
   if (hasEveryLocalDeploymentValue && hasEveryLocalRendererValue) {

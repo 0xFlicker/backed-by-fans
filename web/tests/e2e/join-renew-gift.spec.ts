@@ -37,7 +37,10 @@ test.describe("configured Anvil join, renew, and gift", () => {
       await expect(page).toHaveURL(
         new RegExp(`/chains/31337/tiers/${tier}$`, "i"),
       );
-      await expect(page.getByText(/referrer|referral/i)).toHaveCount(0);
+      await expect(page.getByRole("main")).not.toContainText(
+        /referrer|referral/i,
+        { useInnerText: true },
+      );
       await page.reload();
       await connectAnvilWallet(page, member);
 

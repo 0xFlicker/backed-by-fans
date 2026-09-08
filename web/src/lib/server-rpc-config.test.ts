@@ -5,6 +5,16 @@ import { localAnvil } from "@/lib/chains";
 import { resolveServerRpcUrl } from "@/lib/server-rpc-config";
 
 describe("server RPC configuration", () => {
+  it("never accepts a public origin endpoint as local fork RPC", () => {
+    for (const anvilRpcUrl of [
+      "https://public.example/rpc",
+      "http://127.0.0.1:8545/?key=secret",
+      "http://user:secret@localhost:8545",
+    ])
+      expect(() => resolveServerRpcUrl({ anvilRpcUrl }, localAnvil.id)).toThrow(
+        "loopback",
+      );
+  });
   it("resolves each chain from its server-only environment value", () => {
     const environment = {
       mainnetRpcUrl: "https://mainnet.example/rpc/",

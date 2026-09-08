@@ -11,6 +11,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDefaultArtConfig } from "@/features/creator-studio/art-config";
+import { defaultCreatorForm } from "@/features/creator/config";
 import {
   persistUnsignedStudioDraft,
   studioDraftAbiVersion,
@@ -262,6 +263,26 @@ describe("creator setup component", () => {
     );
   });
 
+  it("reviews the permanent protocol allocation and keeps invalid totals visible", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: /^support split$/i }));
+    const input = screen.getByLabelText("Protocol allocation (%)");
+    expect(input).toHaveValue("1");
+    await user.clear(input);
+    await user.type(input, "100");
+    expect(screen.getByText(/cannot exceed 100%/i)).toBeInTheDocument();
+    for (const label of ["Membership rewards (%)", "Referral share (%)"]) {
+      await user.clear(screen.getByLabelText(label));
+      await user.type(screen.getByLabelText(label), "0");
+    }
+    expect(screen.queryByText(/cannot exceed 100%/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/earns continuously/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/unearned reserves help fund refunds/i),
+    ).toBeInTheDocument();
+  });
+
   it("starts the Art Studio with the original renderer selected", async () => {
     const user = userEvent.setup();
     renderWizard();
@@ -335,6 +356,7 @@ describe("creator setup component", () => {
     );
     walletAddress = creator;
     const savedDraftKey = persistUnsignedStudioDraft(window.localStorage, {
+      terms: { ...defaultCreatorForm, protocolPercent: "12.34" },
       scope: {
         chainId: 46_630,
         factory: getAddress("0x1111111111111111111111111111111111111111"),

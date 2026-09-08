@@ -305,6 +305,7 @@ export async function readTierSnapshotState(
     "supplyCap",
     "occupiedSupply",
     "maxPrepaidPeriods",
+    "protocolFeeBps",
   ] as const;
 
   try {
@@ -396,6 +397,7 @@ export async function readTierSnapshotState(
       supplyCap: values[10] as bigint,
       occupiedSupply: values[11] as bigint,
       maxPrepaidPeriods: values[12] as bigint,
+      protocolFeeBps: Number(values[13]),
       paymentToken: authenticity.paymentToken,
       paymentTokenState,
       factory: authenticity.protocolDependencies.factory,
