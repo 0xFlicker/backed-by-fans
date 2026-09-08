@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
 
+import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Test} from "forge-std/Test.sol";
 
@@ -27,7 +29,11 @@ contract PaymentsAndTimeTest is Test {
 
         paymentToken = new MockUSDG();
         renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(address(this), paymentToken, _config());
+        tier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)),
+            paymentToken,
+            _config()
+        );
         paymentToken.mint(member, 1_000_000_000);
         vm.prank(member);
         paymentToken.approve(address(tier), type(uint256).max);
@@ -161,12 +167,12 @@ contract PaymentsAndTimeTest is Test {
 
         uint256 gross = 20_000_000;
         assertEq(memberBefore - paymentToken.balanceOf(member), gross);
-        assertEq(paymentToken.balanceOf(address(this)), 200_000);
-        assertEq(paymentToken.balanceOf(address(tier)), 19_800_000);
+        assertEq(paymentToken.balanceOf(address(this)), 0);
+        assertEq(paymentToken.balanceOf(address(tier)), 20_000_000);
         assertEq(tier.creatorProceeds(), 18_800_000);
         assertEq(tier.rewardReserve(), 1_000_000);
         assertEq(tier.totalReferralLiability(), 0);
-        assertEq(tier.totalProtectedLiability(), 1_000_000);
+        assertEq(tier.totalProtectedLiability(), 1_200_000);
         assertEq(tier.sharesOf(tokenId), gross);
         assertEq(tier.totalRewardShares(), gross);
         assertEq(tier.expiresAt(tokenId), _START + 2 * _PERIOD);
@@ -175,11 +181,12 @@ contract PaymentsAndTimeTest is Test {
     function test_twoFactorySelectedTokensTransferAndAccountInTheirOwnRawUnits() public {
         MockUSDG secondToken = new MockUSDG();
         OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
+        SyntheticPonsBinding.bind(address(paymentToken));
         MembershipFactory factory = new MembershipFactory(
             MembershipTestConfig.paymentTokens(paymentToken, secondToken),
             address(mediaStoreFactory),
             address(this),
-            address(this)
+            address(paymentToken)
         );
 
         MembershipTypes.TierConfig memory firstConfig = _config();
@@ -203,10 +210,10 @@ contract PaymentsAndTimeTest is Test {
 
         assertEq(address(firstTier.paymentToken()), address(paymentToken));
         assertEq(address(secondTier.paymentToken()), address(secondToken));
-        assertEq(paymentToken.balanceOf(address(factory)), 100_000);
-        assertEq(secondToken.balanceOf(address(factory)), 250_000);
-        assertEq(paymentToken.balanceOf(address(firstTier)), 9_900_000);
-        assertEq(secondToken.balanceOf(address(secondTier)), 24_750_000);
+        assertEq(paymentToken.balanceOf(address(factory)), 0);
+        assertEq(secondToken.balanceOf(address(factory)), 0);
+        assertEq(paymentToken.balanceOf(address(firstTier)), 10_000_000);
+        assertEq(secondToken.balanceOf(address(secondTier)), 25_000_000);
         assertEq(paymentToken.balanceOf(address(secondTier)), 0);
         assertEq(secondToken.balanceOf(address(firstTier)), 0);
         assertEq(
@@ -222,7 +229,9 @@ contract PaymentsAndTimeTest is Test {
     function test_zeroPriceSelfActionAddsOnePeriodWithOrWithoutContribution() public {
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = 0;
-        MembershipTier zeroTier = new MembershipTier(address(this), paymentToken, config);
+        MembershipTier zeroTier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
+        );
         vm.prank(member);
         paymentToken.approve(address(zeroTier), type(uint256).max);
 
@@ -239,7 +248,7 @@ contract PaymentsAndTimeTest is Test {
         assertEq(zeroTier.sharesOf(tokenId), 4_000_000);
         assertEq(zeroTier.creatorProceeds(), 3_760_000);
         assertEq(zeroTier.rewardReserve(), 200_000);
-        assertEq(paymentToken.balanceOf(address(this)), 40_000);
+        assertEq(zeroTier.protocolFeeHoldings(), 40_000);
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.IncorrectPricingMode.selector);
@@ -269,7 +278,9 @@ contract PaymentsAndTimeTest is Test {
 
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = 0;
-        MembershipTier zeroTier = new MembershipTier(address(this), paymentToken, config);
+        MembershipTier zeroTier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
+        );
         zeroTier.setPaused(true);
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);
@@ -279,7 +290,9 @@ contract PaymentsAndTimeTest is Test {
     function test_fixedPriceMultiplicationOverflowFailsBeforeCustodyOrTime() public {
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = type(uint256).max;
-        MembershipTier expensiveTier = new MembershipTier(address(this), paymentToken, config);
+        MembershipTier expensiveTier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
+        );
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.PaymentOverflow.selector);
@@ -305,7 +318,9 @@ contract PaymentsAndTimeTest is Test {
         config.pricePerPeriod = 0;
         config.rewardBps = rewardRate;
         config.referralBps = referralRate;
-        MembershipTier fuzzTier = new MembershipTier(address(this), fuzzToken, config);
+        MembershipTier fuzzTier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(fuzzToken)), fuzzToken, config
+        );
         fuzzToken.mint(member, gross);
         vm.prank(member);
         fuzzToken.approve(address(fuzzTier), gross);
@@ -321,9 +336,10 @@ contract PaymentsAndTimeTest is Test {
         assertEq(fuzzTier.rewardReserve(), rewardAmount);
         assertEq(fuzzTier.claimableReferral(chosenReferrer), referralAmount);
         assertEq(fuzzTier.sharesOf(tokenId), gross);
-        assertEq(fuzzToken.balanceOf(address(this)), protocolAmount);
+        assertEq(fuzzTier.protocolFeeHoldings(), protocolAmount);
         assertEq(
-            fuzzToken.balanceOf(address(fuzzTier)), creatorAmount + rewardAmount + referralAmount
+            fuzzToken.balanceOf(address(fuzzTier)),
+            creatorAmount + rewardAmount + referralAmount + protocolAmount
         );
     }
 

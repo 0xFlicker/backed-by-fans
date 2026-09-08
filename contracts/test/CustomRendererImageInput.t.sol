@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
 
 import {Test} from "forge-std/Test.sol";
 
@@ -73,11 +74,12 @@ contract CustomRendererImageInputTest is Test {
         paymentToken = new MockUSDG();
         mediaStoreFactory = new OnchainMediaStoreFactory();
         renderer = new ImageInputRenderer();
+        SyntheticPonsBinding.bind(address(paymentToken));
         factory = new MembershipFactory(
             MembershipTestConfig.paymentTokens(paymentToken),
             address(mediaStoreFactory),
             address(this),
-            makeAddr("feeRecipient")
+            address(paymentToken)
         );
     }
 

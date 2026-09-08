@@ -10,6 +10,113 @@ library MembershipModel {
 
     uint256 internal constant REWARD_SCALE = 1e27;
 
+    struct FeeLot {
+        uint256 gross;
+        uint256 fee;
+        uint256 duration;
+    }
+
+    struct FeeSchedule {
+        FeeLot[] lots;
+        uint256 consumed;
+        uint256 recognized;
+        uint256 generation;
+        uint256 lifetimeAllocated;
+        uint256 lifetimeEarned;
+        uint256 refunded;
+        uint256 rounding;
+    }
+
+    struct FeeBook {
+        mapping(uint256 => FeeSchedule) schedules;
+        uint256 allocated;
+        uint256 held;
+        uint256 earnedHeld;
+        uint256 released;
+        uint256 refunded;
+        uint256 rounding;
+    }
+
+    function allocateFee(
+        FeeBook storage book,
+        uint256 id,
+        uint256 gross,
+        uint256 rate,
+        uint256 duration
+    ) internal {
+        uint256 fee = Math.mulDiv(gross, rate, 10_000);
+        book.schedules[id].lots.push(FeeLot(gross, fee, duration));
+        book.schedules[id].lifetimeAllocated += fee;
+        book.allocated += fee;
+        book.held += fee;
+    }
+
+    function recognizeFee(FeeBook storage book, uint256 id, uint256 consumed) internal {
+        FeeSchedule storage schedule = book.schedules[id];
+        schedule.consumed += consumed;
+        (, uint256 earned,) = feeEntitlement(schedule.lots, schedule.consumed);
+        uint256 delta = earned - schedule.recognized;
+        schedule.recognized = earned;
+        schedule.lifetimeEarned += delta;
+        book.earnedHeld += delta;
+    }
+
+    function cancelFee(FeeBook storage book, uint256 id, uint256 grossRefund)
+        internal
+        returns (uint256 contribution)
+    {
+        FeeSchedule storage schedule = book.schedules[id];
+        (uint256 allocated, uint256 earned,) = feeEntitlement(schedule.lots, schedule.consumed);
+        contribution = Math.min(allocated - earned, grossRefund);
+        uint256 rounding = allocated - earned - contribution;
+        assert(rounding <= 1);
+        book.held -= contribution;
+        book.refunded += contribution;
+        book.earnedHeld += rounding;
+        book.rounding += rounding;
+        schedule.refunded += contribution;
+        schedule.rounding += rounding;
+        schedule.consumed = 0;
+        schedule.recognized = 0;
+        ++schedule.generation;
+        // Deliberately slow reference cleanup; production must use logical generations.
+        delete schedule.lots;
+    }
+
+    function releaseFees(FeeBook storage book) internal returns (uint256 released) {
+        released = book.earnedHeld;
+        book.held -= released;
+        book.released += released;
+        book.earnedHeld = 0;
+    }
+
+    /// @dev Traverses every purchase without production prefixes or checkpoint indices.
+    function feeEntitlement(FeeLot[] memory lots, uint256 paidConsumed)
+        internal
+        pure
+        returns (uint256 allocated, uint256 earned, uint256 grossRefund)
+    {
+        for (uint256 i; i < lots.length; ++i) {
+            FeeLot memory lot = lots[i];
+            uint256 consumed = Math.min(paidConsumed, lot.duration);
+            allocated += lot.fee;
+            earned += Math.mulDiv(lot.fee, consumed, lot.duration);
+            grossRefund += Math.mulDiv(lot.gross, lot.duration - consumed, lot.duration);
+            paidConsumed -= consumed;
+        }
+    }
+
+    function refundFunding(uint256 unearned, uint256 gross, uint256 creator)
+        internal
+        pure
+        returns (uint256 protocol, uint256 creatorUsed, uint256 topUp, uint256 rounding)
+    {
+        protocol = Math.min(unearned, gross);
+        creatorUsed = Math.min(creator, gross - protocol);
+        topUp = gross - protocol - creatorUsed;
+        rounding = unearned - protocol;
+    }
+
     /// @dev Intentionally straightforward lifecycle oracle. It eagerly checkpoints each model
     ///      action instead of sharing any production implementation or storage representation.
     struct Lifecycle {
@@ -25,7 +132,6 @@ library MembershipModel {
     struct PaymentBook {
         address paymentToken;
         uint256 creatorProceeds;
-        uint256 protocolProceeds;
         uint256 rewardReserve;
         uint256 totalReferralLiability;
         uint256 totalRewardShares;
@@ -148,7 +254,6 @@ library MembershipModel {
         book.shares[tokenId] += gross;
         book.totalRewardShares += gross;
         book.creatorProceeds += creator;
-        book.protocolProceeds += protocolFee;
         book.rewardReserve += reward;
         if (referral != 0) {
             book.referralCredits[referrer] += referral;
@@ -208,11 +313,6 @@ library MembershipModel {
     function withdrawCreatorProceeds(PaymentBook storage book) internal returns (uint256 amount) {
         amount = book.creatorProceeds;
         book.creatorProceeds = 0;
-    }
-
-    function withdrawProtocolProceeds(PaymentBook storage book) internal returns (uint256 amount) {
-        amount = book.protocolProceeds;
-        book.protocolProceeds = 0;
     }
 
     function applyRefund(PaymentBook storage book, uint256 grossRefund)

@@ -1,0 +1,367 @@
+{
+  "origin": {
+    "chainId": 4663,
+    "blockNumber": "57010735",
+    "blockHash": "0xdfc65146f32cfd10afd9a620b68c3fc5d02077677ce06c46303e49e80f0a96cf"
+  },
+  "records": {
+    "factory": {
+      "address": "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e",
+      "compilerInputPath": "contracts/external/verification/4663/40f33d42c52f1c8bbc3e00c62f6f3167707608a1d252ac4b9dea0f973b3d4572.input.json",
+      "compilerInputSha256": "40f33d42c52f1c8bbc3e00c62f6f3167707608a1d252ac4b9dea0f973b3d4572",
+      "compilerVersion": "0.8.35+commit.47b9dedd",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.35+commit.47b9dedd",
+        "sha256": "0x6e432580d973cae74c869ef4f737529e73fec5b200dce3c08d5e76c4a6b19159"
+      },
+      "target": "contracts/src/v2/PonsV2LaunchFactory.sol:PonsV2LaunchFactory",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e?fields=all",
+      "sourceMatch": "exact_match",
+      "constructorArguments": "0x000000000000000000000000fdde5a1e3cdf791da71e49f817d70c7ced72cc360000000000000000000000008366a39cc670b4001a1121b8f6a443a643e4095100000000000000000000000058daec3116aae6d93017baaea7749052e8a04fa7000000000000000000000000000000000022d473030f116ddee9f6b43ac78ba3000000000000000000000000267444d099b10fb5ed7c3cc7b7c767adca574952000000000000000000000000e5e702641ea86f4ae6cc3cdaed2b886f976be044000000000000000000000000d3afeb2a57f70ef218aa82451c51b2fb0416ac9e00000000000000000000000042df2a798f82289e177311362e8f5ccc45c1219c0000000000000000000000000000000000000000000000000001c6bf52634000",
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "BUSL-1.1",
+        "MIT"
+      ]
+    },
+    "poolManager": {
+      "address": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+      "compilerInputPath": "contracts/external/verification/4663/63dbdb1bfb3ac21ec44aeebf68b5eafb51d9dcfdfe66abeaf6ec76a9d7af3b1d.input.json",
+      "compilerInputSha256": "63dbdb1bfb3ac21ec44aeebf68b5eafb51d9dcfdfe66abeaf6ec76a9d7af3b1d",
+      "compilerVersion": "0.8.26+commit.8a97fa7a",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.26+commit.8a97fa7a",
+        "sha256": "0x0ff016aef2396b12d1fc65429d8ea6cf53c2ee4b041bb8925644615ee1c30ab9"
+      },
+      "target": "lib/v4-core/src/PoolManager.sol:PoolManager",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/1/0x000000000004444c5dc75cB358380D2e3dE08A90?fields=all",
+      "sourceMatch": "match",
+      "constructorArguments": "0x0000000000000000000000001a9c8182c09f50c8318d769245bea52c32be35bc",
+      "derivation": "Canonical Ethereum source input; Robinhood runtime is independently compared, including immutable values.",
+      "sourceLicenses": [
+        "AGPL-3.0-only",
+        "BUSL-1.1",
+        "MIT"
+      ]
+    },
+    "positionManager": {
+      "address": "0x58daec3116aae6D93017bAAea7749052E8a04fA7",
+      "compilerInputPath": "contracts/external/verification/4663/750a716abf51248fbf23d8db74f6ceb9d76cd6ccb8ca7436f52db4f3c60485e1.input.json",
+      "compilerInputSha256": "750a716abf51248fbf23d8db74f6ceb9d76cd6ccb8ca7436f52db4f3c60485e1",
+      "compilerVersion": "0.8.26+commit.8a97fa7a",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.26+commit.8a97fa7a",
+        "sha256": "0x0ff016aef2396b12d1fc65429d8ea6cf53c2ee4b041bb8925644615ee1c30ab9"
+      },
+      "target": "src/PositionManager.sol:PositionManager",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0x58daec3116aae6D93017bAAea7749052E8a04fA7?fields=all",
+      "sourceMatch": "match",
+      "constructorArguments": null,
+      "derivation": "Target-only source closure from Sourcify metadata; unrelated source trees in its standard input do not compile together.",
+      "sourceLicenses": [
+        "AGPL-3.0-only",
+        "BUSL-1.1",
+        "MIT"
+      ]
+    },
+    "permit2": {
+      "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "compilerInputPath": "contracts/external/verification/4663/0570bf9d3c9d6f7d12dd99be19070a1de6a72038c7a3379c1bc6b4af853dd8d7.input.json",
+      "compilerInputSha256": "0570bf9d3c9d6f7d12dd99be19070a1de6a72038c7a3379c1bc6b4af853dd8d7",
+      "compilerVersion": "0.8.17+commit.8df45f5f",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.17+commit.8df45f5f",
+        "sha256": "0xe40eef83c24d4c42b47f461b01748a6ca89f1e09e778995b71debfa0de99e12a"
+      },
+      "target": "src/Permit2.sol:Permit2",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0x000000000022D473030F116dDEE9F6B43aC78BA3?fields=all",
+      "sourceMatch": "match",
+      "constructorArguments": null,
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "AGPL-3.0-only",
+        "MIT"
+      ]
+    },
+    "locker": {
+      "address": "0x267444D099b10fB5Ed7c3Cc7B7c767AdcA574952",
+      "compilerInputPath": "contracts/external/verification/4663/40f33d42c52f1c8bbc3e00c62f6f3167707608a1d252ac4b9dea0f973b3d4572.input.json",
+      "compilerInputSha256": "40f33d42c52f1c8bbc3e00c62f6f3167707608a1d252ac4b9dea0f973b3d4572",
+      "compilerVersion": "0.8.35+commit.47b9dedd",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.35+commit.47b9dedd",
+        "sha256": "0x6e432580d973cae74c869ef4f737529e73fec5b200dce3c08d5e76c4a6b19159"
+      },
+      "target": "contracts/src/v2/PonsV2LaunchLocker.sol:PonsV2LaunchLocker",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e?fields=all",
+      "sourceMatch": "exact_match",
+      "constructorArguments": null,
+      "derivation": "Helper independently compiled from the exact factory compilation source closure; separate constructor arguments were not supplied by the factory source record.",
+      "sourceLicenses": [
+        "BUSL-1.1",
+        "MIT"
+      ]
+    },
+    "memeHook": {
+      "address": "0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044",
+      "compilerInputPath": "contracts/external/verification/4663/9174a4c016bd6bbc6c1ec45d4a74b8d0b2af1336d7fd6729413f704904ccb9c5.input.json",
+      "compilerInputSha256": "9174a4c016bd6bbc6c1ec45d4a74b8d0b2af1336d7fd6729413f704904ccb9c5",
+      "compilerVersion": "0.8.35+commit.47b9dedd",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.35+commit.47b9dedd",
+        "sha256": "0x6e432580d973cae74c869ef4f737529e73fec5b200dce3c08d5e76c4a6b19159"
+      },
+      "target": "contracts/src/v2/hooks/PonsV2MemeHook.sol:PonsV2MemeHook",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044?fields=all",
+      "sourceMatch": "match",
+      "constructorArguments": "0x0000000000000000000000008366a39cc670b4001a1121b8f6a443a643e40951000000000000000000000000d3afeb2a57f70ef218aa82451c51b2fb0416ac9e000000000000000000000000fdde5a1e3cdf791da71e49f817d70c7ced72cc36000000000000000000000000fdde5a1e3cdf791da71e49f817d70c7ced72cc36",
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "BUSL-1.1",
+        "MIT"
+      ]
+    },
+    "feeEscrow": {
+      "address": "0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e",
+      "compilerInputPath": "contracts/external/verification/4663/707e65c14e11c1b694d6789e0770fc466be447d5926ac18b30275aca2fafd769.input.json",
+      "compilerInputSha256": "707e65c14e11c1b694d6789e0770fc466be447d5926ac18b30275aca2fafd769",
+      "compilerVersion": "0.8.35+commit.47b9dedd",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.35+commit.47b9dedd",
+        "sha256": "0x6e432580d973cae74c869ef4f737529e73fec5b200dce3c08d5e76c4a6b19159"
+      },
+      "target": "contracts/src/v2/PonsV2FeeEscrow.sol:PonsV2FeeEscrow",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e?fields=all",
+      "sourceMatch": "match",
+      "constructorArguments": null,
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "MIT"
+      ]
+    },
+    "buybackVault": {
+      "address": "0x42df2a798f82289E177311362e8f5ccC45c1219c",
+      "compilerInputPath": "contracts/external/verification/4663/062c0083d8b8cecec74ace11eaef2e2fb53233fba3207615f3f33d2cfd27431f.input.json",
+      "compilerInputSha256": "062c0083d8b8cecec74ace11eaef2e2fb53233fba3207615f3f33d2cfd27431f",
+      "compilerVersion": "0.8.35+commit.47b9dedd",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.35+commit.47b9dedd",
+        "sha256": "0x6e432580d973cae74c869ef4f737529e73fec5b200dce3c08d5e76c4a6b19159"
+      },
+      "target": "contracts/src/v2/PonsV2BuybackVault.sol:PonsV2BuybackVault",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0x42df2a798f82289E177311362e8f5ccC45c1219c?fields=all",
+      "sourceMatch": "match",
+      "constructorArguments": "0x000000000000000000000000fdde5a1e3cdf791da71e49f817d70c7ced72cc36000000000000000000000000e5e702641ea86f4ae6cc3cdaed2b886f976be044000000000000000000000000d3afeb2a57f70ef218aa82451c51b2fb0416ac9e",
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "MIT"
+      ]
+    },
+    "router": {
+      "address": "0x8876789976decbfcbbbe364623c63652db8c0904",
+      "compilerInputPath": "contracts/external/verification/4663/bcaa57812e7a1fb40dd78abb161f6f0a014fa78cce74ac11f69981a139fde12f.input.json",
+      "compilerInputSha256": "bcaa57812e7a1fb40dd78abb161f6f0a014fa78cce74ac11f69981a139fde12f",
+      "compilerVersion": "0.8.26+commit.8a97fa7a",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.26+commit.8a97fa7a",
+        "sha256": "0x0ff016aef2396b12d1fc65429d8ea6cf53c2ee4b041bb8925644615ee1c30ab9"
+      },
+      "target": "contracts/UniversalRouter.sol:UniversalRouter",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0x8876789976dEcBfCbBbe364623C63652db8C0904?fields=all",
+      "sourceMatch": "match",
+      "constructorArguments": null,
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "AGPL-3.0-only",
+        "BUSL-1.1",
+        "GPL-2.0-or-later",
+        "GPL-3.0-or-later",
+        "MIT",
+        "not identified in metadata"
+      ]
+    },
+    "weth": {
+      "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      "compilerInputPath": "contracts/external/verification/4663/8f836bf3832b5062b669034a22a2207a494105ea8f96b00be20c16366b5e09fc.input.json",
+      "compilerInputSha256": "8f836bf3832b5062b669034a22a2207a494105ea8f96b00be20c16366b5e09fc",
+      "compilerVersion": "0.8.16+commit.07a7930e",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.16+commit.07a7930e",
+        "sha256": "0x7d471cb9bae9a7f29c7ebf402f7e16fa8226b17ba9ab68a88ce107114479dc4d"
+      },
+      "target": "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol:TransparentUpgradeableProxy",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73?fields=all",
+      "sourceMatch": "exact_match",
+      "constructorArguments": null,
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "MIT"
+      ]
+    },
+    "safeSingleton": {
+      "address": "0xEdd160fEBBD92E350D4D398fb636302fccd67C7e",
+      "compilerInputPath": "contracts/external/verification/4663/c90d1beae191d4eaad22f2b7f5ff3bbb42fbe10544f5d2bde4d7d247240abbaf.input.json",
+      "compilerInputSha256": "c90d1beae191d4eaad22f2b7f5ff3bbb42fbe10544f5d2bde4d7d247240abbaf",
+      "compilerVersion": "0.7.6+commit.7338295f",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.7.6+commit.7338295f",
+        "sha256": "0xa6a8f9f9388c5fcd9222474e00270242c832e936b0f5257c20374d27ee5bd1ab"
+      },
+      "target": "contracts/SafeL2.sol:SafeL2",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/1/0xEdd160fEBBD92E350D4D398fb636302fccd67C7e?fields=all",
+      "sourceMatch": "exact_match",
+      "constructorArguments": null,
+      "derivation": "Canonical Ethereum source input; Robinhood runtime is independently compared, including immutable values.",
+      "sourceLicenses": [
+        "LGPL-3.0-only"
+      ]
+    },
+    "safeProxyFactory": {
+      "address": "0x14F2982D601c9458F93bd70B218933A6f8165e7b",
+      "compilerInputPath": "contracts/external/verification/4663/fbcd94d137d2648c3eb9a5e4cd643214b60c36b672f1c991efe7a4c0d95b40f4.input.json",
+      "compilerInputSha256": "fbcd94d137d2648c3eb9a5e4cd643214b60c36b672f1c991efe7a4c0d95b40f4",
+      "compilerVersion": "0.7.6+commit.7338295f",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.7.6+commit.7338295f",
+        "sha256": "0xa6a8f9f9388c5fcd9222474e00270242c832e936b0f5257c20374d27ee5bd1ab"
+      },
+      "target": "contracts/proxies/SafeProxyFactory.sol:SafeProxyFactory",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/1/0x14F2982D601c9458F93bd70B218933A6f8165e7b?fields=all",
+      "sourceMatch": "exact_match",
+      "constructorArguments": null,
+      "derivation": "Canonical Ethereum source input; Robinhood runtime is independently compared, including immutable values.",
+      "sourceLicenses": [
+        "LGPL-3.0-only"
+      ]
+    },
+    "safeFallbackHandler": {
+      "address": "0x3EfCBb83A4A7AfcB4F68D501E2c2203a38be77f4",
+      "compilerInputPath": "contracts/external/verification/4663/434b55c1ffb82892728af47e5551297cfcbf810dae7d8d79e156d88904c8e2bb.input.json",
+      "compilerInputSha256": "434b55c1ffb82892728af47e5551297cfcbf810dae7d8d79e156d88904c8e2bb",
+      "compilerVersion": "0.7.6+commit.7338295f",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.7.6+commit.7338295f",
+        "sha256": "0xa6a8f9f9388c5fcd9222474e00270242c832e936b0f5257c20374d27ee5bd1ab"
+      },
+      "target": "contracts/handler/CompatibilityFallbackHandler.sol:CompatibilityFallbackHandler",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/1/0x3EfCBb83A4A7AfcB4F68D501E2c2203a38be77f4?fields=all",
+      "sourceMatch": "exact_match",
+      "constructorArguments": null,
+      "derivation": "Canonical Ethereum source input; Robinhood runtime is independently compared, including immutable values.",
+      "sourceLicenses": [
+        "LGPL-3.0-only"
+      ]
+    },
+    "graduationExecutor": {
+      "address": "0xC7819B64A1dAECD7eC19856d026cb14EfBd89046",
+      "compilerInputPath": "contracts/external/verification/4663/244512e5e9bc699a9612a1500c93fe0191a077d1775b3f83f1b59fbd22d9af6e.input.json",
+      "compilerInputSha256": "244512e5e9bc699a9612a1500c93fe0191a077d1775b3f83f1b59fbd22d9af6e",
+      "compilerVersion": "0.8.35+commit.47b9dedd",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.35+commit.47b9dedd",
+        "sha256": "0x6e432580d973cae74c869ef4f737529e73fec5b200dce3c08d5e76c4a6b19159"
+      },
+      "target": "contracts/src/v2/PonsV2GraduationExecutor.sol:PonsV2GraduationExecutor",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0xC7819B64A1dAECD7eC19856d026cb14EfBd89046?fields=all",
+      "sourceMatch": "match",
+      "constructorArguments": "0x00000000000000000000000058daec3116aae6d93017baaea7749052e8a04fa7000000000000000000000000000000000022d473030f116ddee9f6b43ac78ba3000000000000000000000000267444d099b10fb5ed7c3cc7b7c767adca5749520000000000000000000000007ed598bcef8bd9edd8c97a195c6d13f40801ec7e",
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "MIT"
+      ]
+    },
+    "graduationGuard": {
+      "address": "0xf5695117b99B6f6401e67d4195BD653628176C6C",
+      "compilerInputPath": "contracts/external/verification/4663/40f33d42c52f1c8bbc3e00c62f6f3167707608a1d252ac4b9dea0f973b3d4572.input.json",
+      "compilerInputSha256": "40f33d42c52f1c8bbc3e00c62f6f3167707608a1d252ac4b9dea0f973b3d4572",
+      "compilerVersion": "0.8.35+commit.47b9dedd",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.35+commit.47b9dedd",
+        "sha256": "0x6e432580d973cae74c869ef4f737529e73fec5b200dce3c08d5e76c4a6b19159"
+      },
+      "target": "contracts/src/v2/PonsV2GraduationGuard.sol:PonsV2GraduationGuard",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e?fields=all",
+      "sourceMatch": "exact_match",
+      "constructorArguments": null,
+      "derivation": "Helper independently compiled from the exact factory compilation source closure; separate constructor arguments were not supplied by the factory source record.",
+      "sourceLicenses": [
+        "BUSL-1.1",
+        "MIT"
+      ]
+    },
+    "launchDeployer": {
+      "address": "0x3711ceA4feaDE896C913C68F01Eda97Cb06D1A42",
+      "compilerInputPath": "contracts/external/verification/4663/5eedd7d31bb48b0c5bd44213499c16aec4734a977f12853752a4aabc71b00ec7.input.json",
+      "compilerInputSha256": "5eedd7d31bb48b0c5bd44213499c16aec4734a977f12853752a4aabc71b00ec7",
+      "compilerVersion": "0.8.35+commit.47b9dedd",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.35+commit.47b9dedd",
+        "sha256": "0x6e432580d973cae74c869ef4f737529e73fec5b200dce3c08d5e76c4a6b19159"
+      },
+      "target": "contracts/src/v2/PonsV2LaunchDeployer.sol:PonsV2LaunchDeployer",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0x3711ceA4feaDE896C913C68F01Eda97Cb06D1A42?fields=all",
+      "sourceMatch": "exact_match",
+      "constructorArguments": "0x0000000000000000000000007ed598bcef8bd9edd8c97a195c6d13f40801ec7e",
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "MIT"
+      ]
+    },
+    "weth-implementation": {
+      "address": "0xc6b81b429797e0f555440b70cd99e032d7ae947e",
+      "compilerInputPath": "contracts/external/verification/4663/6c05a56d33a252dd59b5dada7d313fa97defaa48c8a39f9a5bb70bb2e2727c69.input.json",
+      "compilerInputSha256": "6c05a56d33a252dd59b5dada7d313fa97defaa48c8a39f9a5bb70bb2e2727c69",
+      "compilerVersion": "0.8.16+commit.07a7930e",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.16+commit.07a7930e",
+        "sha256": "0x7d471cb9bae9a7f29c7ebf402f7e16fa8226b17ba9ab68a88ce107114479dc4d"
+      },
+      "target": "contracts/tokenbridge/libraries/aeWETH.sol:aeWETH",
+      "sourceURL": "https://sourcify.dev/server/v2/contract/4663/0xC6B81b429797E0f555440b70cD99e032D7AE947e?fields=all",
+      "sourceMatch": "match",
+      "constructorArguments": null,
+      "derivation": "Sourcify standard JSON input.",
+      "sourceLicenses": [
+        "Apache-2.0",
+        "MIT"
+      ]
+    },
+    "quoter": {
+      "address": "0x8dc178efb8111bb0973dd9d722ebeff267c98f94",
+      "compilerInputPath": "contracts/external/verification/4663/0b522fe3d110abcc308588ad6ea90c8aa2f4167288bea20788c7dff97a5f8703.input.json",
+      "compilerInputSha256": "0b522fe3d110abcc308588ad6ea90c8aa2f4167288bea20788c7dff97a5f8703",
+      "compilerVersion": "0.8.26+commit.8a97fa7a",
+      "compilerArtifact": {
+        "platform": "macosx-amd64",
+        "path": "solc-macosx-amd64-v0.8.26+commit.8a97fa7a",
+        "sha256": "0x0ff016aef2396b12d1fc65429d8ea6cf53c2ee4b041bb8925644615ee1c30ab9"
+      },
+      "target": "src/lens/V4Quoter.sol:V4Quoter",
+      "sourceURL": "https://github.com/Uniswap/v4-periphery/tree/07336f2144f522874e2c3c85e04d1d3f8d5fa471",
+      "sourceMatch": "independently-compiled-exact-runtime",
+      "constructorArguments": null,
+      "derivation": "Unmodified official source closure at retained v4-periphery 07336f2144f522874e2c3c85e04d1d3f8d5fa471 and v4-core 59d3ecf53afa9264a16bba0e38f4c5d2231f80bc; official compiler settings reproduce exact historical runtime after its compiler-derived poolManager immutable. Older Sourcify Quoter inputs were rejected.",
+      "sourceLicenses": [
+        "BUSL-1.1",
+        "MIT"
+      ]
+    }
+  }
+}

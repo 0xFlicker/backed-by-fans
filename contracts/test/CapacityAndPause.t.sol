@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
+
 import {Test} from "forge-std/Test.sol";
 
 import {MembershipTier} from "../src/MembershipTier.sol";
@@ -157,7 +159,12 @@ contract CapacityAndPauseTest is Test {
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config = _config(address(renderer), address(token));
         config.supplyCap = supplyCap;
-        deployedTier = new MembershipTierHarness(address(this), token, address(renderer), config);
+        deployedTier = new MembershipTierHarness(
+            SyntheticVaultBinding.bind(address(this), address(token)),
+            token,
+            address(renderer),
+            config
+        );
         _fundAndApprove(deployedTier, member);
         _fundAndApprove(deployedTier, competitor);
     }

@@ -7,6 +7,10 @@ libs = ["lib"]
 remappings = [
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
   "forge-std/=lib/forge-std/src/",
+  "@uniswap/universal-router/=external/uniswap/universal-router/",
+  "@uniswap/v4-periphery/=external/uniswap/v4-periphery/",
+  "@uniswap/v4-core/=external/uniswap/v4-core/",
+  "permit2/=external/uniswap/permit2/",
 ]
 auto_detect_remappings = false
 
@@ -22,7 +26,7 @@ cbor_metadata = true
 build_info = true
 always_use_create_2_factory = true
 create2_deployer = "0x4e59b44847b379578588920cA78FbF26c0B4956C"
-fs_permissions = [{ access = "read-write", path = "./deployments" }]
+fs_permissions = [{ access = "read-write", path = "./deployments" }, { access = "read", path = "./external/verification" }]
 
 [profile.robinhood]
 code_size_limit = 98_304
@@ -50,4 +54,6 @@ sort_imports = true
 ignore = [
   "src/RobinhoodProtocolAuthority.sol",
   "lib/**",
+  "external/**",
+  "src/interfaces/external/ILaunchpadV2.sol",
 ]

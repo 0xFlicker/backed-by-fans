@@ -17,6 +17,11 @@ export type ProtocolDependencySnapshot = {
   mediaStoreFactoryRuntimeCodehash: Hex;
 };
 
+export type ProtocolCustodyIdentity = {
+  protocolToken: Address;
+  buybackVault: Address;
+};
+
 export type TierArtConfig = ContractFunctionReturnType<
   typeof membershipTierAbi,
   "view",
@@ -56,6 +61,7 @@ export type TierSnapshot = TierSummary & {
   art: TierArtConfig;
   media: TierMediaConfig;
   rewardBps: number;
+  protocolFeeBps: number;
   referralBps: number;
   supplyCap: bigint;
   occupiedSupply: bigint;
@@ -88,6 +94,9 @@ export type SupporterCredential = {
   rewardEligible: boolean;
   claimableReward: bigint;
   refundableGross: bigint;
+  protocolRefundContribution: bigint;
+  creatorRefundContribution: bigint;
+  ownerTopUp: bigint;
   referralStatus: ReferralStatus;
   referrer: Address;
 };

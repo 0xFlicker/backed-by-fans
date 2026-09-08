@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
+
 import {Test} from "forge-std/Test.sol";
 
 import {MembershipTier} from "../src/MembershipTier.sol";
@@ -31,7 +33,7 @@ contract ReferralsTest is Test {
         paymentToken = new MockUSDG();
         renderer = new OnchainMetadataRenderer();
         tier = new MembershipTier(
-            address(this),
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)),
             paymentToken,
             MembershipTestConfig.defaultConfig(
                 address(this), address(renderer), address(paymentToken)
@@ -175,7 +177,9 @@ contract ReferralsTest is Test {
             address(this), address(renderer), address(paymentToken)
         );
         config.pricePerPeriod = 0;
-        MembershipTier zeroTier = new MembershipTier(address(this), paymentToken, config);
+        MembershipTier zeroTier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
+        );
         uint256 tokenId = zeroTier.grantTime(member, 1);
 
         assertTrue(zeroTier.isRenewable(tokenId));

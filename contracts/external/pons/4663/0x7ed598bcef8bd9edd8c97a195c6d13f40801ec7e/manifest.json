@@ -1,0 +1,104 @@
+{
+  "retrievedAt": "2026-09-07",
+  "originChainId": 4663,
+  "verifiedBundleAddress": "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e",
+  "source": "https://robinhoodchain.blockscout.com/address/0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e?tab=contract",
+  "normalization": "Trim trailing end-of-file whitespace; append one newline.",
+  "independentRuntimeMatch": true,
+  "compilerEvidence": {
+    "status": "retained-sourcify-standard-json",
+    "version": "0.8.35",
+    "evmVersion": "cancun",
+    "optimizerRuns": 200,
+    "viaIR": true,
+    "reference": "specs/003-protocol-buyback-burn/research.md#2-select-pons-v2-and-bind-to-deployed-sources",
+    "inputManifest": "contracts/external/verification/4663/sources.json",
+    "independentEvidence": "specs/003-protocol-buyback-burn/evidence/source-verification-20260907.json"
+  },
+  "files": [
+    {
+      "path": "PonsV2BondingCurve.sol",
+      "upstreamPath": "contracts/src/v2/PonsV2BondingCurve.sol",
+      "sha256": "9e19cebed3b4ac659b9e3406fe3f8139ff8d59eb1da6e76bd9cbab915cd12684",
+      "license": "MIT"
+    },
+    {
+      "path": "PonsV2BuybackVault.sol",
+      "upstreamPath": "contracts/src/v2/PonsV2BuybackVault.sol",
+      "sha256": "4f7dbac2094a0482796ef732ee3b1d75b472fff45aa98c803b72028a022bab76",
+      "license": "MIT"
+    },
+    {
+      "path": "PonsV2LaunchFactory.sol",
+      "upstreamPath": "contracts/src/v2/PonsV2LaunchFactory.sol",
+      "sha256": "3813f2ad7dcc9d10c5f2e448c898e4dc7d6f1d4858785fdf15e1b98a91c73259",
+      "license": "MIT"
+    },
+    {
+      "path": "PonsV2LauncherToken.sol",
+      "upstreamPath": "contracts/src/v2/PonsV2LauncherToken.sol",
+      "sha256": "f3642bd24ecbcd902d7a09e9fa91100b0ac93723f0bfa41b66241c091b094c3e",
+      "license": "MIT"
+    },
+    {
+      "path": "hooks/PonsV2MemeHook.sol",
+      "upstreamPath": "contracts/src/v2/hooks/PonsV2MemeHook.sol",
+      "sha256": "07c4a6adcf20272729a32802c7b856fda994b0b791b1593220e4ba7a5d3f2cc5",
+      "license": "MIT"
+    },
+    {
+      "path": "interfaces/ILaunchpadV2.sol",
+      "upstreamPath": "contracts/src/v2/interfaces/ILaunchpadV2.sol",
+      "sha256": "65f1dbd93808dedfd77c4a1f5e03ccd2e1b0a14e96d6265fadd60d6cea202f08",
+      "license": "MIT"
+    },
+    {
+      "path": "libraries/PonsV2BondingCurveMath.sol",
+      "upstreamPath": "contracts/src/v2/libraries/PonsV2BondingCurveMath.sol",
+      "sha256": "e4486d95391daf7b3925219766307d3c7c78db80304bd824241f379146e59e58",
+      "license": "MIT"
+    },
+    {
+      "path": "PonsV2LaunchLocker.sol",
+      "upstreamPath": "contracts/src/v2/PonsV2LaunchLocker.sol",
+      "sha256": "a3a105b93193d7de1a7194e9d05c0e66007b718f8b1a321cd25b86d523b371d9",
+      "license": "MIT"
+    },
+    {
+      "path": "PonsV2LaunchDeployer.sol",
+      "upstreamPath": "contracts/src/v2/PonsV2LaunchDeployer.sol",
+      "sha256": "4d87005e44e9f377e3199b3c289511ac3017ab3dffe9e146d7fd5d403a387825",
+      "license": "MIT"
+    },
+    {
+      "path": "PonsV2GraduationGuard.sol",
+      "upstreamPath": "contracts/src/v2/PonsV2GraduationGuard.sol",
+      "sha256": "d8f622ab113fd6d4319f09d6e053523bf6cd2a5dd2341446825edb05be60aaa2",
+      "license": "MIT"
+    },
+    {
+      "path": "PonsV2GraduationExecutor.sol",
+      "upstreamPath": "contracts/src/v2/PonsV2GraduationExecutor.sol",
+      "sha256": "c9d9a2585fd5dfb6afbce051a7966388ee304fc19e102593f413250e1be8ee75",
+      "license": "MIT"
+    },
+    {
+      "path": "libraries/PonsV2GraduationMath.sol",
+      "upstreamPath": "contracts/src/v2/libraries/PonsV2GraduationMath.sol",
+      "sha256": "f4b1f3f590817d82701f1001ba4e5df486cdd698e89adcab787dff6e1607839e",
+      "license": "MIT"
+    },
+    {
+      "path": "interfaces/ILaunchpadV2Graduation.sol",
+      "upstreamPath": "contracts/src/v2/interfaces/ILaunchpadV2Graduation.sol",
+      "sha256": "52e366d698eee7810321c92d8bdfa584caea0a6252afecb988edce5e0b96635a",
+      "license": "MIT"
+    },
+    {
+      "path": "PonsV2FeeEscrow.sol",
+      "upstreamPath": "contracts/src/v2/PonsV2FeeEscrow.sol",
+      "sha256": "dafb50350e0ee423e4bb57feda1af82a3bb388e76b2315788959e6ec429eea31",
+      "license": "MIT"
+    }
+  ]
+}

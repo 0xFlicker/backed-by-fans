@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Test} from "forge-std/Test.sol";
@@ -343,7 +344,9 @@ contract ExpiredMembershipSyncTest is Test {
         );
         config.pricePerPeriod = 0;
         config.maxPrepaidPeriods = 0;
-        MembershipTier batchTier = new MembershipTier(address(this), paymentToken, config);
+        MembershipTier batchTier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
+        );
         uint256[] memory tokenIds = new uint256[](100);
         for (uint256 i; i < tokenIds.length; ++i) {
             // forge-lint: disable-next-line(unsafe-typecast)
@@ -365,7 +368,9 @@ contract ExpiredMembershipSyncTest is Test {
             address(this), address(renderer), address(paymentToken)
         );
         if (zeroPrice) config.pricePerPeriod = 0;
-        deployed = new MembershipTier(address(this), paymentToken, config);
+        deployed = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
+        );
     }
 
     function _fundAndApprove(MembershipTier target, address account, uint256 amount) private {

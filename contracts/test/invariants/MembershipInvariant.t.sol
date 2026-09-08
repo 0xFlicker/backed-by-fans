@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
+
+import {SyntheticVaultBinding} from "../helpers/SyntheticVaultBinding.sol";
 
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {Test} from "forge-std/Test.sol";
@@ -15,6 +18,7 @@ import {MembershipModel} from "../models/MembershipModel.sol";
 
 contract MembershipHandler is Test {
     using MembershipModel for MembershipModel.Lifecycle;
+    using MembershipModel for MembershipModel.FeeBook;
 
     uint256 private constant _MAX_GROSS = 100_000_000;
 
@@ -29,6 +33,7 @@ contract MembershipHandler is Test {
     mapping(uint256 tokenId => MembershipTypes.ReferralStatus status) public ghostReferralStatus;
     mapping(uint256 tokenId => address referrer) public ghostReferrer;
     mapping(uint256 tokenId => MembershipModel.Lifecycle state) private _modelLifecycle;
+    MembershipModel.FeeBook private _fees;
 
     constructor(
         AdversarialERC20 paymentToken_,
@@ -61,6 +66,8 @@ contract MembershipHandler is Test {
         address choice = _referralChoice(actor, referralSeed);
         vm.prank(actor);
         uint256 tokenId = tier.contribute(gross, choice);
+        _checkpointModelFees(tokenId);
+        _fees.allocateFee(tokenId, gross, tier.protocolFeeBps(), tier.periodDuration());
         _modelLifecycle[tokenId].addPaidTime(_timestamp(), tier.periodDuration());
         _recordMonotonicState(tokenId);
     }
@@ -74,6 +81,7 @@ contract MembershipHandler is Test {
         if (periodSeed % 2 != 0) periods = 2;
         vm.prank(creator);
         uint256 tokenId = tier.grantTime(actor, periods);
+        _checkpointModelFees(tokenId);
         _modelLifecycle[tokenId].addGrantTime(
             _timestamp(), uint64(uint256(periods) * tier.periodDuration())
         );
@@ -88,6 +96,7 @@ contract MembershipHandler is Test {
 
         vm.prank(creator);
         tier.revokeGrantTime(tokenId);
+        _checkpointModelFees(tokenId);
         _modelLifecycle[tokenId].revokeGrantTime(_timestamp());
         _recordMonotonicState(tokenId);
     }
@@ -100,6 +109,7 @@ contract MembershipHandler is Test {
 
         vm.prank(creator);
         tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        _cancelModelFees(tokenId);
         _modelLifecycle[tokenId].refundTime(_timestamp());
         assertEq(_grossRefund(tokenId), 0);
         _recordMonotonicState(tokenId);
@@ -116,6 +126,7 @@ contract MembershipHandler is Test {
 
             vm.prank(creator);
             tier.refund(tokenId, type(uint256).max, type(uint256).max);
+            _cancelModelFees(tokenId);
             _modelLifecycle[tokenId].refundTime(_timestamp());
             assertEq(_grossRefund(tokenId), 0);
         }
@@ -125,6 +136,8 @@ contract MembershipHandler is Test {
         address referralChoice = _referralChoice(actor, grossSeed >> 1);
         vm.prank(actor);
         tier.contribute(newGross, referralChoice);
+        _checkpointModelFees(tokenId);
+        _fees.allocateFee(tokenId, newGross, tier.protocolFeeBps(), tier.periodDuration());
         _modelLifecycle[tokenId].addPaidTime(_timestamp(), tier.periodDuration());
         assertEq(_grossRefund(tokenId), newGross);
         _recordMonotonicState(tokenId);
@@ -133,6 +146,9 @@ contract MembershipHandler is Test {
     function synchronizeTwice(uint256 actorSeed) external {
         uint256 tokenId = tier.tokenOf(_actor(actorSeed));
         if (tokenId == 0) return;
+        if (_modelLifecycle[tokenId].occupied && !_modelLifecycle[tokenId].active(_timestamp())) {
+            _checkpointModelFees(tokenId);
+        }
         bool expectedRelease = _modelLifecycle[tokenId].synchronize(_timestamp());
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
@@ -148,6 +164,63 @@ contract MembershipHandler is Test {
     function setPaused(uint256 pausedSeed) external {
         vm.prank(creator);
         tier.setPaused(pausedSeed % 2 == 0);
+    }
+
+    function accrue(uint256 actorSeed) external {
+        uint256 id = tier.tokenOf(_actor(actorSeed));
+        if (id == 0) return;
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = id;
+        tier.accrueProtocolFees(ids);
+        _checkpointModelFees(id);
+    }
+
+    function release() external {
+        assertEq(tier.releaseProtocolFees(), _fees.releaseFees());
+    }
+
+    function _checkpointModelFees(uint256 id) private {
+        (uint64 remaining,,) = _modelLifecycle[id].projected(_timestamp());
+        _fees.recognizeFee(id, _modelLifecycle[id].paidSeconds - remaining);
+        MembershipModel.checkpoint(_modelLifecycle[id], _timestamp());
+    }
+
+    function _cancelModelFees(uint256 id) private {
+        _checkpointModelFees(id);
+        MembershipModel.FeeSchedule storage schedule = _fees.schedules[id];
+        (,, uint256 gross) = MembershipModel.feeEntitlement(schedule.lots, schedule.consumed);
+        _fees.cancelFee(id, gross);
+    }
+
+    function assertFeeConservation() external view {
+        assertEq(tier.totalProtocolFeeAllocated(), _fees.allocated);
+        assertEq(tier.protocolFeeHoldings(), _fees.held);
+        assertEq(tier.protocolFeeEarnedHeld(), _fees.earnedHeld);
+        assertEq(tier.totalProtocolFeeReleased(), _fees.released);
+        assertEq(tier.totalProtocolFeeRefunded(), _fees.refunded);
+        assertEq(tier.totalProtocolFeeCancellationRounding(), _fees.rounding);
+        assertEq(_fees.allocated, _fees.held + _fees.released + _fees.refunded);
+        uint256 unearned;
+        uint256 pending;
+        for (uint256 i; i < _actors.length; ++i) {
+            uint256 id = tier.tokenOf(_actors[i]);
+            if (id == 0) continue;
+            MembershipModel.FeeSchedule storage schedule = _fees.schedules[id];
+            (uint64 remaining,,) = _modelLifecycle[id].projected(_timestamp());
+            (uint256 allocated, uint256 earned,) = MembershipModel.feeEntitlement(
+                schedule.lots, schedule.consumed + _modelLifecycle[id].paidSeconds - remaining
+            );
+            MembershipTypes.ProtocolFeeState memory state = tier.protocolFeeState(id);
+            assertEq(state.unearned, allocated - earned);
+            assertEq(state.uncheckpointedEarned, earned - schedule.recognized);
+            assertEq(state.earned, schedule.lifetimeEarned + earned - schedule.recognized);
+            assertEq(state.refunded, schedule.refunded);
+            assertEq(state.cancellationRounding, schedule.rounding);
+            assertEq(state.generation, schedule.generation);
+            unearned += allocated - earned;
+            pending += earned - schedule.recognized;
+        }
+        assertEq(_fees.held, unearned + pending + _fees.earnedHeld);
     }
 
     function warp(uint256 elapsedSeed) external {
@@ -191,7 +264,7 @@ contract MembershipHandler is Test {
         } else if (failure == 2) {
             paymentToken.setFrozen(address(tier), true);
         } else {
-            paymentToken.setFrozen(address(factory), true);
+            paymentToken.setFrozen(actor, true);
         }
         bytes32 beforeState = _stateFingerprint(actor);
         address referralChoice = _referralChoice(actor, failureSeed >> 2);
@@ -203,7 +276,7 @@ contract MembershipHandler is Test {
 
         paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.Normal);
         paymentToken.setFrozen(address(tier), false);
-        paymentToken.setFrozen(address(factory), false);
+        paymentToken.setFrozen(actor, false);
         assertEq(_stateFingerprint(actor), beforeState);
     }
 
@@ -354,11 +427,12 @@ contract MembershipInvariantTest is StdInvariant, Test {
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
         address creator = makeAddr("membershipInvariantCreator");
+        SyntheticPonsBinding.bind(address(_paymentToken));
         _factory = new MembershipFactory(
             MembershipTestConfig.paymentTokens(_paymentToken),
             address(mediaStoreFactory),
             address(this),
-            makeAddr("membershipInvariantFees")
+            address(_paymentToken)
         );
 
         MembershipTypes.TierConfig memory config =
@@ -377,7 +451,7 @@ contract MembershipInvariantTest is StdInvariant, Test {
         ];
         _handler = new MembershipHandler(_paymentToken, _factory, _tier, creator, actors);
 
-        bytes4[] memory selectors = new bytes4[](10);
+        bytes4[] memory selectors = new bytes4[](12);
         selectors[0] = MembershipHandler.contribute.selector;
         selectors[1] = MembershipHandler.grant.selector;
         selectors[2] = MembershipHandler.revokeGrant.selector;
@@ -388,11 +462,14 @@ contract MembershipInvariantTest is StdInvariant, Test {
         selectors[7] = MembershipHandler.warp.selector;
         selectors[8] = MembershipHandler.failedPausedContribution.selector;
         selectors[9] = MembershipHandler.failedInboundTransfer.selector;
+        selectors[10] = MembershipHandler.accrue.selector;
+        selectors[11] = MembershipHandler.release.selector;
         targetContract(address(_handler));
         targetSelector(FuzzSelector({addr: address(_handler), selectors: selectors}));
     }
 
     function invariant_identityLocksSharesAndOccupancyRemainConsistent() public view {
+        _handler.assertFeeConservation();
         assertEq(address(_tier.paymentToken()), address(_paymentToken));
         assertTrue(_factory.isPaymentTokenListed(address(_paymentToken)));
         uint256 totalMinted = _tier.totalMinted();
@@ -454,8 +531,12 @@ contract RewardSettlementIndependenceTest is Test {
         MembershipTypes.TierConfig memory config =
             MembershipTestConfig.defaultConfig(address(this), address(renderer), address(token));
         config.pricePerPeriod = 0;
-        MembershipTier frequent = new MembershipTier(makeAddr("frequentFactory"), token, config);
-        MembershipTier deferred = new MembershipTier(makeAddr("deferredFactory"), token, config);
+        MembershipTier frequent = new MembershipTier(
+            SyntheticVaultBinding.bind(makeAddr("frequentFactory"), address(token)), token, config
+        );
+        MembershipTier deferred = new MembershipTier(
+            SyntheticVaultBinding.bind(makeAddr("deferredFactory"), address(token)), token, config
+        );
         address first = makeAddr("settlementFirst");
         address second = makeAddr("settlementSecond");
 
@@ -505,7 +586,9 @@ contract FrozenGiftLifecycleTest is Test {
         MembershipTypes.TierConfig memory config =
             MembershipTestConfig.defaultConfig(address(this), address(renderer), address(token));
         config.supplyCap = 1;
-        MembershipTier tier = new MembershipTier(makeAddr("giftFactory"), token, config);
+        MembershipTier tier = new MembershipTier(
+            SyntheticVaultBinding.bind(makeAddr("giftFactory"), address(token)), token, config
+        );
         address payer = makeAddr("giftPayer");
         address recipient = makeAddr("frozenGiftRecipient");
         address competitor = makeAddr("giftCompetitor");

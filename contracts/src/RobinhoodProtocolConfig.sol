@@ -14,6 +14,8 @@ library RobinhoodProtocolConfig {
     uint256 internal constant MAINNET_CHAIN_ID = 4663;
     uint256 internal constant TESTNET_CHAIN_ID = 46_630;
     address internal constant MAINNET_USDG = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168;
+    address internal constant MAINNET_AMD = 0x86923f96303D656E4aa86D9d42D1e57ad2023fdC;
+    address internal constant MAINNET_WETH = 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73;
     address internal constant TESTNET_USDG = 0x7E955252E15c84f5768B83c41a71F9eba181802F;
     address internal constant TESTNET_AMD = 0x71178BAc73cBeb415514eB542a8995b82669778d;
     address internal constant TESTNET_NFLX = 0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93;
@@ -38,8 +40,10 @@ library RobinhoodProtocolConfig {
 
     function initialPaymentTokens() internal view returns (IERC20[] memory tokens) {
         if (block.chainid == MAINNET_CHAIN_ID) {
-            tokens = new IERC20[](1);
+            tokens = new IERC20[](3);
             tokens[0] = IERC20(MAINNET_USDG);
+            tokens[1] = IERC20(MAINNET_AMD);
+            tokens[2] = IERC20(MAINNET_WETH);
             return tokens;
         }
         if (block.chainid == TESTNET_CHAIN_ID) {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -12,12 +13,16 @@ import {
     RobinhoodDeploymentGuard
 } from "../../script/DeployDirectProtocol.s.sol";
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
+import {MembershipTier} from "../../src/MembershipTier.sol";
 import {MembershipTierDeployer} from "../../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
+import {ProtocolBuybackVault} from "../../src/ProtocolBuybackVault.sol";
 import {RendererPreviewHarness} from "../../src/RendererPreviewHarness.sol";
 import {RobinhoodProtocolConfig} from "../../src/RobinhoodProtocolConfig.sol";
 import {ERC8056InterfaceIds} from "../../src/interfaces/IERC8056.sol";
+import {ProtocolLaunchValidation} from "../../src/libraries/ProtocolLaunchValidation.sol";
 import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory.sol";
+import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {MockScaledToken} from "../mocks/MockScaledToken.sol";
 import {MockUSDG} from "../mocks/MockUSDG.sol";
 
@@ -79,6 +84,46 @@ contract DeployProtocolHarness is DeployProtocol {
 }
 
 contract DeploymentScriptsTest is Test {
+    function test_publicPlanRejectsMissingTokenAndNoncanonicalLaunchWiring() public {
+        address configured = vm.envAddress("PROTOCOL_TOKEN_ADDRESS");
+        vm.setEnv("PROTOCOL_TOKEN_ADDRESS", vm.toString(address(0)));
+        vm.expectRevert(ProtocolDeployment.InvalidOperationalAddress.selector);
+        _publicDeployment.configuredProtocolToken();
+        vm.setEnv("PROTOCOL_TOKEN_ADDRESS", vm.toString(configured));
+        vm.mockCall(configured, abi.encodeWithSignature("launchFactory()"), abi.encode(address(1)));
+        vm.expectRevert(ProtocolLaunchValidation.InvalidProtocolLaunch.selector);
+        _publicDeployment.configuredProtocolToken();
+    }
+
+    function test_factoryCreatesOneImmutableVaultAndTiersPinIt() public {
+        MockUSDG launchedToken = new MockUSDG();
+        MockUSDG membershipAsset = new MockUSDG();
+        OnchainMediaStoreFactory media = new OnchainMediaStoreFactory();
+        OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
+        SyntheticPonsBinding.bind(address(launchedToken));
+        MembershipFactory factory = new MembershipFactory(
+            MembershipTestConfig.paymentTokens(membershipAsset),
+            address(media),
+            address(this),
+            address(launchedToken)
+        );
+        ProtocolBuybackVault vault = ProtocolBuybackVault(payable(factory.buybackVault()));
+        assertEq(factory.protocolToken(), address(launchedToken));
+        assertEq(vault.factory(), address(factory));
+        assertEq(vault.protocolToken(), address(launchedToken));
+        assertEq(launchedToken.balanceOf(address(vault)), 0);
+        MembershipTier tier = MembershipTier(
+            factory.createTier(
+                MembershipTestConfig.defaultConfig(
+                    address(this), address(renderer), address(membershipAsset)
+                )
+            )
+        );
+        assertTrue(factory.isRegisteredTier(address(tier)));
+        assertEq(tier.buybackVault(), address(vault));
+        assertEq(tier.factory(), address(factory));
+    }
+
     struct PredictedDeployment {
         address mediaStoreFactory;
         address renderer;
@@ -99,17 +144,56 @@ contract DeploymentScriptsTest is Test {
 
     function setUp() public {
         vm.chainId(_MAINNET_CHAIN_ID);
+        vm.setEnv("PROTOCOL_TOKEN_ADDRESS", vm.toString(address(new MockUSDG())));
+        SyntheticPonsBinding.bind(vm.envAddress("PROTOCOL_TOKEN_ADDRESS"));
         _publicDeployment = new DeployProtocolHarness();
         _strictDeployment = new DeployProtocol();
         vm.etch(_publicDeployment.CREATE2_DEPLOYER(), _CREATE2_DEPLOYER_RUNTIME);
         _installCanonicalUSDG(_publicDeployment.ROBINHOOD_MAINNET_USDG());
+        _installScaledToken(
+            RobinhoodProtocolConfig.MAINNET_AMD,
+            "AMD Stock Token",
+            "AMD",
+            new MockScaledToken("Stock Token", "STOCK")
+        );
+        vm.mockCall(
+            RobinhoodProtocolConfig.MAINNET_WETH,
+            abi.encodeWithSignature("name()"),
+            abi.encode("Wrapped Ether")
+        );
+        vm.mockCall(
+            RobinhoodProtocolConfig.MAINNET_WETH,
+            abi.encodeWithSignature("symbol()"),
+            abi.encode("WETH")
+        );
+        vm.mockCall(
+            RobinhoodProtocolConfig.MAINNET_WETH,
+            abi.encodeWithSignature("decimals()"),
+            abi.encode(uint8(18))
+        );
+        vm.mockCall(
+            RobinhoodProtocolConfig.MAINNET_WETH,
+            abi.encodeWithSignature(
+                "supportsInterface(bytes4)", ERC8056InterfaceIds.SCALED_UI_AMOUNT
+            ),
+            abi.encode(false)
+        );
+        vm.mockCall(
+            RobinhoodProtocolConfig.MAINNET_WETH,
+            abi.encodeWithSignature(
+                "supportsInterface(bytes4)", ERC8056InterfaceIds.PENDING_UI_MULTIPLIER
+            ),
+            abi.encode(false)
+        );
         _installProtocolSafe();
     }
 
     function test_publicDeploymentUsesDirectCreate2AndChecksAllBindings() public {
         IERC20[] memory paymentTokens = _publicDeployment.validateInputs();
-        assertEq(paymentTokens.length, 1);
+        assertEq(paymentTokens.length, 3);
         assertEq(address(paymentTokens[0]), _publicDeployment.ROBINHOOD_MAINNET_USDG());
+        assertEq(address(paymentTokens[1]), RobinhoodProtocolConfig.MAINNET_AMD);
+        assertEq(address(paymentTokens[2]), RobinhoodProtocolConfig.MAINNET_WETH);
 
         (
             OnchainMediaStoreFactory mediaStoreFactory,
@@ -167,6 +251,10 @@ contract DeploymentScriptsTest is Test {
     function test_releaseWrapperPlanMatchesSolidityConfig() public {
         uint256 releaseChainId = vm.envOr("BBF_RELEASE_CHAIN_ID", uint256(0));
         if (releaseChainId == 0) return;
+        address releasedToken = vm.envAddress("BBF_RELEASE_PROTOCOL_TOKEN");
+        vm.etch(releasedToken, address(new MockUSDG()).code);
+        vm.setEnv("PROTOCOL_TOKEN_ADDRESS", vm.toString(releasedToken));
+        SyntheticPonsBinding.bind(releasedToken);
         if (releaseChainId == _TESTNET_CHAIN_ID) {
             vm.chainId(_TESTNET_CHAIN_ID);
             _installTestnetPaymentTokens();
@@ -445,14 +533,15 @@ contract DeploymentScriptsTest is Test {
         DeployLocalProtocol localDeployment = new DeployLocalProtocol();
         MockUSDG localUSDG = new MockUSDG();
         address protocolOwner = makeAddr("deploymentProtocolOwner");
-        address feeRecipient = makeAddr("deploymentFeeRecipient");
+        address protocolToken = address(new MockUSDG());
+        SyntheticPonsBinding.bind(protocolToken);
 
         (
             OnchainMediaStoreFactory mediaStoreFactory,
             OnchainMetadataRenderer renderer,
             RendererPreviewHarness previewHarness,
             MembershipFactory factory
-        ) = localDeployment.deploy(address(localUSDG), protocolOwner, feeRecipient);
+        ) = localDeployment.deploy(address(localUSDG), protocolOwner, protocolToken);
 
         assertEq(factory.paymentTokenCount(), 1);
         assertTrue(factory.isPaymentTokenListed(address(localUSDG)));
@@ -467,7 +556,7 @@ contract DeploymentScriptsTest is Test {
                 DeployLocalProtocol.UnexpectedLocalChain.selector, _MAINNET_CHAIN_ID
             )
         );
-        localDeployment.validateInputs(address(localUSDG), protocolOwner, feeRecipient);
+        localDeployment.validateInputs(address(localUSDG), protocolOwner, protocolToken);
     }
 
     function _deployProtocol()
@@ -599,7 +688,10 @@ contract DeploymentScriptsTest is Test {
         assertEq(factory.mediaStoreFactoryRuntimeCodehash(), address(mediaStoreFactory).codehash);
         assertEq(factory.owner(), _publicDeployment.INITIAL_PROTOCOL_AUTHORITY());
         assertEq(factory.pendingOwner(), address(0));
-        assertEq(factory.feeRecipient(), _publicDeployment.INITIAL_PROTOCOL_AUTHORITY());
+        assertEq(factory.protocolToken(), _publicDeployment.configuredProtocolToken());
+        ProtocolBuybackVault vault = ProtocolBuybackVault(payable(factory.buybackVault()));
+        assertEq(vault.factory(), address(factory));
+        assertEq(vault.protocolToken(), factory.protocolToken());
 
         MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
         assertTrue(address(tierDeployer).code.length != 0);

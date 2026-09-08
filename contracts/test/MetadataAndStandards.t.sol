@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
@@ -28,6 +29,7 @@ contract MetadataAndStandardsTest is Test {
         vm.warp(_START);
         member = makeAddr("member");
         token = new MockUSDG();
+        SyntheticVaultBinding.bind(address(this), address(token));
         renderer = new OnchainMetadataRenderer();
         tier = _deployTier(_config());
     }

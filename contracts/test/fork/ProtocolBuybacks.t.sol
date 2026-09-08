@@ -1,0 +1,235 @@
+// SPDX-License-Identifier: MIT
+pragma solidity =0.8.36;
+import {MembershipFactory} from "../../src/MembershipFactory.sol";
+import {MembershipTier} from "../../src/MembershipTier.sol";
+import {ProtocolBuybackVault} from "../../src/ProtocolBuybackVault.sol";
+import {BuybackIntegration as Integration} from "../../src/libraries/BuybackIntegration.sol";
+import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
+import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
+import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
+import {AuthenticAssetFixture} from "./helpers/AuthenticAssetFixture.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {
+    IUniversalRouter
+} from "@uniswap/universal-router/contracts/interfaces/IUniversalRouter.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
+
+contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
+    ProtocolBuybackVault internal vault;
+    MembershipFactory internal bbf;
+
+    function setUp() public override {
+        super.setUp();
+        _launch(keccak256("protocol-buybacks"));
+        _buy(developer, 0.01 ether);
+        IERC20[] memory assets = new IERC20[](1);
+        assets[0] = token;
+        address media = deployCode("OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory");
+        bbf = MembershipFactory(
+            deployCode(
+                "MembershipFactory.sol:MembershipFactory",
+                abi.encode(assets, media, address(this), address(token))
+            )
+        );
+        vault = ProtocolBuybackVault(payable(bbf.buybackVault()));
+        vault.setBuybacksPaused(false);
+    }
+
+    function test_directBurnNeedsNoMarketPolicyAndDestroysOnlySelectedDonation() public {
+        vm.prank(developer);
+        assertTrue(token.transfer(address(vault), 1000));
+        vault.syncDonation(address(token));
+        uint256 supply = token.totalSupply();
+        vm.prank(trader);
+        vault.process(
+            address(token), BuybackTypes.SourceBucket.Donation, 700, 0, uint64(block.timestamp)
+        );
+        assertEq(token.totalSupply(), supply - 700);
+        assertEq(token.balanceOf(address(vault)), 300);
+        assertEq(vault.inventory(address(token), BuybackTypes.SourceBucket.Donation).available, 300);
+    }
+
+    function test_bondingBurnUsesOrdinaryFeesWithoutPonsOperator() public {
+        BuybackTypes.TypedRoute memory route;
+        vault.setRoute(address(0), route);
+        BuybackTypes.Rate[] memory rates = new BuybackTypes.Rate[](1);
+        uint256 input = 0.001 ether;
+        uint256 net = input - input * curve.feeBps() / 10_000;
+        uint256 expected = net * curve.tokenReserve() / (curve.quoteReserve() + net);
+        rates[0] = BuybackTypes.Rate(SafeCast.toUint128(expected), SafeCast.toUint128(input), 100);
+        vault.setPolicy(
+            address(0),
+            BuybackTypes.ExecutionPolicy(
+                uint64(block.timestamp),
+                uint64(block.timestamp + 15 minutes),
+                SafeCast.toUint128(input),
+                SafeCast.toUint128(input * 10),
+                rates,
+                keccak256("independent curve reserves")
+            )
+        );
+        vm.deal(address(this), input);
+        (bool sent,) = address(vault).call{value: input}("");
+        assertTrue(sent);
+        vault.syncDonation(address(0));
+        vm.warp(block.timestamp + curve.snipeTaxSeconds());
+        uint256 supply = token.totalSupply();
+        uint256 fees = curve.quoteFeeBalance();
+        vm.prank(trader);
+        vault.process(
+            address(0), BuybackTypes.SourceBucket.Donation, input, 2, uint64(block.timestamp)
+        );
+        assertEq(token.totalSupply(), supply - expected);
+        assertEq(vault.policy(address(0)).spent, input);
+        assertEq(address(vault).balance, 0);
+        assertEq(token.balanceOf(address(vault)), 0);
+        assertGt(curve.quoteFeeBalance(), fees);
+        assertEq(
+            nativeVault.totalLocked(address(token)),
+            0,
+            "membership-purpose donation burns never vest"
+        );
+    }
+
+    function test_earnedWETHBurnAndReservedRefundAfterThreeOfTwelvePeriods() public {
+        _memberBurn(Integration.WETH);
+    }
+
+    function test_earnedUSDGBurnAndReservedRefundAfterThreeOfTwelvePeriods() public {
+        _memberBurn(USDG);
+    }
+
+    function test_earnedAuthenticStockBurnAndReservedRefundAfterThreeOfTwelvePeriods() public {
+        _memberBurn(AMD);
+    }
+
+    function test_earnedProtocolTokenBurnNeedsNoCircularSwapAndPreservesRefund() public {
+        _memberBurn(address(token));
+    }
+
+    function _memberBurn(address asset) internal {
+        vm.warp(block.timestamp + curve.snipeTaxSeconds());
+        uint256 acquired;
+        if (asset == address(token)) {
+            acquired = 12_000;
+            vm.prank(developer);
+            assertTrue(token.transfer(trader, acquired));
+        } else {
+            acquired = _acquire(asset, trader, 0.001 ether);
+        }
+        bbf.setPaymentTokenEnabled(asset, true);
+        address renderer = deployCode("OnchainMetadataRenderer.sol:OnchainMetadataRenderer");
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(address(this), renderer, asset);
+        config.protocolFeeBps = 10_000;
+        config.rewardBps = 0;
+        config.referralBps = 0;
+        config.pricePerPeriod = acquired / 12;
+        config.periodDuration = 100;
+        MembershipTier tier = MembershipTier(bbf.createTier(config));
+        uint256 gross = config.pricePerPeriod * 12;
+        vm.startPrank(trader);
+        assertTrue(IERC20(asset).approve(address(tier), gross));
+        uint256 id = tier.purchase(12, address(0));
+        vm.stopPrank();
+        vm.warp(block.timestamp + 300);
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = id;
+        vm.prank(developer);
+        tier.accrueProtocolFees(ids);
+        vm.prank(developer);
+        uint256 released = tier.releaseProtocolFees();
+        assertEq(released, gross / 4);
+        assertEq(IERC20(asset).balanceOf(address(tier)), gross - released);
+        _memberPolicy(asset);
+        uint256 routerBalance = Integration.ROUTER.balance;
+        vm.deal(address(this), 7);
+        IUniversalRouter(Integration.ROUTER).execute{value: 7}(
+            hex"", new bytes[](0), block.timestamp
+        );
+        uint256 supply = token.totalSupply();
+        uint64 revision = asset == address(token) ? 0 : vault.revision(asset);
+        vm.prank(trader);
+        vault.process(
+            asset, BuybackTypes.SourceBucket.Membership, released, revision, uint64(block.timestamp)
+        );
+        assertEq(
+            Integration.ROUTER.balance,
+            routerBalance + 7,
+            "pre-existing router ETH is not membership output"
+        );
+        uint256 burned =
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalBurned;
+        assertGt(burned, 0);
+        assertEq(supply - token.totalSupply(), burned);
+        assertEq(vault.inventory(asset, BuybackTypes.SourceBucket.Membership).available, 0);
+        assertEq(vault.inventory(asset, BuybackTypes.SourceBucket.Donation).totalReceived, 0);
+        _assertReservedRefund(tier, asset, id, gross - released);
+        _assertAllowancesCleared(asset);
+        emit log_named_address("Authentic payment asset", asset);
+        emit log_named_uint("Membership released raw input", released);
+        emit log_named_uint("Measured protocol-token supply destroyed", burned);
+    }
+
+    function _assertAllowancesCleared(address asset) private view {
+        if (asset != address(token) && asset != Integration.WETH) {
+            assertEq(IERC20(asset).allowance(vault.executor(), Integration.PERMIT2), 0);
+            (uint160 allowance, uint48 expiration,) = IAllowanceTransfer(Integration.PERMIT2)
+                .allowance(vault.executor(), asset, Integration.ROUTER);
+            assertEq(allowance, 0);
+            assertEq(expiration, 1);
+        }
+    }
+
+    function _assertReservedRefund(MembershipTier tier, address asset, uint256 id, uint256 expected)
+        private
+    {
+        (uint256 refund, uint256 reserve, uint256 creator, uint256 topup) =
+            tier.previewRefundComponents(id);
+        assertEq(refund, expected);
+        assertEq(reserve, refund);
+        assertEq(creator, 0);
+        assertEq(topup, 0);
+        uint256 beforeRefund = IERC20(asset).balanceOf(trader);
+        tier.refund(id, refund, 0);
+        assertEq(IERC20(asset).balanceOf(trader) - beforeRefund, refund);
+        assertEq(IERC20(asset).balanceOf(address(tier)), 0);
+        emit log_named_uint("Unused membership refunded from reserve", refund);
+    }
+
+    function _memberPolicy(address asset) internal {
+        if (asset == address(token)) return;
+        uint256 count = asset == AMD ? 2 : asset == USDG ? 1 : 0;
+        BuybackTypes.TypedRoute memory route;
+        route.pools = new PoolKey[](count);
+        if (asset == AMD) {
+            route.pools[0] = _stockPool();
+            route.pools[1] = _usdPool();
+        } else if (asset == USDG) {
+            route.pools[0] = _usdPool();
+        }
+        vault.setRoute(asset, route);
+        BuybackTypes.Rate[] memory rates = new BuybackTypes.Rate[](count + 1);
+        if (asset == AMD) rates[0] = BuybackTypes.Rate(478_129, 1e15, 100);
+        if (count > 0) rates[count - 1] = BuybackTypes.Rate(40_216_887_404_570, 100_000, 100);
+        uint256 batch = 0.001 ether;
+        uint256 net = batch - batch * curve.feeBps() / 10_000;
+        uint256 referenceOutput = net * curve.tokenReserve() / (curve.quoteReserve() + net);
+        rates[count] =
+            BuybackTypes.Rate(SafeCast.toUint128(referenceOutput), SafeCast.toUint128(batch), 100);
+        uint128 cap = asset == AMD ? 5e15 : asset == USDG ? 2_400_000 : 1e15;
+        vault.setPolicy(
+            asset,
+            BuybackTypes.ExecutionPolicy(
+                uint64(block.timestamp),
+                uint64(block.timestamp + 900),
+                cap,
+                cap * 10,
+                rates,
+                keccak256("retained origin market observations and independent curve formula")
+            )
+        );
+    }
+}

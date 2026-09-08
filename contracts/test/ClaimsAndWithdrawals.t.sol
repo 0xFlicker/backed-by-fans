@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Test} from "forge-std/Test.sol";
 
@@ -29,7 +31,7 @@ contract ClaimsAndWithdrawalsTest is Test {
         paymentToken = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         tier = new MembershipTier(
-            address(this),
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)),
             paymentToken,
             MembershipTestConfig.defaultConfig(
                 address(this), address(renderer), address(paymentToken)
@@ -62,11 +64,11 @@ contract ClaimsAndWithdrawalsTest is Test {
 
         vm.prank(member);
         assertEq(tier.claimReward(tokenId), 500_000);
-        assertEq(paymentToken.balanceOf(address(tier)), 0);
+        assertEq(paymentToken.balanceOf(address(tier)), 100_000);
         assertEq(tier.creatorProceeds(), 0);
         assertEq(tier.rewardReserve(), 0);
         assertEq(tier.totalReferralLiability(), 0);
-        assertEq(tier.totalProtectedLiability(), 0);
+        assertEq(tier.totalProtectedLiability(), 100_000);
     }
 
     function test_creatorWithdrawalCannotConsumeRewardOrReferralLiabilities() public {
@@ -75,10 +77,10 @@ contract ClaimsAndWithdrawalsTest is Test {
 
         assertEq(tier.withdrawCreatorProceeds(), 18_600_000);
 
-        assertEq(paymentToken.balanceOf(address(tier)), 1_200_000);
+        assertEq(paymentToken.balanceOf(address(tier)), 1_400_000);
         assertEq(tier.rewardReserve(), 1_000_000);
         assertEq(tier.totalReferralLiability(), 200_000);
-        assertEq(tier.totalProtectedLiability(), 1_200_000);
+        assertEq(tier.totalProtectedLiability(), 1_400_000);
     }
 
     function test_currentOwnerReceivesPreexistingCreatorProceedsAfterTwoStepTransfer() public {
@@ -109,7 +111,7 @@ contract ClaimsAndWithdrawalsTest is Test {
         assertEq(tier.claimReferral(), 100_000);
         vm.prank(member);
         assertEq(tier.claimReward(tokenId), 500_000);
-        assertEq(paymentToken.balanceOf(address(tier)), 0);
+        assertEq(paymentToken.balanceOf(address(tier)), 100_000);
     }
 
     function test_twoTokenClaimsAndRefundsRemainIndependent() public {
@@ -119,7 +121,11 @@ contract ClaimsAndWithdrawalsTest is Test {
             address(this), address(renderer), address(secondToken)
         );
         secondConfig.tierSalt = keccak256("second-claims-token");
-        MembershipTier secondTier = new MembershipTier(address(this), secondToken, secondConfig);
+        MembershipTier secondTier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(secondToken)),
+            secondToken,
+            secondConfig
+        );
         address secondMember = makeAddr("secondMember");
         address secondReferrer = makeAddr("secondReferrer");
         secondToken.mint(secondMember, secondConfig.pricePerPeriod);
@@ -208,7 +214,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         paymentToken = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         tier = new MembershipTierHarness(
-            feeVault,
+            SyntheticVaultBinding.bind(feeVault, address(paymentToken)),
             paymentToken,
             address(renderer),
             MembershipTestConfig.defaultConfig(
@@ -248,26 +254,40 @@ contract AdversarialPaymentsAndExitsTest is Test {
         _assertNoPaymentState();
     }
 
-    function test_failedProtocolDeliveryRevertsInboundTimeAndEconomics() public {
+    function test_failedEarnedReleasePreservesAccountingWithoutBlockingPayment() public {
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.ReturnFalse);
-
         vm.prank(member);
+        uint256 id = tier.purchase(1, referrer);
+        vm.warp(block.timestamp + 30 days);
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = id;
+        tier.accrueProtocolFees(ids);
         vm.expectRevert();
-        tier.purchase(1, referrer);
-
-        _assertNoPaymentState();
-        assertEq(paymentToken.balanceOf(member), 100_000_000);
-        assertEq(paymentToken.balanceOf(address(tier)), 0);
-        assertEq(paymentToken.balanceOf(feeVault), 0);
-
+        tier.releaseProtocolFees();
+        assertEq(tier.protocolFeeEarnedHeld(), 100_000);
+        assertEq(tier.protocolFeeHoldings(), 100_000);
+        assertEq(paymentToken.balanceOf(address(tier)), 10_000_000);
+        assertEq(paymentToken.balanceOf(tier.buybackVault()), 0);
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.TaxedTransfer);
-        vm.prank(member);
         vm.expectRevert(MembershipTier.InexactTokenTransfer.selector);
-        tier.purchase(1, referrer);
-        _assertNoPaymentState();
+        tier.releaseProtocolFees();
+        assertEq(tier.protocolFeeEarnedHeld(), 100_000);
+        paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Normal);
+        assertEq(tier.releaseProtocolFees(), 100_000);
+        assertEq(paymentToken.balanceOf(tier.buybackVault()), 100_000);
     }
 
-    function test_reentrantInboundAndProtocolCallbacksCannotDoublePurchase() public {
+    function test_frozenFactoryAndVaultDoNotBlockMembershipPayments() public {
+        paymentToken.setFrozen(feeVault, true);
+        paymentToken.setFrozen(tier.buybackVault(), true);
+        vm.prank(member);
+        uint256 id = tier.purchase(1, address(0));
+        assertEq(tier.sharesOf(id), 10_000_000);
+        assertEq(tier.protocolFeeHoldings(), 100_000);
+        assertTrue(tier.isActive(member));
+    }
+
+    function test_reentrantInboundCallbackCannotDoublePurchase() public {
         paymentToken.setCallback(
             address(tier), abi.encodeCall(MembershipTier.purchase, (uint64(1), address(0)))
         );
@@ -277,7 +297,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         vm.prank(member);
         uint256 tokenId = tier.purchase(1, address(0));
 
-        assertEq(paymentToken.callbackAttempts(), 2);
+        assertEq(paymentToken.callbackAttempts(), 1);
         assertFalse(paymentToken.lastCallbackSucceeded());
         assertEq(tier.sharesOf(tokenId), 10_000_000);
         assertEq(tier.expiresAt(tokenId), block.timestamp + 30 days);

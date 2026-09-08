@@ -20,7 +20,12 @@ import { fileURLToPath } from "node:url";
 import { foundry } from "@wagmi/cli/plugins";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
+import {
+  membershipFactoryAbi,
+  membershipTierAbi,
+  protocolBuybackVaultAbi,
+  ponsBuybackExecutorAbi,
+} from "@/contracts";
 
 const temporaryProjects: string[] = [];
 const temporaryLocks: string[] = [];
@@ -83,7 +88,7 @@ afterEach(async () => {
 });
 
 describe("generated MembershipFactory ABI", () => {
-  it("contains the multi-token constructor, registry, tier tuple, and token withdrawal", () => {
+  it("contains the multi-token constructor, registry, tier tuple, and immutable buyback destination", () => {
     const constructor = membershipFactoryAbi.find(
       (item) => item.type === "constructor",
     );
@@ -105,7 +110,8 @@ describe("generated MembershipFactory ABI", () => {
       "isPaymentTokenListed",
       "isPaymentTokenEnabled",
       "setPaymentTokenEnabled",
-      "withdrawProtocolFees",
+      "buybackVault",
+      "protocolToken",
     ]) {
       expect(
         membershipFactoryAbi.some(
@@ -113,14 +119,43 @@ describe("generated MembershipFactory ABI", () => {
         ),
       ).toBe(true);
     }
-    const withdrawal = membershipFactoryAbi.find(
-      (item) =>
-        item.type === "function" && item.name === "withdrawProtocolFees",
-    );
-    expect(withdrawal?.inputs).toEqual([
-      expect.objectContaining({ name: "token", type: "address" }),
-    ]);
+    const names: readonly string[] = membershipFactoryAbi
+      .filter((item) => item.type === "function")
+      .map((item) => item.name);
+    expect(names).not.toContain("withdrawProtocolFees");
+    expect(names).not.toContain("setFeeRecipient");
+    expect(names).not.toContain("protocolFeeBps");
   });
+});
+
+it("generates executable vault and executor surfaces without a custody escape", () => {
+  const names = (abi: readonly { type: string; name?: string }[]) =>
+    abi.filter((item) => item.type === "function").map((item) => item.name);
+  expect(names(protocolBuybackVaultAbi)).toEqual(
+    expect.arrayContaining([
+      "process",
+      "processingStatus",
+      "inventory",
+      "executor",
+    ]),
+  );
+  expect(names(ponsBuybackExecutorAbi)).toEqual(
+    expect.arrayContaining([
+      "execute",
+      "lifecycle",
+      "vault",
+      "protocolToken",
+      "curve",
+    ]),
+  );
+  for (const name of [
+    "withdraw",
+    "rescue",
+    "upgradeTo",
+    "setProtocolToken",
+    "setExecutor",
+  ])
+    expect(names(protocolBuybackVaultAbi)).not.toContain(name);
 });
 
 describe("generated MembershipTier ABI", () => {
