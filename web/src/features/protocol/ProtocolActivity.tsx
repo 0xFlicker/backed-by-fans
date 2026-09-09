@@ -9,6 +9,7 @@ import { ReadStateView } from "@/components/ReadState";
 import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { ProcessBuyback } from "./ProcessBuyback";
+import { Burn } from "./Burn";
 import { ReleaseTierFees } from "./ReleaseTierFees";
 import {
   readPublicBuybacks,
@@ -109,6 +110,13 @@ export function ProtocolActivity({
           Fees earn as membership time is used. Released fees buy and burn the
           protocol token.
         </p>
+        {deployment.status === "ready" && (
+          <Burn
+            chainId={chainId}
+            factory={deployment.factoryAddress}
+            symbol={protocolTokenSymbol}
+          />
+        )}
         <button
           type="button"
           className="button button-light"

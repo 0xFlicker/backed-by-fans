@@ -44,6 +44,7 @@ export default defineConfig({
         "RendererRegistry.sol/**",
         "MembershipFactory.sol/**",
         "ProtocolBuybackVault.sol/**",
+        "ProtocolBurnRouter.sol/**",
         "PonsBuybackExecutor.sol/**",
         "IPons.sol/**",
         "ISafe.sol/**",

@@ -6,6 +6,7 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {MembershipTierDeployer} from "./MembershipTierDeployer.sol";
+import {ProtocolBurnRouter} from "./ProtocolBurnRouter.sol";
 import {ProtocolBuybackVault} from "./ProtocolBuybackVault.sol";
 import {TierIdentity} from "./TierIdentity.sol";
 import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
@@ -28,6 +29,7 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
 
     address public immutable override protocolToken;
     address public immutable override buybackVault;
+    address public immutable override burnRouter;
     address[] private _paymentTokens;
     address[] private _tiers;
     mapping(address token => bool listed) public override isPaymentTokenListed;
@@ -79,6 +81,7 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
         mediaStoreFactoryRuntimeCodehash = mediaStoreFactory_.codehash;
         protocolToken = protocolToken_;
         buybackVault = address(new ProtocolBuybackVault(address(this), protocolToken_));
+        burnRouter = address(new ProtocolBurnRouter(address(this), buybackVault));
         deployer = address(new MembershipTierDeployer(address(this)));
 
         for (uint256 i; i < initialPaymentTokens.length; ++i) {

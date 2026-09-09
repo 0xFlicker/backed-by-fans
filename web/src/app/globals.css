@@ -2098,6 +2098,19 @@ dd {
   padding: 1rem 0 2rem;
   max-width: 52rem;
 }
+
+.protocol-burn {
+  margin: 1.5rem 0;
+  max-width: 44rem;
+}
+
+.protocol-burn > .button {
+  min-width: 10rem;
+}
+
+.protocol-burn p {
+  margin: 0.75rem 0;
+}
 .protocol-heading h1 {
   font-family: "Instrument Serif", Georgia, serif;
   font-size: clamp(3.5rem, 8vw, 7rem);

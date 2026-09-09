@@ -52,6 +52,7 @@ interface IMembershipFactory {
     function protocolToken() external view returns (address);
 
     function buybackVault() external view returns (address);
+    function burnRouter() external view returns (address);
 
     function maxPageSize() external pure returns (uint256);
 

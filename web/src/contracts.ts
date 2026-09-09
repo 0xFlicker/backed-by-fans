@@ -2463,6 +2463,13 @@ export const membershipFactoryAbi = [
   {
     type: "function",
     inputs: [],
+    name: "burnRouter",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
     name: "buybackVault",
     outputs: [{ name: "", internalType: "address", type: "address" }],
     stateMutability: "view",
@@ -5892,6 +5899,191 @@ export const ponsBuybackExecutorAbi = [
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ProtocolBurnRouter
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const protocolBurnRouterAbi = [
+  {
+    type: "constructor",
+    inputs: [
+      { name: "factory_", internalType: "address", type: "address" },
+      { name: "vault_", internalType: "address", type: "address" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "collections",
+        internalType: "struct ProtocolBurnRouter.Collection[]",
+        type: "tuple[]",
+        components: [
+          { name: "tier", internalType: "address", type: "address" },
+          { name: "tokenIds", internalType: "uint256[]", type: "uint256[]" },
+        ],
+      },
+      {
+        name: "purchases",
+        internalType: "struct ProtocolBurnRouter.Purchase[]",
+        type: "tuple[]",
+        components: [
+          { name: "asset", internalType: "address", type: "address" },
+          { name: "revision", internalType: "uint64", type: "uint64" },
+        ],
+      },
+      { name: "deadline", internalType: "uint64", type: "uint64" },
+    ],
+    name: "burn",
+    outputs: [
+      { name: "releasedTiers", internalType: "uint256", type: "uint256" },
+      { name: "purchaseCount", internalType: "uint256", type: "uint256" },
+      { name: "burned", internalType: "uint256", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "collection",
+        internalType: "struct ProtocolBurnRouter.Collection",
+        type: "tuple",
+        components: [
+          { name: "tier", internalType: "address", type: "address" },
+          { name: "tokenIds", internalType: "uint256[]", type: "uint256[]" },
+        ],
+      },
+    ],
+    name: "collect",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "factory",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "nextSource",
+    outputs: [
+      {
+        name: "",
+        internalType: "enum BuybackTypes.SourceBucket",
+        type: "uint8",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "item",
+        internalType: "struct ProtocolBurnRouter.Purchase",
+        type: "tuple",
+        components: [
+          { name: "asset", internalType: "address", type: "address" },
+          { name: "revision", internalType: "uint64", type: "uint64" },
+        ],
+      },
+      {
+        name: "bucket",
+        internalType: "enum BuybackTypes.SourceBucket",
+        type: "uint8",
+      },
+      { name: "deadline", internalType: "uint64", type: "uint64" },
+    ],
+    name: "purchase",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "vault",
+    outputs: [
+      {
+        name: "",
+        internalType: "contract IProtocolBuybackVault",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "caller",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "releasedTiers",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "purchases",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "burned",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "BurnCompleted",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      { name: "reason", internalType: "bytes", type: "bytes", indexed: false },
+    ],
+    name: "CollectionFailed",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "asset",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "bucket",
+        internalType: "enum BuybackTypes.SourceBucket",
+        type: "uint8",
+        indexed: false,
+      },
+      { name: "reason", internalType: "bytes", type: "bytes", indexed: false },
+    ],
+    name: "PurchaseFailed",
+  },
+  { type: "error", inputs: [], name: "DeadlineExpired" },
+  { type: "error", inputs: [], name: "InvalidBatch" },
+  { type: "error", inputs: [], name: "NothingToDo" },
+  { type: "error", inputs: [], name: "OnlySelf" },
+  { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
+  { type: "error", inputs: [], name: "UnregisteredTier" },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ProtocolBuybackVault
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -9233,6 +9425,15 @@ export const useReadMembershipFactory = /*#__PURE__*/ createUseReadContract({
 });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"burnRouter"`
+ */
+export const useReadMembershipFactoryBurnRouter =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "burnRouter",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"buybackVault"`
  */
 export const useReadMembershipFactoryBuybackVault =
@@ -11248,6 +11449,140 @@ export const useSimulatePonsBuybackExecutorExecute =
   /*#__PURE__*/ createUseSimulateContract({
     abi: ponsBuybackExecutorAbi,
     functionName: "execute",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__
+ */
+export const useReadProtocolBurnRouter = /*#__PURE__*/ createUseReadContract({
+  abi: protocolBurnRouterAbi,
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"factory"`
+ */
+export const useReadProtocolBurnRouterFactory =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "factory",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"nextSource"`
+ */
+export const useReadProtocolBurnRouterNextSource =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "nextSource",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"vault"`
+ */
+export const useReadProtocolBurnRouterVault =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "vault",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__
+ */
+export const useWriteProtocolBurnRouter = /*#__PURE__*/ createUseWriteContract({
+  abi: protocolBurnRouterAbi,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"burn"`
+ */
+export const useWriteProtocolBurnRouterBurn =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "burn",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"collect"`
+ */
+export const useWriteProtocolBurnRouterCollect =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "collect",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"purchase"`
+ */
+export const useWriteProtocolBurnRouterPurchase =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "purchase",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__
+ */
+export const useSimulateProtocolBurnRouter =
+  /*#__PURE__*/ createUseSimulateContract({ abi: protocolBurnRouterAbi });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"burn"`
+ */
+export const useSimulateProtocolBurnRouterBurn =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "burn",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"collect"`
+ */
+export const useSimulateProtocolBurnRouterCollect =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "collect",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"purchase"`
+ */
+export const useSimulateProtocolBurnRouterPurchase =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "purchase",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__
+ */
+export const useWatchProtocolBurnRouterEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({ abi: protocolBurnRouterAbi });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"BurnCompleted"`
+ */
+export const useWatchProtocolBurnRouterBurnCompletedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBurnRouterAbi,
+    eventName: "BurnCompleted",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"CollectionFailed"`
+ */
+export const useWatchProtocolBurnRouterCollectionFailedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBurnRouterAbi,
+    eventName: "CollectionFailed",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"PurchaseFailed"`
+ */
+export const useWatchProtocolBurnRouterPurchaseFailedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBurnRouterAbi,
+    eventName: "PurchaseFailed",
   });
 
 /**

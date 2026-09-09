@@ -211,6 +211,28 @@ BBF_ADMIN_RPC_URL=http://127.0.0.1:18557 bun scripts/seed-buyback-demo.ts ../art
 
 The buyback page rehearses through stateless `eth_simulateV1` calls. It never
 starts another Anvil, changes your memberships, or advances the source chain.
+
+### Burn from the protocol page
+
+At the top of `/chains/31337/protocol`, connect any funded wallet on the local
+network and press **Burn**. The page discovers current earned fees and currency
+settings when clicked, simulates the batch, then requests **one wallet
+transaction**. No protocol Safe signature is needed.
+
+The factory's immutable `burnRouter()` collects fees from registered memberships,
+releases them to the vault, and processes eligible buybacks/direct burns. The
+vault rechecks size limits, cooldowns, pauses and revisions at execution. A failed
+currency does not discard another currency's successful work. Membership fees
+and donations alternate first opportunity after successful purchases so a shared
+cooldown cannot continually favor membership fees.
+
+Each transaction collects at most eight tiers and 100 membership IDs, and checks
+up to 32 canonical currencies. Browser discovery rotates through bounded pages
+for larger registries. Press Burn again to build the next batch from fresh state.
+If only collection can progress, the result says **Earned fees collected**; it
+does not claim a burn. If nothing is ready, no wallet transaction is requested.
+Existing detailed collection and per-currency controls remain available below.
+
 The separate
 `run` acceptance mode deliberately retains a 2-of-3 test fixture. Neither choice
 imposes a production signer count.

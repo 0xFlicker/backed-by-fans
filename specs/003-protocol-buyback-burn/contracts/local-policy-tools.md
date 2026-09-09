@@ -73,6 +73,13 @@ samples are not a prerequisite for saving settings or executing a buyback.
 
 ## Optional one-shot execution
 
+For manual execution, the protocol page's top-level **Burn** button now builds a
+fresh batch and submits it through the immutable `factory.burnRouter()`. This is
+a permissionless typed transaction, collecting registered-tier fees and attempting
+eligible vault purchases in one wallet confirmation. It does not publish settings
+or use the local rehearsal API. The separate runner below remains available for
+scheduled execution.
+
 ```sh
 cd web
 # Set BBF_RUNNER_PRIVATE_KEY privately to a funded execution wallet.
