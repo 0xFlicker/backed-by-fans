@@ -251,9 +251,11 @@ contract DeploymentScriptsTest is Test {
         uint256 releaseChainId = vm.envOr("BBF_RELEASE_CHAIN_ID", uint256(0));
         if (releaseChainId == 0) return;
         address releasedToken = vm.envAddress("BBF_RELEASE_PROTOCOL_TOKEN");
-        vm.etch(releasedToken, address(new MockUSDG()).code);
         vm.setEnv("PROTOCOL_TOKEN_ADDRESS", vm.toString(releasedToken));
-        SyntheticPonsBinding.bind(releasedToken);
+        if (releasedToken != address(0)) {
+            vm.etch(releasedToken, address(new MockUSDG()).code);
+            SyntheticPonsBinding.bind(releasedToken);
+        }
         if (releaseChainId == _TESTNET_CHAIN_ID) {
             vm.chainId(_TESTNET_CHAIN_ID);
             _installTestnetPaymentTokens();
