@@ -94,8 +94,8 @@ PROTOCOL_TOKEN_ADDRESS=0x0000000000000000000000000000000000000000 \
 git diff -- contracts/config/operational-state/46630.json
 ```
 
-`prepare` reads the committed operational state, preserves its payment tokens, Safe, owner, pending
-owner, and pending owner, and writes the explicit protocol token plus the four deterministic component records. It
+`prepare` reads the committed operational state, preserves its payment tokens, Safe, owner and pending
+owner, and writes the explicit protocol token plus the four deterministic component records. It
 performs build, Solidity-plan parity, public-chain identity, dependency, and runtime checks without
 starting Anvil, loading a signing account, writing a recovery journal, generating web bindings, or
 submitting a transaction. Review and commit the generated manifest with the release source before
@@ -135,7 +135,7 @@ candidate graph. It must confirm:
 
 - the exact six manifest tokens, in order, are listed and enabled;
 - all four runtimes and the tier deployer have code;
-- factory owner, pending owner, fee recipient, media dependency, renderer schema, and tier-deployer
+- factory owner, pending owner, protocol token, media dependency, renderer schema, and tier-deployer
   binding match the reviewed operational state; and
 - every payload remains below the Robinhood initcode/runtime and Nitro transaction-data limits.
 
@@ -209,19 +209,16 @@ Writes print reviewed Safe transaction JSON by default:
 ```sh
 ./scripts/manage-payment-tokens.sh testnet enable 0xTOKEN safe
 ./scripts/manage-payment-tokens.sh testnet disable 0xTOKEN safe
-./scripts/manage-payment-tokens.sh testnet withdraw 0xTOKEN safe
 ```
 
 Direct encrypted-account submission is allowed only if that account is the factory's current owner
-for enable/disable, or the current fee recipient for withdrawal. The invoking process must also
+for enable/disable. The buyback vault has no fee withdrawal path. The invoking process must also
 supply the exact chain confirmation:
 
 ```sh
 CONFIRM_PAYMENT_TOKEN_WRITE=46630 \
   ./scripts/manage-payment-tokens.sh testnet enable 0xTOKEN submit
 
-CONFIRM_PAYMENT_TOKEN_WRITE=46630 \
-  ./scripts/manage-payment-tokens.sh testnet withdraw 0xTOKEN submit
 ```
 
 Enabling a previously unlisted token first checks code, ERC-20 metadata, and coherent ERC-8056 core
