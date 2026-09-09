@@ -686,3 +686,15 @@ Existing raw preparation remains available. Rehearsal can be skipped with acknow
 public generated proposals require valid history, while explicit spot mode is fork-only.
 No automatic renewal or contract-budget change is included. Historical acceptance does not
 establish this extension's completion; its focused evidence is recorded separately.
+
+
+## Approved delivery deferral — 2026-09-09
+
+The user deferred the personal-wallet submission workflow for payment-token
+onboarding, route changes and pause/resume (analysis C1) to future work. For this
+local milestone, FR-037/SC-010 retain Safe authorization, reviewable prepared
+calls and actual test-Safe execution evidence; delivery of a personal-wallet
+client for those actions is excluded from acceptance. The existing standing-settings
+page must still support wallet signing and saving through the Safe. Documentation
+must disclose the deferred path rather than claim complete personal-wallet
+administration. No onchain authority or custody constraint is relaxed.

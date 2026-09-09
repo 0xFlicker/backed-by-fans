@@ -108,7 +108,10 @@ local test signers; the acceptance harness uses it to execute and verify real Sa
 transactions. Do not export a personal wallet key to use that test helper. For a
 personal-wallet administrative call outside the settings page, use a Safe client
 that supports the execution network and the prepared call. A local Safe-client
-integration is not provided here.
+integration is not provided here. The user explicitly deferred this personal-wallet
+submission path to future work on 2026-09-09 (analysis C1); it does not block this
+local milestone. Safe authorization and test-Safe execution remain acceptance
+requirements.
 
 The shell `manage-buybacks.sh prepare` action list still names obsolete `policy`
 and does not accept `limits` or `interval`; use the calculator for standing

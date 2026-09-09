@@ -334,3 +334,22 @@ This pass did not run the export/restore round-trip, sign transactions, reset th
 manual fork or execute final acceptance. T096–T098 remain unchecked. Current runner
 caps and the general Safe-submission/tool-wrapper limitations are explicit in the
 operator guide, rather than documented as completed capabilities.
+
+
+## Approved analysis follow-up — 2026-09-09
+
+The user deferred C1 (a personal-wallet submission workflow for token onboarding,
+route changes and pause/resume) to future work. It is not a blocker for this local
+milestone and must not be reported as implemented. Existing Safe authorization,
+prepared-call checks, actual test-Safe execution and the working settings-page
+sign/save flow remain required. This narrowly defers the operator delivery path
+under FR-037/SC-010, not onchain administration or its authorization tests.
+
+The user accepted U1, I1 and D1. Execute T100 before T096; complete T101 and T102
+before T098 so the final runs use consistent requirements and unambiguous task
+references. These additions do not authorize a production scheduler, persistent
+service, new price policy or reset of the current manual fork.
+
+- [ ] T100 Specify numeric per-invocation discovery/collection/execution limits and the starting-page selection rule for independent runner invocations in `plan.md` and `contracts/operations-and-evidence.md` before implementing T096. State how later tier/member pages become reachable, what progress is guaranteed under the stated invocation schedule, how changing populations and failed reads affect traversal, and how ready vault inventory proceeds independently. Define regression assertions for restart behavior, page reachability and failure isolation without requiring an always-running process; distinguish probabilistic selection from guaranteed coverage if relevant per FR-019, FR-040 and analysis U1.
+- [ ] T101 Consolidate the current standing-settings model in `data-model.md` and the applicable sections of `plan.md`, referencing `operating-model-proposal.md`: canonical ETH/WETH inventory and clocks, persistent size/interval settings, direct-burn exceptions, immutable Burn router and its bounded collection/purchase behavior, stateless rehearsal, and the runner semantics settled in T100. Clearly separate superseded expiring-budget and retained-daemon-cursor descriptions from current requirements; preserve historical evidence and do not reinstate rejected mechanisms per T087–T090, T096–T097 and analysis I1.
+- [ ] T102 Disambiguate historical duplicate T082–T086 references with stable section-qualified names and an explicit reference mapping in `tasks.md`; update ambiguous requirement/dependency/evidence references as needed without renumbering or changing historical task completion records. Ensure every affected reference resolves to exactly one task per the requirement-to-task index and analysis D1.
