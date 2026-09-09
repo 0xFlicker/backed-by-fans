@@ -1,0 +1,2044 @@
+{
+  "schema": "bbf-policy-proposal-v1",
+  "digest": "0x69de5c34d211198ec8eff1942ccd1cc61fc30fb9b5074c64d743eee5e730d241",
+  "snapshot": {
+    "chainId": 31337,
+    "blockNumber": "57064263",
+    "blockHash": "0x7329589134655013ac3a1c9f980f7c9e4307fcfa97f6e766c8c71c9ca3a3a1e1",
+    "timestamp": "1794004751",
+    "factory": "0x2CD744C9C4fC20B07608be63ca4541735C3239D4",
+    "vault": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+    "safe": "0xeEc21eFcA9aBC7F7DcBb753Bb66969426c14D81B",
+    "protocolToken": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+    "executor": "0x66B879d44e06daF4aaEA9b58C64905EAd25c927e",
+    "curve": "0x113f676b658DdF245498D5AAF6471262b6fa500d",
+    "factoryCodeHash": "0xb7d99db807a4d798fb8a3ba895643469639a865d0d7a4143c019550d44107d05",
+    "vaultCodeHash": "0x16830288209a558d73399ab8847f9c27815776e3d0256ba68ef8bb5b242aa8da",
+    "safeNonce": "15",
+    "owners": [
+      "0x8A53286142961ae2892296dacB26942449FDb668",
+      "0xc66671171d8902b7C08Ca2B4BD5ED9bDff6c13fb",
+      "0x2b88B9270341a77F10e1bEe90617E943C01B0cC9"
+    ],
+    "threshold": "2",
+    "lifecycle": 0,
+    "route": [
+      {
+        "currency0": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "currency1": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+        "fee": 10000,
+        "tickSpacing": 200,
+        "hooks": "0x0000000000000000000000000000000000000000"
+      },
+      {
+        "currency0": "0x0000000000000000000000000000000000000000",
+        "currency1": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "fee": 100,
+        "tickSpacing": 1,
+        "hooks": "0x0000000000000000000000000000000000000000"
+      }
+    ],
+    "routeHash": "0x64800be9e132ce522c8980907feae383a805c1705be942f683cf7b4dd3346a1f"
+  },
+  "safeTransaction": {
+    "safeTxGas": "2000000",
+    "baseGas": "0",
+    "gasPrice": "0",
+    "gasToken": "0x0000000000000000000000000000000000000000",
+    "refundReceiver": "0x0000000000000000000000000000000000000000"
+  },
+  "asset": {
+    "address": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+    "symbol": "AMD",
+    "decimals": 18,
+    "multiplierRaw": "1000000000000000000",
+    "newMultiplierRaw": "1000000000000000000",
+    "effectiveAtRaw": "0"
+  },
+  "currencies": [
+    {
+      "address": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+      "symbol": "AMD",
+      "decimals": 18,
+      "multiplierRaw": "1000000000000000000",
+      "newMultiplierRaw": "1000000000000000000",
+      "effectiveAtRaw": "0"
+    },
+    {
+      "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "symbol": "USDG",
+      "decimals": 6,
+      "multiplierRaw": "1000000000000000000",
+      "newMultiplierRaw": "1000000000000000000",
+      "effectiveAtRaw": "0"
+    },
+    {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "decimals": 18,
+      "multiplierRaw": "1000000000000000000",
+      "newMultiplierRaw": "1000000000000000000",
+      "effectiveAtRaw": "0"
+    },
+    {
+      "address": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+      "symbol": "BBFFORK",
+      "decimals": 18,
+      "multiplierRaw": "1000000000000000000",
+      "newMultiplierRaw": "1000000000000000000",
+      "effectiveAtRaw": "0"
+    }
+  ],
+  "settings": {
+    "historyWindowSeconds": 7200,
+    "sampleIntervalSeconds": 120,
+    "referenceMode": "fork-spot",
+    "maxDeviationBps": 500,
+    "maxImpactBps": 500
+  },
+  "history": {
+    "observations": [
+      {
+        "scope": "{\"asset\":\"0x86923f96303d656e4aa86d9d42d1e57ad2023fdc\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":0,\"routeHash\":\"0x64800be9e132ce522c8980907feae383a805c1705be942f683cf7b4dd3346a1f\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57064263",
+        "blockHash": "0x7329589134655013ac3a1c9f980f7c9e4307fcfa97f6e766c8c71c9ca3a3a1e1",
+        "timestamp": "1794004751",
+        "rates": [
+          {
+            "numeratorRaw": "6277101735386680763835789423207666416102355444464034512896",
+            "denominatorRaw": "12984039109856814786487658019195201645627165781940114561811321240025"
+          },
+          {
+            "numeratorRaw": "392318858461667547739736838950479151006397215279002157056",
+            "denominatorRaw": "975061616007258353543322906507542618209246643601"
+          },
+          {
+            "numeratorRaw": "994118732924746426119624655",
+            "denominatorRaw": "1689938982496946819"
+          }
+        ]
+      }
+    ],
+    "scope": "{\"asset\":\"0x86923f96303d656e4aa86d9d42d1e57ad2023fdc\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":0,\"routeHash\":\"0x64800be9e132ce522c8980907feae383a805c1705be942f683cf7b4dd3346a1f\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+    "samples": 1,
+    "startTimestamp": "1794004751",
+    "endTimestamp": "1794004751",
+    "referenceRates": [
+      {
+        "numeratorRaw": "6277101735386680763835789423207666416102355444464034512896",
+        "denominatorRaw": "12984039109856814786487658019195201645627165781940114561811321240025"
+      },
+      {
+        "numeratorRaw": "392318858461667547739736838950479151006397215279002157056",
+        "denominatorRaw": "975061616007258353543322906507542618209246643601"
+      },
+      {
+        "numeratorRaw": "994118732924746426119624655",
+        "denominatorRaw": "1689938982496946819"
+      }
+    ]
+  },
+  "actions": [
+    {
+      "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+      "expectedRevisionRaw": "2",
+      "expectedSafeNonceRaw": "15",
+      "policy": {
+        "validAfterRaw": "1794004751",
+        "validUntilRaw": "1794091151",
+        "batchCapRaw": "2500000000000000",
+        "totalBudgetRaw": "12500000000000000",
+        "rates": [
+          {
+            "numeratorRaw": "149417",
+            "denominatorRaw": "312500000000000",
+            "toleranceBps": 100
+          },
+          {
+            "numeratorRaw": "120221630359719",
+            "denominatorRaw": "298834",
+            "toleranceBps": 100
+          },
+          {
+            "numeratorRaw": "39996746322069947863145",
+            "denominatorRaw": "68698074491268",
+            "toleranceBps": 100
+          }
+        ]
+      },
+      "evidence": {
+        "reference": "FORK ONLY spot reference at block 57064263 (0x7329589134655013ac3a1c9f980f7c9e4307fcfa97f6e766c8c71c9ca3a3a1e1); scope {\"asset\":\"0x86923f96303d656e4aa86d9d42d1e57ad2023fdc\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":0,\"routeHash\":\"0x64800be9e132ce522c8980907feae383a805c1705be942f683cf7b4dd3346a1f\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "rationale": "Owner-reviewed finite authorization. 7200s window, 120s samples; maximum reference deviation 500 bps and combined fees/impact 500 bps. Reference is not independent fair value."
+      },
+      "to": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+      "data": "0xdbcb6aa400000000000000000000000086923f96303d656e4aa86d9d42d1e57ad2023fdc0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000006aee570f000000000000000000000000000000000000000000000000000000006aefa88f0000000000000000000000000000000000000000000000000008e1bc9bf04000000000000000000000000000000000000000000000000000002c68af0bb1400000000000000000000000000000000000000000000000000000000000000000c0c830ca18fbe21832f1eea7b77e99b12567a2c476369637193bc448a052bc1c48000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000247a900000000000000000000000000000000000000000000000000011c37937e0800000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000006d57479268a70000000000000000000000000000000000000000000000000000000000048f5200000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000008783a5bc41416b6d06900000000000000000000000000000000000000000000000000003e7b0453a9840000000000000000000000000000000000000000000000000000000000000064",
+      "value": "0",
+      "operation": 0
+    }
+  ],
+  "steps": [
+    {
+      "kind": "accrue",
+      "description": "Checkpoint currently earned fees"
+    },
+    {
+      "kind": "release",
+      "description": "Release earned fees to the vault"
+    },
+    {
+      "kind": "process",
+      "description": "Process membership inventory before donations within the approved budget"
+    }
+  ],
+  "quote": {
+    "legs": [
+      {
+        "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+        "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "inputRaw": "2500000000000000",
+        "outputRaw": "1195336",
+        "minimumOutputRaw": "1183383",
+        "referenceDeviationBps": "0",
+        "executionDragBps": "110"
+      },
+      {
+        "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "output": "0x0000000000000000000000000000000000000000",
+        "inputRaw": "1195336",
+        "outputRaw": "480886521438876",
+        "minimumOutputRaw": "476077656224488",
+        "referenceDeviationBps": "0",
+        "executionDragBps": "2"
+      },
+      {
+        "input": "0x0000000000000000000000000000000000000000",
+        "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+        "inputRaw": "480886521438876",
+        "outputRaw": "279977224254489635042015",
+        "minimumOutputRaw": "277177452011944738691595",
+        "referenceDeviationBps": "0",
+        "executionDragBps": "103",
+        "feeRaw": "4808865214388",
+        "priceImpactBps": "3"
+      }
+    ],
+    "expectedBurnRaw": "279977224254489635042015",
+    "note": "Single batch quote, not an aggregate backlog projection. Execution drag combines trading fees and price impact. Rehearse for sequential market effects."
+  },
+  "inventory": {
+    "membershipRaw": "12500000000000000",
+    "donationRaw": "0",
+    "earnedHeldRaw": "0",
+    "futureCommittedRaw": "0",
+    "oldBudgetRaw": "50000000000000000",
+    "oldSpentRaw": "0",
+    "projectedBatchCount": "5",
+    "remainingReleasedRaw": "0"
+  },
+  "warnings": [
+    "Policy replacement grants a fresh finite budget; this is not a rolling daily allowance.",
+    "Permissionless callers may execute eligible batches in a different order or sooner than this projection.",
+    "Current contracts do not invalidate this policy if the launch graduates after submission.",
+    "Sampled prices cannot guarantee fair value or prevent sustained manipulation.",
+    "FORK ONLY: spot reference; no time-weighted history was used."
+  ],
+  "rehearsal": {
+    "status": "partial",
+    "proposalDigest": "0x69de5c34d211198ec8eff1942ccd1cc61fc30fb9b5074c64d743eee5e730d241",
+    "sourceBlock": "57064263",
+    "summary": "Residual route inventory remains; this proposal only authorizes its selected input asset",
+    "stopReason": "Residual route inventory remains; this proposal only authorizes its selected input asset",
+    "authorization": "Impersonated Safe on disposable child only; not proof of owner signatures or Safe execution gas",
+    "assumptions": [
+      "No unrelated trading",
+      "One second of child chain time per rehearsal transaction",
+      "Child funds and relaxed gas/code limits are simulation allowances, not public execution guarantees"
+    ],
+    "actions": [
+      {
+        "action": "setPolicy",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0x864116a5a6182ec0fcac4bd5fa189305b5ab3507426ee4e4d9b085a9bf2d6340",
+        "blockNumber": "57064264",
+        "gasUsedRaw": "101272",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      },
+      {
+        "action": "process",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0x2719730121ea4b3f7eb7e3c564d347054f925aae09268f6f205c609f0ead23e1",
+        "blockNumber": "57064265",
+        "gasUsedRaw": "783628",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      },
+      {
+        "action": "process",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0x8ae2b6e5e91c26a4b85c2f103497bffb1cd83e5ff595b12aeff0952548c8099d",
+        "blockNumber": "57064266",
+        "gasUsedRaw": "715223",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      },
+      {
+        "action": "process",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0xe2d52b8384a0dfb02c50c2c442a304db9268774c8f5747c63445fd168229b96c",
+        "blockNumber": "57064267",
+        "gasUsedRaw": "715223",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      },
+      {
+        "action": "process",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0xfd3d082b7aeb81da629d1baecc776ffea288d1e04036c7e7218679151fcb5f2c",
+        "blockNumber": "57064268",
+        "gasUsedRaw": "715223",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      },
+      {
+        "action": "process",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0x142d5622b7fbe6f0015dec5ba8b20f378a83fb7bc984812d2f5eba5fb34007f6",
+        "blockNumber": "57064269",
+        "gasUsedRaw": "715223",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      }
+    ],
+    "batches": [
+      {
+        "bucket": 0,
+        "requestedInputRaw": "2500000000000000",
+        "actualInputRaw": "2500000000000000",
+        "burnedRaw": "279977224254489635042015",
+        "partialFill": false,
+        "hash": "0x2719730121ea4b3f7eb7e3c564d347054f925aae09268f6f205c609f0ead23e1",
+        "gasUsedRaw": "783628",
+        "marginalRateChanges": [
+          {
+            "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+            "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "before": {
+              "numerator": "6277101735386680763835789423207666416102355444464034512896",
+              "denominator": "12984039109856814786487658019195201645627165781940114561811321240025"
+            },
+            "after": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3246010164659398908756276723837557975397949498754257752149332306441"
+            },
+            "changeBps": "-0.001192",
+            "exactChangeBpsNumeratorRaw": "-24304636317994732319764223460536791313615308646122296235859557128117211911753098941831508547166394743333816907448975360000",
+            "exactChangeBpsDenominatorRaw": "20375536037666318264100364283746996793149075535935082575890058693070321582123758449426167656937942402809959928674985638363136"
+          },
+          {
+            "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "output": "0x0000000000000000000000000000000000000000",
+            "before": {
+              "numerator": "392318858461667547739736838950479151006397215279002157056",
+              "denominator": "975061616007258353543322906507542618209246643601"
+            },
+            "after": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900246771112988164129875416685361995396247847089"
+            },
+            "changeBps": "-0.000787",
+            "exactChangeBpsNumeratorRaw": "-1204748265793973388419639241841783349418654936482701131069707019226564108053563783529439988128153600000",
+            "exactChangeBpsDenominatorRaw": "1530140360961852267918509210320083181374965251700543740847891672318599381493872159485872947921627050409984"
+          },
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "before": {
+              "numerator": "994118732924746426119624655",
+              "denominator": "1689938982496946819"
+            },
+            "after": {
+              "numerator": "993838755700491936484582640",
+              "denominator": "1690415060153171307"
+            },
+            "changeBps": "-5.631878",
+            "exactChangeBpsNumeratorRaw": "-9464221418586227428163911839902812651519250000",
+            "exactChangeBpsDenominatorRaw": "1680473277716379671029058221091626146755774085"
+          }
+        ],
+        "before": {
+          "blockNumber": "57064264",
+          "timestamp": "1794004752",
+          "totalSupply": "999997657262073009686448230",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "12500000000000000",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "4022724188706",
+                  "totalSpent": "4022724188706",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "2342737926990313551770",
+                  "totalSpent": "2342737926990313551770",
+                  "totalBurned": "2342737926990313551770"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "10000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "6277101735386680763835789423207666416102355444464034512896",
+                  "denominator": "12984039109856814786487658019195201645627165781940114561811321240025"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "392318858461667547739736838950479151006397215279002157056",
+                  "denominator": "975061616007258353543322906507542618209246643601"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "994118732924746426119624655",
+                  "denominator": "1689938982496946819"
+                }
+              }
+            ]
+          }
+        },
+        "after": {
+          "blockNumber": "57064265",
+          "timestamp": "1794004753",
+          "totalSupply": "999717680037818520051406215",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "10000000000000000",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "2500000000000000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "484909245627582",
+                  "totalSpent": "484909245627582",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "282319962181479948593785",
+                  "totalSpent": "282319962181479948593785",
+                  "totalBurned": "282319962181479948593785"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "1195336",
+                  "totalSpent": "1205336",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3246010164659398908756276723837557975397949498754257752149332306441"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3900246771112988164129875416685361995396247847089"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "993838755700491936484582640",
+                  "denominator": "1690415060153171307"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "bucket": 0,
+        "requestedInputRaw": "2500000000000000",
+        "actualInputRaw": "2500000000000000",
+        "burnedRaw": "279819310595000527668231",
+        "partialFill": false,
+        "hash": "0x8ae2b6e5e91c26a4b85c2f103497bffb1cd83e5ff595b12aeff0952548c8099d",
+        "gasUsedRaw": "715223",
+        "marginalRateChanges": [
+          {
+            "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+            "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "before": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3246010164659398908756276723837557975397949498754257752149332306441"
+            },
+            "after": {
+              "numerator": "6277101735386680763835789423207666416102355444464034512896",
+              "denominator": "12984042207418468855502587935144444484304224016183182671911536640241"
+            },
+            "changeBps": "-0.001192",
+            "exactChangeBpsNumeratorRaw": "-24304637767564895012086192570356743647000761936894680913153994128575074275656611008457160499722044384483402865683988480000",
+            "exactChangeBpsDenominatorRaw": "20375538468130095020589865492366253828823440236011276265358150008469734439631186015087268502653992375014398377015272206761984"
+          },
+          {
+            "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "output": "0x0000000000000000000000000000000000000000",
+            "before": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900246771112988164129875416685361995396247847089"
+            },
+            "after": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900247078196698069092302886604229297897723108889"
+            },
+            "changeBps": "-0.000787",
+            "exactChangeBpsNumeratorRaw": "-4818989220883549255222045569930265182334182897469386972534114544836602049503082221986576892690432000000",
+            "exactChangeBpsDenominatorRaw": "6120561925746331160028962363484889718526379240220464710330263942685852009635693588251713990344197470683136"
+          },
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "before": {
+              "numerator": "993838755700491936484582640",
+              "denominator": "1690415060153171307"
+            },
+            "after": {
+              "numerator": "993558936389896935956914409",
+              "denominator": "1690891137373582765"
+            },
+            "changeBps": "-5.630287",
+            "exactChangeBpsNumeratorRaw": "-9461547691025390027030092317610268085370370000",
+            "exactChangeBpsDenominatorRaw": "1680473143992351072260497012612176442522199600"
+          }
+        ],
+        "before": {
+          "blockNumber": "57064265",
+          "timestamp": "1794004753",
+          "totalSupply": "999717680037818520051406215",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "10000000000000000",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "2500000000000000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "484909245627582",
+                  "totalSpent": "484909245627582",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "282319962181479948593785",
+                  "totalSpent": "282319962181479948593785",
+                  "totalBurned": "282319962181479948593785"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "1195336",
+                  "totalSpent": "1205336",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3246010164659398908756276723837557975397949498754257752149332306441"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3900246771112988164129875416685361995396247847089"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "993838755700491936484582640",
+                  "denominator": "1690415060153171307"
+                }
+              }
+            ]
+          }
+        },
+        "after": {
+          "blockNumber": "57064266",
+          "timestamp": "1794004754",
+          "totalSupply": "999437860727223519523737984",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "7500000000000000",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "5000000000000000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "965795326851276",
+                  "totalSpent": "965795326851276",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "562139272776480476262016",
+                  "totalSpent": "562139272776480476262016",
+                  "totalBurned": "562139272776480476262016"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "2390671",
+                  "totalSpent": "2400671",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "6277101735386680763835789423207666416102355444464034512896",
+                  "denominator": "12984042207418468855502587935144444484304224016183182671911536640241"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3900247078196698069092302886604229297897723108889"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "993558936389896935956914409",
+                  "denominator": "1690891137373582765"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "bucket": 0,
+        "requestedInputRaw": "2500000000000000",
+        "actualInputRaw": "2500000000000000",
+        "burnedRaw": "279661764422495595898131",
+        "partialFill": false,
+        "hash": "0xe2d52b8384a0dfb02c50c2c442a304db9268774c8f5747c63445fd168229b96c",
+        "gasUsedRaw": "715223",
+        "marginalRateChanges": [
+          {
+            "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+            "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "before": {
+              "numerator": "6277101735386680763835789423207666416102355444464034512896",
+              "denominator": "12984042207418468855502587935144444484304224016183182671911536640241"
+            },
+            "after": {
+              "numerator": "98079714615416886934934209737619787751599303819750539264",
+              "denominator": "202875683690616163248751580290278740527569435084977649246155366929"
+            },
+            "changeBps": "-0.001192",
+            "exactChangeBpsNumeratorRaw": "-1519039951070941106525510105011043498774138451729191599403026945564558539972507692192675778267355876602061801494937600000",
+            "exactChangeBpsDenominatorRaw": "1273471306162126045880977245823901365405814892164549939504044315832052958932803123193723500683452350173987558769634662416384"
+          },
+          {
+            "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "output": "0x0000000000000000000000000000000000000000",
+            "before": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900247078196698069092302886604229297897723108889"
+            },
+            "after": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900247385280420063084823924301465134425372950689"
+            },
+            "changeBps": "-0.000787",
+            "exactChangeBpsNumeratorRaw": "-4818989410593728703912318889517861501819928839124996802786920912146412353228906779593938286149632000000",
+            "exactChangeBpsDenominatorRaw": "6120562407645272219401832754716778670312529422213348622829944221377943224276928911142391949738026085646336"
+          },
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "before": {
+              "numerator": "993558936389896935956914409",
+              "denominator": "1690891137373582765"
+            },
+            "after": {
+              "numerator": "993279274625474440361016278",
+              "denominator": "1691367214556510557"
+            },
+            "changeBps": "-5.628702",
+            "exactChangeBpsNumeratorRaw": "-9458883384334919609952753389381464086671430000",
+            "exactChangeBpsDenominatorRaw": "1680473010739509235419251860988762291753915813"
+          }
+        ],
+        "before": {
+          "blockNumber": "57064266",
+          "timestamp": "1794004754",
+          "totalSupply": "999437860727223519523737984",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "7500000000000000",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "5000000000000000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "965795326851276",
+                  "totalSpent": "965795326851276",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "562139272776480476262016",
+                  "totalSpent": "562139272776480476262016",
+                  "totalBurned": "562139272776480476262016"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "2390671",
+                  "totalSpent": "2400671",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "6277101735386680763835789423207666416102355444464034512896",
+                  "denominator": "12984042207418468855502587935144444484304224016183182671911536640241"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3900247078196698069092302886604229297897723108889"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "993558936389896935956914409",
+                  "denominator": "1690891137373582765"
+                }
+              }
+            ]
+          }
+        },
+        "after": {
+          "blockNumber": "57064267",
+          "timestamp": "1794004755",
+          "totalSupply": "999158198962801023927839853",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "5000000000000000",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "7500000000000000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "1446681370212682",
+                  "totalSpent": "1446681370212682",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "841801037198976072160147",
+                  "totalSpent": "841801037198976072160147",
+                  "totalBurned": "841801037198976072160147"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "3586006",
+                  "totalSpent": "3596006",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "98079714615416886934934209737619787751599303819750539264",
+                  "denominator": "202875683690616163248751580290278740527569435084977649246155366929"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3900247385280420063084823924301465134425372950689"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "993279274625474440361016278",
+                  "denominator": "1691367214556510557"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "bucket": 0,
+        "requestedInputRaw": "2500000000000000",
+        "actualInputRaw": "2500000000000000",
+        "burnedRaw": "279504351266959951356387",
+        "partialFill": false,
+        "hash": "0xfd3d082b7aeb81da629d1baecc776ffea288d1e04036c7e7218679151fcb5f2c",
+        "gasUsedRaw": "715223",
+        "marginalRateChanges": [
+          {
+            "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+            "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "before": {
+              "numerator": "98079714615416886934934209737619787751599303819750539264",
+              "denominator": "202875683690616163248751580290278740527569435084977649246155366929"
+            },
+            "after": {
+              "numerator": "6277101735386680763835789423207666416102355444464034512896",
+              "denominator": "12984045304980492412277646505650416629972457482783191648124549755409"
+            },
+            "changeBps": "-0.001192",
+            "exactChangeBpsNumeratorRaw": "-1519040041669076274795633174374790519610729282402465641733929258093174937716477196356779025302083979173910923884625920000",
+            "exactChangeBpsDenominatorRaw": "1273471458066130212788604725387218802884866853237478179750608489224978768250296894841443136361354880382385476160727050878976"
+          },
+          {
+            "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "output": "0x0000000000000000000000000000000000000000",
+            "before": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900247385280420063084823924301465134425372950689"
+            },
+            "after": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900247692364154146107438529777069504979197372489"
+            },
+            "changeBps": "-0.000787",
+            "exactChangeBpsNumeratorRaw": "-4818989600303908152602592209105457821305674780780606633039727279456222656954731337201299679608832000000",
+            "exactChangeBpsDenominatorRaw": "6120562889544232249792648014975999580858311552780826700890607525350671169899194606615525669867994046529536"
+          },
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "before": {
+              "numerator": "993279274625474440361016278",
+              "denominator": "1691367214556510557"
+            },
+            "after": {
+              "numerator": "992999770274207480409659891",
+              "denominator": "1691843291701954688"
+            },
+            "changeBps": "-5.627118",
+            "exactChangeBpsNumeratorRaw": "-9456220577513354787389593271225986654419770000",
+            "exactChangeBpsDenominatorRaw": "1680472877561692512933356235511682686786411264"
+          }
+        ],
+        "before": {
+          "blockNumber": "57064267",
+          "timestamp": "1794004755",
+          "totalSupply": "999158198962801023927839853",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "5000000000000000",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "7500000000000000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "1446681370212682",
+                  "totalSpent": "1446681370212682",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "841801037198976072160147",
+                  "totalSpent": "841801037198976072160147",
+                  "totalBurned": "841801037198976072160147"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "3586006",
+                  "totalSpent": "3596006",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "98079714615416886934934209737619787751599303819750539264",
+                  "denominator": "202875683690616163248751580290278740527569435084977649246155366929"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3900247385280420063084823924301465134425372950689"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "993279274625474440361016278",
+                  "denominator": "1691367214556510557"
+                }
+              }
+            ]
+          }
+        },
+        "after": {
+          "blockNumber": "57064268",
+          "timestamp": "1794004756",
+          "totalSupply": "998878694611534063976483466",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2500000000000000",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "10000000000000000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "1927567375711804",
+                  "totalSpent": "1927567375711804",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "1121305388465936023516534",
+                  "totalSpent": "1121305388465936023516534",
+                  "totalBurned": "1121305388465936023516534"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "4781341",
+                  "totalSpent": "4791341",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "6277101735386680763835789423207666416102355444464034512896",
+                  "denominator": "12984045304980492412277646505650416629972457482783191648124549755409"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3900247692364154146107438529777069504979197372489"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "992999770274207480409659891",
+                  "denominator": "1691843291701954688"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "bucket": 0,
+        "requestedInputRaw": "2500000000000000",
+        "actualInputRaw": "2500000000000000",
+        "burnedRaw": "279347070978693260349206",
+        "partialFill": false,
+        "hash": "0x142d5622b7fbe6f0015dec5ba8b20f378a83fb7bc984812d2f5eba5fb34007f6",
+        "gasUsedRaw": "715223",
+        "marginalRateChanges": [
+          {
+            "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+            "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "before": {
+              "numerator": "6277101735386680763835789423207666416102355444464034512896",
+              "denominator": "12984045304980492412277646505650416629972457482783191648124549755409"
+            },
+            "after": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3246011713440410687143806009090544048232066232054262240255838864025"
+            },
+            "changeBps": "-0.001192",
+            "exactChangeBpsNumeratorRaw": "-24304642116275383089052099899816600647157121809211834945037305129948661367367147208334116357388993307932160740389027840000",
+            "exactChangeBpsDenominatorRaw": "20375545759522295032155984511405490827817934367511831797193230331330173286870887054177811015193313825017498411787706852966400"
+          },
+          {
+            "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "output": "0x0000000000000000000000000000000000000000",
+            "before": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900247692364154146107438529777069504979197372489"
+            },
+            "after": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900247999447900318160146703031042409559196374289"
+            },
+            "changeBps": "-0.000787",
+            "exactChangeBpsNumeratorRaw": "-4818989790014087601292865528693054140791420722436216463292533646766032960680555894808661073068032000000",
+            "exactChangeBpsDenominatorRaw": "6120563371443211251201408144262552450163725631922898944512253854604035846502490674671115150734101353332736"
+          },
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "before": {
+              "numerator": "992999770274207480409659891",
+              "denominator": "1691843291701954688"
+            },
+            "after": {
+              "numerator": "330906807734409595716436895",
+              "denominator": "564106456269971721"
+            },
+            "changeBps": "-5.625535",
+            "exactChangeBpsNumeratorRaw": "-3151186423098175769555308186669196965286510000",
+            "exactChangeBpsDenominatorRaw": "560157581486279186916115104674625961797942411"
+          }
+        ],
+        "before": {
+          "blockNumber": "57064268",
+          "timestamp": "1794004756",
+          "totalSupply": "998878694611534063976483466",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2500000000000000",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "10000000000000000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "1927567375711804",
+                  "totalSpent": "1927567375711804",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "1121305388465936023516534",
+                  "totalSpent": "1121305388465936023516534",
+                  "totalBurned": "1121305388465936023516534"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "4781341",
+                  "totalSpent": "4791341",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "6277101735386680763835789423207666416102355444464034512896",
+                  "denominator": "12984045304980492412277646505650416629972457482783191648124549755409"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3900247692364154146107438529777069504979197372489"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "992999770274207480409659891",
+                  "denominator": "1691843291701954688"
+                }
+              }
+            ]
+          }
+        },
+        "after": {
+          "blockNumber": "57064269",
+          "timestamp": "1794004757",
+          "totalSupply": "998599347540555370716134260",
+          "inventory": [
+            {
+              "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "12500000000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "12500000000000000",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "2408453343348647",
+                  "totalSpent": "2408453343348647",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "1400652459444629283865740",
+                  "totalSpent": "1400652459444629283865740",
+                  "totalBurned": "1400652459444629283865740"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "2",
+                  "totalReceived": "10002",
+                  "totalConvertedIn": "5976676",
+                  "totalSpent": "5986676",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 0,
+            "legs": [
+              {
+                "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+                "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3246011713440410687143806009090544048232066232054262240255838864025"
+                }
+              },
+              {
+                "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+                "output": "0x0000000000000000000000000000000000000000",
+                "marginal": {
+                  "numerator": "1569275433846670190958947355801916604025588861116008628224",
+                  "denominator": "3900247999447900318160146703031042409559196374289"
+                }
+              },
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "330906807734409595716436895",
+                  "denominator": "564106456269971721"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "starting": {
+      "blockNumber": "57064263",
+      "timestamp": "1794004751",
+      "totalSupply": "999997657262073009686448230",
+      "inventory": [
+        {
+          "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "12500000000000000",
+              "totalReceived": "12500000000000000",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        },
+        {
+          "asset": "0x0000000000000000000000000000000000000000",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "4022724188706",
+              "totalSpent": "4022724188706",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        },
+        {
+          "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "2342737926990313551770",
+              "totalSpent": "2342737926990313551770",
+              "totalBurned": "2342737926990313551770"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        },
+        {
+          "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "2",
+              "totalReceived": "10002",
+              "totalConvertedIn": "0",
+              "totalSpent": "10000",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        }
+      ],
+      "market": {
+        "lifecycle": 0,
+        "legs": [
+          {
+            "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+            "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "marginal": {
+              "numerator": "6277101735386680763835789423207666416102355444464034512896",
+              "denominator": "12984039109856814786487658019195201645627165781940114561811321240025"
+            }
+          },
+          {
+            "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "output": "0x0000000000000000000000000000000000000000",
+            "marginal": {
+              "numerator": "392318858461667547739736838950479151006397215279002157056",
+              "denominator": "975061616007258353543322906507542618209246643601"
+            }
+          },
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "marginal": {
+              "numerator": "994118732924746426119624655",
+              "denominator": "1689938982496946819"
+            }
+          }
+        ]
+      }
+    },
+    "ending": {
+      "blockNumber": "57064269",
+      "timestamp": "1794004757",
+      "totalSupply": "998599347540555370716134260",
+      "inventory": [
+        {
+          "asset": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "0",
+              "totalReceived": "12500000000000000",
+              "totalConvertedIn": "0",
+              "totalSpent": "12500000000000000",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        },
+        {
+          "asset": "0x0000000000000000000000000000000000000000",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "2408453343348647",
+              "totalSpent": "2408453343348647",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        },
+        {
+          "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "1400652459444629283865740",
+              "totalSpent": "1400652459444629283865740",
+              "totalBurned": "1400652459444629283865740"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        },
+        {
+          "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "2",
+              "totalReceived": "10002",
+              "totalConvertedIn": "5976676",
+              "totalSpent": "5986676",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        }
+      ],
+      "market": {
+        "lifecycle": 0,
+        "legs": [
+          {
+            "input": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+            "output": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "marginal": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3246011713440410687143806009090544048232066232054262240255838864025"
+            }
+          },
+          {
+            "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+            "output": "0x0000000000000000000000000000000000000000",
+            "marginal": {
+              "numerator": "1569275433846670190958947355801916604025588861116008628224",
+              "denominator": "3900247999447900318160146703031042409559196374289"
+            }
+          },
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "marginal": {
+              "numerator": "330906807734409595716436895",
+              "denominator": "564106456269971721"
+            }
+          }
+        ]
+      }
+    },
+    "totalGasUsedRaw": "3745792",
+    "burnedRaw": "1398309721517638970313970",
+    "feeEstimate": {
+      "sourceChainId": 31337,
+      "sourceGasPriceRaw": "1000000007",
+      "estimatedFeeAtSourceGasPriceRaw": "3745792026220544",
+      "note": "Measured child gas multiplied by the source RPC gas price at rehearsal start. Local-fork gas price is not a public-network fee estimate. Excludes Safe signature/execution overhead and any additional chain-specific fees; actual fees may change."
+    }
+  }
+}

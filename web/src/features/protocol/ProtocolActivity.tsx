@@ -9,6 +9,7 @@ import { ReadStateView } from "@/components/ReadState";
 import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { ProcessBuyback } from "./ProcessBuyback";
+import { ReleaseTierFees } from "./ReleaseTierFees";
 import {
   readPublicBuybacks,
   readProtocolActivityPage,
@@ -83,6 +84,17 @@ export function ProtocolActivity({
     staleTime: 0,
   });
   const state = query.data;
+  const protocolAsset =
+    state?.status === "valid"
+      ? state.data.assets.find(
+          (item) =>
+            item.asset.toLowerCase() === state.data.protocolToken.toLowerCase(),
+        )
+      : undefined;
+  const protocolTokenSymbol =
+    protocolAsset?.status === "valid"
+      ? protocolAsset.data.metadata?.symbol
+      : undefined;
   const refresh = async () => {
     await query.refetch();
   };
@@ -137,8 +149,9 @@ export function ProtocolActivity({
           >
             <h2 id="inventory-title">Released fees & burns</h2>
             <p>
-              Amounts stay separate by payment token and source. A conversion
-              moves existing fees; it does not create additional revenue.
+              ETH and WETH share one balance and batch settings. Other
+              currencies and fee sources stay separate. A conversion moves
+              existing fees; it does not create additional revenue.
             </p>
             {state.data.assets.map((item) =>
               item.status !== "valid" ? (
@@ -219,6 +232,7 @@ export function ProtocolActivity({
                         key={bucket}
                         chainId={chainId}
                         vault={state.data.vault}
+                        protocolTokenSymbol={protocolTokenSymbol}
                         asset={item.asset}
                         bucket={bucket}
                         status={
@@ -231,6 +245,11 @@ export function ProtocolActivity({
                             ? item.data.eligibility[bucket].data.maxInput
                             : 0n
                         }
+                        nextEligibleAt={
+                          item.data.eligibility[bucket]?.status === "valid"
+                            ? item.data.eligibility[bucket].data.nextEligibleAt
+                            : undefined
+                        }
                         fresh={
                           query.isFetchedAfterMount &&
                           !query.isError &&
@@ -242,29 +261,34 @@ export function ProtocolActivity({
                     ))}
                   </div>
                   <details className="technical-details">
-                    <summary>Route, policy and raw units</summary>
+                    <summary>Route, batch settings and raw units</summary>
                     <p>
                       Revision {item.data.revision.toString()} ·{" "}
                       {item.data.route.pools.length} conversion pools ·{" "}
                       {item.data.paused ? "Asset paused" : "Asset unpaused"}
                     </p>
                     <p>
-                      Batch cap {item.data.policy.terms.batchCap.toString()} ·
-                      Budget {item.data.policy.terms.totalBudget.toString()} ·
-                      Spent {item.data.policy.spent.toString()} raw input units.
+                      Batch minimum{" "}
+                      <Amount
+                        raw={item.data.limits.minInput}
+                        decimals={item.data.metadata?.decimals}
+                        symbol={item.data.metadata?.symbol}
+                        multiplier={item.data.metadata?.uiMultiplier}
+                      />{" "}
+                      · Maximum{" "}
+                      <Amount
+                        raw={item.data.limits.maxInput}
+                        decimals={item.data.metadata?.decimals}
+                        symbol={item.data.metadata?.symbol}
+                        multiplier={item.data.metadata?.uiMultiplier}
+                      />
                     </p>
                     <p>
-                      Valid from {item.data.policy.terms.validAfter.toString()}{" "}
-                      through {item.data.policy.terms.validUntil.toString()}{" "}
-                      (chain seconds).
+                      Minimum interval:{" "}
+                      {item.data.limits.minInterval.toString()} seconds for this
+                      currency; {state.data.globalMinInterval.toString()}{" "}
+                      seconds across the protocol.
                     </p>
-                    {item.data.policy.terms.rates.map((rate, i) => (
-                      <p key={i}>
-                        Leg {i + 1}: {rate.numerator.toString()} output units
-                        per {rate.denominator.toString()} input units, tolerance{" "}
-                        {rate.toleranceBps} bps.
-                      </p>
-                    ))}
                     <pre>
                       {JSON.stringify(
                         {
@@ -319,8 +343,14 @@ export function ProtocolActivity({
             <h2 id="safe-title">Protocol configuration</h2>
             <p>
               The protocol Safe can onboard payment tokens, configure routes and
-              finite price policies, and pause buybacks. It cannot withdraw fee
-              inventory, replace the protocol token, or accelerate earning.
+              standing batch sizes and cooldowns, and pause buybacks. It cannot
+              withdraw fee inventory, replace the protocol token, or accelerate
+              earning.
+            </p>
+            <p>
+              <a href="/tools/buybacks">
+                Calculate and configure buyback settings
+              </a>
             </p>
             <dl className="protocol-identities">
               <dt>Protocol Safe</dt>
@@ -412,8 +442,8 @@ function TierForecasts({
       <h2 id="forecast-title">Fees earning over time</h2>
       <p>
         Existing paid memberships only. Future refunds reduce these estimates.
-        Gas, liquidity, routes and active policies determine when released fees
-        can buy tokens.
+        Gas, liquidity, routes and standing batch settings determine when
+        released fees can buy tokens.
       </p>
       {tiers.isError ? (
         <p className="inline-status">Tier discovery is unavailable.</p>
@@ -436,6 +466,14 @@ function TierForecasts({
               ))}
             </select>
           </label>
+          {tier && (
+            <ReleaseTierFees
+              key={tier}
+              chainId={snapshot.chainId}
+              tier={tier}
+              blockNumber={blockNumber}
+            />
+          )}
           {tier && (
             <TierForecast
               key={`${snapshot.chainId}:${tier}:${blockNumber}`}
@@ -865,6 +903,11 @@ function PonsCompensation({ snapshot }: { snapshot: PublicBuybacks }) {
           </p>
           <details>
             <summary>External roles and shared compensation balances</summary>
+            <p>
+              <a href="/tools/buybacks">
+                Calculate and configure buyback settings
+              </a>
+            </p>
             <dl className="protocol-identities">
               <dt>Pons administrator</dt>
               <dd>

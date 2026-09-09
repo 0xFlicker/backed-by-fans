@@ -28,10 +28,9 @@ library BuybackTypes {
         NoInventory,
         Paused,
         NoRoute,
-        NoPolicy,
-        NotYetValid,
-        Expired,
-        BudgetExhausted,
+        NoLimits,
+        BelowMinimum,
+        Cooldown,
         LaunchPenalty,
         GraduationPending
     }
@@ -41,6 +40,8 @@ library BuybackTypes {
         uint64 revision;
         uint256 available;
         uint256 maxInput;
+        uint256 minInput;
+        uint256 nextEligibleAt;
     }
 
     struct Leg {
@@ -60,23 +61,9 @@ library BuybackTypes {
         PoolKey[] pools;
     }
 
-    struct Rate {
-        uint128 numerator;
-        uint128 denominator;
-        uint16 toleranceBps;
-    }
-
-    struct ExecutionPolicy {
-        uint64 validAfter;
-        uint64 validUntil;
-        uint128 batchCap;
-        uint128 totalBudget;
-        Rate[] rates;
-        bytes32 evidenceHash;
-    }
-
-    struct PolicyState {
-        ExecutionPolicy terms;
-        uint128 spent;
+    struct ExecutionLimits {
+        uint128 minInput;
+        uint128 maxInput;
+        uint64 minInterval;
     }
 }

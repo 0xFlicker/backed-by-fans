@@ -47,7 +47,7 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
         rpcUrl: f.rpc,
         factory: b.factory,
         payload,
-        signerKeys: [testKey(40961), testKey(40962)],
+        signerKeys: f.signerKeys,
         relayerKey: testKey(49153),
       });
       f.receipts.push({
@@ -106,7 +106,7 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
       functionName: "revision",
       args: [asset],
     });
-    // Replacing the existing approved route invalidates its previous policy.
+    // Replacing an approved route changes its revision but preserves standing limits.
     await f.safe("route", {
       asset,
       expectedRevisionRaw: String(oldRevision),
@@ -121,8 +121,7 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
       ],
     });
     await f.safe("asset-pause", { asset, paused: false });
-    expect((await status()).status).toBe(4);
-    await f.policyForUSDG();
+    expect((await status()).status).toBe(0);
     const ready = await status();
     expect(ready.status).toBe(0);
     const supplyBefore = await f.client.readContract({
@@ -156,7 +155,9 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
     expect(closed.totalSpent).toBe(1000000n);
     expect(supplyAfter).toBeLessThan(supplyBefore);
     await page.goto("/chains/31337/protocol");
-    await expect(page.getByText("2 of 3 owners")).toBeVisible();
+    await expect(
+      page.getByText(`${b.safeThreshold} of ${b.safeOwners.length} owners`),
+    ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Activity & configuration history" }),
     ).toBeVisible();

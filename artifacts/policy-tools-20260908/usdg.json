@@ -1,0 +1,208 @@
+{
+  "schema": "bbf-policy-proposal-v1",
+  "digest": "0x2412e74fc6c867dd2ce23350b6808039d85fb4155118103f2031ba5aff242521",
+  "snapshot": {
+    "chainId": 31337,
+    "blockNumber": "57055474",
+    "blockHash": "0xcbc41b40151557f14afca77722485f6353e4a99fc19e60edd2efb260aa00d71f",
+    "timestamp": "1791403963",
+    "factory": "0x2CD744C9C4fC20B07608be63ca4541735C3239D4",
+    "vault": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+    "safe": "0xeEc21eFcA9aBC7F7DcBb753Bb66969426c14D81B",
+    "protocolToken": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+    "executor": "0x66B879d44e06daF4aaEA9b58C64905EAd25c927e",
+    "curve": "0x113f676b658DdF245498D5AAF6471262b6fa500d",
+    "factoryCodeHash": "0xb7d99db807a4d798fb8a3ba895643469639a865d0d7a4143c019550d44107d05",
+    "vaultCodeHash": "0x16830288209a558d73399ab8847f9c27815776e3d0256ba68ef8bb5b242aa8da",
+    "safeNonce": "14",
+    "owners": [
+      "0x8A53286142961ae2892296dacB26942449FDb668",
+      "0xc66671171d8902b7C08Ca2B4BD5ED9bDff6c13fb",
+      "0x2b88B9270341a77F10e1bEe90617E943C01B0cC9"
+    ],
+    "threshold": "2",
+    "lifecycle": 0,
+    "route": [
+      {
+        "currency0": "0x0000000000000000000000000000000000000000",
+        "currency1": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "fee": 100,
+        "tickSpacing": 1,
+        "hooks": "0x0000000000000000000000000000000000000000"
+      }
+    ],
+    "routeHash": "0xd68875442b11d19301f724fb3d97838bef3410ecaf5dfc18fa2b8b0fe7914ffc"
+  },
+  "safeTransaction": {
+    "safeTxGas": "2000000",
+    "baseGas": "0",
+    "gasPrice": "0",
+    "gasToken": "0x0000000000000000000000000000000000000000",
+    "refundReceiver": "0x0000000000000000000000000000000000000000"
+  },
+  "asset": {
+    "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "symbol": "USDG",
+    "decimals": 6,
+    "multiplierRaw": "1000000000000000000",
+    "newMultiplierRaw": "1000000000000000000",
+    "effectiveAtRaw": "0"
+  },
+  "currencies": [
+    {
+      "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "symbol": "USDG",
+      "decimals": 6,
+      "multiplierRaw": "1000000000000000000",
+      "newMultiplierRaw": "1000000000000000000",
+      "effectiveAtRaw": "0"
+    },
+    {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "decimals": 18,
+      "multiplierRaw": "1000000000000000000",
+      "newMultiplierRaw": "1000000000000000000",
+      "effectiveAtRaw": "0"
+    },
+    {
+      "address": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+      "symbol": "BBFFORK",
+      "decimals": 18,
+      "multiplierRaw": "1000000000000000000",
+      "newMultiplierRaw": "1000000000000000000",
+      "effectiveAtRaw": "0"
+    }
+  ],
+  "settings": {
+    "historyWindowSeconds": 7200,
+    "sampleIntervalSeconds": 120,
+    "referenceMode": "fork-spot",
+    "maxDeviationBps": 500,
+    "maxImpactBps": 500
+  },
+  "history": {
+    "observations": [
+      {
+        "scope": "{\"asset\":\"0x5fc5360d0400a0fd4f2af552add042d716f1d168\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":0,\"routeHash\":\"0xd68875442b11d19301f724fb3d97838bef3410ecaf5dfc18fa2b8b0fe7914ffc\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055474",
+        "blockHash": "0xcbc41b40151557f14afca77722485f6353e4a99fc19e60edd2efb260aa00d71f",
+        "timestamp": "1791403963",
+        "rates": [
+          {
+            "numeratorRaw": "1569275433846670190958947355801916604025588861116008628224",
+            "denominatorRaw": "3900246461460207040160070514898610796051491680089"
+          },
+          {
+            "numeratorRaw": "39764843026506936657327057",
+            "denominatorRaw": "67597400000000000"
+          }
+        ]
+      }
+    ],
+    "scope": "{\"asset\":\"0x5fc5360d0400a0fd4f2af552add042d716f1d168\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":0,\"routeHash\":\"0xd68875442b11d19301f724fb3d97838bef3410ecaf5dfc18fa2b8b0fe7914ffc\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+    "samples": 1,
+    "startTimestamp": "1791403963",
+    "endTimestamp": "1791403963",
+    "referenceRates": [
+      {
+        "numeratorRaw": "1569275433846670190958947355801916604025588861116008628224",
+        "denominatorRaw": "3900246461460207040160070514898610796051491680089"
+      },
+      {
+        "numeratorRaw": "39764843026506936657327057",
+        "denominatorRaw": "67597400000000000"
+      }
+    ]
+  },
+  "actions": [
+    {
+      "asset": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "expectedRevisionRaw": "2",
+      "expectedSafeNonceRaw": "14",
+      "policy": {
+        "validAfterRaw": "1791403963",
+        "validUntilRaw": "1791490363",
+        "batchCapRaw": "10000",
+        "totalBudgetRaw": "20000",
+        "rates": [
+          {
+            "numeratorRaw": "2011362094353",
+            "denominatorRaw": "5000",
+            "toleranceBps": 100
+          },
+          {
+            "numeratorRaw": "1171368963495156775885",
+            "denominatorRaw": "2011362094353",
+            "toleranceBps": 100
+          }
+        ]
+      },
+      "evidence": {
+        "reference": "FORK ONLY spot reference at block 57055474 (0xcbc41b40151557f14afca77722485f6353e4a99fc19e60edd2efb260aa00d71f); scope {\"asset\":\"0x5fc5360d0400a0fd4f2af552add042d716f1d168\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":0,\"routeHash\":\"0xd68875442b11d19301f724fb3d97838bef3410ecaf5dfc18fa2b8b0fe7914ffc\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "rationale": "Owner-reviewed finite authorization. 7200s window, 120s samples; maximum reference deviation 500 bps and combined fees/impact 500 bps. Reference is not independent fair value."
+      },
+      "to": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+      "data": "0xdbcb6aa40000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d1680000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000006ac6a7bb000000000000000000000000000000000000000000000000000000006ac7f93b00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000004e2000000000000000000000000000000000000000000000000000000000000000c02028624602553d9169bd148743fa1dc0b1fc559dc92ea8b367b67a9b6a2557e00000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000001d44e85ed110000000000000000000000000000000000000000000000000000000000001388000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000003f80028a1ebe53fbcd000000000000000000000000000000000000000000000000000001d44e85ed110000000000000000000000000000000000000000000000000000000000000064",
+      "value": "0",
+      "operation": 0
+    }
+  ],
+  "steps": [
+    {
+      "kind": "accrue",
+      "description": "Checkpoint currently earned fees"
+    },
+    {
+      "kind": "release",
+      "description": "Release earned fees to the vault"
+    },
+    {
+      "kind": "process",
+      "description": "Process membership inventory before donations within the approved budget"
+    }
+  ],
+  "quote": {
+    "legs": [
+      {
+        "input": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "output": "0x0000000000000000000000000000000000000000",
+        "inputRaw": "10000",
+        "outputRaw": "4022724188706",
+        "minimumOutputRaw": "3982496946819",
+        "referenceDeviationBps": "0",
+        "executionDragBps": "3"
+      },
+      {
+        "input": "0x0000000000000000000000000000000000000000",
+        "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+        "inputRaw": "4022724188706",
+        "outputRaw": "2342737926990313551770",
+        "minimumOutputRaw": "2319310547720410416253",
+        "referenceDeviationBps": "0",
+        "executionDragBps": "101",
+        "feeRaw": "40227241887",
+        "priceImpactBps": "1"
+      }
+    ],
+    "expectedBurnRaw": "2342737926990313551770",
+    "note": "Single batch quote, not an aggregate backlog projection. Execution drag combines trading fees and price impact. Rehearse for sequential market effects."
+  },
+  "inventory": {
+    "membershipRaw": "10002",
+    "donationRaw": "0",
+    "earnedHeldRaw": "34",
+    "futureCommittedRaw": "109964",
+    "oldBudgetRaw": "24000000",
+    "oldSpentRaw": "0",
+    "projectedBatchCount": "2",
+    "remainingReleasedRaw": "0"
+  },
+  "warnings": [
+    "Policy replacement grants a fresh finite budget; this is not a rolling daily allowance.",
+    "Permissionless callers may execute eligible batches in a different order or sooner than this projection.",
+    "Current contracts do not invalidate this policy if the launch graduates after submission.",
+    "Sampled prices cannot guarantee fair value or prevent sustained manipulation.",
+    "FORK ONLY: spot reference; no time-weighted history was used."
+  ]
+}

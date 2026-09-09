@@ -1,6 +1,7 @@
 import Ajv from "ajv";
 import { describe, expect, it } from "vitest";
 import schema from "../../scripts/protocol-fork/manifest.schema.json";
+import { originPin } from "../../scripts/protocol-fork/origin";
 
 const validate = new Ajv({ allErrors: true, strict: true }).compile(schema);
 const hash = `0x${"1".repeat(64)}`;
@@ -21,7 +22,11 @@ function preflight() {
     source: { commit: "a".repeat(40), dirty: true, snapshotSha256: sourceHash },
     tools: [{ name: "forge", version: "1.7.1" }],
     dependencies: [],
-    origin: { chainId: 4663, blockNumber: "57010735", blockHash: hash },
+    origin: {
+      chainId: 4663,
+      blockNumber: originPin.blockNumber,
+      blockHash: hash,
+    },
     execution: { chainId: 31337, rpcUrl: "http://127.0.0.1:8547" },
     safe: null,
     deployments: [],
@@ -142,6 +147,15 @@ it("validates the bootstrap export without promoting it to receipt evidence", ()
     validateBootstrap(value),
     JSON.stringify(validateBootstrap.errors),
   ).toBe(true);
+  value.safeOwners = [address];
+  value.safeThreshold = 1;
+  expect(
+    validateBootstrap(value),
+    JSON.stringify(validateBootstrap.errors),
+  ).toBe(true);
+  value.safeThreshold = 0;
+  expect(validateBootstrap(value)).toBe(false);
+  value.safeThreshold = 1;
   value.chainId = 4663;
   expect(validateBootstrap(value)).toBe(false);
   value.chainId = 31337;

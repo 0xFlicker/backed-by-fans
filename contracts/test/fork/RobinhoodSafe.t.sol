@@ -272,7 +272,7 @@ contract ProtocolSafeForkTest is PonsForkFixture {
         assertEq(bbf.owner(), address(safe));
     }
 
-    function test_actualV4PoolRoutesAndPolicyBoundsRequireThresholdAuthorization() public {
+    function test_actualV4PoolRoutesAndLimitBoundsRequireThresholdAuthorization() public {
         BuybackTypes.TypedRoute memory path;
         path.pools = new PoolKey[](2);
         path.pools[0] =
@@ -285,27 +285,18 @@ contract ProtocolSafeForkTest is PonsForkFixture {
             )
         );
         assertEq(bbfVault.revision(AMD), 1);
-        BuybackTypes.ExecutionPolicy memory terms;
-        terms.validAfter = uint64(block.timestamp);
-        terms.validUntil = terms.validAfter + 15 minutes;
-        terms.totalBudget = 1e15;
-        terms.batchCap = 1e14;
-        terms.evidenceHash = keccak256("fixture-admin-limit-not-runner-spot-quote");
-        terms.rates = new BuybackTypes.Rate[](3);
-        terms.rates[0] = BuybackTypes.Rate(450_000, 1e15, 100);
-        terms.rates[1] = BuybackTypes.Rate(40_000_000_000_000, 100_000, 100);
-        terms.rates[2] = BuybackTypes.Rate(500_000_000, 1, 100);
+        BuybackTypes.ExecutionLimits memory terms = BuybackTypes.ExecutionLimits(1, 1e14, 60);
         assertTrue(
             _execute(
-                safe, address(bbfVault), abi.encodeCall(bbfVault.setPolicy, (AMD, terms)), 0xA000
+                safe, address(bbfVault), abi.encodeCall(bbfVault.setLimits, (AMD, terms)), 0xA000
             )
         );
         assertEq(bbfVault.revision(AMD), 2);
-        assertEq(bbfVault.policy(AMD).terms.totalBudget, 1e15);
-        terms.rates[1].toleranceBps = 101;
+        assertEq(bbfVault.limits(AMD).maxInput, 1e14);
+        terms.minInput = terms.maxInput + 1;
         assertFalse(
             _execute(
-                safe, address(bbfVault), abi.encodeCall(bbfVault.setPolicy, (AMD, terms)), 0xA000
+                safe, address(bbfVault), abi.encodeCall(bbfVault.setLimits, (AMD, terms)), 0xA000
             )
         );
         assertEq(bbfVault.revision(AMD), 2);
@@ -325,7 +316,7 @@ contract ProtocolSafeForkTest is PonsForkFixture {
             )
         );
         assertTrue(bbfVault.assetBuybacksPaused(AMD));
-        assertEq(bbfVault.policy(AMD).terms.totalBudget, 1e15);
+        assertEq(bbfVault.limits(AMD).maxInput, 1e14);
     }
 
     function _createSafe(uint256 keyBase, uint256 salt) private returns (ISafe) {

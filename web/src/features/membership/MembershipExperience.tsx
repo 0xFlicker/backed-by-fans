@@ -7,6 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import {
   erc20Abi,
+  formatEther,
+  parseEventLogs,
   getAddress,
   isAddress,
   zeroAddress,
@@ -17,7 +19,8 @@ import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 
 import { WalletControl } from "@/components/WalletControl";
 import { ResilientArtworkImage } from "@/components/ResilientArtworkImage";
-import { membershipTierAbi } from "@/contracts";
+import { membershipTierAbi, iWrappedNativeAbi } from "@/contracts";
+import { isWrappedNative } from "@/lib/wrapped-native";
 import type { TierSupporterSnapshot } from "@/contracts/types";
 import { parseUint64Input } from "@/features/creator/management";
 import { readGiftRecipientState } from "@/features/membership/membership-read";
@@ -646,6 +649,85 @@ export function MembershipExperience({
     snapshot.walletPaymentTokenBalance < selfPreview.gross
       ? selfPreview.gross - snapshot.walletPaymentTokenBalance
       : 0n;
+  const giftFundingShortfall =
+    giftPreview &&
+    giftPreview.gross > (snapshot.walletPaymentTokenBalance ?? 0n)
+      ? giftPreview.gross - (snapshot.walletPaymentTokenBalance ?? 0n)
+      : 0n;
+
+  async function wrapForPayment(amount: bigint) {
+    const payer = account.address;
+    if (
+      !payer ||
+      !writesVerified ||
+      amount <= 0n ||
+      !isWrappedNative(expectedChainId, snapshot.paymentToken)
+    )
+      return;
+    const previousBalance = snapshot.walletPaymentTokenBalance ?? 0n;
+    await perform(
+      "Wrap ETH",
+      async () => {
+        const { request } = await simulateContract(wagmiConfig, {
+          account: payer,
+          chainId: expectedChainId,
+          address: snapshot.paymentToken,
+          abi: iWrappedNativeAbi,
+          functionName: "deposit",
+          value: amount,
+        });
+        await assertSufficientGas(client, payer, request);
+        return () => write.writeContractAsync(request);
+      },
+      (receipt) =>
+        reconcileSnapshot(
+          (next) =>
+            parseEventLogs({
+              abi: erc20Abi,
+              eventName: "Transfer",
+              logs: receipt.logs,
+            }).some(
+              (log) =>
+                isSameAddress(log.address, snapshot.paymentToken) &&
+                log.args.from === zeroAddress &&
+                isSameAddress(log.args.to, payer) &&
+                log.args.value === amount,
+            ) &&
+            next.walletPaymentTokenBalance !== undefined &&
+            next.walletPaymentTokenBalance >= previousBalance + amount,
+        ),
+    );
+  }
+
+  function wrappingAction(amount: bigint) {
+    if (
+      amount <= 0n ||
+      !walletReady ||
+      !isWrappedNative(expectedChainId, snapshot.paymentToken)
+    )
+      return null;
+    const hasNative = (snapshot.walletEthBalance ?? 0n) > amount;
+    return (
+      <div className="funding-notice">
+        <p>
+          Convert {formatEther(amount)} ETH to WETH for this payment. Wrapping
+          is 1:1 and needs a network fee. After confirmation, continue with your
+          payment.
+        </p>
+        {!hasNative && (
+          <p>Add enough ETH to cover the wrap and network fees.</p>
+        )}
+        <button
+          type="button"
+          className="button button-warning"
+          disabled={!writesVerified || !hasNative}
+          onClick={() => void wrapForPayment(amount)}
+        >
+          Wrap {formatEther(amount)} ETH
+        </button>
+      </div>
+    );
+  }
   const displayedHash = transaction.replacementHash ?? transaction.hash;
   const isCreator = Boolean(
     snapshot.wallet && isSameAddress(snapshot.wallet, snapshot.creator),
@@ -730,36 +812,6 @@ export function MembershipExperience({
           </p>
         </div>
       </section>
-
-      {snapshot.credential && (
-        <section aria-label="Current refund backing">
-          <p>
-            Unused-time refunds are initiated by the creator. Current funding:
-          </p>
-          <dl>
-            <div>
-              <dt>Gross refund</dt>
-              <dd>{paymentLabel(snapshot.credential.refundableGross)}</dd>
-            </div>
-            <div>
-              <dt>Unearned protocol reserve</dt>
-              <dd>
-                {paymentLabel(snapshot.credential.protocolRefundContribution)}
-              </dd>
-            </div>
-            <div>
-              <dt>Creator proceeds used</dt>
-              <dd>
-                {paymentLabel(snapshot.credential.creatorRefundContribution)}
-              </dd>
-            </div>
-            <div>
-              <dt>Owner top-up</dt>
-              <dd>{paymentLabel(snapshot.credential.ownerTopUp)}</dd>
-            </div>
-          </dl>
-        </section>
-      )}
 
       {snapshot.credential && (
         <section
@@ -900,6 +952,7 @@ export function MembershipExperience({
                 ) : null}
               </p>
             )}
+            {wrappingAction(fundingShortfall)}
             {walletReady && (snapshot.walletEthBalance ?? 0n) === 0n && (
               <p className="funding-notice" role="status">
                 Add a small amount of ETH on {network.name} for gas.
@@ -1146,6 +1199,7 @@ export function MembershipExperience({
                   This membership is currently full.
                 </p>
               )}
+              {wrappingAction(giftFundingShortfall)}
               {giftExceedsPrepaymentLimit && (
                 <p className="inline-status" role="alert">
                   This gift would exceed the recipient&apos;s prepaid period

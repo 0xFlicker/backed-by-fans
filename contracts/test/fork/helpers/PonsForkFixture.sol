@@ -14,9 +14,8 @@ import {Test} from "forge-std/Test.sol";
 /// @dev Authentic fork fixture. Only local ETH funding and explicitly labeled
 /// external participation use cheatcodes; no deployed code/storage/token supply is patched.
 abstract contract PonsForkFixture is Test {
-    uint256 internal constant ORIGIN_BLOCK = 57_010_735;
-    bytes32 internal constant ORIGIN_HASH =
-        0xdfc65146f32cfd10afd9a620b68c3fc5d02077677ce06c46303e49e80f0a96cf;
+    uint256 internal ORIGIN_BLOCK;
+    bytes32 internal ORIGIN_HASH;
     IPonsLaunchFactory internal constant PONS =
         IPonsLaunchFactory(0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e);
     address internal developer;
@@ -31,6 +30,9 @@ abstract contract PonsForkFixture is Test {
         if (!vm.envOr("RUN_PROTOCOL_FORK_TESTS", false)) {
             vm.skip(true, "explicit authentic fork opt-in required");
         }
+        string memory origin = vm.readFile("../scripts/protocol-fork/origin.json");
+        ORIGIN_BLOCK = vm.parseUint(vm.parseJsonString(origin, ".blockNumber"));
+        ORIGIN_HASH = vm.parseJsonBytes32(origin, ".blockHash");
         // Check the pinned header through its immediate child's blockhash, then
         // roll back before any mutation. This uses the installed Foundry surface.
         vm.createSelectFork(vm.envString("BBF_FORK_RPC_URL"), ORIGIN_BLOCK + 1);

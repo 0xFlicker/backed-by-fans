@@ -283,3 +283,34 @@ This is a proposed implementation allocation for the subsequent analysis, **not*
 5. Integrate the complete browser product and scripts, retain two clean fork runs and complete final review/convergence. Every P1 story and mandatory evidence gate is required for this feature's deliverable; no intermediate slice authorizes public deployment.
 
 Do not perform commits, pushes, public signing or deployment solely because a task checkpoint passes. A missing authentic dependency is recorded with its failed acceptance scenario, not concealed by a passing unit fixture.
+
+## Approved local policy tools extension (2026-09-08)
+
+Authority and acceptance: [local-policy-tools-plan.md](local-policy-tools-plan.md).
+Earlier completed tasks and checklist markers remain historical; these tasks record new work.
+
+- [x] T082 Shared proposal validation, scaled human amounts, sampled reference math and SQLite history.
+- [x] T083 Observe/generate/report/review/submit-fork CLI using existing administration checks.
+- [x] T084 Optional owned-fork sequential rehearsal with receipts, residuals and cleanup guards.
+- [x] T085 Existing-app proposal import/review and Safe wallet signature collection/submission.
+- [x] T086 Focused unit, CLI, fork and browser evidence plus executable quickstart instructions.
+
+Extension acceptance: [local-policy-tools-evidence.md](local-policy-tools-evidence.md).
+
+
+## Approved standing-buyback replacement (2026-09-08)
+
+Authority: [Simple permissionless buybacks](operating-model-proposal.md).
+Evidence: [standing-buybacks-evidence.md](standing-buybacks-evidence.md).
+The checked items above remain historical; the expiring-policy workflow is replaced,
+not maintained alongside this implementation.
+
+- [x] T087 Replace expiring policies with standing minimum/maximum inputs and global/per-currency intervals; regenerate contract bindings.
+- [x] T088 Unify ETH/WETH denomination, inventory and clocks while retaining independent fee/donation books and actual-settlement accounting.
+- [x] T089 Provide human-unit multi-currency calculations and one combined Safe settings review/save using existing wallet libraries.
+- [x] T090 Implement bounded sequential child-fork rehearsal and a one-shot gas-aware runner; prove sequential burns, gas deferral and source isolation.
+- [x] T091 Centralize the origin pin, verify a fresh candidate against existing source locks and routes, and document repeatable repinning/restart requirements.
+- [x] T092 Exercise authentic shared-currency/global pacing and a browser settings save through a 1-of-1 test Safe.
+- [x] T093 Close final UI review findings and verify regressions for stale rehearsal results and stale Safe approvals.
+- [x] T094 Complete final contract/web checks and generated-interface verification; retain exact results for this replacement.
+- [x] T095 Start the clean final manual fork, verify one personal-wallet Safe owner/threshold, fund that wallet and record the single-server handoff.

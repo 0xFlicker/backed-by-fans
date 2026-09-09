@@ -1333,6 +1333,661 @@ export const iPonsMemeHookAbi = [
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IPoolManager
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const iPoolManagerAbi = [
+  {
+    type: "function",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "spender", internalType: "address", type: "address" },
+      { name: "id", internalType: "uint256", type: "uint256" },
+    ],
+    name: "allowance",
+    outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "spender", internalType: "address", type: "address" },
+      { name: "id", internalType: "uint256", type: "uint256" },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "id", internalType: "uint256", type: "uint256" },
+    ],
+    name: "balanceOf",
+    outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "from", internalType: "address", type: "address" },
+      { name: "id", internalType: "uint256", type: "uint256" },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "burn",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "currency", internalType: "Currency", type: "address" },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "clear",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "recipient", internalType: "address", type: "address" },
+      { name: "currency", internalType: "Currency", type: "address" },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "collectProtocolFees",
+    outputs: [
+      { name: "amountCollected", internalType: "uint256", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "key",
+        internalType: "struct PoolKey",
+        type: "tuple",
+        components: [
+          { name: "currency0", internalType: "Currency", type: "address" },
+          { name: "currency1", internalType: "Currency", type: "address" },
+          { name: "fee", internalType: "uint24", type: "uint24" },
+          { name: "tickSpacing", internalType: "int24", type: "int24" },
+          { name: "hooks", internalType: "contract IHooks", type: "address" },
+        ],
+      },
+      { name: "amount0", internalType: "uint256", type: "uint256" },
+      { name: "amount1", internalType: "uint256", type: "uint256" },
+      { name: "hookData", internalType: "bytes", type: "bytes" },
+    ],
+    name: "donate",
+    outputs: [{ name: "", internalType: "BalanceDelta", type: "int256" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "slot", internalType: "bytes32", type: "bytes32" }],
+    name: "extsload",
+    outputs: [{ name: "value", internalType: "bytes32", type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "startSlot", internalType: "bytes32", type: "bytes32" },
+      { name: "nSlots", internalType: "uint256", type: "uint256" },
+    ],
+    name: "extsload",
+    outputs: [{ name: "values", internalType: "bytes32[]", type: "bytes32[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "slots", internalType: "bytes32[]", type: "bytes32[]" }],
+    name: "extsload",
+    outputs: [{ name: "values", internalType: "bytes32[]", type: "bytes32[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "slots", internalType: "bytes32[]", type: "bytes32[]" }],
+    name: "exttload",
+    outputs: [{ name: "values", internalType: "bytes32[]", type: "bytes32[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "slot", internalType: "bytes32", type: "bytes32" }],
+    name: "exttload",
+    outputs: [{ name: "value", internalType: "bytes32", type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "key",
+        internalType: "struct PoolKey",
+        type: "tuple",
+        components: [
+          { name: "currency0", internalType: "Currency", type: "address" },
+          { name: "currency1", internalType: "Currency", type: "address" },
+          { name: "fee", internalType: "uint24", type: "uint24" },
+          { name: "tickSpacing", internalType: "int24", type: "int24" },
+          { name: "hooks", internalType: "contract IHooks", type: "address" },
+        ],
+      },
+      { name: "sqrtPriceX96", internalType: "uint160", type: "uint160" },
+    ],
+    name: "initialize",
+    outputs: [{ name: "tick", internalType: "int24", type: "int24" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "spender", internalType: "address", type: "address" },
+    ],
+    name: "isOperator",
+    outputs: [{ name: "approved", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "to", internalType: "address", type: "address" },
+      { name: "id", internalType: "uint256", type: "uint256" },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "mint",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "key",
+        internalType: "struct PoolKey",
+        type: "tuple",
+        components: [
+          { name: "currency0", internalType: "Currency", type: "address" },
+          { name: "currency1", internalType: "Currency", type: "address" },
+          { name: "fee", internalType: "uint24", type: "uint24" },
+          { name: "tickSpacing", internalType: "int24", type: "int24" },
+          { name: "hooks", internalType: "contract IHooks", type: "address" },
+        ],
+      },
+      {
+        name: "params",
+        internalType: "struct ModifyLiquidityParams",
+        type: "tuple",
+        components: [
+          { name: "tickLower", internalType: "int24", type: "int24" },
+          { name: "tickUpper", internalType: "int24", type: "int24" },
+          { name: "liquidityDelta", internalType: "int256", type: "int256" },
+          { name: "salt", internalType: "bytes32", type: "bytes32" },
+        ],
+      },
+      { name: "hookData", internalType: "bytes", type: "bytes" },
+    ],
+    name: "modifyLiquidity",
+    outputs: [
+      { name: "callerDelta", internalType: "BalanceDelta", type: "int256" },
+      { name: "feesAccrued", internalType: "BalanceDelta", type: "int256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "protocolFeeController",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "currency", internalType: "Currency", type: "address" }],
+    name: "protocolFeesAccrued",
+    outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "operator", internalType: "address", type: "address" },
+      { name: "approved", internalType: "bool", type: "bool" },
+    ],
+    name: "setOperator",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "key",
+        internalType: "struct PoolKey",
+        type: "tuple",
+        components: [
+          { name: "currency0", internalType: "Currency", type: "address" },
+          { name: "currency1", internalType: "Currency", type: "address" },
+          { name: "fee", internalType: "uint24", type: "uint24" },
+          { name: "tickSpacing", internalType: "int24", type: "int24" },
+          { name: "hooks", internalType: "contract IHooks", type: "address" },
+        ],
+      },
+      { name: "newProtocolFee", internalType: "uint24", type: "uint24" },
+    ],
+    name: "setProtocolFee",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "controller", internalType: "address", type: "address" }],
+    name: "setProtocolFeeController",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "settle",
+    outputs: [{ name: "paid", internalType: "uint256", type: "uint256" }],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "recipient", internalType: "address", type: "address" }],
+    name: "settleFor",
+    outputs: [{ name: "paid", internalType: "uint256", type: "uint256" }],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "key",
+        internalType: "struct PoolKey",
+        type: "tuple",
+        components: [
+          { name: "currency0", internalType: "Currency", type: "address" },
+          { name: "currency1", internalType: "Currency", type: "address" },
+          { name: "fee", internalType: "uint24", type: "uint24" },
+          { name: "tickSpacing", internalType: "int24", type: "int24" },
+          { name: "hooks", internalType: "contract IHooks", type: "address" },
+        ],
+      },
+      {
+        name: "params",
+        internalType: "struct SwapParams",
+        type: "tuple",
+        components: [
+          { name: "zeroForOne", internalType: "bool", type: "bool" },
+          { name: "amountSpecified", internalType: "int256", type: "int256" },
+          {
+            name: "sqrtPriceLimitX96",
+            internalType: "uint160",
+            type: "uint160",
+          },
+        ],
+      },
+      { name: "hookData", internalType: "bytes", type: "bytes" },
+    ],
+    name: "swap",
+    outputs: [
+      { name: "swapDelta", internalType: "BalanceDelta", type: "int256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "currency", internalType: "Currency", type: "address" }],
+    name: "sync",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "currency", internalType: "Currency", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "take",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "receiver", internalType: "address", type: "address" },
+      { name: "id", internalType: "uint256", type: "uint256" },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "transfer",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "sender", internalType: "address", type: "address" },
+      { name: "receiver", internalType: "address", type: "address" },
+      { name: "id", internalType: "uint256", type: "uint256" },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "transferFrom",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "data", internalType: "bytes", type: "bytes" }],
+    name: "unlock",
+    outputs: [{ name: "", internalType: "bytes", type: "bytes" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "key",
+        internalType: "struct PoolKey",
+        type: "tuple",
+        components: [
+          { name: "currency0", internalType: "Currency", type: "address" },
+          { name: "currency1", internalType: "Currency", type: "address" },
+          { name: "fee", internalType: "uint24", type: "uint24" },
+          { name: "tickSpacing", internalType: "int24", type: "int24" },
+          { name: "hooks", internalType: "contract IHooks", type: "address" },
+        ],
+      },
+      { name: "newDynamicLPFee", internalType: "uint24", type: "uint24" },
+    ],
+    name: "updateDynamicLPFee",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "spender",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      { name: "id", internalType: "uint256", type: "uint256", indexed: true },
+      {
+        name: "amount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "Approval",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "id", internalType: "PoolId", type: "bytes32", indexed: true },
+      {
+        name: "sender",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "amount0",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "amount1",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "Donate",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "id", internalType: "PoolId", type: "bytes32", indexed: true },
+      {
+        name: "currency0",
+        internalType: "Currency",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "currency1",
+        internalType: "Currency",
+        type: "address",
+        indexed: true,
+      },
+      { name: "fee", internalType: "uint24", type: "uint24", indexed: false },
+      {
+        name: "tickSpacing",
+        internalType: "int24",
+        type: "int24",
+        indexed: false,
+      },
+      {
+        name: "hooks",
+        internalType: "contract IHooks",
+        type: "address",
+        indexed: false,
+      },
+      {
+        name: "sqrtPriceX96",
+        internalType: "uint160",
+        type: "uint160",
+        indexed: false,
+      },
+      { name: "tick", internalType: "int24", type: "int24", indexed: false },
+    ],
+    name: "Initialize",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "id", internalType: "PoolId", type: "bytes32", indexed: true },
+      {
+        name: "sender",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "tickLower",
+        internalType: "int24",
+        type: "int24",
+        indexed: false,
+      },
+      {
+        name: "tickUpper",
+        internalType: "int24",
+        type: "int24",
+        indexed: false,
+      },
+      {
+        name: "liquidityDelta",
+        internalType: "int256",
+        type: "int256",
+        indexed: false,
+      },
+      {
+        name: "salt",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+    ],
+    name: "ModifyLiquidity",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "operator",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      { name: "approved", internalType: "bool", type: "bool", indexed: false },
+    ],
+    name: "OperatorSet",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "protocolFeeController",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "ProtocolFeeControllerUpdated",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "id", internalType: "PoolId", type: "bytes32", indexed: true },
+      {
+        name: "protocolFee",
+        internalType: "uint24",
+        type: "uint24",
+        indexed: false,
+      },
+    ],
+    name: "ProtocolFeeUpdated",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "id", internalType: "PoolId", type: "bytes32", indexed: true },
+      {
+        name: "sender",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "amount0",
+        internalType: "int128",
+        type: "int128",
+        indexed: false,
+      },
+      {
+        name: "amount1",
+        internalType: "int128",
+        type: "int128",
+        indexed: false,
+      },
+      {
+        name: "sqrtPriceX96",
+        internalType: "uint160",
+        type: "uint160",
+        indexed: false,
+      },
+      {
+        name: "liquidity",
+        internalType: "uint128",
+        type: "uint128",
+        indexed: false,
+      },
+      { name: "tick", internalType: "int24", type: "int24", indexed: false },
+      { name: "fee", internalType: "uint24", type: "uint24", indexed: false },
+    ],
+    name: "Swap",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "caller",
+        internalType: "address",
+        type: "address",
+        indexed: false,
+      },
+      { name: "from", internalType: "address", type: "address", indexed: true },
+      { name: "to", internalType: "address", type: "address", indexed: true },
+      { name: "id", internalType: "uint256", type: "uint256", indexed: true },
+      {
+        name: "amount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "Transfer",
+  },
+  { type: "error", inputs: [], name: "AlreadyUnlocked" },
+  {
+    type: "error",
+    inputs: [
+      { name: "currency0", internalType: "address", type: "address" },
+      { name: "currency1", internalType: "address", type: "address" },
+    ],
+    name: "CurrenciesOutOfOrderOrEqual",
+  },
+  { type: "error", inputs: [], name: "CurrencyNotSettled" },
+  { type: "error", inputs: [], name: "InvalidCaller" },
+  { type: "error", inputs: [], name: "ManagerLocked" },
+  { type: "error", inputs: [], name: "MustClearExactPositiveDelta" },
+  { type: "error", inputs: [], name: "NonzeroNativeValue" },
+  { type: "error", inputs: [], name: "PoolNotInitialized" },
+  { type: "error", inputs: [], name: "ProtocolFeeCurrencySynced" },
+  {
+    type: "error",
+    inputs: [{ name: "fee", internalType: "uint24", type: "uint24" }],
+    name: "ProtocolFeeTooLarge",
+  },
+  { type: "error", inputs: [], name: "SwapAmountCannotBeZero" },
+  {
+    type: "error",
+    inputs: [{ name: "tickSpacing", internalType: "int24", type: "int24" }],
+    name: "TickSpacingTooLarge",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "tickSpacing", internalType: "int24", type: "int24" }],
+    name: "TickSpacingTooSmall",
+  },
+  { type: "error", inputs: [], name: "UnauthorizedDynamicLPFeeUpdate" },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ISafe
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1434,6 +2089,17 @@ export const iSafeAbi = [
     name: "nonce",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "prevOwner", internalType: "address", type: "address" },
+      { name: "oldOwner", internalType: "address", type: "address" },
+      { name: "newOwner", internalType: "address", type: "address" },
+    ],
+    name: "swapOwner",
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "event",
@@ -1557,10 +2223,208 @@ export const iScaledUiAmountNewUiMultiplierAbi = [
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IV4Quoter
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const iv4QuoterAbi = [
+  {
+    type: "function",
+    inputs: [],
+    name: "msgSender",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "poolManager",
+    outputs: [
+      { name: "", internalType: "contract IPoolManager", type: "address" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "params",
+        internalType: "struct IV4Quoter.QuoteExactParams",
+        type: "tuple",
+        components: [
+          { name: "exactCurrency", internalType: "Currency", type: "address" },
+          {
+            name: "path",
+            internalType: "struct PathKey[]",
+            type: "tuple[]",
+            components: [
+              {
+                name: "intermediateCurrency",
+                internalType: "Currency",
+                type: "address",
+              },
+              { name: "fee", internalType: "uint24", type: "uint24" },
+              { name: "tickSpacing", internalType: "int24", type: "int24" },
+              {
+                name: "hooks",
+                internalType: "contract IHooks",
+                type: "address",
+              },
+              { name: "hookData", internalType: "bytes", type: "bytes" },
+            ],
+          },
+          { name: "exactAmount", internalType: "uint128", type: "uint128" },
+        ],
+      },
+    ],
+    name: "quoteExactInput",
+    outputs: [
+      { name: "amountOut", internalType: "uint256", type: "uint256" },
+      { name: "gasEstimate", internalType: "uint256", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "params",
+        internalType: "struct IV4Quoter.QuoteExactSingleParams",
+        type: "tuple",
+        components: [
+          {
+            name: "poolKey",
+            internalType: "struct PoolKey",
+            type: "tuple",
+            components: [
+              { name: "currency0", internalType: "Currency", type: "address" },
+              { name: "currency1", internalType: "Currency", type: "address" },
+              { name: "fee", internalType: "uint24", type: "uint24" },
+              { name: "tickSpacing", internalType: "int24", type: "int24" },
+              {
+                name: "hooks",
+                internalType: "contract IHooks",
+                type: "address",
+              },
+            ],
+          },
+          { name: "zeroForOne", internalType: "bool", type: "bool" },
+          { name: "exactAmount", internalType: "uint128", type: "uint128" },
+          { name: "hookData", internalType: "bytes", type: "bytes" },
+        ],
+      },
+    ],
+    name: "quoteExactInputSingle",
+    outputs: [
+      { name: "amountOut", internalType: "uint256", type: "uint256" },
+      { name: "gasEstimate", internalType: "uint256", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "params",
+        internalType: "struct IV4Quoter.QuoteExactParams",
+        type: "tuple",
+        components: [
+          { name: "exactCurrency", internalType: "Currency", type: "address" },
+          {
+            name: "path",
+            internalType: "struct PathKey[]",
+            type: "tuple[]",
+            components: [
+              {
+                name: "intermediateCurrency",
+                internalType: "Currency",
+                type: "address",
+              },
+              { name: "fee", internalType: "uint24", type: "uint24" },
+              { name: "tickSpacing", internalType: "int24", type: "int24" },
+              {
+                name: "hooks",
+                internalType: "contract IHooks",
+                type: "address",
+              },
+              { name: "hookData", internalType: "bytes", type: "bytes" },
+            ],
+          },
+          { name: "exactAmount", internalType: "uint128", type: "uint128" },
+        ],
+      },
+    ],
+    name: "quoteExactOutput",
+    outputs: [
+      { name: "amountIn", internalType: "uint256", type: "uint256" },
+      { name: "gasEstimate", internalType: "uint256", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "params",
+        internalType: "struct IV4Quoter.QuoteExactSingleParams",
+        type: "tuple",
+        components: [
+          {
+            name: "poolKey",
+            internalType: "struct PoolKey",
+            type: "tuple",
+            components: [
+              { name: "currency0", internalType: "Currency", type: "address" },
+              { name: "currency1", internalType: "Currency", type: "address" },
+              { name: "fee", internalType: "uint24", type: "uint24" },
+              { name: "tickSpacing", internalType: "int24", type: "int24" },
+              {
+                name: "hooks",
+                internalType: "contract IHooks",
+                type: "address",
+              },
+            ],
+          },
+          { name: "zeroForOne", internalType: "bool", type: "bool" },
+          { name: "exactAmount", internalType: "uint128", type: "uint128" },
+          { name: "hookData", internalType: "bytes", type: "bytes" },
+        ],
+      },
+    ],
+    name: "quoteExactOutputSingle",
+    outputs: [
+      { name: "amountIn", internalType: "uint256", type: "uint256" },
+      { name: "gasEstimate", internalType: "uint256", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // IWrappedEther
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export const iWrappedEtherAbi = [
+  {
+    type: "function",
+    inputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
+    name: "withdraw",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IWrappedNative
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const iWrappedNativeAbi = [
+  {
+    type: "function",
+    inputs: [],
+    name: "deposit",
+    outputs: [],
+    stateMutability: "payable",
+  },
   {
     type: "function",
     inputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
@@ -4950,16 +5814,6 @@ export const ponsBuybackExecutorAbi = [
           },
         ],
       },
-      {
-        name: "rates",
-        internalType: "struct BuybackTypes.Rate[]",
-        type: "tuple[]",
-        components: [
-          { name: "numerator", internalType: "uint128", type: "uint128" },
-          { name: "denominator", internalType: "uint128", type: "uint128" },
-          { name: "toleranceBps", internalType: "uint16", type: "uint16" },
-        ],
-      },
       { name: "deadline", internalType: "uint64", type: "uint64" },
     ],
     name: "execute",
@@ -5021,14 +5875,6 @@ export const ponsBuybackExecutorAbi = [
   { type: "error", inputs: [], name: "InvalidProtocolLaunch" },
   { type: "error", inputs: [], name: "LaunchPenalty" },
   { type: "error", inputs: [], name: "OnlyVault" },
-  {
-    type: "error",
-    inputs: [
-      { name: "received", internalType: "uint256", type: "uint256" },
-      { name: "required", internalType: "uint256", type: "uint256" },
-    ],
-    name: "PriceBelowFloor",
-  },
   { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
   {
     type: "error",
@@ -5075,6 +5921,13 @@ export const protocolBuybackVaultAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "canonicalAsset",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
     inputs: [],
     name: "executor",
     outputs: [{ name: "", internalType: "address", type: "address" }],
@@ -5085,6 +5938,13 @@ export const protocolBuybackVaultAbi = [
     inputs: [],
     name: "factory",
     outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "globalMinInterval",
+    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
     stateMutability: "view",
   },
   {
@@ -5121,52 +5981,30 @@ export const protocolBuybackVaultAbi = [
   {
     type: "function",
     inputs: [{ name: "asset", internalType: "address", type: "address" }],
-    name: "policy",
+    name: "lastAssetBuyAt",
+    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "lastBuyAt",
+    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "limits",
     outputs: [
       {
         name: "",
-        internalType: "struct BuybackTypes.PolicyState",
+        internalType: "struct BuybackTypes.ExecutionLimits",
         type: "tuple",
         components: [
-          {
-            name: "terms",
-            internalType: "struct BuybackTypes.ExecutionPolicy",
-            type: "tuple",
-            components: [
-              { name: "validAfter", internalType: "uint64", type: "uint64" },
-              { name: "validUntil", internalType: "uint64", type: "uint64" },
-              { name: "batchCap", internalType: "uint128", type: "uint128" },
-              { name: "totalBudget", internalType: "uint128", type: "uint128" },
-              {
-                name: "rates",
-                internalType: "struct BuybackTypes.Rate[]",
-                type: "tuple[]",
-                components: [
-                  {
-                    name: "numerator",
-                    internalType: "uint128",
-                    type: "uint128",
-                  },
-                  {
-                    name: "denominator",
-                    internalType: "uint128",
-                    type: "uint128",
-                  },
-                  {
-                    name: "toleranceBps",
-                    internalType: "uint16",
-                    type: "uint16",
-                  },
-                ],
-              },
-              {
-                name: "evidenceHash",
-                internalType: "bytes32",
-                type: "bytes32",
-              },
-            ],
-          },
-          { name: "spent", internalType: "uint128", type: "uint128" },
+          { name: "minInput", internalType: "uint128", type: "uint128" },
+          { name: "maxInput", internalType: "uint128", type: "uint128" },
+          { name: "minInterval", internalType: "uint64", type: "uint64" },
         ],
       },
     ],
@@ -5214,6 +6052,8 @@ export const protocolBuybackVaultAbi = [
           { name: "revision", internalType: "uint64", type: "uint64" },
           { name: "available", internalType: "uint256", type: "uint256" },
           { name: "maxInput", internalType: "uint256", type: "uint256" },
+          { name: "minInput", internalType: "uint256", type: "uint256" },
+          { name: "nextEligibleAt", internalType: "uint256", type: "uint256" },
         ],
       },
     ],
@@ -5291,31 +6131,46 @@ export const protocolBuybackVaultAbi = [
   {
     type: "function",
     inputs: [
-      { name: "asset", internalType: "address", type: "address" },
+      { name: "globalInterval", internalType: "uint64", type: "uint64" },
+      { name: "assets", internalType: "address[]", type: "address[]" },
       {
-        name: "policy_",
-        internalType: "struct BuybackTypes.ExecutionPolicy",
-        type: "tuple",
+        name: "limits_",
+        internalType: "struct BuybackTypes.ExecutionLimits[]",
+        type: "tuple[]",
         components: [
-          { name: "validAfter", internalType: "uint64", type: "uint64" },
-          { name: "validUntil", internalType: "uint64", type: "uint64" },
-          { name: "batchCap", internalType: "uint128", type: "uint128" },
-          { name: "totalBudget", internalType: "uint128", type: "uint128" },
-          {
-            name: "rates",
-            internalType: "struct BuybackTypes.Rate[]",
-            type: "tuple[]",
-            components: [
-              { name: "numerator", internalType: "uint128", type: "uint128" },
-              { name: "denominator", internalType: "uint128", type: "uint128" },
-              { name: "toleranceBps", internalType: "uint16", type: "uint16" },
-            ],
-          },
-          { name: "evidenceHash", internalType: "bytes32", type: "bytes32" },
+          { name: "minInput", internalType: "uint128", type: "uint128" },
+          { name: "maxInput", internalType: "uint128", type: "uint128" },
+          { name: "minInterval", internalType: "uint64", type: "uint64" },
         ],
       },
     ],
-    name: "setPolicy",
+    name: "setExecutionLimits",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "minInterval", internalType: "uint64", type: "uint64" }],
+    name: "setGlobalMinInterval",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      {
+        name: "limits_",
+        internalType: "struct BuybackTypes.ExecutionLimits",
+        type: "tuple",
+        components: [
+          { name: "minInput", internalType: "uint128", type: "uint128" },
+          { name: "maxInput", internalType: "uint128", type: "uint128" },
+          { name: "minInterval", internalType: "uint64", type: "uint64" },
+        ],
+      },
+    ],
+    name: "setLimits",
     outputs: [],
     stateMutability: "nonpayable",
   },
@@ -5560,6 +6415,19 @@ export const protocolBuybackVaultAbi = [
     anonymous: false,
     inputs: [
       {
+        name: "minInterval",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+    ],
+    name: "GlobalIntervalConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
         name: "asset",
         internalType: "address",
         type: "address",
@@ -5572,30 +6440,18 @@ export const protocolBuybackVaultAbi = [
         indexed: true,
       },
       {
-        name: "policy",
-        internalType: "struct BuybackTypes.ExecutionPolicy",
+        name: "limits",
+        internalType: "struct BuybackTypes.ExecutionLimits",
         type: "tuple",
         components: [
-          { name: "validAfter", internalType: "uint64", type: "uint64" },
-          { name: "validUntil", internalType: "uint64", type: "uint64" },
-          { name: "batchCap", internalType: "uint128", type: "uint128" },
-          { name: "totalBudget", internalType: "uint128", type: "uint128" },
-          {
-            name: "rates",
-            internalType: "struct BuybackTypes.Rate[]",
-            type: "tuple[]",
-            components: [
-              { name: "numerator", internalType: "uint128", type: "uint128" },
-              { name: "denominator", internalType: "uint128", type: "uint128" },
-              { name: "toleranceBps", internalType: "uint16", type: "uint16" },
-            ],
-          },
-          { name: "evidenceHash", internalType: "bytes32", type: "bytes32" },
+          { name: "minInput", internalType: "uint128", type: "uint128" },
+          { name: "maxInput", internalType: "uint128", type: "uint128" },
+          { name: "minInterval", internalType: "uint64", type: "uint64" },
         ],
         indexed: false,
       },
     ],
-    name: "PolicyConfigured",
+    name: "LimitsConfigured",
   },
   {
     type: "event",
@@ -5646,7 +6502,7 @@ export const protocolBuybackVaultAbi = [
   { type: "error", inputs: [], name: "InvalidAddress" },
   { type: "error", inputs: [], name: "InvalidAmount" },
   { type: "error", inputs: [], name: "InvalidAsset" },
-  { type: "error", inputs: [], name: "InvalidPolicy" },
+  { type: "error", inputs: [], name: "InvalidLimits" },
   { type: "error", inputs: [], name: "InvalidRoute" },
   { type: "error", inputs: [], name: "OnlyFactoryDeployment" },
   { type: "error", inputs: [], name: "OnlyProtocolAuthority" },
@@ -7453,6 +8309,520 @@ export const useSimulateIPonsMemeHookSweepPoolFees =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iPoolManagerAbi}__
+ */
+export const useReadIPoolManager = /*#__PURE__*/ createUseReadContract({
+  abi: iPoolManagerAbi,
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"allowance"`
+ */
+export const useReadIPoolManagerAllowance = /*#__PURE__*/ createUseReadContract(
+  { abi: iPoolManagerAbi, functionName: "allowance" },
+);
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"balanceOf"`
+ */
+export const useReadIPoolManagerBalanceOf = /*#__PURE__*/ createUseReadContract(
+  { abi: iPoolManagerAbi, functionName: "balanceOf" },
+);
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"extsload"`
+ */
+export const useReadIPoolManagerExtsload = /*#__PURE__*/ createUseReadContract({
+  abi: iPoolManagerAbi,
+  functionName: "extsload",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"exttload"`
+ */
+export const useReadIPoolManagerExttload = /*#__PURE__*/ createUseReadContract({
+  abi: iPoolManagerAbi,
+  functionName: "exttload",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"isOperator"`
+ */
+export const useReadIPoolManagerIsOperator =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iPoolManagerAbi,
+    functionName: "isOperator",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"protocolFeeController"`
+ */
+export const useReadIPoolManagerProtocolFeeController =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iPoolManagerAbi,
+    functionName: "protocolFeeController",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"protocolFeesAccrued"`
+ */
+export const useReadIPoolManagerProtocolFeesAccrued =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iPoolManagerAbi,
+    functionName: "protocolFeesAccrued",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__
+ */
+export const useWriteIPoolManager = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"approve"`
+ */
+export const useWriteIPoolManagerApprove = /*#__PURE__*/ createUseWriteContract(
+  { abi: iPoolManagerAbi, functionName: "approve" },
+);
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"burn"`
+ */
+export const useWriteIPoolManagerBurn = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+  functionName: "burn",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"clear"`
+ */
+export const useWriteIPoolManagerClear = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+  functionName: "clear",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"collectProtocolFees"`
+ */
+export const useWriteIPoolManagerCollectProtocolFees =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "collectProtocolFees",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"donate"`
+ */
+export const useWriteIPoolManagerDonate = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+  functionName: "donate",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"initialize"`
+ */
+export const useWriteIPoolManagerInitialize =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "initialize",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"mint"`
+ */
+export const useWriteIPoolManagerMint = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+  functionName: "mint",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"modifyLiquidity"`
+ */
+export const useWriteIPoolManagerModifyLiquidity =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "modifyLiquidity",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"setOperator"`
+ */
+export const useWriteIPoolManagerSetOperator =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "setOperator",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"setProtocolFee"`
+ */
+export const useWriteIPoolManagerSetProtocolFee =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "setProtocolFee",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"setProtocolFeeController"`
+ */
+export const useWriteIPoolManagerSetProtocolFeeController =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "setProtocolFeeController",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"settle"`
+ */
+export const useWriteIPoolManagerSettle = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+  functionName: "settle",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"settleFor"`
+ */
+export const useWriteIPoolManagerSettleFor =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "settleFor",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"swap"`
+ */
+export const useWriteIPoolManagerSwap = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+  functionName: "swap",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"sync"`
+ */
+export const useWriteIPoolManagerSync = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+  functionName: "sync",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"take"`
+ */
+export const useWriteIPoolManagerTake = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+  functionName: "take",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"transfer"`
+ */
+export const useWriteIPoolManagerTransfer =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "transfer",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"transferFrom"`
+ */
+export const useWriteIPoolManagerTransferFrom =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "transferFrom",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"unlock"`
+ */
+export const useWriteIPoolManagerUnlock = /*#__PURE__*/ createUseWriteContract({
+  abi: iPoolManagerAbi,
+  functionName: "unlock",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"updateDynamicLPFee"`
+ */
+export const useWriteIPoolManagerUpdateDynamicLpFee =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iPoolManagerAbi,
+    functionName: "updateDynamicLPFee",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__
+ */
+export const useSimulateIPoolManager = /*#__PURE__*/ createUseSimulateContract({
+  abi: iPoolManagerAbi,
+});
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"approve"`
+ */
+export const useSimulateIPoolManagerApprove =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "approve",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"burn"`
+ */
+export const useSimulateIPoolManagerBurn =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "burn",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"clear"`
+ */
+export const useSimulateIPoolManagerClear =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "clear",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"collectProtocolFees"`
+ */
+export const useSimulateIPoolManagerCollectProtocolFees =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "collectProtocolFees",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"donate"`
+ */
+export const useSimulateIPoolManagerDonate =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "donate",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"initialize"`
+ */
+export const useSimulateIPoolManagerInitialize =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "initialize",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"mint"`
+ */
+export const useSimulateIPoolManagerMint =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "mint",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"modifyLiquidity"`
+ */
+export const useSimulateIPoolManagerModifyLiquidity =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "modifyLiquidity",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"setOperator"`
+ */
+export const useSimulateIPoolManagerSetOperator =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "setOperator",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"setProtocolFee"`
+ */
+export const useSimulateIPoolManagerSetProtocolFee =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "setProtocolFee",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"setProtocolFeeController"`
+ */
+export const useSimulateIPoolManagerSetProtocolFeeController =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "setProtocolFeeController",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"settle"`
+ */
+export const useSimulateIPoolManagerSettle =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "settle",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"settleFor"`
+ */
+export const useSimulateIPoolManagerSettleFor =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "settleFor",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"swap"`
+ */
+export const useSimulateIPoolManagerSwap =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "swap",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"sync"`
+ */
+export const useSimulateIPoolManagerSync =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "sync",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"take"`
+ */
+export const useSimulateIPoolManagerTake =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "take",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"transfer"`
+ */
+export const useSimulateIPoolManagerTransfer =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "transfer",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"transferFrom"`
+ */
+export const useSimulateIPoolManagerTransferFrom =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "transferFrom",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"unlock"`
+ */
+export const useSimulateIPoolManagerUnlock =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "unlock",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iPoolManagerAbi}__ and `functionName` set to `"updateDynamicLPFee"`
+ */
+export const useSimulateIPoolManagerUpdateDynamicLpFee =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iPoolManagerAbi,
+    functionName: "updateDynamicLPFee",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__
+ */
+export const useWatchIPoolManagerEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({ abi: iPoolManagerAbi });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__ and `eventName` set to `"Approval"`
+ */
+export const useWatchIPoolManagerApprovalEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iPoolManagerAbi,
+    eventName: "Approval",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__ and `eventName` set to `"Donate"`
+ */
+export const useWatchIPoolManagerDonateEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iPoolManagerAbi,
+    eventName: "Donate",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__ and `eventName` set to `"Initialize"`
+ */
+export const useWatchIPoolManagerInitializeEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iPoolManagerAbi,
+    eventName: "Initialize",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__ and `eventName` set to `"ModifyLiquidity"`
+ */
+export const useWatchIPoolManagerModifyLiquidityEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iPoolManagerAbi,
+    eventName: "ModifyLiquidity",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__ and `eventName` set to `"OperatorSet"`
+ */
+export const useWatchIPoolManagerOperatorSetEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iPoolManagerAbi,
+    eventName: "OperatorSet",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__ and `eventName` set to `"ProtocolFeeControllerUpdated"`
+ */
+export const useWatchIPoolManagerProtocolFeeControllerUpdatedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iPoolManagerAbi,
+    eventName: "ProtocolFeeControllerUpdated",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__ and `eventName` set to `"ProtocolFeeUpdated"`
+ */
+export const useWatchIPoolManagerProtocolFeeUpdatedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iPoolManagerAbi,
+    eventName: "ProtocolFeeUpdated",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__ and `eventName` set to `"Swap"`
+ */
+export const useWatchIPoolManagerSwapEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iPoolManagerAbi,
+    eventName: "Swap",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iPoolManagerAbi}__ and `eventName` set to `"Transfer"`
+ */
+export const useWatchIPoolManagerTransferEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iPoolManagerAbi,
+    eventName: "Transfer",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link iSafeAbi}__
  */
 export const useReadISafe = /*#__PURE__*/ createUseReadContract({
@@ -7542,6 +8912,14 @@ export const useWriteISafeExecTransaction =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iSafeAbi}__ and `functionName` set to `"swapOwner"`
+ */
+export const useWriteISafeSwapOwner = /*#__PURE__*/ createUseWriteContract({
+  abi: iSafeAbi,
+  functionName: "swapOwner",
+});
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iSafeAbi}__
  */
 export const useSimulateISafe = /*#__PURE__*/ createUseSimulateContract({
@@ -7555,6 +8933,15 @@ export const useSimulateISafeExecTransaction =
   /*#__PURE__*/ createUseSimulateContract({
     abi: iSafeAbi,
     functionName: "execTransaction",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iSafeAbi}__ and `functionName` set to `"swapOwner"`
+ */
+export const useSimulateISafeSwapOwner =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iSafeAbi,
+    functionName: "swapOwner",
   });
 
 /**
@@ -7649,6 +9036,115 @@ export const useReadIScaledUiAmountNewUiMultiplierNewUiMultiplier =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iv4QuoterAbi}__
+ */
+export const useReadIv4Quoter = /*#__PURE__*/ createUseReadContract({
+  abi: iv4QuoterAbi,
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"msgSender"`
+ */
+export const useReadIv4QuoterMsgSender = /*#__PURE__*/ createUseReadContract({
+  abi: iv4QuoterAbi,
+  functionName: "msgSender",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"poolManager"`
+ */
+export const useReadIv4QuoterPoolManager = /*#__PURE__*/ createUseReadContract({
+  abi: iv4QuoterAbi,
+  functionName: "poolManager",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iv4QuoterAbi}__
+ */
+export const useWriteIv4Quoter = /*#__PURE__*/ createUseWriteContract({
+  abi: iv4QuoterAbi,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"quoteExactInput"`
+ */
+export const useWriteIv4QuoterQuoteExactInput =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iv4QuoterAbi,
+    functionName: "quoteExactInput",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"quoteExactInputSingle"`
+ */
+export const useWriteIv4QuoterQuoteExactInputSingle =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iv4QuoterAbi,
+    functionName: "quoteExactInputSingle",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"quoteExactOutput"`
+ */
+export const useWriteIv4QuoterQuoteExactOutput =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iv4QuoterAbi,
+    functionName: "quoteExactOutput",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"quoteExactOutputSingle"`
+ */
+export const useWriteIv4QuoterQuoteExactOutputSingle =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iv4QuoterAbi,
+    functionName: "quoteExactOutputSingle",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iv4QuoterAbi}__
+ */
+export const useSimulateIv4Quoter = /*#__PURE__*/ createUseSimulateContract({
+  abi: iv4QuoterAbi,
+});
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"quoteExactInput"`
+ */
+export const useSimulateIv4QuoterQuoteExactInput =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iv4QuoterAbi,
+    functionName: "quoteExactInput",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"quoteExactInputSingle"`
+ */
+export const useSimulateIv4QuoterQuoteExactInputSingle =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iv4QuoterAbi,
+    functionName: "quoteExactInputSingle",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"quoteExactOutput"`
+ */
+export const useSimulateIv4QuoterQuoteExactOutput =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iv4QuoterAbi,
+    functionName: "quoteExactOutput",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iv4QuoterAbi}__ and `functionName` set to `"quoteExactOutputSingle"`
+ */
+export const useSimulateIv4QuoterQuoteExactOutputSingle =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iv4QuoterAbi,
+    functionName: "quoteExactOutputSingle",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iWrappedEtherAbi}__
  */
 export const useWriteIWrappedEther = /*#__PURE__*/ createUseWriteContract({
@@ -7677,6 +9173,55 @@ export const useSimulateIWrappedEther = /*#__PURE__*/ createUseSimulateContract(
 export const useSimulateIWrappedEtherWithdraw =
   /*#__PURE__*/ createUseSimulateContract({
     abi: iWrappedEtherAbi,
+    functionName: "withdraw",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iWrappedNativeAbi}__
+ */
+export const useWriteIWrappedNative = /*#__PURE__*/ createUseWriteContract({
+  abi: iWrappedNativeAbi,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iWrappedNativeAbi}__ and `functionName` set to `"deposit"`
+ */
+export const useWriteIWrappedNativeDeposit =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iWrappedNativeAbi,
+    functionName: "deposit",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iWrappedNativeAbi}__ and `functionName` set to `"withdraw"`
+ */
+export const useWriteIWrappedNativeWithdraw =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iWrappedNativeAbi,
+    functionName: "withdraw",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iWrappedNativeAbi}__
+ */
+export const useSimulateIWrappedNative =
+  /*#__PURE__*/ createUseSimulateContract({ abi: iWrappedNativeAbi });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iWrappedNativeAbi}__ and `functionName` set to `"deposit"`
+ */
+export const useSimulateIWrappedNativeDeposit =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iWrappedNativeAbi,
+    functionName: "deposit",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iWrappedNativeAbi}__ and `functionName` set to `"withdraw"`
+ */
+export const useSimulateIWrappedNativeWithdraw =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iWrappedNativeAbi,
     functionName: "withdraw",
   });
 
@@ -9731,6 +11276,15 @@ export const useReadProtocolBuybackVaultBuybacksPaused =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"canonicalAsset"`
+ */
+export const useReadProtocolBuybackVaultCanonicalAsset =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "canonicalAsset",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"executor"`
  */
 export const useReadProtocolBuybackVaultExecutor =
@@ -9749,6 +11303,15 @@ export const useReadProtocolBuybackVaultFactory =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"globalMinInterval"`
+ */
+export const useReadProtocolBuybackVaultGlobalMinInterval =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "globalMinInterval",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"inventory"`
  */
 export const useReadProtocolBuybackVaultInventory =
@@ -9758,12 +11321,30 @@ export const useReadProtocolBuybackVaultInventory =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"policy"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"lastAssetBuyAt"`
  */
-export const useReadProtocolBuybackVaultPolicy =
+export const useReadProtocolBuybackVaultLastAssetBuyAt =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "policy",
+    functionName: "lastAssetBuyAt",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"lastBuyAt"`
+ */
+export const useReadProtocolBuybackVaultLastBuyAt =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "lastBuyAt",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"limits"`
+ */
+export const useReadProtocolBuybackVaultLimits =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "limits",
   });
 
 /**
@@ -9854,12 +11435,30 @@ export const useWriteProtocolBuybackVaultSetBuybacksPaused =
   });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setPolicy"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setExecutionLimits"`
  */
-export const useWriteProtocolBuybackVaultSetPolicy =
+export const useWriteProtocolBuybackVaultSetExecutionLimits =
   /*#__PURE__*/ createUseWriteContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "setPolicy",
+    functionName: "setExecutionLimits",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setGlobalMinInterval"`
+ */
+export const useWriteProtocolBuybackVaultSetGlobalMinInterval =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "setGlobalMinInterval",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setLimits"`
+ */
+export const useWriteProtocolBuybackVaultSetLimits =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "setLimits",
   });
 
 /**
@@ -9923,12 +11522,30 @@ export const useSimulateProtocolBuybackVaultSetBuybacksPaused =
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setPolicy"`
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setExecutionLimits"`
  */
-export const useSimulateProtocolBuybackVaultSetPolicy =
+export const useSimulateProtocolBuybackVaultSetExecutionLimits =
   /*#__PURE__*/ createUseSimulateContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "setPolicy",
+    functionName: "setExecutionLimits",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setGlobalMinInterval"`
+ */
+export const useSimulateProtocolBuybackVaultSetGlobalMinInterval =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "setGlobalMinInterval",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setLimits"`
+ */
+export const useSimulateProtocolBuybackVaultSetLimits =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "setLimits",
   });
 
 /**
@@ -10019,12 +11636,21 @@ export const useWatchProtocolBuybackVaultEarnedFeesReceivedEvent =
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"PolicyConfigured"`
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"GlobalIntervalConfigured"`
  */
-export const useWatchProtocolBuybackVaultPolicyConfiguredEvent =
+export const useWatchProtocolBuybackVaultGlobalIntervalConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBuybackVaultAbi,
-    eventName: "PolicyConfigured",
+    eventName: "GlobalIntervalConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"LimitsConfigured"`
+ */
+export const useWatchProtocolBuybackVaultLimitsConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBuybackVaultAbi,
+    eventName: "LimitsConfigured",
   });
 
 /**

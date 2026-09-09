@@ -9,6 +9,7 @@ interface ISafe {
     function VERSION() external view returns (string memory);
     function getOwners() external view returns (address[] memory);
     function getThreshold() external view returns (uint256);
+    function swapOwner(address prevOwner, address oldOwner, address newOwner) external;
     function getModulesPaginated(address start, uint256 pageSize)
         external
         view

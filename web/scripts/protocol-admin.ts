@@ -8,7 +8,6 @@ import {
   encodeFunctionData,
   decodeFunctionData,
   keccak256,
-  toHex,
   zeroAddress,
   erc20Abi,
   BaseError,
@@ -130,29 +129,31 @@ export function validateAdminRpc(network: string, rpcUrl: string) {
 }
 
 export function parseBuybackInput(action: string, value: unknown) {
-  if (!["route", "policy", "pause", "asset-pause"].includes(action))
+  if (!["route", "limits", "interval", "pause", "asset-pause"].includes(action))
     throw new Error("Unknown buyback action");
   const input = record(
     value,
     action === "route"
       ? ["asset", "expectedRevisionRaw", "expectedSafeNonceRaw", "pools"]
-      : action === "policy"
-        ? [
-            "asset",
-            "expectedRevisionRaw",
-            "expectedSafeNonceRaw",
-            "policy",
-            "evidence",
-          ]
-        : action === "pause"
-          ? ["expectedSafeNonceRaw", "paused"]
-          : ["asset", "expectedSafeNonceRaw", "paused"],
+      : action === "limits"
+        ? ["asset", "expectedRevisionRaw", "expectedSafeNonceRaw", "limits"]
+        : action === "interval"
+          ? ["expectedSafeNonceRaw", "minInterval"]
+          : action === "pause"
+            ? ["expectedSafeNonceRaw", "paused"]
+            : ["asset", "expectedSafeNonceRaw", "paused"],
   );
   const safeNonce = raw(input.expectedSafeNonceRaw, "Safe nonce", 256);
   if (action === "pause")
     return {
       method: "setBuybacksPaused" as const,
       args: [flag(input.paused)] as const,
+      safeNonce,
+    };
+  if (action === "interval")
+    return {
+      method: "setGlobalMinInterval" as const,
+      args: [raw(input.minInterval, "minimum interval", 64)] as const,
       safeNonce,
     };
   const asset = address(input.asset);
@@ -198,70 +199,26 @@ export function parseBuybackInput(action: string, value: unknown) {
       revision,
     };
   }
-  const policy = record(input.policy, [
-    "validAfterRaw",
-    "validUntilRaw",
-    "batchCapRaw",
-    "totalBudgetRaw",
-    "rates",
+  const inputLimits = record(input.limits, [
+    "minInput",
+    "maxInput",
+    "minInterval",
   ]);
-  const validAfter = raw(policy.validAfterRaw, "validAfter", 64),
-    validUntil = raw(policy.validUntilRaw, "validUntil", 64);
-  const batchCap = raw(policy.batchCapRaw, "batch cap", 128, true),
-    totalBudget = raw(policy.totalBudgetRaw, "total budget", 128, true);
-  if (
-    validUntil <= validAfter ||
-    validUntil - validAfter > 86400n ||
-    batchCap > totalBudget
-  )
-    throw new Error("Invalid policy lifetime or batch exposure");
-  if (
-    !Array.isArray(policy.rates) ||
-    policy.rates.length < 1 ||
-    policy.rates.length > 3
-  )
-    throw new Error("One rate is required for every swap leg");
-  const rates = policy.rates.map((value) => {
-    const rate = record(value, [
-      "numeratorRaw",
-      "denominatorRaw",
-      "toleranceBps",
-    ]);
-    return {
-      numerator: raw(rate.numeratorRaw, "rate numerator", 128, true),
-      denominator: raw(rate.denominatorRaw, "rate denominator", 128, true),
-      toleranceBps: integer(rate.toleranceBps, "tolerance", 0, 100),
-    };
-  });
-  const evidence = record(input.evidence, ["reference", "rationale"]);
-  if (
-    typeof evidence.reference !== "string" ||
-    !evidence.reference.trim() ||
-    typeof evidence.rationale !== "string" ||
-    !evidence.rationale.trim()
-  )
-    throw new Error(
-      "An inspectable reference and independent price rationale are required",
-    );
-  const referenceEvidence = {
-    reference: evidence.reference,
-    rationale: evidence.rationale,
-  };
-  const terms = {
-    validAfter,
-    validUntil,
-    batchCap,
-    totalBudget,
-    rates,
-    evidenceHash: keccak256(toHex(json(referenceEvidence))),
+  const minInput = raw(inputLimits.minInput, "minimum input", 128, true);
+  const maxInput = raw(inputLimits.maxInput, "maximum input", 128, true);
+  if (maxInput < minInput)
+    throw new Error("Maximum batch must cover minimum batch");
+  const limits = {
+    minInput,
+    maxInput,
+    minInterval: raw(inputLimits.minInterval, "minimum interval", 64),
   };
   return {
-    method: "setPolicy" as const,
-    args: [asset, terms] as const,
+    method: "setLimits" as const,
+    args: [asset, limits] as const,
     safeNonce,
     asset,
     revision,
-    referenceEvidence,
   };
 }
 
@@ -563,7 +520,6 @@ export async function prepareBuybackPayload(
     previousRevision: parsed.revision?.toString() ?? null,
     expectedRevision:
       parsed.revision !== undefined ? (parsed.revision + 1n).toString() : null,
-    referenceEvidence: parsed.referenceEvidence ?? null,
     postconditions: {
       method: parsed.method,
       arguments: parsed.args,
@@ -810,7 +766,7 @@ async function main() {
       client.readContract({
         address: context.vault,
         abi: protocolBuybackVaultAbi,
-        functionName: "policy",
+        functionName: "limits",
         args: [asset],
         blockNumber: context.blockNumber,
       }),
@@ -840,7 +796,7 @@ async function main() {
         context,
         asset,
         route: reads[0],
-        policy: reads[1],
+        limits: reads[1],
         revision: reads[2],
         globalPaused: reads[3],
         assetPaused: reads[4],
@@ -850,7 +806,7 @@ async function main() {
   }
   if (args.length !== 5 || args[1] !== "--input" || args[3] !== "--output")
     throw new Error(
-      "prepare <route|policy|pause|asset-pause> --input <json-file> --output <payload-file>",
+      "prepare <route|limits|interval|pause|asset-pause> --input <json-file> --output <payload-file>",
     );
   const input = JSON.parse(await readFile(args[2], "utf8"));
   const payload = await prepareBuybackPayload(client, context, args[0], input);

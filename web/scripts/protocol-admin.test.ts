@@ -30,22 +30,14 @@ const context: AdminContext = {
   vaultCodeHash: `0x${"2".repeat(64)}`,
   version: "protocol-buyback-burn-v1",
 };
-const policyInput = () => ({
+const limitsInput = () => ({
   asset: zeroAddress,
   expectedRevisionRaw: "2",
   expectedSafeNonceRaw: "7",
-  policy: {
-    validAfterRaw: "1000",
-    validUntilRaw: "1900",
-    batchCapRaw: "1000000000000000",
-    totalBudgetRaw: "10000000000000000",
-    rates: [
-      { numeratorRaw: "500000000", denominatorRaw: "1", toleranceBps: 100 },
-    ],
-  },
-  evidence: {
-    reference: "retained/independent-reference.json",
-    rationale: "Independent curve inputs and conservative net-output limit.",
+  limits: {
+    minInput: "1000",
+    maxInput: "10000000000000000",
+    minInterval: "3600",
   },
 });
 
@@ -114,8 +106,8 @@ describe("buyback administration payloads", () => {
     const payload = await prepareBuybackPayload(
       client as unknown as PublicClient,
       context,
-      "policy",
-      policyInput(),
+      "limits",
+      limitsInput(),
     );
     expect(payload).toMatchObject({
       chainId: 31337,
@@ -131,8 +123,7 @@ describe("buyback administration payloads", () => {
       abi: protocolBuybackVaultAbi,
       data: payload.data,
     });
-    expect(decoded.functionName).toBe("setPolicy");
-    expect(payload.referenceEvidence).toEqual(policyInput().evidence);
+    expect(decoded.functionName).toBe("setLimits");
     expect(client.simulateContract).toHaveBeenCalledOnce();
     expect(payload).not.toHaveProperty("privateKey");
   });
@@ -145,17 +136,17 @@ describe("buyback administration payloads", () => {
       prepareBuybackPayload(
         client as unknown as PublicClient,
         context,
-        "policy",
-        policyInput(),
+        "limits",
+        limitsInput(),
       ),
     ).rejects.toThrow("revision");
-    const input = policyInput();
+    const input = limitsInput();
     input.expectedSafeNonceRaw = "6";
     await expect(
       prepareBuybackPayload(
         client as unknown as PublicClient,
         context,
-        "policy",
+        "limits",
         input,
       ),
     ).rejects.toThrow("nonce");
@@ -168,26 +159,32 @@ describe("buyback administration payloads", () => {
     "1e18",
     "01",
     "340282366920938463463374607431768211456",
-  ])("rejects invalid or oversized raw budget %s", (raw) => {
-    const input = policyInput();
-    input.policy.totalBudgetRaw = raw;
-    expect(() => parseBuybackInput("policy", input)).toThrow();
+  ])("rejects invalid or oversized raw maximum %s", (raw) => {
+    const input = limitsInput();
+    input.limits.maxInput = raw;
+    expect(() => parseBuybackInput("limits", input)).toThrow();
   });
-  it("rejects excessive tolerance, lifetime, batch exposure and incomplete rates", () => {
-    for (let i = 0; i < 4; i++) {
-      const input = policyInput();
-      if (i === 0) input.policy.rates[0].toleranceBps = 101;
-      if (i === 1) input.policy.validUntilRaw = "87401";
-      if (i === 2) input.policy.batchCapRaw = "10000000000000001";
-      if (i === 3) input.policy.rates = [];
-      expect(() => parseBuybackInput("policy", input)).toThrow();
-    }
+  it("rejects inverted batch bounds and out-of-range intervals", () => {
+    const input = limitsInput();
+    input.limits.minInput = "10000000000000001";
+    expect(() => parseBuybackInput("limits", input)).toThrow("Maximum");
+    input.limits.minInput = "1";
+    input.limits.minInterval = (2n ** 64n).toString();
+    expect(() => parseBuybackInput("limits", input)).toThrow();
+  });
+  it("supports a standing global interval without an expiry", () => {
+    expect(
+      parseBuybackInput("interval", {
+        expectedSafeNonceRaw: "7",
+        minInterval: "3600",
+      }),
+    ).toMatchObject({ method: "setGlobalMinInterval", args: [3600n] });
   });
   it("rejects arbitrary call targets, recipients and hidden input fields", () => {
     expect(() =>
-      parseBuybackInput("policy", { ...policyInput(), recipient: asset }),
+      parseBuybackInput("limits", { ...limitsInput(), recipient: asset }),
     ).toThrow("field");
-    expect(() => parseBuybackInput("withdraw", policyInput())).toThrow(
+    expect(() => parseBuybackInput("withdraw", limitsInput())).toThrow(
       "action",
     );
     expect(() =>

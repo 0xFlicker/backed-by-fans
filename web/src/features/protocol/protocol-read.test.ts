@@ -51,7 +51,8 @@ describe("public buyback ledgers and bounded history", () => {
             {
               inventory,
               route: { pools: [] },
-              policy: { terms: {}, spent: 60n },
+              limits: { minInput: 1n, maxInput: 40n, minInterval: 60n },
+              lastAssetBuyAt: 0n,
               revision: 2n,
               assetBuybacksPaused: false,
               name: "Scaled Stock Token",

@@ -138,6 +138,46 @@ async function expectOriginalRenderer() {
 }
 
 describe("creator setup component", () => {
+  it("explains a zero ETH publication balance and refreshes after funding", async () => {
+    walletAddress = getAddress("0x1111111111111111111111111111111111111111");
+    activeClient.getBalance.mockResolvedValue(0n);
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: /^review$/i }));
+    expect(
+      await screen.findByText(/Add ETH on .* before publishing/),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /publish this membership/i }),
+    ).toBeDisabled();
+    activeClient.getBalance.mockResolvedValue(1n);
+    await user.click(
+      screen.getByRole("button", { name: "Refresh ETH balance" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/Add ETH on .* before publishing/),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("distinguishes an unavailable ETH read from an empty wallet", async () => {
+    walletAddress = getAddress("0x1111111111111111111111111111111111111111");
+    activeClient.getBalance.mockRejectedValue(new Error("RPC unavailable"));
+    renderWizard();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: /^review$/i }));
+    expect(
+      await screen.findByText(
+        "Could not check your ETH balance. Retry before publishing.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/Add ETH on .* before publishing/),
+    ).not.toBeInTheDocument();
+  });
+
   beforeEach(() => {
     walletAddress = undefined;
     walletChainId = 46_630;

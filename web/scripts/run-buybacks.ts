@@ -1,5 +1,5 @@
+import { percentageBps } from "../src/lib/buyback-settings/calculator";
 import { parseArgs } from "node:util";
-import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import {
@@ -27,6 +27,7 @@ import {
 } from "../src/contracts";
 import { readAdminContext, validateAdminRpc } from "./protocol-admin";
 import sourceManifest from "../../contracts/external/verification/4663/sources.json" with { type: "json" };
+import { readMarketState, quoteMarket } from "../src/lib/buyback-policy/live";
 import { receiptBuyback } from "../src/features/protocol/buyback-reconciliation";
 
 const PAGE = 100n;
@@ -35,10 +36,9 @@ const statuses = [
   "NoInventory",
   "Paused",
   "NoRoute",
-  "NoPolicy",
-  "NotYetValid",
-  "Expired",
-  "BudgetExhausted",
+  "NoLimits",
+  "BelowMinimum",
+  "Cooldown",
   "LaunchPenalty",
   "GraduationPending",
 ];
@@ -58,6 +58,7 @@ type Options = {
   ponsFactory: Address;
   curve: Address;
   assets?: readonly Address[];
+  maxGasPercent?: number;
   log: (event: Record<string, unknown>) => void;
 };
 type TierCursor = { tier: Address; count: bigint; next: bigint; done: boolean };
@@ -152,7 +153,12 @@ export function createBuybackRunner(options: Options) {
       functionName: "tierCount",
       blockNumber,
     });
+    if (count > 1000n)
+      throw new Error(
+        "One execution sweep is limited to 1,000 tiers; use bounded indexing for a larger deployment",
+      );
     const tiers: TierCursor[] = [];
+    let memberships = 0n;
     for (let offset = 0n; offset < count; offset += PAGE) {
       const limit = count - offset < PAGE ? count - offset : PAGE;
       const page = await client.readContract({
@@ -174,6 +180,11 @@ export function createBuybackRunner(options: Options) {
           }),
         ),
       );
+      memberships += bounds.reduce((sum, value) => sum + value, 0n);
+      if (memberships > 5000n)
+        throw new Error(
+          "One execution sweep is limited to 5,000 memberships; no writes were made",
+        );
       page.forEach((tier, i) =>
         tiers.push({ tier, count: bounds[i], next: 1n, done: false }),
       );
@@ -257,7 +268,14 @@ export function createBuybackRunner(options: Options) {
     await progressGraduation();
     const block = await client.getBlock();
     const assetMap = new Map<string, Address>();
-    const add = (asset: Address) => assetMap.set(asset.toLowerCase(), asset);
+    const add = (asset: Address) => {
+      const canonical =
+        asset.toLowerCase() ===
+        sourceManifest.records.weth.address.toLowerCase()
+          ? zeroAddress
+          : asset;
+      assetMap.set(canonical.toLowerCase(), canonical);
+    };
     [zeroAddress, protocolToken, ...(options.assets ?? [])].forEach(add);
     const count = await client.readContract({
       address: factory,
@@ -337,6 +355,53 @@ export function createBuybackRunner(options: Options) {
           continue;
         }
         const deadline = (await client.getBlock()).timestamp + 120n;
+        if (
+          options.maxGasPercent !== undefined &&
+          asset.toLowerCase() !== protocolToken.toLowerCase()
+        ) {
+          try {
+            const block = await client.getBlock();
+            const gasPrice =
+              options.chainId === 31337
+                ? 2_000_000_000n
+                : await client.getGasPrice();
+            const market = await readMarketState(client, {
+              vault,
+              asset,
+              protocolToken,
+              blockNumber: block.number,
+            });
+            const quotes = await quoteMarket(client, market, state.maxInput);
+            const ethValue = quotes.at(-1)!.inputRaw;
+            const gas = await client.estimateContractGas({
+              address: vault,
+              abi: protocolBuybackVaultAbi,
+              functionName: "process",
+              args: [asset, bucket, state.maxInput, state.revision, deadline],
+              account,
+            });
+            if (
+              gas * gasPrice * 10000n >
+              ethValue * percentageBps(options.maxGasPercent)
+            ) {
+              log({
+                action: "process",
+                ...detail,
+                outcome: "gas-deferred",
+                reason: `Gas exceeds ${options.maxGasPercent}% of purchase value`,
+              });
+              continue;
+            }
+          } catch (error) {
+            log({
+              action: "process",
+              ...detail,
+              outcome: "estimate-unavailable",
+              reason: errorMessage(error),
+            });
+            continue;
+          }
+        }
         const receipt = await act(
           vault,
           protocolBuybackVaultAbi,
@@ -470,8 +535,8 @@ export function createBuybackRunner(options: Options) {
           }),
         });
     }
-    await processAvailable();
     const complete = sweep.tiers.every((tier) => tier.done);
+    if (complete) await processAvailable();
     log({
       action: "tier-visit",
       tier: current.tier,
@@ -510,15 +575,19 @@ export async function main() {
       "rpc-url": { type: "string" },
       factory: { type: "string" },
       once: { type: "boolean" },
-      "interval-seconds": { type: "string", default: "30" },
+      "max-gas-percent": { type: "string", default: "2.5" },
       asset: { type: "string", multiple: true },
     },
   });
   const rpcUrl = values["rpc-url"] ?? "";
   const factory = getAddress(values.factory ?? "");
-  const interval = Number(values["interval-seconds"]);
-  if (!Number.isSafeInteger(interval) || interval < 1)
-    throw new Error("Invalid scheduled interval");
+  const maxGasPercent = Number(values["max-gas-percent"]);
+  if (
+    !Number.isFinite(maxGasPercent) ||
+    maxGasPercent <= 0 ||
+    maxGasPercent > 100
+  )
+    throw new Error("Gas threshold must be between 0 and 100 percent");
   const chainId = await createPublicClient({
     transport: http(rpcUrl, { retryCount: 0 }),
   }).getChainId();
@@ -565,6 +634,7 @@ export async function main() {
     protocolToken: context.protocolToken,
     ponsFactory,
     curve: launch.curve,
+    maxGasPercent,
     assets: values.asset?.map((value) => getAddress(value)),
     log: (event) =>
       console.log(
@@ -573,32 +643,7 @@ export async function main() {
         ),
       ),
   });
-  if (values.once) {
-    await runner.once();
-    return;
-  }
-  let stopping = false;
-  const abort = new AbortController();
-  const stop = () => {
-    stopping = true;
-    abort.abort();
-  };
-  process.once("SIGTERM", stop);
-  process.once("SIGINT", stop);
-  try {
-    while (!stopping) {
-      await runner.visit();
-      if (!stopping)
-        await delay(interval * 1000, undefined, { signal: abort.signal }).catch(
-          (error) => {
-            if (!abort.signal.aborted) throw error;
-          },
-        );
-    }
-  } finally {
-    process.removeListener("SIGTERM", stop);
-    process.removeListener("SIGINT", stop);
-  }
+  await runner.once();
 }
 
 if (

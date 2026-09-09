@@ -122,28 +122,7 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       args: [zeroAddress],
     });
     const now = (await f.client.getBlock()).timestamp;
-    await f.safe("policy", {
-      asset: zeroAddress,
-      expectedRevisionRaw: String(revision),
-      policy: {
-        validAfterRaw: String(now),
-        validUntilRaw: String(now + 900n),
-        batchCapRaw: String(offered),
-        totalBudgetRaw: String(offered * 10n),
-        rates: [
-          {
-            numeratorRaw: String(expected),
-            denominatorRaw: String(offered),
-            toleranceBps: 100,
-          },
-        ],
-      },
-      evidence: {
-        reference: "closing-reference in retained graduation scenario",
-        rationale:
-          "Test Safe authorizes reserve-derived net output with the larger of curve and pool ordinary costs, one-percent tolerance, finite fifteen-minute budget.",
-      },
-    });
+    await f.configureLimits(zeroAddress, offered);
     f.receipts.push({
       kind: "closing-reference",
       quoteReserve: await curve("quoteReserve"),
@@ -223,7 +202,7 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
           args: [zeroAddress, 1],
         })
       ).status,
-    ).toBe(9);
+    ).toBe(8);
     await f.write(
       trader,
       b.ponsFactory,
@@ -295,28 +274,7 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       args: [weth],
     });
     const poolNow = (await f.client.getBlock()).timestamp;
-    await f.safe("policy", {
-      asset: weth,
-      expectedRevisionRaw: String(wethRevision),
-      policy: {
-        validAfterRaw: String(poolNow),
-        validUntilRaw: String(poolNow + 900n),
-        batchCapRaw: String(offered),
-        totalBudgetRaw: String(offered * 10n),
-        rates: [
-          {
-            numeratorRaw: String(expected),
-            denominatorRaw: String(offered),
-            toleranceBps: 100,
-          },
-        ],
-      },
-      evidence: {
-        reference: "closing-reference in this scenario",
-        rationale:
-          "Same conservative reserve reference survives graduation; WETH is unwrapped one-for-one and only earned released membership inventory is authorized.",
-      },
-    });
+    await f.configureLimits(weth, offered);
     await f.write(trader, b.buybackVault, protocolBuybackVaultAbi, "process", [
       weth,
       0,

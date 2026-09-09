@@ -14,6 +14,14 @@ function client(balance: bigint) {
 }
 
 describe("gas readiness", () => {
+  it("reserves both the wrapped ETH amount and the network fee", async () => {
+    await expect(
+      assertSufficientGas(client(1239n), account, { value: 1000n }),
+    ).rejects.toThrow("including its ETH amount and network fee");
+    await expect(
+      assertSufficientGas(client(1240n), account, { value: 1000n }),
+    ).resolves.toBe(240n);
+  });
   it("requires a twenty-percent safety margin before returning a write", async () => {
     await expect(
       assertSufficientGas(client(239n), account, {}),

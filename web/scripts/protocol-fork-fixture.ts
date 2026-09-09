@@ -394,7 +394,7 @@ async function main() {
       notes: [
         "Only ETH balances were assigned. Payment tokens were acquired through real existing pools.",
         "Acquisition quotes are not protocol price authority.",
-        "The earlier native vesting checkpoint intentionally leaves the finite buyback policies expired.",
+      "Standing buyback settings remain active. Manual serve mode does not advance through the five-year vesting checkpoint.",
       ],
     }),
   );

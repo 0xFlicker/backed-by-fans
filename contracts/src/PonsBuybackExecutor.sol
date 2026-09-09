@@ -5,7 +5,6 @@ import {IPonsBuybackExecutor} from "./interfaces/IPonsBuybackExecutor.sol";
 import {GraduationPhase} from "./interfaces/external/ILaunchpadV2.sol";
 import {IPonsBondingCurve, IPonsLaunchFactory} from "./interfaces/external/IPons.sol";
 import {BuybackIntegration as Integration} from "./libraries/BuybackIntegration.sol";
-import {BuybackPolicyMath} from "./libraries/BuybackPolicyMath.sol";
 import {ProtocolLaunchValidation} from "./libraries/ProtocolLaunchValidation.sol";
 import {BuybackTypes} from "./types/BuybackTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -49,7 +48,6 @@ contract PonsBuybackExecutor is ReentrancyGuard, IPonsBuybackExecutor {
     error InvalidExecution();
     error GraduationPending();
     error LaunchPenalty();
-    error PriceBelowFloor(uint256 received, uint256 required);
     error InexactSettlement();
 
     constructor(address vault_, address token_) {
@@ -101,13 +99,11 @@ contract PonsBuybackExecutor is ReentrancyGuard, IPonsBuybackExecutor {
         address asset,
         uint256 amount,
         BuybackTypes.TypedRoute calldata route,
-        BuybackTypes.Rate[] calldata rates,
         uint64 deadline
     ) external payable override nonReentrant returns (BuybackTypes.Execution memory result) {
         if (msg.sender != vault) revert OnlyVault();
         if (
             amount == 0 || asset == protocolToken || route.pools.length > 2
-                || rates.length != route.pools.length + 1
                 || msg.value != (asset == address(0) ? amount : 0)
         ) revert InvalidExecution();
         _validateDependencies();
@@ -138,8 +134,7 @@ contract PonsBuybackExecutor is ReentrancyGuard, IPonsBuybackExecutor {
         address current = asset;
         uint256 available = amount;
         for (uint256 i; i < route.pools.length; ++i) {
-            BuybackTypes.Leg memory leg =
-                _swap(current, available, route.pools[i], rates[i], deadline);
+            BuybackTypes.Leg memory leg = _swap(current, available, route.pools[i], deadline);
             result.legs[legCount++] = leg;
             current = leg.output;
             available = leg.received;
@@ -157,8 +152,8 @@ contract PonsBuybackExecutor is ReentrancyGuard, IPonsBuybackExecutor {
         }
         if (current != address(0)) revert InvalidExecution();
         BuybackTypes.Leg memory purchase = result.lifecycle == BuybackTypes.Lifecycle.Bonding
-            ? _buyCurve(available, rates[rates.length - 1])
-            : _buyPool(available, rates[rates.length - 1], deadline);
+            ? _buyCurve(available)
+            : _buyPool(available, deadline);
         result.legs[legCount++] = purchase;
         result.acquired = purchase.received;
         // Trim the allocation; no unused zero-valued leg is part of the accounting.
@@ -176,14 +171,10 @@ contract PonsBuybackExecutor is ReentrancyGuard, IPonsBuybackExecutor {
     // Only execute() reaches this helper under nonReentrant. The immutable curve
     // is validated from Pons at construction; no caller can replace the recipient.
     // slither-disable-next-line arbitrary-send-eth,reentrancy-balance
-    function _buyCurve(uint256 amount, BuybackTypes.Rate memory rate)
-        private
-        returns (BuybackTypes.Leg memory leg)
-    {
+    function _buyCurve(uint256 amount) private returns (BuybackTypes.Leg memory leg) {
         uint256 ethBefore = address(this).balance;
         uint256 tokenBefore = IERC20(protocolToken).balanceOf(address(this));
-        // The curve's minimum is proportional on partial fills. The exact Safe
-        // floor is checked below against measured spend, with one upward rounding.
+        // Require a nonzero purchase; measured deltas below prove exact settlement.
         uint256 reported = IPonsBondingCurve(curve).buy{value: amount}(amount, 1, address(this));
         leg = BuybackTypes.Leg(
             address(0),
@@ -192,13 +183,10 @@ contract PonsBuybackExecutor is ReentrancyGuard, IPonsBuybackExecutor {
             IERC20(protocolToken).balanceOf(address(this)) - tokenBefore
         );
         if (leg.received != reported) revert InexactSettlement();
-        _checkFloor(leg, rate);
+        _checkSettlement(leg);
     }
 
-    function _buyPool(uint256 amount, BuybackTypes.Rate memory rate, uint64 deadline)
-        private
-        returns (BuybackTypes.Leg memory)
-    {
+    function _buyPool(uint256 amount, uint64 deadline) private returns (BuybackTypes.Leg memory) {
         IPonsLaunchFactory.LaunchedToken memory launch =
             IPonsLaunchFactory(Integration.PONS_FACTORY).getLaunchedToken(protocolToken);
         PoolKey memory key = PoolKey(
@@ -211,19 +199,16 @@ contract PonsBuybackExecutor is ReentrancyGuard, IPonsBuybackExecutor {
         (uint160 price,,,) =
             StateLibrary.getSlot0(IPoolManager(Integration.POOL_MANAGER), PoolIdLibrary.toId(key));
         if (price == 0) revert GraduationPending();
-        return _swap(address(0), amount, key, rate, deadline);
+        return _swap(address(0), amount, key, deadline);
     }
 
     // Only execute() reaches this helper under nonReentrant. Snapshots measure
     // actual deltas and preserve pre-existing router/executor balances.
     // slither-disable-next-line reentrancy-balance
-    function _swap(
-        address input,
-        uint256 amount,
-        PoolKey memory key,
-        BuybackTypes.Rate memory rate,
-        uint64 deadline
-    ) private returns (BuybackTypes.Leg memory leg) {
+    function _swap(address input, uint256 amount, PoolKey memory key, uint64 deadline)
+        private
+        returns (BuybackTypes.Leg memory leg)
+    {
         bool zeroForOne = input == Currency.unwrap(key.currency0);
         if (!zeroForOne && input != Currency.unwrap(key.currency1)) revert InvalidExecution();
         address output = Currency.unwrap(zeroForOne ? key.currency1 : key.currency0);
@@ -279,7 +264,7 @@ contract PonsBuybackExecutor is ReentrancyGuard, IPonsBuybackExecutor {
             input, output, beforeSwap.input - _balance(input), _balance(output) - beforeSwap.output
         );
         if (leg.spent > amount) revert InexactSettlement();
-        _checkFloor(leg, rate);
+        _checkSettlement(leg);
     }
 
     function _routerSwap(
@@ -312,10 +297,8 @@ contract PonsBuybackExecutor is ReentrancyGuard, IPonsBuybackExecutor {
         );
     }
 
-    function _checkFloor(BuybackTypes.Leg memory leg, BuybackTypes.Rate memory rate) private pure {
+    function _checkSettlement(BuybackTypes.Leg memory leg) private pure {
         if (leg.spent == 0 || leg.received == 0) revert InexactSettlement();
-        uint256 required = BuybackPolicyMath.minimum(leg.spent, rate);
-        if (leg.received < required) revert PriceBelowFloor(leg.received, required);
     }
 
     function _track(

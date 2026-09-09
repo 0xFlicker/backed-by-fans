@@ -4,6 +4,7 @@ import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { configuredOrigin, originPin } from "./origin";
 import { compareRuntime, type ImmutableReferences } from "./verify-runtime";
 import type { Abi, Address, Hex } from "../../web/node_modules/viem";
 
@@ -121,12 +122,7 @@ async function artifactAbi(path: string): Promise<Abi> {
 export function validatePreflightEnvironment(
   env: Record<string, string | undefined>,
 ) {
-  if (!/^[1-9][0-9]*$/.test(env.BBF_FORK_BLOCK_NUMBER ?? ""))
-    throw new Error(
-      "BBF_FORK_BLOCK_NUMBER must be an explicit positive number",
-    );
-  if (!/^0x[0-9a-fA-F]{64}$/.test(env.BBF_FORK_BLOCK_HASH ?? ""))
-    throw new Error("BBF_FORK_BLOCK_HASH must pin the origin block");
+  const origin = configuredOrigin(env);
   if (!env.BBF_FORK_RPC_URL)
     throw new Error("BBF_FORK_RPC_URL is required privately");
   const rpc = new URL(env.BBF_FORK_RPC_URL);
@@ -158,10 +154,7 @@ export function validatePreflightEnvironment(
       "Execution RPC must be an uncredentialed loopback HTTP endpoint",
     );
   return {
-    origin: {
-      blockNumber: BigInt(env.BBF_FORK_BLOCK_NUMBER!),
-      blockHash: env.BBF_FORK_BLOCK_HASH as Hex,
-    },
+    origin,
     originRpc: rpc.href,
     executionRpc,
     evidenceDir: resolve(evidenceDir),
@@ -640,9 +633,12 @@ async function main() {
   const client = createPublicClient({
     transport: http(config.originRpc, { retryCount: 0, timeout: 15000 }),
   });
-  const inputs: Inputs = process.env.BBF_FORK_INPUTS
-    ? JSON.parse(await readFile(process.env.BBF_FORK_INPUTS, "utf8"))
-    : {};
+  const inputs: Inputs = JSON.parse(
+    await readFile(
+      process.env.BBF_FORK_INPUTS ?? resolve(repoRoot, originPin.inputsPath),
+      "utf8",
+    ),
+  );
   const report = await runPreflight(client, config.origin, inputs);
   const source = await captureSourceSnapshot();
   await writeFile(

@@ -90,7 +90,8 @@ export async function executeForkSafePayload(input: {
         ? ["setPaymentTokenEnabled"]
         : [
             "setRoute",
-            "setPolicy",
+            "setLimits",
+            "setGlobalMinInterval",
             "setBuybacksPaused",
             "setAssetBuybacksPaused",
           ]
@@ -99,7 +100,7 @@ export async function executeForkSafePayload(input: {
     throw new Error("Unsupported configuration call");
   if (
     decoded.functionName === "setRoute" ||
-    decoded.functionName === "setPolicy"
+    decoded.functionName === "setLimits"
   ) {
     const revision = await client.readContract({
       address: context.vault,
@@ -126,13 +127,14 @@ export async function executeForkSafePayload(input: {
     functionName: "getOwners",
     blockNumber: context.blockNumber,
   });
-  if (threshold !== 2n || owners.length !== 3 || input.signerKeys.length !== 2)
-    throw new Error("Expected a disposable 2-of-3 test Safe");
+  if (threshold < 1n || BigInt(input.signerKeys.length) !== threshold)
+    throw new Error("Signer count must satisfy the Safe threshold");
   const signers = input.signerKeys
     .map((key) => privateKeyToAccount(key))
     .sort((a, b) => (BigInt(a.address) < BigInt(b.address) ? -1 : 1));
   if (
-    signers[0].address === signers[1].address ||
+    new Set(signers.map((s) => s.address.toLowerCase())).size !==
+      signers.length ||
     signers.some(
       (account) =>
         !owners.some(
@@ -213,7 +215,7 @@ export async function executeForkSafePayload(input: {
     throw new Error("Unexpected Safe nonce after execution");
   if (
     decoded.functionName === "setRoute" ||
-    decoded.functionName === "setPolicy"
+    decoded.functionName === "setLimits"
   ) {
     const revision = await client.readContract({
       address: context.vault,
@@ -254,23 +256,32 @@ export async function executeForkSafePayload(input: {
       }) !== payload.data
     )
       throw new Error("Route postcondition failed");
-  } else if (decoded.functionName === "setPolicy") {
+  } else if (decoded.functionName === "setLimits") {
     const [asset] = decoded.args;
-    const policy = await client.readContract({
+    const limits = await client.readContract({
       address: context.vault,
       abi: protocolBuybackVaultAbi,
-      functionName: "policy",
+      functionName: "limits",
       args: [asset],
       blockNumber,
     });
     if (
       encodeFunctionData({
         abi: protocolBuybackVaultAbi,
-        functionName: "setPolicy",
-        args: [asset, policy.terms],
+        functionName: "setLimits",
+        args: [asset, limits],
       }) !== payload.data
     )
-      throw new Error("Policy postcondition failed");
+      throw new Error("Limits postcondition failed");
+  } else if (decoded.functionName === "setGlobalMinInterval") {
+    const interval = await client.readContract({
+      address: context.vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "globalMinInterval",
+      blockNumber,
+    });
+    if (interval !== decoded.args[0])
+      throw new Error("Global interval postcondition failed");
   } else if (decoded.functionName === "setBuybacksPaused") {
     if (
       (await client.readContract({

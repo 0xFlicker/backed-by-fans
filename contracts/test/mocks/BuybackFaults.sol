@@ -89,3 +89,18 @@ contract FaultBondingCurve {
         }
     }
 }
+
+/// @dev Test-only WETH implementation behind the recorded proxy runtime.
+contract SyntheticWrappedEther is ERC20 {
+    constructor() ERC20("Synthetic WETH", "WETH") {}
+
+    function deposit() external payable {
+        _mint(msg.sender, msg.value);
+    }
+
+    function withdraw(uint256 amount) external {
+        _burn(msg.sender, amount);
+        (bool ok,) = msg.sender.call{value: amount}("");
+        require(ok);
+    }
+}

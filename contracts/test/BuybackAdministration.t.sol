@@ -40,7 +40,11 @@ contract BuybackAdministrationTest is Test {
         vm.expectRevert();
         vault.setRoute(address(0), _ethRoute());
         vm.expectRevert();
-        vault.setPolicy(address(0), _policy());
+        vault.setLimits(address(0), _limits());
+        vm.expectRevert();
+        vault.setGlobalMinInterval(60);
+        vm.expectRevert();
+        vault.setExecutionLimits(60, new address[](0), new BuybackTypes.ExecutionLimits[](0));
         token.mint(address(this), 1e18);
         vm.expectRevert();
         vault.setBuybacksPaused(false);
@@ -49,74 +53,58 @@ contract BuybackAdministrationTest is Test {
         assertFalse(vault.buybacksPaused());
     }
 
-    function test_routeReplacementInvalidatesPolicyAndEveryEconomicChangeAdvancesRevision() public {
+    function test_routeAndLimitsChangesAdvanceRevisionWithoutClearingStandingLimits() public {
         vm.startPrank(admin);
         vault.setRoute(address(0), _ethRoute());
-        assertEq(vault.revision(address(0)), 1);
-        vault.setPolicy(address(0), _policy());
+        vault.setLimits(address(0), _limits());
         assertEq(vault.revision(address(0)), 2);
-        assertEq(vault.policy(address(0)).terms.totalBudget, 0.01 ether);
-        vault.setPolicy(address(0), _policy());
-        assertEq(vault.revision(address(0)), 3);
         vault.setRoute(address(0), _ethRoute());
-        assertEq(vault.revision(address(0)), 4);
-        assertEq(vault.policy(address(0)).terms.totalBudget, 0);
-        vm.stopPrank();
+        assertEq(vault.revision(address(0)), 3);
+        assertEq(vault.limits(address(0)).maxInput, 0.001 ether);
     }
 
-    function test_pausesDoNotChangeRevisionOrRefillBudget() public {
+    function test_pausesDoNotChangeRevisionOrLimits() public {
         vm.startPrank(admin);
         vault.setRoute(address(0), _ethRoute());
-        vault.setPolicy(address(0), _policy());
-        bytes32 beforePolicy = keccak256(abi.encode(vault.policy(address(0))));
+        vault.setLimits(address(0), _limits());
+        bytes32 beforeLimits = keccak256(abi.encode(vault.limits(address(0))));
         uint64 beforeRevision = vault.revision(address(0));
         vault.setBuybacksPaused(true);
         vault.setAssetBuybacksPaused(address(0), true);
         vault.setBuybacksPaused(false);
         vault.setAssetBuybacksPaused(address(0), false);
-        assertEq(keccak256(abi.encode(vault.policy(address(0)))), beforePolicy);
+        assertEq(keccak256(abi.encode(vault.limits(address(0)))), beforeLimits);
         assertEq(vault.revision(address(0)), beforeRevision);
     }
 
-    function test_policyRequiresRouteAndRejectsInvalidBounds() public {
+    function test_limitsRequireRouteAndRejectInvalidBounds() public {
         vm.startPrank(admin);
         vm.expectRevert();
-        vault.setPolicy(address(0), _policy());
+        vault.setLimits(address(0), _limits());
         vault.setRoute(address(0), _ethRoute());
-        for (uint256 i; i < 10; ++i) {
-            BuybackTypes.ExecutionPolicy memory p = _policy();
-            if (i == 0) p.rates[0].numerator = 0;
-            if (i == 1) p.rates[0].denominator = 0;
-            if (i == 2) p.rates[0].toleranceBps = 101;
-            if (i == 3) p.validUntil = p.validAfter;
-            if (i == 4) p.validUntil = p.validAfter + 24 hours + 1;
-            if (i == 5) p.batchCap = 0;
-            if (i == 6) p.totalBudget = 0;
-            if (i == 7) p.batchCap = p.totalBudget + 1;
-            if (i == 8) p.rates = new BuybackTypes.Rate[](2);
-            if (i == 9) p.evidenceHash = bytes32(0);
+        for (uint256 i; i < 3; ++i) {
+            BuybackTypes.ExecutionLimits memory p = _limits();
+            if (i == 0) p.minInput = 0;
+            if (i == 1) p.maxInput = 0;
+            if (i == 2) p.minInput = p.maxInput + 1;
             vm.expectRevert();
-            vault.setPolicy(address(0), p);
+            vault.setLimits(address(0), p);
             assertEq(vault.revision(address(0)), 1);
         }
     }
 
-    function testFuzz_uint128OperandBoundsRemainRepresentable(
-        uint128 numerator,
-        uint128 denominator,
-        uint128 budget
+    function testFuzz_limitsAcceptFullSizeAndIntervalRange(
+        uint128 minimum,
+        uint128 maximum,
+        uint64 interval
     ) public {
-        numerator = uint128(bound(numerator, 1, type(uint128).max));
-        denominator = uint128(bound(denominator, 1, type(uint128).max));
-        budget = uint128(bound(budget, 1, type(uint128).max));
-        BuybackTypes.ExecutionPolicy memory p = _policy();
-        p.rates[0] = BuybackTypes.Rate(numerator, denominator, 100);
-        p.batchCap = budget;
-        p.totalBudget = budget;
+        minimum = uint128(bound(minimum, 1, type(uint128).max));
+        maximum = uint128(bound(maximum, minimum, type(uint128).max));
         vm.startPrank(admin);
         vault.setRoute(address(0), _ethRoute());
-        vault.setPolicy(address(0), p);
-        assertEq(vault.policy(address(0)).terms.totalBudget, budget);
+        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(minimum, maximum, interval));
+        assertEq(vault.limits(address(0)).maxInput, maximum);
+        assertEq(vault.limits(address(0)).minInterval, interval);
     }
 
     function test_cannotConfigureDirectBurnAsAMarketOrInventAnEmptyTokenRoute() public {
@@ -148,13 +136,7 @@ contract BuybackAdministrationTest is Test {
         return BuybackTypes.TypedRoute(new PoolKey[](0));
     }
 
-    function _policy() private view returns (BuybackTypes.ExecutionPolicy memory p) {
-        p.validAfter = uint64(block.timestamp);
-        p.validUntil = p.validAfter + 15 minutes;
-        p.batchCap = 0.001 ether;
-        p.totalBudget = 0.01 ether;
-        p.rates = new BuybackTypes.Rate[](1);
-        p.rates[0] = BuybackTypes.Rate(1000, 1, 100);
-        p.evidenceHash = keccak256("independent synthetic policy reference");
+    function _limits() private pure returns (BuybackTypes.ExecutionLimits memory) {
+        return BuybackTypes.ExecutionLimits(1, 0.001 ether, 60);
     }
 }

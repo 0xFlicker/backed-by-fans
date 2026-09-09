@@ -20,11 +20,11 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
         vm.prank(trader);
         assertTrue(IERC20(USDG).transfer(address(vault), amount));
         vault.syncDonation(USDG);
-        _repairPolicy();
+        _repairLimits();
     }
 
-    function _repairPolicy() private {
-        _memberPolicy(USDG);
+    function _repairLimits() private {
+        _memberLimits(USDG);
         activeRevision = vault.revision(USDG);
     }
 
@@ -64,7 +64,7 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
             vm.expectRevert();
             _processUSDG(amount);
             assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, amount);
-            assertEq(vault.policy(USDG).spent, 0);
+            assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).totalSpent, 0);
         }
         _independentTokenBurn();
         vm.prank(trader);
@@ -76,18 +76,10 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
         assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, 0);
     }
 
-    function test_stalePolicyPreservesInventoryAndIndependentMembershipLifecycle() public {
+    function test_standingLimitsContinueAfterMultipleDaysWithoutRenewal() public {
         uint256 amount = _pendingUSDG();
-        vm.warp(block.timestamp + 901);
-        assertEq(
-            uint256(vault.processingStatus(USDG, BuybackTypes.SourceBucket.Donation).status),
-            uint256(BuybackTypes.Status.Expired)
-        );
-        vm.expectRevert();
-        _processUSDG(amount);
+        vm.warp(block.timestamp + 7 days);
         _memberBurn(address(token));
-        assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, amount);
-        _repairPolicy();
         _processUSDG(amount);
         assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, 0);
     }
@@ -110,23 +102,19 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
         );
         vm.expectRevert();
         _processUSDG(amount);
-        assertEq(vault.policy(USDG).spent, 0);
+        assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).totalSpent, 0);
         _independentTokenBurn();
         vm.clearMockedCalls();
         _processUSDG(amount);
         assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, 0);
     }
 
-    function test_realPriceMovementRejectsStalePriceThenRepairedPolicyProcesses() public {
+    function test_realPriceMovementNeedsNoReplacementAuthorization() public {
         uint256 amount = _pendingUSDG();
-        _buy(trader, 0.05 ether); // Real market movement; no reserve patch.
-        vm.expectRevert();
+        _buy(trader, 0.05 ether);
+        uint64 beforeRevision = vault.revision(USDG);
         _processUSDG(amount);
-        assertEq(vault.policy(USDG).spent, 0);
-        assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, amount);
-        _independentTokenBurn();
-        _repairPolicy();
-        _processUSDG(amount);
+        assertEq(vault.revision(USDG), beforeRevision);
         assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, 0);
     }
 
@@ -142,19 +130,19 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
             ),
             0
         );
-        BuybackTypes.ExecutionPolicy memory policy = vault.policy(USDG).terms;
+        BuybackTypes.ExecutionLimits memory limits = vault.limits(USDG);
         BuybackTypes.TypedRoute memory route;
         route.pools = new PoolKey[](1);
         route.pools[0] = key;
         vault.setRoute(USDG, route);
-        vault.setPolicy(USDG, policy);
+        vault.setLimits(USDG, limits);
         activeRevision = vault.revision(USDG);
         vm.expectRevert();
         _processUSDG(amount);
         assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, amount);
-        assertEq(vault.policy(USDG).spent, 0);
+        assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).totalSpent, 0);
         _independentTokenBurn();
-        _repairPolicy();
+        _repairLimits();
         _processUSDG(amount);
         assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, 0);
     }

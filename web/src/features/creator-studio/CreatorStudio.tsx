@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Address } from "viem";
 
 import {
@@ -67,6 +67,7 @@ export type CreatorStudioProps = {
   onRetryPreview?: () => void;
   nativeSettings?: NativeMediaSettings;
   nativeState?: NativeMediaState;
+  nativeCostEstimate?: ReactNode;
   nativeLibrary?: NativeMediaLibraryModel;
   onNativeSettingsChange?: (settings: NativeMediaSettings) => void;
   onNativeSourceSelected?: (
@@ -104,6 +105,7 @@ export function CreatorStudio({
   onRetryPreview,
   nativeSettings,
   nativeState,
+  nativeCostEstimate,
   nativeLibrary,
   onNativeSettingsChange,
   onNativeSourceSelected,
@@ -320,6 +322,7 @@ export function CreatorStudio({
             nativeLibrary={nativeLibrary}
             nativeSettings={nativeSettings}
             nativeState={nativeState}
+            nativeCostEstimate={nativeCostEstimate}
             onArtChange={onArtChange}
             onMediaChange={onMediaChange}
             onNextNativeLibraryPage={onNextNativeLibraryPage}

@@ -237,7 +237,8 @@ describe("finite fair buyback collection", () => {
     const f = fixture(),
       runner = f.create();
     await runner.visit();
-    expect(f.burned).toBe(100n);
+    expect(f.burned).toBe(0n); // Collection finishes before the one buyback sweep.
+    expect(f.events.some((e) => e.action === "process")).toBe(false);
     f.grow();
     await runner.once();
     expect(f.burned).toBe(206n);
@@ -268,6 +269,19 @@ describe("finite fair buyback collection", () => {
     f.client.readContract.mockImplementation(read);
     expect((await runner.visit()).firstId).toBe(1n);
   });
+  it.each(["tierCount", "totalMinted"])(
+    "rejects excessive %s before any writes",
+    async (method) => {
+      const f = fixture(),
+        runner = f.create(),
+        read = f.client.readContract.getMockImplementation()!;
+      f.client.readContract.mockImplementation(async (call) =>
+        call.functionName === method ? 6000n : read(call),
+      );
+      await expect(runner.once()).rejects.toThrow("limited");
+      expect(f.wallet.writeContract).not.toHaveBeenCalled();
+    },
+  );
   it("continues other tiers after a known failed release simulation", async () => {
     const f = fixture(),
       runner = f.create(),

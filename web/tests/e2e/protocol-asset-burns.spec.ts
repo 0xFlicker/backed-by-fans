@@ -61,7 +61,7 @@ for (const kind of ["AMD", "WETH"] as const)
         });
       const released = await inventory();
       expect(released.available).toBeGreaterThanOrEqual(price * 3n);
-      await f.authorizePolicy(asset, released.available);
+      await f.configureLimits(asset, released.available);
       const status = await f.client.readContract({
         address: f.bootstrap.buybackVault,
         abi: protocolBuybackVaultAbi,

@@ -26,24 +26,7 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
         offered = 0.001 ether;
         BuybackTypes.TypedRoute memory route;
         vault.setRoute(address(0), route);
-        IPonsLaunchFactory.LaunchedToken memory launch = PONS.getLaunchedToken(address(token));
-        uint256 conservativeCost =
-            Math.max(curve.feeBps(), launch.poolFee / 100 + hook.hookFeeBps());
-        uint256 netOffer = offered - offered * conservativeCost / 10_000;
-        uint256 expected = netOffer * curve.tokenReserve() / (curve.quoteReserve() + netOffer);
-        BuybackTypes.Rate[] memory rates = new BuybackTypes.Rate[](1);
-        rates[0] = BuybackTypes.Rate(SafeCast.toUint128(expected), SafeCast.toUint128(offered), 100);
-        vault.setPolicy(
-            address(0),
-            BuybackTypes.ExecutionPolicy(
-                uint64(block.timestamp),
-                uint64(block.timestamp + 900),
-                SafeCast.toUint128(offered),
-                SafeCast.toUint128(offered * 10),
-                rates,
-                keccak256("independent closing reserves and worse of curve or pool ordinary costs")
-            )
-        );
+        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, SafeCast.toUint128(offered), 0));
         vm.deal(address(this), offered);
         (bool sent,) = address(vault).call{value: offered}("");
         assertTrue(sent);
@@ -56,7 +39,7 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
         vault.process(
             address(0), BuybackTypes.SourceBucket.Donation, offered, 2, uint64(block.timestamp)
         );
-        uint256 spent = vault.policy(address(0)).spent;
+        uint256 spent = vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
         assertGt(spent, 0);
         assertLt(spent, offered);
         assertEq(address(vault).balance, offered - spent);
@@ -99,13 +82,18 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
         uint256 supply = token.totalSupply();
         uint256 burnedBefore =
             vault.inventory(address(token), BuybackTypes.SourceBucket.Donation).totalBurned;
-        uint256 spentBefore = vault.policy(address(0)).spent;
+        uint256 spentBefore =
+            vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
         vm.prank(developer);
         vault.process(
             address(0), BuybackTypes.SourceBucket.Donation, 1e12, 2, uint64(block.timestamp)
         );
-        assertEq(vault.revision(address(0)), 2, "graduation needs no new route or policy");
-        assertEq(vault.policy(address(0)).spent - spentBefore, 1e12);
+        assertEq(vault.revision(address(0)), 2, "graduation needs no new route or limits");
+        assertEq(
+            vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent
+                - spentBefore,
+            1e12
+        );
         uint256 newlyBurned = vault.inventory(address(token), BuybackTypes.SourceBucket.Donation)
             .totalBurned - burnedBefore;
         assertGt(newlyBurned, 0);
@@ -114,10 +102,36 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
         emit log_named_uint("Post-pool purchased tokens actually burned", newlyBurned);
     }
 
-    function test_actualPartialFillGraduationAndPoolBurnPreserveTheSamePolicy() public {
+    function test_actualPartialFillGraduationAndPoolBurnPreserveTheSameLimits() public {
         uint256 offered = _prepareClosingPurchase();
         _cross(offered);
         _createAndBuyPool();
+    }
+
+    function test_authenticClosingPartialFillBelowMinimumAdvancesClockExactlyOnce() public {
+        uint256 offered = _prepareClosingPurchase();
+        vault.setLimits(
+            address(0),
+            BuybackTypes.ExecutionLimits(
+                SafeCast.toUint128(offered), SafeCast.toUint128(offered), 60
+            )
+        );
+        uint256 supply = token.totalSupply();
+        vault.process(
+            address(0), BuybackTypes.SourceBucket.Donation, offered, 3, uint64(block.timestamp)
+        );
+        uint256 spent = vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
+        assertGt(spent, 0);
+        assertLt(spent, offered);
+        assertEq(vault.lastBuyAt(), block.timestamp);
+        assertEq(vault.lastAssetBuyAt(address(0)), block.timestamp);
+        assertLt(token.totalSupply(), supply);
+        assertTrue(curve.readyToGraduate() || curve.graduated());
+        vm.expectRevert();
+        vault.process(
+            address(0), BuybackTypes.SourceBucket.Donation, offered, 3, uint64(block.timestamp)
+        );
+        assertEq(vault.settlementSequence(), 1);
     }
 
     function test_holderBurnDoesNotChangeReserveBasedGraduationOrPoolSeed() public {

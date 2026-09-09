@@ -16,6 +16,29 @@ spec.loader.exec_module(lifecycle)
 
 
 class Guards(unittest.TestCase):
+    def test_restore_cannot_replace_fresh_acceptance_or_use_half_a_snapshot(self):
+        for mode, env in [
+            ("run", {"BBF_FORK_RESTORE_STATE": "/tmp/state", "BBF_FORK_RESTORE_EVIDENCE": "/tmp/evidence"}),
+            ("serve", {"BBF_FORK_RESTORE_STATE": "/tmp/state"}),
+            ("serve", {"BBF_FORK_RESTORE_EVIDENCE": "/tmp/evidence"}),
+        ]:
+            with self.subTest(mode=mode, env=env), patch.dict(os.environ, env, clear=True), patch.object(subprocess, "Popen") as spawn:
+                with self.assertRaisesRegex(ValueError, "restoration requires serve"):
+                    lifecycle.Run(argparse.Namespace(mode=mode, run_id="restore"))
+                spawn.assert_not_called()
+
+    def test_restore_rejects_a_different_origin_before_starting_services(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state.json"; state.write_text("{}")
+            (root / "browser-environment.json").write_text("{}")
+            (root / "lifecycle.json").write_text(json.dumps({"origin": {**lifecycle.PIN, "blockNumber": "1"}}))
+            env = {"BBF_FORK_RESTORE_STATE": str(state), "BBF_FORK_RESTORE_EVIDENCE": directory}
+            with patch.dict(os.environ, env, clear=True), patch.object(subprocess, "Popen") as spawn:
+                with self.assertRaisesRegex(ValueError, "Saved state origin"):
+                    lifecycle.Run(argparse.Namespace(mode="serve", run_id="stale"))
+                spawn.assert_not_called()
+
     def test_rejects_public_credentialed_and_ambiguous_write_endpoints(self):
         for url in ["https://127.0.0.1:8547", "http://example.com:8547", "http://user:secret@localhost:8547", "http://127.0.0.1:8547/path", "http://localhost:8547?token=secret", "http://localhost"]:
             with self.subTest(url=url), self.assertRaises(ValueError):
@@ -36,7 +59,7 @@ class Guards(unittest.TestCase):
         self.assertEqual(lifecycle.independent_evidence(Path("/tmp/evidence"), Path("/tmp/run")), Path("/tmp/evidence").resolve())
 
     def test_origin_pin_is_checked_before_any_process_or_write(self):
-        env = {"BBF_FORK_RPC_URL": "https://private.invalid/key", "BBF_FORK_BLOCK_NUMBER": "57010734", "BBF_FORK_BLOCK_HASH": lifecycle.PIN["blockHash"]}
+        env = {"BBF_FORK_RPC_URL": "https://private.invalid/key", "BBF_FORK_BLOCK_NUMBER": str(int(lifecycle.PIN["blockNumber"]) - 1), "BBF_FORK_BLOCK_HASH": lifecycle.PIN["blockHash"]}
         with patch.dict(os.environ, env, clear=True), patch.object(subprocess, "Popen") as spawn:
             with self.assertRaisesRegex(ValueError, "verified origin"):
                 lifecycle.Run(argparse.Namespace(mode="serve", run_id="wrong-pin"))

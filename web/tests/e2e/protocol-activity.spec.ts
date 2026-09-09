@@ -26,7 +26,14 @@ test.describe("@protocol-fork public buyback activity", () => {
     await expect(
       page.getByRole("heading", { name: "Protocol configuration" }),
     ).toBeVisible();
-    await expect(page.getByText("2 of 3 owners")).toBeVisible();
+    const safeSnapshot = JSON.parse(
+      await readFile(process.env.BBF_FORK_BOOTSTRAP!, "utf8"),
+    );
+    await expect(
+      page.getByText(
+        `${safeSnapshot.safeThreshold} of ${safeSnapshot.safeOwners.length} owners`,
+      ),
+    ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Pons trading compensation" }),
     ).toBeVisible();
@@ -73,7 +80,14 @@ test.describe("@protocol-fork public buyback activity", () => {
       await expect(
         page.getByRole("heading", { name: "Protocol activity" }),
       ).toBeVisible();
-      await expect(page.getByText("2 of 3 owners")).toBeVisible();
+      const safeSnapshot = JSON.parse(
+        await readFile(process.env.BBF_FORK_BOOTSTRAP!, "utf8"),
+      );
+      await expect(
+        page.getByText(
+          `${safeSnapshot.safeThreshold} of ${safeSnapshot.safeOwners.length} owners`,
+        ),
+      ).toBeVisible();
       const bootstrap = JSON.parse(
         await readFile(process.env.BBF_FORK_BOOTSTRAP!, "utf8"),
       );
@@ -134,7 +148,14 @@ test.describe("@protocol-fork public buyback activity", () => {
         .getByText(requiredAnvilAddress("paymentToken"), { exact: true })
         .first(),
     ).toBeVisible();
-    await expect(page.getByText("2 of 3 owners")).toBeVisible();
+    const safeSnapshot = JSON.parse(
+      await readFile(process.env.BBF_FORK_BOOTSTRAP!, "utf8"),
+    );
+    await expect(
+      page.getByText(
+        `${safeSnapshot.safeThreshold} of ${safeSnapshot.safeOwners.length} owners`,
+      ),
+    ).toBeVisible();
   });
 });
 

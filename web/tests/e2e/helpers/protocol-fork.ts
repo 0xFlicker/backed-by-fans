@@ -16,7 +16,6 @@ import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 import {
   membershipFactoryAbi,
-  iPonsBondingCurveAbi,
   protocolBuybackVaultAbi,
 } from "../../../src/contracts";
 import {
@@ -51,6 +50,8 @@ export async function forkContext() {
     curve: Address;
     ponsFactory: Address;
     renderer: Address;
+    safeOwners: Address[];
+    safeThreshold: number;
   };
   const rpc = requiredAnvilRpc(),
     client = anvilPublicClient();
@@ -91,6 +92,19 @@ export async function forkContext() {
     receipts.push({ address, functionName, args, value, receipt });
     return receipt;
   };
+  const signerKeys = [testKey(40961), testKey(40962), testKey(40963)]
+    .filter((key) =>
+      bootstrap.safeOwners.some(
+        (owner) =>
+          owner.toLowerCase() ===
+          privateKeyToAccount(key).address.toLowerCase(),
+      ),
+    )
+    .slice(0, bootstrap.safeThreshold);
+  if (signerKeys.length !== bootstrap.safeThreshold)
+    throw new Error(
+      "This acceptance fixture requires its test Safe keys; personal-wallet review is separate",
+    );
   const safe = async (action: string, input: Record<string, unknown>) => {
     const context = await readAdminContext(client, 31337, bootstrap.factory);
     const payload = await prepareBuybackPayload(client, context, action, {
@@ -101,7 +115,7 @@ export async function forkContext() {
       rpcUrl: rpc,
       factory: bootstrap.factory,
       payload,
-      signerKeys: [testKey(40961), testKey(40962)],
+      signerKeys,
       relayerKey: testKey(49153),
     });
     receipts.push({ action, payload, ...result });
@@ -182,88 +196,13 @@ export async function forkContext() {
       })
     )[0];
   };
-  const authorizePolicy = async (
+  const configureLimits = async (
     asset: Address,
     batch: bigint,
-    budget = batch * 100n,
+    minInput = 1n,
+    minInterval = 0n,
   ) => {
-    const compiled = JSON.parse(
-      await readFile(
-        resolve(process.cwd(), "../contracts/out/IV4Quoter.sol/IV4Quoter.json"),
-        "utf8",
-      ),
-    );
-    const route = await client.readContract({
-      address: bootstrap.buybackVault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "route",
-      args: [asset],
-    });
-    const block = await client.getBlock();
-    let amount = batch,
-      input = asset;
-    const rates = [];
-    const observations = [];
-    for (const poolKey of route.pools) {
-      const zeroForOne =
-        poolKey.currency0.toLowerCase() === input.toLowerCase();
-      const quote = await client.simulateContract({
-        address: "0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94",
-        abi: compiled.abi,
-        functionName: "quoteExactInputSingle",
-        args: [{ poolKey, zeroForOne, exactAmount: amount, hookData: "0x" }],
-        account: requiredAnvilAddress("creator"),
-        gasPrice: 2000000000n,
-      });
-      const output = (quote.result as readonly bigint[])[0];
-      if (output === 0n)
-        throw new Error("No positive authentic conversion reference");
-      rates.push({
-        numeratorRaw: String(output),
-        denominatorRaw: String(amount),
-        toleranceBps: 100,
-      });
-      observations.push({ poolKey, zeroForOne, input: amount, output });
-      input = zeroForOne ? poolKey.currency1 : poolKey.currency0;
-      amount = output;
-    }
-    const [quoteReserve, tokenReserve, feeBps] = await Promise.all(
-      ["quoteReserve", "tokenReserve", "feeBps"].map((functionName) =>
-        client.readContract({
-          address: bootstrap.curve,
-          abi: iPonsBondingCurveAbi,
-          functionName: functionName as
-            "quoteReserve" | "tokenReserve" | "feeBps",
-        }),
-      ),
-    );
-    const net = amount - (amount * feeBps) / 10000n,
-      output = (net * tokenReserve) / (quoteReserve + net);
-    rates.push({
-      numeratorRaw: String(output),
-      denominatorRaw: String(amount),
-      toleranceBps: 100,
-    });
-    const policy = {
-      validAfterRaw: String(block.timestamp),
-      validUntilRaw: String(block.timestamp + 86400n),
-      batchCapRaw: String(batch),
-      totalBudgetRaw: String(budget),
-      rates,
-    };
-    receipts.push({
-      kind: "safe-price-reference",
-      asset,
-      blockNumber: block.number,
-      observations,
-      quoteReserve,
-      tokenReserve,
-      feeBps,
-      batch,
-      output,
-      policy,
-    });
-    await safe("policy", {
+    await safe("limits", {
       asset,
       expectedRevisionRaw: String(
         await client.readContract({
@@ -273,16 +212,15 @@ export async function forkContext() {
           args: [asset],
         }),
       ),
-      policy,
-      evidence: {
-        reference: "retained safe-price-reference in this scenario",
-        rationale:
-          "Disposable Safe authorizes finite one-day exposure from retained per-leg pool observations and independently calculated curve output with one-percent tolerance. The ordinary runner never creates this policy.",
+      limits: {
+        minInput: String(minInput),
+        maxInput: String(batch),
+        minInterval: String(minInterval),
       },
     });
   };
-  const policyForUSDG = () =>
-    authorizePolicy(requiredAnvilAddress("paymentToken"), 1000000n);
+  const limitsForUSDG = () =>
+    configureLimits(requiredAnvilAddress("paymentToken"), 10_000_000n);
   const retain = async (name: string, data: Record<string, unknown>) => {
     const directory = process.env.BBF_FORK_BROWSER_EVIDENCE;
     if (!directory) throw new Error("Retained evidence required");
@@ -318,8 +256,9 @@ export async function forkContext() {
     write,
     safe,
     tier,
-    policyForUSDG,
-    authorizePolicy,
+    limitsForUSDG,
+    configureLimits,
+    signerKeys,
     retain,
     giveProtocolTokens,
     receipts,

@@ -1,10 +1,20 @@
 # Feature Specification: Protocol Buyback and Burn With Safe Administration
 
+**Current implementation (2026-09-08):** [Standing permissionless buybacks](operating-model-proposal.md)
+replaces recurring approvals and delegated price signing with standing time/size
+controls and an admin calculator. The replacement is implemented and has fresh-fork
+execution evidence and passing final source checks; the clean personal-wallet
+handoff is being completed. See [current evidence](standing-buybacks-evidence.md).
+The original requirements and acceptance below are retained as history; their
+expiring-policy details do not govern this replacement. No further price-protection
+approval, oracle or required price-signing service is part of the approved scope.
+
+
 **Feature Branch**: `codex/003-protocol-buyback-burn`
 
 **Created**: 2026-09-07
 
-**Status**: Specified; ready for planning with explicit external feasibility checks
+**Status**: Standing replacement implemented and checks passed; personal-wallet handoff pending. Historical specification follows.
 
 **Input**: Replace the fixed 1% protocol fee paid to a protocol recipient with a creator-selected
 1%–100% membership allocation reserved at payment, earned continuously as paid membership time is
@@ -664,3 +674,15 @@ membership accounting, lifecycle transitions and burn outcomes.
 - No constitution amendment is needed: creator ownership, onchain fidelity, MIT/open-source project
   policy, plain-language UX and evidence-bounded delivery continue to apply. External dependency
   licenses remain their own. The implementation must follow the remaining Spec Kit phases.
+
+## Approved operational extension — 2026-09-08
+
+The user approved [local policy tools](local-policy-tools-plan.md): human-unit generation,
+two-hour sampled references at two-minute intervals, optional isolated sequential rehearsal,
+and wallet-based Safe review/submission through the existing local app. These requirements
+supersede earlier exclusions of an administration screen and local storage only for this
+operator workflow. SQLite stores market observations, not transaction lifecycle or accounting.
+Existing raw preparation remains available. Rehearsal can be skipped with acknowledgment;
+public generated proposals require valid history, while explicit spot mode is fork-only.
+No automatic renewal or contract-budget change is included. Historical acceptance does not
+establish this extension's completion; its focused evidence is recorded separately.

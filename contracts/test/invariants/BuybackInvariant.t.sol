@@ -144,7 +144,8 @@ contract BuybackHandler is Test {
         uint256 fault = uint256(faultSeed) % 5;
         a.direct = a.asset == address(token);
         a.failure = (!a.direct && a.spend == 0) || fault == 1 || fault == 2
-            || (!a.direct && fault == 3) || (a.asset == address(payment) && fault == 4);
+            || (!a.direct && fault == 3 && a.spend <= 1)
+            || (a.asset == address(payment) && fault == 4);
         curve.configure(fill, 1, 1, fault == 3 ? 1 : 0);
         token.setBurnMode(fault == 1 ? 1 : fault == 2 ? 2 : 0);
         if (a.asset == address(payment) && fault == 4) {
@@ -167,8 +168,9 @@ contract BuybackHandler is Test {
                 if (a.asset == address(payment)) {
                     _book.convert(a.asset, address(0), a.bucket, a.amount, a.quote);
                 }
-                _book.convert(address(0), address(token), a.bucket, a.spend, a.spend);
-                _book.burn(address(token), a.bucket, a.spend);
+                uint256 acquired = a.spend - (fault == 3 ? 1 : 0);
+                _book.convert(address(0), address(token), a.bucket, a.spend, acquired);
+                _book.burn(address(token), a.bucket, acquired);
                 marketSuccesses++;
                 assertFalse(curve.callbackSucceeded());
             }
@@ -247,19 +249,8 @@ contract BuybackInvariantTest is StdInvariant, Test {
             Currency.wrap(address(0)), Currency.wrap(address(payment)), 100, 1, IHooks(address(0))
         );
         vault.setRoute(address(payment), BuybackTypes.TypedRoute(pools));
-        BuybackTypes.Rate[] memory rates = new BuybackTypes.Rate[](1);
-        rates[0] = BuybackTypes.Rate(1, 1, 0);
-        vault.setPolicy(
-            address(0),
-            BuybackTypes.ExecutionPolicy(1000, 87_400, 1 ether, 1e30, rates, keccak256("synthetic"))
-        );
-        rates = new BuybackTypes.Rate[](2);
-        rates[0] = BuybackTypes.Rate(1e16, 1, 0);
-        rates[1] = BuybackTypes.Rate(1, 1, 0);
-        vault.setPolicy(
-            address(payment),
-            BuybackTypes.ExecutionPolicy(1000, 87_400, 100, 1e30, rates, keccak256("synthetic"))
-        );
+        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, 1 ether, 0));
+        vault.setLimits(address(payment), BuybackTypes.ExecutionLimits(1, 100, 0));
         vault.setBuybacksPaused(false);
         address renderer = deployCode("OnchainMetadataRenderer.sol:OnchainMetadataRenderer");
         MembershipTypes.TierConfig memory config =

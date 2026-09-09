@@ -3,7 +3,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
-import type { Address } from "viem";
+import { formatUnits, type Address } from "viem";
+import { formatRawTokenAmount, tokenMultiplierScale } from "@/lib/token-amount";
 import { protocolBuybackVaultAbi } from "@/contracts";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
@@ -15,10 +16,9 @@ export const buybackStatusLabels = [
   "No released inventory",
   "Buybacks paused",
   "Route needed",
-  "Policy needed",
-  "Policy starts later",
-  "Policy expired",
-  "Budget exhausted",
+  "Batch settings needed",
+  "Waiting for the minimum batch amount",
+  "Waiting for the next eligible buy",
   "Launch penalty active",
   "Graduation pending",
 ];
@@ -30,8 +30,10 @@ export function ProcessBuyback({
   bucket,
   status,
   amount,
+  nextEligibleAt,
   fresh,
   onProcessed,
+  protocolTokenSymbol,
 }: {
   chainId: SupportedChainId;
   vault: Address;
@@ -39,8 +41,10 @@ export function ProcessBuyback({
   bucket: 0 | 1;
   status?: number;
   amount: bigint;
+  nextEligibleAt?: bigint;
   fresh: boolean;
   onProcessed: () => Promise<unknown>;
+  protocolTokenSymbol?: string;
 }) {
   const account = useHydratedAccount(),
     config = useConfig(),
@@ -84,7 +88,7 @@ export function ProcessBuyback({
       if (cancelled) throw new Error("Your wallet cancelled this transaction.");
       if (receipt.status !== "success")
         throw new Error(
-          "The transaction reverted. Inventory and policy spending were rolled back.",
+          "The transaction reverted. Inventory and cooldowns were unchanged.",
         );
       const result = receiptBuyback(receipt, {
         vault,
@@ -123,6 +127,16 @@ export function ProcessBuyback({
     account.chainId !== chainId ||
     status !== 0 ||
     amount === 0n;
+  const burned = action.data?.result.burned;
+  const burnedAmount =
+    burned === undefined
+      ? undefined
+      : formatRawTokenAmount({
+          raw: burned,
+          decimals: 18,
+          multiplier: tokenMultiplierScale,
+        }).replace(/^(\d+)/, (whole) => BigInt(whole).toLocaleString("en-US"));
+  const tokenLabel = protocolTokenSymbol || "protocol tokens";
   const hash = action.data?.receipt.transactionHash ?? write.data;
   const explorer = getSupportedChain(chainId).blockExplorers?.default.url;
   return (
@@ -148,6 +162,13 @@ export function ProcessBuyback({
               ? "Market eligibility is unavailable."
               : buybackStatusLabels[status]}
       </p>
+      {status === 6 && nextEligibleAt !== undefined && nextEligibleAt > 0n && (
+        <p className="small-copy">
+          Next eligible buy:{" "}
+          {new Date(Number(nextEligibleAt) * 1000).toLocaleString()} (chain
+          time).
+        </p>
+      )}
       {action.isPending && (
         <p role="status">
           {write.isPending
@@ -162,8 +183,13 @@ export function ProcessBuyback({
       )}
       {action.data && (
         <p role="status">
-          Burn complete. {action.data.result.burned.toString()} raw
-          protocol-token units destroyed.
+          Burn complete.{" "}
+          <span
+            title={`${formatUnits(action.data.result.burned, 18)} ${tokenLabel}`}
+          >
+            {burnedAmount} {tokenLabel}
+          </span>{" "}
+          permanently removed from supply.
           {action.data.refreshUnavailable &&
             " The updated inventory is unavailable; refresh activity to try again."}
         </p>

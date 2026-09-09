@@ -37,7 +37,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         vault.setBuybacksPaused(false);
     }
 
-    function test_directBurnNeedsNoMarketPolicyAndDestroysOnlySelectedDonation() public {
+    function test_directBurnNeedsNoMarketLimitsAndDestroysOnlySelectedDonation() public {
         vm.prank(developer);
         assertTrue(token.transfer(address(vault), 1000));
         vault.syncDonation(address(token));
@@ -54,22 +54,10 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
     function test_bondingBurnUsesOrdinaryFeesWithoutPonsOperator() public {
         BuybackTypes.TypedRoute memory route;
         vault.setRoute(address(0), route);
-        BuybackTypes.Rate[] memory rates = new BuybackTypes.Rate[](1);
         uint256 input = 0.001 ether;
         uint256 net = input - input * curve.feeBps() / 10_000;
         uint256 expected = net * curve.tokenReserve() / (curve.quoteReserve() + net);
-        rates[0] = BuybackTypes.Rate(SafeCast.toUint128(expected), SafeCast.toUint128(input), 100);
-        vault.setPolicy(
-            address(0),
-            BuybackTypes.ExecutionPolicy(
-                uint64(block.timestamp),
-                uint64(block.timestamp + 15 minutes),
-                SafeCast.toUint128(input),
-                SafeCast.toUint128(input * 10),
-                rates,
-                keccak256("independent curve reserves")
-            )
-        );
+        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, SafeCast.toUint128(input), 0));
         vm.deal(address(this), input);
         (bool sent,) = address(vault).call{value: input}("");
         assertTrue(sent);
@@ -82,7 +70,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
             address(0), BuybackTypes.SourceBucket.Donation, input, 2, uint64(block.timestamp)
         );
         assertEq(token.totalSupply(), supply - expected);
-        assertEq(vault.policy(address(0)).spent, input);
+        assertEq(vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent, input);
         assertEq(address(vault).balance, 0);
         assertEq(token.balanceOf(address(vault)), 0);
         assertGt(curve.quoteFeeBalance(), fees);
@@ -143,7 +131,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         uint256 released = tier.releaseProtocolFees();
         assertEq(released, gross / 4);
         assertEq(IERC20(asset).balanceOf(address(tier)), gross - released);
-        _memberPolicy(asset);
+        _memberLimits(asset);
         uint256 routerBalance = Integration.ROUTER.balance;
         vm.deal(address(this), 7);
         IUniversalRouter(Integration.ROUTER).execute{value: 7}(
@@ -199,7 +187,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         emit log_named_uint("Unused membership refunded from reserve", refund);
     }
 
-    function _memberPolicy(address asset) internal {
+    function _memberLimits(address asset) internal {
         if (asset == address(token)) return;
         uint256 count = asset == AMD ? 2 : asset == USDG ? 1 : 0;
         BuybackTypes.TypedRoute memory route;
@@ -211,25 +199,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
             route.pools[0] = _usdPool();
         }
         vault.setRoute(asset, route);
-        BuybackTypes.Rate[] memory rates = new BuybackTypes.Rate[](count + 1);
-        if (asset == AMD) rates[0] = BuybackTypes.Rate(478_129, 1e15, 100);
-        if (count > 0) rates[count - 1] = BuybackTypes.Rate(40_216_887_404_570, 100_000, 100);
-        uint256 batch = 0.001 ether;
-        uint256 net = batch - batch * curve.feeBps() / 10_000;
-        uint256 referenceOutput = net * curve.tokenReserve() / (curve.quoteReserve() + net);
-        rates[count] =
-            BuybackTypes.Rate(SafeCast.toUint128(referenceOutput), SafeCast.toUint128(batch), 100);
         uint128 cap = asset == AMD ? 5e15 : asset == USDG ? 2_400_000 : 1e15;
-        vault.setPolicy(
-            asset,
-            BuybackTypes.ExecutionPolicy(
-                uint64(block.timestamp),
-                uint64(block.timestamp + 900),
-                cap,
-                cap * 10,
-                rates,
-                keccak256("retained origin market observations and independent curve formula")
-            )
-        );
+        vault.setLimits(asset, BuybackTypes.ExecutionLimits(1, cap, 0));
     }
 }

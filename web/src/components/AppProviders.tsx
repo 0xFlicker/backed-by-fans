@@ -5,7 +5,7 @@ import { RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, type State } from "wagmi";
 
-import { walletConfig } from "@/lib/wallet-config";
+import { createWalletConfig } from "@/lib/wallet-config";
 
 const rainbowTheme = lightTheme({
   accentColor: "#ff6a4d",
@@ -22,6 +22,7 @@ export function AppProviders({
   children: ReactNode;
   initialState?: State;
 }) {
+  const [walletConfig] = useState(() => createWalletConfig());
   const [queryClient] = useState(
     () =>
       new QueryClient({

@@ -192,27 +192,6 @@ describe("supporter membership experience", () => {
     );
   });
 
-  it("shows each current refund funding component without implying a member can execute it", () => {
-    renderExperience({ ...snapshot, credential: credential() });
-    const funding = screen.getByRole("region", {
-      name: "Current refund backing",
-    });
-    expect(funding).toHaveTextContent(
-      "Unused-time refunds are initiated by the creator",
-    );
-    for (const [label, value] of [
-      ["Gross refund", "10 USDG"],
-      ["Unearned protocol reserve", "0.1 USDG"],
-      ["Creator proceeds used", "9.4 USDG"],
-      ["Owner top-up", "0.5 USDG"],
-    ]) {
-      expect(within(funding).getByText(label).parentElement).toHaveTextContent(
-        value,
-      );
-    }
-    expect(within(funding).queryByRole("button")).not.toBeInTheDocument();
-  });
-
   it("presents join, active renewal, held-expiry, and synchronized history distinctly", () => {
     const view = renderExperience(snapshot);
     expect(screen.getAllByText("Join this membership").length).toBeGreaterThan(

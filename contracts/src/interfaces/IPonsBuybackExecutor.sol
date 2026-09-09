@@ -11,7 +11,6 @@ interface IPonsBuybackExecutor {
         address asset,
         uint256 amount,
         BuybackTypes.TypedRoute calldata route,
-        BuybackTypes.Rate[] calldata rates,
         uint64 deadline
     ) external payable returns (BuybackTypes.Execution memory);
 }

@@ -5,8 +5,9 @@ import {
   validatePreflightEnvironment,
 } from "../../scripts/protocol-fork/preflight";
 
-const blockHash = `0x${"1".repeat(64)}` as const;
-const origin = { blockNumber: 57010735n, blockHash };
+import { originPin } from "../../scripts/protocol-fork/origin";
+const blockHash = originPin.blockHash as `0x${string}`;
+const origin = { blockNumber: BigInt(originPin.blockNumber), blockHash };
 const factory = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e" as const;
 
 function client() {
@@ -134,10 +135,8 @@ describe("strict fork preflight", () => {
     ).toBe(false);
   });
 
-  it("rejects missing pins without issuing any network request", () => {
-    expect(() => validatePreflightEnvironment({})).toThrow(
-      "BBF_FORK_BLOCK_NUMBER",
-    );
+  it("uses the checked-in pin and rejects invalid overrides before network access", () => {
+    expect(() => validatePreflightEnvironment({})).toThrow("BBF_FORK_RPC_URL");
     expect(() =>
       validatePreflightEnvironment({ BBF_FORK_BLOCK_NUMBER: "latest" }),
     ).toThrow("BBF_FORK_BLOCK_NUMBER");
@@ -208,7 +207,7 @@ describe("strict fork preflight", () => {
 
   it("rejects evidence inside a disposable directory and credentials in a local URL", () => {
     const values = {
-      BBF_FORK_BLOCK_NUMBER: "57010735",
+      BBF_FORK_BLOCK_NUMBER: originPin.blockNumber,
       BBF_FORK_BLOCK_HASH: blockHash,
       BBF_FORK_RPC_URL: "https://private.example",
       BBF_FORK_EVIDENCE_DIR: "/tmp/run/evidence",

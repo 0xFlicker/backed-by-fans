@@ -126,7 +126,7 @@ test("@protocol-fork a compatible authentic token without an approved route rema
       rpcUrl: f.rpc,
       factory: b.factory,
       payload,
-      signerKeys: [testKey(40961), testKey(40962)],
+      signerKeys: f.signerKeys,
       relayerKey: testKey(49153),
     });
     f.receipts.push({ payload, ...safe });

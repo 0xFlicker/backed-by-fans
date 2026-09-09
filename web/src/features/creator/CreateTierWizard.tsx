@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import {
   bytesToHex,
+  formatEther,
   zeroAddress,
   type Address,
   type Hex,
@@ -444,6 +445,8 @@ export function CreateTierWizard() {
       deployment.status === "ready" && account.address && client,
     ),
     queryFn: () => client!.getBalance({ address: account.address! }),
+    retry: false,
+    refetchInterval: 10_000,
   });
   const paymentTokens = useQuery({
     queryKey: [
@@ -659,7 +662,7 @@ export function CreateTierWizard() {
     () => (candidate ? nativeCandidateMediaConfig(candidate) : undefined),
     [candidate],
   );
-  const localImageSelected = media.mode === "native" && Boolean(candidate);
+  const localImageSelected = media.mode === "native";
   const localImageNeedsStorage = Boolean(
     localImageSelected && !currentConfirmedMedia,
   );
@@ -1077,6 +1080,54 @@ export function CreateTierWizard() {
       }),
   });
 
+  const imageGasPrice = useQuery({
+    queryKey: ["creator-image-gas-price", active.chainId],
+    enabled: Boolean(client && candidateMedia && media.mode === "native"),
+    queryFn: () => client!.getGasPrice(),
+    retry: false,
+    refetchInterval: 30_000,
+  });
+  const imageCostEstimate =
+    media.mode !== "native" ? null : (
+      <div role="status">
+        <strong>Image storage estimate</strong>
+        {nativeState.status === "processing" ? (
+          <p>Updating image and estimate...</p>
+        ) : currentConfirmedMedia ? (
+          <p>Already stored. No additional image storage fee.</p>
+        ) : !candidateMedia ? null : !account.address ? (
+          <p>Connect your wallet to estimate storage cost.</p>
+        ) : mediaGasQuote.error || imageGasPrice.error ? (
+          <p>
+            Could not estimate image storage. Check your network fee balance and
+            try again.
+            <button
+              type="button"
+              onClick={() => {
+                void mediaGasQuote.refetch();
+                void imageGasPrice.refetch();
+              }}
+            >
+              Retry estimate
+            </button>
+          </p>
+        ) : mediaGasQuote.data !== undefined &&
+          imageGasPrice.data !== undefined ? (
+          <p>
+            {candidate?.byteLength.toLocaleString()} bytes ·{" "}
+            {mediaGasQuote.data.toLocaleString()} gas · approximately{" "}
+            {formatEther(mediaGasQuote.data * imageGasPrice.data)} ETH
+          </p>
+        ) : (
+          <p>Estimating storage...</p>
+        )}
+        <p>
+          Adjust image size and quality to compare costs. Storage only; creating
+          the membership costs extra. The final wallet fee may change.
+        </p>
+      </div>
+    );
+
   const reviewFingerprint =
     result.config && tierIdentity.data
       ? studioPreviewFingerprint({
@@ -1144,6 +1195,7 @@ export function CreateTierWizard() {
     protocol.data &&
     account.address &&
     guard.enabled &&
+    !gas.error &&
     (gas.data ?? 0n) > 0n &&
     !write.isPending &&
     !currentPendingMediaVerification &&
@@ -1156,6 +1208,7 @@ export function CreateTierWizard() {
     Boolean(protocol.data) &&
     draftScopeReady &&
     guard.enabled &&
+    !gas.error &&
     (gas.data ?? 0n) > 0n &&
     (!localImageNeedsStorage || mediaStoreEnabled) &&
     !write.isPending &&
@@ -1414,13 +1467,14 @@ export function CreateTierWizard() {
       setNativeState({ status: "ready", candidate: next });
     } catch (error) {
       if (request.generation !== processingGeneration.current) return;
-      setNativeState({
+      setNativeState((previous) => ({
         status: "error",
+        candidate: "candidate" in previous ? previous.candidate : undefined,
         message:
           error instanceof Error
             ? error.message
             : "The browser could not prepare this image.",
-      });
+      }));
     }
   }
 
@@ -1433,16 +1487,18 @@ export function CreateTierWizard() {
     invalidateMediaSelection();
     const generation = ++processingGeneration.current;
     if (processingDebounce.current) clearTimeout(processingDebounce.current);
-    candidateOwner.current.replace(undefined);
+    // Keep the displayed image alive while the replacement is prepared.
+    // Clearing the write candidate still prevents publishing stale bytes.
     setCandidate(undefined);
     setConfirmedMedia(undefined);
     setConfirmedMediaScope(undefined);
     setMedia({ mode: "native", confirmedStore: null });
     dispatchMedia({ type: "RESET" });
-    setNativeState({
+    setNativeState((previous) => ({
       status: "processing",
       message: "Preparing image...",
-    });
+      candidate: "candidate" in previous ? previous.candidate : undefined,
+    }));
     resetCompletion();
     const enqueue = () => {
       processingQueue.enqueue(
@@ -2150,6 +2206,7 @@ export function CreateTierWizard() {
               nativeLibrary={nativeLibrary}
               nativeSettings={nativeSettings}
               nativeState={presentedNativeState}
+              nativeCostEstimate={imageCostEstimate}
               onArtChange={handleArtChange}
               onCustomRendererAddressChange={handleRendererAddressChange}
               onCreatedRendererChange={handleCreatedRendererChange}
@@ -2691,6 +2748,25 @@ export function CreateTierWizard() {
                   </button>
                 )}
               <WalletReadiness paymentToken={selectedPaymentToken} />
+              {account.address &&
+              (gas.error || gas.data === undefined || gas.data === 0n) ? (
+                <div role={gas.error || gas.data === 0n ? "alert" : "status"}>
+                  <p>
+                    {gas.error
+                      ? "Could not check your ETH balance. Retry before publishing."
+                      : gas.data === 0n
+                        ? `Add ETH on ${active.chain?.name ?? "this network"} to pay the network fee before publishing.`
+                        : "Checking ETH for the publication network fee..."}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={gas.isFetching}
+                    onClick={() => void gas.refetch()}
+                  >
+                    Refresh ETH balance
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <section

@@ -1,9 +1,24 @@
 # Implementation Plan: Protocol Buyback and Burn With Safe Administration
 
+**Current implementation (2026-09-08):** [Standing permissionless buybacks](operating-model-proposal.md)
+replaces recurring approvals and delegated price signing with standing time/size
+controls and an admin calculator. The replacement is implemented and has fresh-fork
+execution evidence and passing final source checks; the clean personal-wallet
+handoff is being completed. See [current evidence](standing-buybacks-evidence.md).
+The original requirements and acceptance below are retained as history; their
+expiring-policy details do not govern this replacement. No further price-protection
+approval, oracle or required price-signing service is part of the approved scope.
+
+
+**Historical extension (2026-09-08), now superseded by standing settings:** [Local policy tools](local-policy-tools-plan.md)
+adds operator price-history storage and local review/signing. It supersedes the earlier
+no-admin-screen/no-database exclusions for that bounded workflow; the membership product
+still has no mandatory indexer or custodial backend. Historical acceptance below is separate.
+
 **Branch**: `codex/003-protocol-buyback-burn`; Spec Kit feature selector: `003-protocol-buyback-burn`  
 **Date**: 2026-09-07  
 **Spec**: [spec.md](spec.md)  
-**Status**: Phase 1 design recorded; external integration gates below remain mandatory. No implementation or fork run is claimed.
+**Status**: Standing replacement implemented with fresh-fork evidence; final convergence and personal-wallet handoff pending. The initial design and its historical gates follow.
 
 ## Summary
 

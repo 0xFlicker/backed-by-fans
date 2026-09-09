@@ -1,10 +1,13 @@
 # Complete protocol forknet: operator quickstart
 
-**Status**: Full local verification and two fresh complete fork runs passed on
-2026-09-07. Both reproduced all 34 scenarios, 12 success criteria and six
-integration gates, with 348 authentic contract tests and 57 production browser
-cases passing per run. See [final acceptance](acceptance-evidence.md#final-complete-acceptance--2026-09-07)
-for source identity, measured limits and evidence boundaries.
+**Current operating model:** standing batch sizes and cooldowns replace daily policy
+renewals. The [operating model](operating-model-proposal.md) defines the replacement.
+A new deployment is required; restoring an old state dump keeps its old contracts.
+
+**Historical acceptance:** the 2026-09-07 runs and their counts in
+[final acceptance](acceptance-evidence.md#final-complete-acceptance--2026-09-07)
+prove the earlier expiring-policy implementation at its recorded origin. They do
+not prove the replacement contracts or a refreshed origin; retain them as history.
 
 ## Prerequisites and private configuration
 
@@ -17,15 +20,19 @@ Provide an archive RPC with historical Robinhood mainnet state through
 ```sh
 cd /Users/user/Development/backed-by-fans
 : "${BBF_FORK_RPC_URL:?Configure a private archive endpoint in the environment}"
-export BBF_FORK_BLOCK_NUMBER=57010735
-export BBF_FORK_BLOCK_HASH=0xdfc65146f32cfd10afd9a620b68c3fc5d02077677ce06c46303e49e80f0a96cf
-export BBF_FORK_INPUTS="$PWD/specs/003-protocol-buyback-burn/evidence/pinned-preflight-inputs-20260907.json"
+unset BBF_FORK_BLOCK_NUMBER BBF_FORK_BLOCK_HASH BBF_FORK_INPUTS
+# The verified block and retained source/route inputs come from scripts/protocol-fork/origin.json.
 export BBF_FORK_EXECUTION_RPC_URL=http://127.0.0.1:18557
 export BBF_FORK_WEB_URL=http://127.0.0.1:3110
+# Manual serve mode hands the one-owner Safe to this wallet and funds it locally.
+export BBF_FORK_OWNER_ADDRESS=0x467172992E0aBa58411d14eC8b174167B0e359a6
 ```
 
 The origin is chain **4663**; execution is a disposable loopback fork on **31337**.
-Only test keys sign. Local test ETH funds the developer, test members, Safe signers
+Disposable test keys sign bootstrap transactions. In manual `serve` mode, the Safe
+is handed to `BBF_FORK_OWNER_ADDRESS` with threshold 1; that wallet signs later
+settings changes. Acceptance `run` mode retains a separate test multisig.
+Local test ETH funds the developer, test members, Safe signers
 and public callers. USDG and AMD are acquired through real markets; WETH is wrapped
 from test ETH. The protocol token and the separately unrouted token are newly
 launched through Pons. No public signing or origin-chain mutation occurs.
@@ -33,6 +40,54 @@ launched through Pons. No public signing or origin-chain mutation occurs.
 Both ports must be free. Evidence must use a fresh absolute directory, independent
 of temporary state. One harness owns the checkout's production web build at a time;
 using different ports does not permit concurrent builds against the same `.next`.
+
+## Refresh the origin before replacing a stale fork
+
+The checked-in `scripts/protocol-fork/origin.json` is the shared origin for the
+Python lifecycle, TypeScript preflight and Solidity fixture. Old evidence retains
+its original block. A restart uses this manifest; it never silently changes to
+latest state when a historical read fails.
+
+With the private origin RPC configured, verify a current safe block:
+
+```sh
+bun scripts/protocol-fork/refresh-origin.ts safe artifacts/protocol-fork/origin-review
+```
+
+This makes only RPC reads. It writes a candidate `origin.json` and `report.json`
+to a fresh evidence directory, and leaves the shared pin and running fork alone.
+It verifies the existing retained runtime/source identities, Pons roles and launch
+configuration, Safe infrastructure, WETH proxy implementation, token metadata and
+positive connected route quotes at the same block. It then rechecks the block hash.
+A positive route quote proves that amount is quotable, not that every proposed
+batch or a new token graduation will succeed.
+
+Apply a freshly verified candidate to the shared local pin with:
+
+```sh
+bun scripts/protocol-fork/refresh-origin.ts safe artifacts/protocol-fork/origin-apply --apply
+```
+
+Use the printed block number instead of `safe` if you want to apply the exact
+reviewed candidate; it is verified again. `finalized` is also supported. A provider
+without these tags must be given an explicit block number. Failures leave the
+shared pin unchanged; they never regenerate runtime locks. If external code or
+roles changed, inspect the failing checks, independently verify the new source,
+and deliberately update the retained inputs before trying again. If liquidity
+changed, review the route and acquisition amounts; do not patch pool reserves.
+
+After applying, stop the one owned local run, use a fresh run ID/evidence directory,
+and deploy the replacement. **Do not load an old Anvil state dump across a repin
+or contract replacement.** Clear stale block environment overrides, which now
+fail explicitly instead of selecting a different origin. Re-run contract and
+browser acceptance, including authentic curve purchases, graduation and pool
+purchases. Repinning alone is discovery, not acceptance.
+
+Record the old/new block and hash, failed checks and any reviewed source/route
+changes, deployment addresses, funded wallet, and actual acceptance evidence in
+the new run directory. Each refresh directory is retained review evidence; delete
+obsolete local refresh directories when no longer needed. The tool creates no
+background collector or unbounded cache.
 
 ## Preflight and complete run
 
@@ -58,8 +113,8 @@ export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/run-1"
 
 The run executes Foundry tests and invariants, launches a fresh ETH-paired Pons token
 with vested trading buybacks and zero extra creator tax, purchases the developer's
-entire initial holding with test ETH, creates a canonical 2-of-3 Safe and immutable
-BBF contracts, configures finite policies through signed Safe transactions, builds
+entire initial holding with test ETH, creates a canonical 2-of-3 test-fixture Safe and immutable
+BBF contracts, configures standing limits through signed Safe transactions, builds
 the production web app and executes the browser/runner matrix. Scope remains the
 full [required scenario matrix](acceptance-evidence.md#required-scenario-matrix).
 
@@ -98,10 +153,67 @@ measured supply reduction. The same origin and source hashes are mandatory.
 
 ## Serve, inspect and stop
 
+### Fund a personal wallet on the running fork
+
+The wallet needs assets on execution chain **31337**. Testnet balances and assets
+received on mainnet after the pinned block are unavailable here. With the browser
+fixture running, fund any public address from `web/`:
+
+```sh
+cd /Users/user/Development/backed-by-fans/web
+BBF_ADMIN_RPC_URL=http://127.0.0.1:18557 bun scripts/fund-fork-wallet.ts YOUR_WALLET_ADDRESS ../artifacts/protocol-fork/YOUR_RUN_ID
+```
+
+Each invocation adds 10 local ETH, up to 100 USDG, up to 0.1 AMD and 1 WETH.
+If a token reserve is smaller than the preferred amount, it transfers half that
+reserve and reports the exact amount. A JSON receipt records funded balances.
+It checks the local
+chain and deployed factory, transfers USDG/AMD from the finite fixture reserves,
+wraps local ETH for WETH, and checks successful receipts and recipient balances.
+It refuses public RPCs and never patches token balances. If the fixture reserves
+are exhausted, prepare a fresh fork. Funding disappears when that fork is stopped.
+
+Membership checkout offers an exact-shortfall ETH wrap for the verified WETH
+payment token, including gifts. Confirm the wrap, then continue with payment.
+Keep ETH for both transactions' network fees.
+
+For a saved manual-review session, `serve` also accepts `BBF_FORK_RESTORE_STATE`
+(an Anvil JSON state dump) and `BBF_FORK_RESTORE_EVIDENCE` (the original run directory).
+The saved run must record the same origin as `origin.json`; repinning requires a
+fresh deployment. Use a fresh evidence directory and run ID. Restoration serves the
+frontend with hot reload on the usual port. This mode is explicitly excluded from
+fresh acceptance verification; keep state dumps private because they contain local
+wallet and chain state.
+
 ```sh
 export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/manual-review"
 ./scripts/test-protocol-fork.sh serve --run-id manual-review
 ```
+
+A fresh `serve` run uses a **1-of-1 test Safe** and the normal Next development
+server with hot reload, always on the configured single port. Its initial owner
+is fixture key A so bootstrap configuration can complete. With
+`BBF_FORK_OWNER_ADDRESS` set as above, startup automatically executes and verifies
+the owner change, funds that wallet, and prepares three demo memberships before
+starting the web server. The wallet owns WETH Fans, USDG Fans and AMD Fans, buys
+four 30-day periods on each, and the fork advances once by 15 days. Protocol
+allocation and member rewards are 25% each. This makes earned buyback fees
+available without manually repeating creator setup, purchases or time travel.
+The wallet retains at least 20 ETH for testing.
+`owner-handoff.json` records the Safe and final owner; the wallet-funding JSON
+records the balances; `buyback-demo.json` records the tier addresses and setup
+timestamp. Re-running the demo command leaves a completed setup unchanged:
+
+```sh
+cd /Users/user/Development/backed-by-fans/web
+BBF_ADMIN_RPC_URL=http://127.0.0.1:18557 bun scripts/seed-buyback-demo.ts ../artifacts/protocol-fork/YOUR_RUN_ID 0x467172992E0aBa58411d14eC8b174167B0e359a6
+```
+
+The buyback page rehearses through stateless `eth_simulateV1` calls. It never
+starts another Anvil, changes your memberships, or advances the source chain.
+The separate
+`run` acceptance mode deliberately retains a 2-of-3 test fixture. Neither choice
+imposes a production signer count.
 
 Wait for the printed `Ready` URL. Open `/chains/31337/protocol` for wallet-free
 inventory, captured timestamps, conditional fee forecasts, Safe configuration and
@@ -117,12 +229,14 @@ and release make only that earned portion available to buy and burn. Earning is
 continuous over consumed paid seconds; it does not wait for a period boundary.
 At 100%, reserved fees fund the entire unused-time gross refund after earlier
 earned fees have burned. Forecasts describe existing paid schedules and remain
-conditional on refunds, gas, liquidity and valid policies.
+conditional on refunds, gas, liquidity and configured standing limits.
 
-For configuration, follow the exact read/prepare commands, JSON fields, payload
-inspection and signed Safe execution in the
-[operator workflow](contracts/operations-and-evidence.md#implemented-safe-operator-workflow).
-The Safe can onboard assets, configure routes and finite policies, pause buybacks
+For batch sizes and timing, open `/tools/buybacks` and follow the
+[calculator workflow](contracts/local-policy-tools.md#open-the-calculator).
+Review all selected currencies and save them together through the Safe. The
+[operator workflow](contracts/operations-and-evidence.md) also covers asset and
+route administration.
+The Safe can onboard assets, configure routes and standing limits, pause buybacks
 and nominate a validated successor Safe. It cannot withdraw fee inventory, change
 the protocol token, upgrade the contracts or accelerate earning. The public runner
 needs independently funded gas and no Safe key.

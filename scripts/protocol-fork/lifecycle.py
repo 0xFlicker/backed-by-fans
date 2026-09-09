@@ -18,7 +18,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 STATE_ROOT = Path(tempfile.gettempdir()) / "bbf-protocol-fork-runs"
-PIN = {"chainId": 4663, "blockNumber": "57010735", "blockHash": "0xdfc65146f32cfd10afd9a620b68c3fc5d02077677ce06c46303e49e80f0a96cf"}
+ORIGIN_CONFIG = json.loads((ROOT / "scripts/protocol-fork/origin.json").read_text())
+PIN = {key: ORIGIN_CONFIG[key] for key in ("chainId", "blockNumber", "blockHash")}
 
 
 def validate_run_id(value):
@@ -79,6 +80,17 @@ class Run:
     def __init__(self, args):
         self.args = args
         self.env = os.environ.copy()
+        self.restore_state = self.env.get("BBF_FORK_RESTORE_STATE")
+        self.restore_evidence = self.env.get("BBF_FORK_RESTORE_EVIDENCE")
+        if self.restore_state or self.restore_evidence:
+            if args.mode != "serve" or not self.restore_state or not self.restore_evidence:
+                raise ValueError("State restoration requires serve mode, a state file and its evidence directory; it cannot produce fresh acceptance evidence")
+            if not Path(self.restore_state).is_file() or not (Path(self.restore_evidence) / "browser-environment.json").is_file():
+                raise ValueError("Saved state or browser environment is missing")
+            record = Path(self.restore_evidence) / "lifecycle.json"
+            saved_origin = json.loads(record.read_text()).get("origin") if record.is_file() else None
+            if saved_origin != PIN:
+                raise ValueError("Saved state origin does not match origin.json; deploy a fresh fork after repinning")
         self.rpc_url = self.env.get("BBF_FORK_EXECUTION_RPC_URL", "http://127.0.0.1:8547")
         self.web_url = self.env.get("BBF_FORK_WEB_URL", "http://127.0.0.1:3110")
         self.rpc_parts, self.web_parts = endpoint(self.rpc_url), endpoint(self.web_url)
@@ -86,8 +98,10 @@ class Run:
             raise ValueError("RPC and web ports must differ")
         if not self.env.get("BBF_FORK_RPC_URL"):
             raise ValueError("Set BBF_FORK_RPC_URL privately to the origin archive endpoint")
-        if self.env.get("BBF_FORK_BLOCK_NUMBER") != PIN["blockNumber"] or self.env.get("BBF_FORK_BLOCK_HASH") != PIN["blockHash"]:
-            raise ValueError("The execution harness requires the verified origin block and hash")
+        if self.env.get("BBF_FORK_BLOCK_NUMBER", PIN["blockNumber"]) != PIN["blockNumber"] or self.env.get("BBF_FORK_BLOCK_HASH", PIN["blockHash"]).lower() != PIN["blockHash"].lower():
+            raise ValueError("The execution harness requires the verified origin in scripts/protocol-fork/origin.json")
+        self.env.update(BBF_FORK_BLOCK_NUMBER=PIN["blockNumber"], BBF_FORK_BLOCK_HASH=PIN["blockHash"])
+        self.env.setdefault("BBF_FORK_INPUTS", str(ROOT / ORIGIN_CONFIG["inputsPath"]))
         raw_evidence = self.env.get("BBF_FORK_EVIDENCE_DIR", "")
         if not raw_evidence or not Path(raw_evidence).is_absolute():
             raise ValueError("BBF_FORK_EVIDENCE_DIR must be an absolute, fresh retained directory")
@@ -135,6 +149,7 @@ class Run:
                         BBF_FORK_DEVELOPER_KEY="20817", BBF_FORK_SAFE_KEY_A="40961", BBF_FORK_SAFE_KEY_B="40962", BBF_FORK_SAFE_KEY_C="40963",
                         BBF_FORK_INITIAL_BUY_WEI="10000000000000000")
         self.env["RUN_PROTOCOL_FORK_TESTS"] = "true"
+        self.env["BBF_FORK_SINGLE_OWNER"] = "true" if args.mode == "serve" else "false"
         for name, value in {"DEVELOPER": 20817, "SAFE_KEY_A": 40961, "SAFE_KEY_B": 40962, "RELAYER": 49153}.items():
             key = f"BBF_CHECKPOINT_{name}" if name.startswith("SAFE") else f"BBF_CHECKPOINT_{name}_KEY"
             self.env[key] = "0x" + format(value, "064x")
@@ -168,6 +183,8 @@ class Run:
         return process
 
     def bootstrap(self):
+        if self.restore_state:
+            return self.restore_for_review()
         self.command("preflight", ["bun", str(ROOT / "scripts/protocol-fork/preflight.ts")])
         if self.args.mode == "run":
             self.command("contracts", ["forge", "test", "--json", "--code-size-limit", "1000000", "--gas-limit", "1000000000"], ROOT / "contracts")
@@ -194,12 +211,18 @@ class Run:
         shutil.copy2(source, self.evidence / "bootstrap.json")
         self.command("launch-safe-checkpoint", ["bun", str(ROOT / "scripts/protocol-fork/launch-safe-checkpoint.ts"), str(self.evidence / "bootstrap.json"), str(self.evidence)], ROOT / "web")
         self.command("browser-fixture", ["bun", "scripts/protocol-fork-fixture.ts", str(self.evidence)], ROOT / "web")
+        if self.args.mode == "serve" and self.env.get("BBF_FORK_OWNER_ADDRESS"):
+            owner = self.env["BBF_FORK_OWNER_ADDRESS"]
+            self.command("owner-handoff", ["bun", "scripts/handoff-fork-safe.ts", str(self.evidence), owner], ROOT / "web")
+            self.command("owner-funding", ["bun", "scripts/fund-fork-wallet.ts", owner, str(self.evidence)], ROOT / "web")
+            self.command("buyback-demo", ["bun", "scripts/seed-buyback-demo.ts", str(self.evidence), owner], ROOT / "web")
         self.env.update(json.loads((self.evidence / "browser-environment.json").read_text()))
         self.env["NEXT_PUBLIC_SITE_URL"] = self.web_url
         if self.args.mode == "run":
             self.command("web-unit", ["bun", "run", "test", "--reporter=json", "--outputFile", str(self.evidence / "web-unit.json")], ROOT / "web")
-        self.command("web-build", ["bun", "run", "build"], ROOT / "web")
-        web = self.service("web", ["bun", "run", "start", "--", "--hostname", self.web_parts.hostname, "--port", str(self.web_parts.port)], ROOT / "web")
+        if self.args.mode == "run":
+            self.command("web-build", ["bun", "run", "build"], ROOT / "web")
+        web = self.service("web", ["bun", "run", "dev" if self.args.mode == "serve" else "start", "--", "--hostname", self.web_parts.hostname, "--port", str(self.web_parts.port)], ROOT / "web")
         for _ in range(200):
             if web.poll() is not None:
                 raise RuntimeError("Web exited before readiness")
@@ -214,6 +237,34 @@ class Run:
             raise RuntimeError("Web readiness timed out")
         self.write("lifecycle.json", {"runId": self.args.run_id, "mode": self.args.mode, "status": "running", "origin": PIN, "executionChainId": 31337, "rpcUrl": self.rpc_url, "webUrl": self.web_url, "steps": self.steps})
         print(f"Ready: {self.web_url}/chains/31337/protocol | evidence: {self.evidence}", flush=True)
+
+    def restore_for_review(self):
+        """Resume local manual review without discarding wallet balances or deployments."""
+        node = self.service("anvil", ["anvil", "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--load-state", self.restore_state, "--silent"])
+        for _ in range(200):
+            if node.poll() is not None:
+                raise RuntimeError("Restored Anvil exited before readiness")
+            try:
+                if rpc(self.rpc_url, "eth_chainId") == "0x7a69":
+                    break
+            except (urllib.error.URLError, TimeoutError):
+                pass
+            time.sleep(0.1)
+        else:
+            raise RuntimeError("Restored Anvil readiness timed out")
+        if rpc(self.rpc_url, "eth_getBlockByNumber", [hex(int(PIN["blockNumber"])), False])["hash"] != PIN["blockHash"]:
+            raise RuntimeError("Restored fork origin mismatch")
+        source = Path(self.restore_evidence)
+        for name in ("bootstrap.json", "browser-environment.json"):
+            shutil.copy2(source / name, self.evidence / name)
+        bootstrap = json.loads((self.evidence / "bootstrap.json").read_text())
+        if rpc(self.rpc_url, "eth_getCode", [bootstrap["factory"], "latest"]) == "0x":
+            raise RuntimeError("Saved factory is missing from restored state")
+        self.env.update(json.loads((self.evidence / "browser-environment.json").read_text()))
+        self.env["NEXT_PUBLIC_SITE_URL"] = self.web_url
+        self.service("web", ["bun", "run", "dev", "--", "--hostname", self.web_parts.hostname, "--port", str(self.web_parts.port)], ROOT / "web")
+        self.write("lifecycle.json", {"runId": self.args.run_id, "mode": "serve", "status": "running", "scope": "restored-manual-review-not-fresh-acceptance", "origin": PIN, "restoredFrom": str(source), "executionChainId": 31337, "rpcUrl": self.rpc_url, "webUrl": self.web_url})
+        print(f"Restored manual review: {self.web_url}/chains/31337/protocol", flush=True)
 
     def execute(self):
         try:

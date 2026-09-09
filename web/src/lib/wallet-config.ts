@@ -53,5 +53,3 @@ export function createWalletConfig(config: PublicConfig = publicConfig) {
     },
   });
 }
-
-export const walletConfig = createWalletConfig();

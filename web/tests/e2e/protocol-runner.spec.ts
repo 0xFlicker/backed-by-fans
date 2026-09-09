@@ -15,14 +15,9 @@ import {
   revertAnvil,
 } from "./helpers/anvil";
 
-const runnerIntervalSeconds = 30;
+const maxRunSeconds = 60;
 
-async function scheduledRunner(
-  key: `0x${string}`,
-  interval: number,
-  rpc: string,
-  factory: string,
-) {
+async function oneShotRunner(key: `0x${string}`, rpc: string, factory: string) {
   const child = spawn(
     "bun",
     [
@@ -31,8 +26,9 @@ async function scheduledRunner(
       rpc,
       "--factory",
       factory,
-      "--interval-seconds",
-      String(interval),
+      "--once",
+      "--max-gas-percent",
+      "100",
     ],
     {
       cwd: process.cwd(),
@@ -48,7 +44,7 @@ async function scheduledRunner(
     done = false;
   const completed = new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
-      reject(new Error(`Runner did not complete two sweeps: ${stderr}`));
+      reject(new Error(`Runner did not complete its bounded sweep: ${stderr}`));
       child.kill("SIGTERM");
     }, 240000);
     child.stdout.on("data", (chunk) => {
@@ -74,11 +70,10 @@ async function scheduledRunner(
         if (
           !done &&
           records.filter((record) => record.action === "sweep-complete")
-            .length >= 2
+            .length >= 1
         ) {
           done = true;
           clearTimeout(timeout);
-          child.kill("SIGTERM");
         }
       }
     });
@@ -126,11 +121,11 @@ async function scheduledRunner(
   }
 }
 
-test("@protocol-fork independently funded callers replace scheduled collection and processing", async ({}, testInfo) => {
+test("@protocol-fork independently funded callers replace one-shot collection and processing", async ({}, testInfo) => {
   test.skip(
     process.env.BBF_PROTOCOL_FORK_AUTHENTIC !== "1" ||
       testInfo.project.name !== "desktop",
-    "One authentic scheduled runner scenario is required",
+    "One authentic one-shot runner scenario is required",
   );
   test.setTimeout(600000);
   const snapshot = await snapshotAnvil();
@@ -139,7 +134,7 @@ test("@protocol-fork independently funded callers replace scheduled collection a
       asset = requiredAnvilAddress("paymentToken"),
       member = requiredAnvilAddress("member");
     const tier = await f.tier("Runner replacement", asset);
-    await f.policyForUSDG();
+    await f.limitsForUSDG();
     await f.write(member, asset, erc20Abi, "approve", [tier, 120_000_000n]);
     const purchase = await f.write(
       member,
@@ -177,9 +172,8 @@ test("@protocol-fork independently funded callers replace scheduled collection a
       abi: erc20Abi,
       functionName: "totalSupply",
     });
-    const runA = await scheduledRunner(
+    const runA = await oneShotRunner(
       testKey(0xb001),
-      runnerIntervalSeconds,
       f.rpc,
       f.bootstrap.factory,
     );
@@ -207,9 +201,8 @@ test("@protocol-fork independently funded callers replace scheduled collection a
         functionName: "totalProtocolFeeReleased",
       }),
     ).toBe(releasedA);
-    const runB = await scheduledRunner(
+    const runB = await oneShotRunner(
       testKey(0xb002),
-      runnerIntervalSeconds,
       f.rpc,
       f.bootstrap.factory,
     );
@@ -244,9 +237,7 @@ test("@protocol-fork independently funded callers replace scheduled collection a
     // Contract time keeps earning while real receipts and discovery reads finish.
     // Test actual replacement liveness rather than assuming zero new inventory.
     expect(runB.firstProcessAfterMs).toBeDefined();
-    expect(runB.firstProcessAfterMs!).toBeLessThanOrEqual(
-      2 * runnerIntervalSeconds * 1000,
-    );
+    expect(runB.firstProcessAfterMs!).toBeLessThanOrEqual(maxRunSeconds * 1000);
     expect(supplyBefore - supplyAfter).toBe(tokenInventory.totalBurned);
     expect(tokenInventory.totalBurned).toBeGreaterThan(0n);
     expect(await f.client.getBalance({ address: a.address })).toBe(0n);
@@ -272,8 +263,8 @@ test("@protocol-fork independently funded callers replace scheduled collection a
       supplyAfter,
       callerA: a.address,
       callerB: b.address,
-      intervalSecondsA: runnerIntervalSeconds,
-      intervalSecondsB: runnerIntervalSeconds,
+      executionMode: "one-shot",
+      maximumGasPercent: 100,
       gasAfterA,
       gasAfterRemoval,
       firstProcessAfterMsB: runB.firstProcessAfterMs,

@@ -51,14 +51,18 @@ export type NativeCandidateSummary = {
 
 export type NativeMediaState =
   | { status: "empty" }
-  | { status: "processing"; message?: string }
+  | {
+      status: "processing";
+      message?: string;
+      candidate?: NativeCandidateSummary;
+    }
   | { status: "ready"; candidate: NativeCandidateSummary }
   | {
       status: "stored";
       candidate?: NativeCandidateSummary;
       confirmedStore: Address;
     }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; candidate?: NativeCandidateSummary };
 
 export type NativeMediaLibraryModel = {
   status: "loading" | "ready" | "error";
@@ -92,6 +96,7 @@ export function MediaEditor({
   locks,
   nativeSettings = defaultNativeMediaSettings,
   nativeState = { status: "empty" },
+  nativeCostEstimate,
   nativeLibrary,
   onMediaChange,
   onArtChange,
@@ -109,6 +114,7 @@ export function MediaEditor({
   locks: ReadonlySet<SurpriseLock>;
   nativeSettings?: NativeMediaSettings;
   nativeState?: NativeMediaState;
+  nativeCostEstimate?: import("react").ReactNode;
   nativeLibrary?: NativeMediaLibraryModel;
   onMediaChange: (media: StudioMediaDraft) => void;
   onArtChange: (art: AnyStudioArtConfig) => void;
@@ -129,9 +135,7 @@ export function MediaEditor({
   const selectedStore =
     media.mode === "native" ? nativeLibrary?.selectedStore : undefined;
   const localCandidate =
-    media.mode === "native" &&
-    (nativeState.status === "ready" ||
-      (nativeState.status === "stored" && nativeState.candidate))
+    media.mode === "native" && "candidate" in nativeState
       ? nativeState.candidate
       : undefined;
   const localTileSelected =
@@ -496,6 +500,7 @@ export function MediaEditor({
           ) : null}
 
           <div aria-live="polite" className={styles.mediaStatus}>
+            {nativeCostEstimate}
             {nativeState.status === "processing" ? (
               <p>{nativeState.message ?? "Preparing image..."}</p>
             ) : null}

@@ -48,6 +48,7 @@ function mount() {
         chainId={31337}
         vault={vault}
         asset={asset}
+        protocolTokenSymbol="BBFFORK"
         bucket={0}
         status={0}
         amount={100n}
@@ -88,7 +89,7 @@ beforeEach(() => {
         }),
         data: encodeAbiParameters(
           event.inputs.filter((input) => !input.indexed),
-          [60n, 90n, 0, 2n],
+          [60n, 2342737926990313551770n, 0, 2n],
         ),
       },
     ],
@@ -99,7 +100,10 @@ it("uses the exact simulated wagmi write, viem receipt and canonical burn postco
   await userEvent.click(
     screen.getByRole("button", { name: "Process membership fees" }),
   );
-  await screen.findByText(/Burn complete/);
+  expect(await screen.findByText(/Burn complete/)).toHaveTextContent(
+    "Burn complete. 2,342.738 BBFFORK permanently removed from supply.",
+  );
+  expect(screen.getByTitle("2342.73792699031355177 BBFFORK")).toBeVisible();
   expect(mocked.write).toHaveBeenCalledWith(
     (await mocked.simulate.mock.results[0].value).request,
   );

@@ -47,10 +47,13 @@ contract DeployForkProtocol is ProtocolDeployment {
         // These must be disposable test keys supplied by the local harness.
         uint256 developerKey = vm.envUint("BBF_FORK_DEVELOPER_KEY");
         address developer = vm.addr(developerKey);
-        address[] memory owners = new address[](3);
+        bool singleOwner = vm.envOr("BBF_FORK_SINGLE_OWNER", false);
+        address[] memory owners = new address[](singleOwner ? 1 : 3);
         owners[0] = vm.addr(vm.envUint("BBF_FORK_SAFE_KEY_A"));
-        owners[1] = vm.addr(vm.envUint("BBF_FORK_SAFE_KEY_B"));
-        owners[2] = vm.addr(vm.envUint("BBF_FORK_SAFE_KEY_C"));
+        if (!singleOwner) {
+            owners[1] = vm.addr(vm.envUint("BBF_FORK_SAFE_KEY_B"));
+            owners[2] = vm.addr(vm.envUint("BBF_FORK_SAFE_KEY_C"));
+        }
         bytes32 salt = keccak256(bytes(vm.envString("BBF_FORK_RUN_ID")));
         uint256 initialBuy = vm.envUint("BBF_FORK_INITIAL_BUY_WEI");
         if (initialBuy == 0 || initialBuy > 0.01 ether) revert InvalidLaunchTerms();
@@ -129,7 +132,7 @@ contract DeployForkProtocol is ProtocolDeployment {
     ) internal returns (Deployment memory result) {
         _validateForkDependencies();
         if (
-            owners.length != 3 || developer == address(0) || initialBuy == 0
+            (owners.length != 1 && owners.length != 3) || developer == address(0) || initialBuy == 0
                 || initialBuy > 0.01 ether
         ) revert InvalidLaunchTerms();
         for (uint256 i; i < owners.length; i++) {
@@ -171,15 +174,26 @@ contract DeployForkProtocol is ProtocolDeployment {
             result.developerTokensPurchased != token.balanceOf(developer)
                 || result.developerTokensPurchased < minimum || curve.readyToGraduate()
         ) revert InvalidLaunchTerms();
+        uint256 threshold = owners.length == 1 ? 1 : 2;
         bytes memory initializer = abi.encodeCall(
             ISafeL2.setup,
-            (owners, 2, address(0), bytes(""), SAFE_HANDLER, address(0), 0, payable(address(0)))
+            (
+                owners,
+                threshold,
+                address(0),
+                bytes(""),
+                SAFE_HANDLER,
+                address(0),
+                0,
+                payable(address(0))
+            )
         );
         result.safe = ISafeProxyFactoryV150(SAFE_FACTORY)
             .createProxyWithNonceL2(SAFE_SINGLETON, initializer, uint256(salt));
         if (
             ISafeProxy(result.safe).masterCopy() != SAFE_SINGLETON
-                || ISafeL2(result.safe).getThreshold() != 2 || ISafeL2(result.safe).nonce() != 0
+                || ISafeL2(result.safe).getThreshold() != threshold
+                || ISafeL2(result.safe).nonce() != 0
                 || keccak256(abi.encode(ISafeL2(result.safe).getOwners()))
                     != keccak256(abi.encode(owners))
         ) revert ExternalIdentityMismatch();
