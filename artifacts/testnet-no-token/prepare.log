@@ -1,0 +1,22 @@
+Compiling 187 files with Solc 0.8.36
+Solc 0.8.36 finished in 18.05s
+Compiler run successful!
+No files changed, compilation skipped
+
+Ran 1 test for test/deployment/DeploymentScripts.t.sol:DeploymentScriptsTest
+[PASS] test_releaseWrapperPlanMatchesSolidityConfig() (gas: 39230178)
+Logs:
+  BBF_RELEASE_FACTORY_RUNTIME_HASH: 0x3708f47cfb48fad12718a71d778d98f3a671c4161bbd67099fcf44505d948188
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 19.02ms (5.38ms CPU time)
+
+Ran 1 test suite in 24.25ms (19.02ms CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x94d79131c69bD41Da715D9C9DEaA851588b7174c 0xfe6d2d134ac320ea0280fd7bc17434ca5f9d581915263cf86b27fd6f3f2fd268 0x0f53878388acb03ed0f6c8d2bafe95a86b00da0ab1d76c814fb28465bce437c2 empty                missing
+renderer               0xc21aDdA35ED9565E808fdd2a254c51831D90330a 0xd5d77772011d4af9c22004763259d059371b7063f243ab65f83c33d955cef02f 0x14f38b172dddb15b192e4524ff439c62f357145589126d7d4f4ac64cceb5be3c media store factory  missing
+renderer preview harness 0x369d13442eEb924105879Eb0EF0b39b619A1DF70 0xd331fd44b3e4b000af45995573ead6af628506303f754c47acbf6a99bcdf3249 0x6d9e38ad442109ee3ab6b1179ae15a1cde2772b245a4a69c5d3269801fa4f209 renderer             missing
+membership factory     0x72681c494302092cE571ae10A27fC59a1E4AF206 0x52afc39cf7042e5629873ebd24253a89bd882d682c0c2a12638c753189010722 0x3708f47cfb48fad12718a71d778d98f3a671c4161bbd67099fcf44505d948188 renderer preview harness missing
+
+Protocol deployment: prepared reviewed operational state at contracts/config/operational-state/46630.json
+Protocol deployment: review and commit that file before dry-run or broadcast

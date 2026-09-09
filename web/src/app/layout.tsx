@@ -10,6 +10,7 @@ import { GeistSans } from "geist/font/sans";
 import { AppProviders } from "@/components/AppProviders";
 import { BackingStackMark } from "@/components/BackingStackMark";
 import { WalletControl } from "@/components/WalletControl";
+import { ProtocolLink } from "@/components/ProtocolLink";
 import { publicConfig } from "@/lib/config";
 import { readServerWalletState } from "@/lib/server-wallet-state";
 
@@ -67,6 +68,7 @@ export default async function RootLayout({
             </Link>
             <nav aria-label="Primary navigation" className="primary-nav">
               <Link href="/about">About</Link>
+              <ProtocolLink />
               <Link href="/account">My account</Link>
               <Link href="/create">For creators</Link>
               <Link href="/skill">Make art</Link>

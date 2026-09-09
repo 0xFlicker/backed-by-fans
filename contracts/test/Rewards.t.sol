@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
+
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {Test} from "forge-std/Test.sol";
 
@@ -30,7 +32,7 @@ contract RewardsTest is Test {
         paymentToken = new MockUSDG();
         renderer = new OnchainMetadataRenderer();
         tier = new MembershipTier(
-            address(this),
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)),
             paymentToken,
             MembershipTestConfig.defaultConfig(
                 address(this), address(renderer), address(paymentToken)
@@ -145,7 +147,11 @@ contract RewardsTest is Test {
             address(this), address(renderer), address(largeSupplyToken)
         );
         config.pricePerPeriod = 0;
-        MembershipTier largeTier = new MembershipTier(address(this), largeSupplyToken, config);
+        MembershipTier largeTier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(largeSupplyToken)),
+            largeSupplyToken,
+            config
+        );
         address largeHolder = makeAddr("largeHolder");
         uint256 gross = type(uint256).max;
         largeSupplyToken.mint(largeHolder, gross);
@@ -208,7 +214,9 @@ contract RewardsTest is Test {
             address(this), address(renderer), address(paymentToken)
         );
         config.pricePerPeriod = 0;
-        zeroTier = new MembershipTier(address(this), paymentToken, config);
+        zeroTier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
+        );
         vm.prank(firstMember);
         paymentToken.approve(address(zeroTier), type(uint256).max);
     }

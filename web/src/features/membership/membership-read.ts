@@ -80,7 +80,7 @@ async function readCredentialMulticallValues(
   const values = results.map((result) =>
     result.status === "success" ? result.result : undefined,
   );
-  if (!minted) values[8] = [0n, 0n];
+  if (!minted) values[8] = [0n, 0n, 0n, 0n];
   return values;
 }
 
@@ -236,11 +236,11 @@ async function readCredential(
       ? await client.readContract({
           address: tier,
           abi: membershipTierAbi,
-          functionName: "previewRefund",
+          functionName: "previewRefundComponents",
           args: [tokenId],
           blockNumber,
         })
-      : ([0n, 0n] as const);
+      : ([0n, 0n, 0n, 0n] as const);
   return credentialFromValues(tokenId, wallet, [
     balance,
     active,
@@ -284,6 +284,9 @@ function credentialFromValues(
     rewardEligible: rewardEligible as boolean,
     claimableReward: reward as bigint,
     refundableGross: (refund as readonly bigint[])[0],
+    protocolRefundContribution: (refund as readonly bigint[])[1],
+    creatorRefundContribution: (refund as readonly bigint[])[2],
+    ownerTopUp: (refund as readonly bigint[])[3],
     referralStatus: referralStatus((referral as readonly [number, Address])[0]),
     referrer: (referral as readonly [number, Address])[1],
   } satisfies SupporterCredential;
@@ -346,7 +349,7 @@ function credentialContracts(
     {
       address: tier,
       abi: membershipTierAbi,
-      functionName: "previewRefund",
+      functionName: "previewRefundComponents",
       args: [tokenId],
     },
   ];

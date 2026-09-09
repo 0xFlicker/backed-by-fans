@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
@@ -54,8 +55,9 @@ contract LocalLifecycleEvidenceTest is Test {
         IERC20[] memory paymentTokens = new IERC20[](2);
         paymentTokens[0] = paymentToken;
         paymentTokens[1] = scaledPaymentToken;
+        SyntheticPonsBinding.bind(address(paymentToken));
         factory = new MembershipFactory(
-            paymentTokens, address(mediaStoreFactory), address(this), feeRecipient
+            paymentTokens, address(mediaStoreFactory), address(this), address(paymentToken)
         );
 
         MembershipTypes.TierConfig memory config =
@@ -121,7 +123,8 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(lockedReferrer, referrer);
         assertEq(uint256(giftStatus), uint256(MembershipTypes.ReferralStatus.Unset));
 
-        assertEq(paymentToken.balanceOf(address(factory)), 300_000);
+        assertEq(paymentToken.balanceOf(address(factory)), 0);
+        assertEq(tier.protocolFeeHoldings(), 300_000);
         assertEq(tier.creatorProceeds(), 28_000_000);
         assertEq(tier.rewardReserve(), 1_500_000);
         assertEq(tier.totalReferralLiability(), 200_000);
@@ -178,23 +181,27 @@ contract LocalLifecycleEvidenceTest is Test {
         vm.prank(referrer);
         assertEq(tier.claimReferral(), 200_000);
         vm.prank(nextCreator);
-        assertEq(tier.withdrawCreatorProceeds(), 13_000_000);
+        assertEq(tier.withdrawCreatorProceeds(), 13_150_000);
         _assertTierCustody(0);
 
+        // This synthetic lifecycle cannot nominate an EOA as protocol authority.
+        // Actual signed Safe succession is covered by RobinhoodSafe.t.sol.
+        vm.expectRevert();
         factory.transferOwnership(nextProtocolOwner);
-        vm.prank(nextProtocolOwner);
-        factory.acceptOwnership();
-        vm.prank(nextProtocolOwner);
-        factory.setFeeRecipient(nextFeeRecipient);
         vm.prank(nextFeeRecipient);
-        assertEq(factory.withdrawProtocolFees(paymentToken), 300_000);
+        (bool feeWithdrawal,) = address(factory)
+            .call(abi.encodeWithSignature("withdrawProtocolFees(address)", address(paymentToken)));
+        assertFalse(feeWithdrawal);
 
-        assertEq(factory.owner(), nextProtocolOwner);
+        assertEq(factory.owner(), address(this));
         assertEq(factory.pendingOwner(), address(0));
-        assertEq(factory.feeRecipient(), nextFeeRecipient);
+        assertEq(factory.protocolToken(), address(paymentToken));
+        // Expired credentials have earned the remaining allocation. Release is public.
+        assertEq(tier.releaseProtocolFees(), 150_000);
         // One base unit remains protected as reward-index rounding dust.
         assertEq(paymentToken.balanceOf(address(tier)), 1);
         assertEq(paymentToken.balanceOf(address(factory)), 0);
+        assertEq(paymentToken.balanceOf(factory.buybackVault()), 150_000);
         assertEq(tier.rewardReserve(), 1);
         assertEq(tier.totalReferralLiability(), 0);
         assertEq(tier.creatorProceeds(), 0);
@@ -202,7 +209,8 @@ contract LocalLifecycleEvidenceTest is Test {
         uint256 observedSupply = paymentToken.balanceOf(member) + paymentToken.balanceOf(giftPayer)
             + paymentToken.balanceOf(giftRecipient) + paymentToken.balanceOf(referrer)
             + paymentToken.balanceOf(nextCreator) + paymentToken.balanceOf(nextFeeRecipient)
-            + paymentToken.balanceOf(address(tier));
+            + paymentToken.balanceOf(address(tier)) + paymentToken.balanceOf(address(factory))
+            + paymentToken.balanceOf(factory.buybackVault());
         assertEq(observedSupply, paymentToken.totalSupply());
         assertEq(observedSupply, 200_000_000);
     }
@@ -214,8 +222,8 @@ contract LocalLifecycleEvidenceTest is Test {
     }
 
     function _assertTierCustody(uint256 expectedSurplus) private view {
-        uint256 liabilities =
-            tier.creatorProceeds() + tier.rewardReserve() + tier.totalReferralLiability();
+        uint256 liabilities = tier.creatorProceeds() + tier.rewardReserve()
+            + tier.totalReferralLiability() + tier.protocolFeeHoldings();
         assertEq(paymentToken.balanceOf(address(tier)), liabilities + expectedSurplus);
     }
 

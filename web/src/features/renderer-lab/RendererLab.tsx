@@ -83,7 +83,11 @@ import {
   type CreatorMediaRecord,
 } from "@/features/protocol/registry-reconciliation";
 import { isSuccessfulWriteReceipt } from "@/features/protocol/write-reconciliation";
-import { getDeployment, publicConfig } from "@/lib/config";
+import {
+  getDeployment,
+  publicConfig,
+  publicRendererRegistryAddress,
+} from "@/lib/config";
 
 import styles from "./RendererLab.module.css";
 
@@ -166,10 +170,9 @@ const configuredPreviewHarness =
   configuredDeployment.status === "ready"
     ? configuredDeployment.previewHarnessAddress
     : undefined;
-const configuredRendererRegistry =
-  configuredDeployment.status === "ready"
-    ? configuredDeployment.rendererRegistryAddress
-    : undefined;
+const configuredRendererRegistry = publicRendererRegistryAddress(
+  canonicalRendererPackageChainId,
+);
 const rendererDeploymentConfirmations = 3;
 
 function defaultHelperClientFactory(connection: RendererHelperConnection) {

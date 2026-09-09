@@ -19,3 +19,6 @@ docs/
 .env
 .env.*
 !.env.example
+
+# Disposable fork deployment fragments; retained evidence is exported separately.
+/deployments/protocol-fork/

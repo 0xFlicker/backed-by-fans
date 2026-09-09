@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
@@ -17,6 +18,7 @@ import {MembershipModel} from "../models/MembershipModel.sol";
 contract AccountingHandler is Test {
     using MembershipModel for MembershipModel.Lifecycle;
     using MembershipModel for MembershipModel.PaymentBook;
+    using MembershipModel for MembershipModel.FeeBook;
 
     uint256 private constant _MAX_SURPLUS = 10_000_000;
 
@@ -29,6 +31,8 @@ contract AccountingHandler is Test {
     address[4] private _actors;
 
     MembershipModel.PaymentBook private _book;
+    MembershipModel.FeeBook private _fees;
+    uint256 public modelFactoryDonations;
     mapping(uint256 tokenId => MembershipModel.Lifecycle state) private _lifecycle;
     mapping(uint256 tokenId => MembershipTypes.ReferralStatus status) private _referralStatus;
     mapping(uint256 tokenId => address referrer) private _referrer;
@@ -40,7 +44,6 @@ contract AccountingHandler is Test {
     uint256 public ghostRewardClaimed;
     uint256 public ghostReferralClaimed;
     uint256 public ghostRefunded;
-    uint256 public ghostProtocolWithdrawn;
     uint256 public ghostRewardAllocated;
 
     constructor(
@@ -79,6 +82,7 @@ contract AccountingHandler is Test {
         uint256 tokenId = tier.purchase(periods, referralChoice);
 
         _lockModelReferral(tokenId, referralChoice);
+        _checkpointModelFees(tokenId);
         _lifecycle[tokenId].addPaidTime(
             _timestamp(), uint64(uint256(periods) * tier.periodDuration())
         );
@@ -101,6 +105,7 @@ contract AccountingHandler is Test {
         vm.prank(payer);
         uint256 tokenId = tier.gift(recipient, periods, status, referrer);
 
+        _checkpointModelFees(tokenId);
         _lifecycle[tokenId].addPaidTime(
             _timestamp(), uint64(uint256(periods) * tier.periodDuration())
         );
@@ -138,8 +143,11 @@ contract AccountingHandler is Test {
         (uint64 paidSeconds,,) = _lifecycle[tokenId].projected(_timestamp());
         uint256 expectedRefund =
             MembershipModel.fixedRefund(paidSeconds, tier.pricePerPeriod(), tier.periodDuration());
-        uint256 expectedTopUp =
-            expectedRefund > _book.creatorProceeds ? expectedRefund - _book.creatorProceeds : 0;
+        _checkpointModelFees(tokenId);
+        uint256 protocolContribution = _fees.cancelFee(tokenId, expectedRefund);
+        (,, uint256 expectedTopUp,) = MembershipModel.refundFunding(
+            protocolContribution, expectedRefund, _book.creatorProceeds
+        );
         (uint256 actualRefund, uint256 actualTopUp) = tier.previewRefund(tokenId);
         assertEq(actualRefund, expectedRefund);
         assertEq(actualTopUp, expectedTopUp);
@@ -149,7 +157,7 @@ contract AccountingHandler is Test {
         (uint256 refunded, uint256 ownerTopUp) = tier.refund(tokenId, expectedRefund, expectedTopUp);
         assertEq(refunded, expectedRefund);
         assertEq(ownerTopUp, expectedTopUp);
-        assertEq(_book.applyRefund(expectedRefund), expectedTopUp);
+        assertEq(_book.applyRefund(expectedRefund - protocolContribution), expectedTopUp);
         _book.deactivateRewards(tokenId);
         _lifecycle[tokenId].refundTime(_timestamp());
         ghostOwnerTopUps += ownerTopUp;
@@ -160,6 +168,9 @@ contract AccountingHandler is Test {
         uint256 tokenId = tier.tokenOf(_actor(actorSeed));
         if (tokenId == 0) return;
 
+        if (_lifecycle[tokenId].occupied && !_lifecycle[tokenId].active(_timestamp())) {
+            _checkpointModelFees(tokenId);
+        }
         bool expectedBurn = _lifecycle[tokenId].synchronize(_timestamp());
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
@@ -178,13 +189,60 @@ contract AccountingHandler is Test {
         ghostCreatorWithdrawn += withdrawn;
     }
 
-    function withdrawProtocolFees() external {
-        uint256 expected = _book.protocolProceeds;
+    function rejectProtocolWithdrawal() external {
         vm.prank(feeRecipient);
-        uint256 withdrawn = factory.withdrawProtocolFees(paymentToken);
-        assertEq(withdrawn, expected);
-        assertEq(_book.withdrawProtocolProceeds(), expected);
-        ghostProtocolWithdrawn += withdrawn;
+        (bool success,) = address(factory)
+            .call(abi.encodeWithSignature("withdrawProtocolFees(address)", address(paymentToken)));
+        assertFalse(success);
+    }
+
+    function accrue(uint256 actorSeed) external {
+        uint256 id = tier.tokenOf(_actor(actorSeed));
+        if (id == 0) return;
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = id;
+        tier.accrueProtocolFees(ids);
+        _checkpointModelFees(id);
+    }
+
+    function release() external {
+        assertEq(tier.releaseProtocolFees(), _fees.releaseFees());
+    }
+
+    function _checkpointModelFees(uint256 id) private {
+        (uint64 remaining,,) = _lifecycle[id].projected(_timestamp());
+        _fees.recognizeFee(id, _lifecycle[id].paidSeconds - remaining);
+        MembershipModel.checkpoint(_lifecycle[id], _timestamp());
+    }
+
+    function assertFeeConservation() external view {
+        assertEq(tier.totalProtocolFeeAllocated(), _fees.allocated);
+        assertEq(tier.protocolFeeHoldings(), _fees.held);
+        assertEq(tier.protocolFeeEarnedHeld(), _fees.earnedHeld);
+        assertEq(tier.totalProtocolFeeReleased(), _fees.released);
+        assertEq(tier.totalProtocolFeeRefunded(), _fees.refunded);
+        assertEq(tier.totalProtocolFeeCancellationRounding(), _fees.rounding);
+        assertEq(_fees.allocated, _fees.held + _fees.released + _fees.refunded);
+        uint256 unearned;
+        uint256 pending;
+        for (uint256 id = 1; id <= _book.tokenCount; ++id) {
+            MembershipModel.FeeSchedule storage schedule = _fees.schedules[id];
+            (uint64 remaining,,) = _lifecycle[id].projected(_timestamp());
+            uint256 consumed = schedule.consumed + _lifecycle[id].paidSeconds - remaining;
+            (uint256 allocated, uint256 earned,) =
+                MembershipModel.feeEntitlement(schedule.lots, consumed);
+            MembershipTypes.ProtocolFeeState memory state = tier.protocolFeeState(id);
+            assertEq(state.allocated, schedule.lifetimeAllocated);
+            assertEq(state.earned, schedule.lifetimeEarned + earned - schedule.recognized);
+            assertEq(state.unearned, allocated - earned);
+            assertEq(state.uncheckpointedEarned, earned - schedule.recognized);
+            assertEq(state.refunded, schedule.refunded);
+            assertEq(state.cancellationRounding, schedule.rounding);
+            assertEq(state.generation, schedule.generation);
+            unearned += allocated - earned;
+            pending += earned - schedule.recognized;
+        }
+        assertEq(_fees.held, unearned + pending + _fees.earnedHeld);
     }
 
     function donateToTier(uint256 amountSeed) external {
@@ -204,7 +262,7 @@ contract AccountingHandler is Test {
         paymentToken.mint(donor, amount);
         vm.prank(donor);
         assertTrue(paymentToken.transfer(address(factory), amount));
-        _book.protocolProceeds += amount;
+        modelFactoryDonations += amount;
         ghostSurplusIn += amount;
     }
 
@@ -236,11 +294,11 @@ contract AccountingHandler is Test {
             target = address(tier);
             callData = abi.encodeCall(MembershipTier.withdrawCreatorProceeds, ());
         } else if (exit == 3) {
-            if (_book.protocolProceeds == 0) return;
-            frozenAccount = feeRecipient;
-            caller = feeRecipient;
-            target = address(factory);
-            callData = abi.encodeCall(MembershipFactory.withdrawProtocolFees, (paymentToken));
+            if (_fees.earnedHeld == 0) return;
+            frozenAccount = tier.buybackVault();
+            caller = actor;
+            target = address(tier);
+            callData = abi.encodeCall(MembershipTier.releaseProtocolFees, ());
         } else {
             uint256 tokenId = tier.tokenOf(actor);
             if (tokenId == 0 || tier.balanceOf(actor) == 0) return;
@@ -312,10 +370,6 @@ contract AccountingHandler is Test {
         return _book.creatorProceeds;
     }
 
-    function modelProtocolProceeds() external view returns (uint256) {
-        return _book.protocolProceeds;
-    }
-
     function modelPaymentToken() external view returns (address) {
         return _book.paymentToken;
     }
@@ -352,6 +406,12 @@ contract AccountingHandler is Test {
     }
 
     function _applyModelPayment(uint256 tokenId, uint256 gross) private {
+        _fees.allocateFee(
+            tokenId,
+            gross,
+            tier.protocolFeeBps(),
+            gross / tier.pricePerPeriod() * tier.periodDuration()
+        );
         address referrer = _referralStatus[tokenId] == MembershipTypes.ReferralStatus.LockedAddress
             ? _referrer[tokenId]
             : address(0);
@@ -412,11 +472,12 @@ contract AccountingInvariantTest is StdInvariant, Test {
         OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
         address creator = makeAddr("invariantCreator");
         address feeRecipient = makeAddr("invariantFeeRecipient");
+        SyntheticPonsBinding.bind(address(_paymentToken));
         _factory = new MembershipFactory(
             MembershipTestConfig.paymentTokens(_paymentToken),
             address(mediaStoreFactory),
             address(this),
-            feeRecipient
+            address(_paymentToken)
         );
 
         MembershipTypes.TierConfig memory config =
@@ -434,19 +495,21 @@ contract AccountingInvariantTest is StdInvariant, Test {
         _handler =
             new AccountingHandler(_paymentToken, _factory, _tier, creator, feeRecipient, actors);
 
-        bytes4[] memory selectors = new bytes4[](12);
+        bytes4[] memory selectors = new bytes4[](14);
         selectors[0] = AccountingHandler.purchase.selector;
         selectors[1] = AccountingHandler.gift.selector;
         selectors[2] = AccountingHandler.claimReward.selector;
         selectors[3] = AccountingHandler.claimReferral.selector;
         selectors[4] = AccountingHandler.refund.selector;
         selectors[5] = AccountingHandler.withdrawCreatorProceeds.selector;
-        selectors[6] = AccountingHandler.withdrawProtocolFees.selector;
+        selectors[6] = AccountingHandler.rejectProtocolWithdrawal.selector;
         selectors[7] = AccountingHandler.donateToTier.selector;
         selectors[8] = AccountingHandler.donateToFactory.selector;
         selectors[9] = AccountingHandler.failedExit.selector;
         selectors[10] = AccountingHandler.warp.selector;
         selectors[11] = AccountingHandler.synchronizeExpired.selector;
+        selectors[12] = AccountingHandler.accrue.selector;
+        selectors[13] = AccountingHandler.release.selector;
         targetContract(address(_handler));
         targetSelector(FuzzSelector({addr: address(_handler), selectors: selectors}));
     }
@@ -456,7 +519,8 @@ contract AccountingInvariantTest is StdInvariant, Test {
         assertEq(_handler.modelPaymentToken(), address(_paymentToken));
         assertTrue(_factory.isPaymentTokenListed(address(_paymentToken)));
         assertEq(_tier.creatorProceeds(), _handler.modelCreatorProceeds());
-        assertEq(_paymentToken.balanceOf(address(_factory)), _handler.modelProtocolProceeds());
+        assertEq(_paymentToken.balanceOf(address(_factory)), _handler.modelFactoryDonations());
+        _handler.assertFeeConservation();
         assertEq(_tier.rewardReserve(), _handler.modelRewardReserve());
         assertEq(_tier.totalReferralLiability(), _handler.modelReferralLiability());
         assertEq(_tier.totalRewardShares(), _handler.modelTotalRewardShares());
@@ -521,15 +585,15 @@ contract AccountingInvariantTest is StdInvariant, Test {
     function invariant_accountingConservationAndProtectedLiabilities() public view {
         uint256 tierBalance = _paymentToken.balanceOf(address(_tier));
         uint256 factoryBalance = _paymentToken.balanceOf(address(_factory));
-        uint256 liabilities =
-            _tier.creatorProceeds() + _tier.rewardReserve() + _tier.totalReferralLiability();
+        uint256 liabilities = _tier.creatorProceeds() + _tier.rewardReserve()
+            + _tier.totalReferralLiability() + _tier.protocolFeeHoldings();
         assertGe(tierBalance, liabilities);
 
         uint256 inflows =
             _handler.ghostGrossIn() + _handler.ghostOwnerTopUps() + _handler.ghostSurplusIn();
         uint256 accounted = tierBalance + factoryBalance + _handler.ghostCreatorWithdrawn()
             + _handler.ghostRewardClaimed() + _handler.ghostReferralClaimed()
-            + _handler.ghostRefunded() + _handler.ghostProtocolWithdrawn();
+            + _handler.ghostRefunded() + _paymentToken.balanceOf(_tier.buybackVault());
         assertEq(accounted, inflows);
 
         assertEq(

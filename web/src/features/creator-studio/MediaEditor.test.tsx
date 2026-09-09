@@ -147,9 +147,39 @@ describe("MediaEditor", () => {
         outputSize.querySelectorAll("option"),
         (option) => option.textContent,
       ),
-    ).toEqual(["256 × 256", "384 × 384", "512 × 512"]);
+    ).toEqual(["64 × 64", "128 × 128", "256 × 256", "384 × 384", "512 × 512"]);
     expect(screen.getByAltText("New image")).toBeVisible();
     expect(screen.getByText(/Image placement/i)).toBeVisible();
+  });
+
+  it("keeps the focused image controls mounted while preparing a replacement", async () => {
+    const candidate = {
+      objectURL: "blob:creator-image",
+      byteLength: 1024,
+      mime: "image/jpeg" as const,
+      dimension: 512 as const,
+      quality: 0.82,
+    };
+    const { rerender } = render(
+      <MediaHarness
+        initialMedia={{ mode: "native", confirmedStore: null }}
+        nativeState={{ status: "ready", candidate }}
+      />,
+    );
+    await openMediaControls(userEvent.setup());
+    const size = screen.getByLabelText("Image size");
+    size.focus();
+    rerender(
+      <MediaHarness
+        initialMedia={{ mode: "native", confirmedStore: null }}
+        nativeState={{ status: "processing", candidate }}
+      />,
+    );
+    expect(screen.getByLabelText("Image size")).toBe(size);
+    expect(size).toHaveFocus();
+    expect(screen.getByAltText("New image")).toBeVisible();
+    fireEvent.change(size, { target: { value: "64" } });
+    expect(size).toHaveValue("64");
   });
 
   it("accepts an explicit drag and drop on the add tile", async () => {

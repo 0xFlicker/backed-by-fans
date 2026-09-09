@@ -4,22 +4,20 @@ pragma solidity =0.8.36;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {MembershipTierDeployer} from "./MembershipTierDeployer.sol";
+import {ProtocolBurnRouter} from "./ProtocolBurnRouter.sol";
+import {ProtocolBuybackVault} from "./ProtocolBuybackVault.sol";
 import {TierIdentity} from "./TierIdentity.sol";
 import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipRenderer} from "./interfaces/IMembershipRenderer.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
 import {IOnchainMediaStoreFactory} from "./interfaces/IOnchainMediaStoreFactory.sol";
+import {ProtocolSafeValidation} from "./libraries/ProtocolSafeValidation.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 
-/// @notice Permissionless official-tier registry and fixed protocol-fee vault.
-contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory {
-    using SafeERC20 for IERC20;
-
-    uint16 public constant override protocolFeeBps = 100;
+/// @notice Permissionless official-tier registry with a permanent vault and one-time token binding.
+contract MembershipFactory is Ownable2Step, IMembershipFactory {
     uint256 public constant override maxPageSize = 100;
     bytes32 public constant override rendererSchema =
         0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4;
@@ -29,7 +27,8 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     bytes32 public immutable override mediaStoreFactoryRuntimeCodehash;
     address public immutable override deployer;
 
-    address public override feeRecipient;
+    address public immutable override buybackVault;
+    address public immutable override burnRouter;
     address[] private _paymentTokens;
     address[] private _tiers;
     mapping(address token => bool listed) public override isPaymentTokenListed;
@@ -41,7 +40,6 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     error CreatorMustBeCaller();
     error DuplicatePaymentToken(address token);
     error EmptyPaymentTokenList();
-    error InexactTokenTransfer();
     error InvalidAddress();
     error InvalidContract();
     error InvalidPageSize();
@@ -51,7 +49,6 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     error InvalidRendererSchema(bytes32 expected, bytes32 actual);
     error InvalidTierSalt();
     error MediaStoreFactoryCodeChanged(bytes32 expected, bytes32 actual);
-    error OnlyFeeRecipient();
     error OwnershipRenunciationDisabled();
     error InvalidPaymentToken(address token);
     error PaymentTokenNotEnabled(address token);
@@ -63,7 +60,7 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         IERC20[] memory initialPaymentTokens,
         address mediaStoreFactory_,
         address initialOwner,
-        address initialFeeRecipient
+        address protocolToken_
     ) Ownable(initialOwner) {
         if (initialPaymentTokens.length == 0) {
             revert EmptyPaymentTokenList();
@@ -74,13 +71,14 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         if (mediaStoreFactory_.code.length == 0) {
             revert InvalidContract();
         }
-        if (initialFeeRecipient == address(0) || initialFeeRecipient == address(this)) {
-            revert InvalidAddress();
+        if (protocolToken_ != address(0) && protocolToken_.code.length == 0) {
+            revert InvalidContract();
         }
 
         mediaStoreFactory = mediaStoreFactory_;
         mediaStoreFactoryRuntimeCodehash = mediaStoreFactory_.codehash;
-        feeRecipient = initialFeeRecipient;
+        buybackVault = address(new ProtocolBuybackVault(address(this), protocolToken_));
+        burnRouter = address(new ProtocolBurnRouter(address(this), buybackVault));
         deployer = address(new MembershipTierDeployer(address(this)));
 
         for (uint256 i; i < initialPaymentTokens.length; ++i) {
@@ -93,8 +91,21 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
             emit PaymentTokenListed(token, i);
             emit PaymentTokenEnabled(token);
         }
+    }
 
-        emit FeeRecipientUpdated(address(0), initialFeeRecipient);
+    /// @inheritdoc IMembershipFactory
+    function protocolToken() external view override returns (address) {
+        return ProtocolBuybackVault(payable(buybackVault)).protocolToken();
+    }
+
+    /// @inheritdoc IMembershipFactory
+    function bindProtocolToken(address token) external override onlyOwner {
+        ProtocolBuybackVault(payable(buybackVault)).bindProtocolToken(token);
+    }
+
+    /// @inheritdoc IMembershipFactory
+    function owner() public view override(Ownable, IMembershipFactory) returns (address) {
+        return super.owner();
     }
 
     /// @inheritdoc IMembershipFactory
@@ -110,7 +121,11 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
             revert TierSaltAlreadyUsed(msg.sender, config.tierSalt);
         }
         if (config.periodDuration == 0) revert InvalidPeriodDuration();
-        if (uint256(config.rewardBps) + config.referralBps + protocolFeeBps > _BPS_DENOMINATOR) {
+        if (
+            config.protocolFeeBps < 100 || config.protocolFeeBps > _BPS_DENOMINATOR
+                || uint256(config.rewardBps) + config.referralBps + config.protocolFeeBps
+                    > _BPS_DENOMINATOR
+        ) {
             revert InvalidRateTotal();
         }
         if (!isPaymentTokenEnabled[config.paymentToken]) {
@@ -146,6 +161,7 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
             config.paymentToken,
             config.pricePerPeriod,
             config.periodDuration,
+            config.protocolFeeBps,
             config.rewardBps,
             config.referralBps,
             config.supplyCap,
@@ -236,17 +252,6 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     }
 
     /// @inheritdoc IMembershipFactory
-    function setFeeRecipient(address newRecipient) external override onlyOwner {
-        if (newRecipient == address(0) || newRecipient == address(this)) {
-            revert InvalidAddress();
-        }
-
-        address previousRecipient = feeRecipient;
-        feeRecipient = newRecipient;
-        emit FeeRecipientUpdated(previousRecipient, newRecipient);
-    }
-
-    /// @inheritdoc IMembershipFactory
     function setPaymentTokenEnabled(address token, bool enabled) external override onlyOwner {
         bool listed = isPaymentTokenListed[token];
         if (enabled) {
@@ -267,40 +272,6 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
         if (!isPaymentTokenEnabled[token]) return;
         isPaymentTokenEnabled[token] = false;
         emit PaymentTokenDisabled(token);
-    }
-
-    /// @inheritdoc IMembershipFactory
-    function withdrawProtocolFees(IERC20 token)
-        external
-        override
-        nonReentrant
-        returns (uint256 amount)
-    {
-        address recipient = feeRecipient;
-        if (msg.sender != recipient) revert OnlyFeeRecipient();
-        if (!isPaymentTokenListed[address(token)]) {
-            revert PaymentTokenNotListed(address(token));
-        }
-
-        uint256 factoryBalanceBefore = token.balanceOf(address(this));
-        if (factoryBalanceBefore == 0) return 0;
-        uint256 recipientBalanceBefore = token.balanceOf(recipient);
-
-        amount = factoryBalanceBefore;
-        token.safeTransfer(recipient, amount);
-
-        uint256 factoryBalanceAfter = token.balanceOf(address(this));
-        uint256 recipientBalanceAfter = token.balanceOf(recipient);
-        if (
-            factoryBalanceAfter > factoryBalanceBefore
-                || factoryBalanceBefore - factoryBalanceAfter != amount
-                || recipientBalanceAfter < recipientBalanceBefore
-                || recipientBalanceAfter - recipientBalanceBefore != amount
-        ) {
-            revert InexactTokenTransfer();
-        }
-
-        emit ProtocolFeesWithdrawn(address(token), recipient, amount);
     }
 
     function _validatePaymentToken(address token) private view {
@@ -343,7 +314,14 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory 
     /// @notice Starts a two-step transfer and rejects zero-address cancellation.
     function transferOwnership(address newOwner) public override onlyOwner {
         if (newOwner == address(0)) revert InvalidAddress();
+        ProtocolSafeValidation.validate(newOwner);
         super.transferOwnership(newOwner);
+    }
+
+    function acceptOwnership() public override {
+        // Recheck in case the nominated Safe's configuration changed while pending.
+        ProtocolSafeValidation.validate(msg.sender);
+        super.acceptOwnership();
     }
 
     /// @notice Protocol ownership cannot be discarded because fee routing must remain operable.

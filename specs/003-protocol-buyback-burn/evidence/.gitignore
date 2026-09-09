@@ -1,0 +1,13 @@
+# Keep complete generated runs locally; commit reviewed provenance and summaries.
+*
+!.gitignore
+!README.md
+!pinned-preflight-inputs-20260907.json
+!dependency-runtime-20260907.json
+!source-verification-20260907.json
+!verifier-negative-checks-20260907.json
+!verifier-negative-checks-20260907.py
+!final-acceptance-20260907.json
+!final-review-20260907.md
+!source-finalization-20260907.json
+!protocol-verify-20260907-r5-verify-local.log

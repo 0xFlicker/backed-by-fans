@@ -83,6 +83,7 @@ const snapshotData = {
   media,
   pricePerPeriod: 1n,
   periodDuration: 30n,
+  protocolFeeBps: 100,
   rewardBps: 0,
   referralBps: 0,
   supplyCap: 0n,
@@ -121,6 +122,7 @@ describe("supporter direct reads", () => {
         media,
         pricePerPeriod: 1n,
         periodDuration: 30n,
+        protocolFeeBps: 100,
         rewardBps: 0,
         referralBps: 0,
         supplyCap: 0n,
@@ -181,6 +183,7 @@ describe("supporter direct reads", () => {
         media,
         pricePerPeriod: 1n,
         periodDuration: 30n,
+        protocolFeeBps: 100,
         rewardBps: 0,
         referralBps: 0,
         supplyCap: 0n,
@@ -211,7 +214,7 @@ describe("supporter direct reads", () => {
         success(60n),
         success(70n),
         success(true),
-        success([80n, 0n]),
+        success([80n, 8n, 72n, 0n]),
       ]);
     const client = {
       getBlock: vi.fn().mockResolvedValue({ timestamp: 1_000n }),
@@ -240,6 +243,9 @@ describe("supporter direct reads", () => {
           grantSeconds: 20n,
           rewardEligible: true,
           refundableGross: 80n,
+          protocolRefundContribution: 8n,
+          creatorRefundContribution: 72n,
+          ownerTopUp: 0n,
         },
       },
     });

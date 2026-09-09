@@ -79,6 +79,7 @@ library MembershipTypes {
         string symbol;
         uint256 pricePerPeriod;
         uint64 periodDuration;
+        uint16 protocolFeeBps;
         uint16 rewardBps;
         uint16 referralBps;
         uint64 supplyCap;
@@ -106,6 +107,26 @@ library MembershipTypes {
     struct RefundCursor {
         uint256 lot;
         uint64 consumedSeconds;
+    }
+
+    struct ProtocolFeeLot {
+        uint256 startPaid;
+        uint256 endPaid;
+        uint256 fee;
+        uint256 cumulativeFee;
+    }
+
+    /// @notice Member entitlement; releases are aggregate tier accounting, never member transfers.
+    struct ProtocolFeeState {
+        uint256 generation;
+        uint256 consumedPaid;
+        uint256 allocated;
+        uint256 earned;
+        uint256 unearned;
+        uint256 uncheckpointedEarned;
+        uint256 refunded;
+        uint256 cancellationRounding;
+        uint256 lotCount;
     }
 
     /// @notice One-way presentation data passed from a tier to the stateless renderer.

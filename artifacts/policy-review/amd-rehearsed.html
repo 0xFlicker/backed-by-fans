@@ -1,0 +1,1799 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Buyback policy review — AMD</title><style>body{font:16px/1.6 system-ui;max-width:1100px;margin:40px auto;padding:0 24px;color:#18202b}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{text-align:left;border-bottom:1px solid #ccd;padding:10px}code,pre{overflow-wrap:anywhere;white-space:pre-wrap}aside{background:#fff0ca;padding:20px}small{color:#546}</style><h1>Buyback policy review: AMD</h1><p>Authorize up to <b>0.0125 AMD</b>, at most <b>0.0025 AMD</b> per transaction, until 2026-11-07T22:39:11.000Z.</p><p>Chain 31337; source block 57064263; lifecycle bonding.</p><aside><p>Policy replacement grants a fresh finite budget; this is not a rolling daily allowance.</p><p>Permissionless callers may execute eligible batches in a different order or sooner than this projection.</p><p>Current contracts do not invalidate this policy if the launch graduates after submission.</p><p>Sampled prices cannot guarantee fair value or prevent sustained manipulation.</p><p>FORK ONLY: spot reference; no time-weighted history was used.</p></aside><h2>Reference history</h2><p>fork-spot; 2 hour window, 2 minute samples; 1 retained observations.</p><h2>Inventory and replacement authority</h2><table><tr><th>Recorded category</th><th>Display amount</th><th>Exact raw units</th></tr><tr><th>Released membership fees</th><td>0.0125 AMD</td><td>12500000000000000</td></tr><tr><th>Released donations</th><td>0 AMD</td><td>0</td></tr><tr><th>Earned fees awaiting accrual or release</th><td>0 AMD</td><td>0</td></tr><tr><th>Future earnings (not spendable)</th><td>0 AMD</td><td>0</td></tr><tr><th>Previous policy budget</th><td>0.05 AMD</td><td>50000000000000000</td></tr><tr><th>Spent under previous policy</th><td>0 AMD</td><td>0</td></tr><tr><th>Initial batches for released and currently earned inventory</th><td>5</td><td>5</td></tr><tr><th>Released inventory outside this authorization</th><td>0 AMD</td><td>0</td></tr></table><h2>One proposed batch</h2><p>Single batch quote, not an aggregate backlog projection. Execution drag combines trading fees and price impact. Rehearse for sequential market effects.</p><table><tr><th>Input</th><th>Expected output</th><th>Minimum output</th><th>Reference deviation</th><th>Fees + price impact</th><th>Known curve fees</th><th>Curve price impact excluding fees</th></tr><tr><td>0.0025 AMD</td><td>1.195336 USDG</td><td>1.183383 USDG</td><td>0 bps</td><td>110 bps</td><td>Not separated</td><td>Not separated</td></tr><tr><td>1.195336 USDG</td><td>0.000480886521438876 ETH</td><td>0.000476077656224488 ETH</td><td>0 bps</td><td>2 bps</td><td>Not separated</td><td>Not separated</td></tr><tr><td>0.000480886521438876 ETH</td><td>279977.224254489635042015 BBFFORK</td><td>277177.452011944738691595 BBFFORK</td><td>0 bps</td><td>103 bps</td><td>0.000004808865214388 ETH</td><td>3 bps</td></tr></table><h2>Sequential rehearsal</h2><p>Residual route inventory remains; this proposal only authorizes its selected input asset</p><p>Status: <b>partial</b>. Measured burn: 1398309.72151763897031397 BBFFORK. Measured transaction gas: 3745792. Child-chain gas cost: 0.003745792026220544 ETH.</p><p><strong>Child-chain gas prices are not a public fee estimate. The simulated policy call does not measure Safe signature verification or Safe wrapper gas.</strong></p><table><tr><th>Batch</th><th>Bucket</th><th>Requested</th><th>Spent</th><th>Burned</th><th>Gas units</th><th>Fill</th></tr><tr><td>1</td><td>Membership</td><td>0.0025 AMD</td><td>0.0025 AMD</td><td>279977.224254489635042015 BBFFORK</td><td>783628</td><td>Full</td></tr><tr><td>2</td><td>Membership</td><td>0.0025 AMD</td><td>0.0025 AMD</td><td>279819.310595000527668231 BBFFORK</td><td>715223</td><td>Full</td></tr><tr><td>3</td><td>Membership</td><td>0.0025 AMD</td><td>0.0025 AMD</td><td>279661.764422495595898131 BBFFORK</td><td>715223</td><td>Full</td></tr><tr><td>4</td><td>Membership</td><td>0.0025 AMD</td><td>0.0025 AMD</td><td>279504.351266959951356387 BBFFORK</td><td>715223</td><td>Full</td></tr><tr><td>5</td><td>Membership</td><td>0.0025 AMD</td><td>0.0025 AMD</td><td>279347.070978693260349206 BBFFORK</td><td>715223</td><td>Full</td></tr></table><details><summary>Full simulation evidence: market states, receipts and residual inventory</summary><pre>{
+  &quot;status&quot;: &quot;partial&quot;,
+  &quot;proposalDigest&quot;: &quot;0x69de5c34d211198ec8eff1942ccd1cc61fc30fb9b5074c64d743eee5e730d241&quot;,
+  &quot;sourceBlock&quot;: &quot;57064263&quot;,
+  &quot;summary&quot;: &quot;Residual route inventory remains; this proposal only authorizes its selected input asset&quot;,
+  &quot;stopReason&quot;: &quot;Residual route inventory remains; this proposal only authorizes its selected input asset&quot;,
+  &quot;authorization&quot;: &quot;Impersonated Safe on disposable child only; not proof of owner signatures or Safe execution gas&quot;,
+  &quot;assumptions&quot;: [
+    &quot;No unrelated trading&quot;,
+    &quot;One second of child chain time per rehearsal transaction&quot;,
+    &quot;Child funds and relaxed gas/code limits are simulation allowances, not public execution guarantees&quot;
+  ],
+  &quot;actions&quot;: [
+    {
+      &quot;action&quot;: &quot;setPolicy&quot;,
+      &quot;target&quot;: &quot;0xc7a9a1804dc4f0BF8662E06AB295E6325775783f&quot;,
+      &quot;hash&quot;: &quot;0x864116a5a6182ec0fcac4bd5fa189305b5ab3507426ee4e4d9b085a9bf2d6340&quot;,
+      &quot;blockNumber&quot;: &quot;57064264&quot;,
+      &quot;gasUsedRaw&quot;: &quot;101272&quot;,
+      &quot;effectiveGasPriceRaw&quot;: &quot;1000000007&quot;,
+      &quot;status&quot;: &quot;success&quot;
+    },
+    {
+      &quot;action&quot;: &quot;process&quot;,
+      &quot;target&quot;: &quot;0xc7a9a1804dc4f0BF8662E06AB295E6325775783f&quot;,
+      &quot;hash&quot;: &quot;0x2719730121ea4b3f7eb7e3c564d347054f925aae09268f6f205c609f0ead23e1&quot;,
+      &quot;blockNumber&quot;: &quot;57064265&quot;,
+      &quot;gasUsedRaw&quot;: &quot;783628&quot;,
+      &quot;effectiveGasPriceRaw&quot;: &quot;1000000007&quot;,
+      &quot;status&quot;: &quot;success&quot;
+    },
+    {
+      &quot;action&quot;: &quot;process&quot;,
+      &quot;target&quot;: &quot;0xc7a9a1804dc4f0BF8662E06AB295E6325775783f&quot;,
+      &quot;hash&quot;: &quot;0x8ae2b6e5e91c26a4b85c2f103497bffb1cd83e5ff595b12aeff0952548c8099d&quot;,
+      &quot;blockNumber&quot;: &quot;57064266&quot;,
+      &quot;gasUsedRaw&quot;: &quot;715223&quot;,
+      &quot;effectiveGasPriceRaw&quot;: &quot;1000000007&quot;,
+      &quot;status&quot;: &quot;success&quot;
+    },
+    {
+      &quot;action&quot;: &quot;process&quot;,
+      &quot;target&quot;: &quot;0xc7a9a1804dc4f0BF8662E06AB295E6325775783f&quot;,
+      &quot;hash&quot;: &quot;0xe2d52b8384a0dfb02c50c2c442a304db9268774c8f5747c63445fd168229b96c&quot;,
+      &quot;blockNumber&quot;: &quot;57064267&quot;,
+      &quot;gasUsedRaw&quot;: &quot;715223&quot;,
+      &quot;effectiveGasPriceRaw&quot;: &quot;1000000007&quot;,
+      &quot;status&quot;: &quot;success&quot;
+    },
+    {
+      &quot;action&quot;: &quot;process&quot;,
+      &quot;target&quot;: &quot;0xc7a9a1804dc4f0BF8662E06AB295E6325775783f&quot;,
+      &quot;hash&quot;: &quot;0xfd3d082b7aeb81da629d1baecc776ffea288d1e04036c7e7218679151fcb5f2c&quot;,
+      &quot;blockNumber&quot;: &quot;57064268&quot;,
+      &quot;gasUsedRaw&quot;: &quot;715223&quot;,
+      &quot;effectiveGasPriceRaw&quot;: &quot;1000000007&quot;,
+      &quot;status&quot;: &quot;success&quot;
+    },
+    {
+      &quot;action&quot;: &quot;process&quot;,
+      &quot;target&quot;: &quot;0xc7a9a1804dc4f0BF8662E06AB295E6325775783f&quot;,
+      &quot;hash&quot;: &quot;0x142d5622b7fbe6f0015dec5ba8b20f378a83fb7bc984812d2f5eba5fb34007f6&quot;,
+      &quot;blockNumber&quot;: &quot;57064269&quot;,
+      &quot;gasUsedRaw&quot;: &quot;715223&quot;,
+      &quot;effectiveGasPriceRaw&quot;: &quot;1000000007&quot;,
+      &quot;status&quot;: &quot;success&quot;
+    }
+  ],
+  &quot;batches&quot;: [
+    {
+      &quot;bucket&quot;: 0,
+      &quot;requestedInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;actualInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;burnedRaw&quot;: &quot;279977224254489635042015&quot;,
+      &quot;partialFill&quot;: false,
+      &quot;hash&quot;: &quot;0x2719730121ea4b3f7eb7e3c564d347054f925aae09268f6f205c609f0ead23e1&quot;,
+      &quot;gasUsedRaw&quot;: &quot;783628&quot;,
+      &quot;marginalRateChanges&quot;: [
+        {
+          &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+          &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+            &quot;denominator&quot;: &quot;12984039109856814786487658019195201645627165781940114561811321240025&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3246010164659398908756276723837557975397949498754257752149332306441&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.001192&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-24304636317994732319764223460536791313615308646122296235859557128117211911753098941831508547166394743333816907448975360000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;20375536037666318264100364283746996793149075535935082575890058693070321582123758449426167656937942402809959928674985638363136&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;392318858461667547739736838950479151006397215279002157056&quot;,
+            &quot;denominator&quot;: &quot;975061616007258353543322906507542618209246643601&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900246771112988164129875416685361995396247847089&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.000787&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-1204748265793973388419639241841783349418654936482701131069707019226564108053563783529439988128153600000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;1530140360961852267918509210320083181374965251700543740847891672318599381493872159485872947921627050409984&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;994118732924746426119624655&quot;,
+            &quot;denominator&quot;: &quot;1689938982496946819&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;993838755700491936484582640&quot;,
+            &quot;denominator&quot;: &quot;1690415060153171307&quot;
+          },
+          &quot;changeBps&quot;: &quot;-5.631878&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-9464221418586227428163911839902812651519250000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;1680473277716379671029058221091626146755774085&quot;
+        }
+      ],
+      &quot;before&quot;: {
+        &quot;blockNumber&quot;: &quot;57064264&quot;,
+        &quot;timestamp&quot;: &quot;1794004752&quot;,
+        &quot;totalSupply&quot;: &quot;999997657262073009686448230&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;12500000000000000&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;4022724188706&quot;,
+                &quot;totalSpent&quot;: &quot;4022724188706&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;2342737926990313551770&quot;,
+                &quot;totalSpent&quot;: &quot;2342737926990313551770&quot;,
+                &quot;totalBurned&quot;: &quot;2342737926990313551770&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;10000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+                &quot;denominator&quot;: &quot;12984039109856814786487658019195201645627165781940114561811321240025&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;392318858461667547739736838950479151006397215279002157056&quot;,
+                &quot;denominator&quot;: &quot;975061616007258353543322906507542618209246643601&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;994118732924746426119624655&quot;,
+                &quot;denominator&quot;: &quot;1689938982496946819&quot;
+              }
+            }
+          ]
+        }
+      },
+      &quot;after&quot;: {
+        &quot;blockNumber&quot;: &quot;57064265&quot;,
+        &quot;timestamp&quot;: &quot;1794004753&quot;,
+        &quot;totalSupply&quot;: &quot;999717680037818520051406215&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;10000000000000000&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;2500000000000000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;484909245627582&quot;,
+                &quot;totalSpent&quot;: &quot;484909245627582&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;282319962181479948593785&quot;,
+                &quot;totalSpent&quot;: &quot;282319962181479948593785&quot;,
+                &quot;totalBurned&quot;: &quot;282319962181479948593785&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;1195336&quot;,
+                &quot;totalSpent&quot;: &quot;1205336&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3246010164659398908756276723837557975397949498754257752149332306441&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3900246771112988164129875416685361995396247847089&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;993838755700491936484582640&quot;,
+                &quot;denominator&quot;: &quot;1690415060153171307&quot;
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      &quot;bucket&quot;: 0,
+      &quot;requestedInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;actualInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;burnedRaw&quot;: &quot;279819310595000527668231&quot;,
+      &quot;partialFill&quot;: false,
+      &quot;hash&quot;: &quot;0x8ae2b6e5e91c26a4b85c2f103497bffb1cd83e5ff595b12aeff0952548c8099d&quot;,
+      &quot;gasUsedRaw&quot;: &quot;715223&quot;,
+      &quot;marginalRateChanges&quot;: [
+        {
+          &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+          &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3246010164659398908756276723837557975397949498754257752149332306441&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+            &quot;denominator&quot;: &quot;12984042207418468855502587935144444484304224016183182671911536640241&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.001192&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-24304637767564895012086192570356743647000761936894680913153994128575074275656611008457160499722044384483402865683988480000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;20375538468130095020589865492366253828823440236011276265358150008469734439631186015087268502653992375014398377015272206761984&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900246771112988164129875416685361995396247847089&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900247078196698069092302886604229297897723108889&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.000787&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-4818989220883549255222045569930265182334182897469386972534114544836602049503082221986576892690432000000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;6120561925746331160028962363484889718526379240220464710330263942685852009635693588251713990344197470683136&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;993838755700491936484582640&quot;,
+            &quot;denominator&quot;: &quot;1690415060153171307&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;993558936389896935956914409&quot;,
+            &quot;denominator&quot;: &quot;1690891137373582765&quot;
+          },
+          &quot;changeBps&quot;: &quot;-5.630287&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-9461547691025390027030092317610268085370370000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;1680473143992351072260497012612176442522199600&quot;
+        }
+      ],
+      &quot;before&quot;: {
+        &quot;blockNumber&quot;: &quot;57064265&quot;,
+        &quot;timestamp&quot;: &quot;1794004753&quot;,
+        &quot;totalSupply&quot;: &quot;999717680037818520051406215&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;10000000000000000&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;2500000000000000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;484909245627582&quot;,
+                &quot;totalSpent&quot;: &quot;484909245627582&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;282319962181479948593785&quot;,
+                &quot;totalSpent&quot;: &quot;282319962181479948593785&quot;,
+                &quot;totalBurned&quot;: &quot;282319962181479948593785&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;1195336&quot;,
+                &quot;totalSpent&quot;: &quot;1205336&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3246010164659398908756276723837557975397949498754257752149332306441&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3900246771112988164129875416685361995396247847089&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;993838755700491936484582640&quot;,
+                &quot;denominator&quot;: &quot;1690415060153171307&quot;
+              }
+            }
+          ]
+        }
+      },
+      &quot;after&quot;: {
+        &quot;blockNumber&quot;: &quot;57064266&quot;,
+        &quot;timestamp&quot;: &quot;1794004754&quot;,
+        &quot;totalSupply&quot;: &quot;999437860727223519523737984&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;7500000000000000&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;5000000000000000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;965795326851276&quot;,
+                &quot;totalSpent&quot;: &quot;965795326851276&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;562139272776480476262016&quot;,
+                &quot;totalSpent&quot;: &quot;562139272776480476262016&quot;,
+                &quot;totalBurned&quot;: &quot;562139272776480476262016&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;2390671&quot;,
+                &quot;totalSpent&quot;: &quot;2400671&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+                &quot;denominator&quot;: &quot;12984042207418468855502587935144444484304224016183182671911536640241&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3900247078196698069092302886604229297897723108889&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;993558936389896935956914409&quot;,
+                &quot;denominator&quot;: &quot;1690891137373582765&quot;
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      &quot;bucket&quot;: 0,
+      &quot;requestedInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;actualInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;burnedRaw&quot;: &quot;279661764422495595898131&quot;,
+      &quot;partialFill&quot;: false,
+      &quot;hash&quot;: &quot;0xe2d52b8384a0dfb02c50c2c442a304db9268774c8f5747c63445fd168229b96c&quot;,
+      &quot;gasUsedRaw&quot;: &quot;715223&quot;,
+      &quot;marginalRateChanges&quot;: [
+        {
+          &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+          &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+            &quot;denominator&quot;: &quot;12984042207418468855502587935144444484304224016183182671911536640241&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;98079714615416886934934209737619787751599303819750539264&quot;,
+            &quot;denominator&quot;: &quot;202875683690616163248751580290278740527569435084977649246155366929&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.001192&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-1519039951070941106525510105011043498774138451729191599403026945564558539972507692192675778267355876602061801494937600000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;1273471306162126045880977245823901365405814892164549939504044315832052958932803123193723500683452350173987558769634662416384&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900247078196698069092302886604229297897723108889&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900247385280420063084823924301465134425372950689&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.000787&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-4818989410593728703912318889517861501819928839124996802786920912146412353228906779593938286149632000000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;6120562407645272219401832754716778670312529422213348622829944221377943224276928911142391949738026085646336&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;993558936389896935956914409&quot;,
+            &quot;denominator&quot;: &quot;1690891137373582765&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;993279274625474440361016278&quot;,
+            &quot;denominator&quot;: &quot;1691367214556510557&quot;
+          },
+          &quot;changeBps&quot;: &quot;-5.628702&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-9458883384334919609952753389381464086671430000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;1680473010739509235419251860988762291753915813&quot;
+        }
+      ],
+      &quot;before&quot;: {
+        &quot;blockNumber&quot;: &quot;57064266&quot;,
+        &quot;timestamp&quot;: &quot;1794004754&quot;,
+        &quot;totalSupply&quot;: &quot;999437860727223519523737984&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;7500000000000000&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;5000000000000000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;965795326851276&quot;,
+                &quot;totalSpent&quot;: &quot;965795326851276&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;562139272776480476262016&quot;,
+                &quot;totalSpent&quot;: &quot;562139272776480476262016&quot;,
+                &quot;totalBurned&quot;: &quot;562139272776480476262016&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;2390671&quot;,
+                &quot;totalSpent&quot;: &quot;2400671&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+                &quot;denominator&quot;: &quot;12984042207418468855502587935144444484304224016183182671911536640241&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3900247078196698069092302886604229297897723108889&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;993558936389896935956914409&quot;,
+                &quot;denominator&quot;: &quot;1690891137373582765&quot;
+              }
+            }
+          ]
+        }
+      },
+      &quot;after&quot;: {
+        &quot;blockNumber&quot;: &quot;57064267&quot;,
+        &quot;timestamp&quot;: &quot;1794004755&quot;,
+        &quot;totalSupply&quot;: &quot;999158198962801023927839853&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;5000000000000000&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;7500000000000000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;1446681370212682&quot;,
+                &quot;totalSpent&quot;: &quot;1446681370212682&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;841801037198976072160147&quot;,
+                &quot;totalSpent&quot;: &quot;841801037198976072160147&quot;,
+                &quot;totalBurned&quot;: &quot;841801037198976072160147&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;3586006&quot;,
+                &quot;totalSpent&quot;: &quot;3596006&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;98079714615416886934934209737619787751599303819750539264&quot;,
+                &quot;denominator&quot;: &quot;202875683690616163248751580290278740527569435084977649246155366929&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3900247385280420063084823924301465134425372950689&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;993279274625474440361016278&quot;,
+                &quot;denominator&quot;: &quot;1691367214556510557&quot;
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      &quot;bucket&quot;: 0,
+      &quot;requestedInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;actualInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;burnedRaw&quot;: &quot;279504351266959951356387&quot;,
+      &quot;partialFill&quot;: false,
+      &quot;hash&quot;: &quot;0xfd3d082b7aeb81da629d1baecc776ffea288d1e04036c7e7218679151fcb5f2c&quot;,
+      &quot;gasUsedRaw&quot;: &quot;715223&quot;,
+      &quot;marginalRateChanges&quot;: [
+        {
+          &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+          &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;98079714615416886934934209737619787751599303819750539264&quot;,
+            &quot;denominator&quot;: &quot;202875683690616163248751580290278740527569435084977649246155366929&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+            &quot;denominator&quot;: &quot;12984045304980492412277646505650416629972457482783191648124549755409&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.001192&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-1519040041669076274795633174374790519610729282402465641733929258093174937716477196356779025302083979173910923884625920000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;1273471458066130212788604725387218802884866853237478179750608489224978768250296894841443136361354880382385476160727050878976&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900247385280420063084823924301465134425372950689&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900247692364154146107438529777069504979197372489&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.000787&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-4818989600303908152602592209105457821305674780780606633039727279456222656954731337201299679608832000000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;6120562889544232249792648014975999580858311552780826700890607525350671169899194606615525669867994046529536&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;993279274625474440361016278&quot;,
+            &quot;denominator&quot;: &quot;1691367214556510557&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;992999770274207480409659891&quot;,
+            &quot;denominator&quot;: &quot;1691843291701954688&quot;
+          },
+          &quot;changeBps&quot;: &quot;-5.627118&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-9456220577513354787389593271225986654419770000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;1680472877561692512933356235511682686786411264&quot;
+        }
+      ],
+      &quot;before&quot;: {
+        &quot;blockNumber&quot;: &quot;57064267&quot;,
+        &quot;timestamp&quot;: &quot;1794004755&quot;,
+        &quot;totalSupply&quot;: &quot;999158198962801023927839853&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;5000000000000000&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;7500000000000000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;1446681370212682&quot;,
+                &quot;totalSpent&quot;: &quot;1446681370212682&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;841801037198976072160147&quot;,
+                &quot;totalSpent&quot;: &quot;841801037198976072160147&quot;,
+                &quot;totalBurned&quot;: &quot;841801037198976072160147&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;3586006&quot;,
+                &quot;totalSpent&quot;: &quot;3596006&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;98079714615416886934934209737619787751599303819750539264&quot;,
+                &quot;denominator&quot;: &quot;202875683690616163248751580290278740527569435084977649246155366929&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3900247385280420063084823924301465134425372950689&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;993279274625474440361016278&quot;,
+                &quot;denominator&quot;: &quot;1691367214556510557&quot;
+              }
+            }
+          ]
+        }
+      },
+      &quot;after&quot;: {
+        &quot;blockNumber&quot;: &quot;57064268&quot;,
+        &quot;timestamp&quot;: &quot;1794004756&quot;,
+        &quot;totalSupply&quot;: &quot;998878694611534063976483466&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2500000000000000&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;10000000000000000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;1927567375711804&quot;,
+                &quot;totalSpent&quot;: &quot;1927567375711804&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;1121305388465936023516534&quot;,
+                &quot;totalSpent&quot;: &quot;1121305388465936023516534&quot;,
+                &quot;totalBurned&quot;: &quot;1121305388465936023516534&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;4781341&quot;,
+                &quot;totalSpent&quot;: &quot;4791341&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+                &quot;denominator&quot;: &quot;12984045304980492412277646505650416629972457482783191648124549755409&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3900247692364154146107438529777069504979197372489&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;992999770274207480409659891&quot;,
+                &quot;denominator&quot;: &quot;1691843291701954688&quot;
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      &quot;bucket&quot;: 0,
+      &quot;requestedInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;actualInputRaw&quot;: &quot;2500000000000000&quot;,
+      &quot;burnedRaw&quot;: &quot;279347070978693260349206&quot;,
+      &quot;partialFill&quot;: false,
+      &quot;hash&quot;: &quot;0x142d5622b7fbe6f0015dec5ba8b20f378a83fb7bc984812d2f5eba5fb34007f6&quot;,
+      &quot;gasUsedRaw&quot;: &quot;715223&quot;,
+      &quot;marginalRateChanges&quot;: [
+        {
+          &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+          &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+            &quot;denominator&quot;: &quot;12984045304980492412277646505650416629972457482783191648124549755409&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3246011713440410687143806009090544048232066232054262240255838864025&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.001192&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-24304642116275383089052099899816600647157121809211834945037305129948661367367147208334116357388993307932160740389027840000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;20375545759522295032155984511405490827817934367511831797193230331330173286870887054177811015193313825017498411787706852966400&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900247692364154146107438529777069504979197372489&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900247999447900318160146703031042409559196374289&quot;
+          },
+          &quot;changeBps&quot;: &quot;-0.000787&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-4818989790014087601292865528693054140791420722436216463292533646766032960680555894808661073068032000000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;6120563371443211251201408144262552450163725631922898944512253854604035846502490674671115150734101353332736&quot;
+        },
+        {
+          &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+          &quot;before&quot;: {
+            &quot;numerator&quot;: &quot;992999770274207480409659891&quot;,
+            &quot;denominator&quot;: &quot;1691843291701954688&quot;
+          },
+          &quot;after&quot;: {
+            &quot;numerator&quot;: &quot;330906807734409595716436895&quot;,
+            &quot;denominator&quot;: &quot;564106456269971721&quot;
+          },
+          &quot;changeBps&quot;: &quot;-5.625535&quot;,
+          &quot;exactChangeBpsNumeratorRaw&quot;: &quot;-3151186423098175769555308186669196965286510000&quot;,
+          &quot;exactChangeBpsDenominatorRaw&quot;: &quot;560157581486279186916115104674625961797942411&quot;
+        }
+      ],
+      &quot;before&quot;: {
+        &quot;blockNumber&quot;: &quot;57064268&quot;,
+        &quot;timestamp&quot;: &quot;1794004756&quot;,
+        &quot;totalSupply&quot;: &quot;998878694611534063976483466&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2500000000000000&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;10000000000000000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;1927567375711804&quot;,
+                &quot;totalSpent&quot;: &quot;1927567375711804&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;1121305388465936023516534&quot;,
+                &quot;totalSpent&quot;: &quot;1121305388465936023516534&quot;,
+                &quot;totalBurned&quot;: &quot;1121305388465936023516534&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;4781341&quot;,
+                &quot;totalSpent&quot;: &quot;4791341&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+                &quot;denominator&quot;: &quot;12984045304980492412277646505650416629972457482783191648124549755409&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3900247692364154146107438529777069504979197372489&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;992999770274207480409659891&quot;,
+                &quot;denominator&quot;: &quot;1691843291701954688&quot;
+              }
+            }
+          ]
+        }
+      },
+      &quot;after&quot;: {
+        &quot;blockNumber&quot;: &quot;57064269&quot;,
+        &quot;timestamp&quot;: &quot;1794004757&quot;,
+        &quot;totalSupply&quot;: &quot;998599347540555370716134260&quot;,
+        &quot;inventory&quot;: [
+          {
+            &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;12500000000000000&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;2408453343348647&quot;,
+                &quot;totalSpent&quot;: &quot;2408453343348647&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;1400652459444629283865740&quot;,
+                &quot;totalSpent&quot;: &quot;1400652459444629283865740&quot;,
+                &quot;totalBurned&quot;: &quot;1400652459444629283865740&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          },
+          {
+            &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+            &quot;buckets&quot;: [
+              {
+                &quot;bucket&quot;: 0,
+                &quot;available&quot;: &quot;2&quot;,
+                &quot;totalReceived&quot;: &quot;10002&quot;,
+                &quot;totalConvertedIn&quot;: &quot;5976676&quot;,
+                &quot;totalSpent&quot;: &quot;5986676&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              },
+              {
+                &quot;bucket&quot;: 1,
+                &quot;available&quot;: &quot;0&quot;,
+                &quot;totalReceived&quot;: &quot;0&quot;,
+                &quot;totalConvertedIn&quot;: &quot;0&quot;,
+                &quot;totalSpent&quot;: &quot;0&quot;,
+                &quot;totalBurned&quot;: &quot;0&quot;
+              }
+            ]
+          }
+        ],
+        &quot;market&quot;: {
+          &quot;lifecycle&quot;: 0,
+          &quot;legs&quot;: [
+            {
+              &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+              &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3246011713440410687143806009090544048232066232054262240255838864025&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+              &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+                &quot;denominator&quot;: &quot;3900247999447900318160146703031042409559196374289&quot;
+              }
+            },
+            {
+              &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+              &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+              &quot;marginal&quot;: {
+                &quot;numerator&quot;: &quot;330906807734409595716436895&quot;,
+                &quot;denominator&quot;: &quot;564106456269971721&quot;
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  &quot;starting&quot;: {
+    &quot;blockNumber&quot;: &quot;57064263&quot;,
+    &quot;timestamp&quot;: &quot;1794004751&quot;,
+    &quot;totalSupply&quot;: &quot;999997657262073009686448230&quot;,
+    &quot;inventory&quot;: [
+      {
+        &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+        &quot;buckets&quot;: [
+          {
+            &quot;bucket&quot;: 0,
+            &quot;available&quot;: &quot;12500000000000000&quot;,
+            &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;0&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          },
+          {
+            &quot;bucket&quot;: 1,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;0&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          }
+        ]
+      },
+      {
+        &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+        &quot;buckets&quot;: [
+          {
+            &quot;bucket&quot;: 0,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;4022724188706&quot;,
+            &quot;totalSpent&quot;: &quot;4022724188706&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          },
+          {
+            &quot;bucket&quot;: 1,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;0&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          }
+        ]
+      },
+      {
+        &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+        &quot;buckets&quot;: [
+          {
+            &quot;bucket&quot;: 0,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;2342737926990313551770&quot;,
+            &quot;totalSpent&quot;: &quot;2342737926990313551770&quot;,
+            &quot;totalBurned&quot;: &quot;2342737926990313551770&quot;
+          },
+          {
+            &quot;bucket&quot;: 1,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;0&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          }
+        ]
+      },
+      {
+        &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+        &quot;buckets&quot;: [
+          {
+            &quot;bucket&quot;: 0,
+            &quot;available&quot;: &quot;2&quot;,
+            &quot;totalReceived&quot;: &quot;10002&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;10000&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          },
+          {
+            &quot;bucket&quot;: 1,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;0&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          }
+        ]
+      }
+    ],
+    &quot;market&quot;: {
+      &quot;lifecycle&quot;: 0,
+      &quot;legs&quot;: [
+        {
+          &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+          &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;marginal&quot;: {
+            &quot;numerator&quot;: &quot;6277101735386680763835789423207666416102355444464034512896&quot;,
+            &quot;denominator&quot;: &quot;12984039109856814786487658019195201645627165781940114561811321240025&quot;
+          }
+        },
+        {
+          &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;marginal&quot;: {
+            &quot;numerator&quot;: &quot;392318858461667547739736838950479151006397215279002157056&quot;,
+            &quot;denominator&quot;: &quot;975061616007258353543322906507542618209246643601&quot;
+          }
+        },
+        {
+          &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+          &quot;marginal&quot;: {
+            &quot;numerator&quot;: &quot;994118732924746426119624655&quot;,
+            &quot;denominator&quot;: &quot;1689938982496946819&quot;
+          }
+        }
+      ]
+    }
+  },
+  &quot;ending&quot;: {
+    &quot;blockNumber&quot;: &quot;57064269&quot;,
+    &quot;timestamp&quot;: &quot;1794004757&quot;,
+    &quot;totalSupply&quot;: &quot;998599347540555370716134260&quot;,
+    &quot;inventory&quot;: [
+      {
+        &quot;asset&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+        &quot;buckets&quot;: [
+          {
+            &quot;bucket&quot;: 0,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;12500000000000000&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;12500000000000000&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          },
+          {
+            &quot;bucket&quot;: 1,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;0&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          }
+        ]
+      },
+      {
+        &quot;asset&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+        &quot;buckets&quot;: [
+          {
+            &quot;bucket&quot;: 0,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;2408453343348647&quot;,
+            &quot;totalSpent&quot;: &quot;2408453343348647&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          },
+          {
+            &quot;bucket&quot;: 1,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;0&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          }
+        ]
+      },
+      {
+        &quot;asset&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+        &quot;buckets&quot;: [
+          {
+            &quot;bucket&quot;: 0,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;1400652459444629283865740&quot;,
+            &quot;totalSpent&quot;: &quot;1400652459444629283865740&quot;,
+            &quot;totalBurned&quot;: &quot;1400652459444629283865740&quot;
+          },
+          {
+            &quot;bucket&quot;: 1,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;0&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          }
+        ]
+      },
+      {
+        &quot;asset&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+        &quot;buckets&quot;: [
+          {
+            &quot;bucket&quot;: 0,
+            &quot;available&quot;: &quot;2&quot;,
+            &quot;totalReceived&quot;: &quot;10002&quot;,
+            &quot;totalConvertedIn&quot;: &quot;5976676&quot;,
+            &quot;totalSpent&quot;: &quot;5986676&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          },
+          {
+            &quot;bucket&quot;: 1,
+            &quot;available&quot;: &quot;0&quot;,
+            &quot;totalReceived&quot;: &quot;0&quot;,
+            &quot;totalConvertedIn&quot;: &quot;0&quot;,
+            &quot;totalSpent&quot;: &quot;0&quot;,
+            &quot;totalBurned&quot;: &quot;0&quot;
+          }
+        ]
+      }
+    ],
+    &quot;market&quot;: {
+      &quot;lifecycle&quot;: 0,
+      &quot;legs&quot;: [
+        {
+          &quot;input&quot;: &quot;0x86923f96303D656E4aa86D9d42D1e57ad2023fdC&quot;,
+          &quot;output&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;marginal&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3246011713440410687143806009090544048232066232054262240255838864025&quot;
+          }
+        },
+        {
+          &quot;input&quot;: &quot;0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168&quot;,
+          &quot;output&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;marginal&quot;: {
+            &quot;numerator&quot;: &quot;1569275433846670190958947355801916604025588861116008628224&quot;,
+            &quot;denominator&quot;: &quot;3900247999447900318160146703031042409559196374289&quot;
+          }
+        },
+        {
+          &quot;input&quot;: &quot;0x0000000000000000000000000000000000000000&quot;,
+          &quot;output&quot;: &quot;0xBf6Cc22553D5861Bc581729e055c69070e02f911&quot;,
+          &quot;marginal&quot;: {
+            &quot;numerator&quot;: &quot;330906807734409595716436895&quot;,
+            &quot;denominator&quot;: &quot;564106456269971721&quot;
+          }
+        }
+      ]
+    }
+  },
+  &quot;totalGasUsedRaw&quot;: &quot;3745792&quot;,
+  &quot;burnedRaw&quot;: &quot;1398309721517638970313970&quot;,
+  &quot;feeEstimate&quot;: {
+    &quot;sourceChainId&quot;: 31337,
+    &quot;sourceGasPriceRaw&quot;: &quot;1000000007&quot;,
+    &quot;estimatedFeeAtSourceGasPriceRaw&quot;: &quot;3745792026220544&quot;,
+    &quot;note&quot;: &quot;Measured child gas multiplied by the source RPC gas price at rehearsal start. Local-fork gas price is not a public-network fee estimate. Excludes Safe signature/execution overhead and any additional chain-specific fees; actual fees may change.&quot;
+  }
+}</pre></details><h2>Signing identity</h2><p>Safe: <code>0xeEc21eFcA9aBC7F7DcBb753Bb66969426c14D81B</code>; threshold 2; nonce 15.</p><p>Asset: <code>0x86923f96303D656E4aa86D9d42D1e57ad2023fdC</code>; decimals 18; display multiplier 1000000000000000000.</p><p>Digest: <code>0x69de5c34d211198ec8eff1942ccd1cc61fc30fb9b5074c64d743eee5e730d241</code></p><details><summary>Exact reviewed calldata</summary><pre>0xdbcb6aa400000000000000000000000086923f96303d656e4aa86d9d42d1e57ad2023fdc0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000006aee570f000000000000000000000000000000000000000000000000000000006aefa88f0000000000000000000000000000000000000000000000000008e1bc9bf04000000000000000000000000000000000000000000000000000002c68af0bb1400000000000000000000000000000000000000000000000000000000000000000c0c830ca18fbe21832f1eea7b77e99b12567a2c476369637193bc448a052bc1c48000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000247a900000000000000000000000000000000000000000000000000011c37937e0800000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000006d57479268a70000000000000000000000000000000000000000000000000000000000048f5200000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000008783a5bc41416b6d06900000000000000000000000000000000000000000000000000003e7b0453a9840000000000000000000000000000000000000000000000000000000000000064</pre></details><p>Import the accompanying proposal JSON at <code>/tools/buyback-policy</code> on the existing application to review and sign. This report cannot submit transactions.</p></html>

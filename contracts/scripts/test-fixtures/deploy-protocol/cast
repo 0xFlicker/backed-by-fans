@@ -183,7 +183,9 @@ case "${1:-}" in
         ;;
       "mediaStoreFactoryRuntimeCodehash()(bytes32)") printf '["%s"]\n' "$MOCK_MEDIA_RUNTIME_HASH" ;;
       "pendingOwner()(address)") printf '["%s"]\n' "${MOCK_FACTORY_PENDING_OWNER:-0x0000000000000000000000000000000000000000}" ;;
-      "feeRecipient()(address)") printf '["%s"]\n' "${MOCK_FACTORY_FEE_RECIPIENT:-0xeAA4B38A99f766117C1D493a21012fec25f70505}" ;;
+      "protocolToken()(address)") printf '["%s"]\n' "${MOCK_FACTORY_PROTOCOL_TOKEN:-$MOCK_PROTOCOL_TOKEN_ADDRESS}" ;;
+      "buybackVault()(address)"|"vault()(address)") printf '["%s"]\n' "$MOCK_VAULT_ADDRESS" ;;
+      "executor()(address)") printf '["%s"]\n' "$MOCK_EXECUTOR_ADDRESS" ;;
       "deployer()(address)") printf '["%s"]\n' "$MOCK_TIER_DEPLOYER_ADDRESS" ;;
       "factory()(address)") printf '["%s"]\n' "$MOCK_FACTORY_ADDRESS" ;;
       *) echo "unexpected mock cast call invocation: $*" >&2; exit 1 ;;
@@ -206,6 +208,8 @@ case "${1:-}" in
       printf '0x00\n'
     elif [[ " $(printf '%s' "$MOCK_PAYMENT_TOKEN_ADDRESSES" | tr '[:upper:]' '[:lower:]') " == *" $address "* ]]; then
       printf '%s\n' "$MOCK_PAYMENT_TOKEN_RUNTIME"
+    elif [[ " $MOCK_VAULT_ADDRESS $MOCK_EXECUTOR_ADDRESS " == *" $address "* && "$prefix" -ge "$factory_prefix" ]]; then
+      printf '0x60dd\n'
     elif [[ "$address" == "$(printf '%s' "$MOCK_TIER_DEPLOYER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
       && "$prefix" -ge "$factory_prefix" ]]; then
       printf '0x60dd\n'

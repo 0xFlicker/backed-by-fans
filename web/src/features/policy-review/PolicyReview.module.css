@@ -1,0 +1,112 @@
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1.5rem 2rem;
+  margin: 1.5rem 0;
+}
+.summary dt {
+  color: var(--muted-ink);
+  font-size: 0.85rem;
+}
+.summary dd {
+  margin: 0.35rem 0 0;
+  overflow-wrap: anywhere;
+}
+.input {
+  display: block;
+  margin: 1rem 0;
+  max-width: 100%;
+}
+.acknowledgment {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  max-width: 70ch;
+  margin: 1.5rem 0;
+}
+.acknowledgment input {
+  margin-top: 0.3rem;
+  flex-shrink: 0;
+}
+.notice {
+  border-left: 4px solid var(--backstage);
+  padding: 0.75rem 1rem;
+  margin: 1.25rem 0;
+}
+.preview {
+  margin-top: 2rem;
+}
+.preview h3 {
+  font-size: 1.4rem;
+  margin-bottom: 0.75rem;
+}
+.preview p {
+  max-width: 70ch;
+  margin: 0.75rem 0;
+  line-height: 1.6;
+}
+.preview details {
+  margin-top: 1.5rem;
+}
+.signatures {
+  overflow-wrap: anywhere;
+  padding-left: 1.25rem;
+}
+.json {
+  max-height: 28rem;
+  overflow: auto;
+}
+.terms {
+  font-size: 1.2rem;
+  max-width: 65ch;
+  line-height: 1.6;
+}
+.number {
+  font-variant-numeric: tabular-nums;
+}
+.reportCopy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1.25rem;
+  border: 0;
+  padding: 0;
+  margin: 1.5rem 0;
+}
+.controls label {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+.controls input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--backstage);
+  border-radius: 0.5rem;
+  background: transparent;
+  font: inherit;
+}
+.currency {
+  padding: 2rem 0;
+  border-top: 1px solid var(--line);
+}
+.currencyHeading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.currencyHeading h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+.currencyHeading label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

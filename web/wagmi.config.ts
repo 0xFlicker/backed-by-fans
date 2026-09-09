@@ -1,7 +1,5 @@
 import { defineConfig } from "@wagmi/cli";
 import { foundry, react } from "@wagmi/cli/plugins";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
 import { erc20Abi } from "viem";
 
 const stagedFoundryProject = process.env.BBF_WAGMI_FOUNDRY_PROJECT;
@@ -15,15 +13,6 @@ if (Boolean(stagedFoundryProject) !== Boolean(stagedOutput)) {
 
 const foundryProject = stagedFoundryProject ?? "../contracts";
 const output = stagedOutput ?? "src/contracts.ts";
-const resolvedFoundryProject = resolve(process.cwd(), foundryProject);
-const hasPromotedProtocolDeployment = [4663, 46630].some((chainId) =>
-  existsSync(
-    resolve(
-      resolvedFoundryProject,
-      `broadcast/DeployDirectProtocol.s.sol/${chainId}/run-latest.json`,
-    ),
-  ),
-);
 
 export default defineConfig({
   out: output,
@@ -39,10 +28,14 @@ export default defineConfig({
       forge: stagedFoundryProject
         ? { build: false, clean: false, rebuild: false }
         : undefined,
-      // The raw CREATE2 release wrapper writes this pointer only after complete
-      // runtime/dependency checks and source verification. Until then generation
-      // intentionally emits ABI-only bindings for the replacement protocol.
-      includeBroadcasts: hasPromotedProtocolDeployment,
+      // The old fee-recipient factory's active pointer has been retired; its
+      // timestamped historical receipt remains. Only the release wrapper may
+      // promote a new run-latest after current runtime/dependency verification.
+      // Independent, still-valid renderer registry broadcasts remain discoverable.
+      includeBroadcasts: true,
+      // The explicit include list below is the complete application surface;
+      // retain IERC165 for authenticated payment-token capability reads.
+      exclude: [],
       include: [
         "MembershipTier.sol/**",
         "OnchainMediaStoreFactory.sol/**",
@@ -50,6 +43,16 @@ export default defineConfig({
         "RendererPreviewHarness.sol/**",
         "RendererRegistry.sol/**",
         "MembershipFactory.sol/**",
+        "ProtocolBuybackVault.sol/**",
+        "ProtocolBurnRouter.sol/**",
+        "PonsBuybackExecutor.sol/**",
+        "IPons.sol/**",
+        "ISafe.sol/**",
+        "IWrappedNative.sol/**",
+        "IV4Quoter.sol/**",
+        "IPoolManager.sol/**",
+        "IERC8056.sol/IScaled*.json",
+        "IERC165.sol/**",
       ],
     }),
     react(),

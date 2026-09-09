@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "chainId": 46630,
   "deployment": {
     "paymentTokens": [
@@ -47,20 +47,20 @@
       }
     ],
     "mediaStoreFactory": {
-      "address": "0x394a8C875FDC0807a5729B764927e5A1A02660f2",
-      "runtimeCodehash": "0x138078d52528c16007e6130f796018cfe4b90be611b2bdf34e609e0b036688f3"
+      "address": "0x94d79131c69bD41Da715D9C9DEaA851588b7174c",
+      "runtimeCodehash": "0x0f53878388acb03ed0f6c8d2bafe95a86b00da0ab1d76c814fb28465bce437c2"
     },
     "renderer": {
-      "address": "0xB0E87290e796Bbcc9CDE8B7E33e2eC872DeaDb73",
-      "runtimeCodehash": "0xe3a3b57c72b318de1c8dbb6840092084de6a994ba90d0052fd250cc1d0bb327b"
+      "address": "0xc21aDdA35ED9565E808fdd2a254c51831D90330a",
+      "runtimeCodehash": "0x14f38b172dddb15b192e4524ff439c62f357145589126d7d4f4ac64cceb5be3c"
     },
     "previewHarness": {
-      "address": "0x35ACe5985a9088699197cd1931fc3083dee229B6",
-      "runtimeCodehash": "0x0a4c43cc7583986bc35eaf86a492341f952567ca2fa6b9fe3eaf62fcefb06604"
+      "address": "0x369d13442eEb924105879Eb0EF0b39b619A1DF70",
+      "runtimeCodehash": "0x6d9e38ad442109ee3ab6b1179ae15a1cde2772b245a4a69c5d3269801fa4f209"
     },
     "membershipFactory": {
-      "address": "0x6C9099dd8Bc2924adA8499c2e1a2E764bCBBBd3D",
-      "runtimeCodehash": "0x81bb762d4e0c7d906c9e64f0ea5594194ef9a3ed1f2aa5416e2a01e61851c362"
+      "address": "0x72681c494302092cE571ae10A27fC59a1E4AF206",
+      "runtimeCodehash": "0x3708f47cfb48fad12718a71d778d98f3a671c4161bbd67099fcf44505d948188"
     }
   },
   "safe": {
@@ -78,6 +78,6 @@
   "factory": {
     "owner": "0xeAA4B38A99f766117C1D493a21012fec25f70505",
     "pendingOwner": "0x0000000000000000000000000000000000000000",
-    "feeRecipient": "0xeAA4B38A99f766117C1D493a21012fec25f70505"
+    "protocolToken": "0x0000000000000000000000000000000000000000"
   }
 }

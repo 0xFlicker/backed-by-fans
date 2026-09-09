@@ -22,6 +22,9 @@
 # production
 /build
 
+# Local market observation database (not deployment or transaction state)
+/.local/buyback-policy.sqlite*
+
 # misc
 .DS_Store
 *.pem

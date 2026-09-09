@@ -46,6 +46,7 @@ export function buildPaymentPreview(input: {
   contribution: bigint;
   allowance: bigint;
   rewardBps: number;
+  protocolFeeBps: number;
   referralBps: number;
   referralApplies: boolean;
 }): PaymentPreview {
@@ -57,7 +58,12 @@ export function buildPaymentPreview(input: {
   const split =
     gross === 0n
       ? undefined
-      : previewPaymentSplit(gross, input.rewardBps, input.referralBps);
+      : previewPaymentSplit(
+          gross,
+          input.protocolFeeBps,
+          input.rewardBps,
+          input.referralBps,
+        );
   const base =
     input.currentExpiration > input.now ? input.currentExpiration : input.now;
 

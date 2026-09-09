@@ -6,10 +6,29 @@
     {
       "symbol": "USDG",
       "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",
+      "implementation": "0x68184c449e1a8f34fa18d289737129fd27b66f8f",
+      "implementationRuntimeCodehash": "0x3a551ac5c744af57e68a1d1431ac403c0f516ffd7d224a75746aee11fc4f3baf",
       "expectedDecimals": 6,
-      "requiresScaledUI": false,
-      "observedName": "Global Dollar",
-      "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6"
+      "requiresScaledUI": false
+    },
+    {
+      "symbol": "AMD",
+      "address": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+      "runtimeCodehash": "0x6c1fdd40002dcb440c7fff6a84171404d279ccb057803b65826f7546acd65630",
+      "implementation": null,
+      "implementationRuntimeCodehash": null,
+      "expectedDecimals": 18,
+      "requiresScaledUI": true
+    },
+    {
+      "symbol": "WETH",
+      "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      "runtimeCodehash": "0x5706be52f64875fee65a2cec0d80e47a23d8793cbe85d214b48445e2d05f5353",
+      "implementation": "0xc6b81b429797e0f555440b70cd99e032d7ae947e",
+      "implementationRuntimeCodehash": "0xbe1295f37be34ffe03ad779bda0ef278907e1856b51a3be2f35ee541d75d4650",
+      "expectedDecimals": 18,
+      "requiresScaledUI": false
     }
   ]
 }

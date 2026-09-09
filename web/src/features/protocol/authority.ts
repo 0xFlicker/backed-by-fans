@@ -12,8 +12,5 @@ export function protocolPermissions(
     isPendingOwner: wallet
       ? isSameAddress(wallet, snapshot.pendingOwner)
       : false,
-    isFeeRecipient: wallet
-      ? isSameAddress(wallet, snapshot.feeRecipient)
-      : false,
   };
 }

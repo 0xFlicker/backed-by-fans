@@ -20,7 +20,11 @@ case "${1:-}" in
         libs: ["lib"],
         remappings: [
           "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-          "forge-std/=lib/forge-std/src/"
+          "forge-std/=lib/forge-std/src/",
+          "@uniswap/universal-router/=external/uniswap/universal-router/",
+          "@uniswap/v4-periphery/=external/uniswap/v4-periphery/",
+          "@uniswap/v4-core/=external/uniswap/v4-core/",
+          "permit2/=external/uniswap/permit2/"
         ],
         auto_detect_remappings: false,
         solc: "0.8.36", auto_detect_solc: false, evm_version: "cancun",

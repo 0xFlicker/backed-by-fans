@@ -34,6 +34,7 @@ export type TierPublicationConfig = {
   symbol: string;
   pricePerPeriod: bigint;
   periodDuration: bigint;
+  protocolFeeBps: number;
   rewardBps: number;
   referralBps: number;
   supplyCap: bigint;
@@ -509,6 +510,7 @@ async function matchesLaunchTerms(
     price,
     duration,
     rewardBps,
+    protocolFeeBps,
     referralBps,
     supplyCap,
     maxPrepaidPeriods,
@@ -580,6 +582,12 @@ async function matchesLaunchTerms(
     client.readContract({
       address: tier,
       abi: membershipTierAbi,
+      functionName: "protocolFeeBps",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
       functionName: "referralBps",
       blockNumber,
     }),
@@ -632,6 +640,7 @@ async function matchesLaunchTerms(
     price === config.pricePerPeriod &&
     duration === config.periodDuration &&
     rewardBps === config.rewardBps &&
+    protocolFeeBps === config.protocolFeeBps &&
     referralBps === config.referralBps &&
     supplyCap === config.supplyCap &&
     maxPrepaidPeriods === config.maxPrepaidPeriods &&

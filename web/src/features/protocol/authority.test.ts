@@ -6,23 +6,23 @@ import type { ProtocolSnapshot } from "@/features/protocol/protocol-read";
 
 const owner = getAddress("0x1111111111111111111111111111111111111111");
 const pending = getAddress("0x2222222222222222222222222222222222222222");
-const feeRecipient = getAddress("0x3333333333333333333333333333333333333333");
+const tokenHolder = getAddress("0x3333333333333333333333333333333333333333");
 const snapshot = {
   owner,
   pendingOwner: pending,
-  feeRecipient,
 } as ProtocolSnapshot;
 
 describe("protocol authority separation", () => {
-  it("does not give the factory owner the fixed fee withdrawal right", () => {
+  it("exposes configuration authority without a fee withdrawal permission", () => {
     expect(protocolPermissions(snapshot, owner)).toMatchObject({
       isOwner: true,
-      isFeeRecipient: false,
     });
-    expect(protocolPermissions(snapshot, feeRecipient)).toMatchObject({
+    expect(protocolPermissions(snapshot, tokenHolder)).toMatchObject({
       isOwner: false,
-      isFeeRecipient: true,
     });
+    expect(protocolPermissions(snapshot, owner)).not.toHaveProperty(
+      "isFeeRecipient",
+    );
   });
 
   it("lets only the nominated wallet accept pending ownership", () => {

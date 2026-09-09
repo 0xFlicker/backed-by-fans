@@ -41,7 +41,22 @@ export function resolveServerRpcUrl(
     );
   }
   if (chainId === localAnvil.id) {
-    return requiredHttpUrl(environment.anvilRpcUrl, "Anvil RPC URL");
+    const endpoint = requiredHttpUrl(environment.anvilRpcUrl, "Anvil RPC URL");
+    const url = new URL(endpoint);
+    if (
+      url.protocol !== "http:" ||
+      !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) ||
+      !url.port ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== "/"
+    )
+      throw new Error(
+        "Anvil RPC must be an uncredentialed loopback HTTP endpoint.",
+      );
+    return endpoint;
   }
   throw new Error(`No server RPC is supported for chain ${chainId}.`);
 }

@@ -7,6 +7,7 @@ import {MembershipTypes} from "../types/MembershipTypes.sol";
 
 /// @notice Direct-read registry and deployment surface for official membership tiers.
 interface IMembershipFactory {
+    function owner() external view returns (address);
     event TierCreated(
         address indexed tier,
         address indexed creator,
@@ -20,6 +21,7 @@ interface IMembershipFactory {
         address indexed paymentToken,
         uint256 pricePerPeriod,
         uint64 periodDuration,
+        uint16 protocolFeeBps,
         uint16 rewardBps,
         uint16 referralBps,
         uint64 supplyCap,
@@ -38,8 +40,6 @@ interface IMembershipFactory {
     event PaymentTokenListed(address indexed token, uint256 indexed tokenIndex);
     event PaymentTokenEnabled(address indexed token);
     event PaymentTokenDisabled(address indexed token);
-    event FeeRecipientUpdated(address indexed previousRecipient, address indexed newRecipient);
-    event ProtocolFeesWithdrawn(address indexed token, address indexed recipient, uint256 amount);
 
     function rendererSchema() external view returns (bytes32);
 
@@ -49,9 +49,13 @@ interface IMembershipFactory {
 
     function deployer() external view returns (address);
 
-    function feeRecipient() external view returns (address);
+    /// @notice Permanently bind the validated launch token; callable by the protocol owner once.
+    function bindProtocolToken(address token) external;
 
-    function protocolFeeBps() external pure returns (uint16);
+    function protocolToken() external view returns (address);
+
+    function buybackVault() external view returns (address);
+    function burnRouter() external view returns (address);
 
     function maxPageSize() external pure returns (uint256);
 
@@ -80,9 +84,5 @@ interface IMembershipFactory {
 
     function tiers(uint256 offset, uint256 limit) external view returns (address[] memory page);
 
-    function setFeeRecipient(address newRecipient) external;
-
     function setPaymentTokenEnabled(address token, bool enabled) external;
-
-    function withdrawProtocolFees(IERC20 token) external returns (uint256 amount);
 }

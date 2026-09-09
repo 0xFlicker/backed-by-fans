@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
+
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Test} from "forge-std/Test.sol";
 
@@ -26,7 +28,11 @@ contract MembershipIdentityTest is Test {
 
         paymentToken = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(address(this), paymentToken, _config(address(renderer)));
+        tier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)),
+            paymentToken,
+            _config(address(renderer))
+        );
     }
 
     function test_grantsMintOnePersistentSequentialCredentialPerRecipient() public {

@@ -19,6 +19,7 @@ import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipRenderer} from "./interfaces/IMembershipRenderer.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
 import {IOnchainMediaStoreFactory} from "./interfaces/IOnchainMediaStoreFactory.sol";
+import {IProtocolBuybackVault} from "./interfaces/IProtocolBuybackVault.sol";
 import {RendererPrimitives} from "./renderer/RendererPrimitives.sol";
 import {TextValidation} from "./renderer/TextValidation.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
@@ -28,7 +29,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     using SafeCast for uint256;
     using SafeERC20 for IERC20;
 
-    uint16 public constant override protocolFeeBps = 100;
+    uint16 public immutable override protocolFeeBps;
     uint256 public constant MAX_NAME_BYTES = 100;
     uint256 public constant MAX_SYMBOL_BYTES = 16;
     uint256 public constant MAX_DESCRIPTION_BYTES = 500;
@@ -41,6 +42,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     uint256 private constant _REWARD_SCALE = 1e27;
 
     address public immutable override factory;
+    address public immutable override buybackVault;
     IERC20 public immutable override paymentToken;
     address public override renderer;
     bytes32 public immutable override tierIdentity;
@@ -69,7 +71,11 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     mapping(uint256 tokenId => uint256 index) private _tokenRewardIndex;
     mapping(uint256 tokenId => uint256 credit) private _rewardCredit;
     mapping(uint256 tokenId => uint256 scaledRemainder) private _rewardRemainder;
-    mapping(uint256 tokenId => uint256[] cumulativeGross) private _zeroGrossPrefixes;
+    // Each array starts empty and _appendZeroRefundLot initializes it with
+    // prefixes.push through a storage reference to this exact generation.
+    // slither-disable-next-line uninitialized-state
+    mapping(uint256 tokenId => mapping(uint256 generation => uint256[] cumulativeGross)) private
+        _zeroGrossPrefixes;
     mapping(uint256 tokenId => MembershipTypes.RefundCursor cursor) private _refundCursors;
     mapping(address referrer => uint256 amount) public override claimableReferral;
 
@@ -78,6 +84,26 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     uint256 public override creatorProceeds;
     uint256 public override rewardReserve;
     uint256 public override totalReferralLiability;
+    uint256 public override protocolFeeHoldings;
+    uint256 public override protocolFeeEarnedHeld;
+    uint256 public override totalProtocolFeeAllocated;
+    uint256 public override totalProtocolFeeReleased;
+    uint256 public override totalProtocolFeeRefunded;
+    uint256 public override totalProtocolFeeCancellationRounding;
+
+    struct FeeAccount {
+        uint256 generation;
+        uint256 consumedPaid;
+        uint256 recognized;
+        uint256 allocated;
+        uint256 earned;
+        uint256 refunded;
+        uint256 cancellationRounding;
+    }
+    mapping(uint256 tokenId => FeeAccount account) private _feeAccounts;
+    mapping(
+        uint256 tokenId => mapping(uint256 generation => MembershipTypes.ProtocolFeeLot[] lots)
+    ) private _feeLots;
 
     error CapacityReached();
     error DurationOverflow();
@@ -90,6 +116,8 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     error InvalidSyncBatchSize(uint256 provided, uint256 maximum);
     error InvalidTokenId(uint256 tokenId);
     error InvalidRateTotal();
+    error InvalidFeePageSize();
+    error InvalidCancellationRounding();
     error InvalidRenderer();
     error InvalidTierSalt();
     error InexactTokenTransfer();
@@ -124,18 +152,24 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         if (config.renderer.code.length == 0) revert InvalidAddress();
         if (config.tierSalt == bytes32(0)) revert InvalidTierSalt();
         if (config.periodDuration == 0) revert InvalidPeriodDuration();
-        if (uint256(config.rewardBps) + config.referralBps + protocolFeeBps > _BPS_DENOMINATOR) {
+        if (
+            config.protocolFeeBps < 100 || config.protocolFeeBps > _BPS_DENOMINATOR
+                || uint256(config.rewardBps) + config.referralBps + config.protocolFeeBps
+                    > _BPS_DENOMINATOR
+        ) {
             revert InvalidRateTotal();
         }
         _validateMetadata(config.name, config.symbol, config.metadata);
         _validateMedia(config.media);
 
         factory = factory_;
+        buybackVault = IMembershipFactory(factory_).buybackVault();
         paymentToken = paymentToken_;
         renderer = config.renderer;
         tierIdentity = TierIdentity.derive(factory_, config.creator, config.tierSalt);
         pricePerPeriod = config.pricePerPeriod;
         periodDuration = config.periodDuration;
+        protocolFeeBps = config.protocolFeeBps;
         rewardBps = config.rewardBps;
         referralBps = config.referralBps;
         supplyCap = config.supplyCap;
@@ -372,7 +406,73 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
     /// @inheritdoc IMembershipTier
     function totalProtectedLiability() external view override returns (uint256) {
-        return rewardReserve + totalReferralLiability;
+        return rewardReserve + totalReferralLiability + protocolFeeHoldings;
+    }
+
+    function protocolFeeState(uint256 tokenId)
+        public
+        view
+        override
+        returns (MembershipTypes.ProtocolFeeState memory result)
+    {
+        _requireKnownToken(tokenId);
+        FeeAccount storage account = _feeAccounts[tokenId];
+        MembershipTypes.MembershipState storage timeState = _membershipStates[tokenId];
+        (uint64 remaining,,) = _timeBalancesAt(timeState, _currentTimestamp());
+        uint256 consumed = account.consumedPaid + timeState.paidSeconds - remaining;
+        MembershipTypes.ProtocolFeeLot[] storage lots = _feeLots[tokenId][account.generation];
+        uint256 entitlement = _feeEntitlement(lots, consumed);
+        uint256 allocated = lots.length == 0 ? 0 : lots[lots.length - 1].cumulativeFee;
+        uint256 pending = entitlement - account.recognized;
+        result = MembershipTypes.ProtocolFeeState({
+            generation: account.generation,
+            consumedPaid: consumed,
+            allocated: account.allocated,
+            earned: account.earned + pending,
+            unearned: allocated - entitlement,
+            uncheckpointedEarned: pending,
+            refunded: account.refunded,
+            cancellationRounding: account.cancellationRounding,
+            lotCount: lots.length
+        });
+    }
+
+    function protocolFeeLots(uint256 tokenId, uint256 offset, uint256 limit)
+        external
+        view
+        override
+        returns (MembershipTypes.ProtocolFeeLot[] memory page)
+    {
+        _requireKnownToken(tokenId);
+        if (limit > MAX_SYNC_BATCH_SIZE) revert InvalidFeePageSize();
+        MembershipTypes.ProtocolFeeLot[] storage lots =
+            _feeLots[tokenId][_feeAccounts[tokenId].generation];
+        uint256 count = offset >= lots.length ? 0 : Math.min(limit, lots.length - offset);
+        page = new MembershipTypes.ProtocolFeeLot[](count);
+        for (uint256 i; i < count; ++i) {
+            page[i] = lots[offset + i];
+        }
+    }
+
+    function accrueProtocolFees(uint256[] calldata tokenIds) external override nonReentrant {
+        if (tokenIds.length == 0 || tokenIds.length > MAX_SYNC_BATCH_SIZE) {
+            revert InvalidSyncBatchSize(tokenIds.length, MAX_SYNC_BATCH_SIZE);
+        }
+        for (uint256 i; i < tokenIds.length; ++i) {
+            _requireKnownToken(tokenIds[i]);
+            _checkpointTime(tokenIds[i]);
+        }
+    }
+
+    function releaseProtocolFees() external override nonReentrant returns (uint256 amount) {
+        amount = protocolFeeEarnedHeld;
+        if (amount == 0) return 0;
+        protocolFeeEarnedHeld = 0;
+        protocolFeeHoldings -= amount;
+        totalProtocolFeeReleased += amount;
+        _pushExact(buybackVault, amount);
+        IProtocolBuybackVault(buybackVault).recordEarnedFees(amount);
+        emit ProtocolFeesReleased(buybackVault, address(paymentToken), amount);
     }
 
     /// @inheritdoc IMembershipTier
@@ -441,6 +541,20 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         override
         returns (uint256 grossRefund, uint256 ownerTopUp)
     {
+        (grossRefund,,, ownerTopUp) = previewRefundComponents(tokenId);
+    }
+
+    function previewRefundComponents(uint256 tokenId)
+        public
+        view
+        override
+        returns (
+            uint256 grossRefund,
+            uint256 protocolContribution,
+            uint256 creatorContribution,
+            uint256 ownerTopUp
+        )
+    {
         _requireOwned(tokenId);
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
         (uint64 paidSeconds,,) = _timeBalancesAt(state, _currentTimestamp());
@@ -449,7 +563,9 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         } else {
             grossRefund = _fixedPriceRefund(paidSeconds);
         }
-        if (grossRefund > creatorProceeds) ownerTopUp = grossRefund - creatorProceeds;
+        protocolContribution = Math.min(protocolFeeState(tokenId).unearned, grossRefund);
+        creatorContribution = Math.min(creatorProceeds, grossRefund - protocolContribution);
+        ownerTopUp = grossRefund - protocolContribution - creatorContribution;
     }
 
     /// @inheritdoc IMembershipTier
@@ -630,7 +746,11 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     {
         address recipient = _requireOwned(tokenId);
         address tierOwner = owner();
-        (grossRefund, ownerTopUp) = previewRefund(tokenId);
+        _checkpointTime(tokenId);
+        uint256 protocolContribution;
+        uint256 creatorContribution;
+        (grossRefund, protocolContribution, creatorContribution, ownerTopUp) =
+            previewRefundComponents(tokenId);
         if (grossRefund > maxGrossRefund) {
             revert GrossRefundLimitExceeded(grossRefund, maxGrossRefund);
         }
@@ -638,14 +758,9 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
             revert OwnerTopUpLimitExceeded(ownerTopUp, maxOwnerTopUp);
         }
 
-        _checkpointTime(tokenId);
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
-        if (pricePerPeriod == 0) {
-            MembershipTypes.RefundCursor storage cursor = _refundCursors[tokenId];
-            cursor.lot = _zeroGrossPrefixes[tokenId].length;
-            cursor.consumedSeconds = 0;
-        }
-        uint256 creatorContribution = grossRefund - ownerTopUp;
+        uint256 rounding = _closeFeeGeneration(tokenId, protocolContribution);
+        delete _refundCursors[tokenId];
         creatorProceeds -= creatorContribution;
 
         state.paidSeconds = 0;
@@ -655,6 +770,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
 
         if (ownerTopUp != 0) _pullExact(tierOwner, ownerTopUp);
         if (grossRefund != 0) _pushExact(recipient, grossRefund);
+        emit RefundFunded(tokenId, protocolContribution, creatorContribution, ownerTopUp, rounding);
         emit MembershipRefunded(tokenId, recipient, tierOwner, grossRefund, ownerTopUp);
     }
 
@@ -676,6 +792,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
             _lockReferralChoice(tokenId, referralChoice);
             _applyPayment(tokenId, payer, payer, 1, gross);
         } else {
+            _appendFeeLot(tokenId, periodDuration, 0);
             emit PaymentProcessed(payer, payer, tokenId, 0, 1);
         }
     }
@@ -709,10 +826,85 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         }
         _allocateReward(tokenId, reward);
 
-        if (protocolFee != 0) _pushExact(factory, protocolFee);
+        protocolFeeHoldings += protocolFee;
+        totalProtocolFeeAllocated += protocolFee;
+        _appendFeeLot(tokenId, uint256(periods) * periodDuration, protocolFee);
 
         emit PaymentProcessed(payer, recipient, tokenId, gross, periods);
         emit PaymentAllocated(tokenId, protocolFee, reward, referral, creator);
+    }
+
+    function _appendFeeLot(uint256 tokenId, uint256 duration, uint256 fee) private {
+        FeeAccount storage account = _feeAccounts[tokenId];
+        MembershipTypes.ProtocolFeeLot[] storage lots = _feeLots[tokenId][account.generation];
+        uint256 start = lots.length == 0 ? 0 : lots[lots.length - 1].endPaid;
+        uint256 prefix = lots.length == 0 ? 0 : lots[lots.length - 1].cumulativeFee;
+        lots.push(MembershipTypes.ProtocolFeeLot(start, start + duration, fee, prefix + fee));
+        account.allocated += fee;
+        emit ProtocolFeeAllocated(
+            tokenId,
+            account.generation,
+            lots.length - 1,
+            address(paymentToken),
+            fee,
+            start,
+            start + duration
+        );
+    }
+
+    /// @dev Binary search finds the first unfinished lot; all earlier fees use one prefix.
+    function _feeEntitlement(MembershipTypes.ProtocolFeeLot[] storage lots, uint256 consumed)
+        private
+        view
+        returns (uint256 earned)
+    {
+        uint256 low;
+        uint256 high = lots.length;
+        while (low < high) {
+            uint256 mid = low + (high - low) / 2;
+            if (lots[mid].endPaid <= consumed) low = mid + 1;
+            else high = mid;
+        }
+        if (low != 0) earned = lots[low - 1].cumulativeFee;
+        if (low < lots.length && consumed > lots[low].startPaid) {
+            MembershipTypes.ProtocolFeeLot storage lot = lots[low];
+            earned += Math.mulDiv(lot.fee, consumed - lot.startPaid, lot.endPaid - lot.startPaid);
+        }
+    }
+
+    function _checkpointFees(uint256 tokenId, uint256 consumed) private {
+        if (consumed == 0) return;
+        FeeAccount storage account = _feeAccounts[tokenId];
+        account.consumedPaid += consumed;
+        uint256 entitlement =
+            _feeEntitlement(_feeLots[tokenId][account.generation], account.consumedPaid);
+        uint256 earned = entitlement - account.recognized;
+        account.recognized = entitlement;
+        account.earned += earned;
+        protocolFeeEarnedHeld += earned;
+        if (earned != 0) {
+            emit ProtocolFeesAccrued(tokenId, account.generation, earned, account.earned);
+        }
+    }
+
+    function _closeFeeGeneration(uint256 tokenId, uint256 contribution)
+        private
+        returns (uint256 rounding)
+    {
+        FeeAccount storage account = _feeAccounts[tokenId];
+        MembershipTypes.ProtocolFeeLot[] storage lots = _feeLots[tokenId][account.generation];
+        uint256 allocated = lots.length == 0 ? 0 : lots[lots.length - 1].cumulativeFee;
+        rounding = allocated - account.recognized - contribution;
+        if (rounding > 1) revert InvalidCancellationRounding();
+        protocolFeeHoldings -= contribution;
+        totalProtocolFeeRefunded += contribution;
+        account.refunded += contribution;
+        protocolFeeEarnedHeld += rounding;
+        totalProtocolFeeCancellationRounding += rounding;
+        account.cancellationRounding += rounding;
+        ++account.generation;
+        account.consumedPaid = 0;
+        account.recognized = 0;
     }
 
     function _allocateReward(uint256 tokenId, uint256 reward) internal {
@@ -742,13 +934,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
     }
 
     function _appendZeroRefundLot(uint256 tokenId, uint256 gross) internal {
-        uint256[] storage prefixes = _zeroGrossPrefixes[tokenId];
-        MembershipTypes.RefundCursor storage cursor = _refundCursors[tokenId];
-        if (prefixes.length != 0 && cursor.lot == prefixes.length && cursor.consumedSeconds == 0) {
-            delete _zeroGrossPrefixes[tokenId];
-            cursor.lot = 0;
-            prefixes = _zeroGrossPrefixes[tokenId];
-        }
+        uint256[] storage prefixes = _zeroGrossPrefixes[tokenId][_feeAccounts[tokenId].generation];
 
         uint256 cumulativeGross = gross;
         if (prefixes.length != 0) cumulativeGross += prefixes[prefixes.length - 1];
@@ -778,7 +964,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         view
         returns (uint256 grossRefund)
     {
-        uint256[] storage prefixes = _zeroGrossPrefixes[tokenId];
+        uint256[] storage prefixes = _zeroGrossPrefixes[tokenId][_feeAccounts[tokenId].generation];
         uint256 tail = prefixes.length;
         if (lot >= tail) return 0;
 
@@ -922,6 +1108,8 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         uint64 timestamp = _currentTimestamp();
         (uint64 paidSeconds, uint64 grantSeconds, bool changed) = _timeBalancesAt(state, timestamp);
         if (!changed) return;
+
+        _checkpointFees(tokenId, previousPaidSeconds - paidSeconds);
 
         if (pricePerPeriod == 0 && paidSeconds < previousPaidSeconds) {
             _advanceZeroRefundCursor(tokenId, previousPaidSeconds - paidSeconds);

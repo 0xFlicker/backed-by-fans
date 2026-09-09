@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
+
+import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -64,11 +67,12 @@ contract RendererBudgetTest is Test {
     }
 
     function test_noMediaRealFactoryTierMintAndTokenURIPath() public {
+        SyntheticPonsBinding.bind(address(paymentToken));
         MembershipFactory factory = new MembershipFactory(
             MembershipTestConfig.paymentTokens(IERC20(address(paymentToken))),
             address(mediaFactory),
             address(this),
-            address(this)
+            address(paymentToken)
         );
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
             address(this), address(renderer), address(paymentToken)
@@ -161,7 +165,11 @@ contract RendererBudgetTest is Test {
             digest: digest,
             runtimeCodehash: runtimeCodehash
         });
-        tier = new MembershipTier(address(this), IERC20(address(paymentToken)), config);
+        tier = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)),
+            IERC20(address(paymentToken)),
+            config
+        );
         tokenId = tier.grantTime(
             makeAddr(
                 string.concat(

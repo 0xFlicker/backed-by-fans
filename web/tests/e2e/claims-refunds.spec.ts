@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { zeroAddress, type Address } from "viem";
+import { zeroAddress, encodeFunctionData, type Address } from "viem";
 
 import { membershipTierAbi, usdgAbi } from "../../src/contracts";
 import { formatRawTokenAmount } from "../../src/lib/token-amount";
@@ -12,6 +12,7 @@ import {
   expectSuccessfulReceipt,
   installAnvilWallet,
   requiredAnvilAddress,
+  requiredAnvilRpc,
   revertAnvil,
   sendContract,
   snapshotAnvil,
@@ -20,19 +21,6 @@ import {
 
 const usdgDisplay = (raw: bigint) =>
   `${formatRawTokenAmount({ raw, decimals: 6, multiplier: 10n ** 18n })} USDG`;
-
-const localTokenControlAbi = [
-  {
-    type: "function",
-    name: "setBlocked",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "recipient", type: "address" },
-      { name: "blocked", type: "bool" },
-    ],
-    outputs: [],
-  },
-] as const;
 
 async function seedPurchase(referrer: Address = zeroAddress) {
   const member = requiredAnvilAddress("member");
@@ -119,7 +107,6 @@ test.describe("configured Anvil claims and refunds", () => {
       "One mutation is sufficient.",
     );
     const snapshot = await snapshotAnvil();
-    const creator = requiredAnvilAddress("creator");
     const member = requiredAnvilAddress("member");
     const tier = requiredAnvilAddress("tier");
     const usdg = requiredAnvilAddress("paymentToken");
@@ -127,15 +114,49 @@ test.describe("configured Anvil claims and refunds", () => {
 
     try {
       await seedPurchase();
-      expectSuccessfulReceipt(
-        await sendContract({
-          account: creator,
-          address: usdg,
-          abi: localTokenControlAbi,
-          functionName: "setBlocked",
-          args: [member, true],
-        }),
-      );
+      // Labeled browser RPC fault only. Authentic USDG code/storage and all
+      // successful membership proofs remain untouched; Foundry separately
+      // exercises issuer-restricted token delivery.
+      const claimData = encodeFunctionData({
+        abi: membershipTierAbi,
+        functionName: "claimReward",
+        args: [1n],
+      });
+      await page.route(`${requiredAnvilRpc()}/`, async (route) => {
+        const payload = route.request().postDataJSON();
+        const requests = Array.isArray(payload) ? payload : [payload];
+        const failed = (request: {
+          method: string;
+          params?: { to?: string; data?: string }[];
+        }) =>
+          request.method === "eth_call" &&
+          request.params?.[0]?.to?.toLowerCase() === tier.toLowerCase() &&
+          request.params?.[0]?.data === claimData;
+        if (!requests.some(failed)) {
+          await route.continue();
+          return;
+        }
+        const upstream = await route.fetch();
+        const data = await upstream.json();
+        const responses = (Array.isArray(data) ? data : [data]).map((item) =>
+          requests.some((request) => request.id === item.id && failed(request))
+            ? {
+                jsonrpc: "2.0",
+                id: item.id,
+                error: {
+                  code: 3,
+                  message:
+                    "execution reverted: Labeled recipient delivery failure",
+                  data: "0x",
+                },
+              }
+            : item,
+        );
+        await route.fulfill({
+          response: upstream,
+          json: Array.isArray(data) ? responses : responses[0],
+        });
+      });
       await installAnvilWallet(page, member);
       await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, member);
@@ -168,6 +189,25 @@ test.describe("configured Anvil claims and refunds", () => {
         page.getByText(/funds remain available here/i),
       ).toBeVisible();
       await expect(rewardRow.locator("input")).toHaveCount(0);
+      await page.unroute(`${requiredAnvilRpc()}/`);
+      const balanceBeforeRetry = await client.readContract({
+        address: usdg,
+        abi: usdgAbi,
+        functionName: "balanceOf",
+        args: [member],
+      });
+      await rewardRow
+        .getByRole("button", { name: "Claim to this wallet" })
+        .click();
+      await expectReconciled(page, "Claim membership rewards");
+      expect(
+        (await client.readContract({
+          address: usdg,
+          abi: usdgAbi,
+          functionName: "balanceOf",
+          args: [member],
+        })) - balanceBeforeRetry,
+      ).toBe(500_000n);
     } finally {
       await revertAnvil(snapshot);
     }
@@ -208,7 +248,17 @@ test.describe("configured Anvil claims and refunds", () => {
         functionName: "previewRefund",
         args: [1n],
       });
+      const components = await client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "previewRefundComponents",
+        args: [1n],
+      });
+      expect(components[1]).toBeGreaterThan(0n);
+      expect(components[1] + components[2] + components[3]).toBe(components[0]);
       const refundPreview = page.locator(".refund-preview");
+      await expect(refundPreview).toContainText(usdgDisplay(components[1]));
+      await expect(refundPreview).toContainText(usdgDisplay(components[2]));
       await expect(refundPreview).toContainText(usdgDisplay(grossRefund));
       await expect(refundPreview).toContainText(usdgDisplay(ownerTopUp));
 

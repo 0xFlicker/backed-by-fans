@@ -7,12 +7,30 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  reporter: process.env.BBF_FORK_BROWSER_EVIDENCE
+    ? [
+        ["list"],
+        [
+          "json",
+          {
+            outputFile: `${process.env.BBF_FORK_BROWSER_EVIDENCE}/report.json`,
+          },
+        ],
+      ]
+    : process.env.CI
+      ? "github"
+      : "list",
   use: {
     baseURL,
     colorScheme: "light",
-    screenshot: "only-on-failure",
-    trace: "retain-on-failure",
+    screenshot:
+      process.env.BBF_PROTOCOL_FORK_AUTHENTIC === "1"
+        ? "on"
+        : "only-on-failure",
+    trace:
+      process.env.BBF_PROTOCOL_FORK_AUTHENTIC === "1"
+        ? "on"
+        : "retain-on-failure",
   },
   projects: [
     {

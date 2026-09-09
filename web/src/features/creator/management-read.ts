@@ -6,6 +6,20 @@ import type { ReadyDeployment } from "@/lib/config";
 import { readTierSnapshotState } from "@/lib/direct-read";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
+export async function readRefundFunding(
+  client: PublicClient,
+  input: { tier: Address; tokenId: bigint; blockNumber: bigint },
+) {
+  const [gross, protocol, creator, topUp] = await client.readContract({
+    address: input.tier,
+    abi: membershipTierAbi,
+    functionName: "previewRefundComponents",
+    args: [input.tokenId],
+    blockNumber: input.blockNumber,
+  });
+  return { gross, protocol, creator, topUp };
+}
+
 export async function readTierManagementState(
   client: PublicClient,
   input: { tier: Address; deployment: ReadyDeployment },

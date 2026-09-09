@@ -114,6 +114,10 @@ export MOCK_CREATE2_RUNTIME=0x7fffffffffffffffffffffffffffffffffffffffffffffffff
 export MOCK_CREATE2_ADDRESS=0x4e59b44847b379578588920cA78FbF26c0B4956C
 export MOCK_SAFE_ADDRESS=0xeAA4B38A99f766117C1D493a21012fec25f70505
 export MOCK_TIER_DEPLOYER_ADDRESS=0x1111111111111111111111111111111111111111
+export MOCK_PROTOCOL_TOKEN_ADDRESS=0x2222222222222222222222222222222222222222
+export MOCK_VAULT_ADDRESS=0x5555555555555555555555555555555555555555
+export MOCK_EXECUTOR_ADDRESS=0x6666666666666666666666666666666666666666
+export PROTOCOL_TOKEN_ADDRESS="$MOCK_PROTOCOL_TOKEN_ADDRESS"
 
 create2_deployer=0x4e59b44847b379578588920cA78FbF26c0B4956C
 media_salt="$($real_cast keccak 'Backed By Fans media store factory v4')"
@@ -137,7 +141,7 @@ factory_constructor_args="$($real_cast abi-encode \
   "$payment_token_array" \
   "$MOCK_MEDIA_ADDRESS" \
   "$MOCK_SAFE_ADDRESS" \
-  "$MOCK_SAFE_ADDRESS")"
+  "$MOCK_PROTOCOL_TOKEN_ADDRESS")"
 mock_factory_init_code="0x6003${factory_constructor_args#0x}"
 export MOCK_FACTORY_ADDRESS="$($real_cast create2 --deployer "$create2_deployer" --salt "$factory_salt" --init-code "$mock_factory_init_code")"
 export MOCK_MEDIA_RUNTIME_HASH="$($real_cast keccak "$MOCK_MEDIA_RUNTIME")"
@@ -157,6 +161,7 @@ jq --arg runtime "$MOCK_PAYMENT_TOKEN_RUNTIME_HASH" \
   "$payment_token_manifest" >"${payment_token_manifest}.tmp"
 mv "${payment_token_manifest}.tmp" "$payment_token_manifest"
 jq \
+  --arg protocol_token "$MOCK_PROTOCOL_TOKEN_ADDRESS" \
   --arg implementation "$MOCK_RENDERER_ADDRESS" \
   --arg runtime_hash "$MOCK_RENDERER_RUNTIME_HASH" \
   --argjson payment_tokens "$(jq -c '.initialTokens | map({
@@ -172,7 +177,8 @@ jq \
   --arg preview_runtime "$MOCK_PREVIEW_RUNTIME_HASH" \
   --arg factory "$MOCK_FACTORY_ADDRESS" \
   --arg factory_runtime "$MOCK_FACTORY_RUNTIME_HASH" \
-  '.deployment.paymentTokens = $payment_tokens
+  '.schemaVersion = 3 | del(.factory.feeRecipient) | .factory.protocolToken = $protocol_token
+   | .deployment.paymentTokens = $payment_tokens
    | .deployment.mediaStoreFactory = {address: $media, runtimeCodehash: $media_runtime}
    | .deployment.renderer = {address: $implementation, runtimeCodehash: $runtime_hash}
    | .deployment.previewHarness = {address: $preview, runtimeCodehash: $preview_runtime}
@@ -187,6 +193,32 @@ export TMPDIR="$test_dir"
 unset ROBINHOOD_TESTNET_RPC_URL ROBINHOOD_MAINNET_RPC_URL
 unset ETH_PASSWORD PRIVATE_KEY ETH_PRIVATE_KEY CAST_PRIVATE_KEY MNEMONIC MNEMONIC_PATH
 unset FOUNDRY_PROFILE
+
+reset_project_state
+run_expect_failure env PROTOCOL_TOKEN_ADDRESS=0x4444444444444444444444444444444444444444 "$deploy_wrapper" testnet status
+assert_contains "$test_dir/stderr" "configured protocol token"
+assert_not_contains "$mock_log" "cast publish"
+
+reset_project_state
+run_expect_failure env PROTOCOL_TOKEN_ADDRESS= "$deploy_wrapper" testnet prepare
+assert_contains "$test_dir/stderr" "explicitly identify a launched token or zero"
+
+reset_project_state
+jq '.schemaVersion = 2' "$operational_state" >"${operational_state}.tmp"
+mv "${operational_state}.tmp" "$operational_state"
+run_expect_failure "$deploy_wrapper" testnet status
+assert_contains "$test_dir/stderr" "requires schema 3"
+
+reset_project_state
+run_expect_failure env MOCK_FORGE_FAIL_ON='--sig configuredProtocolToken()' "$deploy_wrapper" testnet dry-run
+assert_contains "$test_dir/stderr" "not a verified native-ETH Pons launch"
+assert_not_contains "$mock_log" "cast publish"
+assert_not_contains "$mock_log" "cast send"
+
+reset_project_state
+printf '4\n' >"$public_state"
+run_expect_failure env MOCK_FACTORY_PROTOCOL_TOKEN=0x4444444444444444444444444444444444444444 "$deploy_wrapper" testnet status
+assert_contains "$test_dir/stderr" "factory protocol token"
 
 reset_project_state
 canonical_project_root="$(cd "$project_root" && pwd -P)"
@@ -238,7 +270,8 @@ assert_jq "$operational_state" \
   '.deployment.membershipFactory == {address: $address, runtimeCodehash: $runtime}'
 assert_jq "$operational_state" \
   --arg safe "$MOCK_SAFE_ADDRESS" \
-  '.safe.address == $safe and .factory.owner == $safe and .factory.feeRecipient == $safe'
+  --arg token "$MOCK_PROTOCOL_TOKEN_ADDRESS" \
+  '.safe.address == $safe and .factory.owner == $safe and .factory.protocolToken == $token and (.factory | has("feeRecipient") | not)'
 assert_not_contains "$mock_log" "anvil --fork-url"
 assert_not_contains "$mock_log" "cast wallet address"
 assert_not_contains "$mock_log" "cast send"
@@ -332,7 +365,8 @@ assert_contains "$mock_log" "bun x prettier --write"
 assert_not_contains "$mock_log" "--password"
 assert_not_contains "$mock_log" "--password-file"
 assert_not_contains "$mock_log" "--private-key"
-assert_not_contains "$mock_log" "forge script script/DeployDirectProtocol.s.sol:DeployProtocol"
+assert_contains "$mock_log" "--sig configuredProtocolToken()"
+assert_not_contains "$mock_log" "forge script script/DeployDirectProtocol.s.sol:DeployProtocol --broadcast"
 [[ "$(cat "$public_state")" == "4" ]] || fail "broadcast did not deploy the public prefix"
 [[ -f "$candidate" ]] || fail "broadcast did not persist its recovery journal"
 [[ -f "$active" ]] || fail "broadcast did not promote its active Foundry record"
@@ -717,7 +751,7 @@ reset_project_state
 "$deploy_wrapper" testnet status
 assert_contains "$mock_log" "cast chain-id --rpc-url"
 assert_contains "$mock_log" "FOUNDRY_PROFILE=robinhood forge test --match-contract DeploymentScriptsTest"
-assert_not_contains "$mock_log" "forge script"
+assert_contains "$mock_log" "--sig configuredProtocolToken()"
 assert_not_contains "$mock_log" "cast wallet address"
 assert_not_contains "$mock_log" "cast send"
 assert_not_contains "$mock_log" "anvil --fork-url"
@@ -744,19 +778,15 @@ assert_contains "$test_dir/stderr" "requires a clean committed checkout"
 reset_project_state
 printf '4\n' >"$public_state"
 reviewed_owner=0x3333333333333333333333333333333333333333
-reviewed_fee_recipient=0x4444444444444444444444444444444444444444
 jq \
   --arg owner "$reviewed_owner" \
-  --arg fee_recipient "$reviewed_fee_recipient" \
   '.safe.owners = [$owner]
-   | .factory.owner = $owner
-   | .factory.feeRecipient = $fee_recipient' \
+   | .factory.owner = $owner' \
   "$operational_state" >"${operational_state}.tmp"
 mv "${operational_state}.tmp" "$operational_state"
 env \
   MOCK_SAFE_OWNERS_JSON="[[\"$reviewed_owner\"]]" \
   MOCK_FACTORY_OWNER="$reviewed_owner" \
-  MOCK_FACTORY_FEE_RECIPIENT="$reviewed_fee_recipient" \
   "$deploy_wrapper" testnet status
 assert_not_contains "$mock_log" "rendererRecord(uint32)"
 
@@ -791,5 +821,12 @@ assert_contains "$mock_log" "anvil --fork-url"
 assert_not_contains "$mock_log" "cast mktx $create2_deployer"
 assert_not_contains "$mock_log" "cast publish <signed-transaction>"
 [[ "$(cat "$public_state")" == "0" ]] || fail "wrong account changed public prefix"
+
+reset_project_state
+env PROTOCOL_TOKEN_ADDRESS=0x0000000000000000000000000000000000000000 \
+  "$deploy_wrapper" testnet prepare
+assert_jq "$operational_state" '.factory.protocolToken == "0x0000000000000000000000000000000000000000"'
+assert_not_contains "$mock_log" "cast publish"
+assert_not_contains "$mock_log" "cast wallet address"
 
 echo "deploy-protocol wrapper tests: passed"

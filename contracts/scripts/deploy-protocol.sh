@@ -57,6 +57,7 @@ payment_token_scaled=()
 payment_token_runtime_hashes=()
 payment_tokens_json="[]"
 factory_constructor_args=""
+protocol_token=""
 source_commit=""
 build_config_json=""
 build_config_hash=""
@@ -89,6 +90,8 @@ Deploys Backed By Fans deterministically through the canonical CREATE2 deployer.
                 the fresh, separately authorized submission.
 
 Optional overrides:
+  PROTOCOL_TOKEN_ADDRESS  Native-ETH Pons token, or explicit zero to defer launch. Required for
+                          prepare; otherwise pinned by the committed state.
   ACCOUNT                 Encrypted Foundry keystore account name for broadcast
   BBF_ANVIL_PORT          Port for the local fork (random high port by default)
   RECOVER_DROPPED_TRANSACTION_HASH
@@ -272,7 +275,11 @@ validate_build_environment() {
     and .libs == ["lib"]
     and .remappings == [
       "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-      "forge-std/=lib/forge-std/src/"
+      "forge-std/=lib/forge-std/src/",
+      "@uniswap/universal-router/=external/uniswap/universal-router/",
+      "@uniswap/v4-periphery/=external/uniswap/v4-periphery/",
+      "@uniswap/v4-core/=external/uniswap/v4-core/",
+      "permit2/=external/uniswap/permit2/"
     ]
     and .auto_detect_remappings == false
     and .solc == "0.8.36" and .auto_detect_solc == false
@@ -315,7 +322,7 @@ load_payment_token_manifest() {
   [[ -f "$payment_token_manifest" ]] \
     || fail "payment-token manifest is missing at $payment_token_manifest"
   jq -e --argjson chain_id "$expected_chain_id" --argjson expected_count \
-    "$([[ "$expected_chain_id" == "46630" ]] && printf 6 || printf 1)" '
+    "$([[ "$expected_chain_id" == "46630" ]] && printf 6 || printf 3)" '
       .schemaVersion == 1
       and .chainId == $chain_id
       and .releaseStatus == (if $chain_id == 46630 then "validated" else "inspection-only" end)
@@ -327,6 +334,12 @@ load_payment_token_manifest() {
         and (.expectedDecimals | type == "number" and . >= 0 and . <= 255)
         and (.requiresScaledUI | type == "boolean")
         and (.runtimeCodehash | test("^0x[0-9a-fA-F]{64}$")))
+      and (if $chain_id == 4663 then
+        all([.initialTokens[0], .initialTokens[2]][];
+          (.implementation | test("^0x[0-9a-fA-F]{40}$"))
+          and (.implementationRuntimeCodehash | test("^0x[0-9a-fA-F]{64}$")))
+        and .initialTokens[1].implementation == null
+      else true end)
     ' "$payment_token_manifest" >/dev/null \
     || fail "payment-token manifest is not release-validated at $payment_token_manifest"
 
@@ -368,7 +381,7 @@ build_deployment_plan() {
         "$encoded_payment_tokens" \
         "${component_addresses[0]}" \
         "$BBF_INITIAL_PROTOCOL_AUTHORITY" \
-        "$BBF_INITIAL_PROTOCOL_AUTHORITY")"
+        "$protocol_token")"
       require_hex "membership factory constructor arguments" "$factory_constructor_args"
       init_code="${init_code}${factory_constructor_args#0x}"
     fi
@@ -407,6 +420,7 @@ build_deployment_plan() {
 validate_plan_against_solidity() {
   local output factory_runtime_hash
   if ! output="$(BBF_RELEASE_CHAIN_ID="$expected_chain_id" \
+    BBF_RELEASE_PROTOCOL_TOKEN="$protocol_token" \
     BBF_RELEASE_MEDIA_SALT="${component_salts[0]}" \
     BBF_RELEASE_RENDERER_SALT="${component_salts[1]}" \
     BBF_RELEASE_PREVIEW_HARNESS_SALT="${component_salts[2]}" \
@@ -504,9 +518,9 @@ validate_operational_state_manifest() {
     || fail "reviewed operational state is missing at $operational_state_file"
   jq -e --argjson chain_id "$expected_chain_id" '
     . as $state
-    | .schemaVersion == 2 and .chainId == $chain_id
+    | .schemaVersion == 3 and .chainId == $chain_id
     and (.deployment.paymentTokens | type == "array"
-      and length == (if $chain_id == 46630 then 6 else 1 end)
+      and length == (if $chain_id == 46630 then 6 else 3 end)
       and all(.[];
         (.symbol | type == "string" and length > 0)
         and (.address | test("^0x[0-9a-fA-F]{40}$"))
@@ -540,9 +554,10 @@ validate_operational_state_manifest() {
     and (.safe.fallbackHandler | test("^0x[0-9a-fA-F]{40}$"))
     and (.factory.owner | test("^0x[0-9a-fA-F]{40}$"))
     and (.factory.pendingOwner | test("^0x[0-9a-fA-F]{40}$"))
-    and (.factory.feeRecipient | test("^0x[0-9a-fA-F]{40}$"))
+    and (.factory.protocolToken | test("^0x[0-9a-fA-F]{40}$"))
+    and (.factory | has("feeRecipient") | not)
   ' "$operational_state_file" >/dev/null \
-    || fail "reviewed operational state is malformed at $operational_state_file"
+    || fail "reviewed operational state requires schema 3 and an explicit protocol token (zero defers launch); run prepare with PROTOCOL_TOKEN_ADDRESS ($operational_state_file)"
 
   local expected_safe
   expected_safe="$(jq -er '.safe.address' "$operational_state_file")"
@@ -556,12 +571,16 @@ validate_plan_against_operational_state() {
   expected="$(jq -S -c '[.deployment.paymentTokens[] | {
     symbol,
     address: (.address | ascii_downcase),
-    runtimeCodehash: (.runtimeCodehash | ascii_downcase)
+    runtimeCodehash: (.runtimeCodehash | ascii_downcase),
+    implementation: (.implementation // "" | ascii_downcase),
+    implementationRuntimeCodehash: (.implementationRuntimeCodehash // "" | ascii_downcase)
   }]' "$operational_state_file")"
   observed="$(printf '%s' "$payment_tokens_json" | jq -S -c '[.[] | {
     symbol,
     address: (.address | ascii_downcase),
-    runtimeCodehash: (.runtimeCodehash | ascii_downcase)
+    runtimeCodehash: (.runtimeCodehash | ascii_downcase),
+    implementation: (.implementation // "" | ascii_downcase),
+    implementationRuntimeCodehash: (.implementationRuntimeCodehash // "" | ascii_downcase)
   }]')"
   [[ "$observed" == "$expected" ]] \
     || fail "payment-token manifest differs from reviewed operational state"
@@ -624,6 +643,8 @@ prepare_operational_state() {
   git -C "$repo_root" show "HEAD:$operational_state_relative" >"$committed" \
     || fail "could not read committed operational state at $operational_state_relative"
   jq \
+    --arg protocol_token "$protocol_token" \
+    --argjson payment_tokens "$payment_tokens_json" \
     --arg media_address "${component_addresses[0]}" \
     --arg media_runtime "${component_runtime_hashes[0]}" \
     --arg renderer_address "${component_addresses[1]}" \
@@ -632,7 +653,11 @@ prepare_operational_state() {
     --arg preview_runtime "${component_runtime_hashes[2]}" \
     --arg factory_address "${component_addresses[3]}" \
     --arg factory_runtime "${component_runtime_hashes[3]}" \
-    '.deployment.mediaStoreFactory = {
+    '.schemaVersion = 3
+     | del(.factory.feeRecipient)
+     | .factory.protocolToken = $protocol_token
+     | .deployment.paymentTokens = ($payment_tokens | map({symbol, address, runtimeCodehash, implementation, implementationRuntimeCodehash}))
+     | .deployment.mediaStoreFactory = {
        address: $media_address,
        runtimeCodehash: $media_runtime
      }
@@ -765,6 +790,17 @@ validate_payment_tokens() {
     [[ "$(lowercase "$observed_hash")" == "$(lowercase "${payment_token_runtime_hashes[$index]}")" ]] \
       || fail "$symbol runtime hash differs from the release-validated manifest"
 
+    local reviewed_implementation reviewed_implementation_hash
+    reviewed_implementation="$(jq -r --argjson index "$index" '.initialTokens[$index].implementation // empty' "$payment_token_manifest")"
+    if [[ -n "$reviewed_implementation" ]]; then
+      reviewed_implementation_hash="$(jq -er --argjson index "$index" '.initialTokens[$index].implementationRuntimeCodehash' "$payment_token_manifest")"
+      implementation_slot="$(cast storage "$token" "$BBF_EIP1967_IMPLEMENTATION_SLOT" --rpc-url "$target_rpc" 2>/dev/null)" \
+        || fail "$symbol implementation-slot query failed"
+      implementation="0x${implementation_slot: -40}"
+      require_address_match "$symbol implementation" "$implementation" "$reviewed_implementation"
+      require_runtime_hash "$target_rpc" "$symbol implementation" "$reviewed_implementation" "$reviewed_implementation_hash"
+    fi
+
     output="$(rpc_call_json "$target_rpc" "$symbol decimals" "$token" "decimals()(uint8)")"
     [[ "$(printf '%s' "$output" | jq -er '.[0]')" == "$decimals" ]] \
       || fail "$symbol decimals differ from the release manifest"
@@ -804,20 +840,6 @@ validate_payment_tokens() {
 
   [[ "$expected_chain_id" == "4663" ]] || return 0
   token="${payment_token_addresses[0]}"
-  if ! implementation_slot="$(cast storage "$token" \
-    "$BBF_EIP1967_IMPLEMENTATION_SLOT" \
-    --rpc-url "$target_rpc" 2>/dev/null)"; then
-    fail "mainnet USDG implementation-slot query failed"
-  fi
-  implementation="0x${implementation_slot: -40}"
-  local reviewed_implementation reviewed_implementation_hash
-  reviewed_implementation="$(jq -er '.deployment.paymentTokens[0].implementation' "$operational_state_file")"
-  reviewed_implementation_hash="$(jq -er '.deployment.paymentTokens[0].implementationRuntimeCodehash' "$operational_state_file")"
-  require_address_match "mainnet USDG implementation" \
-    "$implementation" "$reviewed_implementation"
-  require_runtime_hash "$target_rpc" "mainnet USDG implementation" \
-    "$reviewed_implementation" \
-    "$reviewed_implementation_hash"
   output="$(rpc_call_json "$target_rpc" "mainnet USDG pause state" \
     "$token" "paused()(bool)")"
   [[ "$(printf '%s' "$output" | jq -er '.[0]')" == "false" ]] \
@@ -883,11 +905,35 @@ validate_factory_dependencies() {
   require_address_match "factory pending owner" "$observed" \
     "$(jq -er '.factory.pendingOwner' "$operational_state_file")"
 
-  output="$(rpc_call_json "$target_rpc" "factory fee recipient" \
-    "$factory" "feeRecipient()(address)")"
+  output="$(rpc_call_json "$target_rpc" "factory protocol token" \
+    "$factory" "protocolToken()(address)")"
   observed="$(printf '%s' "$output" | jq -er '.[0]')"
-  require_address_match "factory fee recipient" "$observed" \
-    "$(jq -er '.factory.feeRecipient' "$operational_state_file")"
+  require_address_match "factory protocol token" "$observed" "$protocol_token"
+
+  local vault executor
+  output="$(rpc_call_json "$target_rpc" "factory buyback vault" "$factory" "buybackVault()(address)")"
+  vault="$(printf '%s' "$output" | jq -er '.[0]')"
+  output="$(rpc_call_json "$target_rpc" "vault executor" "$vault" "executor()(address)")"
+  executor="$(printf '%s' "$output" | jq -er '.[0]')"
+  local target
+  local dependencies=("$vault")
+  if [[ "$(lowercase "$protocol_token")" == "0x0000000000000000000000000000000000000000" ]]; then
+    require_address_match "unbound executor" "$executor" "$protocol_token"
+  else
+    dependencies+=("$executor")
+  fi
+  for target in "${dependencies[@]}"; do
+    output="$(rpc_code "$target_rpc" "buyback dependency" "$target")"
+    [[ "$output" != "0x" && "$output" != "0x0" ]] || fail "buyback dependency has no runtime"
+    output="$(rpc_call_json "$target_rpc" "buyback protocol token" "$target" "protocolToken()(address)")"
+    require_address_match "buyback protocol token" "$(printf '%s' "$output" | jq -er '.[0]')" "$protocol_token"
+  done
+  output="$(rpc_call_json "$target_rpc" "vault factory" "$vault" "factory()(address)")"
+  require_address_match "vault factory" "$(printf '%s' "$output" | jq -er '.[0]')" "$factory"
+  if [[ "$(lowercase "$protocol_token")" != "0x0000000000000000000000000000000000000000" ]]; then
+    output="$(rpc_call_json "$target_rpc" "executor vault" "$executor" "vault()(address)")"
+    require_address_match "executor vault" "$(printf '%s' "$output" | jq -er '.[0]')" "$vault"
+  fi
 
   output="$(rpc_call_json "$target_rpc" "factory tier deployer" \
     "$factory" "deployer()(address)")"
@@ -915,6 +961,13 @@ validate_chain_state() {
   validate_canonical_create2_deployer "$target_rpc"
   validate_protocol_safe "$target_rpc"
   validate_payment_tokens "$target_rpc"
+  # Read-only execution of the compiled validator. No broadcast or signer is used.
+  # The larger limit belongs to the offchain script, never to deployment transactions.
+  if ! PROTOCOL_TOKEN_ADDRESS="$protocol_token" FOUNDRY_PROFILE=robinhood forge script \
+    script/DeployDirectProtocol.s.sol:DeployProtocol --sig 'configuredProtocolToken()' \
+    --rpc-url "$target_rpc" --code-size-limit 300000 >/dev/null 2>&1; then
+    fail "protocol token is not a verified native-ETH Pons launch on the selected chain"
+  fi
   inspect_prefix "$target_rpc"
   if [[ "${component_present[3]}" == "1" ]]; then
     validate_factory_dependencies "$target_rpc"
@@ -1792,6 +1845,17 @@ else
   require_committed_operational_state
   validate_operational_state_manifest
 fi
+if [[ "$action" == "prepare" ]]; then
+  protocol_token="${PROTOCOL_TOKEN_ADDRESS:-}"
+else
+  protocol_token="$(jq -er '.factory.protocolToken' "$operational_state_file")"
+  if [[ -n "${PROTOCOL_TOKEN_ADDRESS:-}" ]]; then
+    require_address_match "configured protocol token" "$PROTOCOL_TOKEN_ADDRESS" "$protocol_token"
+  fi
+fi
+[[ "$protocol_token" =~ ^0x[0-9a-fA-F]{40}$ ]] \
+  || fail "PROTOCOL_TOKEN_ADDRESS must explicitly identify a launched token or zero before prepare"
+export PROTOCOL_TOKEN_ADDRESS="$protocol_token"
 journal="deployments/protocol/$expected_chain_id/candidate.json"
 active_broadcast="broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/run-latest.json"
 if [[ "$action" == "broadcast" || "$action" == "resume-verify" \

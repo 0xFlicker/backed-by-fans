@@ -48,26 +48,15 @@ test("@anvil recognizes a newly funded wallet and completes its first purchase",
       page.getByRole("button", { name: "Join this membership" }),
     ).toBeDisabled();
 
-    // Local Anvil models returning from Robinhood's external faucet. The
-    // component suite separately pins the public official-faucet URL on 46630.
+    // Fund only gas directly; the already-acquired authentic USDG arrives via
+    // an ordinary transfer, never a privileged mint or token balance patch.
     await rpcRequest("anvil_setBalance", [freshWallet, "0xde0b6b3a7640000"]);
     expectSuccessfulReceipt(
       await sendContract({
         account: creator,
         address: paymentToken,
-        abi: [
-          {
-            type: "function",
-            name: "mint",
-            stateMutability: "nonpayable",
-            inputs: [
-              { name: "to", type: "address" },
-              { name: "amount", type: "uint256" },
-            ],
-            outputs: [],
-          },
-        ],
-        functionName: "mint",
+        abi: erc20Abi,
+        functionName: "transfer",
         args: [freshWallet, 20_000_000n],
       }),
     );

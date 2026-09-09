@@ -20,6 +20,7 @@ library MembershipTestConfig {
             symbol: "BACK",
             pricePerPeriod: 10_000_000,
             periodDuration: 30 days,
+            protocolFeeBps: 100,
             rewardBps: 500,
             referralBps: 100,
             supplyCap: 0,

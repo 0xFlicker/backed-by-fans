@@ -1,0 +1,1809 @@
+== Contracts ==
+clean-room gate: passed
+create-safe wrapper tests: passed
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0x753da9b8a3d6ffda3a9059dfcab8ce9c00ffff88531f3e89a66a4d6cd3210aa2
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xBe9b165DCada8914B5FB698f8cCD712cE212cc76 0xe20e420a291bcc016b295eb59f0eb6de537901ade8d74f5aad621f4e1502906d 0x753da9b8a3d6ffda3a9059dfcab8ce9c00ffff88531f3e89a66a4d6cd3210aa2 renderer preview harness missing
+
+Protocol deployment: prepared reviewed operational state at contracts/config/operational-state/46630.json
+Protocol deployment: review and commit that file before dry-run or broadcast
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0x753da9b8a3d6ffda3a9059dfcab8ce9c00ffff88531f3e89a66a4d6cd3210aa2
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xBe9b165DCada8914B5FB698f8cCD712cE212cc76 0xe20e420a291bcc016b295eb59f0eb6de537901ade8d74f5aad621f4e1502906d 0x753da9b8a3d6ffda3a9059dfcab8ce9c00ffff88531f3e89a66a4d6cd3210aa2 renderer preview harness missing
+
+Protocol deployment: reviewed operational state is already prepared at contracts/config/operational-state/46630.json
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 3333333333333333333333333333333333333333 blob 3333333333333333333333333333333333333333
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness validated
+
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: renderer already validated at 0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: membership factory already validated at 0xCF99b5dA413257D7489F432F8613F6303B9D8253
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: archived completed recovery journal at deployments/protocol/46630/candidate-111111111111-promoted.json
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: renderer already validated at 0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: membership factory already validated at 0xCF99b5dA413257D7489F432F8613F6303B9D8253
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 4444444444444444444444444444444444444444 blob 5555555555555555555555555555555555555555
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness validated
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: recovered dropped submission evidence; run broadcast for a fresh authorized transaction
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: recovered dropped submission evidence; run broadcast for a fresh authorized transaction
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: recovered dropped submission evidence; run broadcast for a fresh authorized transaction
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness validated
+
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness missing
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 empty                validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+membership factory     0xCF99b5dA413257D7489F432F8613F6303B9D8253 0x727009a11ca8b496d065b3bcd30153089647c9c3da64a504847acde079a50131 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 renderer preview harness validated
+
+deploy-protocol wrapper tests: passed
+$ vitest run scripts/protocol-admin.test.ts src/lib/payment-token-read.test.ts src/features/protocol/registry-reconciliation.test.ts
+
+ RUN  v4.1.11 /Users/user/Development/backed-by-fans/web
+
+
+ Test Files  3 passed (3)
+      Tests  37 passed (37)
+   Start at  22:23:08
+   Duration  670ms (transform 190ms, setup 242ms, import 591ms, tests 24ms, environment 773ms)
+
+$ vitest run scripts/protocol-admin.test.ts
+
+ RUN  v4.1.11 /Users/user/Development/backed-by-fans/web
+
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  22:23:09
+   Duration  282ms (transform 74ms, setup 59ms, import 162ms, tests 8ms, environment 0ms)
+
+No files changed, compilation skipped
+No files changed, compilation skipped
+
+Ran 1 test for test/fork/RobinhoodSafe.t.sol:RobinhoodSafeForkTest
+[SKIP: set RUN_ROBINHOOD_FORK_TESTS=true] test_createsAndValidatesSafeV150L2WhenExplicitlyEnabled() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 5.82ms (945.04µs CPU time)
+
+Ran 1 test for test/fork/RobinhoodSafe.t.sol:ProtocolSafeForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 6.21ms (0.00ns CPU time)
+
+Ran 3 tests for test/StandardsInterfaces.t.sol:StandardsInterfacesTest
+[PASS] test_erc5192InterfaceIdMatchesPublishedStandard() (gas: 295)
+[PASS] test_erc5643InterfaceIdMatchesPublishedStandard() (gas: 283)
+[PASS] test_mockUSDGProvidesExpectedERC20Behavior() (gas: 559658)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 224.33µs (154.83µs CPU time)
+
+Ran 6 tests for test/RendererPreviewHarness.t.sol:RendererPreviewHarnessTest
+[PASS] test_callFailureReasonIsBounded() (gas: 146196)
+[PASS] test_createAndCallReturnsRawCandidateResult() (gas: 168831)
+[PASS] test_creationFailureIsReported() (gas: 43137)
+[PASS] test_emptyCallDataIsRejected() (gas: 11257)
+[PASS] test_emptyCreationCodeIsRejected() (gas: 10818)
+[PASS] test_ethCallRehearsalStateCanBeDiscarded() (gas: 335679)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 6.64ms (1.25ms CPU time)
+
+Ran 10 tests for test/RendererRegistry.t.sol:RendererRegistryTest
+[PASS] testAddsCreatorOnlyOnceAcrossMultipleDeployments() (gas: 427359)
+[PASS] testAnotherWalletSavesARegistryCreatedRenderer() (gas: 363494)
+[PASS] testCreatedRendererReturnsToCreatedListAfterUnregistering() (gas: 289471)
+[PASS] testDeploysRegistersAndReturnsActualRenderer() (gas: 276915)
+[PASS] testPaginatesCreatorsAndRenderers() (gas: 661391)
+[PASS] testRegistersExistingRendererAsSaved() (gas: 184966)
+[PASS] testRejectsFailedEmptyOversizedAndDuplicateInputs() (gas: 350746)
+[PASS] testRejectsInvalidRendererAndRollsBackDeployment() (gas: 87659)
+[PASS] testRejectsMissingWrongSchemaUnregisteredAndOversizedPage() (gas: 104758)
+[PASS] testUnregisterUsesSwapAndPopForCurrentLists() (gas: 258366)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 6.87ms (1.37ms CPU time)
+
+Ran 1 test for test/fork/PonsCompensation.t.sol:PonsCompensationForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 341.46µs (0.00ns CPU time)
+
+Ran 1 test for test/fork/PonsGraduation.t.sol:PonsGraduationForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 228.38µs (0.00ns CPU time)
+
+Ran 1 test for test/fork/PonsLaunch.t.sol:PonsLaunchForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 89.00µs (0.00ns CPU time)
+
+Ran 6 tests for test/MembershipIdentity.t.sol:MembershipIdentityTest
+[PASS] test_allApprovalAndTransferRoutesRemainSoulbound() (gas: 202842)
+[PASS] test_expirationDoesNotEraseHistoricalErc721Ownership() (gas: 190148)
+[PASS] test_grantsMintOnePersistentSequentialCredentialPerRecipient() (gas: 331795)
+[PASS] test_nativeEthIsRejectedByAdaptersAndFallback() (gas: 205539)
+[PASS] test_nonSafeMintSupportsContractWalletWithoutReceiverCallback() (gas: 224353)
+[PASS] test_supportsPublishedMembershipInterfaces() (gas: 11110)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 9.49ms (445.79µs CPU time)
+
+Ran 7 tests for test/GrantsAndCapacity.t.sol:GrantsAndCapacityTest
+[PASS] test_grantsDoNotCountAgainstPaidPrepaymentLimit() (gas: 551863)
+[PASS] test_onlyCreatorCanGrantOrRevokeWholePeriods() (gas: 205994)
+[PASS] test_pauseStillAllowsGrantRevocationAndSynchronization() (gas: 179661)
+[PASS] test_regrantBeforeSyncReusesHeldSlotAndSameCredential() (gas: 207566)
+[PASS] test_revokeRemovesOnlyRemainingGrantTimeAndPreservesPaidTime() (gas: 650481)
+[PASS] test_revokeWithoutRemainingGrantRevertsWithoutTouchingPaidTime() (gas: 537071)
+[PASS] test_revokingLastGrantMakesInactiveButRetainsSlotUntilSync() (gas: 164652)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 9.90ms (687.75µs CPU time)
+
+Ran 8 tests for test/ClaimsAndWithdrawals.t.sol:AdversarialPaymentsAndExitsTest
+[PASS] test_existingMemberTimeIsCheckpointedBeforeInboundTokenCallback() (gas: 998427)
+[PASS] test_failedCreatorRewardAndReferralExitsRestoreLiabilities() (gas: 604190)
+[PASS] test_failedEarnedReleasePreservesAccountingWithoutBlockingPayment() (gas: 788902)
+[PASS] test_failedRewardAndReferralClaimsDoNotAffectAnotherClaimant() (gas: 1136539)
+[PASS] test_falseRevertingShortTaxedAndFrozenInboundTransfersLeaveNoState() (gas: 297719)
+[PASS] test_frozenFactoryAndVaultDoNotBlockMembershipPayments() (gas: 587859)
+[PASS] test_outgoingCallbackCannotRecursivelyClaimAndOuterClaimPaysOnce() (gas: 1011263)
+[PASS] test_reentrantInboundCallbackCannotDoublePurchase() (gas: 682572)
+Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 11.08ms (1.42ms CPU time)
+
+Ran 4 tests for test/RefundsAndOwnership.t.sol:AdversarialRefundsTest
+[PASS] test_falseRevertingShortTaxedAndFrozenRefundDeliveryIsAtomic() (gas: 1150505)
+[PASS] test_falseRevertingShortTaxedAndFrozenTopUpsLeaveRefundStateUnchanged() (gas: 1056692)
+[PASS] test_newOwnerAllowanceAndBalanceFailuresPreservePriorOwnerEconomics() (gas: 486183)
+[PASS] test_topUpCallbackCannotReenterGrantAfterRefundClearsTime() (gas: 613650)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 11.08ms (1.71ms CPU time)
+
+Ran 3 tests for test/BuybackPolicy.t.sol:BuybackPolicyTest
+[PASS] testFuzz_floorMatchesIndependentRemainderModel(uint128,uint128,uint128,uint16) (runs: 256, μ: 3427, ~: 3574)
+[PASS] test_oneFinalUpwardRoundingAtMaximumOperands() (gas: 5353)
+[PASS] test_unitsDoNotAssumeDecimalsOrDisplayMultipliers() (gas: 2557)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 12.82ms (7.97ms CPU time)
+
+Ran 8 tests for test/CapacityAndPause.t.sol:CapacityAndPauseTest
+[PASS] test_activeOrHeldOccupancyConstrainsSupplyCapLowering() (gas: 25818718)
+[PASS] test_expiredMemberKeepsSlotUntilOwnerIdempotentSync() (gas: 166171)
+[PASS] test_expiredUnsynchronizedMemberReactivatesThroughHeldSlot() (gas: 209940)
+[PASS] test_pauseBlocksEveryU3TimeIncreaseButNotPassiveAccess() (gas: 226328)
+[PASS] test_synchronizeActiveMemberIsAStateNoOp() (gas: 189388)
+[PASS] test_synchronizedMemberCanLoseCapacityRace() (gas: 287794)
+[PASS] test_twoStepOwnershipTransferCompletesWhilePaused() (gas: 54061)
+[PASS] test_unpauseRestoresTimeIncreases() (gas: 537089)
+Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 6.61ms (2.98ms CPU time)
+
+Ran 1 test for test/invariants/MembershipInvariant.t.sol:FrozenGiftLifecycleTest
+[PASS] test_frozenPrepaidGiftRetainsIdentitySharesAndCapacityUntilNaturalExpiryAndSync() (gas: 26924992)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 3.61ms (3.08ms CPU time)
+
+Ran 1 test for test/invariants/MembershipInvariant.t.sol:RewardSettlementIndependenceTest
+[PASS] test_settlementFrequencyDoesNotChangePayoutsOrAssignPriorRewardsToNewShares() (gas: 44005887)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.41ms (5.79ms CPU time)
+
+Ran 5 tests for test/ClaimsAndWithdrawals.t.sol:ClaimsAndWithdrawalsTest
+[PASS] test_claimsAndWithdrawalsRemainAvailableWhilePaused() (gas: 625954)
+[PASS] test_creatorWithdrawalCannotConsumeRewardOrReferralLiabilities() (gas: 594086)
+[PASS] test_currentOwnerReceivesPreexistingCreatorProceedsAfterTwoStepTransfer() (gas: 560654)
+[PASS] test_fixedDestinationsClaimAllPaymentLiabilities() (gas: 626993)
+[PASS] test_twoTokenClaimsAndRefundsRemainIndependent() (gas: 26710817)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 6.29ms (3.18ms CPU time)
+
+Ran 7 tests for test/deployment/CreateSafe.t.sol:CreateSafeScriptTest
+[PASS] test_initializerConfiguresOnlyTheDeployer() (gas: 13563)
+[PASS] test_initializerRejectsUnapprovedOwner() (gas: 10855)
+[PASS] test_mainnetRequiresExactExplicitConfirmation() (gas: 10821)
+[PASS] test_rejectsUnapprovedSafeOwner() (gas: 10261)
+[PASS] test_rejectsUnsupportedChainsBeforeInspectingContracts() (gas: 10174)
+[PASS] test_runEnforcesMainnetConfirmationBeforeCanonicalContractChecks() (gas: 17747)
+[PASS] test_usesReleasedSafeV150L2Deployments() (gas: 9245)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 310.00µs (190.00µs CPU time)
+
+Ran 2 tests for test/e2e/LocalLifecycleEvidence.t.sol:LocalLifecycleEvidenceTest
+[PASS] test_localCreatorToSupporterLifecycleConservesEveryCustodyBucket() (gas: 3142928)
+[PASS] test_localFixtureExposesUnscaledAndScaledPaymentTokens() (gas: 26516)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 9.02ms (3.89ms CPU time)
+
+Ran 12 tests for test/ExpiredMembershipSync.t.sol:ExpiredMembershipSyncTest
+[PASS] test_burnedClaimAuthoritySurvivesTierOwnershipTransfer() (gas: 601689)
+[PASS] test_burnedMemberKeepsAccruedRewardAndMissesInactiveAllocations() (gas: 1264376)
+[PASS] test_erc721AndErc5643ReadsRevertWhileBurnedButCustomReadsRemain() (gas: 623553)
+[PASS] test_exactExpirationSyncsWhilePausedAndEmitsBurnAndDomainEvents() (gas: 643445)
+[PASS] test_giftGrantAndContributionEachRestoreBurnedCredential() (gas: 16164517)
+[PASS] test_maximumBatchBurnsOneHundredMembershipsWithinBlockGasBudget() (gas: 23332448)
+[PASS] test_mixedBatchBurnsOnlyStillExpiredAndSkipsDuplicatesAndBurnedTokens() (gas: 1290974)
+[PASS] test_onlyOwnerCanSyncAndBatchBoundsAndIdsFailFast() (gas: 559747)
+[PASS] test_purchaseRemintsSameIdReactivatesLifetimeSharesAndPreservesReferral() (gas: 887657)
+[PASS] test_refundAndCompleteGrantRevocationSuspendFutureRewardsUntilReactivation() (gas: 1974978)
+[PASS] test_roundingAndCustodyConserveAcrossBurnClaimInactiveIntervalAndReactivation() (gas: 16388574)
+[PASS] test_unknownIdRollsBackEarlierExpiredTokenInSameBatch() (gas: 622364)
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 27.32ms (17.73ms CPU time)
+
+Ran 12 tests for test/CustomRendererAddress.t.sol:CustomRendererAddressTest
+[PASS] test_canonicalRendererAlsoUsesDirectAddress() (gas: 7216409)
+[PASS] test_completePresentationNoOpEmitsNoMetadataRefresh() (gas: 7231369)
+[PASS] test_currentOwnerCanReplaceCompletePresentation() (gas: 7822745)
+[PASS] test_invalidReplacementPreservesCurrentRenderer() (gas: 7594211)
+[PASS] test_newOwnerCanKeepMediaStoredByThePreviousOwner() (gas: 7812953)
+[PASS] test_nonContractRendererAddressIsRejected() (gas: 29185)
+[PASS] test_pendingFormerAndNonOwnerCannotReplaceRenderer() (gas: 7520128)
+[PASS] test_presentationRejectsMediaFromAnotherCreatorAndPreservesAllFields() (gas: 7737962)
+[PASS] test_rendererReplacementPreservesMembershipAndEconomicState() (gas: 7686403)
+[PASS] test_rendererReplacementRefreshesAllMintedMetadata() (gas: 7678309)
+[PASS] test_unregisteredCompatibleRendererCreatesTierAndIsExposed() (gas: 17761606)
+[PASS] test_zeroRendererAddressIsRejected() (gas: 25111)
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 9.47ms (6.10ms CPU time)
+
+Ran 2 tests for test/CustomRendererImageInput.t.sol:CustomRendererImageInputTest
+[PASS] test_previewContextPassesBrowserNativeMediaWithoutPreservationRules() (gas: 20280)
+[PASS] test_tierPassesConfiguredOnchainMediaToCustomRenderer() (gas: 8059064)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 3.45ms (582.42µs CPU time)
+
+Ran 14 tests for test/OnchainMediaStore.t.sol:OnchainMediaStoreTest
+[PASS] testFuzz_textValidationAcceptsPrintableASCII(uint8) (runs: 256, μ: 7510, ~: 7410)
+[PASS] test_creatorPaginationIsBoundedStableAndContainsNoPayloadBytes() (gas: 714699)
+[PASS] test_duplicateUploadReusesOneStoreAndOneCreatorListEntry() (gas: 297169)
+[PASS] test_identicalPayloadIsCreatorScopedAndCannotBeClaimedAcrossCreators() (gas: 577721)
+[PASS] test_occupiedPredictionCannotCorruptRegistryState() (gas: 106774)
+[PASS] test_onchainValidationRejectsUnregisteredAndMismatchedRecords() (gas: 285207)
+[PASS] test_readerRejectsWrongLengthDigestHashAndPrefix() (gas: 293482)
+[PASS] test_rejectsEmptyOversizedAndMismatchedPayloads() (gas: 144637)
+[PASS] test_rejectsJPEGWithUnsafeDimensionsOrMalformedSegments() (gas: 244611)
+[PASS] test_rejectsPNGWithUnsafeDimensionsOrMalformedChunkFraming() (gas: 170093)
+[PASS] test_textValidationAcceptsUTF8AndXMLCharacters() (gas: 20331)
+[PASS] test_textValidationRejectsMalformedUTF8AndForbiddenXMLCharacters() (gas: 48560)
+[PASS] test_validJPEGUsesPredictionAndStoresExactSTOPPrefixedRuntime() (gas: 392956)
+[PASS] test_validPNGCanBeValidatedFromItsTypedNativeConfig() (gas: 267872)
+Suite result: ok. 14 passed; 0 failed; 0 skipped; finished in 18.47ms (18.13ms CPU time)
+
+Ran 19 tests for test/deployment/DeploymentScripts.t.sol:DeploymentScriptsTest
+[PASS] test_arbitraryOriginCanOnlyPredeployExactSafeOwnedFactory() (gas: 31397806)
+[PASS] test_completedDeploymentGateRejectsPartialStateAndAcceptsCompleteState() (gas: 32845783)
+[PASS] test_directFactoryInitcodeFitsRobinhoodProtocolLimit() (gas: 306977)
+[PASS] test_directFactoryInitcodePinsExactChainSpecificPaymentTokenLists() (gas: 66679564)
+[PASS] test_directFactoryTransactionFitsNitroSequencerLimit() (gas: 395645)
+[PASS] test_existingArbitraryRendererRuntimeIsNeverAdopted() (gas: 2807157)
+[PASS] test_existingDeploymentIsValidatedAtEachDirectStep() (gas: 32544167)
+[PASS] test_factoryCreatesOneImmutableVaultAndTiersPinIt() (gas: 38614243)
+[PASS] test_localDeploymentIsRestrictedToAnvilAndAcceptsItsMockToken() (gas: 62985369)
+[PASS] test_mainnetRequiresExactExplicitConfirmation() (gas: 10704)
+[PASS] test_mainnetRequiresReviewedProxyAndImplementationState() (gas: 57947)
+[PASS] test_publicDeploymentRejectsMissingOrWrongCanonicalTokenSurface() (gas: 454238)
+[PASS] test_publicDeploymentRejectsUnsupportedChains() (gas: 11336)
+[PASS] test_publicDeploymentRequiresExpectedSafeAuthorityConfiguration() (gas: 124610)
+[PASS] test_publicDeploymentRequiresExpectedSafeSingletonAndVersion() (gas: 101815)
+[PASS] test_publicDeploymentUsesDirectCreate2AndChecksAllBindings() (gas: 31453238)
+[PASS] test_publicPlanRejectsMissingTokenAndNoncanonicalLaunchWiring() (gas: 21739)
+[PASS] test_releaseWrapperPlanMatchesSolidityConfig() (gas: 3215)
+[PASS] test_testnetAcceptsOnlyTheExactExternalSixTokenManifest() (gas: 1217125)
+Suite result: ok. 19 passed; 0 failed; 0 skipped; finished in 44.05ms (32.59ms CPU time)
+
+Ran 11 tests for test/ProtocolBuybackVault.t.sol:ProtocolBuybackVaultTest
+[PASS] testCallbackCannotStealAttributionDuringAtomicTransferAndRecord() (gas: 1352170)
+[PASS] testDonationCannotBeRelabeledOrReceiptReplayed() (gas: 219326)
+[PASS] testFuzzEarnedReceiptsAndDonationsConserveIndependentBuckets(uint128,uint128) (runs: 256, μ: 210183, ~: 211497)
+[PASS] testImmutableIdentityAndEmptyInventory() (gas: 38076)
+[PASS] testNativeDonationsAndZeroSyncAreSeparateFromMembership() (gas: 81205)
+[PASS] testNoWithdrawalUpgradeRecipientOrArbitraryExecutionSurface() (gas: 137826)
+[PASS] testOnlyRegisteredTierCanAttributeMembershipFees() (gas: 320885)
+[PASS] testRejectsUnsetTokenAndImpersonatedConstructorFactory() (gas: 280681)
+[PASS] testShortTransferRevertsEntireRelease() (gas: 1191960)
+[PASS] testUnaccountedDonationIsNotAbsorbedIntoAValidEarnedReceipt() (gas: 196828)
+[PASS] testZeroReceiptAndNativePaymentAssetAreRejected() (gas: 235922)
+Suite result: ok. 11 passed; 0 failed; 0 skipped; finished in 64.04ms (61.28ms CPU time)
+
+Ran 1 test for test/fork/ProtocolBuybacks.t.sol:ProtocolBuybacksForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 157.21µs (0.00ns CPU time)
+
+Ran 1 test for test/fork/ProtocolExternalFailures.t.sol:ProtocolExternalFailuresForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 166.96µs (0.00ns CPU time)
+
+Ran 7 tests for test/BuybackAdministration.t.sol:BuybackAdministrationTest
+[PASS] testFuzz_uint128OperandBoundsRemainRepresentable(uint128,uint128,uint128) (runs: 256, μ: 228125, ~: 228108)
+[PASS] test_cannotConfigureDirectBurnAsAMarketOrInventAnEmptyTokenRoute() (gas: 525390)
+[PASS] test_cannotDiscardAuthorityOrNominateEOAOrSpoofSafe() (gas: 31628)
+[PASS] test_factoryOwnerIsOnlyConfigurationAuthority() (gas: 107407)
+[PASS] test_pausesDoNotChangeRevisionOrRefillBudget() (gas: 253037)
+[PASS] test_policyRequiresRouteAndRejectsInvalidBounds() (gas: 202988)
+[PASS] test_routeReplacementInvalidatesPolicyAndEveryEconomicChangeAdvancesRevision() (gas: 214740)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 77.92ms (69.12ms CPU time)
+
+Ran 13 tests for test/RefundsAndOwnership.t.sol:FixedPriceRefundsAndOwnershipTest
+[PASS] testFuzz_fixedPreviewMatchesSlowTimeModel(uint8,uint64,uint8) (runs: 256, μ: 559234, ~: 563320)
+[PASS] test_acceptedOwnershipMovesRefundAuthorityProceedsAndTopUpDuty() (gas: 646578)
+[PASS] test_cancellationAdapterAllowsFullExecutionTimeRefundWithoutCeilings() (gas: 782853)
+[PASS] test_cancellationRejectsNativeValueBeforeAuthorityCheck() (gas: 543910)
+[PASS] test_fixedRefundProratesAllRemainingPaidSecondsAtImmutablePrice() (gas: 719184)
+[PASS] test_giftsFromMultiplePayersRefundOnlyTheRecipient() (gas: 918423)
+[PASS] test_immediateRefundUsesCreatorProceedsAndOnlyExactOwnerTopUp() (gas: 639861)
+[PASS] test_pauseDoesNotBlockCanonicalRefundOrCancellationAdapter() (gas: 857870)
+[PASS] test_refundClearsTimeButPreservesIdentityIncentivesAndHeldOccupancy() (gas: 667356)
+[PASS] test_refundRejectsOwnerTopUpAbovePreviewedMaximumWithoutChangingState() (gas: 571921)
+[PASS] test_refundRejectsPaidTimeAddedAfterPreviewEvenWhenCreatorProceedsAreAmple() (gas: 1100424)
+[PASS] test_unsolicitedSurplusNeverReducesRequiredOwnerTopUp() (gas: 655219)
+[PASS] test_withdrawnProceedsUseOnlyUnearnedReserveBeforeTopUp() (gas: 696083)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 91.79ms (90.33ms CPU time)
+
+Ran 13 tests for test/PonsBuybackExecutor.t.sol:PonsBuybackExecutorTest
+[PASS] testFuzz_partialSpendConservesSourceAndSupply(uint96,uint16) (runs: 256, μ: 404605, ~: 404451)
+[PASS] test_actualPartialFillConsumesOnlySixtyAndPreservesFortyAsOriginalSource() (gas: 355697)
+[PASS] test_callbackCannotSyncDonationOrStartAnotherSettlement() (gas: 578104)
+[PASS] test_deadlineRevisionAmountAndValidityAreExecutionTimeChecks() (gas: 511706)
+[PASS] test_feeOnTransferCannotConsumeSourceOrBecomeExecutionFunding() (gas: 1381189)
+[PASS] test_launchPenaltyAndGraduationPendingCannotLeaveConversionOnlySuccess() (gas: 394506)
+[PASS] test_noOpVenueCannotProduceConversionOnlySuccessOrLeaveAllowances() (gas: 1463985)
+[PASS] test_oneHundredOriginalUnitsConvertToOneETHWithPointFourResidualInEachSourceBucket() (gas: 21441484)
+[PASS] test_oneUnitBelowSafeFloorRollsBackEveryLedgerAndVenueTransfer() (gas: 499964)
+[PASS] test_onlyVaultCanExecuteAndThereIsNoCallerRecipient() (gas: 31261)
+[PASS] test_pauseResumeAndDuplicateCallsCannotRefillSpentAuthorization() (gas: 686121)
+[PASS] test_preexistingExecutorBalancesAreNotPurchasedOutputOrBurned() (gas: 347277)
+[PASS] test_zeroOutputAndNoOpOrExcessBurnCannotConsumeBudget() (gas: 845771)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 132.09ms (130.06ms CPU time)
+
+Ran 7 tests for test/MetadataAndStandards.t.sol:MetadataAndStandardsTest
+[PASS] test_constructorMetadataBoundsAcceptLimitsAndRejectOverflow() (gas: 11235492)
+[PASS] test_isRenewableTurnsTrueAfterReferralChoiceIsLocked() (gas: 574115)
+[PASS] test_lifecycleMutationsEmitPublishedStandardsEvents() (gas: 176515)
+[PASS] test_mutableMetadataSignalsRefreshWithoutChangingImmutableArt() (gas: 403296)
+[PASS] test_standardAdaptersExposeRenewalAndCreatorOnlyCancellation() (gas: 205135)
+[PASS] test_tokenMetadataContainsOneSelfContainedSVGArtwork() (gas: 26955322)
+[PASS] test_tokenMetadataReflectsPassiveExpirationWithStableGeometry() (gas: 35124578)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 137.91ms (133.47ms CPU time)
+
+Ran 8 tests for test/RefundsAndOwnership.t.sol:ZeroPriceRefundsTest
+[PASS] testFuzz_previewMatchesSlowLotOracleAcrossTimeAndInterleavedGrants(uint96[8],uint64) (runs: 256, μ: 1781167, ~: 1799506)
+[PASS] test_mixedZeroAndPositiveLotsRefundInBothOrders() (gas: 1157015)
+[PASS] test_paidTimeConsumptionAdvancesLotsBeforeGrantTime() (gas: 761644)
+[PASS] test_partialCurrentLotPlusLaterFullLotsUsesCumulativePrefixRange() (gas: 1094863)
+[PASS] test_previewMatchesOracleAtLotBoundaries() (gas: 1027113)
+[PASS] test_prorationRoundsDownInPaymentTokenBaseUnits() (gas: 478966)
+[PASS] test_refundThenRejoinNeverExposesOldPrefixes() (gas: 1209267)
+[PASS] test_thousandsOfLotsDoNotIncreaseRefundExecutionGas() (gas: 146566927)
+Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 223.75ms (287.79ms CPU time)
+
+Ran 33 tests for test/FactoryAndFees.t.sol:FactoryAndFeesTest
+[PASS] testFuzz_protocolAllocationRetainsIndependentFloors(uint128,uint16,bool) (runs: 256, μ: 7822452, ~: 7832167)
+[PASS] test_anyCreatorCanDeployMultipleIndependentFullTiers() (gas: 14400398)
+[PASS] test_constructorSetsProtocolDependenciesAndNonAdminDeployer() (gas: 58584)
+[PASS] test_creatorMustSelfAttributeOfficialTier() (gas: 27113)
+[PASS] test_creatorTierSaltIsOneTimeAndAnchorsImmutableIdentity() (gas: 7228569)
+[PASS] test_deployerRejectsCallsOutsideBoundFactory() (gas: 24557)
+[PASS] test_deployerStoresExactStopPrefixedTierCreationCode() (gas: 13259695)
+[PASS] test_directFutureRendererOwnsValidationBeyondFoundingSix() (gas: 7444694)
+[PASS] test_directFutureRendererRejectsItsOwnUnsupportedEngine() (gas: 265861)
+[PASS] test_directRendererRejectsWrongSchemaAndEmptyManifest() (gas: 172488)
+[PASS] test_disabledPaymentTokenCannotPublishAndDoesNotConsumeSalt() (gas: 40439)
+[PASS] test_existingTierKeepsItsSelectedTokenAfterDisable() (gas: 7227401)
+[PASS] test_factoryAndDeployerRuntimeDoNotEmbedTierCreationCode() (gas: 5965263)
+[PASS] test_factoryHasNoFeeRecipientWithdrawalOrArbitraryCallPath() (gas: 67556)
+[PASS] test_factoryOwnerHasNoTierAuthority() (gas: 7222211)
+[PASS] test_factoryRejectsEOASuccessorAndTierOwnershipRemainsTwoStep() (gas: 7251209)
+[PASS] test_fullAllocationProtectsAllGrossFromCreatorWithdrawal() (gas: 7693189)
+[PASS] test_invalidFactoryConstructorConfigurationReverts() (gas: 44300135)
+[PASS] test_invalidTierDurationAndRateTotalRevert() (gas: 7239866)
+[PASS] test_onchainMediaAdmissionRequiresCreatorAttributionAndSnapshotsExactConfig() (gas: 7559463)
+[PASS] test_onchainMediaAdmissionRequiresThePinnedRegistryCode() (gas: 282453)
+[PASS] test_onlyDescriptionAndExternalWebsiteCanChangeAfterPublication() (gas: 7274757)
+[PASS] test_onlyOwnerCanChangePaymentTokenStatus() (gas: 15860)
+[PASS] test_ownerCanAppendDisableAndReenablePaymentTokenWithoutDuplicateEvents() (gas: 589180)
+[PASS] test_paymentTokenPaginationIsStableAndBounded() (gas: 22990)
+[PASS] test_paymentTokenPaginationRejectsOversizedPage() (gas: 11469)
+[PASS] test_protocolAllocationBoundsMatchFactoryAndDirectTier() (gas: 658270)
+[PASS] test_protocolAllocationIsImmutableAcrossOwnershipTransfer() (gas: 21588041)
+[PASS] test_protocolAllocationRejectsCombinedRateOverflow() (gas: 179736)
+[PASS] test_runtimeAndInitcodeRemainBelowNetworkLimits() (gas: 7364488)
+[PASS] test_tierIdentityDoesNotDependOnEconomicOrMutableMetadataInputs() (gas: 21750)
+[PASS] test_tierPaginationIsStableBoundedAndAuthentic() (gas: 46463781)
+[PASS] test_zeroTierSaltRejectedByFactoryAndDirectTierConstruction() (gas: 175836)
+Suite result: ok. 33 passed; 0 failed; 0 skipped; finished in 226.09ms (266.25ms CPU time)
+
+Ran 1 test for test/fork/ProtocolForkDeployment.t.sol:ProtocolForkDeploymentTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 120.54µs (0.00ns CPU time)
+
+Ran 9 tests for test/Referrals.t.sol:ReferralsTest
+[PASS] test_explicitNoneLocksAndLaterReplacementFailsAtomically() (gas: 550623)
+[PASS] test_firstPositiveSelfPaymentLocksAndUsesReferrerImmediately() (gas: 578668)
+[PASS] test_giftRejectsReferralStateChangedAfterPreviewWithoutChargingPayer() (gas: 777126)
+[PASS] test_giftsNeverLockButUseAnExistingRecipientChoice() (gas: 909301)
+[PASS] test_lockedAddressAllowsSameChoiceButRejectsReplacement() (gas: 769701)
+[PASS] test_selfGiftCannotBypassSelfPaymentAttribution() (gas: 28781)
+[PASS] test_selfReferralIsAllowed() (gas: 573407)
+[PASS] test_standardRenewalRequiresExistingChoiceOnPositivePriceTier() (gas: 776870)
+[PASS] test_zeroPriceStandardRenewalDoesNotInventAttribution() (gas: 14645306)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 5.33ms (2.75ms CPU time)
+
+Ran 12 tests for test/ProtocolFeeAccrual.t.sol:ProtocolFeeAccrualTest
+[PASS] testFuzz_fractionalEntitlementIsIndependentOfCheckpointFrequency(uint128,uint16,uint8) (runs: 256, μ: 16117750, ~: 16035562)
+[PASS] testFuzz_varyingLotsAndRefundFundingMatchSlowOracle(uint96[8],uint16,uint16) (runs: 256, μ: 9031265, ~: 9067309)
+[PASS] test_batchesAndPagesRejectUnboundedAndUnknownInputs() (gas: 7742381)
+[PASS] test_cancellationRoundingIsAttributedOnceAndNotPaidTimeEarnings() (gas: 7865514)
+[PASS] test_eventsPreserveZeroFeeIntervalsAndCanceledGenerationAttribution() (gas: 8415193)
+[PASS] test_expiredAndBurnedCredentialsRemainCollectible() (gas: 7818910)
+[PASS] test_fullAllocationRefundAfterReleaseNeedsNoTopupAndClosesGeneration() (gas: 8110973)
+[PASS] test_grantsAndZeroGrossPaidGapsCannotAccelerateLaterFees() (gas: 8033887)
+[PASS] test_largeHistoriesKeepProjectionLogarithmicAndResetBounded() (gas: 84928569)
+Logs:
+  one-lot projection gas: 35723
+  512-lot projection gas: 58459
+  512-lot refund gas: 208385
+  rejoin gas: 199510
+
+[PASS] test_maximumBatchAndConstantWorkRelease() (gas: 45848072)
+Logs:
+  100-member accrual gas: 8699087
+  aggregate release gas: 123599
+
+[PASS] test_releaseAndRefundOrderProduceIdenticalFunding() (gas: 15695953)
+[PASS] test_stoppedCollectorProjectsTwelveNineThreeZeroThenReleases() (gas: 7973337)
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 433.21ms (678.38ms CPU time)
+
+Ran 12 tests for test/RendererBudget.t.sol:RendererBudgetTest
+[PASS] test_24KiBPublicTierTokenURIPath() (gas: 34819825)
+Logs:
+  renderer budget engine STACK
+  renderer budget media bytes 24576
+  renderer budget SVG bytes 38520
+  renderer budget tokenURI bytes 69041
+  renderer budget SVG gas 2244061
+  renderer budget public tokenURI gas 9375385
+  renderer budget mode STACK
+  renderer budget media bytes 24576
+  renderer budget public tokenURI gas 9375385
+  renderer budget tokenURI bytes 69041
+
+[PASS] test_64KiBPublicTierTokenURIPath() (gas: 68859833)
+Logs:
+  renderer budget engine STACK
+  renderer budget media bytes 65536
+  renderer budget SVG bytes 93136
+  renderer budget tokenURI bytes 166141
+  renderer budget SVG gas 5778217
+  renderer budget public tokenURI gas 25566750
+  renderer budget mode STACK
+  renderer budget media bytes 65536
+  renderer budget public tokenURI gas 25566750
+  renderer budget tokenURI bytes 166141
+
+[PASS] test_80KiBPublicTierTokenURIPath() (gas: 83457023)
+Logs:
+  renderer budget engine STACK
+  renderer budget media bytes 81920
+  renderer budget SVG bytes 114970
+  renderer budget tokenURI bytes 204957
+  renderer budget SVG gas 7414065
+  renderer budget public tokenURI gas 32795224
+  renderer budget mode STACK
+  renderer budget media bytes 81920
+  renderer budget public tokenURI gas 32795224
+  renderer budget tokenURI bytes 204957
+
+[PASS] test_90KiBAfterimagePublicTierTokenURIPath() (gas: 92687338)
+Logs:
+  renderer budget engine AFTERIMAGE
+  renderer budget media bytes 92160
+  renderer budget SVG bytes 128101
+  renderer budget tokenURI bytes 228305
+  renderer budget SVG gas 8443379
+  renderer budget public tokenURI gas 37410745
+  renderer budget mode AFTERIMAGE
+  renderer budget media bytes 92160
+  renderer budget public tokenURI gas 37410745
+  renderer budget tokenURI bytes 228305
+
+[PASS] test_90KiBBloomPublicTierTokenURIPath() (gas: 93373342)
+Logs:
+  renderer budget engine BLOOM
+  renderer budget media bytes 92160
+  renderer budget SVG bytes 129906
+  renderer budget tokenURI bytes 231505
+  renderer budget SVG gas 8536470
+  renderer budget public tokenURI gas 38003639
+  renderer budget mode BLOOM
+  renderer budget media bytes 92160
+  renderer budget public tokenURI gas 38003639
+  renderer budget tokenURI bytes 231505
+
+[PASS] test_90KiBChorusPublicTierTokenURIPath() (gas: 93751452)
+Logs:
+  renderer budget engine CHORUS
+  renderer budget media bytes 92160
+  renderer budget SVG bytes 130155
+  renderer budget tokenURI bytes 231949
+  renderer budget SVG gas 8661489
+  renderer budget public tokenURI gas 38256794
+  renderer budget mode CHORUS
+  renderer budget media bytes 92160
+  renderer budget public tokenURI gas 38256794
+  renderer budget tokenURI bytes 231949
+
+[PASS] test_90KiBLoomPublicTierTokenURIPath() (gas: 94680521)
+Logs:
+  renderer budget engine LOOM
+  renderer budget media bytes 92160
+  renderer budget SVG bytes 131807
+  renderer budget tokenURI bytes 234885
+  renderer budget SVG gas 8863072
+  renderer budget public tokenURI gas 38984094
+  renderer budget mode LOOM
+  renderer budget media bytes 92160
+  renderer budget public tokenURI gas 38984094
+  renderer budget tokenURI bytes 234885
+
+[PASS] test_90KiBMarqueePublicTierTokenURIPath() (gas: 92416136)
+Logs:
+  renderer budget engine MARQUEE
+  renderer budget media bytes 92160
+  renderer budget SVG bytes 128075
+  renderer budget tokenURI bytes 228253
+  renderer budget SVG gas 8337041
+  renderer budget public tokenURI gas 37246120
+  renderer budget mode MARQUEE
+  renderer budget media bytes 92160
+  renderer budget public tokenURI gas 37246120
+  renderer budget tokenURI bytes 228253
+
+[PASS] test_90KiBStackPublicTierTokenURIPath() (gas: 92872770)
+Logs:
+  renderer budget engine STACK
+  renderer budget media bytes 92160
+  renderer budget SVG bytes 128628
+  renderer budget tokenURI bytes 229233
+  renderer budget SVG gas 8477073
+  renderer budget public tokenURI gas 37562578
+  renderer budget mode STACK
+  renderer budget media bytes 92160
+  renderer budget public tokenURI gas 37562578
+  renderer budget tokenURI bytes 229233
+
+[PASS] test_contractArtifactsStayInsideRobinhoodAndProjectLimits() (gas: 220702)
+[PASS] test_lowLevelCodeStoreBoundaryReservesOneSTOPByte() (gas: 6295)
+[PASS] test_noMediaRealFactoryTierMintAndTokenURIPath() (gas: 26618764)
+Logs:
+  renderer budget mode none
+  renderer budget media bytes 0
+  renderer budget public tokenURI gas 1341161
+  renderer budget tokenURI bytes 10341
+
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 542.43ms (1.14s CPU time)
+
+Ran 9 tests for test/Rewards.t.sol:RewardsTest
+[PASS] testFuzz_cohortClaimsAndRemainingReserveConserveEveryRewardAllocation(uint96,uint96,uint96) (runs: 256, μ: 15921788, ~: 15948577)
+[PASS] test_firstPositivePaymentMintsGrossSharesAndCurrentReward() (gas: 535701)
+[PASS] test_giftAssignsSharesAndRewardToRecipientCredential() (gas: 520606)
+[PASS] test_grantOnlyCredentialGetsNoEarlierRewardBeforeFirstShares() (gas: 905770)
+[PASS] test_nearUintRangeContributionSettlesRewardWithoutIntermediateOverflow() (gas: 15526353)
+[PASS] test_newSharesReceiveCurrentButNoEarlierRewards() (gas: 898984)
+[PASS] test_scaledDivisionCreditsWholeRemainderWithoutExceedingReserve() (gas: 15002483)
+[PASS] test_sharesSurviveButBecomeIneligibleAfterExpirationSynchronization() (gas: 627163)
+[PASS] test_zeroContributionMintsNoSharesOrReward() (gas: 14656030)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 723.15ms (727.25ms CPU time)
+
+Ran 21 tests for test/RendererTotality.t.sol:RendererTotalityTest
+[PASS] testFuzz_admittedEngineInputsAreTotalAndByteDeterministic(uint128,uint256,uint8,uint8,uint8,bool) (runs: 256, μ: 3795898, ~: 3539024)
+[PASS] test_activeAndAfterglowKeepGeometryAndRemainDesirable() (gas: 15084945)
+[PASS] test_allEnginesAreDistinctAndKeepGeometryAcrossStates() (gas: 151273316)
+[PASS] test_creatorTextIsEscapedInEveryDocumentContext() (gas: 8334211)
+[PASS] test_editorialOverlayIsBalancedTopLevelAndPaintedLastForEveryEngine() (gas: 142386016)
+[PASS] test_everySeedDomainComponentChangesGeometry() (gas: 2533925)
+[PASS] test_invalidArtFailsSpecifically() (gas: 167587)
+[PASS] test_invalidPreviewMediaNeverProducesApproximateArt() (gas: 164493)
+[PASS] test_invalidUTF8AndXMLCharactersRejectBeforeRendering() (gas: 54231)
+[PASS] test_metadataPublishesOneSelfContainedArtworkWithoutHTMLOrRemoteLoaders() (gas: 22695454)
+[PASS] test_nativeMediaWorksAcrossEveryEngine() (gas: 17306504)
+[PASS] test_preStoreAndStoredNativeMediaRenderExactlyTheSame() (gas: 5643090)
+[PASS] test_previewAndProductionAreDeterministicForStoredMedia() (gas: 7029696)
+[PASS] test_previewRejectsUnsafePNGAndMalformedJPEGDimensions() (gas: 136395)
+[PASS] test_typographyFocalAndMediaMixControlsChangeRenderedOutput() (gas: 13930549)
+[PASS] test_writeAfterimageGalleryWhenRequested() (gas: 3284)
+[PASS] test_writeBloomGalleryWhenRequested() (gas: 3261)
+[PASS] test_writeChorusGalleryWhenRequested() (gas: 3240)
+[PASS] test_writeLoomGalleryWhenRequested() (gas: 3261)
+[PASS] test_writeMarqueeGalleryWhenRequested() (gas: 3282)
+[PASS] test_writeStackGalleryWhenRequested() (gas: 3325)
+Suite result: ok. 21 passed; 0 failed; 0 skipped; finished in 772.39ms (1.56s CPU time)
+
+Ran 14 tests for test/PaymentsAndTime.t.sol:PaymentsAndTimeTest
+[PASS] testFuzz_paymentSplitConservesGrossAcrossValidRates(uint96,uint16,uint16,bool) (runs: 256, μ: 15440968, ~: 15436175)
+[PASS] test_activityChangesAtExactExpirationWithoutMutationOrSync() (gas: 543294)
+[PASS] test_fixedPriceMultiplicationOverflowFailsBeforeCustodyOrTime() (gas: 14386545)
+[PASS] test_fixedPricePurchasePullsExactGrossAndAllocatesUnreferredSplit() (gas: 544968)
+[PASS] test_loweringPaidLimitPreservesTimeBlocksPaidAddsAndAllowsGrants() (gas: 555243)
+[PASS] test_paidTimeExtendsActiveExpirationAndRestartsExpiredTimeFromNow() (gas: 971618)
+[PASS] test_paidTimeInsertedAheadOfGrantTimeIsConsumedFirst() (gas: 551571)
+[PASS] test_pauseBlocksCanonicalPurchasesGiftsAndStandardRenewal() (gas: 15016714)
+[PASS] test_purchaseAndStandardAdapterRequireWholeNonzeroPeriods() (gas: 201144)
+[PASS] test_timeBalanceViewReturnsEffectiveCheckpointWithoutWriting() (gas: 543865)
+[PASS] test_twoFactorySelectedTokensTransferAndAccountInTheirOwnRawUnits() (gas: 35952265)
+[PASS] test_uint64ExpirationCeilingRevertsAtomically() (gas: 37153)
+[PASS] test_zeroPaidLimitIsUnlimited() (gas: 534927)
+[PASS] test_zeroPriceSelfActionAddsOnePeriodWithOrWithoutContribution() (gas: 15041061)
+Suite result: ok. 14 passed; 0 failed; 0 skipped; finished in 779.32ms (787.95ms CPU time)
+
+Ran 1 test for test/invariants/BuybackInvariant.t.sol:BuybackInvariantTest
+[PASS] invariant_rawAssetConservationExactBurnAndProtectedLiabilities() (runs: 256, calls: 128000, reverts: 0)
+
+╭----------------+------------+-------+---------+----------╮
+| Contract       | Selector   | Calls | Reverts | Discards |
++==========================================================+
+| BuybackHandler | checkpoint | 25463 | 0       | 0        |
+|----------------+------------+-------+---------+----------|
+| BuybackHandler | donate     | 25554 | 0       | 0        |
+|----------------+------------+-------+---------+----------|
+| BuybackHandler | process    | 25765 | 0       | 0        |
+|----------------+------------+-------+---------+----------|
+| BuybackHandler | release    | 25481 | 0       | 0        |
+|----------------+------------+-------+---------+----------|
+| BuybackHandler | sync       | 25737 | 0       | 0        |
+╰----------------+------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 25.33s (25.32s CPU time)
+
+Ran 1 test for test/invariants/MembershipInvariant.t.sol:MembershipInvariantTest
+[PASS] invariant_identityLocksSharesAndOccupancyRemainConsistent() (runs: 256, calls: 128000, reverts: 0)
+
+╭-------------------+--------------------------+-------+---------+----------╮
+| Contract          | Selector                 | Calls | Reverts | Discards |
++===========================================================================+
+| MembershipHandler | accrue                   | 10781 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | contribute               | 10668 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | failedInboundTransfer    | 10564 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | failedPausedContribution | 10557 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | grant                    | 10643 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | refund                   | 10789 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | refundAndRejoin          | 10814 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | release                  | 10731 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | revokeGrant              | 10496 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | setPaused                | 10709 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | synchronizeTwice         | 10595 | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | warp                     | 10653 | 0       | 0        |
+╰-------------------+--------------------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 69.30s (69.29s CPU time)
+
+Ran 2 tests for test/invariants/AccountingInvariant.t.sol:AccountingInvariantTest
+[PASS] invariant_accountingConservationAndProtectedLiabilities() (runs: 256, calls: 128000, reverts: 0)
+
+╭-------------------+--------------------------+-------+---------+----------╮
+| Contract          | Selector                 | Calls | Reverts | Discards |
++===========================================================================+
+| AccountingHandler | accrue                   | 9153  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimReferral            | 9098  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimReward              | 9237  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | donateToFactory          | 9216  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | donateToTier             | 9160  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | failedExit               | 9135  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | gift                     | 9137  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | purchase                 | 9180  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | refund                   | 9047  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | rejectProtocolWithdrawal | 9006  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | release                  | 9254  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | synchronizeExpired       | 9154  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | warp                     | 8963  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | withdrawCreatorProceeds  | 9260  | 0       | 0        |
+╰-------------------+--------------------------+-------+---------+----------╯
+
+[PASS] invariant_slowPaymentAndLifecycleModelsStayEquivalent() (runs: 256, calls: 128000, reverts: 0)
+
+╭-------------------+--------------------------+-------+---------+----------╮
+| Contract          | Selector                 | Calls | Reverts | Discards |
++===========================================================================+
+| AccountingHandler | accrue                   | 9153  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimReferral            | 9098  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimReward              | 9237  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | donateToFactory          | 9216  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | donateToTier             | 9160  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | failedExit               | 9135  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | gift                     | 9137  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | purchase                 | 9180  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | refund                   | 9047  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | rejectProtocolWithdrawal | 9006  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | release                  | 9254  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | synchronizeExpired       | 9154  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | warp                     | 8963  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | withdrawCreatorProceeds  | 9260  | 0       | 0        |
+╰-------------------+--------------------------+-------+---------+----------╯
+
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 95.17s (115.01s CPU time)
+
+Ran 43 test suites in 95.18s (194.22s CPU time): 303 tests passed, 0 failed, 8 skipped (311 total tests)
+'forge clean' running (wd: /Users/user/Development/backed-by-fans/contracts)
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: /Users/user/Development/backed-by-fans/contracts)
+INFO:Detectors:
+Detector: divide-before-multiply
+StackEngine._overlay(RendererPrimitives.EngineContext,uint256,uint256,uint256,uint256) (src/renderer/engines/StackEngine.sol#92-179) performs a multiplication on the result of a division:
+	- lineGap = apertureHeight / (lineCount + 1) (src/renderer/engines/StackEngine.sol#101)
+	- y = apertureY + (index + 1) * lineGap (src/renderer/engines/StackEngine.sol#115)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply
+INFO:Detectors:
+Detector: incorrect-equality
+MembershipTier._checkpointFees(uint256,uint256) (src/MembershipTier.sol#875-888) uses a dangerous strict equality:
+	- consumed == 0 (src/MembershipTier.sol#876)
+MembershipTier._checkpointTime(uint256) (src/MembershipTier.sol#1105-1121) uses a dangerous strict equality:
+	- paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#1120)
+MembershipTier._zeroTierRefundAt(uint256,uint256,uint64) (src/MembershipTier.sol#962-976) uses a dangerous strict equality:
+	- lot == 0 (src/MembershipTier.sol#971)
+MembershipTier.timeBalances(uint256) (src/MembershipTier.sol#339-355) uses a dangerous strict equality:
+	- paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#352-353)
+PonsBuybackExecutor._checkFloor(BuybackTypes.Leg,BuybackTypes.Rate) (src/PonsBuybackExecutor.sol#315-319) uses a dangerous strict equality:
+	- leg.spent == 0 || leg.received == 0 (src/PonsBuybackExecutor.sol#316)
+ProtocolBuybackVault.processingStatus(address,BuybackTypes.SourceBucket) (src/ProtocolBuybackVault.sol#92-136) uses a dangerous strict equality:
+	- state.available == 0 (src/ProtocolBuybackVault.sol#102)
+ProtocolBuybackVault.syncDonation(address) (src/ProtocolBuybackVault.sol#437-449) uses a dangerous strict equality:
+	- amount == 0 (src/ProtocolBuybackVault.sol#443)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+INFO:Detectors:
+Detector: locked-ether
+Contract locking ether found:
+	Contract MembershipTier (src/MembershipTier.sol#28-1337) has payable functions:
+	 - IERC5643.renewSubscription(uint256,uint64) (src/interfaces/IERC5643.sol#8)
+	 - IERC5643.cancelSubscription(uint256) (src/interfaces/IERC5643.sol#10)
+	 - MembershipTier.renewSubscription(uint256,uint64) (src/MembershipTier.sol#246-249)
+	 - MembershipTier.cancelSubscription(uint256) (src/MembershipTier.sol#275-278)
+	But does not have a function to withdraw the ether
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
+INFO:Detectors:
+Detector: uninitialized-local
+MembershipTier._feeEntitlement(MembershipTypes.ProtocolFeeLot[],uint256).low (src/MembershipTier.sol#861) is a local variable never initialized
+OnchainMetadataRenderer._buildSVG(MembershipTypes.TokenRenderData,bytes).parts (src/OnchainMetadataRenderer.sol#159) is a local variable never initialized
+RendererRegistry._validateRenderer(address).observed (src/RendererRegistry.sol#175) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+INFO:Detectors:
+Detector: unused-return
+MembershipFactory.createTier(MembershipTypes.TierConfig) (src/MembershipFactory.sol#102-170) ignores return value by IOnchainMediaStoreFactory(mediaStoreFactory).validateOnchainMedia(msg.sender,config.media) (src/MembershipFactory.sol#132-133)
+MembershipTier.setPresentation(address,MembershipTypes.ArtConfig,MembershipTypes.MediaConfig) (src/MembershipTier.sol#194-237) ignores return value by IOnchainMediaStoreFactory(mediaFactory).validateOnchainMedia(msg.sender,newMedia) (src/MembershipTier.sol#215)
+PonsBuybackExecutor._buyPool(uint256,BuybackTypes.Rate,uint64) (src/PonsBuybackExecutor.sol#198-215) ignores return value by (price,None,None,None) = StateLibrary.getSlot0(IPoolManager(BuybackIntegration.POOL_MANAGER),PoolIdLibrary.toId(key)) (src/PonsBuybackExecutor.sol#211-212)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64) (src/PonsBuybackExecutor.sol#220-283) ignores return value by (allowance,expiry,None) = IAllowanceTransfer(BuybackIntegration.PERMIT2).allowance(address(this),input,BuybackIntegration.ROUTER) (src/PonsBuybackExecutor.sol#264-265)
+ProtocolBuybackVault._validateRoute(address,BuybackTypes.TypedRoute) (src/ProtocolBuybackVault.sol#370-405) ignores return value by (price,None,None,None) = StateLibrary.getSlot0(IPoolManager(BuybackIntegration.POOL_MANAGER),PoolIdLibrary.toId(key)) (src/ProtocolBuybackVault.sol#399-401)
+OnchainMediaStoreFactory.store(bytes,MembershipTypes.MediaMIME) (src/media/OnchainMediaStoreFactory.sol#35-79) ignores return value by CodeStoreReader.readAndValidate(store_,existing.length,existing.digest,existing.runtimeCodehash) (src/media/OnchainMediaStoreFactory.sol#50-52)
+OnchainMediaStoreFactory.store(bytes,MembershipTypes.MediaMIME) (src/media/OnchainMediaStoreFactory.sol#35-79) ignores return value by CodeStoreReader.readAndValidate(store_,payloadLength,digest,runtimeCodehash) (src/media/OnchainMediaStoreFactory.sol#66)
+OnchainMediaStoreFactory.validateOnchainMedia(address,MembershipTypes.MediaConfig) (src/media/OnchainMediaStoreFactory.sol#161-192) ignores return value by CodeStoreReader.readAndValidate(media.store,media.length,media.digest,media.runtimeCodehash) (src/media/OnchainMediaStoreFactory.sol#188-190)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+INFO:Detectors:
+Detector: shadowing-local
+IOnchainMediaStoreFactory.store(bytes,MembershipTypes.MediaMIME).mediaStore (src/interfaces/IOnchainMediaStoreFactory.sol#41) shadows:
+	- IOnchainMediaStoreFactory.mediaStore(address,MembershipTypes.MediaMIME,uint32,bytes32) (src/interfaces/IOnchainMediaStoreFactory.sol#55-60) (function)
+IOnchainMediaStoreFactory.predictStore(address,bytes,MembershipTypes.MediaMIME).mediaStore (src/interfaces/IOnchainMediaStoreFactory.sol#46) shadows:
+	- IOnchainMediaStoreFactory.mediaStore(address,MembershipTypes.MediaMIME,uint32,bytes32) (src/interfaces/IOnchainMediaStoreFactory.sol#55-60) (function)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#local-variable-shadowing
+INFO:Detectors:
+Detector: missing-zero-check
+PonsBuybackExecutor.constructor(address,address).token_ (src/PonsBuybackExecutor.sol#55) lacks a zero-check on :
+		- protocolToken = token_ (src/PonsBuybackExecutor.sol#58)
+		- curve = ProtocolLaunchValidation.validate(token_) (src/PonsBuybackExecutor.sol#59)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
+INFO:Detectors:
+Detector: calls-loop
+PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64) (src/PonsBuybackExecutor.sol#220-283) has external calls inside a loop: IAllowanceTransfer(BuybackIntegration.PERMIT2).approve(input,BuybackIntegration.ROUTER,SafeCast.toUint160(amount),SafeCast.toUint48(deadline)) (src/PonsBuybackExecutor.sol#243-249)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+PonsBuybackExecutor._routerSwap(PoolKey,bool,uint256,uint64,bool) (src/PonsBuybackExecutor.sol#285-313) has external calls inside a loop: IUniversalRouter(BuybackIntegration.ROUTER).execute{value: amount}(abi.encodePacked(uint8(Commands.V4_SWAP),uint8(Commands.SWEEP)),commands,deadline) (src/PonsBuybackExecutor.sol#310-312)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+		PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64)
+PonsBuybackExecutor._routerSwap(PoolKey,bool,uint256,uint64,bool) (src/PonsBuybackExecutor.sol#285-313) has external calls inside a loop: IUniversalRouter(BuybackIntegration.ROUTER).execute{value: 0}(abi.encodePacked(uint8(Commands.V4_SWAP),uint8(Commands.SWEEP)),commands,deadline) (src/PonsBuybackExecutor.sol#310-312)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+		PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64) (src/PonsBuybackExecutor.sol#220-283) has external calls inside a loop: IUniversalRouter(BuybackIntegration.ROUTER).execute{value: beforeSwap.routerETH}(,new bytes[](0),deadline) (src/PonsBuybackExecutor.sol#255-257)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64) (src/PonsBuybackExecutor.sol#220-283) has external calls inside a loop: IAllowanceTransfer(BuybackIntegration.PERMIT2).approve(input,BuybackIntegration.ROUTER,0,1) (src/PonsBuybackExecutor.sol#263)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64) (src/PonsBuybackExecutor.sol#220-283) has external calls inside a loop: (allowance,expiry,None) = IAllowanceTransfer(BuybackIntegration.PERMIT2).allowance(address(this),input,BuybackIntegration.ROUTER) (src/PonsBuybackExecutor.sol#264-265)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64) (src/PonsBuybackExecutor.sol#220-283) has external calls inside a loop: allowance != 0 || expiry != 1 || IERC20(input).allowance(address(this),BuybackIntegration.PERMIT2) != 0 (src/PonsBuybackExecutor.sol#267-268)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64) (src/PonsBuybackExecutor.sol#220-283) has external calls inside a loop: BuybackIntegration.ROUTER.balance != beforeSwap.routerETH || (input != address(0) && IERC20(input).balanceOf(BuybackIntegration.ROUTER) != beforeSwap.routerInput) || (output != address(0) && IERC20(output).balanceOf(BuybackIntegration.ROUTER) != beforeSwap.routerOutput) (src/PonsBuybackExecutor.sol#272-276)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,BuybackTypes.Rate,uint64) (src/PonsBuybackExecutor.sol#220-283) has external calls inside a loop: beforeSwap = SwapBalances(_balance(input),_balance(output),BuybackIntegration.ROUTER.balance,IERC20(input).balanceOf(BuybackIntegration.ROUTER),IERC20(output).balanceOf(BuybackIntegration.ROUTER)) (src/PonsBuybackExecutor.sol#230-240)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+PonsBuybackExecutor._return(address,uint256) (src/PonsBuybackExecutor.sol#339-346) has external calls inside a loop: (sent,None) = vault.call{value: amount}() (src/PonsBuybackExecutor.sol#341)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
+INFO:Detectors:
+Detector: reentrancy-benign
+Reentrancy in MembershipFactory.createTier(MembershipTypes.TierConfig) (src/MembershipFactory.sol#102-170):
+	External calls:
+	- tier = MembershipTierDeployer(deployer).deploy(config) (src/MembershipFactory.sol#139)
+	State variables written after the call(s):
+	- _tiers.push(tier) (src/MembershipFactory.sol#144)
+	- isRegisteredTier[tier] = true (src/MembershipFactory.sol#145)
+	- tierForIdentity[identity] = tier (src/MembershipFactory.sol#146)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+INFO:Detectors:
+Detector: reentrancy-events
+Reentrancy in MembershipFactory.createTier(MembershipTypes.TierConfig) (src/MembershipFactory.sol#102-170):
+	External calls:
+	- tier = MembershipTierDeployer(deployer).deploy(config) (src/MembershipFactory.sol#139)
+	Event emitted after the call(s):
+	- TierArtConfigured(tier,config.art.engine,config.art.collectionSeed,keccak256(bytes)(abi.encode(config.art)),config.media.store,config.media.digest) (src/MembershipFactory.sol#162-169)
+	- TierCreated(tier,msg.sender,identity,tierIndex,config.name,config.symbol) (src/MembershipFactory.sol#148)
+	- TierMetadataConfigured(tier,config.metadata.description,config.metadata.externalURI) (src/MembershipFactory.sol#160)
+	- TierRendererConfigured(tier,config.renderer) (src/MembershipFactory.sol#161)
+	- TierTermsConfigured(tier,config.paymentToken,config.pricePerPeriod,config.periodDuration,config.protocolFeeBps,config.rewardBps,config.referralBps,config.supplyCap,config.maxPrepaidPeriods) (src/MembershipFactory.sol#149-159)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-4
+INFO:Detectors:
+Detector: timestamp
+MembershipTier.isRenewable(uint256) (src/MembershipTier.sol#292-318) uses timestamp for comparisons
+	Dangerous comparisons:
+	- maxPrepaidPeriods != 0 && uint256(paidSeconds) + periodDuration > uint256(maxPrepaidPeriods) * periodDuration (src/MembershipTier.sol#308-310)
+	- base < timestamp (src/MembershipTier.sol#316)
+	- base + periodDuration <= type()(uint64).max (src/MembershipTier.sol#317)
+MembershipTier.isActive(address) (src/MembershipTier.sol#327-330) uses timestamp for comparisons
+	Dangerous comparisons:
+	- tokenId != 0 && _isActiveToken(tokenId) (src/MembershipTier.sol#329)
+MembershipTier.timeBalances(uint256) (src/MembershipTier.sol#339-355) uses timestamp for comparisons
+	Dangerous comparisons:
+	- paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#352-353)
+MembershipTier.synchronizeExpiredMemberships(uint256[]) (src/MembershipTier.sol#619-650) uses timestamp for comparisons
+	Dangerous comparisons:
+	- recipient == address(0) || _isActiveToken(tokenId) (src/MembershipTier.sol#635)
+MembershipTier._refund(uint256,uint256,uint256) (src/MembershipTier.sol#743-775) uses timestamp for comparisons
+	Dangerous comparisons:
+	- grossRefund > maxGrossRefund (src/MembershipTier.sol#754)
+	- ownerTopUp > maxOwnerTopUp (src/MembershipTier.sol#757)
+	- ownerTopUp != 0 (src/MembershipTier.sol#771)
+	- grossRefund != 0 (src/MembershipTier.sol#772)
+MembershipTier._feeEntitlement(MembershipTypes.ProtocolFeeLot[],uint256) (src/MembershipTier.sol#856-873) uses timestamp for comparisons
+	Dangerous comparisons:
+	- lots[mid].endPaid <= consumed (src/MembershipTier.sol#865)
+	- low < lots.length && consumed > lots[low].startPaid (src/MembershipTier.sol#869)
+MembershipTier._checkpointFees(uint256,uint256) (src/MembershipTier.sol#875-888) uses timestamp for comparisons
+	Dangerous comparisons:
+	- consumed == 0 (src/MembershipTier.sol#876)
+	- earned != 0 (src/MembershipTier.sol#885)
+MembershipTier._closeFeeGeneration(uint256,uint256) (src/MembershipTier.sol#890-908) uses timestamp for comparisons
+	Dangerous comparisons:
+	- rounding > 1 (src/MembershipTier.sol#898)
+MembershipTier._zeroTierRefundAt(uint256,uint256,uint64) (src/MembershipTier.sol#962-976) uses timestamp for comparisons
+	Dangerous comparisons:
+	- lot >= tail (src/MembershipTier.sol#969)
+	- lot == 0 (src/MembershipTier.sol#971)
+MembershipTier._checkpointAndValidatePaidTimeIncrease(address,uint64) (src/MembershipTier.sol#1020-1049) uses timestamp for comparisons
+	Dangerous comparisons:
+	- uint256(timestamp) + duration > type()(uint64).max (src/MembershipTier.sol#1029)
+	- uint256(timestamp) + state.paidSeconds + state.grantSeconds + duration > type()(uint64).max (src/MembershipTier.sol#1044-1045)
+MembershipTier._pullExact(address,uint256) (src/MembershipTier.sol#1051-1066) uses timestamp for comparisons
+	Dangerous comparisons:
+	- payerBalanceAfter > payerBalanceBefore || payerBalanceBefore - payerBalanceAfter != amount || tierBalanceAfter < tierBalanceBefore || tierBalanceAfter - tierBalanceBefore != amount (src/MembershipTier.sol#1059-1062)
+MembershipTier._pushExact(address,uint256) (src/MembershipTier.sol#1068-1082) uses timestamp for comparisons
+	Dangerous comparisons:
+	- tierBalanceAfter > tierBalanceBefore || tierBalanceBefore - tierBalanceAfter != amount || recipientBalanceAfter < recipientBalanceBefore || recipientBalanceAfter - recipientBalanceBefore != amount (src/MembershipTier.sol#1076-1078)
+MembershipTier._checkpointTime(uint256) (src/MembershipTier.sol#1105-1121) uses timestamp for comparisons
+	Dangerous comparisons:
+	- pricePerPeriod == 0 && paidSeconds < previousPaidSeconds (src/MembershipTier.sol#1114)
+	- paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#1120)
+MembershipTier._prepareTimeIncrease(address,bool) (src/MembershipTier.sol#1123-1162) uses timestamp for comparisons
+	Dangerous comparisons:
+	- state.paidSeconds == 0 && state.grantSeconds == 0 && state.checkpoint < timestamp (src/MembershipTier.sol#1149)
+MembershipTier._timeBalancesAt(MembershipTypes.MembershipState,uint256) (src/MembershipTier.sol#1196-1216) uses timestamp for comparisons
+	Dangerous comparisons:
+	- timestamp <= state.checkpoint || paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#1203)
+	- elapsed >= totalSeconds (src/MembershipTier.sol#1209)
+	- elapsed < paidSeconds (src/MembershipTier.sol#1211)
+MembershipTier._isActiveToken(uint256) (src/MembershipTier.sol#1226-1229) uses timestamp for comparisons
+	Dangerous comparisons:
+	- _currentTimestamp() < _storedExpiration(state) (src/MembershipTier.sol#1228)
+MembershipTier._currentTimestamp() (src/MembershipTier.sol#1260-1264) uses timestamp for comparisons
+	Dangerous comparisons:
+	- currentTimestamp > type()(uint64).max (src/MembershipTier.sol#1262)
+ProtocolBuybackVault.processingStatus(address,BuybackTypes.SourceBucket) (src/ProtocolBuybackVault.sol#92-136) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp < active.terms.validAfter (src/ProtocolBuybackVault.sol#112)
+	- block.timestamp > active.terms.validUntil (src/ProtocolBuybackVault.sol#114)
+ProtocolBuybackVault.process(address,BuybackTypes.SourceBucket,uint256,uint64,uint64) (src/ProtocolBuybackVault.sol#140-159) uses timestamp for comparisons
+	Dangerous comparisons:
+	- deadline < block.timestamp (src/ProtocolBuybackVault.sol#147)
+ProtocolBuybackVault.setPolicy(address,BuybackTypes.ExecutionPolicy) (src/ProtocolBuybackVault.sol#327-353) uses timestamp for comparisons
+	Dangerous comparisons:
+	- ! _hasRoute[asset] || policy_.validUntil <= policy_.validAfter || policy_.validUntil - policy_.validAfter > 86400 || policy_.validUntil <= block.timestamp || policy_.batchCap == 0 || policy_.totalBudget == 0 || policy_.batchCap > policy_.totalBudget || policy_.rates.length != _routes[asset].pools.length + 1 || policy_.evidenceHash == bytes32(0) (src/ProtocolBuybackVault.sol#336-341)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+INFO:Detectors:
+Detector: assembly
+ImmutableCodeStore.constructor(bytes) (src/ImmutableCodeStore.sol#10-20) uses assembly
+	- INLINE ASM (src/ImmutableCodeStore.sol#14-19)
+MembershipFactory._validateRenderer(address,MembershipTypes.ArtConfig,MembershipTypes.MediaConfig) (src/MembershipFactory.sol#273-302) uses assembly
+	- INLINE ASM (src/MembershipFactory.sol#296-298)
+MembershipTierDeployer.constructor(address) (src/MembershipTierDeployer.sol#27-50) uses assembly
+	- INLINE ASM (src/MembershipTierDeployer.sol#41-44)
+MembershipTierDeployer.deploy(MembershipTypes.TierConfig) (src/MembershipTierDeployer.sol#52-86) uses assembly
+	- INLINE ASM (src/MembershipTierDeployer.sol#64-70)
+	- INLINE ASM (src/MembershipTierDeployer.sol#73-75)
+	- INLINE ASM (src/MembershipTierDeployer.sol#77-83)
+PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64) (src/PonsBuybackExecutor.sol#100-174) uses assembly
+	- INLINE ASM (src/PonsBuybackExecutor.sol#166)
+RendererPreviewHarness.preview(bytes,bytes) (src/RendererPreviewHarness.sol#15-32) uses assembly
+	- INLINE ASM (src/RendererPreviewHarness.sol#24-26)
+RendererPreviewHarness._bounded(bytes) (src/RendererPreviewHarness.sol#34-42) uses assembly
+	- INLINE ASM (src/RendererPreviewHarness.sol#39-41)
+RendererRegistry.deployAndRegister(bytes) (src/RendererRegistry.sol#42-70) uses assembly
+	- INLINE ASM (src/RendererRegistry.sol#53-55)
+CodeStoreReader.read(address,uint32,bytes32) (src/media/CodeStoreReader.sol#14-44) uses assembly
+	- INLINE ASM (src/media/CodeStoreReader.sol#23-26)
+	- INLINE ASM (src/media/CodeStoreReader.sol#39-42)
+OnchainMediaStoreFactory.store(bytes,MembershipTypes.MediaMIME) (src/media/OnchainMediaStoreFactory.sol#35-79) uses assembly
+	- INLINE ASM (src/media/OnchainMediaStoreFactory.sol#63-65)
+RendererPrimitives.appendBytes(RendererPrimitives.Buffer,bytes) (src/renderer/RendererPrimitives.sol#106-119) uses assembly
+	- INLINE ASM (src/renderer/RendererPrimitives.sol#115-117)
+RendererPrimitives.finish(RendererPrimitives.Buffer) (src/renderer/RendererPrimitives.sol#121-128) uses assembly
+	- INLINE ASM (src/renderer/RendererPrimitives.sol#124-126)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#assembly-usage
+INFO:Detectors:
+Detector: costly-loop
+MembershipTier._checkpointFees(uint256,uint256) (src/MembershipTier.sol#875-888) has costly operations inside a loop:
+	- protocolFeeEarnedHeld += earned (src/MembershipTier.sol#884)
+	Calls stack containing the loop:
+		MembershipTier.accrueProtocolFees(uint256[])
+		MembershipTier._checkpointTime(uint256)
+MembershipTier._checkpointFees(uint256,uint256) (src/MembershipTier.sol#875-888) has costly operations inside a loop:
+	- protocolFeeEarnedHeld += earned (src/MembershipTier.sol#884)
+	Calls stack containing the loop:
+		MembershipTier.synchronizeExpiredMemberships(uint256[])
+		MembershipTier._checkpointTime(uint256)
+MembershipTier._deactivateRewardEligibility(uint256) (src/MembershipTier.sol#1174-1185) has costly operations inside a loop:
+	- totalRewardShares -= suspendedShares (src/MembershipTier.sol#1183)
+	Calls stack containing the loop:
+		MembershipTier.synchronizeExpiredMemberships(uint256[])
+MembershipTier.synchronizeExpiredMemberships(uint256[]) (src/MembershipTier.sol#619-650) has costly operations inside a loop:
+	- -- occupiedSupply (src/MembershipTier.sol#643)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#costly-operations-inside-a-loop
+INFO:Detectors:
+Detector: cyclomatic-complexity
+PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,BuybackTypes.Rate[],uint64) (src/PonsBuybackExecutor.sol#100-174) has a high cyclomatic complexity (16).
+ProtocolBuybackVault.processingStatus(address,BuybackTypes.SourceBucket) (src/ProtocolBuybackVault.sol#92-136) has a high cyclomatic complexity (12).
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#cyclomatic-complexity
+INFO:Detectors:
+Detector: low-level-calls
+Low level call in PonsBuybackExecutor._return(address,uint256) (src/PonsBuybackExecutor.sol#339-346):
+	- (sent,None) = vault.call{value: amount}() (src/PonsBuybackExecutor.sol#341)
+Low level call in RendererPreviewHarness.preview(bytes,bytes) (src/RendererPreviewHarness.sol#15-32):
+	- (success,result) = candidate.call(rendererCallData) (src/RendererPreviewHarness.sol#29)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+INFO:Detectors:
+Detector: too-many-digits
+MembershipTierDeployer.constructor(address) (src/MembershipTierDeployer.sol#27-50) uses literals with too many digits:
+	- creationCode = type()(MembershipTier).creationCode (src/MembershipTierDeployer.sol#31)
+RobinhoodProtocolConfig.initialRenderer() (src/RobinhoodProtocolConfig.sol#62-66) uses literals with too many digits:
+	- create2Address(INITIAL_RENDERER_SALT,keccak256(bytes)(type()(OnchainMetadataRenderer).creationCode)) (src/RobinhoodProtocolConfig.sol#63-65)
+RobinhoodProtocolConfig.mediaStoreFactory() (src/RobinhoodProtocolConfig.sol#68-72) uses literals with too many digits:
+	- create2Address(MEDIA_STORE_FACTORY_SALT,keccak256(bytes)(type()(OnchainMediaStoreFactory).creationCode)) (src/RobinhoodProtocolConfig.sol#69-71)
+ImageValidation._isCriticalChunk(uint32) (src/media/ImageValidation.sol#226-228) uses literals with too many digits:
+	- (chunkType & 0x20000000) == 0 (src/media/ImageValidation.sol#227)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#too-many-digits
+INFO:Detectors:
+Detector: unimplemented-functions
+MembershipFactory (src/MembershipFactory.sol#19-321) does not implement functions:
+	- IMembershipFactory.owner() (src/interfaces/IMembershipFactory.sol#10)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unimplemented-functions
+INFO:Slither:. analyzed (113 contracts with 101 detectors), 80 result(s) found
+== Web ==
+[0.25ms] ".env.local", ".env"
+bun install v1.3.14 (0d9b296a)
+Resolving dependencies
+Resolved, downloaded and extracted [1]
+
+Checked 987 installs across 984 packages (no changes) [190.00ms]
+$ bash scripts/check-generated-contracts.sh
+$ bash scripts/generate-contracts.sh
+(node:44055) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+- Validating plugins
+✔ Validating plugins
+- Resolving contracts
+✔ Resolving contracts
+- Running plugins
+✔ Running plugins
+- Writing to src/contracts.ts
+✔ Writing to src/contracts.ts
+src/contracts.ts 215ms
+$ prettier --check .
+Checking formatting...
+All matched files use Prettier code style!
+$ eslint .
+$ vitest run
+
+ RUN  v4.1.11 /Users/user/Development/backed-by-fans/web
+
+{"level":10,"time":1788841518025,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","msg":"Initialized"}
+{"level":10,"time":1788841518026,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/history","msg":"Initialized"}
+{"level":10,"time":1788841518026,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/expirer","msg":"Initialized"}
+{"level":10,"time":1788841518026,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","msg":"Initialized"}
+{"level":10,"time":1788841518026,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","context":"core/relayer/messages","msg":"Initialized"}
+{"level":10,"time":1788841518026,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","context":"core/relayer/subscription","msg":"Initialized"}
+{"level":20,"time":1788841518027,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","context":"core/relayer/messages","msg":"Successfully Restored records for messages"}
+{"level":10,"time":1788841518027,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","context":"core/relayer/messages","type":"method","method":"restore","size":0}
+{"level":10,"time":1788841518027,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/pairing","context":"core/pairing/pairing","msg":"Initialized"}
+{"level":10,"time":1788841518027,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/pairing","msg":"Initialized"}
+{"level":30,"time":1788841518027,"pid":44367,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","msg":"Core Initialization Success"}
+(node:44361) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ Test Files  80 passed (80)
+      Tests  484 passed (484)
+   Start at  22:25:15
+   Duration  6.57s (transform 3.67s, setup 10.52s, import 31.26s, tests 10.99s, environment 36.55s)
+
+$ next build --webpack
+▲ Next.js 16.3.3 (webpack)
+- Environments: .env.local, .env
+✓ Running next.config.ts took 44ms
+
+  Creating an optimized production build ...
+⚠ Compiled with warnings in 9.2s
+
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+Module not found: Can't resolve '@react-native-async-storage/async-storage' in '/Users/user/Development/backed-by-fans/web/node_modules/@metamask/sdk/dist/browser/es'
+
+Import trace for requested module:
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+./node_modules/@wagmi/connectors/dist/esm/metaMask.js
+./node_modules/@wagmi/connectors/dist/esm/exports/index.js
+./node_modules/wagmi/dist/esm/exports/connectors.js
+./src/lib/wallet-config.ts
+./src/components/AppProviders.tsx
+
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+Module not found: Can't resolve '@react-native-async-storage/async-storage' in '/Users/user/Development/backed-by-fans/web/node_modules/@metamask/sdk/dist/browser/es'
+
+Import trace for requested module:
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+./node_modules/@wagmi/connectors/dist/esm/metaMask.js
+./node_modules/@wagmi/connectors/dist/esm/exports/index.js
+./node_modules/wagmi/dist/esm/exports/connectors.js
+./src/lib/wallet-config.ts
+./src/lib/server-wallet-state.ts
+./src/app/layout.tsx
+
+./node_modules/ox/_esm/tempo/internal/virtualMasterPool.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/ox/_esm/tempo/internal/virtualMasterPool.js
+./node_modules/ox/_esm/tempo/VirtualMaster.js
+./node_modules/ox/_esm/tempo/index.js
+./node_modules/viem/_esm/tempo/chainConfig.js
+./node_modules/viem/_esm/chains/definitions/tempo.js
+./node_modules/viem/_esm/chains/index.js
+./src/lib/config.ts
+./src/app/llms.txt/route.ts
+
+⚠ Compiled with warnings in 5.3s
+
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+Module not found: Can't resolve '@react-native-async-storage/async-storage' in '/Users/user/Development/backed-by-fans/web/node_modules/@metamask/sdk/dist/browser/es'
+
+Import trace for requested module:
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+./node_modules/@wagmi/connectors/dist/esm/metaMask.js
+./node_modules/@wagmi/connectors/dist/esm/exports/index.js
+./node_modules/wagmi/dist/esm/exports/connectors.js
+./node_modules/@rainbow-me/rainbowkit/dist/index.js
+./src/components/AppProviders.tsx
+
+✓ Compiled successfully in 14.6s
+  Running TypeScript ...
+  Finished TypeScript in 2.9s ...
+  Collecting page data using 17 workers ...
+(node:44874) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44880) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44864) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44879) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44875) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44865) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44872) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44873) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44878) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44877) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44876) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  Generating static pages using 17 workers (0/10) ...
+  Generating static pages using 17 workers (2/10) 
+  Generating static pages using 17 workers (4/10) 
+  Generating static pages using 17 workers (7/10) 
+✓ Generating static pages using 17 workers (10/10) in 297ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /about
+├ ƒ /account
+├ ƒ /api/chains/[chainId]/tiers/[tierAddress]/artwork
+├ ƒ /chains/[chainId]/protocol
+├ ƒ /chains/[chainId]/tiers/[tierAddress]
+├ ƒ /chains/[chainId]/tiers/[tierAddress]/manage
+├ ƒ /chains/[chainId]/tiers/[tierAddress]/manage/artwork
+├ ƒ /chains/[chainId]/tiers/[tierAddress]/opengraph-image
+├ ƒ /create
+├ ○ /icon.svg
+├ ○ /llms.txt
+├ ○ /opengraph-image
+├ ƒ /render
+└ ƒ /skill
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+$ tsc --noEmit
+$ playwright test
+[WebServer] $ next build --webpack
+[WebServer] (node:44931) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:44935) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ⚠ Compiled with warnings in 5.2s
+[WebServer] 
+[WebServer] ./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+[WebServer] Module not found: Can't resolve '@react-native-async-storage/async-storage' in '/Users/user/Development/backed-by-fans/web/node_modules/@metamask/sdk/dist/browser/es'
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+[WebServer] ./node_modules/@wagmi/connectors/dist/esm/metaMask.js
+[WebServer] ./node_modules/@wagmi/connectors/dist/esm/exports/index.js
+[WebServer] ./node_modules/wagmi/dist/esm/exports/connectors.js
+[WebServer] ./src/lib/wallet-config.ts
+[WebServer] ./src/components/AppProviders.tsx
+[WebServer] 
+[WebServer] ./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+[WebServer] Module not found: Can't resolve '@react-native-async-storage/async-storage' in '/Users/user/Development/backed-by-fans/web/node_modules/@metamask/sdk/dist/browser/es'
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+[WebServer] ./node_modules/@wagmi/connectors/dist/esm/metaMask.js
+[WebServer] ./node_modules/@wagmi/connectors/dist/esm/exports/index.js
+[WebServer] ./node_modules/wagmi/dist/esm/exports/connectors.js
+[WebServer] ./src/lib/wallet-config.ts
+[WebServer] ./src/lib/server-wallet-state.ts
+[WebServer] ./src/app/layout.tsx
+[WebServer] 
+[WebServer] ./node_modules/ox/_esm/tempo/internal/virtualMasterPool.js
+[WebServer] Critical dependency: the request of a dependency is an expression
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/ox/_esm/tempo/internal/virtualMasterPool.js
+[WebServer] ./node_modules/ox/_esm/tempo/VirtualMaster.js
+[WebServer] ./node_modules/ox/_esm/tempo/index.js
+[WebServer] ./node_modules/viem/_esm/tempo/chainConfig.js
+[WebServer] ./node_modules/viem/_esm/chains/definitions/tempo.js
+[WebServer] ./node_modules/viem/_esm/chains/index.js
+[WebServer] ./src/lib/chains.ts
+[WebServer] ./src/app/account/page.tsx
+[WebServer] 
+[WebServer] (node:45257) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45261) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ⚠ Compiled with warnings in 2.4s
+[WebServer] 
+[WebServer] ./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+[WebServer] Module not found: Can't resolve '@react-native-async-storage/async-storage' in '/Users/user/Development/backed-by-fans/web/node_modules/@metamask/sdk/dist/browser/es'
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+[WebServer] ./node_modules/@wagmi/connectors/dist/esm/metaMask.js
+[WebServer] ./node_modules/@wagmi/connectors/dist/esm/exports/index.js
+[WebServer] ./node_modules/wagmi/dist/esm/exports/connectors.js
+[WebServer] ./node_modules/@rainbow-me/rainbowkit/dist/index.js
+[WebServer] ./src/components/AppProviders.tsx
+[WebServer] 
+[WebServer] (node:45309) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45296) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45303) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45305) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45308) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45306) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45304) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45310) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45300) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45297) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45298) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45311) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45312) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45301) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45302) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45307) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45307) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45296) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45311) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45308) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45304) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45309) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45303) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45312) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45306) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45305) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45310) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:45297) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] $ next start --hostname "127.0.0.1" --port "3108"
+[WebServer] (node:45354) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:45354) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+
+Running 213 tests using 9 workers
+
+  -    1 [desktop] › tests/e2e/anvil-membership.spec.ts:20:3 › @anvil configured local Anvil membership › server-renders member and creator routes without browser JavaScript
+  -    2 [desktop] › tests/e2e/anvil-membership.spec.ts:50:3 › @anvil configured local Anvil membership › renders a verified direct tier accessibly at every supported viewport
+  -    3 [desktop] › tests/e2e/anvil-membership.spec.ts:73:3 › @anvil configured local Anvil membership › keeps the server snapshot when browser RPC is unavailable
+  -    4 [desktop] › tests/e2e/anvil-membership.spec.ts:90:3 › @anvil configured local Anvil membership › gives the connected creator a direct path to tier management
+  -    5 [desktop] › tests/e2e/anvil-membership.spec.ts:113:3 › @anvil configured local Anvil membership › connects an unlocked wallet and reconciles an exact-approval purchase
+  -    6 [desktop] › tests/e2e/claims-refunds.spec.ts:52:3 › configured Anvil claims and refunds › @anvil pays reward and referral claims only to their fixed wallets
+  -    7 [desktop] › tests/e2e/claims-refunds.spec.ts:101:3 › configured Anvil claims and refunds › @anvil preserves a blocked destination's exact claim for safe retry
+  -    8 [desktop] › tests/e2e/claims-refunds.spec.ts:216:3 › configured Anvil claims and refunds › @anvil previews and executes the creator's exact gross refund
+  -    9 [desktop] › tests/e2e/claims-refunds.spec.ts:304:3 › configured Anvil claims and refunds › @anvil invalidates the preview when the tier is unpaused elsewhere
+(node:45366) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45370) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45369) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45368) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45373) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45371) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45367) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45372) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45374) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  -   16 [desktop] › tests/e2e/create-tier.spec.ts:34:3 › @anvil deploys and shares a creator-owned tier with 1% protocol allocation
+  -   18 [desktop] › tests/e2e/create-tier.spec.ts:34:3 › @anvil deploys and shares a creator-owned tier with 12.34% protocol allocation
+  -   17 [desktop] › tests/e2e/create-tier.spec.ts:34:3 › @anvil deploys and shares a creator-owned tier with 100% protocol allocation
+  -   19 [desktop] › tests/e2e/create-tier.spec.ts:273:1 › @anvil rediscovers and revalidates the connected creator's permanent media
+  -   20 [desktop] › tests/e2e/create-tier.spec.ts:312:1 › @anvil deliberately continues in memory when creative autosave is inaccessible
+  -   21 [desktop] › tests/e2e/create-tier.spec.ts:352:1 › @anvil uploads an image without a media-mode gate and can return to generated artwork
+  ✓   12 [desktop] › tests/e2e/brand-shell.spec.ts:4:1 › renders the unavailable catalog at the canonical homepage before public deployment (1.2s)
+  ✓   11 [desktop] › tests/e2e/brand-shell.spec.ts:52:1 › explains the product on the About page (1.4s)
+  ✓   13 [desktop] › tests/e2e/brand-shell.spec.ts:88:1 › supports keyboard focus, skip navigation, and reduced motion (1.4s)
+  ✓   14 [desktop] › tests/e2e/brand-shell.spec.ts:138:1 › keeps About actions touch-sized and supports 200% content zoom (1.4s)
+  ✓   10 [desktop] › tests/e2e/brand-shell.spec.ts:116:3 › / has no automatically detectable accessibility violations (1.5s)
+  ✓   15 [desktop] › tests/e2e/brand-shell.spec.ts:116:3 › /about has no automatically detectable accessibility violations (1.7s)
+  -   27 [desktop] › tests/e2e/creator-operations.spec.ts:26:1 › @anvil operates every mutable tier control and completes two-step ownership
+  -   30 [desktop] › tests/e2e/creator-operations.spec.ts:168:1 › @anvil creator sync burns an expired NFT while its member can claim and rejoin
+  -   31 [desktop] › tests/e2e/custom-renderer-address.spec.ts:15:1 › @anvil copies and reuses a direct renderer
+  ✓   24 [desktop] › tests/e2e/create-tier.spec.ts:508:1 › walks through defaults, arbitrary splits, risks, and immutable review (993ms)
+  ✓   26 [desktop] › tests/e2e/create-tier.spec.ts:573:1 › treats an emptied split as zero without shifting its paired input (434ms)
+  ✓   29 [desktop] › tests/e2e/creator-operations.spec.ts:278:1 › fails registered-tier management closed without deployment config (367ms)
+  ✓   22 [desktop] › tests/e2e/create-tier.spec.ts:384:1 › keeps horizontal Art Studio step markers clear of dividers (1.2s)
+  ✓   28 [desktop] › tests/e2e/create-tier.spec.ts:605:1 › keeps creator setup keyboard reachable and responsive (474ms)
+  -   37 [desktop] › tests/e2e/join-renew-gift.spec.ts:19:3 › configured Anvil join, renew, and gift › @anvil completes the supporter payment and gifting story
+  ✓   35 [desktop] › tests/e2e/direct-route.spec.ts:23:1 › serves the provisional app icon and favicon routes (51ms)
+  ✓   23 [desktop] › tests/e2e/create-tier.spec.ts:416:1 › expands Art Studio controls on desktop and collapses them on mobile (1.2s)
+  -   41 [desktop] › tests/e2e/protocol-activity.spec.ts:16:3 › @protocol-fork public buyback activity › shows fee inventory, conditional forecasts and separate compensation without a wallet
+  -   42 [desktop] › tests/e2e/protocol-activity.spec.ts:62:3 › @protocol-fork public buyback activity › server-renders the actual Safe and token without browser JavaScript
+  -   43 [desktop] › tests/e2e/protocol-activity.spec.ts:90:3 › @protocol-fork public buyback activity › keeps membership balances visible when Pons compensation reads fail
+  -   38 [desktop] › tests/e2e/fresh-wallet-beta.spec.ts:19:1 › @anvil recognizes a newly funded wallet and completes its first purchase
+  -   39 [desktop] › tests/e2e/payment-token-selection.spec.ts:38:3 › @anvil publishes and operates authentic AMD lifecycle
+  -   40 [desktop] › tests/e2e/payment-token-selection.spec.ts:38:3 › @anvil publishes and operates labeled AMD display-read adjustments
+  -   45 [desktop] › tests/e2e/protocol-asset-burns.spec.ts:16:3 › @protocol-fork earned AMD membership burns and unused reserve refunds reconcile
+  ✓   32 [desktop] › tests/e2e/direct-route.spec.ts:5:1 › validates a direct tier route before reading any contract (308ms)
+  -   46 [desktop] › tests/e2e/protocol-asset-burns.spec.ts:16:3 › @protocol-fork earned WETH membership burns and unused reserve refunds reconcile
+  -   48 [desktop] › tests/e2e/protocol-runner.spec.ts:129:1 › @protocol-fork independently funded callers replace scheduled collection and processing
+  ✓   33 [desktop] › tests/e2e/direct-route.spec.ts:15:1 › renders a configured-unavailable state for a valid direct route (309ms)
+  -   44 [desktop] › tests/e2e/protocol-activity.spec.ts:141:1 › @protocol-fork a wallet burns earned protocol-token fees and preserves the full unused refund
+  -   51 [desktop] › tests/e2e/protocol-graduation.spec.ts:31:1 › @protocol-fork crosses graduation, burns through the real pool and reconciles native pool vesting
+  -   47 [desktop] › tests/e2e/protocol-asset-lifecycle.spec.ts:16:3 › @protocol-fork protocol-token membership and artwork appear in the supporter's account
+  ✓   25 [desktop] › tests/e2e/create-tier.spec.ts:554:1 › rejects invalid split totals before signing without losing input (759ms)
+  -   49 [desktop] › tests/e2e/protocol-asset-lifecycle.spec.ts:16:3 › @protocol-fork WETH membership and artwork appear in the supporter's account
+  -   50 [desktop] › tests/e2e/protocol-safe-continuity.spec.ts:22:1 › @protocol-fork Safe changes preserve membership access and ordinary callers process repaired inventory
+  -   52 [desktop] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles rejected wallet request through wagmi and viem
+  ✓   34 [desktop] › tests/e2e/creator-operations.spec.ts:272:1 › validates management routes before any direct read (359ms)
+  -   54 [desktop] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles insufficient asset through wagmi and viem
+  -   53 [desktop] › tests/e2e/protocol-unrouted-asset.spec.ts:27:1 › @protocol-fork a compatible authentic token without an approved route remains pending independently
+  -   55 [desktop] › tests/e2e/protocol-wallet-failures.spec.ts:16:1 › @protocol-fork wrong-network membership writes stay disabled until the wallet switches
+  -   61 [desktop] › tests/e2e/renderer-sharing.spec.ts:18:3 › @anvil renderer sharing through memberships › shares a renderer from one membership to another
+  -   62 [desktop] › tests/e2e/renderer-sharing.spec.ts:106:3 › @anvil renderer sharing through memberships › keeps the renderer address shareable when membership artwork fails
+  -   56 [desktop] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles repriced transaction through wagmi and viem
+  -   66 [desktop] › tests/e2e/rpc-recovery.spec.ts:12:3 › configured Anvil RPC behavior › @anvil preserves the server snapshot during browser RPC loss
+  ✓   58 [desktop] › tests/e2e/renderer-entrypoints.spec.ts:47:1 › serves the root agent index and raw skill files (37ms)
+  -   59 [desktop] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles insufficient gas through wagmi and viem
+  -   65 [desktop] › tests/e2e/renderer-update.spec.ts:46:1 › @anvil lets the accepted owner preview and replace presentation without changing membership economics
+  -   70 [tablet] › tests/e2e/anvil-membership.spec.ts:20:3 › @anvil configured local Anvil membership › server-renders member and creator routes without browser JavaScript
+  -   71 [tablet] › tests/e2e/anvil-membership.spec.ts:50:3 › @anvil configured local Anvil membership › renders a verified direct tier accessibly at every supported viewport
+  -   72 [tablet] › tests/e2e/anvil-membership.spec.ts:73:3 › @anvil configured local Anvil membership › keeps the server snapshot when browser RPC is unavailable
+  -   73 [tablet] › tests/e2e/anvil-membership.spec.ts:90:3 › @anvil configured local Anvil membership › gives the connected creator a direct path to tier management
+  -   74 [tablet] › tests/e2e/anvil-membership.spec.ts:113:3 › @anvil configured local Anvil membership › connects an unlocked wallet and reconciles an exact-approval purchase
+  ✓   36 [desktop] › tests/e2e/direct-route.spec.ts:37:1 › renders complete creator setup while unavailable writes fail closed (491ms)
+  ✓   67 [desktop] › tests/e2e/supporter-account.spec.ts:6:1 › keeps account recovery focused on retrying discovery (522ms)
+  ✓   68 [desktop] › tests/e2e/supporter-account.spec.ts:29:1 › never turns an unavailable supporter read into balances or success (527ms)
+  ✓   64 [desktop] › tests/e2e/renderer-lab.spec.ts:345:1 › falls back to manual import when loopback is unavailable (597ms)
+(node:45481) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45482) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   63 [desktop] › tests/e2e/renderer-lab.spec.ts:252:1 › uses the optional loopback handoff without an account or source-image transfer (688ms)
+  ✓   69 [desktop] › tests/e2e/supporter-account.spec.ts:42:1 › keeps the account route keyboard reachable, responsive, and accessible (763ms)
+  -   77 [tablet] › tests/e2e/claims-refunds.spec.ts:52:3 › configured Anvil claims and refunds › @anvil pays reward and referral claims only to their fixed wallets
+  -   78 [tablet] › tests/e2e/claims-refunds.spec.ts:101:3 › configured Anvil claims and refunds › @anvil preserves a blocked destination's exact claim for safe retry
+  -   79 [tablet] › tests/e2e/claims-refunds.spec.ts:216:3 › configured Anvil claims and refunds › @anvil previews and executes the creator's exact gross refund
+  -   80 [tablet] › tests/e2e/claims-refunds.spec.ts:304:3 › configured Anvil claims and refunds › @anvil invalidates the preview when the tier is unpaused elsewhere
+(node:45485) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45484) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45486) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45488) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   60 [desktop] › tests/e2e/renderer-lab.spec.ts:194:1 › imports, previews, and updates browser-held renderer work (1.1s)
+(node:45496) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   57 [desktop] › tests/e2e/renderer-entrypoints.spec.ts:4:1 › makes the renderer skill and preview route publicly discoverable (1.5s)
+  ✓   75 [tablet] › tests/e2e/brand-shell.spec.ts:4:1 › renders the unavailable catalog at the canonical homepage before public deployment (764ms)
+(node:45519) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   76 [tablet] › tests/e2e/brand-shell.spec.ts:52:1 › explains the product on the About page (859ms)
+(node:45531) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   81 [tablet] › tests/e2e/brand-shell.spec.ts:88:1 › supports keyboard focus, skip navigation, and reduced motion (866ms)
+  -   86 [tablet] › tests/e2e/create-tier.spec.ts:273:1 › @anvil rediscovers and revalidates the connected creator's permanent media
+  -   85 [tablet] › tests/e2e/create-tier.spec.ts:34:3 › @anvil deploys and shares a creator-owned tier with 1% protocol allocation
+  -   88 [tablet] › tests/e2e/create-tier.spec.ts:312:1 › @anvil deliberately continues in memory when creative autosave is inaccessible
+  ✓   84 [tablet] › tests/e2e/brand-shell.spec.ts:138:1 › keeps About actions touch-sized and supports 200% content zoom (848ms)
+  -   89 [tablet] › tests/e2e/create-tier.spec.ts:384:1 › keeps horizontal Art Studio step markers clear of dividers
+  ✓   82 [tablet] › tests/e2e/brand-shell.spec.ts:116:3 › / has no automatically detectable accessibility violations (977ms)
+  -   87 [tablet] › tests/e2e/create-tier.spec.ts:34:3 › @anvil deploys and shares a creator-owned tier with 12.34% protocol allocation
+  -   94 [tablet] › tests/e2e/creator-operations.spec.ts:26:1 › @anvil operates every mutable tier control and completes two-step ownership
+  -   95 [tablet] › tests/e2e/create-tier.spec.ts:352:1 › @anvil uploads an image without a media-mode gate and can return to generated artwork
+  -   96 [tablet] › tests/e2e/creator-operations.spec.ts:168:1 › @anvil creator sync burns an expired NFT while its member can claim and rejoin
+  -   93 [tablet] › tests/e2e/create-tier.spec.ts:34:3 › @anvil deploys and shares a creator-owned tier with 100% protocol allocation
+  -   99 [tablet] › tests/e2e/custom-renderer-address.spec.ts:15:1 › @anvil copies and reuses a direct renderer
+  ✓   92 [tablet] › tests/e2e/create-tier.spec.ts:573:1 › treats an emptied split as zero without shifting its paired input (772ms)
+  ✓   83 [tablet] › tests/e2e/brand-shell.spec.ts:116:3 › /about has no automatically detectable accessibility violations (1.9s)
+  ✓   97 [tablet] › tests/e2e/creator-operations.spec.ts:272:1 › validates management routes before any direct read (690ms)
+  ✓   98 [tablet] › tests/e2e/creator-operations.spec.ts:278:1 › fails registered-tier management closed without deployment config (705ms)
+  ✓  104 [tablet] › tests/e2e/direct-route.spec.ts:23:1 › serves the provisional app icon and favicon routes (83ms)
+  -  106 [tablet] › tests/e2e/join-renew-gift.spec.ts:19:3 › configured Anvil join, renew, and gift › @anvil completes the supporter payment and gifting story
+  -  107 [tablet] › tests/e2e/fresh-wallet-beta.spec.ts:19:1 › @anvil recognizes a newly funded wallet and completes its first purchase
+  ✓   91 [tablet] › tests/e2e/create-tier.spec.ts:508:1 › walks through defaults, arbitrary splits, risks, and immutable review (1.3s)
+  -  109 [tablet] › tests/e2e/protocol-activity.spec.ts:16:3 › @protocol-fork public buyback activity › shows fee inventory, conditional forecasts and separate compensation without a wallet
+  -  110 [tablet] › tests/e2e/protocol-activity.spec.ts:62:3 › @protocol-fork public buyback activity › server-renders the actual Safe and token without browser JavaScript
+  -  111 [tablet] › tests/e2e/protocol-activity.spec.ts:90:3 › @protocol-fork public buyback activity › keeps membership balances visible when Pons compensation reads fail
+  -  108 [tablet] › tests/e2e/payment-token-selection.spec.ts:38:3 › @anvil publishes and operates labeled AMD display-read adjustments
+  -  112 [tablet] › tests/e2e/protocol-activity.spec.ts:141:1 › @protocol-fork a wallet burns earned protocol-token fees and preserves the full unused refund
+  ✓  101 [tablet] › tests/e2e/direct-route.spec.ts:5:1 › validates a direct tier route before reading any contract (756ms)
+  -  113 [tablet] › tests/e2e/protocol-asset-burns.spec.ts:16:3 › @protocol-fork earned AMD membership burns and unused reserve refunds reconcile
+  -  114 [tablet] › tests/e2e/protocol-asset-burns.spec.ts:16:3 › @protocol-fork earned WETH membership burns and unused reserve refunds reconcile
+  -  117 [tablet] › tests/e2e/protocol-graduation.spec.ts:31:1 › @protocol-fork crosses graduation, burns through the real pool and reconciles native pool vesting
+  -  118 [tablet] › tests/e2e/protocol-runner.spec.ts:129:1 › @protocol-fork independently funded callers replace scheduled collection and processing
+  ✓   90 [tablet] › tests/e2e/create-tier.spec.ts:416:1 › expands Art Studio controls on desktop and collapses them on mobile (1.5s)
+  -  115 [tablet] › tests/e2e/protocol-asset-lifecycle.spec.ts:16:3 › @protocol-fork protocol-token membership and artwork appear in the supporter's account
+  -  116 [tablet] › tests/e2e/protocol-asset-lifecycle.spec.ts:16:3 › @protocol-fork WETH membership and artwork appear in the supporter's account
+  -  119 [tablet] › tests/e2e/protocol-safe-continuity.spec.ts:22:1 › @protocol-fork Safe changes preserve membership access and ordinary callers process repaired inventory
+  ✓  103 [tablet] › tests/e2e/direct-route.spec.ts:15:1 › renders a configured-unavailable state for a valid direct route (799ms)
+  -  121 [tablet] › tests/e2e/protocol-unrouted-asset.spec.ts:27:1 › @protocol-fork a compatible authentic token without an approved route remains pending independently
+  -  120 [tablet] › tests/e2e/protocol-wallet-failures.spec.ts:16:1 › @protocol-fork wrong-network membership writes stay disabled until the wallet switches
+  -  122 [tablet] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles rejected wallet request through wagmi and viem
+  -  123 [tablet] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles insufficient asset through wagmi and viem
+  ✓  102 [tablet] › tests/e2e/create-tier.spec.ts:605:1 › keeps creator setup keyboard reachable and responsive (1.0s)
+  -  124 [tablet] › tests/e2e/payment-token-selection.spec.ts:38:3 › @anvil publishes and operates authentic AMD lifecycle
+  ✓  129 [tablet] › tests/e2e/renderer-entrypoints.spec.ts:47:1 › serves the root agent index and raw skill files (42ms)
+  -  131 [tablet] › tests/e2e/renderer-sharing.spec.ts:18:3 › @anvil renderer sharing through memberships › shares a renderer from one membership to another
+  -  132 [tablet] › tests/e2e/renderer-sharing.spec.ts:106:3 › @anvil renderer sharing through memberships › keeps the renderer address shareable when membership artwork fails
+  -  125 [tablet] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles repriced transaction through wagmi and viem
+  -  135 [tablet] › tests/e2e/rpc-recovery.spec.ts:12:3 › configured Anvil RPC behavior › @anvil preserves the server snapshot during browser RPC loss
+  -  126 [tablet] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles insufficient gas through wagmi and viem
+  ✓  105 [tablet] › tests/e2e/direct-route.spec.ts:37:1 › renders complete creator setup while unavailable writes fail closed (773ms)
+  -  134 [tablet] › tests/e2e/renderer-update.spec.ts:46:1 › @anvil lets the accepted owner preview and replace presentation without changing membership economics
+  -  139 [phone] › tests/e2e/anvil-membership.spec.ts:20:3 › @anvil configured local Anvil membership › server-renders member and creator routes without browser JavaScript
+  -  140 [phone] › tests/e2e/anvil-membership.spec.ts:50:3 › @anvil configured local Anvil membership › renders a verified direct tier accessibly at every supported viewport
+  -  141 [phone] › tests/e2e/anvil-membership.spec.ts:73:3 › @anvil configured local Anvil membership › keeps the server snapshot when browser RPC is unavailable
+  -  142 [phone] › tests/e2e/anvil-membership.spec.ts:90:3 › @anvil configured local Anvil membership › gives the connected creator a direct path to tier management
+  -  143 [phone] › tests/e2e/anvil-membership.spec.ts:113:3 › @anvil configured local Anvil membership › connects an unlocked wallet and reconciles an exact-approval purchase
+  ✓  100 [tablet] › tests/e2e/create-tier.spec.ts:554:1 › rejects invalid split totals before signing without losing input (1.4s)
+(node:45607) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45609) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  136 [tablet] › tests/e2e/supporter-account.spec.ts:29:1 › never turns an unavailable supporter read into balances or success (780ms)
+  ✓  130 [tablet] › tests/e2e/renderer-lab.spec.ts:252:1 › uses the optional loopback handoff without an account or source-image transfer (896ms)
+  ✓  137 [tablet] › tests/e2e/supporter-account.spec.ts:6:1 › keeps account recovery focused on retrying discovery (869ms)
+  ✓  133 [tablet] › tests/e2e/renderer-lab.spec.ts:345:1 › falls back to manual import when loopback is unavailable (935ms)
+  ✓  138 [tablet] › tests/e2e/supporter-account.spec.ts:42:1 › keeps the account route keyboard reachable, responsive, and accessible (1.1s)
+  -  146 [phone] › tests/e2e/claims-refunds.spec.ts:52:3 › configured Anvil claims and refunds › @anvil pays reward and referral claims only to their fixed wallets
+  -  147 [phone] › tests/e2e/claims-refunds.spec.ts:101:3 › configured Anvil claims and refunds › @anvil preserves a blocked destination's exact claim for safe retry
+  -  148 [phone] › tests/e2e/claims-refunds.spec.ts:216:3 › configured Anvil claims and refunds › @anvil previews and executes the creator's exact gross refund
+  -  149 [phone] › tests/e2e/claims-refunds.spec.ts:304:3 › configured Anvil claims and refunds › @anvil invalidates the preview when the tier is unpaused elsewhere
+(node:45617) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45633) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45632) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45634) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  128 [tablet] › tests/e2e/renderer-lab.spec.ts:194:1 › imports, previews, and updates browser-held renderer work (1.5s)
+(node:45637) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  144 [phone] › tests/e2e/brand-shell.spec.ts:4:1 › renders the unavailable catalog at the canonical homepage before public deployment (703ms)
+  ✓  145 [phone] › tests/e2e/brand-shell.spec.ts:52:1 › explains the product on the About page (637ms)
+  ✓  127 [tablet] › tests/e2e/renderer-entrypoints.spec.ts:4:1 › makes the renderer skill and preview route publicly discoverable (1.8s)
+(node:45645) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45657) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  150 [phone] › tests/e2e/brand-shell.spec.ts:88:1 › supports keyboard focus, skip navigation, and reduced motion (646ms)
+  -  155 [phone] › tests/e2e/create-tier.spec.ts:34:3 › @anvil deploys and shares a creator-owned tier with 100% protocol allocation
+  -  156 [phone] › tests/e2e/create-tier.spec.ts:273:1 › @anvil rediscovers and revalidates the connected creator's permanent media
+  ✓  151 [phone] › tests/e2e/brand-shell.spec.ts:138:1 › keeps About actions touch-sized and supports 200% content zoom (643ms)
+  -  157 [phone] › tests/e2e/create-tier.spec.ts:384:1 › keeps horizontal Art Studio step markers clear of dividers
+  -  154 [phone] › tests/e2e/create-tier.spec.ts:34:3 › @anvil deploys and shares a creator-owned tier with 1% protocol allocation
+  ✓  152 [phone] › tests/e2e/brand-shell.spec.ts:116:3 › / has no automatically detectable accessibility violations (829ms)
+  -  158 [phone] › tests/e2e/create-tier.spec.ts:34:3 › @anvil deploys and shares a creator-owned tier with 12.34% protocol allocation
+  -  162 [phone] › tests/e2e/creator-operations.spec.ts:26:1 › @anvil operates every mutable tier control and completes two-step ownership
+  -  164 [phone] › tests/e2e/creator-operations.spec.ts:168:1 › @anvil creator sync burns an expired NFT while its member can claim and rejoin
+  -  165 [phone] › tests/e2e/create-tier.spec.ts:352:1 › @anvil uploads an image without a media-mode gate and can return to generated artwork
+  -  163 [phone] › tests/e2e/create-tier.spec.ts:312:1 › @anvil deliberately continues in memory when creative autosave is inaccessible
+  -  169 [phone] › tests/e2e/custom-renderer-address.spec.ts:15:1 › @anvil copies and reuses a direct renderer
+  ✓  161 [phone] › tests/e2e/create-tier.spec.ts:573:1 › treats an emptied split as zero without shifting its paired input (712ms)
+  ✓  167 [phone] › tests/e2e/creator-operations.spec.ts:272:1 › validates management routes before any direct read (534ms)
+  ✓  173 [phone] › tests/e2e/direct-route.spec.ts:23:1 › serves the provisional app icon and favicon routes (22ms)
+  ✓  153 [phone] › tests/e2e/brand-shell.spec.ts:116:3 › /about has no automatically detectable accessibility violations (1.7s)
+  ✓  168 [phone] › tests/e2e/creator-operations.spec.ts:278:1 › fails registered-tier management closed without deployment config (574ms)
+  -  175 [phone] › tests/e2e/join-renew-gift.spec.ts:19:3 › configured Anvil join, renew, and gift › @anvil completes the supporter payment and gifting story
+  -  176 [phone] › tests/e2e/payment-token-selection.spec.ts:38:3 › @anvil publishes and operates authentic AMD lifecycle
+  ✓  171 [phone] › tests/e2e/direct-route.spec.ts:5:1 › validates a direct tier route before reading any contract (608ms)
+  -  178 [phone] › tests/e2e/protocol-activity.spec.ts:16:3 › @protocol-fork public buyback activity › shows fee inventory, conditional forecasts and separate compensation without a wallet
+  -  179 [phone] › tests/e2e/protocol-activity.spec.ts:62:3 › @protocol-fork public buyback activity › server-renders the actual Safe and token without browser JavaScript
+  -  180 [phone] › tests/e2e/protocol-activity.spec.ts:90:3 › @protocol-fork public buyback activity › keeps membership balances visible when Pons compensation reads fail
+  -  177 [phone] › tests/e2e/payment-token-selection.spec.ts:38:3 › @anvil publishes and operates labeled AMD display-read adjustments
+  ✓  159 [phone] › tests/e2e/create-tier.spec.ts:416:1 › expands Art Studio controls on desktop and collapses them on mobile (1.3s)
+  -  182 [phone] › tests/e2e/protocol-asset-burns.spec.ts:16:3 › @protocol-fork earned AMD membership burns and unused reserve refunds reconcile
+  ✓  172 [phone] › tests/e2e/direct-route.spec.ts:15:1 › renders a configured-unavailable state for a valid direct route (543ms)
+  -  184 [phone] › tests/e2e/protocol-asset-burns.spec.ts:16:3 › @protocol-fork earned WETH membership burns and unused reserve refunds reconcile
+  -  185 [phone] › tests/e2e/protocol-graduation.spec.ts:31:1 › @protocol-fork crosses graduation, burns through the real pool and reconciles native pool vesting
+  -  181 [phone] › tests/e2e/protocol-activity.spec.ts:141:1 › @protocol-fork a wallet burns earned protocol-token fees and preserves the full unused refund
+  -  186 [phone] › tests/e2e/protocol-runner.spec.ts:129:1 › @protocol-fork independently funded callers replace scheduled collection and processing
+  -  183 [phone] › tests/e2e/protocol-asset-lifecycle.spec.ts:16:3 › @protocol-fork WETH membership and artwork appear in the supporter's account
+  ✓  170 [phone] › tests/e2e/create-tier.spec.ts:605:1 › keeps creator setup keyboard reachable and responsive (814ms)
+  -  188 [phone] › tests/e2e/fresh-wallet-beta.spec.ts:19:1 › @anvil recognizes a newly funded wallet and completes its first purchase
+  -  187 [phone] › tests/e2e/protocol-unrouted-asset.spec.ts:27:1 › @protocol-fork a compatible authentic token without an approved route remains pending independently
+  -  189 [phone] › tests/e2e/protocol-asset-lifecycle.spec.ts:16:3 › @protocol-fork protocol-token membership and artwork appear in the supporter's account
+  -  190 [phone] › tests/e2e/protocol-wallet-failures.spec.ts:16:1 › @protocol-fork wrong-network membership writes stay disabled until the wallet switches
+  -  191 [phone] › tests/e2e/protocol-safe-continuity.spec.ts:22:1 › @protocol-fork Safe changes preserve membership access and ordinary callers process repaired inventory
+  ✓  196 [phone] › tests/e2e/renderer-entrypoints.spec.ts:47:1 › serves the root agent index and raw skill files (26ms)
+  -  192 [phone] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles insufficient gas through wagmi and viem
+  -  194 [phone] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles rejected wallet request through wagmi and viem
+  -  193 [phone] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles repriced transaction through wagmi and viem
+  -  201 [phone] › tests/e2e/renderer-sharing.spec.ts:18:3 › @anvil renderer sharing through memberships › shares a renderer from one membership to another
+  -  202 [phone] › tests/e2e/renderer-sharing.spec.ts:106:3 › @anvil renderer sharing through memberships › keeps the renderer address shareable when membership artwork fails
+  -  195 [phone] › tests/e2e/protocol-wallet-failures.spec.ts:61:3 › @protocol-fork membership handles insufficient asset through wagmi and viem
+  -  204 [phone] › tests/e2e/rpc-recovery.spec.ts:12:3 › configured Anvil RPC behavior › @anvil preserves the server snapshot during browser RPC loss
+  -  203 [phone] › tests/e2e/renderer-update.spec.ts:46:1 › @anvil lets the accepted owner preview and replace presentation without changing membership economics
+  ✓  205 [phone] › tests/e2e/supporter-account.spec.ts:6:1 › keeps account recovery focused on retrying discovery (600ms)
+  ✓  200 [phone] › tests/e2e/renderer-lab.spec.ts:345:1 › falls back to manual import when loopback is unavailable (650ms)
+  ✓  199 [phone] › tests/e2e/renderer-lab.spec.ts:252:1 › uses the optional loopback handoff without an account or source-image transfer (708ms)
+  ✓  206 [phone] › tests/e2e/supporter-account.spec.ts:29:1 › never turns an unavailable supporter read into balances or success (561ms)
+  ✓  174 [phone] › tests/e2e/direct-route.spec.ts:37:1 › renders complete creator setup while unavailable writes fail closed (1.4s)
+(node:45729) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45731) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:45733) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  198 [phone] › tests/e2e/renderer-lab.spec.ts:194:1 › imports, previews, and updates browser-held renderer work (1.2s)
+  ✓  207 [phone] › tests/e2e/supporter-account.spec.ts:42:1 › keeps the account route keyboard reachable, responsive, and accessible (757ms)
+(node:45736) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  197 [phone] › tests/e2e/renderer-entrypoints.spec.ts:4:1 › makes the renderer skill and preview route publicly discoverable (1.5s)
+(node:45749) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  160 [phone] › tests/e2e/create-tier.spec.ts:554:1 › rejects invalid split totals before signing without losing input (4.2s)
+  ✓  166 [phone] › tests/e2e/create-tier.spec.ts:508:1 › walks through defaults, arbitrary splits, risks, and immutable review (4.1s)
+  ✓  212 [webkit] › tests/e2e/renderer-lab.spec.ts:252:1 › uses the optional loopback handoff without an account or source-image transfer (1.2s)
+  ✓  213 [webkit] › tests/e2e/renderer-lab.spec.ts:345:1 › falls back to manual import when loopback is unavailable (1.1s)
+  ✓  211 [webkit] › tests/e2e/renderer-lab.spec.ts:194:1 › imports, previews, and updates browser-held renderer work (1.6s)
+  ✓  209 [firefox] › tests/e2e/renderer-lab.spec.ts:252:1 › uses the optional loopback handoff without an account or source-image transfer (1.3s)
+  ✓  208 [firefox] › tests/e2e/renderer-lab.spec.ts:194:1 › imports, previews, and updates browser-held renderer work (2.1s)
+  ✓  210 [firefox] › tests/e2e/renderer-lab.spec.ts:345:1 › falls back to manual import when loopback is unavailable (1.1s)
+
+  131 skipped
+  82 passed (30.7s)
+protocol-verify-20260907-r5: preflight
+protocol-verify-20260907-r5: contracts
+protocol-verify-20260907-r5: bootstrap
+protocol-verify-20260907-r5: launch-safe-checkpoint
+protocol-verify-20260907-r5: browser-fixture
+protocol-verify-20260907-r5: web-unit
+protocol-verify-20260907-r5: web-build
+Ready: http://127.0.0.1:3110/chains/31337/protocol | evidence: /Users/user/Development/backed-by-fans/specs/003-protocol-buyback-burn/evidence/protocol-verify-20260907-r5
+protocol-verify-20260907-r5: browser
+protocol-verify-20260907-r5: export-evidence
+protocol-verify-20260907-r5: verify-evidence
+protocol-verify-20260907-r5: passed; retained /Users/user/Development/backed-by-fans/specs/003-protocol-buyback-burn/evidence/protocol-verify-20260907-r5
+.cleanup: failed; retained /var/folders/7b/zb_l0ml96vqg87_fzj__vh0c0000gn/T/tmpre85sk6u/evidence
+cleanup: terminated; retained /var/folders/7b/zb_l0ml96vqg87_fzj__vh0c0000gn/T/tmpcr07f5h0/evidence
+......Requested scoped teardown of owned; evidence remains at /tmp/retained
+.
+----------------------------------------------------------------------
+Ran 8 tests in 0.021s
+
+OK
+Protocol fork CLI guards passed
+Local Backed By Fans verification passed. This is not public-pilot, audit, or deployment evidence.

@@ -1,0 +1,160 @@
+{
+  "retrievedAt": "2026-09-07",
+  "scope": "Unmodified official interface/type/encoding dependency closure. Not a deployed runtime match.",
+  "repositories": {
+    "universal-router": {
+      "url": "https://github.com/Uniswap/universal-router",
+      "revision": "fb25ff09c71dcfc13665e6c65788db737f29e0d4"
+    },
+    "v4-periphery": {
+      "url": "https://github.com/Uniswap/v4-periphery",
+      "revision": "07336f2144f522874e2c3c85e04d1d3f8d5fa471"
+    },
+    "v4-core": {
+      "url": "https://github.com/Uniswap/v4-core",
+      "revision": "59d3ecf53afa9264a16bba0e38f4c5d2231f80bc"
+    },
+    "permit2": {
+      "url": "https://github.com/Uniswap/permit2",
+      "revision": "cc56ad0f3439c502c246fc5cfcc3db92bb8b7219"
+    }
+  },
+  "files": [
+    {
+      "path": "permit2/LICENSE",
+      "sha256": "e0e163f93b3c53b5af417ba2395506ecc7c043b50481a15017f3a6b0875a5e78"
+    },
+    {
+      "path": "permit2/src/interfaces/IAllowanceTransfer.sol",
+      "sha256": "a31c712c5cc8d171818a4225c09011f9ba86b2d5edf6045ac812bab93b6bbb87"
+    },
+    {
+      "path": "permit2/src/interfaces/IEIP712.sol",
+      "sha256": "e386407da496dbe874c10a81801c55744fb2922a51389a51c79001422e81e0cd"
+    },
+    {
+      "path": "universal-router/LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "universal-router/contracts/interfaces/IUniversalRouter.sol",
+      "sha256": "33906458788ee04a4feaa3f0eee1ced1e55c9e8f38ad053418787920e8f0f535"
+    },
+    {
+      "path": "universal-router/contracts/libraries/Commands.sol",
+      "sha256": "23d1ff166c635843bfcc3ff1db510468786c8a056b35b3c741d772e7b08848c6"
+    },
+    {
+      "path": "v4-core/src/interfaces/IExtsload.sol",
+      "sha256": "9421ef4ba198d94058cd9a4c9fd2d663c61fc682f7dafa449a873456853f0025"
+    },
+    {
+      "path": "v4-core/src/interfaces/IExttload.sol",
+      "sha256": "c21643d2c7f48d2d2407438a64a3ff0f376324cf6a0c62608977713652308c9e"
+    },
+    {
+      "path": "v4-core/src/interfaces/IHooks.sol",
+      "sha256": "6eb35c9c598eb932e963219f1ff180748bc4c30ac6a02d924893b3c29abb1d73"
+    },
+    {
+      "path": "v4-core/src/interfaces/IPoolManager.sol",
+      "sha256": "a98405333567e4ab344489728014795721cf0071c151536377d2fcc986e0600c"
+    },
+    {
+      "path": "v4-core/src/interfaces/IProtocolFees.sol",
+      "sha256": "807d68adea106ec2aa51a8009155de09ebfe09e1ee7053d5a5ae448d7e840654"
+    },
+    {
+      "path": "v4-core/src/interfaces/external/IERC20Minimal.sol",
+      "sha256": "5e966a2d22b3b234a56af4b17e36bf7be90f9b29b1ddb6a15bfefc0b6dab4282"
+    },
+    {
+      "path": "v4-core/src/interfaces/external/IERC6909Claims.sol",
+      "sha256": "1cd65496c829036bc6aee67bc71363ab5fb6989c65e793087d0e1e2379f7d7d8"
+    },
+    {
+      "path": "v4-core/src/libraries/CustomRevert.sol",
+      "sha256": "9d3dbe6b742cb1ac30f57df89d879ade9649389de1165fc637114bd062d39fca"
+    },
+    {
+      "path": "v4-core/src/libraries/FixedPoint128.sol",
+      "sha256": "1ca2f55160697b73bd66fd27c8724d79a57108121ce1e8a0ab8b79f38bb58fbb"
+    },
+    {
+      "path": "v4-core/src/libraries/FullMath.sol",
+      "sha256": "a9607255a6fd604d9c92f6b7416811c38b9d86e5dfdb0c345a494ebd35f7a4a3"
+    },
+    {
+      "path": "v4-core/src/libraries/LiquidityMath.sol",
+      "sha256": "67a39e58732340af4870342ba9230691f35501d89ed8725ca1b338deaa0eb26a"
+    },
+    {
+      "path": "v4-core/src/libraries/Position.sol",
+      "sha256": "3dc4e2ad1564fa94eddf3ff06ce9ac592c9d578ea64ca194050382da454c8fcb"
+    },
+    {
+      "path": "v4-core/src/libraries/SafeCast.sol",
+      "sha256": "c1a815a41607be5b4c86ca588a951f368156da8ee21bdfc18b5d51b58a0f27be"
+    },
+    {
+      "path": "v4-core/src/libraries/StateLibrary.sol",
+      "sha256": "eebdbc1b6e431072ce5521b9e1b603d43831e3b6e062743e6665e070d5cf8a1a"
+    },
+    {
+      "path": "v4-core/src/types/BalanceDelta.sol",
+      "sha256": "320d9c13dec135c3903729e66d3a1040fe86d537a7ee53728915012ca183af32"
+    },
+    {
+      "path": "v4-core/src/types/BeforeSwapDelta.sol",
+      "sha256": "6aee06f1553e879f5909e8f4c0eac26ec23dd4821a7e56e4d5077db39a227e12"
+    },
+    {
+      "path": "v4-core/src/types/Currency.sol",
+      "sha256": "ba6726fd24fbc66848208dfbb2899116c10729c505e6e5552316ac2444f1dfc3"
+    },
+    {
+      "path": "v4-core/src/types/PoolId.sol",
+      "sha256": "548424ac50ad58212545da70207283fb8990731578c115c85d5acbcb0e1d3c9f"
+    },
+    {
+      "path": "v4-core/src/types/PoolKey.sol",
+      "sha256": "99e1afe285b5c614ebc9586ab5196db9d24a63fd924a449f5d99f490a6a6d6a9"
+    },
+    {
+      "path": "v4-core/src/types/PoolOperation.sol",
+      "sha256": "cf72ad0c3e5e91662029e862acd841fabce8753040b0d4e802dee64ef1157232"
+    },
+    {
+      "path": "v4-periphery/LICENSE",
+      "sha256": "66eb4bd7506d0a33cc953ed77c1fee2fe6a34d8c0ac40d4e852e6bfbf754f80e"
+    },
+    {
+      "path": "v4-periphery/src/interfaces/IImmutableState.sol",
+      "sha256": "86f06a1f388f91ee0185495cb5d2912d564f73fabb163b3767e9c292c5069276"
+    },
+    {
+      "path": "v4-periphery/src/interfaces/IMsgSender.sol",
+      "sha256": "cb96ee72c46755a67f9ca304df192365ae7c3923eaab9539f0ce74a88de10cf7"
+    },
+    {
+      "path": "v4-periphery/src/interfaces/IV4Quoter.sol",
+      "sha256": "93041b7c8ef2587b52c4e0aea6183924b26079f9d822c451cc01f7f2efab99c5"
+    },
+    {
+      "path": "v4-periphery/src/interfaces/IV4Router.sol",
+      "sha256": "a577e593bd1948ffcf9ce26964ae1e47bafcf6dffcd40baeb700bcb902367a53"
+    },
+    {
+      "path": "v4-periphery/src/libraries/ActionConstants.sol",
+      "sha256": "8e88393dd8b50b25b818e2f6c246aae5cfe63106b56b6e0609869e599c81ec79"
+    },
+    {
+      "path": "v4-periphery/src/libraries/Actions.sol",
+      "sha256": "c5f2579951a1d7ca38b6f417db330965875f02efa812a5a487773a51b116e33d"
+    },
+    {
+      "path": "v4-periphery/src/libraries/PathKey.sol",
+      "sha256": "0c00bae5a64829334a0b5d5541807faf7d18dff5a667cd74cadf9effaf5f0885"
+    }
+  ]
+}

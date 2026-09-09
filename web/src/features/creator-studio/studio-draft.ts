@@ -1,4 +1,8 @@
 import { getAddress, isAddress, type Address, type Hex } from "viem";
+import {
+  defaultCreatorForm,
+  type CreatorForm,
+} from "@/features/creator/config";
 
 import {
   artEngineNames,
@@ -11,10 +15,10 @@ import {
 } from "@/features/creator-studio/art-config";
 import { isNonZeroAddress, isSameAddress } from "@/lib/address";
 
-export const studioDraftVersion = 4;
+export const studioDraftVersion = 5;
 export const studioDraftKind = "backed-by-fans-creative-draft";
 export const maxUnsignedStudioDraftBytes = 16 * 1024;
-export const studioDraftAbiVersion = "onchain-art-image-only-2026-08-30";
+export const studioDraftAbiVersion = "protocol-allocation-2026-09-07";
 export const studioDraftRendererBoundsVersion =
   "direct-renderer-native-media-92160-2026-08-31";
 
@@ -32,6 +36,7 @@ export type StudioMediaDraft =
   { mode: "none" } | { mode: "native"; confirmedStore: Address | null };
 
 export type UnsignedStudioDraft = {
+  terms: CreatorForm;
   scope: StudioDraftScope;
   tierSalt: Hex;
   art: AnyStudioArtConfig;
@@ -43,6 +48,7 @@ type PersistedArtConfig = Omit<StudioArtConfig, "collectionSeed"> & {
 };
 
 type PersistedStudioDraft = {
+  terms: CreatorForm;
   kind: typeof studioDraftKind;
   version: typeof studioDraftVersion;
   scope: StudioDraftScope;
@@ -211,6 +217,17 @@ function validTierSalt(value: unknown): value is Hex {
   );
 }
 
+// Preserve unfinished edits, then run normal form validation after recovery.
+function validTerms(value: unknown): value is CreatorForm {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, Object.keys(defaultCreatorForm)) &&
+    Object.values(value).every(
+      (field) => typeof field === "string" && field.length <= 2048,
+    )
+  );
+}
+
 function parseEnvelope(serialized: string): UnsignedStudioDraft | undefined {
   let parsed: unknown;
   try {
@@ -219,7 +236,9 @@ function parseEnvelope(serialized: string): UnsignedStudioDraft | undefined {
     return undefined;
   }
   if (!isRecord(parsed)) return undefined;
-  if (!hasExactKeys(parsed, ["kind", "version", "scope", "creative"])) {
+  if (
+    !hasExactKeys(parsed, ["kind", "version", "scope", "creative", "terms"])
+  ) {
     return undefined;
   }
   if (
@@ -235,8 +254,9 @@ function parseEnvelope(serialized: string): UnsignedStudioDraft | undefined {
   if (!validTierSalt(parsed.creative.tierSalt)) return undefined;
   const art = parseArt(parsed.creative.art);
   const media = parseMedia(parsed.creative.media);
-  if (!art || !media) return undefined;
+  if (!art || !media || !validTerms(parsed.terms)) return undefined;
   return {
+    terms: parsed.terms,
     scope: {
       ...parsed.scope,
       factory: getAddress(parsed.scope.factory),
@@ -311,6 +331,8 @@ export function serializeUnsignedStudioDraft(
   draft: UnsignedStudioDraft,
 ): string {
   if (!validScope(draft.scope)) throw new Error("The draft scope is invalid.");
+  if (!validTerms(draft.terms))
+    throw new Error("The membership draft fields are invalid.");
   const artValidation = validateArtConfig(draft.art);
   if (!artValidation.valid) throw new Error(artValidation.errors.join(" "));
   const media = parseMedia(draft.media);
@@ -320,6 +342,7 @@ export function serializeUnsignedStudioDraft(
   }
 
   const persisted: PersistedStudioDraft = {
+    terms: draft.terms,
     kind: studioDraftKind,
     version: studioDraftVersion,
     scope: {

@@ -1,0 +1,1533 @@
+{
+  "schema": "bbf-policy-proposal-v1",
+  "digest": "0xdbf24b1fa05abe16466b806b6d1f389fd904e7840dd50e0f3962fc9670e85e98",
+  "snapshot": {
+    "chainId": 31337,
+    "blockNumber": "57055771",
+    "blockHash": "0xc060a3e97e840c1a420a8ba4cc0cbc492e49151eb31ccf75363266d15f20b4b2",
+    "timestamp": "1791418540",
+    "factory": "0x2CD744C9C4fC20B07608be63ca4541735C3239D4",
+    "vault": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+    "safe": "0xeEc21eFcA9aBC7F7DcBb753Bb66969426c14D81B",
+    "protocolToken": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+    "executor": "0x66B879d44e06daF4aaEA9b58C64905EAd25c927e",
+    "curve": "0x113f676b658DdF245498D5AAF6471262b6fa500d",
+    "factoryCodeHash": "0xb7d99db807a4d798fb8a3ba895643469639a865d0d7a4143c019550d44107d05",
+    "vaultCodeHash": "0x16830288209a558d73399ab8847f9c27815776e3d0256ba68ef8bb5b242aa8da",
+    "safeNonce": "15",
+    "owners": [
+      "0x8A53286142961ae2892296dacB26942449FDb668",
+      "0xc66671171d8902b7C08Ca2B4BD5ED9bDff6c13fb",
+      "0x2b88B9270341a77F10e1bEe90617E943C01B0cC9"
+    ],
+    "threshold": "2",
+    "lifecycle": 2,
+    "route": [],
+    "routeHash": "0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70"
+  },
+  "safeTransaction": {
+    "safeTxGas": "2000000",
+    "baseGas": "0",
+    "gasPrice": "0",
+    "gasToken": "0x0000000000000000000000000000000000000000",
+    "refundReceiver": "0x0000000000000000000000000000000000000000"
+  },
+  "asset": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "symbol": "ETH",
+    "decimals": 18,
+    "multiplierRaw": "1000000000000000000",
+    "newMultiplierRaw": "1000000000000000000",
+    "effectiveAtRaw": "0"
+  },
+  "currencies": [
+    {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "decimals": 18,
+      "multiplierRaw": "1000000000000000000",
+      "newMultiplierRaw": "1000000000000000000",
+      "effectiveAtRaw": "0"
+    },
+    {
+      "address": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+      "symbol": "BBFFORK",
+      "decimals": 18,
+      "multiplierRaw": "1000000000000000000",
+      "newMultiplierRaw": "1000000000000000000",
+      "effectiveAtRaw": "0"
+    }
+  ],
+  "settings": {
+    "historyWindowSeconds": 7200,
+    "sampleIntervalSeconds": 120,
+    "referenceMode": "history",
+    "maxDeviationBps": 100,
+    "maxImpactBps": 1000
+  },
+  "history": {
+    "observations": [
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055711",
+        "blockHash": "0x9f64a9598411810db8bc167f8456f7510616c5b4bb8991e9d8721ae9d74d3464",
+        "timestamp": "1791411340",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055712",
+        "blockHash": "0x99950e4e58782a399e1c28581349758e0b2d2b9361a73a5487f4e8f06cfcb177",
+        "timestamp": "1791411460",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055713",
+        "blockHash": "0x156afe82a1d1ca8286b1cb6bdaf882802d29de637541568d32e16672add32875",
+        "timestamp": "1791411580",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055714",
+        "blockHash": "0xcd60e7a3e6c7479e172572e26ceac8e4e922dd60539ba31b3a59819437289a61",
+        "timestamp": "1791411700",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055715",
+        "blockHash": "0x0513719d426e860f0fe78f82a862f74663923223c47948bbc867ab40364d3174",
+        "timestamp": "1791411820",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055716",
+        "blockHash": "0x202cd42e0e0a8a6a0035631b410b604e50997fa2fa7d2d18e2ef5316e5afac3e",
+        "timestamp": "1791411940",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055717",
+        "blockHash": "0x70cae3ea43b6ba55e8b6d90dcbecb6a27873f45b903b343568de7f8971d6472c",
+        "timestamp": "1791412060",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055718",
+        "blockHash": "0xb996d134a30395961d5829f15ac2b015fd94ce0cbe129e7c4401730b34c4e8a4",
+        "timestamp": "1791412180",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055719",
+        "blockHash": "0xa7d886494122f72c4e7b05aa92f8be0228eed48815db1f2e8b43a6a3aeb386f2",
+        "timestamp": "1791412300",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055720",
+        "blockHash": "0xde05e3234c09be983452b178b57f736846e85d9e9ea13f82cc2a05db34c49aaa",
+        "timestamp": "1791412420",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055721",
+        "blockHash": "0xc43ba9174251b6beca7f13421182b1f9b651507d38bfc0a93e22f4842c13fe39",
+        "timestamp": "1791412540",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055722",
+        "blockHash": "0x3e78d8b1e1754bc2abb8d7b51ad475525698b7ca658e901a72d4f04c40760d62",
+        "timestamp": "1791412660",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055723",
+        "blockHash": "0x7957e4353d3689b1da1bfd83454a3d6022b940b347a2e02570b635a63fc1e29d",
+        "timestamp": "1791412780",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055724",
+        "blockHash": "0x866a896d0cb116b2c5170b9c7aad2565fd4acaf38ca261a4da6f859b39f6ee6a",
+        "timestamp": "1791412900",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055725",
+        "blockHash": "0xc3079f181cb1eebae21b9be01f485a7b6de07713f5865f7b25192ad260f1186b",
+        "timestamp": "1791413020",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055726",
+        "blockHash": "0x54b3694bf9f84ed71a5466a291f42b1028b0d3da597d16e378167e40b981ec41",
+        "timestamp": "1791413140",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055727",
+        "blockHash": "0x7cac6a18da3e81764aac8ea109a4fbc68fa38f92ef08eb0eb93c3de6b71cdf65",
+        "timestamp": "1791413260",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055728",
+        "blockHash": "0x61bcfa12e04f8b18ace34adf80a9097208860fe50f21eff1ee9a761174bb9704",
+        "timestamp": "1791413380",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055729",
+        "blockHash": "0xcb9e94f27aeeefd64422322890e3d63b147431b1dec877f4df6f9c8406e6ad4f",
+        "timestamp": "1791413500",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055730",
+        "blockHash": "0x85c58df1d1fcabf7e99e7dcb14493814e970d68398690af150cc515c1ecb791c",
+        "timestamp": "1791413620",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055731",
+        "blockHash": "0xebd47a38acfaeb9c92b0e2d59f5bca681580140af40da08f82cb43969fc0888c",
+        "timestamp": "1791413740",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055732",
+        "blockHash": "0x2235bb1a6349f82a81d874dd892bd44fd75100bf0270beb79ba2c4863e8975de",
+        "timestamp": "1791413860",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055733",
+        "blockHash": "0x943ff09272fda088fd1421eb47d7eed910b78d4b809380e11165fade19897032",
+        "timestamp": "1791413980",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055734",
+        "blockHash": "0x83b7149282898b00d30ac255f5a52704989abee6c68c5afa4ff9c8b4b2799557",
+        "timestamp": "1791414100",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055735",
+        "blockHash": "0x0367307b73fe882d1346b414a975e088e8451acca90ffeee85df1bc9339bc321",
+        "timestamp": "1791414220",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055736",
+        "blockHash": "0x598b1a1bb7ba1dde756a561821f1731365c2975933319e1f5bfced4bb619c077",
+        "timestamp": "1791414340",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055737",
+        "blockHash": "0xc7fb14be48993f47c6e2c62ddb2fa456a1d59e611ed53911a906d66c2e1aaf72",
+        "timestamp": "1791414460",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055738",
+        "blockHash": "0x21588277f631c458bf4c32098ea07a28fe0d0d615cc051803f3e22caa2421807",
+        "timestamp": "1791414580",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055739",
+        "blockHash": "0xe821afe304edbda164622c66f4cf228f63c4eb8086a46e0769b6ae62b1907e0a",
+        "timestamp": "1791414700",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055740",
+        "blockHash": "0x9cadee9f2c26a35c17a7fa877b90a1ade39e3f596b6f00010cb020328d4722f7",
+        "timestamp": "1791414820",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055741",
+        "blockHash": "0x10589dca3fdf4e0ebe1227706c0da7162e6fc2a858161b894162177883de718f",
+        "timestamp": "1791414940",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055742",
+        "blockHash": "0xcb95e990d229fa41a98f551f13ba4b79e63e46ce2089f95035025cbef71d56fe",
+        "timestamp": "1791415060",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055743",
+        "blockHash": "0xa5cb954993b3bb75fdaabc2694d30dcd436657386dfb048793f40937c97c399f",
+        "timestamp": "1791415180",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055744",
+        "blockHash": "0x890cae3edea2b88996929a3f11645c62a4f45897bb55d3ad07b9e706cf05d632",
+        "timestamp": "1791415300",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055745",
+        "blockHash": "0x8ef9aab8c5b281affb8705c33fd329e249be20f4481712ddd0b743990788e2de",
+        "timestamp": "1791415420",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055746",
+        "blockHash": "0xea5dc8ac6c3dd88ce8b120ef867b89df0b88ff25c4ff279981d60876a676ec20",
+        "timestamp": "1791415540",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055747",
+        "blockHash": "0x120b0c1741c1872c88d57b7f42ec2dc6e56d22db69bbc5eede44214d084a09c1",
+        "timestamp": "1791415660",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055748",
+        "blockHash": "0xd73c15c3154d6f3c2abad91dcdeef05e99fb89b7923085eeff42f74bd8c1f4e4",
+        "timestamp": "1791415780",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055749",
+        "blockHash": "0x389dce01ccc84b8aa40ba4583f92659c905ccfd72121ab62e12e9686f44ca4af",
+        "timestamp": "1791415900",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055750",
+        "blockHash": "0xb4581d022ba2dfdef812c9c079d329aa55bb6bef41b6bbf8948c2e451ba22c81",
+        "timestamp": "1791416020",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055751",
+        "blockHash": "0xd58938dacfed1b297827ae9e45a37b89a930d7584e5e339d11f22efa3efe9467",
+        "timestamp": "1791416140",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055752",
+        "blockHash": "0x957dce0a855818a7cbd041f4ee998e6d24f280a47f7c88673578b6ba30805e45",
+        "timestamp": "1791416260",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055753",
+        "blockHash": "0x8c71c2c03dfdeaa3bd5bb4b99824450349d2fd633ad2dc4c32e53830d49f818f",
+        "timestamp": "1791416380",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055754",
+        "blockHash": "0x2233a98a69933c285f47966f4a7b3970d3ef540af44376304ef052a2a6b2f788",
+        "timestamp": "1791416500",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055755",
+        "blockHash": "0x3df28202a3d60d0fe2a3e53a61b3aaceb1d288660ec6d2531bd200f95a574a9b",
+        "timestamp": "1791416620",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055756",
+        "blockHash": "0x4a5e353351992d12b5ceff029cbed85884f014dc1ad22e33b074c14f5c976e44",
+        "timestamp": "1791416740",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055757",
+        "blockHash": "0x06cd437279299b1f07b5931d41b2d35c01ca5db1a4541fe5d00db766acf5502a",
+        "timestamp": "1791416860",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055758",
+        "blockHash": "0x3574a504bbf3c0bc11839401b2ded96a0ff1acd49fe53f3638e7165f7613fa2d",
+        "timestamp": "1791416980",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055759",
+        "blockHash": "0x92a1ca1cc5006c068821892e587d2f4bf312ac9326fd09a49ed5cd1741c41807",
+        "timestamp": "1791417100",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055760",
+        "blockHash": "0x1c4b426d06649ee0ec912a9a80af7f8bab79c36d4367637ee05c483cb37bfae6",
+        "timestamp": "1791417220",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055761",
+        "blockHash": "0xfe787668e6354b010b539289819d47ef411e68b4cc6036cdc17c7f4f8fa0a5d8",
+        "timestamp": "1791417340",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055762",
+        "blockHash": "0xcdd82a0dc8cd740553b910023c44b095f8c32a7472eda75d23f6f7dfcbb9c2f4",
+        "timestamp": "1791417460",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055763",
+        "blockHash": "0x20a70c2d29ef0121a6d8577dfe7662afd0e98cd682016dac33ddf76e782c0b5c",
+        "timestamp": "1791417580",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055764",
+        "blockHash": "0x9127967c63b67ea96839b208fafdf5475f2464dd8c59a1542e39dc66edcc38aa",
+        "timestamp": "1791417700",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055765",
+        "blockHash": "0xd3e9e3338fd8c70e6c2e384c46f20907cf43962998998e52af9aeb04c310eb82",
+        "timestamp": "1791417820",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055766",
+        "blockHash": "0x0b1757d327c239c422ee754500f4b82a6f4c312067ba18d95dc4092d5f5fedca",
+        "timestamp": "1791417940",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055767",
+        "blockHash": "0x87d080b8e795b4469cb19d714dc48c2538303bc3b6898fbdd9a2701f146d8a43",
+        "timestamp": "1791418060",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055768",
+        "blockHash": "0x62c06ec4ab37dade9ec5671b73120f2a7bbe0edd6ef370f91f62db401647a937",
+        "timestamp": "1791418180",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055769",
+        "blockHash": "0x094028683a1f66af9ba7a5f26bf18f65eeff0e39b1fdb17db549d7d503458937",
+        "timestamp": "1791418300",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055770",
+        "blockHash": "0x244bf3d2fdc955fa2708bafe7e44b1f06b3309e54f3efe8f49380a64ddc3bbac",
+        "timestamp": "1791418420",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055771",
+        "blockHash": "0xc060a3e97e840c1a420a8ba4cc0cbc492e49151eb31ccf75363266d15f20b4b2",
+        "timestamp": "1791418540",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      },
+      {
+        "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "blockNumber": "57055771",
+        "blockHash": "0xc060a3e97e840c1a420a8ba4cc0cbc492e49151eb31ccf75363266d15f20b4b2",
+        "timestamp": "1791418540",
+        "rates": [
+          {
+            "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+            "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+          }
+        ]
+      }
+    ],
+    "scope": "{\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+    "samples": 62,
+    "startTimestamp": "1791411340",
+    "endTimestamp": "1791418540",
+    "referenceRates": [
+      {
+        "numeratorRaw": "305009802496923263445127345884662796872116295037308486083875865441",
+        "denominatorRaw": "6277101735386680763835789423207666416102355444464034512896"
+      }
+    ]
+  },
+  "actions": [
+    {
+      "asset": "0x0000000000000000000000000000000000000000",
+      "expectedRevisionRaw": "3",
+      "expectedSafeNonceRaw": "15",
+      "policy": {
+        "validAfterRaw": "1791418540",
+        "validUntilRaw": "1791504940",
+        "batchCapRaw": "100000000000",
+        "totalBudgetRaw": "300000000000",
+        "rates": [
+          {
+            "numeratorRaw": "2405247756143274999",
+            "denominatorRaw": "50000000000",
+            "toleranceBps": 100
+          }
+        ]
+      },
+      "evidence": {
+        "reference": "Sampled time-weighted reference at block 57055771 (0xc060a3e97e840c1a420a8ba4cc0cbc492e49151eb31ccf75363266d15f20b4b2); scope {\"asset\":\"0x0000000000000000000000000000000000000000\",\"chainId\":31337,\"factory\":\"0x2cd744c9c4fc20b07608be63ca4541735c3239d4\",\"lifecycle\":2,\"routeHash\":\"0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70\",\"vault\":\"0xc7a9a1804dc4f0bf8662e06ab295e6325775783f\"}",
+        "rationale": "Owner-reviewed finite authorization. 7200s window, 120s samples; maximum reference deviation 100 bps and combined fees/impact 1000 bps. Reference is not independent fair value."
+      },
+      "to": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+      "data": "0xdbcb6aa400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000006ac6e0ac000000000000000000000000000000000000000000000000000000006ac8322c000000000000000000000000000000000000000000000000000000174876e80000000000000000000000000000000000000000000000000000000045d964b80000000000000000000000000000000000000000000000000000000000000000c0948f7c0c1672ae90e3ea1cb5279168655846685a8a7a293df7142ec849bd64fc00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000002161281735b9abf70000000000000000000000000000000000000000000000000000000ba43b74000000000000000000000000000000000000000000000000000000000000000064",
+      "value": "0",
+      "operation": 0
+    }
+  ],
+  "steps": [
+    {
+      "kind": "accrue",
+      "description": "Checkpoint currently earned fees"
+    },
+    {
+      "kind": "release",
+      "description": "Release earned fees to the vault"
+    },
+    {
+      "kind": "process",
+      "description": "Process membership inventory before donations within the approved budget"
+    }
+  ],
+  "quote": {
+    "legs": [
+      {
+        "input": "0x0000000000000000000000000000000000000000",
+        "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+        "inputRaw": "100000000000",
+        "outputRaw": "4810495512286549998",
+        "minimumOutputRaw": "4762390557163684499",
+        "referenceDeviationBps": "0",
+        "executionDragBps": "101"
+      }
+    ],
+    "expectedBurnRaw": "4810495512286549998",
+    "note": "Single batch quote, not an aggregate backlog projection. Execution drag combines trading fees and price impact. Rehearse for sequential market effects."
+  },
+  "inventory": {
+    "membershipRaw": "0",
+    "donationRaw": "300000000000",
+    "earnedHeldRaw": "0",
+    "futureCommittedRaw": "0",
+    "oldBudgetRaw": "300000000000",
+    "oldSpentRaw": "0",
+    "projectedBatchCount": "3",
+    "remainingReleasedRaw": "0"
+  },
+  "warnings": [
+    "Policy replacement grants a fresh finite budget; this is not a rolling daily allowance.",
+    "Permissionless callers may execute eligible batches in a different order or sooner than this projection.",
+    "Current contracts do not invalidate this policy if the launch graduates after submission.",
+    "Sampled prices cannot guarantee fair value or prevent sustained manipulation."
+  ],
+  "rehearsal": {
+    "status": "passed",
+    "proposalDigest": "0xdbf24b1fa05abe16466b806b6d1f389fd904e7840dd50e0f3962fc9670e85e98",
+    "sourceBlock": "57055771",
+    "summary": "Selected backlog processed within the reviewed policy",
+    "authorization": "Impersonated Safe on disposable child only; not proof of owner signatures or Safe execution gas",
+    "assumptions": [
+      "No unrelated trading",
+      "One second of child chain time per rehearsal transaction",
+      "Child funds and relaxed gas/code limits are simulation allowances, not public execution guarantees"
+    ],
+    "actions": [
+      {
+        "action": "setPolicy",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0xe5d93e6d8681eb49a444ef6bb61ee43dd7350c5eec49a7bb7acfdda2ef580209",
+        "blockNumber": "57055772",
+        "gasUsedRaw": "76852",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      },
+      {
+        "action": "process",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0x2a3c9a57f789bf793bccfb2d7caa432540a839e753b24395e800867a617e70a8",
+        "blockNumber": "57055773",
+        "gasUsedRaw": "490986",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      },
+      {
+        "action": "process",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0x29dd592b83abf0c461ede59efaec63a5ee9cb9945505b5ddc0fb9aceb80efad4",
+        "blockNumber": "57055774",
+        "gasUsedRaw": "337086",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      },
+      {
+        "action": "process",
+        "target": "0xc7a9a1804dc4f0BF8662E06AB295E6325775783f",
+        "hash": "0x41a4d85427dfaebcc37763a44b5cdb107130be4ed88450c90a3783d67920b9ea",
+        "blockNumber": "57055775",
+        "gasUsedRaw": "332286",
+        "effectiveGasPriceRaw": "1000000007",
+        "status": "success"
+      }
+    ],
+    "batches": [
+      {
+        "bucket": 1,
+        "requestedInputRaw": "100000000000",
+        "actualInputRaw": "100000000000",
+        "burnedRaw": "4810495512286549998",
+        "partialFill": false,
+        "hash": "0x2a3c9a57f789bf793bccfb2d7caa432540a839e753b24395e800867a617e70a8",
+        "gasUsedRaw": "490986",
+        "marginalRateChanges": [
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "before": {
+              "numerator": "305009802496923263445127345884662796872116295037308486083875865441",
+              "denominator": "6277101735386680763835789423207666416102355444464034512896"
+            },
+            "after": {
+              "numerator": "305009787972647472791966532408376189655084942450075904571940540401",
+              "denominator": "6277101735386680763835789423207666416102355444464034512896"
+            },
+            "changeBps": "-0.000476",
+            "exactChangeBpsNumeratorRaw": "-911703567707437105823974386208150805819087804831757870481048923480303806326923408835597486884443050415251918317158400000",
+            "exactChangeBpsDenominatorRaw": "1914577560563385772540184499711561549065463384618282046641872594978730450300059875996927590938415330390916342623644875227136"
+          }
+        ],
+        "before": {
+          "blockNumber": "57055772",
+          "timestamp": "1791418541",
+          "totalSupply": "1000000000000000000000000000",
+          "inventory": [
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "300000000000",
+                  "totalReceived": "300000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 2,
+            "legs": [
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "305009802496923263445127345884662796872116295037308486083875865441",
+                  "denominator": "6277101735386680763835789423207666416102355444464034512896"
+                }
+              }
+            ]
+          }
+        },
+        "after": {
+          "blockNumber": "57055773",
+          "timestamp": "1791418542",
+          "totalSupply": "999999995189504487713450002",
+          "inventory": [
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "200000000000",
+                  "totalReceived": "300000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "100000000000",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "4810495512286549998",
+                  "totalSpent": "4810495512286549998",
+                  "totalBurned": "4810495512286549998"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 2,
+            "legs": [
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "305009787972647472791966532408376189655084942450075904571940540401",
+                  "denominator": "6277101735386680763835789423207666416102355444464034512896"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "bucket": 1,
+        "requestedInputRaw": "100000000000",
+        "actualInputRaw": "100000000000",
+        "burnedRaw": "4810495283215346035",
+        "partialFill": false,
+        "hash": "0x29dd592b83abf0c461ede59efaec63a5ee9cb9945505b5ddc0fb9aceb80efad4",
+        "gasUsedRaw": "337086",
+        "marginalRateChanges": [
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "before": {
+              "numerator": "305009787972647472791966532408376189655084942450075904571940540401",
+              "denominator": "6277101735386680763835789423207666416102355444464034512896"
+            },
+            "after": {
+              "numerator": "4765777710130823743547105109411990049442783107938049144759988641",
+              "denominator": "98079714615416886934934209737619787751599303819750539264"
+            },
+            "changeBps": "-0.000476",
+            "exactChangeBpsNumeratorRaw": "-14245367227902462100630562978464662815621992396944483214479212590107438912927781713780941470877980792558064007905280000",
+            "exactChangeBpsDenominatorRaw": "29915272959266078153069904958033170753912231292335961929157586669903720347963738176634167302791666280415801579663328804864"
+          }
+        ],
+        "before": {
+          "blockNumber": "57055773",
+          "timestamp": "1791418542",
+          "totalSupply": "999999995189504487713450002",
+          "inventory": [
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "200000000000",
+                  "totalReceived": "300000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "100000000000",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "4810495512286549998",
+                  "totalSpent": "4810495512286549998",
+                  "totalBurned": "4810495512286549998"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 2,
+            "legs": [
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "305009787972647472791966532408376189655084942450075904571940540401",
+                  "denominator": "6277101735386680763835789423207666416102355444464034512896"
+                }
+              }
+            ]
+          }
+        },
+        "after": {
+          "blockNumber": "57055774",
+          "timestamp": "1791418543",
+          "totalSupply": "999999990379009204498103967",
+          "inventory": [
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "100000000000",
+                  "totalReceived": "300000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "200000000000",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "9620990795501896033",
+                  "totalSpent": "9620990795501896033",
+                  "totalBurned": "9620990795501896033"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 2,
+            "legs": [
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "4765777710130823743547105109411990049442783107938049144759988641",
+                  "denominator": "98079714615416886934934209737619787751599303819750539264"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "bucket": 1,
+        "requestedInputRaw": "100000000000",
+        "actualInputRaw": "100000000000",
+        "burnedRaw": "4810495054144158434",
+        "partialFill": false,
+        "hash": "0x41a4d85427dfaebcc37763a44b5cdb107130be4ed88450c90a3783d67920b9ea",
+        "gasUsedRaw": "332286",
+        "marginalRateChanges": [
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "before": {
+              "numerator": "4765777710130823743547105109411990049442783107938049144759988641",
+              "denominator": "98079714615416886934934209737619787751599303819750539264"
+            },
+            "after": {
+              "numerator": "76252439731024750957543281270883992916059250058659418981131322025",
+              "denominator": "1569275433846670190958947355801916604025588861116008628224"
+            },
+            "changeBps": "-0.000476",
+            "exactChangeBpsNumeratorRaw": "-3561341552594079082503664485986740058243938877518169778694187346734502966482742484431007169950005633351692415139840000",
+            "exactChangeBpsDenominatorRaw": "7478817883682338840705923723744218226861487432534180558677316305495615334304961720963998981174379798154430580964232003584"
+          }
+        ],
+        "before": {
+          "blockNumber": "57055774",
+          "timestamp": "1791418543",
+          "totalSupply": "999999990379009204498103967",
+          "inventory": [
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "100000000000",
+                  "totalReceived": "300000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "200000000000",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "9620990795501896033",
+                  "totalSpent": "9620990795501896033",
+                  "totalBurned": "9620990795501896033"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 2,
+            "legs": [
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "4765777710130823743547105109411990049442783107938049144759988641",
+                  "denominator": "98079714615416886934934209737619787751599303819750539264"
+                }
+              }
+            ]
+          }
+        },
+        "after": {
+          "blockNumber": "57055775",
+          "timestamp": "1791418544",
+          "totalSupply": "999999985568514150353945533",
+          "inventory": [
+            {
+              "asset": "0x0000000000000000000000000000000000000000",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "300000000000",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "300000000000",
+                  "totalBurned": "0"
+                }
+              ]
+            },
+            {
+              "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+              "buckets": [
+                {
+                  "bucket": 0,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "0",
+                  "totalSpent": "0",
+                  "totalBurned": "0"
+                },
+                {
+                  "bucket": 1,
+                  "available": "0",
+                  "totalReceived": "0",
+                  "totalConvertedIn": "14431485849646054467",
+                  "totalSpent": "14431485849646054467",
+                  "totalBurned": "14431485849646054467"
+                }
+              ]
+            }
+          ],
+          "market": {
+            "lifecycle": 2,
+            "legs": [
+              {
+                "input": "0x0000000000000000000000000000000000000000",
+                "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+                "marginal": {
+                  "numerator": "76252439731024750957543281270883992916059250058659418981131322025",
+                  "denominator": "1569275433846670190958947355801916604025588861116008628224"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "starting": {
+      "blockNumber": "57055771",
+      "timestamp": "1791418540",
+      "totalSupply": "1000000000000000000000000000",
+      "inventory": [
+        {
+          "asset": "0x0000000000000000000000000000000000000000",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "300000000000",
+              "totalReceived": "300000000000",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        },
+        {
+          "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            }
+          ]
+        }
+      ],
+      "market": {
+        "lifecycle": 2,
+        "legs": [
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "marginal": {
+              "numerator": "305009802496923263445127345884662796872116295037308486083875865441",
+              "denominator": "6277101735386680763835789423207666416102355444464034512896"
+            }
+          }
+        ]
+      }
+    },
+    "ending": {
+      "blockNumber": "57055775",
+      "timestamp": "1791418544",
+      "totalSupply": "999999985568514150353945533",
+      "inventory": [
+        {
+          "asset": "0x0000000000000000000000000000000000000000",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "300000000000",
+              "totalConvertedIn": "0",
+              "totalSpent": "300000000000",
+              "totalBurned": "0"
+            }
+          ]
+        },
+        {
+          "asset": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+          "buckets": [
+            {
+              "bucket": 0,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "0",
+              "totalSpent": "0",
+              "totalBurned": "0"
+            },
+            {
+              "bucket": 1,
+              "available": "0",
+              "totalReceived": "0",
+              "totalConvertedIn": "14431485849646054467",
+              "totalSpent": "14431485849646054467",
+              "totalBurned": "14431485849646054467"
+            }
+          ]
+        }
+      ],
+      "market": {
+        "lifecycle": 2,
+        "legs": [
+          {
+            "input": "0x0000000000000000000000000000000000000000",
+            "output": "0xBf6Cc22553D5861Bc581729e055c69070e02f911",
+            "marginal": {
+              "numerator": "76252439731024750957543281270883992916059250058659418981131322025",
+              "denominator": "1569275433846670190958947355801916604025588861116008628224"
+            }
+          }
+        ]
+      }
+    },
+    "totalGasUsedRaw": "1237210",
+    "burnedRaw": "14431485849646054467",
+    "feeEstimate": {
+      "sourceChainId": 31337,
+      "sourceGasPriceRaw": "1000000007",
+      "estimatedFeeAtSourceGasPriceRaw": "1237210008660470",
+      "note": "Measured child gas multiplied by the source RPC gas price at rehearsal start. Local-fork gas price is not a public-network fee estimate. Excludes Safe signature/execution overhead and any additional chain-specific fees; actual fees may change."
+    }
+  }
+}

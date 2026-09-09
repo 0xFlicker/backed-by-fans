@@ -1,5 +1,7 @@
 "use client";
 
+import { readRefundFunding } from "@/features/creator/management-read";
+
 import { useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
@@ -110,6 +112,8 @@ function ManagementControls({
     tokenId: bigint;
     recipient: Address;
     gross: bigint;
+    protocol: bigint;
+    creator: bigint;
     topUp: bigint;
   }>();
   const refundPreviewVersion = useRef(0);
@@ -413,11 +417,9 @@ function ManagementControls({
       }
       const previewBlock = refreshed.capturedBlock;
       const [refund, recipient] = await Promise.all([
-        client.readContract({
-          address: snapshot.address,
-          abi: membershipTierAbi,
-          functionName: "previewRefund",
-          args: [tokenId],
+        readRefundFunding(client, {
+          tier: snapshot.address,
+          tokenId,
           blockNumber: previewBlock,
         }),
         client.readContract({
@@ -433,8 +435,7 @@ function ManagementControls({
         capturedBlock: previewBlock,
         tokenId,
         recipient,
-        gross: refund[0],
-        topUp: refund[1],
+        ...refund,
       });
     } catch (error) {
       if (version !== refundPreviewVersion.current) return;
@@ -886,8 +887,10 @@ function ManagementControls({
               <p className="eyebrow">Gross refund</p>
               <h2>Preview before any top-up</h2>
               <p>
-                Refunds always pay the membership token owner. Protocol, reward,
-                and referral allocations are never clawed back.
+                Refunds pay the membership token owner from unused protocol
+                reserves, then creator proceeds, then your bounded top-up.
+                Earned protocol fees, rewards and referrals are never clawed
+                back.
               </p>
               <p className="small-copy">
                 Pause the tier and wait for confirmation before previewing. A
@@ -929,6 +932,14 @@ function ManagementControls({
                 <div>
                   <dt>Exact owner top-up</dt>
                   <dd>{paymentLabel(currentRefundPreview.topUp)}</dd>
+                </div>
+                <div>
+                  <dt>Unearned protocol reserve</dt>
+                  <dd>{paymentLabel(currentRefundPreview.protocol)}</dd>
+                </div>
+                <div>
+                  <dt>Creator proceeds used</dt>
+                  <dd>{paymentLabel(currentRefundPreview.creator)}</dd>
                 </div>
               </dl>
             )}

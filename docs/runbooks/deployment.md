@@ -1,13 +1,23 @@
 # Robinhood public deployment runbook
 
-Status: **replacement testnet deployment promoted.** The active deployment adds six external
-payment tokens and owner-mutable tier renderers. Mainnet remains inspection-only and is not
-authorized by this runbook.
+Current candidate: **memberships before protocol-token launch**. Prepare with an
+explicit zero token; fees accrue and may be collected into the vault, while purchases
+remain unavailable. The existing promoted testnet deployment stays active until a
+separately authorized broadcast and website cutover.
 
-Fast-follow status: the promoted factory predates expired-membership synchronization and reward
-suspension. It is not the mainnet candidate. A new replacement factory, pilot tiers, canonical
-website cutover, and public pilot require separate deployment approval after this change is
-reviewed; this worktree does not authorize or record that deployment.
+From `contracts/`, after committing the release source:
+
+```sh
+PROTOCOL_TOKEN_ADDRESS=0x0000000000000000000000000000000000000000 \
+  ./scripts/deploy-protocol.sh testnet prepare
+```
+
+Review and commit `contracts/config/operational-state/46630.json` before `dry-run`
+or `broadcast`. Preparation validates live dependencies and generates addresses;
+it does not submit transactions. Keep the existing testnet Safe and its 1-of-1
+owner unless a separate ownership change is approved. Later token activation is
+one-time and requires valid Pons dependencies on that chain; no testnet Pons
+installation is supplied by this deployment.
 
 ## Release boundary
 
@@ -32,8 +42,7 @@ There is no Backed By Fans test USDG deployment or mint path. Mainnet's only con
 Paxos USDG at `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`; revalidate it before any future
 mainnet decision.
 
-The approved deployer is `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027`. The protocol owner and
-fee recipient are the Safe at `0xeAA4B38A99f766117C1D493a21012fec25f70505`. The canonical CREATE2
+The approved deployer is `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027`. The protocol owner is the Safe at `0xeAA4B38A99f766117C1D493a21012fec25f70505`. The canonical CREATE2
 deployer is `0x4e59b44847b379578588920cA78FbF26c0B4956C`.
 
 ## Deployment graph
@@ -51,7 +60,7 @@ validated and reused the already-correct preview harness at
 not a redundant fourth deployment.
 
 The factory constructor receives the ordered initial token list, media-store factory, protocol
-owner, and fee recipient. The default renderer and preview harness are separate direct contracts.
+owner, and protocol token (zero for deferred launch). The default renderer and preview harness are separate direct contracts.
 Every initial token must be listed and enabled after deployment.
 
 Published tiers store immutable payment-token and raw-price terms. Their current owner may change
@@ -80,12 +89,13 @@ When protocol bytecode changes, generate the replacement component addresses and
 before running the strict release gates:
 
 ```sh
-./scripts/deploy-protocol.sh testnet prepare
+PROTOCOL_TOKEN_ADDRESS=0x0000000000000000000000000000000000000000 \
+  ./scripts/deploy-protocol.sh testnet prepare
 git diff -- contracts/config/operational-state/46630.json
 ```
 
-`prepare` reads the committed operational state, preserves its payment tokens, Safe, owner, pending
-owner, and fee recipient, and atomically replaces only the four deterministic component records. It
+`prepare` reads the committed operational state, preserves its payment tokens, Safe, owner and pending
+owner, and writes the explicit protocol token plus the four deterministic component records. It
 performs build, Solidity-plan parity, public-chain identity, dependency, and runtime checks without
 starting Anvil, loading a signing account, writing a recovery journal, generating web bindings, or
 submitting a transaction. Review and commit the generated manifest with the release source before
@@ -125,7 +135,7 @@ candidate graph. It must confirm:
 
 - the exact six manifest tokens, in order, are listed and enabled;
 - all four runtimes and the tier deployer have code;
-- factory owner, pending owner, fee recipient, media dependency, renderer schema, and tier-deployer
+- factory owner, pending owner, protocol token, media dependency, renderer schema, and tier-deployer
   binding match the reviewed operational state; and
 - every payload remains below the Robinhood initcode/runtime and Nitro transaction-data limits.
 
@@ -199,19 +209,16 @@ Writes print reviewed Safe transaction JSON by default:
 ```sh
 ./scripts/manage-payment-tokens.sh testnet enable 0xTOKEN safe
 ./scripts/manage-payment-tokens.sh testnet disable 0xTOKEN safe
-./scripts/manage-payment-tokens.sh testnet withdraw 0xTOKEN safe
 ```
 
 Direct encrypted-account submission is allowed only if that account is the factory's current owner
-for enable/disable, or the current fee recipient for withdrawal. The invoking process must also
+for enable/disable. The buyback vault has no fee withdrawal path. The invoking process must also
 supply the exact chain confirmation:
 
 ```sh
 CONFIRM_PAYMENT_TOKEN_WRITE=46630 \
   ./scripts/manage-payment-tokens.sh testnet enable 0xTOKEN submit
 
-CONFIRM_PAYMENT_TOKEN_WRITE=46630 \
-  ./scripts/manage-payment-tokens.sh testnet withdraw 0xTOKEN submit
 ```
 
 Enabling a previously unlisted token first checks code, ERC-20 metadata, and coherent ERC-8056 core

@@ -72,6 +72,8 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function paymentToken() external view returns (IERC20);
 
+    function buybackVault() external view returns (address);
+
     function renderer() external view returns (address);
 
     function tierIdentity() external view returns (bytes32);
@@ -88,7 +90,59 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function referralBps() external view returns (uint16);
 
-    function protocolFeeBps() external pure returns (uint16);
+    function protocolFeeBps() external view returns (uint16);
+
+    event ProtocolFeeAllocated(
+        uint256 indexed tokenId,
+        uint256 indexed generation,
+        uint256 lotIndex,
+        address asset,
+        uint256 amount,
+        uint256 startPaid,
+        uint256 endPaid
+    );
+
+    function protocolFeeHoldings() external view returns (uint256);
+
+    event ProtocolFeesAccrued(
+        uint256 indexed tokenId,
+        uint256 indexed generation,
+        uint256 amount,
+        uint256 cumulativeEarned
+    );
+    event ProtocolFeesReleased(address indexed vault, address indexed asset, uint256 amount);
+    event RefundFunded(
+        uint256 indexed tokenId,
+        uint256 protocolContribution,
+        uint256 creatorContribution,
+        uint256 ownerTopUp,
+        uint256 cancellationRounding
+    );
+
+    function protocolFeeEarnedHeld() external view returns (uint256);
+    function totalProtocolFeeAllocated() external view returns (uint256);
+    function totalProtocolFeeReleased() external view returns (uint256);
+    function totalProtocolFeeRefunded() external view returns (uint256);
+    function totalProtocolFeeCancellationRounding() external view returns (uint256);
+    function protocolFeeState(uint256 tokenId)
+        external
+        view
+        returns (MembershipTypes.ProtocolFeeState memory);
+    function protocolFeeLots(uint256 tokenId, uint256 offset, uint256 limit)
+        external
+        view
+        returns (MembershipTypes.ProtocolFeeLot[] memory);
+    function accrueProtocolFees(uint256[] calldata tokenIds) external;
+    function releaseProtocolFees() external returns (uint256 amount);
+    function previewRefundComponents(uint256 tokenId)
+        external
+        view
+        returns (
+            uint256 grossRefund,
+            uint256 protocolContribution,
+            uint256 creatorContribution,
+            uint256 ownerTopUp
+        );
 
     function supplyCap() external view returns (uint64);
 

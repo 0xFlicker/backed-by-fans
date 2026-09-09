@@ -1,4 +1,6 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import {
   createPublicClient,
   encodeFunctionData,
@@ -41,6 +43,20 @@ export function requiredAnvilRpc() {
       "BBF_ANVIL_RPC_URL is required for configured Anvil tests.",
     );
   }
+  const url = new URL(anvilEnvironment.rpcUrl);
+  if (
+    url.protocol !== "http:" ||
+    !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) ||
+    !url.port ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    url.pathname !== "/"
+  )
+    throw new Error(
+      "Anvil tests require an uncredentialed loopback RPC endpoint",
+    );
   return anvilEnvironment.rpcUrl;
 }
 
@@ -48,6 +64,11 @@ export async function rpcRequest<T>(
   method: string,
   params: readonly unknown[] = [],
 ) {
+  if (
+    /^(?:eth_send|evm_|anvil_)/.test(method) &&
+    (await rpcRequest<string>("eth_chainId")) !== "0x7a69"
+  )
+    throw new Error("Anvil test writes require execution chain 31337");
   const response = await fetch(requiredAnvilRpc(), {
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     headers: { "content-type": "application/json" },
@@ -64,12 +85,73 @@ export async function rpcRequest<T>(
   return payload.result;
 }
 
+const scenarioSnapshots = new Map<string, bigint>();
 export async function snapshotAnvil() {
-  return rpcRequest<string>("evm_snapshot");
+  const block = await anvilPublicClient().getBlockNumber({ cacheTime: 0 });
+  const snapshot = await rpcRequest<string>("evm_snapshot");
+  scenarioSnapshots.set(snapshot, block);
+  return snapshot;
 }
 
 export async function revertAnvil(snapshot: string) {
-  expect(await rpcRequest<boolean>("evm_revert", [snapshot])).toBe(true);
+  try {
+    const directory = process.env.BBF_FORK_BROWSER_EVIDENCE;
+    const first = scenarioSnapshots.get(snapshot);
+    if (
+      directory &&
+      first !== undefined &&
+      process.env.BBF_PROTOCOL_FORK_AUTHENTIC === "1"
+    ) {
+      const client = anvilPublicClient();
+      const last = await client.getBlockNumber({ cacheTime: 0 });
+      if (last - first > 10000n)
+        throw new Error(
+          "Scenario receipt export exceeded its bounded block window",
+        );
+      const transactions = [];
+      for (let blockNumber = first + 1n; blockNumber <= last; blockNumber++) {
+        const block = await client.getBlock({
+          blockNumber,
+          includeTransactions: true,
+        });
+        for (const transaction of block.transactions) {
+          // Export already mined transactions. This is test evidence collection,
+          // never application receipt recovery or submitted-intent inference.
+          transactions.push({
+            transaction,
+            receipt: await client.getTransactionReceipt({
+              hash: transaction.hash,
+            }),
+            timestamp: block.timestamp,
+          });
+        }
+      }
+      const info = test.info();
+      const target = resolve(directory, "branches");
+      await mkdir(target, { recursive: true });
+      await writeFile(
+        resolve(target, `${info.testId}-${snapshot}.json`),
+        JSON.stringify(
+          {
+            testId: info.testId,
+            title: info.title,
+            project: info.project.name,
+            executionChainId: 31337,
+            snapshot,
+            firstBlock: first,
+            lastBlock: last,
+            revertedAfterExport: true,
+            transactions,
+          },
+          (_, v) => (typeof v === "bigint" ? String(v) : v),
+          2,
+        ) + "\n",
+      );
+    }
+  } finally {
+    scenarioSnapshots.delete(snapshot);
+    expect(await rpcRequest<boolean>("evm_revert", [snapshot])).toBe(true);
+  }
 }
 
 export function anvilPublicClient() {
@@ -101,13 +183,19 @@ export function expectSuccessfulReceipt(receipt: TransactionReceipt) {
   expect(receipt.status).toBe("success");
 }
 
-export async function installAnvilWallet(page: Page, initialAccount: Address) {
+export async function installAnvilWallet(
+  page: Page,
+  initialAccount: Address,
+  options: { rejectNextWrite?: boolean; initialChainId?: number } = {},
+) {
   await page.addInitScript(
-    ({ account, endpoint }) => {
+    ({ account, endpoint, options }) => {
       type Listener = (...args: unknown[]) => void;
       const listeners = new Map<string, Set<Listener>>();
       let activeAccount: string = account;
       let requestId = 0;
+      let activeChainId = options.initialChainId ?? 31337;
+      let rejectNextWrite = options.rejectNextWrite ?? false;
 
       async function forwardRpc(method: string, params: readonly unknown[]) {
         const response = await fetch(endpoint, {
@@ -158,13 +246,34 @@ export async function installAnvilWallet(page: Page, initialAccount: Address) {
           if (method === "eth_accounts" || method === "eth_requestAccounts") {
             return [activeAccount];
           }
+          if (method === "eth_chainId")
+            return `0x${activeChainId.toString(16)}`;
           if (method === "wallet_switchEthereumChain") {
+            const requested = (params[0] as { chainId?: string })?.chainId;
+            if (requested !== "0x7a69")
+              throw Object.assign(
+                new Error("This test wallet only executes on the local fork"),
+                { code: 4902 },
+              );
+            activeChainId = 31337;
             for (const listener of listeners.get("chainChanged") ?? []) {
               listener("0x7a69");
             }
             return null;
           }
           if (method === "wallet_addEthereumChain") return null;
+          if (method === "eth_sendTransaction") {
+            if (activeChainId !== 31337)
+              throw Object.assign(new Error("Wrong test wallet chain"), {
+                code: 4901,
+              });
+            if (rejectNextWrite) {
+              rejectNextWrite = false;
+              throw Object.assign(new Error("User rejected the request."), {
+                code: 4001,
+              });
+            }
+          }
 
           let forwardedParams = params;
           const transaction = params[0];
@@ -216,7 +325,7 @@ export async function installAnvilWallet(page: Page, initialAccount: Address) {
       window.addEventListener("eip6963:requestProvider", announce);
       announce();
     },
-    { account: initialAccount, endpoint: requiredAnvilRpc() },
+    { account: initialAccount, endpoint: requiredAnvilRpc(), options },
   );
 }
 
