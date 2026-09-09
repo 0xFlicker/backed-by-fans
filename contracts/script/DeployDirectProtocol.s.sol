@@ -220,10 +220,11 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
     error InvalidProtocolSafe();
     error ProtocolDeploymentIncomplete();
 
-    /// @notice Already-launched token pinned into this replacement deployment. No fee recipient exists.
+    /// @notice Explicit zero defers launch; nonzero tokens must be validated Pons launches.
     function configuredProtocolToken() public view returns (address token) {
         token = vm.envAddress("PROTOCOL_TOKEN_ADDRESS");
-        if (token == address(0) || token.code.length == 0) revert InvalidOperationalAddress();
+        if (token == address(0)) return token;
+        if (token.code.length == 0) revert InvalidOperationalAddress();
         ProtocolLaunchValidation.validate(token);
     }
 

@@ -201,7 +201,7 @@ assert_not_contains "$mock_log" "cast publish"
 
 reset_project_state
 run_expect_failure env PROTOCOL_TOKEN_ADDRESS= "$deploy_wrapper" testnet prepare
-assert_contains "$test_dir/stderr" "actual launched token"
+assert_contains "$test_dir/stderr" "explicitly identify a launched token or zero"
 
 reset_project_state
 jq '.schemaVersion = 2' "$operational_state" >"${operational_state}.tmp"
@@ -821,5 +821,12 @@ assert_contains "$mock_log" "anvil --fork-url"
 assert_not_contains "$mock_log" "cast mktx $create2_deployer"
 assert_not_contains "$mock_log" "cast publish <signed-transaction>"
 [[ "$(cat "$public_state")" == "0" ]] || fail "wrong account changed public prefix"
+
+reset_project_state
+env PROTOCOL_TOKEN_ADDRESS=0x0000000000000000000000000000000000000000 \
+  "$deploy_wrapper" testnet prepare
+assert_jq "$operational_state" '.factory.protocolToken == "0x0000000000000000000000000000000000000000"'
+assert_not_contains "$mock_log" "cast publish"
+assert_not_contains "$mock_log" "cast wallet address"
 
 echo "deploy-protocol wrapper tests: passed"

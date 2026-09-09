@@ -90,7 +90,7 @@ Deploys Backed By Fans deterministically through the canonical CREATE2 deployer.
                 the fresh, separately authorized submission.
 
 Optional overrides:
-  PROTOCOL_TOKEN_ADDRESS  Already-launched native-ETH Pons token. Required for
+  PROTOCOL_TOKEN_ADDRESS  Native-ETH Pons token, or explicit zero to defer launch. Required for
                           prepare; otherwise pinned by the committed state.
   ACCOUNT                 Encrypted Foundry keystore account name for broadcast
   BBF_ANVIL_PORT          Port for the local fork (random high port by default)
@@ -554,10 +554,10 @@ validate_operational_state_manifest() {
     and (.safe.fallbackHandler | test("^0x[0-9a-fA-F]{40}$"))
     and (.factory.owner | test("^0x[0-9a-fA-F]{40}$"))
     and (.factory.pendingOwner | test("^0x[0-9a-fA-F]{40}$"))
-    and (.factory.protocolToken | test("^0x[0-9a-fA-F]{40}$") and ascii_downcase != "0x0000000000000000000000000000000000000000")
+    and (.factory.protocolToken | test("^0x[0-9a-fA-F]{40}$"))
     and (.factory | has("feeRecipient") | not)
   ' "$operational_state_file" >/dev/null \
-    || fail "reviewed operational state requires schema 3 and an actual launched protocol token; run prepare with PROTOCOL_TOKEN_ADDRESS after reviewing the launch ($operational_state_file)"
+    || fail "reviewed operational state requires schema 3 and an explicit protocol token (zero defers launch); run prepare with PROTOCOL_TOKEN_ADDRESS ($operational_state_file)"
 
   local expected_safe
   expected_safe="$(jq -er '.safe.address' "$operational_state_file")"
@@ -916,7 +916,13 @@ validate_factory_dependencies() {
   output="$(rpc_call_json "$target_rpc" "vault executor" "$vault" "executor()(address)")"
   executor="$(printf '%s' "$output" | jq -er '.[0]')"
   local target
-  for target in "$vault" "$executor"; do
+  local dependencies=("$vault")
+  if [[ "$(lowercase "$protocol_token")" == "0x0000000000000000000000000000000000000000" ]]; then
+    require_address_match "unbound executor" "$executor" "$protocol_token"
+  else
+    dependencies+=("$executor")
+  fi
+  for target in "${dependencies[@]}"; do
     output="$(rpc_code "$target_rpc" "buyback dependency" "$target")"
     [[ "$output" != "0x" && "$output" != "0x0" ]] || fail "buyback dependency has no runtime"
     output="$(rpc_call_json "$target_rpc" "buyback protocol token" "$target" "protocolToken()(address)")"
@@ -924,8 +930,10 @@ validate_factory_dependencies() {
   done
   output="$(rpc_call_json "$target_rpc" "vault factory" "$vault" "factory()(address)")"
   require_address_match "vault factory" "$(printf '%s' "$output" | jq -er '.[0]')" "$factory"
-  output="$(rpc_call_json "$target_rpc" "executor vault" "$executor" "vault()(address)")"
-  require_address_match "executor vault" "$(printf '%s' "$output" | jq -er '.[0]')" "$vault"
+  if [[ "$(lowercase "$protocol_token")" != "0x0000000000000000000000000000000000000000" ]]; then
+    output="$(rpc_call_json "$target_rpc" "executor vault" "$executor" "vault()(address)")"
+    require_address_match "executor vault" "$(printf '%s' "$output" | jq -er '.[0]')" "$vault"
+  fi
 
   output="$(rpc_call_json "$target_rpc" "factory tier deployer" \
     "$factory" "deployer()(address)")"
@@ -1845,8 +1853,8 @@ else
     require_address_match "configured protocol token" "$PROTOCOL_TOKEN_ADDRESS" "$protocol_token"
   fi
 fi
-[[ "$protocol_token" =~ ^0x[0-9a-fA-F]{40}$ && "$(lowercase "$protocol_token")" != "0x0000000000000000000000000000000000000000" ]] \
-  || fail "PROTOCOL_TOKEN_ADDRESS must identify the actual launched token before prepare"
+[[ "$protocol_token" =~ ^0x[0-9a-fA-F]{40}$ ]] \
+  || fail "PROTOCOL_TOKEN_ADDRESS must explicitly identify a launched token or zero before prepare"
 export PROTOCOL_TOKEN_ADDRESS="$protocol_token"
 journal="deployments/protocol/$expected_chain_id/candidate.json"
 active_broadcast="broadcast/DeployDirectProtocol.s.sol/$expected_chain_id/run-latest.json"

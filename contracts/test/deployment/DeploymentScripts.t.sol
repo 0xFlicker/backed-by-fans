@@ -84,11 +84,10 @@ contract DeployProtocolHarness is DeployProtocol {
 }
 
 contract DeploymentScriptsTest is Test {
-    function test_publicPlanRejectsMissingTokenAndNoncanonicalLaunchWiring() public {
+    function test_publicPlanAcceptsDeferredTokenAndRejectsNoncanonicalLaunchWiring() public {
         address configured = vm.envAddress("PROTOCOL_TOKEN_ADDRESS");
         vm.setEnv("PROTOCOL_TOKEN_ADDRESS", vm.toString(address(0)));
-        vm.expectRevert(ProtocolDeployment.InvalidOperationalAddress.selector);
-        _publicDeployment.configuredProtocolToken();
+        assertEq(_publicDeployment.configuredProtocolToken(), address(0));
         vm.setEnv("PROTOCOL_TOKEN_ADDRESS", vm.toString(configured));
         vm.mockCall(configured, abi.encodeWithSignature("launchFactory()"), abi.encode(address(1)));
         vm.expectRevert(ProtocolLaunchValidation.InvalidProtocolLaunch.selector);
