@@ -1,7 +1,15 @@
 # Required implementation evidence
 
+
+**Evidence scope (2026-09-09 documentation pass):** This file retains dated results,
+not a live service inventory. Use the Ready message and current run's deployment
+files to identify the running environment. Follow the [operator quickstart](quickstart.md)
+for current commands. Final complete acceptance for the latest source remains
+pending T096–T098; earlier complete runs do not certify later changes. No new
+acceptance run or restart was performed for this documentation update.
+
 **Feature**: [Protocol buyback and burn](spec.md)  
-**Status**: The complete authentic fork acceptance pair, full local verification and manual serve/stop lifecycle pass. Final convergence is recorded below. Earlier dated checkpoints remain historical records and do not describe the current implementation.
+**Status**: The historical implementation passed the acceptance pair below. Current-source convergence appended T096–T099; final acceptance remains pending. Dated checkpoints describe only their recorded implementation and environment.
 
 ## Final complete acceptance — 2026-09-07
 

@@ -1,6 +1,14 @@
 # One-button burn — 2026-09-09
 
-The active manual run is `burn-ready-20260909`, with RPC18557 and the single
+
+**Evidence scope (2026-09-09 documentation pass):** This file retains dated results,
+not a live service inventory. Use the Ready message and current run's deployment
+files to identify the running environment. Follow the [operator quickstart](quickstart.md)
+for current commands. Final complete acceptance for the latest source remains
+pending T096–T098; earlier complete runs do not certify later changes. No new
+acceptance run or restart was performed for this documentation update.
+
+The verified manual handoff run was `burn-ready-20260909`, with RPC18557 and the single
 development server on web3110. The origin remains the verified block58083838.
 
 **Burn** at the top of the protocol page discovers fresh work on click and submits

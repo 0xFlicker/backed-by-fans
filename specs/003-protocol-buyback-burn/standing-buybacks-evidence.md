@@ -1,5 +1,13 @@
 # Standing permissionless buybacks: implementation evidence
 
+
+**Evidence scope (2026-09-09 documentation pass):** This file retains dated results,
+not a live service inventory. Use the Ready message and current run's deployment
+files to identify the running environment. Follow the [operator quickstart](quickstart.md)
+for current commands. Final complete acceptance for the latest source remains
+pending T096–T098; earlier complete runs do not certify later changes. No new
+acceptance run or restart was performed for this documentation update.
+
 Updated 2026-09-08. This records the replacement described in
 [Simple permissionless buybacks](operating-model-proposal.md). It does not reuse
 historical expiring-policy acceptance as proof of the new contracts.
@@ -46,7 +54,7 @@ repinning, fresh deployment, snapshot restrictions and restart commands.
 
 ## Retained authentic execution
 
-### Sequential rehearsal
+### Historical child-fork rehearsal (superseded)
 
 [Acceptance](../../artifacts/protocol-fork/standing-20260908/rehearsal/acceptance.json)
 reports `status: passed`, `sourceUnchanged: true`, two sequential buybacks and a
@@ -158,7 +166,7 @@ Final source-check logs are retained under
 The production build passes with existing optional-wallet dependency warnings.
 Public deployment, production Cron and a DAO remain outside this local milestone.
 
-Stop the active run with:
+Historical stop command for that run (not the current run):
 
 ```sh
 ./scripts/test-protocol-fork.sh stop --run-id standing-ready-20260908
@@ -186,7 +194,7 @@ run's evidence directory.
 
 ## Stateless rehearsal and repeatable demo setup
 
-The current manual run is `stateless-demo-20260908`, on RPC18557 and web3110.
+The manual run at this checkpoint was `stateless-demo-20260908`, on RPC18557 and web3110.
 The nested Anvil rehearsal implementation and its child-fork test helpers have
 been removed. Rehearsal now uses viem `simulateBlocks` (`eth_simulateV1`) against
 one captured block. Accepted purchases are replayed sequentially in simulated

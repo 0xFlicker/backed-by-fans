@@ -24,7 +24,7 @@ separate ETH and WETH settings.
 3. Adjust minimum/maximum batches and minimum minutes per currency. The global
    minimum applies between purchases of any currency. Either interval can be zero.
 4. Click **Rehearse selected settings** to capture a fresh block and run sequential
-   transactions on an owned child Anvil. Your selected settings stay intact. Each purchase sees reserves left by earlier purchases. This costs
+   transactions through stateless `eth_simulateV1` RPC calls. Your selected settings stay intact. Each purchase sees reserves left by earlier simulated purchases. This costs
    no funds on the source fork. It uses the snapshot gas price, a fixed market
    scenario with no invented third-party trades, and at most 64 purchases within
    a two-minute runtime. Deferred funds and truncated runs remain visible.
@@ -33,7 +33,7 @@ separate ETH and WETH settings.
    global interval are saved atomically in one Safe transaction. Saving settings
    does not buy tokens or reset purchase clocks.
 6. Open the protocol page. Anyone with local ETH for gas can press the eligible
-   buyback button. The admin page, backend and Safe signer are unnecessary for
+   **Burn** button at the top of the page. The admin page, backend and Safe signer are unnecessary for
    that purchase. If no one calls, funds wait.
 
 Editing any setting discards its previous rehearsal result. If another Safe
@@ -73,6 +73,11 @@ samples are not a prerequisite for saving settings or executing a buyback.
 
 ## Optional one-shot execution
 
+**Current limitation (T096):** the runner aborts above 1,000 tiers or 5,000
+historical memberships, and only processes vault inventory after finishing its
+collection sweep. This remains outstanding; the bounded browser Burn action is
+available independently. Do not treat this runner as validated for larger deployments.
+
 For manual execution, the protocol page's top-level **Burn** button now builds a
 fresh batch and submits it through the immutable `factory.burnRouter()`. This is
 a permissionless typed transaction, collecting registered-tier fees and attempting
@@ -81,11 +86,11 @@ or use the local rehearsal API. The separate runner below remains available for
 scheduled execution.
 
 ```sh
-cd web
+cd /Users/user/Development/backed-by-fans/web
 # Set BBF_RUNNER_PRIVATE_KEY privately to a funded execution wallet.
 bun scripts/run-buybacks.ts \
   --rpc-url http://127.0.0.1:18557 \
-  --factory FACTORY_ADDRESS \
+  --factory "$BBF_FACTORY_ADDRESS" \
   --once --max-gas-percent 2.5
 ```
 
@@ -96,6 +101,11 @@ bounded indexing rather than an unbounded serverless invocation. It uses fresh e
 gas estimates, viem simulations and receipt reconciliation. It neither changes
 settings nor waits for the next cooldown. Invoke it again later. Production
 Vercel Cron deployment is outside this local implementation.
+
+Set `BBF_FACTORY_ADDRESS` from the active run as shown in the
+[operator setup](operations-and-evidence.md#select-the-running-deployment). The
+runner sends real local transactions, potentially several per invocation; it is
+not rehearsal and does not combine everything into the router transaction.
 
 Successful execution reports a matching burn receipt and reconciled inventory.
 `Cooldown`, `BelowMinimum`, and `gas-deferred` mean funds remain for a later call.

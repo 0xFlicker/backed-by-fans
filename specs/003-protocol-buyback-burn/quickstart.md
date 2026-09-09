@@ -9,6 +9,21 @@ A new deployment is required; restoring an old state dump keeps its old contract
 prove the earlier expiring-policy implementation at its recorded origin. They do
 not prove the replacement contracts or a refreshed origin; retain them as history.
 
+## Choose the operation
+
+| Goal | Action | What happens to memberships |
+| --- | --- | --- |
+| Continue testing a running fork | Open `/account` or `/chains/31337/protocol` on the existing server | Preserved; do not start another server. |
+| Add test funds | Run the wallet refill command below | Preserved. |
+| Earn more protocol fees | Advance local time, then press Burn | Paid time is consumed; no automatic buy occurs. |
+| Restart the same deployment | Save state while responsive, stop, then restore with the same origin and contract version | Restores the captured state, not later activity. |
+| Test new contracts or a new origin | Fresh `serve` with a new run ID | New addresses; demo memberships are recreated automatically. |
+| Final acceptance | Two fresh `run` invocations, after pending implementation work | Separate test fixtures; do not run against your manual session. |
+
+**Acceptance pending:** T096 and T097 must be completed before the final T098
+runs. The instructions below describe how to run the gates, not a claim that the
+current source has passed them. See [current evidence](one-button-burn-evidence.md).
+
 ## Prerequisites and private configuration
 
 Use the repository's pinned Foundry/Solidity 0.8.36, Bun 1.3.14 and installed
@@ -140,7 +155,7 @@ bun scripts/protocol-fork/verify-evidence.ts artifacts/protocol-fork/run-2 artif
 ```
 
 Both commands must succeed and both manifests must report `passed`, every G1–G6
-and SC-001–SC-012 passed, and all 34 named scenarios passed. The verifier checks
+and SC-001–SC-012 passed, and all required named scenarios passed (the historical matrix had 34; T097 extends router coverage). The verifier checks
 artifact hashes, executed test names, successful traces, actual token-destruction
 receipts, raw-unit conservation, reserved refunds, independent runner replacement,
 real graduation and separate native vesting. Missing authentic Stock Token, pool,
@@ -171,7 +186,7 @@ It checks the local
 chain and deployed factory, transfers USDG/AMD from the finite fixture reserves,
 wraps local ETH for WETH, and checks successful receipts and recipient balances.
 It refuses public RPCs and never patches token balances. If the fixture reserves
-are exhausted, prepare a fresh fork. Funding disappears when that fork is stopped.
+are exhausted, prepare a fresh fork. Without a saved state, a fresh fork does not retain this funding.
 
 Membership checkout offers an exact-shortfall ETH wrap for the verified WETH
 payment token, including gifts. Confirm the wrap, then continue with payment.
@@ -186,6 +201,8 @@ fresh acceptance verification; keep state dumps private because they contain loc
 wallet and chain state.
 
 ```sh
+cd /Users/user/Development/backed-by-fans
+unset BBF_FORK_RESTORE_STATE BBF_FORK_RESTORE_EVIDENCE
 export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/manual-review"
 ./scripts/test-protocol-fork.sh serve --run-id manual-review
 ```
@@ -212,6 +229,87 @@ BBF_ADMIN_RPC_URL=http://127.0.0.1:18557 bun scripts/seed-buyback-demo.ts ../art
 The buyback page rehearses through stateless `eth_simulateV1` calls. It never
 starts another Anvil, changes your memberships, or advances the source chain.
 
+### Check health and advance time
+
+These commands target only the local execution RPC. Confirm chain **31337** first:
+
+```sh
+cast chain-id --rpc-url http://127.0.0.1:18557
+cast block-number --rpc-url http://127.0.0.1:18557
+curl --fail --max-time 10 -o /dev/null http://127.0.0.1:3110/chains/31337/protocol
+```
+
+If RPC reads fail, stop and diagnose before submitting or resetting. An HTTP 200
+checks the web server, not successful chain reads inside the page.
+
+Advance one day and mine a block:
+
+```sh
+cast rpc --rpc-url http://127.0.0.1:18557 evm_increaseTime 86400
+cast rpc --rpc-url http://127.0.0.1:18557 evm_mine
+```
+
+Use `2592000` for 30 days. This consumes membership time across the whole fork,
+including cooldowns and vesting clocks. Refresh the page, then press Burn to
+collect earned fees and attempt eligible buys. Unearned reserves remain protected.
+Time advancement cannot be undone without restoring an earlier saved state.
+
+### Preserve a manual session before stopping
+
+Save while the RPC is responsive. A state file preserves local changes, but is
+not a self-contained archive of all upstream chain state; the pinned upstream RPC
+must still serve uncached reads. A stalled node may be unable to export state.
+
+The following exports `anvil_dumpState` into the JSON format consumed by
+`--load-state`. It performs a read, creates a private new file and refuses overwrite.
+Choose your current run directory, which must already exist:
+
+```sh
+export BBF_SAVED_STATE=/absolute/current-run/manual-state.json
+python3 - <<'PYCODE'
+import gzip, json, os, urllib.request
+rpc = "http://127.0.0.1:18557"
+def read(method):
+    body = json.dumps({"jsonrpc":"2.0","id":1,"method":method,"params":[]}).encode()
+    request = urllib.request.Request(rpc, body, {"Content-Type":"application/json"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        result = json.load(response)
+    if "error" in result:
+        raise RuntimeError(result["error"])
+    return result["result"]
+if int(read("eth_chainId"), 16) != 31337:
+    raise RuntimeError("Expected local chain 31337")
+raw = bytes.fromhex(read("anvil_dumpState")[2:])
+if raw[:2] == b"\x1f\x8b":
+    raw = gzip.decompress(raw)
+state = json.loads(raw)
+with open(os.open(os.environ["BBF_SAVED_STATE"], os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as output:
+    json.dump(state, output)
+print("Saved", os.environ["BBF_SAVED_STATE"])
+PYCODE
+```
+
+Keep the original evidence directory with the dump. After a successful save,
+stop the matching run using `stop --run-id YOUR_RUN_ID`. Restore only when both
+ports are free, keeping the same source/deployment version and origin:
+
+```sh
+cd /Users/user/Development/backed-by-fans
+export BBF_FORK_RESTORE_STATE=/absolute/current-run/manual-state.json
+export BBF_FORK_RESTORE_EVIDENCE=/absolute/current-run
+export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/manual-restored"
+./scripts/test-protocol-fork.sh serve --run-id manual-restored
+```
+
+The restoration path copies `bootstrap.json` and `browser-environment.json` and
+loads saved chain state; it does not rerun funding or demo seeding. Retain the
+original `fixture.json`, `buyback-demo.json` and funding records too: the refill
+and demo tools need their original evidence directory. The restored frontend
+cannot replace old contract bytecode with new code. Do not restore across a repin
+or contract change. This manual export/restore recipe is source/CLI-reviewed;
+its full round-trip is not claimed as newly executed in this documentation pass.
+Delete superseded dumps when no longer needed; this creates no automatic cache.
+
 ### Burn from the protocol page
 
 At the top of `/chains/31337/protocol`, connect any funded wallet on the local
@@ -228,7 +326,9 @@ cooldown cannot continually favor membership fees.
 
 Each transaction collects at most eight tiers and 100 membership IDs, and checks
 up to 32 canonical currencies. Browser discovery rotates through bounded pages
-for larger registries. Press Burn again to build the next batch from fresh state.
+for larger registries. Donations already recorded in the vault can participate;
+new unrecorded donations require the separate synchronization action. Public Pons
+graduation recovery remains separate from the Burn router. Press Burn again to build the next batch from fresh state.
 If only collection can progress, the result says **Earned fees collected**; it
 does not claim a burn. If nothing is ready, no wallet transaction is requested.
 Existing detailed collection and per-currency controls remain available below.
@@ -275,7 +375,7 @@ state are removed. Restart with a **new** run ID and evidence directory. Occupie
 ports, stale ownership records and existing evidence paths cause an explicit error;
 the harness does not kill unrelated processes or silently overwrite evidence.
 
-The delivery check exercised `serve --run-id manual-review-20260907-stop` under
+The historical 2026-09-07 delivery check exercised `serve --run-id manual-review-20260907-stop` under
 `artifacts/protocol-fork/manual-review-20260907-stop`, reached readiness, then
 executed its matching `stop`. Both ports closed, its owned state record was
 removed, and bootstrap/preflight evidence and both accepted run directories
