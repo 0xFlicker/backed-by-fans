@@ -43,6 +43,11 @@ interface IProtocolBuybackVault {
 
     function factory() external view returns (address);
 
+    event ProtocolTokenBound(address indexed token, address indexed executor);
+
+    /// @notice Factory-only, one-time activation after launch validation.
+    function bindProtocolToken(address token) external;
+
     function protocolToken() external view returns (address);
     function executor() external view returns (address);
     function settlementSequence() external view returns (uint256);

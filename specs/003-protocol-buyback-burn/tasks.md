@@ -353,3 +353,15 @@ service, new price policy or reset of the current manual fork.
 - [ ] T100 Specify numeric per-invocation discovery/collection/execution limits and the starting-page selection rule for independent runner invocations in `plan.md` and `contracts/operations-and-evidence.md` before implementing T096. State how later tier/member pages become reachable, what progress is guaranteed under the stated invocation schedule, how changing populations and failed reads affect traversal, and how ready vault inventory proceeds independently. Define regression assertions for restart behavior, page reachability and failure isolation without requiring an always-running process; distinguish probabilistic selection from guaranteed coverage if relevant per FR-019, FR-040 and analysis U1.
 - [ ] T101 Consolidate the current standing-settings model in `data-model.md` and the applicable sections of `plan.md`, referencing `operating-model-proposal.md`: canonical ETH/WETH inventory and clocks, persistent size/interval settings, direct-burn exceptions, immutable Burn router and its bounded collection/purchase behavior, stateless rehearsal, and the runner semantics settled in T100. Clearly separate superseded expiring-budget and retained-daemon-cursor descriptions from current requirements; preserve historical evidence and do not reinstate rejected mechanisms per T087–T090, T096–T097 and analysis I1.
 - [ ] T102 Disambiguate historical duplicate T082–T086 references with stable section-qualified names and an explicit reference mapping in `tasks.md`; update ambiguous requirement/dependency/evidence references as needed without renumbering or changing historical task completion records. Ensure every affected reference resolves to exactly one task per the requirement-to-task index and analysis D1.
+
+
+## Phase 12: Deferred token launch
+
+User-approved scope supersedes token-before-memberships ordering. Complete this
+local slice before the separate testnet deployment follow-up. T096–T102 retain
+their existing independent scope and completion status.
+
+- [x] T103 Support zero-token factory deployment and Safe-only atomic one-time token binding in factory/vault/interfaces; prevent prebinding purchases and preserve protected reserves; test successful, unauthorized, invalid and repeated binding and prebinding accrual/refund/release.
+- [x] T104 Support unbound deployments in membership authenticity, protocol reads and fee display; show token-not-deployed status, avoid absent token/executor calls, and support collection-only Burn with focused tests and regenerated bindings.
+- [x] T105 Add a separate no-token Anvil deployment entrypoint using the owned lifecycle, ordinary payment tokens and funded seeded memberships without a Pons token launch; preserve full-launch flow and validate deployment guards.
+- [x] T106 Verify the combined implementation, prepare the no-token local manual fork on the single existing web/RPC ports, record deployment and browser evidence, and document one-time activation and the separate testnet follow-up.

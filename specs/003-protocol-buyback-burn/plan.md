@@ -320,3 +320,27 @@ for a launch-only demonstration. Public release, legal assessment and future DAO
 
 No constitution violations. A fixed executor is justified by the two venue lifecycles and custody
 isolation; a plugin router registry, custom oracle, upgrade proxy and custom admin application are unnecessary.
+
+
+## Deferred launch implementation
+
+Factory deployment accepts a zero token and always creates its fixed vault and
+Burn router. The vault is the single token-binding source of truth; the factory
+getter delegates to it. `factory.bindProtocolToken(address)` is Safe-only and
+calls the factory-only vault binding operation, deploying the existing validated
+executor atomically. Nonzero constructor deployment continues to validate/bind
+immediately. An explicit TokenNotLaunched status precedes processing checks;
+route setup waits for binding, while custody/accrual/release remain usable.
+
+The router supports collection-only transactions without calling ERC20 at zero.
+Web dependency verification accepts exactly the legitimate unbound state (both
+token and executor zero with valid factory/vault bindings) and omits token/market
+reads, while retaining ordinary membership and fee views. A separately named
+no-token local deployment entrypoint reuses owned Anvil/web lifecycle and prepares
+funded manual memberships without executing the Pons launch branch.
+
+Validation covers Safe-only/one-time/atomic binding, no unbound spending, fee
+accrual/release/refund and collection-only router behavior, malformed dependency
+pairs, membership browser continuity and visible pending-token status. Existing
+full-launch tests remain regression coverage. Source/unit evidence and actual
+local deployment/browser evidence are recorded separately; testnet is not deployed.

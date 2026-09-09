@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
-import { type Address, type PublicClient } from "viem";
+import { zeroAddress, type Address, type PublicClient } from "viem";
 import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import { ReadStateView } from "@/components/ReadState";
 import { getDeployment, publicConfig } from "@/lib/config";
@@ -86,7 +86,7 @@ export function ProtocolActivity({
   });
   const state = query.data;
   const protocolAsset =
-    state?.status === "valid"
+    state?.status === "valid" && state.data.protocolToken !== zeroAddress
       ? state.data.assets.find(
           (item) =>
             item.asset.toLowerCase() === state.data.protocolToken.toLowerCase(),
@@ -115,6 +115,10 @@ export function ProtocolActivity({
             chainId={chainId}
             factory={deployment.factoryAddress}
             symbol={protocolTokenSymbol}
+            tokenLaunched={
+              state?.status === "valid" &&
+              state.data.protocolToken !== zeroAddress
+            }
           />
         )}
         <button
@@ -145,6 +149,12 @@ export function ProtocolActivity({
               .replace("T", " ")
               .replace(".000Z", " UTC")}
           </p>
+          {state.data.protocolToken === zeroAddress && (
+            <p className="inline-status" role="status">
+              Protocol token has not been deployed. Membership fees continue to
+              accrue. Collected fees remain in the vault for future buybacks.
+            </p>
+          )}
           {state.data.buybacksPaused && (
             <p className="inline-status" role="status">
               The protocol Safe has paused buybacks. Membership time continues
@@ -372,10 +382,14 @@ export function ProtocolActivity({
               </dd>
               <dt>Protocol token</dt>
               <dd>
-                <AddressValue
-                  value={state.data.protocolToken}
-                  chainId={chainId}
-                />
+                {state.data.protocolToken === zeroAddress ? (
+                  "Not deployed"
+                ) : (
+                  <AddressValue
+                    value={state.data.protocolToken}
+                    chainId={chainId}
+                  />
+                )}
               </dd>
               <dt>Buyback vault</dt>
               <dd>
@@ -383,7 +397,11 @@ export function ProtocolActivity({
               </dd>
               <dt>Executor</dt>
               <dd>
-                <AddressValue value={state.data.executor} chainId={chainId} />
+                {state.data.executor === zeroAddress ? (
+                  "Not deployed"
+                ) : (
+                  <AddressValue value={state.data.executor} chainId={chainId} />
+                )}
               </dd>
             </dl>
             <details>
@@ -397,7 +415,9 @@ export function ProtocolActivity({
               </ul>
             </details>
           </section>
-          <PonsCompensation snapshot={state.data} />
+          {state.data.protocolToken !== zeroAddress && (
+            <PonsCompensation snapshot={state.data} />
+          )}
         </>
       )}
     </>

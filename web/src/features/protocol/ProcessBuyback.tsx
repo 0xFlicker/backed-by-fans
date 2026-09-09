@@ -21,6 +21,7 @@ export const buybackStatusLabels = [
   "Waiting for the next eligible buy",
   "Launch penalty active",
   "Graduation pending",
+  "Protocol token has not been deployed",
 ];
 
 export function ProcessBuyback({

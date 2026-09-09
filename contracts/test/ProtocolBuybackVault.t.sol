@@ -67,9 +67,10 @@ contract ProtocolBuybackVaultTest is Test {
         assertEq(_available(BuybackTypes.SourceBucket.Donation), 0);
     }
 
-    function testRejectsUnsetTokenAndImpersonatedConstructorFactory() public {
-        vm.expectRevert(ProtocolBuybackVault.InvalidAddress.selector);
-        registry.deployVault(address(0));
+    function testAllowsUnsetTokenAndRejectsImpersonatedConstructorFactory() public {
+        ProtocolBuybackVault unbound = registry.deployVault(address(0));
+        assertEq(unbound.protocolToken(), address(0));
+        assertEq(unbound.executor(), address(0));
         vm.expectRevert(ProtocolBuybackVault.InvalidAsset.selector);
         registry.deployVault(address(0xBEEF));
         vm.expectRevert(ProtocolBuybackVault.OnlyFactoryDeployment.selector);

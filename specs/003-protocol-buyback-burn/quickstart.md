@@ -56,6 +56,44 @@ Both ports must be free. Evidence must use a fresh absolute directory, independe
 of temporary state. One harness owns the checkout's production web build at a time;
 using different ports does not permit concurrent builds against the same `.next`.
 
+## Test memberships before protocol-token launch
+
+For a fresh local deployment with no protocol token, use the separate entrypoint.
+Stop the currently owned run first; do not launch a second server on other ports.
+Use the private RPC configuration above and a fresh evidence directory:
+
+```sh
+cd /Users/user/Development/backed-by-fans
+unset BBF_FORK_RESTORE_STATE BBF_FORK_RESTORE_EVIDENCE
+export BBF_FORK_EVIDENCE_DIR="$PWD/artifacts/protocol-fork/no-token-review"
+./scripts/test-protocol-fork-no-token.sh serve --run-id no-token-review
+```
+
+This deploys the membership factory, vault, router and Safe without launching a
+Pons protocol token. It enables the existing payment currencies through signed
+Safe transactions, funds the configured user wallet, and prepares the same three
+paid memberships with 15 days elapsed. Wait for Ready, open `/account` for their
+new addresses, then `/chains/31337/protocol`.
+
+Expected: **Protocol token has not been deployed**, visible earned/unearned fees,
+and **Collect fees**. Collection releases only earned funds to the vault and
+reports no burn. Membership creation, payments and refunds remain usable. The
+factory token and vault executor getters both return the zero address. A successful
+collection leaves the vault's settlement sequence unchanged.
+
+The no-token entrypoint is fresh-deployment-only; it refuses restore parameters
+and is not a full `run` acceptance mode. To restore a saved unbound deployment,
+use the ordinary `test-protocol-fork.sh serve` restoration workflow. Stop this run
+with:
+
+```sh
+./scripts/test-protocol-fork-no-token.sh stop --run-id no-token-review
+```
+
+Later activation is a one-time Safe call to `factory.bindProtocolToken(token)`;
+see [binding rules and evidence](deferred-token-launch.md). Route setup and
+unpausing follow binding. No public testnet deployment is performed by this script.
+
 ## Refresh the origin before replacing a stale fork
 
 The checked-in `scripts/protocol-fork/origin.json` is the shared origin for the

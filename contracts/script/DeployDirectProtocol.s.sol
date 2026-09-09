@@ -53,10 +53,12 @@ abstract contract ProtocolDeployment is Script {
         internal
         view
     {
-        if (protocolOwner == address(0) || protocolToken == address(0)) {
+        if (protocolOwner == address(0)) {
             revert InvalidOperationalAddress();
         }
-        if (protocolToken.code.length == 0) revert InvalidOperationalAddress();
+        if (protocolToken != address(0) && protocolToken.code.length == 0) {
+            revert InvalidOperationalAddress();
+        }
         if (paymentToken.code.length == 0) revert InvalidPaymentToken(paymentToken);
 
         try IERC20Metadata(paymentToken).decimals() returns (uint8 decimals) {
@@ -116,9 +118,6 @@ abstract contract ProtocolDeployment is Script {
                 || tierDeployer.code.length == 0 || vault.code.length == 0
                 || IProtocolBuybackVault(vault).factory() != address(factory)
                 || IProtocolBuybackVault(vault).protocolToken() != protocolToken
-                || executor.code.length == 0
-                || PonsBuybackExecutor(payable(executor)).vault() != vault
-                || PonsBuybackExecutor(payable(executor)).protocolToken() != protocolToken
                 || factory.paymentTokenCount() != paymentTokens.length
                 || factory.owner() != protocolOwner
                 || factory.rendererSchema() != renderer.rendererSchema()
@@ -130,6 +129,14 @@ abstract contract ProtocolDeployment is Script {
             revert DeploymentInvariantFailed();
         }
 
+        if (protocolToken == address(0)) {
+            if (executor != address(0)) revert DeploymentInvariantFailed();
+        } else if (
+            executor.code.length == 0 || PonsBuybackExecutor(payable(executor)).vault() != vault
+                || PonsBuybackExecutor(payable(executor)).protocolToken() != protocolToken
+        ) {
+            revert DeploymentInvariantFailed();
+        }
         address[] memory observedTokens = factory.paymentTokens(0, paymentTokens.length);
         if (observedTokens.length != paymentTokens.length) revert DeploymentInvariantFailed();
         for (uint256 i; i < paymentTokens.length; ++i) {

@@ -83,9 +83,11 @@ contract ProtocolBurnRouter is ReentrancyGuard {
             }
         }
         IERC20 token = IERC20(vault.protocolToken());
-        uint256 supplyBefore = token.totalSupply();
-        purchaseCount = _purchaseBatch(purchases, deadline);
-        burned = supplyBefore - token.totalSupply();
+        if (address(token) != address(0)) {
+            uint256 supplyBefore = token.totalSupply();
+            purchaseCount = _purchaseBatch(purchases, deadline);
+            burned = supplyBefore - token.totalSupply();
+        }
         if (releasedTiers == 0 && purchaseCount == 0) revert NothingToDo();
         emit BurnCompleted(msg.sender, releasedTiers, purchaseCount, burned);
     }

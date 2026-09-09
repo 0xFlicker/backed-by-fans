@@ -466,3 +466,13 @@ it("rehearses fresh chain state without discarding the selected draft", async ()
   expect(JSON.parse(fetchMock.mock.calls[1][1].body).capturedBlock).toBe("250");
   expect(mock.read).toHaveBeenCalledTimes(1);
 });
+
+it("keeps ETH settings and fee amounts visible before protocol token launch", async () => {
+  const snapshot = await mock.read();
+  snapshot.data.protocolToken = zeroAddress;
+  mock.read.mockResolvedValue(snapshot);
+  mount();
+  await screen.findByText("ETH · ETH + WETH");
+  expect(screen.getByLabelText("Minimum batch · ETH")).toBeInTheDocument();
+  expect(screen.getByText("9 ETH")).toBeInTheDocument();
+});

@@ -1,10 +1,17 @@
-import { getAddress, keccak256, type Address, type PublicClient } from "viem";
+import {
+  getAddress,
+  keccak256,
+  zeroAddress,
+  type Address,
+  type PublicClient,
+} from "viem";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   membershipRendererSchema,
   readProtocolDependencies,
   readProtocolState,
+  readPublicBuybacks,
   readBuybackAsset,
   readProtocolActivityPage,
 } from "@/features/protocol/protocol-read";
@@ -204,6 +211,9 @@ function protocolClient(
     mediaStoreFactoryHash?: `0x${string}`;
     rendererSchema?: `0x${string}`;
     tokenListed?: boolean;
+    protocolToken?: Address;
+    executor?: Address;
+    vaultToken?: Address;
   } = {},
 ) {
   const readContract = vi.fn(
@@ -243,8 +253,32 @@ function protocolClient(
         buybackVault,
         factory,
         vault: buybackVault,
-        executor: owner,
-        protocolToken: paymentToken,
+        executor: input.executor ?? owner,
+        protocolToken:
+          address === buybackVault
+            ? (input.vaultToken ?? input.protocolToken ?? paymentToken)
+            : (input.protocolToken ?? paymentToken),
+        buybacksPaused: false,
+        getOwners: [owner],
+        getThreshold: 1n,
+        canonicalAsset: args?.[0],
+        globalMinInterval: 0n,
+        lastBuyAt: 0n,
+        lastAssetBuyAt: 0n,
+        inventory: {
+          available: 12n,
+          totalReceived: 12n,
+          totalConvertedIn: 0n,
+          totalSpent: 0n,
+          totalBurned: 0n,
+        },
+        route: { pools: [] },
+        limits: { minInput: 1n, maxInput: 12n, minInterval: 0n },
+        revision: 0n,
+        assetBuybacksPaused: false,
+        processingStatus: { status: 9, maxInput: 0n, nextEligibleAt: 0n },
+        symbol: "USDG",
+        decimals: 6,
         tierCount: 4n,
         balanceOf: address === paymentToken ? 9n : 4n,
       };
@@ -252,6 +286,7 @@ function protocolClient(
     },
   );
   return {
+    getBlock: vi.fn().mockResolvedValue({ number: 40n, timestamp: 1000n }),
     getBlockNumber: vi.fn().mockResolvedValue(40n),
     getChainId: vi.fn().mockResolvedValue(46630),
     getBytecode: vi.fn(({ address }: { address: string }) =>
@@ -268,6 +303,44 @@ function protocolClient(
 }
 
 describe("protocol dependency reads", () => {
+  it("accepts an unbound protocol and preserves released inventory without external token reads", async () => {
+    const client = protocolClient({
+      protocolToken: zeroAddress,
+      executor: zeroAddress,
+    });
+    const result = await readPublicBuybacks(client, deployment);
+    expect(result.status).toBe("valid");
+    if (result.status !== "valid") throw new Error("Expected valid protocol");
+    expect(result.data.protocolToken).toBe(zeroAddress);
+    expect(result.data.pons).toMatchObject({
+      status: "unavailable",
+      reason: "not-deployed",
+    });
+    expect(result.data.assets[0]).toMatchObject({
+      status: "valid",
+      data: { membership: { available: 12n } },
+    });
+    expect(
+      vi
+        .mocked(client.readContract)
+        .mock.calls.some(([call]) => call.address === zeroAddress),
+    ).toBe(false);
+  });
+  it.each([
+    { protocolToken: zeroAddress, executor: owner },
+    { protocolToken: paymentToken, executor: zeroAddress },
+    {
+      protocolToken: zeroAddress,
+      executor: zeroAddress,
+      vaultToken: paymentToken,
+    },
+  ])("rejects mismatched deferred token bindings: %j", async (bindings) => {
+    const result = await readProtocolDependencies(
+      protocolClient(bindings),
+      deployment,
+    );
+    expect(result.status).toBe("interface-mismatch");
+  });
   it("derives direct renderer, preview harness, and media registry dependencies at one block", async () => {
     const client = protocolClient();
     const result = await readProtocolState(client, deployment);

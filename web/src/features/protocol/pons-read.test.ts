@@ -207,3 +207,17 @@ describe("separate Pons compensation", () => {
     expect(last.nextCursor).toBeNull();
   });
 });
+
+it("does not query a launchpad before the protocol token exists", async () => {
+  const client = {} as PublicClient;
+  expect(
+    await readPonsCompensation(client, {
+      chainId: 31337,
+      protocolToken: zeroAddress,
+    }),
+  ).toMatchObject({
+    status: "unavailable",
+    reason: "not-deployed",
+    label: "Protocol token has not been deployed.",
+  });
+});

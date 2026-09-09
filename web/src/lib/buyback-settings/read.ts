@@ -108,7 +108,10 @@ export async function estimateAsset(
 ) {
   if (asset.status !== "valid" || amount <= 0n)
     throw new Error("Choose a positive batch for an available currency.");
-  if (asset.asset.toLowerCase() === snapshot.protocolToken.toLowerCase())
+  if (
+    snapshot.protocolToken !== zeroAddress &&
+    asset.asset.toLowerCase() === snapshot.protocolToken.toLowerCase()
+  )
     throw new Error(
       "Protocol tokens burn directly; no purchase settings are needed.",
     );

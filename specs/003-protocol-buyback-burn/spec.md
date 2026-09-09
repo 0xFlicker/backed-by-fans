@@ -698,3 +698,27 @@ client for those actions is excluded from acceptance. The existing standing-sett
 page must still support wallet signing and saving through the Safe. Documentation
 must disclose the deferred path rather than claim complete personal-wallet
 administration. No onchain authority or custody constraint is relaxed.
+
+
+## Approved deferred token launch — 2026-09-09
+
+The user approved deploying the membership protocol before its protocol token.
+This supersedes the requirement in FR-010, US4/AC4 and the original deployment
+plan that token binding precede membership payments. The fixed vault may accept
+earned releases while unbound; all membership allocation, accrual, claim and refund
+rules remain unchanged. No inventory may be bought, burned or withdrawn before
+binding. The protocol page must show accrued fees and state that the protocol
+token has not been deployed, rather than reject the membership deployment.
+
+The current factory Safe may bind a validated Pons protocol token exactly once.
+A failed validation leaves the protocol unbound and funds unchanged. Once bound,
+the token and executor cannot be replaced. The vault address and exclusive burn
+purpose stay fixed from deployment; there is no general initialization, withdrawal
+or upgrade authority. Binding retains the existing chain-specific Pons validation.
+Until the Safe binds a valid token, fees may remain pending indefinitely.
+
+Deliver a separate local Anvil entrypoint that deploys the membership protocol
+without launching a token, funds the user's wallet and prepares memberships for
+manual validation. Preserve the existing full-launch deployment path. A public
+testnet deployment is an explicitly separate follow-up, not authorized by this
+local implementation.

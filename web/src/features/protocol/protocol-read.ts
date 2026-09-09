@@ -193,27 +193,30 @@ export async function readProtocolDependencies(
         blockNumber: capturedBlock,
       }),
     ]);
-    const [executorVault, executorToken] = await Promise.all([
-      client.readContract({
-        address: executor,
-        abi: ponsBuybackExecutorAbi,
-        functionName: "vault",
-        blockNumber: capturedBlock,
-      }),
-      client.readContract({
-        address: executor,
-        abi: ponsBuybackExecutorAbi,
-        functionName: "protocolToken",
-        blockNumber: capturedBlock,
-      }),
-    ]);
+    const [executorVault, executorToken] =
+      executor === zeroAddress
+        ? [zeroAddress, zeroAddress]
+        : await Promise.all([
+            client.readContract({
+              address: executor,
+              abi: ponsBuybackExecutorAbi,
+              functionName: "vault",
+              blockNumber: capturedBlock,
+            }),
+            client.readContract({
+              address: executor,
+              abi: ponsBuybackExecutorAbi,
+              functionName: "protocolToken",
+              blockNumber: capturedBlock,
+            }),
+          ]);
     if (
       vault === zeroAddress ||
-      protocolToken === zeroAddress ||
-      executor === zeroAddress ||
+      (protocolToken === zeroAddress) !== (executor === zeroAddress) ||
       getAddress(vaultFactory) !== getAddress(deployment.factoryAddress) ||
       getAddress(vaultToken) !== getAddress(protocolToken) ||
-      getAddress(executorVault) !== getAddress(vault) ||
+      (executor !== zeroAddress &&
+        getAddress(executorVault) !== getAddress(vault)) ||
       getAddress(executorToken) !== getAddress(protocolToken)
     )
       failedChecks.push("buyback protocol version and immutable custody");
@@ -636,24 +639,30 @@ export async function readPublicBuybacks(
         blockNumber,
       }),
     ]);
-    const [executorVault, executorToken] = await Promise.all([
-      client.readContract({
-        address: executor,
-        abi: ponsBuybackExecutorAbi,
-        functionName: "vault",
-        blockNumber,
-      }),
-      client.readContract({
-        address: executor,
-        abi: ponsBuybackExecutorAbi,
-        functionName: "protocolToken",
-        blockNumber,
-      }),
-    ]);
+    const [executorVault, executorToken] =
+      executor === zeroAddress
+        ? [zeroAddress, zeroAddress]
+        : await Promise.all([
+            client.readContract({
+              address: executor,
+              abi: ponsBuybackExecutorAbi,
+              functionName: "vault",
+              blockNumber,
+            }),
+            client.readContract({
+              address: executor,
+              abi: ponsBuybackExecutorAbi,
+              functionName: "protocolToken",
+              blockNumber,
+            }),
+          ]);
     if (
+      vault === zeroAddress ||
+      (protocolToken === zeroAddress) !== (executor === zeroAddress) ||
       getAddress(vaultFactory) !== getAddress(factory) ||
       getAddress(vaultToken) !== getAddress(protocolToken) ||
-      getAddress(executorVault) !== getAddress(vault) ||
+      (executor !== zeroAddress &&
+        getAddress(executorVault) !== getAddress(vault)) ||
       getAddress(executorToken) !== getAddress(protocolToken)
     )
       throw new Error("Immutable buyback identity mismatch");

@@ -263,6 +263,15 @@ export function createBuybackRunner(options: Options) {
   }
 
   async function processAvailable() {
+    if (protocolToken === zeroAddress) {
+      log({
+        action: "buyback",
+        outcome: "not-launched",
+        reason:
+          "Protocol token has not been deployed; collected fees remain in the vault.",
+      });
+      return;
+    }
     // Read failures in optional Pons data must not hide direct-token inventory.
     // Lifecycle submissions still use the fatal unresolved-write boundary.
     await progressGraduation();
@@ -618,12 +627,15 @@ export async function main() {
     transport: http(rpcUrl, { retryCount: 0 }),
   });
   const ponsFactory = getAddress(sourceManifest.records.factory.address);
-  const launch = await client.readContract({
-    address: ponsFactory,
-    abi: iPonsLaunchFactoryAbi,
-    functionName: "getLaunchedToken",
-    args: [context.protocolToken],
-  });
+  const launch =
+    context.protocolToken === zeroAddress
+      ? { curve: zeroAddress }
+      : await client.readContract({
+          address: ponsFactory,
+          abi: iPonsLaunchFactoryAbi,
+          functionName: "getLaunchedToken",
+          args: [context.protocolToken],
+        });
   const runner = createBuybackRunner({
     client,
     wallet,

@@ -161,7 +161,8 @@ function SettingsEditor({
   const assets = snapshot.data.assets.filter(
     (item) =>
       item.status === "valid" &&
-      item.asset.toLowerCase() !== snapshot.data.protocolToken.toLowerCase(),
+      (snapshot.data.protocolToken === zeroAddress ||
+        item.asset.toLowerCase() !== snapshot.data.protocolToken.toLowerCase()),
   );
   const [drafts, setDrafts] = useState<Record<string, LimitDraft>>(() =>
     Object.fromEntries(

@@ -2462,6 +2462,13 @@ export const membershipFactoryAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "token", internalType: "address", type: "address" }],
+    name: "bindProtocolToken",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     inputs: [],
     name: "burnRouter",
     outputs: [{ name: "", internalType: "address", type: "address" }],
@@ -6106,6 +6113,13 @@ export const protocolBuybackVaultAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "token", internalType: "address", type: "address" }],
+    name: "bindProtocolToken",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     inputs: [],
     name: "buybacksPaused",
     outputs: [{ name: "", internalType: "bool", type: "bool" }],
@@ -6122,6 +6136,27 @@ export const protocolBuybackVaultAbi = [
     type: "function",
     inputs: [],
     name: "executor",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "executorCreationCodeHash",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "executorCreationCodeLength",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "executorCreationCodeStore",
     outputs: [{ name: "", internalType: "address", type: "address" }],
     stateMutability: "view",
   },
@@ -6650,6 +6685,25 @@ export const protocolBuybackVaultAbi = [
     anonymous: false,
     inputs: [
       {
+        name: "token",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "executor",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "ProtocolTokenBound",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
         name: "asset",
         internalType: "address",
         type: "address",
@@ -6689,6 +6743,8 @@ export const protocolBuybackVaultAbi = [
     name: "RouteConfigured",
   },
   { type: "error", inputs: [], name: "DeadlineExpired" },
+  { type: "error", inputs: [], name: "ExecutorCreationCodeCorrupted" },
+  { type: "error", inputs: [], name: "ExecutorDeploymentFailed" },
   { type: "error", inputs: [], name: "InexactSettlement" },
   { type: "error", inputs: [], name: "InsufficientBacking" },
   { type: "error", inputs: [], name: "InvalidAddress" },
@@ -6710,6 +6766,8 @@ export const protocolBuybackVaultAbi = [
     ],
     name: "ProcessingUnavailable",
   },
+  { type: "error", inputs: [], name: "ProtocolTokenAlreadyBound" },
+  { type: "error", inputs: [], name: "ProtocolTokenNotLaunched" },
   { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
   {
     type: "error",
@@ -9630,6 +9688,15 @@ export const useWriteMembershipFactoryAcceptOwnership =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"bindProtocolToken"`
+ */
+export const useWriteMembershipFactoryBindProtocolToken =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "bindProtocolToken",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"createTier"`
  */
 export const useWriteMembershipFactoryCreateTier =
@@ -9669,6 +9736,15 @@ export const useSimulateMembershipFactoryAcceptOwnership =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipFactoryAbi,
     functionName: "acceptOwnership",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"bindProtocolToken"`
+ */
+export const useSimulateMembershipFactoryBindProtocolToken =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "bindProtocolToken",
   });
 
 /**
@@ -11629,6 +11705,33 @@ export const useReadProtocolBuybackVaultExecutor =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"executorCreationCodeHash"`
+ */
+export const useReadProtocolBuybackVaultExecutorCreationCodeHash =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "executorCreationCodeHash",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"executorCreationCodeLength"`
+ */
+export const useReadProtocolBuybackVaultExecutorCreationCodeLength =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "executorCreationCodeLength",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"executorCreationCodeStore"`
+ */
+export const useReadProtocolBuybackVaultExecutorCreationCodeStore =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "executorCreationCodeStore",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"factory"`
  */
 export const useReadProtocolBuybackVaultFactory =
@@ -11734,6 +11837,15 @@ export const useWriteProtocolBuybackVault =
   /*#__PURE__*/ createUseWriteContract({ abi: protocolBuybackVaultAbi });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"bindProtocolToken"`
+ */
+export const useWriteProtocolBuybackVaultBindProtocolToken =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "bindProtocolToken",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"process"`
  */
 export const useWriteProtocolBuybackVaultProcess =
@@ -11819,6 +11931,15 @@ export const useWriteProtocolBuybackVaultSyncDonation =
  */
 export const useSimulateProtocolBuybackVault =
   /*#__PURE__*/ createUseSimulateContract({ abi: protocolBuybackVaultAbi });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"bindProtocolToken"`
+ */
+export const useSimulateProtocolBuybackVaultBindProtocolToken =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "bindProtocolToken",
+  });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"process"`
@@ -11986,6 +12107,15 @@ export const useWatchProtocolBuybackVaultLimitsConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBuybackVaultAbi,
     eventName: "LimitsConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"ProtocolTokenBound"`
+ */
+export const useWatchProtocolBuybackVaultProtocolTokenBoundEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBuybackVaultAbi,
+    eventName: "ProtocolTokenBound",
   });
 
 /**

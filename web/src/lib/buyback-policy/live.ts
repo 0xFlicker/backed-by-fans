@@ -33,6 +33,10 @@ export async function readMarketState(
   },
 ) {
   const { vault, asset, protocolToken, blockNumber } = input;
+  if (protocolToken === zeroAddress)
+    throw new Error(
+      "Protocol token has not been deployed. Buyback quotes will be available after launch.",
+    );
   const [executor, route] = await Promise.all([
     client.readContract({
       address: vault,

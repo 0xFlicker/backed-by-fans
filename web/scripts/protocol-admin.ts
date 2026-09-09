@@ -373,42 +373,47 @@ export async function readAdminContext(
     functionName: "executor",
     blockNumber,
   });
-  const [executorVault, executorToken, executorCurve] = await Promise.all([
-    client.readContract({
-      address: executor,
-      abi: ponsBuybackExecutorAbi,
-      functionName: "vault",
+  if (protocolToken === zeroAddress) {
+    if (executor !== zeroAddress)
+      throw new Error("Unbound token has an executor");
+  } else {
+    const [executorVault, executorToken, executorCurve] = await Promise.all([
+      client.readContract({
+        address: executor,
+        abi: ponsBuybackExecutorAbi,
+        functionName: "vault",
+        blockNumber,
+      }),
+      client.readContract({
+        address: executor,
+        abi: ponsBuybackExecutorAbi,
+        functionName: "protocolToken",
+        blockNumber,
+      }),
+      client.readContract({
+        address: executor,
+        abi: ponsBuybackExecutorAbi,
+        functionName: "curve",
+        blockNumber,
+      }),
+      runtimeIdentity(client, executor, "PonsBuybackExecutor", blockNumber),
+    ]);
+    const launched = await client.readContract({
+      address: getAddress(sourceManifest.records.factory.address),
+      abi: bindings.iPonsLaunchFactoryAbi,
+      functionName: "getLaunchedToken",
+      args: [protocolToken],
       blockNumber,
-    }),
-    client.readContract({
-      address: executor,
-      abi: ponsBuybackExecutorAbi,
-      functionName: "protocolToken",
-      blockNumber,
-    }),
-    client.readContract({
-      address: executor,
-      abi: ponsBuybackExecutorAbi,
-      functionName: "curve",
-      blockNumber,
-    }),
-    runtimeIdentity(client, executor, "PonsBuybackExecutor", blockNumber),
-  ]);
-  const launched = await client.readContract({
-    address: getAddress(sourceManifest.records.factory.address),
-    abi: bindings.iPonsLaunchFactoryAbi,
-    functionName: "getLaunchedToken",
-    args: [protocolToken],
-    blockNumber,
-  });
-  if (
-    getAddress(executorVault) !== getAddress(vault) ||
-    getAddress(executorToken) !== getAddress(protocolToken) ||
-    !launched.exists ||
-    launched.pairToken !== zeroAddress ||
-    getAddress(launched.curve) !== getAddress(executorCurve)
-  )
-    throw new Error("Invalid executor or Pons launch identity");
+    });
+    if (
+      getAddress(executorVault) !== getAddress(vault) ||
+      getAddress(executorToken) !== getAddress(protocolToken) ||
+      !launched.exists ||
+      launched.pairToken !== zeroAddress ||
+      getAddress(launched.curve) !== getAddress(executorCurve)
+    )
+      throw new Error("Invalid executor or Pons launch identity");
+  }
   const handler = sourceManifest.records.safeFallbackHandler.address;
   if (
     getAddress(vaultFactory) !== getAddress(factory) ||

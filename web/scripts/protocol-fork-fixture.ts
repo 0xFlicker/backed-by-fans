@@ -3,6 +3,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import {
+  encodeFunctionData,
   createPublicClient,
   createWalletClient,
   createTestClient,
@@ -17,8 +18,10 @@ import {
   type Address,
   type Hex,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 import {
+  iSafeAbi,
   membershipFactoryAbi,
   onchainMediaStoreFactoryAbi,
 } from "../src/contracts";
@@ -135,6 +138,71 @@ async function main() {
       throw new Error(`${functionName} reverted`);
     return simulation.result;
   };
+  if (getAddress(bootstrap.protocolToken) === zeroAddress) {
+    // Configure payment currencies through the actual one-owner Safe; no token launch.
+    const signer = privateKeyToAccount(
+      `0x${(40961).toString(16).padStart(64, "0")}`,
+    );
+    await test.setBalance({ address: signer.address, value: 10n ** 18n });
+    const safeWallet = createWalletClient({
+      chain: anvil,
+      account: signer,
+      transport: http(rpc, { retryCount: 0 }),
+    });
+    for (const token of [weth, amd]) {
+      const nonce = await client.readContract({
+        address: bootstrap.safe,
+        abi: iSafeAbi,
+        functionName: "nonce",
+      });
+      const data = encodeFunctionData({
+        abi: membershipFactoryAbi,
+        functionName: "setPaymentTokenEnabled",
+        args: [token, true],
+      });
+      const fields = [
+        bootstrap.factory as Address,
+        0n,
+        data,
+        0,
+        0n,
+        0n,
+        0n,
+        zeroAddress,
+        zeroAddress,
+      ] as const;
+      const hash = await client.readContract({
+        address: bootstrap.safe,
+        abi: iSafeAbi,
+        functionName: "getTransactionHash",
+        args: [...fields, nonce],
+      });
+      const signature = await signer.sign({ hash });
+      const simulation = await client.simulateContract({
+        address: bootstrap.safe,
+        abi: iSafeAbi,
+        functionName: "execTransaction",
+        args: [...fields, signature],
+        account: signer,
+      });
+      if (!simulation.result)
+        throw new Error("Payment currency setup simulation failed");
+      const receipt = await client.waitForTransactionReceipt({
+        hash: await safeWallet.writeContract(simulation.request),
+      });
+      await retain("enable-payment-token", { token, receipt });
+      if (
+        receipt.status !== "success" ||
+        !(await client.readContract({
+          address: bootstrap.factory,
+          abi: membershipFactoryAbi,
+          functionName: "isPaymentTokenEnabled",
+          args: [token],
+        }))
+      )
+        throw new Error("Payment currency setup failed");
+    }
+  }
   const [routerArtifact, quoterArtifact, permitArtifact] = await Promise.all([
     artifact("IUniversalRouter.sol/IUniversalRouter.json"),
     artifact("IV4Quoter.sol/IV4Quoter.json"),
@@ -394,7 +462,9 @@ async function main() {
       notes: [
         "Only ETH balances were assigned. Payment tokens were acquired through real existing pools.",
         "Acquisition quotes are not protocol price authority.",
-      "Standing buyback settings remain active. Manual serve mode does not advance through the five-year vesting checkpoint.",
+        bootstrap.protocolToken === zeroAddress
+          ? "Protocol token is unbound. Membership fees can accrue and release, but purchases remain unavailable."
+          : "Standing buyback settings remain active. Manual serve mode does not advance through the five-year vesting checkpoint.",
       ],
     }),
   );

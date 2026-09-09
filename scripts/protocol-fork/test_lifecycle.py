@@ -16,6 +16,23 @@ spec.loader.exec_module(lifecycle)
 
 
 class Guards(unittest.TestCase):
+    def test_no_token_entrypoint_rejects_saved_state_before_starting_services(self):
+        for env in [
+            {"BBF_FORK_RESTORE_STATE": "/tmp/state"},
+            {"BBF_FORK_RESTORE_EVIDENCE": "/tmp/evidence"},
+            {"BBF_FORK_RESTORE_STATE": "/tmp/state", "BBF_FORK_RESTORE_EVIDENCE": "/tmp/evidence"},
+        ]:
+            with self.subTest(env=env), patch.dict(os.environ, env, clear=True), patch.object(subprocess, "Popen") as spawn:
+                with self.assertRaisesRegex(ValueError, "No-token deployment requires fresh state"):
+                    lifecycle.Run(argparse.Namespace(mode="serve", run_id="no-token", without_token=True))
+                spawn.assert_not_called()
+
+    def test_no_token_mode_cannot_claim_full_acceptance(self):
+        with patch.object(subprocess, "Popen") as spawn:
+            with self.assertRaisesRegex(ValueError, "manual serve workflow"):
+                lifecycle.Run(argparse.Namespace(mode="run", run_id="no-token", without_token=True))
+            spawn.assert_not_called()
+
     def test_restore_cannot_replace_fresh_acceptance_or_use_half_a_snapshot(self):
         for mode, env in [
             ("run", {"BBF_FORK_RESTORE_STATE": "/tmp/state", "BBF_FORK_RESTORE_EVIDENCE": "/tmp/evidence"}),

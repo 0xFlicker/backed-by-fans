@@ -135,3 +135,20 @@ checks, runner funding/actions and successful browser traces/screenshots.
 Artifact classes are `source`, `synthetic`, `authentic-fork`, `simulated-external-participant` and
 `browser`. Distinguish failure injections from untouched market/permission state. Retained artifacts
 outlive the fork. Never include real private keys, archive credentials or temporary public broadcasts.
+
+
+## Deferred token binding (approved replacement)
+
+The vault address and burn purpose are fixed at deployment. `protocolToken` and
+`executor` are both zero until a one-time Safe-authorized factory call binds a
+validated token and creates its executor atomically. The factory token getter
+reads the vault; there is no duplicate token registry. Both values are nonzero
+after successful binding and cannot be changed again. A mixed pair is invalid.
+Existing constructor deployment with a nonzero valid token binds immediately.
+
+Unbound status is `TokenNotLaunched`. Native ETH's zero-address asset identity
+must never be mistaken for the absent protocol token. Collection and inventory
+accounting work before binding; all market and direct-burn processing is blocked.
+Route configuration waits for a bound integration. Historical statements above
+requiring token launch before all membership payments are superseded by this
+section and [the approved scope](deferred-token-launch.md).

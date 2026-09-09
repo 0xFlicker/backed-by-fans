@@ -10,7 +10,7 @@ import { protocolBurnRouterAbi } from "@/contracts";
 import { prepareBurn } from "./prepare-burn";
 
 const addr = (n: number) => `0x${n.toString(16).padStart(40, "0")}` as Address;
-function fixture(count = 2n, tierCount = 1n, held = 0n) {
+function fixture(count = 2n, tierCount = 1n, held = 0n, token = addr(4)) {
   const reads = vi.fn(
     async ({
       functionName,
@@ -27,7 +27,7 @@ function fixture(count = 2n, tierCount = 1n, held = 0n) {
         case "buybackVault":
           return addr(3);
         case "protocolToken":
-          return addr(4);
+          return token;
         case "tierCount":
           return tierCount;
         case "paymentTokenCount":
@@ -320,4 +320,11 @@ describe("fresh burn planning", () => {
     await expect(prepareBurn(f.client, addr(1))).rejects.toBe(networkError);
     expect(f.simulations).toHaveBeenCalledTimes(1);
   });
+});
+
+it("collects fees without planning purchases before token launch", async () => {
+  const { client } = fixture(2n, 1n, 0n, zeroAddress);
+  const plan = await prepareBurn(client as unknown as PublicClient, addr(1));
+  expect(plan.collections).toHaveLength(1);
+  expect(plan.purchases).toEqual([]);
 });

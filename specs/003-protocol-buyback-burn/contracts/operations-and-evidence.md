@@ -128,6 +128,7 @@ before signing, prepare again against current state.
 
 | What you see | Meaning and next action |
 | --- | --- |
+| Protocol token has not been deployed | Memberships and earned-fee collection work. The Safe must bind a validated token once before route setup and purchases; see [deferred launch](../deferred-token-launch.md). |
 | Future fees | Paid time has not elapsed. These funds back refunds; Burn cannot spend them. |
 | Earned, awaiting release | Press Burn to checkpoint and release the selected bounded batch. |
 | No inventory | No recorded released funds in that source bucket. Check earned fees above. Unrecorded donations require the separate synchronization action. |

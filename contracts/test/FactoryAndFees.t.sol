@@ -590,11 +590,6 @@ contract FactoryAndFeesTest is Test {
             _tokens(paymentToken), address(mediaStoreFactory), address(0), address(paymentToken)
         );
 
-        vm.expectRevert(MembershipFactory.InvalidAddress.selector);
-        new MembershipFactory(
-            _tokens(paymentToken), address(mediaStoreFactory), address(this), address(0)
-        );
-
         vm.expectRevert(
             abi.encodeWithSelector(
                 MembershipFactory.DuplicatePaymentToken.selector, address(paymentToken)

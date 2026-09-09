@@ -49,6 +49,9 @@ interface IMembershipFactory {
 
     function deployer() external view returns (address);
 
+    /// @notice Permanently bind the validated launch token; callable by the protocol owner once.
+    function bindProtocolToken(address token) external;
+
     function protocolToken() external view returns (address);
 
     function buybackVault() external view returns (address);

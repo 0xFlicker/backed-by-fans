@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
+import {ImmutableCodeStore} from "./ImmutableCodeStore.sol";
 import {IWrappedEther, PonsBuybackExecutor} from "./PonsBuybackExecutor.sol";
 import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
@@ -41,8 +42,11 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         uint256 supply;
     }
     address public immutable override factory;
-    address public immutable override protocolToken;
-    address public immutable override executor;
+    address public override protocolToken;
+    address public override executor;
+    address public immutable executorCreationCodeStore;
+    uint256 public immutable executorCreationCodeLength;
+    bytes32 public immutable executorCreationCodeHash;
     uint256 public override settlementSequence;
     bool public override buybacksPaused = true;
     mapping(address asset => bool) private _assetBuybacksPaused;
@@ -58,6 +62,10 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         address asset => mapping(BuybackTypes.SourceBucket bucket => BuybackTypes.Inventory)
     ) private _inventory;
 
+    error ExecutorCreationCodeCorrupted();
+    error ExecutorDeploymentFailed();
+    error ProtocolTokenAlreadyBound();
+    error ProtocolTokenNotLaunched();
     error InvalidAddress();
     error InvalidAsset();
     error OnlyFactoryDeployment();
@@ -79,13 +87,61 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
     }
 
     constructor(address factory_, address protocolToken_) {
-        if (factory_ == address(0) || protocolToken_ == address(0)) revert InvalidAddress();
+        if (factory_ == address(0)) revert InvalidAddress();
         // The factory is still constructing, so checking its runtime length here is incorrect.
         if (msg.sender != factory_) revert OnlyFactoryDeployment();
-        if (protocolToken_.code.length == 0) revert InvalidAsset();
         factory = factory_;
-        protocolToken = protocolToken_;
-        executor = address(new PonsBuybackExecutor(address(this), protocolToken_));
+        bytes memory creationCode = type(PonsBuybackExecutor).creationCode;
+        executorCreationCodeStore = address(new ImmutableCodeStore(creationCode));
+        executorCreationCodeLength = creationCode.length;
+        executorCreationCodeHash = keccak256(creationCode);
+        if (protocolToken_ != address(0)) _bindProtocolToken(protocolToken_);
+    }
+
+    /// @inheritdoc IProtocolBuybackVault
+    function bindProtocolToken(address token) external override nonReentrant {
+        if (msg.sender != factory) revert OnlyFactoryDeployment();
+        _bindProtocolToken(token);
+    }
+
+    function _bindProtocolToken(address token) private {
+        if (protocolToken != address(0)) revert ProtocolTokenAlreadyBound();
+        if (token == address(0)) revert InvalidAddress();
+        if (token.code.length == 0) revert InvalidAsset();
+        // Constructor validation must succeed before either binding becomes visible.
+        address deployedExecutor = _deployExecutor(token);
+        protocolToken = token;
+        executor = deployedExecutor;
+        emit ProtocolTokenBound(token, deployedExecutor);
+    }
+
+    /// @dev Keep creation code out of vault runtime, matching the tier deployer's code-store pattern.
+    function _deployExecutor(address token) private returns (address deployed) {
+        address store = executorCreationCodeStore;
+        uint256 length = executorCreationCodeLength;
+        bytes memory args = abi.encode(address(this), token);
+        bytes memory initCode = new bytes(length + args.length);
+        bytes32 reconstructedHash;
+        assembly ("memory-safe") {
+            let data := add(initCode, 0x20)
+            extcodecopy(store, data, 1, length)
+            reconstructedHash := keccak256(data, length)
+            mcopy(add(data, length), add(args, 0x20), mload(args))
+        }
+        if (reconstructedHash != executorCreationCodeHash) revert ExecutorCreationCodeCorrupted();
+        assembly ("memory-safe") {
+            deployed := create(0, add(initCode, 0x20), mload(initCode))
+        }
+        if (deployed == address(0)) {
+            assembly ("memory-safe") {
+                if returndatasize() {
+                    let pointer := mload(0x40)
+                    returndatacopy(pointer, 0, returndatasize())
+                    revert(pointer, returndatasize())
+                }
+            }
+            revert ExecutorDeploymentFailed();
+        }
     }
 
     receive() external payable {}
@@ -101,7 +157,9 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         asset = canonicalAsset(asset);
         state.available = _inventory[asset][bucket].available;
         state.revision = asset == protocolToken ? 0 : _revision[asset];
-        if (buybacksPaused || _assetBuybacksPaused[asset]) {
+        if (protocolToken == address(0)) {
+            state.status = BuybackTypes.Status.TokenNotLaunched;
+        } else if (buybacksPaused || _assetBuybacksPaused[asset]) {
             state.status = BuybackTypes.Status.Paused;
         } else if (state.available == 0) {
             state.status = BuybackTypes.Status.NoInventory;
@@ -167,7 +225,7 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
     }
 
     // Only process() reaches this helper under nonReentrant. The executor is
-    // created here at construction and immutable; no caller chooses its address.
+    // created here once during token binding; no caller chooses its address.
     // Snapshots enforce exact settlement across the guarded external calls;
     // every other inventory/configuration writer shares the same reentrancy guard.
     // slither-disable-next-line arbitrary-send-eth,reentrancy-balance,reentrancy-eth
@@ -424,6 +482,7 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
     }
 
     function _validateRoute(address asset, BuybackTypes.TypedRoute calldata route_) private view {
+        if (protocolToken == address(0)) revert ProtocolTokenNotLaunched();
         uint256 count = route_.pools.length;
         if (asset == protocolToken || count > 2 || (asset != address(0) && asset.code.length == 0)) revert InvalidRoute();
         if (asset == address(0) || asset == BuybackIntegration.WETH) {

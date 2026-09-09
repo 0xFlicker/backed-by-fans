@@ -32,7 +32,8 @@ library BuybackTypes {
         BelowMinimum,
         Cooldown,
         LaunchPenalty,
-        GraduationPending
+        GraduationPending,
+        TokenNotLaunched
     }
 
     struct ProcessingState {

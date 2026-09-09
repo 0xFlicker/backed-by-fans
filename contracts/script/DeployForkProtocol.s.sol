@@ -129,7 +129,7 @@ contract DeployForkProtocol is ProtocolDeployment {
         address[] memory owners,
         bytes32 salt,
         uint256 initialBuy
-    ) internal returns (Deployment memory result) {
+    ) internal virtual returns (Deployment memory result) {
         _validateForkDependencies();
         if (
             (owners.length != 1 && owners.length != 3) || developer == address(0) || initialBuy == 0
@@ -174,6 +174,17 @@ contract DeployForkProtocol is ProtocolDeployment {
             result.developerTokensPurchased != token.balanceOf(developer)
                 || result.developerTokensPurchased < minimum || curve.readyToGraduate()
         ) revert InvalidLaunchTerms();
+        result.safe = _deploySafe(owners, salt);
+        _validateLocalToken(USDG, result.safe, result.protocolToken);
+        (result.mediaStoreFactory, result.renderer, result.previewHarness, result.factory) =
+            _deployLocal(USDG, result.safe, result.protocolToken);
+        if (
+            result.factory.owner() != result.safe
+                || result.factory.protocolToken() != result.protocolToken
+        ) revert DeploymentInvariantFailed();
+    }
+
+    function _deploySafe(address[] memory owners, bytes32 salt) internal returns (address safe) {
         uint256 threshold = owners.length == 1 ? 1 : 2;
         bytes memory initializer = abi.encodeCall(
             ISafeL2.setup,
@@ -188,22 +199,13 @@ contract DeployForkProtocol is ProtocolDeployment {
                 payable(address(0))
             )
         );
-        result.safe = ISafeProxyFactoryV150(SAFE_FACTORY)
+        safe = ISafeProxyFactoryV150(SAFE_FACTORY)
             .createProxyWithNonceL2(SAFE_SINGLETON, initializer, uint256(salt));
         if (
-            ISafeProxy(result.safe).masterCopy() != SAFE_SINGLETON
-                || ISafeL2(result.safe).getThreshold() != threshold
-                || ISafeL2(result.safe).nonce() != 0
-                || keccak256(abi.encode(ISafeL2(result.safe).getOwners()))
-                    != keccak256(abi.encode(owners))
+            ISafeProxy(safe).masterCopy() != SAFE_SINGLETON
+                || ISafeL2(safe).getThreshold() != threshold || ISafeL2(safe).nonce() != 0
+                || keccak256(abi.encode(ISafeL2(safe).getOwners())) != keccak256(abi.encode(owners))
         ) revert ExternalIdentityMismatch();
-        _validateLocalToken(USDG, result.safe, result.protocolToken);
-        (result.mediaStoreFactory, result.renderer, result.previewHarness, result.factory) =
-            _deployLocal(USDG, result.safe, result.protocolToken);
-        if (
-            result.factory.owner() != result.safe
-                || result.factory.protocolToken() != result.protocolToken
-        ) revert DeploymentInvariantFailed();
     }
 
     function _validateForkDependencies() internal view {

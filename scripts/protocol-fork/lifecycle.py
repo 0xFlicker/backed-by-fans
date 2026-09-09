@@ -79,9 +79,14 @@ class Stopped(Exception):
 class Run:
     def __init__(self, args):
         self.args = args
+        self.without_token = getattr(args, "without_token", False)
+        if self.without_token and args.mode != "serve":
+            raise ValueError("No-token deployment is a manual serve workflow")
         self.env = os.environ.copy()
         self.restore_state = self.env.get("BBF_FORK_RESTORE_STATE")
         self.restore_evidence = self.env.get("BBF_FORK_RESTORE_EVIDENCE")
+        if self.without_token and (self.restore_state or self.restore_evidence):
+            raise ValueError("No-token deployment requires fresh state; use the standard serve command to restore a saved fork")
         if self.restore_state or self.restore_evidence:
             if args.mode != "serve" or not self.restore_state or not self.restore_evidence:
                 raise ValueError("State restoration requires serve mode, a state file and its evidence directory; it cannot produce fresh acceptance evidence")
@@ -206,10 +211,12 @@ class Run:
         self.write("origin-header.json", origin)
         developer = subprocess.check_output(["cast", "wallet", "address", "--private-key", self.env["BBF_CHECKPOINT_DEVELOPER_KEY"]], text=True).strip()
         rpc(self.rpc_url, "anvil_setBalance", [developer, hex(20 * 10**18)])
-        self.command("bootstrap", ["forge", "script", "script/DeployForkProtocol.s.sol:DeployForkProtocol", "--rpc-url", self.rpc_url, "--broadcast", "--slow", "--code-size-limit", "300000", "--legacy", "--with-gas-price", "2000000000"], ROOT / "contracts")
+        deployment = "DeployForkProtocolNoToken" if self.without_token else "DeployForkProtocol"
+        self.command("bootstrap", ["forge", "script", f"script/{deployment}.s.sol:{deployment}", "--rpc-url", self.rpc_url, "--broadcast", "--slow", "--code-size-limit", "300000", "--legacy", "--with-gas-price", "2000000000"], ROOT / "contracts")
         source = ROOT / "contracts/deployments/protocol-fork" / self.args.run_id / "bootstrap.json"
         shutil.copy2(source, self.evidence / "bootstrap.json")
-        self.command("launch-safe-checkpoint", ["bun", str(ROOT / "scripts/protocol-fork/launch-safe-checkpoint.ts"), str(self.evidence / "bootstrap.json"), str(self.evidence)], ROOT / "web")
+        if not self.without_token:
+            self.command("launch-safe-checkpoint", ["bun", str(ROOT / "scripts/protocol-fork/launch-safe-checkpoint.ts"), str(self.evidence / "bootstrap.json"), str(self.evidence)], ROOT / "web")
         self.command("browser-fixture", ["bun", "scripts/protocol-fork-fixture.ts", str(self.evidence)], ROOT / "web")
         if self.args.mode == "serve" and self.env.get("BBF_FORK_OWNER_ADDRESS"):
             owner = self.env["BBF_FORK_OWNER_ADDRESS"]
@@ -335,6 +342,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("run", "serve", "stop"))
     parser.add_argument("--run-id", required=True, type=validate_run_id)
+    parser.add_argument("--without-token", action="store_true")
     args = parser.parse_args()
     if args.mode == "stop":
         stop(args.run_id)

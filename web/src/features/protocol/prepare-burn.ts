@@ -204,7 +204,7 @@ export async function prepareBurn(client: PublicClient, factory: Address) {
     }
   }
   const purchases = await Promise.all(
-    assets.map(async (asset) => {
+    (protocolToken === zeroAddress ? [] : assets).map(async (asset) => {
       const [revision, lastBuy] = await Promise.all([
         client.readContract({
           address: vault,

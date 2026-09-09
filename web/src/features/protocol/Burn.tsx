@@ -23,10 +23,12 @@ export function Burn({
   chainId,
   factory,
   symbol,
+  tokenLaunched = true,
 }: {
   chainId: SupportedChainId;
   factory: Address;
   symbol?: string;
+  tokenLaunched?: boolean;
 }) {
   const account = useHydratedAccount();
   const client = usePublicClient({ chainId });
@@ -139,14 +141,22 @@ export function Burn({
         }
         onClick={() => action.mutate()}
       >
-        {action.isPending ? "Working…" : "Burn"}
+        {action.isPending
+          ? "Working…"
+          : tokenLaunched
+            ? "Burn"
+            : "Collect fees"}
       </button>
       <p className="small-copy">
         {!account.isConnected
-          ? "Connect a wallet to burn."
+          ? tokenLaunched
+            ? "Connect a wallet to burn."
+            : "Connect a wallet to collect fees."
           : account.chainId !== chainId
             ? "Switch your wallet to this network."
-            : "Collect earned fees and burn in one transaction. You pay the network fee."}
+            : tokenLaunched
+              ? "Collect earned fees and burn in one transaction. You pay the network fee."
+              : "Collect earned fees into the vault. You pay the network fee."}
       </p>
       {action.isPending && (
         <p role="status">
@@ -165,7 +175,9 @@ export function Burn({
           <p>
             {result.burned > 0n
               ? `${burnedAmount} ${symbol || "protocol tokens"} burned.`
-              : "Earned fees collected. Purchases will proceed when eligible."}
+              : tokenLaunched
+                ? "Earned fees collected. Purchases will proceed when eligible."
+                : "Earned fees collected. They remain in the vault until the protocol token is launched."}
             {result.releasedTiers > 0n &&
               result.burned > 0n &&
               ` Fees collected from ${result.releasedTiers} membership${result.releasedTiers === 1n ? "" : "s"}.`}

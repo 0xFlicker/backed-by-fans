@@ -16,7 +16,7 @@ import {IOnchainMediaStoreFactory} from "./interfaces/IOnchainMediaStoreFactory.
 import {ProtocolSafeValidation} from "./libraries/ProtocolSafeValidation.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 
-/// @notice Permissionless official-tier registry with immutable protocol-token and vault identity.
+/// @notice Permissionless official-tier registry with a permanent vault and one-time token binding.
 contract MembershipFactory is Ownable2Step, IMembershipFactory {
     uint256 public constant override maxPageSize = 100;
     bytes32 public constant override rendererSchema =
@@ -27,7 +27,6 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
     bytes32 public immutable override mediaStoreFactoryRuntimeCodehash;
     address public immutable override deployer;
 
-    address public immutable override protocolToken;
     address public immutable override buybackVault;
     address public immutable override burnRouter;
     address[] private _paymentTokens;
@@ -72,14 +71,12 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
         if (mediaStoreFactory_.code.length == 0) {
             revert InvalidContract();
         }
-        if (protocolToken_ == address(0)) {
-            revert InvalidAddress();
+        if (protocolToken_ != address(0) && protocolToken_.code.length == 0) {
+            revert InvalidContract();
         }
-        if (protocolToken_.code.length == 0) revert InvalidContract();
 
         mediaStoreFactory = mediaStoreFactory_;
         mediaStoreFactoryRuntimeCodehash = mediaStoreFactory_.codehash;
-        protocolToken = protocolToken_;
         buybackVault = address(new ProtocolBuybackVault(address(this), protocolToken_));
         burnRouter = address(new ProtocolBurnRouter(address(this), buybackVault));
         deployer = address(new MembershipTierDeployer(address(this)));
@@ -94,6 +91,16 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
             emit PaymentTokenListed(token, i);
             emit PaymentTokenEnabled(token);
         }
+    }
+
+    /// @inheritdoc IMembershipFactory
+    function protocolToken() external view override returns (address) {
+        return ProtocolBuybackVault(payable(buybackVault)).protocolToken();
+    }
+
+    /// @inheritdoc IMembershipFactory
+    function bindProtocolToken(address token) external override onlyOwner {
+        ProtocolBuybackVault(payable(buybackVault)).bindProtocolToken(token);
     }
 
     /// @inheritdoc IMembershipFactory

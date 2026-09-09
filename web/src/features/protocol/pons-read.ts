@@ -80,6 +80,12 @@ export async function readPonsCompensation(
   client: PublicClient,
   context: Context,
 ): Promise<ReadState<PonsCompensation>> {
+  if (context.protocolToken === zeroAddress)
+    return {
+      status: "unavailable",
+      reason: "not-deployed",
+      label: "Protocol token has not been deployed.",
+    };
   try {
     const actualChainId = await client.getChainId();
     if (actualChainId !== context.chainId)
