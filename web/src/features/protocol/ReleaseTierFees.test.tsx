@@ -2,10 +2,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import { encodeAbiParameters, encodeEventTopics } from "viem";
-import { membershipTierAbi } from "@/contracts";
+import {
+  encodeAbiParameters,
+  encodeEventTopics,
+  getAbiItem,
+  zeroAddress,
+} from "viem";
+import { protocolBurnRouterAbi } from "@/contracts";
 import { ReleaseTierFees } from "./ReleaseTierFees";
-
 const mock = vi.hoisted(() => ({
   read: vi.fn(),
   simulate: vi.fn(),
@@ -17,7 +21,7 @@ vi.mock("wagmi", () => ({
   useConfig: () => ({}),
   usePublicClient: () => ({
     readContract: mock.read,
-    getBlockNumber: async () => 100n,
+    getBlock: async () => ({ number: 100n, timestamp: 1000n }),
     waitForTransactionReceipt: mock.receipt,
   }),
   useWriteContract: () => ({
@@ -26,7 +30,10 @@ vi.mock("wagmi", () => ({
   }),
 }));
 vi.mock("@wagmi/core", () => ({ simulateContract: mock.simulate }));
-vi.mock("./gas-readiness", () => ({ assertSufficientGas: vi.fn() }));
+vi.mock("./gas-readiness", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./gas-readiness")>()),
+  assertSufficientGas: vi.fn(),
+}));
 vi.mock("@/lib/use-hydrated-account", () => ({
   useHydratedAccount: () => ({
     address: "0x3333333333333333333333333333333333333333",
@@ -35,6 +42,8 @@ vi.mock("@/lib/use-hydrated-account", () => ({
   }),
 }));
 const tier = "0x1111111111111111111111111111111111111111";
+const router = "0x2222222222222222222222222222222222222222";
+const caller = "0x3333333333333333333333333333333333333333";
 function mount() {
   render(
     <QueryClientProvider
@@ -49,111 +58,132 @@ function mount() {
 beforeEach(() => {
   vi.clearAllMocks();
   mock.chainId = 31337;
-  mock.read.mockImplementation(async ({ functionName, args }) => {
-    if (functionName === "totalMinted") return 101n;
-    if (functionName === "MAX_SYNC_BATCH_SIZE") return 100n;
+  mock.read.mockImplementation(async ({ functionName }) => {
+    if (functionName === "accountingStatus")
+      return {
+        accountedThrough: 950n,
+        nextBoundary: 970n,
+        scheduledMembers: 10000n,
+        complete: false,
+      };
     if (functionName === "protocolFeeEarnedHeld") return 50n;
-    return {
-      uncheckpointedEarned: args[0] === 1n || args[0] === 101n ? 10n : 0n,
-    };
+    if (functionName === "factory") return tier;
+    if (functionName === "burnRouter") return router;
+    if (functionName === "buybackVault") return router;
+    if (functionName === "paymentToken") return tier;
+    if (functionName === "protocolToken") return zeroAddress;
+    throw new Error("Unexpected " + functionName);
   });
-  mock.simulate.mockImplementation(async (config, request) => ({ request }));
-  mock.write.mockResolvedValue(`0x${"12".repeat(32)}`);
+  mock.simulate.mockImplementation(async (_config, request) => ({ request }));
+  mock.write.mockResolvedValue("0x" + "12".repeat(32));
+  const event = getAbiItem({
+    abi: protocolBurnRouterAbi,
+    name: "AdvanceCompleted",
+  });
   mock.receipt.mockResolvedValue({
     status: "success",
-    transactionHash: `0x${"12".repeat(32)}`,
+    transactionHash: "0x" + "12".repeat(32),
     logs: [
       {
-        address: tier,
+        address: router,
         topics: encodeEventTopics({
-          abi: membershipTierAbi,
-          eventName: "ProtocolFeesAccrued",
-          args: { tokenId: 1n, generation: 0n },
+          abi: protocolBurnRouterAbi,
+          eventName: "AdvanceCompleted",
+          args: { caller },
         }),
         data: encodeAbiParameters(
-          [{ type: "uint256" }, { type: "uint256" }],
-          [10n, 10n],
+          event.inputs.filter((item) => !item.indexed),
+          [25n, 1n, 0n, 0n, false],
         ),
       },
     ],
   });
 });
-it("lets a non-owner accrue eligible IDs and confirms the receipt", async () => {
+it("lets any wallet advance and release with the exact simulated request", async () => {
   mount();
-  const button = screen.getByRole("button", { name: "Accrue fees" });
+  const button = screen.getByRole("button", { name: "Advance accounting" });
   await waitFor(() => expect(button).toBeEnabled());
-  await userEvent.setup().click(button);
-  expect(
-    await screen.findByText("Fees accrued. Release earned fees next."),
-  ).toBeVisible();
+  await userEvent.click(button);
+  expect(await screen.findByText(/25 checkpoints completed/)).toBeVisible();
   expect(mock.simulate.mock.calls[0][1]).toMatchObject({
-    functionName: "accrueProtocolFees",
-    args: [[1n]],
+    functionName: "advanceAccounting",
+    address: router,
+    args: [[{ tier, maxAccountingSteps: 25n }]],
   });
-  expect(mock.write).toHaveBeenCalledWith(mock.simulate.mock.calls[0][1]);
+  expect(mock.write.mock.calls[0][0]).toBe(
+    (await mock.simulate.mock.results[0].value).request,
+  );
+  expect(screen.getByText(/More remains. Advance again/)).toBeVisible();
+  expect(
+    mock.read.mock.calls.some(([item]) => item.functionName === "totalMinted"),
+  ).toBe(false);
 });
-it("releases accrued fees with a matching tier receipt", async () => {
-  mock.receipt.mockResolvedValue({
-    status: "success",
-    transactionHash: `0x${"12".repeat(32)}`,
-    logs: [
-      {
-        address: tier,
-        topics: encodeEventTopics({
-          abi: membershipTierAbi,
-          eventName: "ProtocolFeesReleased",
-          args: { vault: tier, asset: tier },
-        }),
-        data: encodeAbiParameters([{ type: "uint256" }], [50n]),
-      },
-    ],
+it("offers buyback-only without accounting or release", async () => {
+  mount();
+  await userEvent.selectOptions(screen.getByLabelText("Action"), "buyback");
+  const button = screen.getByRole("button", { name: "Buyback and burn" });
+  await waitFor(() => expect(button).toBeEnabled());
+  await userEvent.click(button);
+  await screen.findByText(/25 checkpoints completed/);
+  expect(mock.simulate.mock.calls[0][1]).toMatchObject({
+    functionName: "buyback",
+    args: [[], 1300n],
+  });
+});
+it("includes the canonical payment asset's current buyback revision in the same advance", async () => {
+  const original = mock.read.getMockImplementation()!;
+  mock.read.mockImplementation(async (request) => {
+    if (request.functionName === "protocolToken") return caller;
+    if (request.functionName === "canonicalAsset") return zeroAddress;
+    if (request.functionName === "revision") return 7n;
+    return original(request);
   });
   mount();
-  const button = screen.getByRole("button", { name: "Release earned fees" });
+  await userEvent.selectOptions(screen.getByLabelText("Action"), "both");
+  const button = screen.getByRole("button", { name: "Advance and burn" });
   await waitFor(() => expect(button).toBeEnabled());
-  await userEvent.setup().click(button);
-  expect(
-    await screen.findByText(/Fees released. You can now process/),
-  ).toBeVisible();
-  expect(mock.simulate.mock.calls[0][1].functionName).toBe(
-    "releaseProtocolFees",
-  );
+  await userEvent.click(button);
+  await screen.findByText(/25 checkpoints completed/);
+  expect(mock.simulate.mock.calls[0][1].args[1]).toEqual([
+    { asset: zeroAddress, revision: 7n },
+  ]);
 });
-it("does not claim success for a reverted release", async () => {
+it("uses a fixed checkpoint budget without numerical input", () => {
+  mount();
+  expect(
+    screen.queryByLabelText("Maximum checkpoints"),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText(/up to 25 checkpoints/)).toBeVisible();
+});
+it("does not report success after a reverted transaction", async () => {
   mock.receipt.mockResolvedValue({ status: "reverted", logs: [] });
   mount();
-  const button = screen.getByRole("button", { name: "Release earned fees" });
+  const button = screen.getByRole("button", { name: "Advance accounting" });
   await waitFor(() => expect(button).toBeEnabled());
-  await userEvent.setup().click(button);
+  await userEvent.click(button);
   expect(await screen.findByRole("alert")).toHaveTextContent("reverted");
-  expect(
-    screen.queryByText(/Fees released. You can now process/),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByText(/checkpoints completed/)).not.toBeInTheDocument();
 });
-it("exposes subsequent historical membership batches", async () => {
+it("requires the router completion event for this caller", async () => {
+  const receipt = await mock.receipt();
+  receipt.logs[0].address = tier;
+  mock.receipt.mockResolvedValue(receipt);
   mount();
-  await userEvent
-    .setup()
-    .click(
-      await screen.findByRole("button", { name: "Next membership batch" }),
-    );
-  await screen.findByText(/Membership IDs 101–101/);
-  await userEvent
-    .setup()
-    .click(screen.getByRole("button", { name: "Accrue fees" }));
-  await waitFor(() =>
-    expect(mock.simulate.mock.calls[0][1]).toMatchObject({ args: [[101n]] }),
+  const button = screen.getByRole("button", { name: "Advance accounting" });
+  await waitFor(() => expect(button).toBeEnabled());
+  await userEvent.click(button);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "does not confirm",
   );
 });
-it("blocks the wrong network and reports failed reads instead of zero fees", async () => {
+it("blocks the wrong network and reports failed reads", async () => {
   mock.chainId = 46630;
   mock.read.mockRejectedValue(new Error("RPC unavailable"));
   mount();
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Fee eligibility could not be read",
+    "Accounting could not be read",
   );
   expect(
-    screen.getByRole("button", { name: "Release earned fees" }),
+    screen.getByRole("button", { name: "Advance accounting" }),
   ).toBeDisabled();
-  expect(screen.getByText("Switch your wallet to this network.")).toBeVisible();
 });

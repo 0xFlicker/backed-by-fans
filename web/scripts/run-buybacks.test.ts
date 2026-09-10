@@ -20,17 +20,19 @@ const factory = address(1),
   asset = address(4),
   caller = address(5),
   pons = address(6),
-  curve = address(7);
+  curve = address(7),
+  router = address(8);
 type Call = {
   address: Address;
   functionName: string;
   args?: readonly unknown[];
   blockNumber?: bigint;
+  gas?: bigint;
 };
 
 // Mock the viem integration boundary and canonical application reads only. No
 // test receipt polling, nonce inference, transaction journal or wallet engine.
-function fixture(counts = [205n, 1n, 0n]) {
+function fixture(counts = [55n, 1n, 0n]) {
   const tiers = counts.map((_, i) => address(20 + i));
   const held = new Map<Address, bigint>();
   const recognized = new Set<string>();
@@ -44,7 +46,6 @@ function fixture(counts = [205n, 1n, 0n]) {
   const client = {
     getBlock: vi.fn(async () => ({ number: 10n, timestamp: 1000n })),
     readContract: vi.fn(async (call: Call): Promise<unknown> => {
-      const id = `${call.address}:${call.args?.[0]}`;
       switch (call.functionName) {
         case "tierCount":
           return BigInt(captured.length);
@@ -53,10 +54,21 @@ function fixture(counts = [205n, 1n, 0n]) {
             Number(call.args![0]),
             Number(call.args![0]) + Number(call.args![1]),
           );
-        case "totalMinted":
-          return captured[tiers.indexOf(call.address)];
-        case "protocolFeeState":
-          return { uncheckpointedEarned: recognized.has(id) ? 0n : 1n };
+        case "burnRouter":
+          return router;
+        case "accountingStatus": {
+          const total = captured[tiers.indexOf(call.address)];
+          const completed = BigInt(
+            [...recognized].filter((id) => id.startsWith(call.address + ":"))
+              .length,
+          );
+          return {
+            accountedThrough: 900n,
+            nextBoundary: 950n,
+            scheduledMembers: total > completed ? 1n : 0n,
+            complete: completed >= total,
+          };
+        }
         case "protocolFeeEarnedHeld":
           return held.get(call.address) ?? 0n;
         case "paymentToken":
@@ -119,16 +131,22 @@ function fixture(counts = [205n, 1n, 0n]) {
   const wallet = {
     writeContract: vi.fn(async (request: Call) => {
       lastWrite = request;
-      if (request.functionName === "accrueProtocolFees") {
-        for (const id of request.args![0] as bigint[]) {
-          const key = `${request.address}:${id}`;
-          if (!recognized.has(key))
-            held.set(request.address, (held.get(request.address) ?? 0n) + 1n);
-          recognized.add(key);
-        }
-      } else if (request.functionName === "releaseProtocolFees") {
-        pending += held.get(request.address) ?? 0n;
-        held.set(request.address, 0n);
+      if (request.functionName === "advance") {
+        const item = (
+          request.args![0] as { tier: Address; maxAccountingSteps: bigint }[]
+        )[0];
+        const completed = BigInt(
+          [...recognized].filter((id) => id.startsWith(item.tier + ":")).length,
+        );
+        const remaining = captured[tiers.indexOf(item.tier)] - completed;
+        const steps =
+          remaining < item.maxAccountingSteps
+            ? remaining
+            : item.maxAccountingSteps;
+        for (let i = 1n; i <= steps; i++)
+          recognized.add(item.tier + ":" + (completed + i));
+        pending += steps + (held.get(item.tier) ?? 0n);
+        held.set(item.tier, 0n);
       } else if (request.functionName === "process") {
         pending -= request.args![2] as bigint;
         burned += request.args![2] as bigint;
@@ -162,7 +180,7 @@ function fixture(counts = [205n, 1n, 0n]) {
       return burned;
     },
     grow() {
-      captured = [206n, 2n, 0n];
+      captured = [56n, 2n, 0n];
     },
     ready() {
       ready = true;
@@ -202,7 +220,7 @@ describe("finite fair buyback collection", () => {
     await f.create().once();
     expect(f.events.some((e) => e.outcome === "reverted")).toBe(true);
   });
-  it("visits historical expired IDs past 100 round-robin within the documented finite bound", async () => {
+  it("gives every tier one bounded turn and resumes long backlogs on later sweeps", async () => {
     const f = fixture(),
       runner = f.create();
     const visited: Address[] = [];
@@ -211,26 +229,31 @@ describe("finite fair buyback collection", () => {
       if (result.tier) visited.push(result.tier);
       if (result.complete) break;
     }
-    expect(visited).toEqual([
-      f.tiers[0],
-      f.tiers[1],
-      f.tiers[2],
-      f.tiers[0],
-      f.tiers[0],
-    ]);
-    expect(f.burned).toBe(206n);
-    expect(f.recognized.has(`${f.tiers[0]}:205`)).toBe(true);
+    expect(visited).toEqual([f.tiers[0], f.tiers[1], f.tiers[2]]);
+    expect(f.burned).toBe(26n);
+    await runner.once();
+    expect(f.burned).toBe(51n);
+    await runner.once();
+    expect(f.burned).toBe(56n);
+    expect(f.recognized.has(`${f.tiers[0]}:55`)).toBe(true);
     const discovery = f.client.readContract.mock.calls.filter(([x]) =>
       ["tiers", "totalMinted"].includes(x.functionName),
     );
     expect(discovery.every(([x]) => x.blockNumber === 10n)).toBe(true);
+    expect(discovery.some(([x]) => x.functionName === "totalMinted")).toBe(
+      false,
+    );
     expect(
       f.events.some((e) => e.action === "process" && e.reason === "NoRoute"),
     ).toBe(true);
     expect(
       f.client.simulateContract.mock.calls
-        .filter(([x]) => x.functionName === "accrueProtocolFees")
-        .every(([x]) => (x.args![0] as bigint[]).length <= 100),
+        .filter(([x]) => x.functionName === "advance")
+        .every(
+          ([x]) =>
+            (x.args![0] as { maxAccountingSteps: bigint }[])[0]
+              .maxAccountingSteps <= 25n && x.gas === undefined,
+        ),
     ).toBe(true);
   });
   it("retains scheduled progress, excludes new arrivals until wraparound, and restart does not duplicate release", async () => {
@@ -241,17 +264,19 @@ describe("finite fair buyback collection", () => {
     expect(f.events.some((e) => e.action === "process")).toBe(false);
     f.grow();
     await runner.once();
-    expect(f.burned).toBe(206n);
+    expect(f.burned).toBe(27n);
     await runner.once();
-    expect(f.burned).toBe(208n);
+    expect(f.burned).toBe(52n);
+    await runner.once();
+    expect(f.burned).toBe(58n);
     const releases = f.wallet.writeContract.mock.calls.filter(
-      ([x]) => x.functionName === "releaseProtocolFees",
+      ([x]) => x.functionName === "advance",
     ).length;
     await f.create().once();
-    expect(f.burned).toBe(208n);
+    expect(f.burned).toBe(58n);
     expect(
       f.wallet.writeContract.mock.calls.filter(
-        ([x]) => x.functionName === "releaseProtocolFees",
+        ([x]) => x.functionName === "advance",
       ),
     ).toHaveLength(releases);
   });
@@ -260,16 +285,16 @@ describe("finite fair buyback collection", () => {
       runner = f.create();
     const read = f.client.readContract.getMockImplementation()!;
     f.client.readContract.mockImplementation(async (call) => {
-      if (call.functionName === "protocolFeeState")
+      if (call.functionName === "accountingStatus")
         throw new Error("RPC unavailable");
       return read(call);
     });
     await expect(runner.visit()).rejects.toThrow("RPC unavailable");
     expect(f.wallet.writeContract).not.toHaveBeenCalled();
     f.client.readContract.mockImplementation(read);
-    expect((await runner.visit()).firstId).toBe(1n);
+    expect((await runner.visit()).tier).toBe(f.tiers[0]);
   });
-  it.each(["tierCount", "totalMinted"])(
+  it.each(["tierCount"])(
     "rejects excessive %s before any writes",
     async (method) => {
       const f = fixture(),
@@ -288,15 +313,15 @@ describe("finite fair buyback collection", () => {
       simulate = f.client.simulateContract.getMockImplementation()!;
     f.client.simulateContract.mockImplementation(async (call) => {
       if (
-        call.functionName === "releaseProtocolFees" &&
-        call.address === f.tiers[0]
+        call.functionName === "advance" &&
+        (call.args![0] as { tier: Address }[])[0].tier === f.tiers[0]
       )
         throw new Error("Frozen payment token");
       return simulate(call);
     });
     await runner.once();
     expect(f.burned).toBe(1n);
-    expect(f.recognized.size).toBe(206);
+    expect(f.recognized.size).toBe(1);
     expect(
       f.events.some(
         (e) =>

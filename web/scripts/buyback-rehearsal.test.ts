@@ -109,6 +109,8 @@ beforeEach(() => {
         return 0n;
       case "tiers":
         return [];
+      case "burnRouter":
+        return vault;
       case "canonicalAsset":
         return args[0];
       default:

@@ -14,6 +14,7 @@ import {IMembershipRenderer} from "./interfaces/IMembershipRenderer.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
 import {IOnchainMediaStoreFactory} from "./interfaces/IOnchainMediaStoreFactory.sol";
 import {ProtocolSafeValidation} from "./libraries/ProtocolSafeValidation.sol";
+import {VestingLedger} from "./libraries/VestingLedger.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 
 /// @notice Permissionless official-tier registry with a permanent vault and one-time token binding.
@@ -41,6 +42,10 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
     error DuplicatePaymentToken(address token);
     error EmptyPaymentTokenList();
     error InvalidAddress();
+    mapping(address => uint112) public override minimumPayment;
+    error InvalidMinimumPayment();
+    error MinimumPaymentChanged(uint112 expected, uint112 actual);
+    error PaymentBelowMinimum(uint256 amount, uint256 minimum);
     error InvalidContract();
     error InvalidPageSize();
     error InvalidPeriodDuration();
@@ -60,10 +65,15 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
         IERC20[] memory initialPaymentTokens,
         address mediaStoreFactory_,
         address initialOwner,
-        address protocolToken_
+        address protocolToken_,
+        MembershipTypes.TierCodeConfig memory tierCode,
+        uint112[] memory initialMinimumPayments
     ) Ownable(initialOwner) {
         if (initialPaymentTokens.length == 0) {
             revert EmptyPaymentTokenList();
+        }
+        if (initialMinimumPayments.length != initialPaymentTokens.length) {
+            revert InvalidMinimumPayment();
         }
         if (mediaStoreFactory_ == address(0)) {
             revert InvalidAddress();
@@ -79,12 +89,13 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
         mediaStoreFactoryRuntimeCodehash = mediaStoreFactory_.codehash;
         buybackVault = address(new ProtocolBuybackVault(address(this), protocolToken_));
         burnRouter = address(new ProtocolBurnRouter(address(this), buybackVault));
-        deployer = address(new MembershipTierDeployer(address(this)));
+        deployer = address(new MembershipTierDeployer(address(this), tierCode));
 
         for (uint256 i; i < initialPaymentTokens.length; ++i) {
             address token = address(initialPaymentTokens[i]);
             _validatePaymentToken(token);
             if (isPaymentTokenListed[token]) revert DuplicatePaymentToken(token);
+            _setMinimumPayment(token, initialMinimumPayments[i]);
             _paymentTokens.push(token);
             isPaymentTokenListed[token] = true;
             isPaymentTokenEnabled[token] = true;
@@ -121,6 +132,9 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
             revert TierSaltAlreadyUsed(msg.sender, config.tierSalt);
         }
         if (config.periodDuration == 0) revert InvalidPeriodDuration();
+        VestingLedger.validateCurve(
+            config.startingBoostBps, config.earlySupportGross, config.pricePerPeriod
+        );
         if (
             config.protocolFeeBps < 100 || config.protocolFeeBps > _BPS_DENOMINATOR
                 || uint256(config.rewardBps) + config.referralBps + config.protocolFeeBps
@@ -130,6 +144,13 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
         }
         if (!isPaymentTokenEnabled[config.paymentToken]) {
             revert PaymentTokenNotEnabled(config.paymentToken);
+        }
+        uint112 minimum = minimumPayment[config.paymentToken];
+        if (config.minimumPayment != minimum) {
+            revert MinimumPaymentChanged(config.minimumPayment, minimum);
+        }
+        if (config.pricePerPeriod != 0 && config.pricePerPeriod < minimum) {
+            revert PaymentBelowMinimum(config.pricePerPeriod, minimum);
         }
         _validateRenderer(config.renderer, config.art, config.media);
         if (config.media.store != address(0)) {
@@ -168,6 +189,8 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
             config.maxPrepaidPeriods
         );
         emit TierMetadataConfigured(tier, config.metadata.description, config.metadata.externalURI);
+        emit TierMinimumPaymentConfigured(tier, minimum);
+        emit TierRewardCurveConfigured(tier, config.startingBoostBps, config.earlySupportGross);
         emit TierRendererConfigured(tier, config.renderer);
         emit TierArtConfigured(
             tier,
@@ -255,6 +278,7 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
     function setPaymentTokenEnabled(address token, bool enabled) external override onlyOwner {
         bool listed = isPaymentTokenListed[token];
         if (enabled) {
+            if (minimumPayment[token] == 0) revert InvalidMinimumPayment();
             if (!listed) {
                 _validatePaymentToken(token);
                 uint256 tokenIndex = _paymentTokens.length;
@@ -272,6 +296,17 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
         if (!isPaymentTokenEnabled[token]) return;
         isPaymentTokenEnabled[token] = false;
         emit PaymentTokenDisabled(token);
+    }
+
+    function setMinimumPayment(address token, uint112 minimum) external override onlyOwner {
+        _validatePaymentToken(token);
+        _setMinimumPayment(token, minimum);
+    }
+
+    function _setMinimumPayment(address token, uint112 minimum) private {
+        if (minimum == 0) revert InvalidMinimumPayment();
+        minimumPayment[token] = minimum;
+        emit PaymentTokenMinimumUpdated(token, minimum);
     }
 
     function _validatePaymentToken(address token) private view {

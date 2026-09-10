@@ -161,6 +161,17 @@ case "${1:-}" in
           "$MOCK_TESTNET_NFLX_ADDRESS" "$MOCK_TESTNET_PLTR_ADDRESS" \
           "$MOCK_TESTNET_AMZN_ADDRESS" "$MOCK_TESTNET_TSLA_ADDRESS"
         ;;
+      "minimumPayment(address)(uint112)")
+        case "${4:-}" in
+          "$MOCK_TESTNET_USDG_ADDRESS") printf '[1000000]\n' ;;
+          "$MOCK_TESTNET_AMD_ADDRESS") printf '[2000000000000000]\n' ;;
+          "$MOCK_TESTNET_NFLX_ADDRESS") printf '[14000000000000000]\n' ;;
+          "$MOCK_TESTNET_PLTR_ADDRESS") printf '[6000000000000000]\n' ;;
+          "$MOCK_TESTNET_AMZN_ADDRESS") printf '[4000000000000000]\n' ;;
+          "$MOCK_TESTNET_TSLA_ADDRESS") printf '[2800000000000000]\n' ;;
+          *) exit 2 ;;
+        esac
+        ;;
       "isPaymentTokenListed(address)(bool)"|"isPaymentTokenEnabled(address)(bool)")
         printf '[true]\n'
         ;;
@@ -187,6 +198,12 @@ case "${1:-}" in
       "buybackVault()(address)"|"vault()(address)") printf '["%s"]\n' "$MOCK_VAULT_ADDRESS" ;;
       "executor()(address)") printf '["%s"]\n' "$MOCK_EXECUTOR_ADDRESS" ;;
       "deployer()(address)") printf '["%s"]\n' "$MOCK_TIER_DEPLOYER_ADDRESS" ;;
+      "creationCodeStoreA()(address)") printf '["%s"]\n' "${MOCK_BOUND_STORE_A_ADDRESS:-$MOCK_STORE_A_ADDRESS}" ;;
+      "creationCodeStoreB()(address)") printf '["%s"]\n' "$MOCK_STORE_B_ADDRESS" ;;
+      "creationCodeStoreAHash()(bytes32)") printf '["%s"]\n' "$MOCK_STORE_A_RUNTIME_HASH" ;;
+      "creationCodeStoreBHash()(bytes32)") printf '["%s"]\n' "$MOCK_STORE_B_RUNTIME_HASH" ;;
+      "tierCreationCodeHash()(bytes32)") printf '["%s"]\n' "$MOCK_TIER_CODE_HASH" ;;
+      "tierCreationCodeLength()(uint256)") printf '[4]\n' ;;
       "factory()(address)") printf '["%s"]\n' "$MOCK_FACTORY_ADDRESS" ;;
       *) echo "unexpected mock cast call invocation: $*" >&2; exit 1 ;;
     esac
@@ -198,9 +215,13 @@ case "${1:-}" in
       state_file="$MOCK_LOCAL_STATE"
     fi
     prefix="$(cat "$state_file")"
-    factory_prefix=4
+    factory_prefix=7
+    store_a_prefix=5
+    store_b_prefix=6
     if [[ "${MOCK_PREEXISTING_PREVIEW_HARNESS:-}" == "1" ]]; then
-      factory_prefix=3
+      factory_prefix=6
+      store_a_prefix=4
+      store_b_prefix=5
     fi
     if [[ "$address" == "$(printf '%s' "$MOCK_CREATE2_ADDRESS" | tr '[:upper:]' '[:lower:]')" ]]; then
       printf '%s\n' "$MOCK_CREATE2_RUNTIME"
@@ -213,18 +234,27 @@ case "${1:-}" in
     elif [[ "$address" == "$(printf '%s' "$MOCK_TIER_DEPLOYER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
       && "$prefix" -ge "$factory_prefix" ]]; then
       printf '0x60dd\n'
-    elif [[ "$address" == "$(printf '%s' "$MOCK_MEDIA_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
+    elif [[ "$address" == "$(printf '%s' "$MOCK_LEDGER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
       && "$prefix" -ge 1 ]]; then
+      printf '%s\n' "$MOCK_LEDGER_RUNTIME"
+    elif [[ "$address" == "$(printf '%s' "$MOCK_MEDIA_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
+      && "$prefix" -ge 2 ]]; then
       printf '%s\n' "$MOCK_MEDIA_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_RENDERER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
-      && "$prefix" -ge 2 ]]; then
+      && "$prefix" -ge 3 ]]; then
       printf '%s\n' "$MOCK_RENDERER_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_PREVIEW_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
-      && ("$prefix" -ge 3 || "${MOCK_PREEXISTING_PREVIEW_HARNESS:-}" == "1") ]]; then
+      && ("$prefix" -ge 4 || "${MOCK_PREEXISTING_PREVIEW_HARNESS:-}" == "1") ]]; then
       printf '%s\n' "$MOCK_PREVIEW_RUNTIME"
+    elif [[ "$address" == "$(printf '%s' "$MOCK_STORE_A_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
+      && "$prefix" -ge "$store_a_prefix" ]]; then
+      printf '%s\n' "${MOCK_OBSERVED_STORE_A_RUNTIME:-$MOCK_STORE_A_RUNTIME}"
+    elif [[ "$address" == "$(printf '%s' "$MOCK_STORE_B_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
+      && "$prefix" -ge "$store_b_prefix" ]]; then
+      printf '%s\n' "$MOCK_STORE_B_RUNTIME"
     elif [[ -n "${MOCK_SECOND_RENDERER_ADDRESS:-}" \
       && "$address" == "$(printf '%s' "$MOCK_SECOND_RENDERER_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
-      && "$prefix" -ge 4 ]]; then
+      && "$prefix" -ge 5 ]]; then
       printf '%s\n' "$MOCK_SECOND_RENDERER_RUNTIME"
     elif [[ "$address" == "$(printf '%s' "$MOCK_FACTORY_ADDRESS" | tr '[:upper:]' '[:lower:]')" \
       && "$prefix" -ge "$factory_prefix" ]]; then

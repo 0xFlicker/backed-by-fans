@@ -1,4 +1,17 @@
-import { getAddress, isAddress, type Address } from "viem";
+import {
+  getAddress,
+  isAddress,
+  parseEventLogs,
+  type Address,
+  type PublicClient,
+} from "viem";
+
+import { membershipTierAbi } from "@/contracts";
+import {
+  receiptIssuedShares,
+  receiptProvesPayment,
+} from "@/features/protocol/payout-reconciliation";
+import type { SuccessfulReceiptLogs } from "@/features/protocol/write-reconciliation";
 
 import {
   previewPaymentSplit,
@@ -6,6 +19,76 @@ import {
 } from "@/features/creator/config";
 import { isSameAddress } from "@/lib/address";
 import { displayedToRaw } from "@/lib/token-amount";
+
+/** A quote at the snapshot block reserves neither curve position nor shares. */
+export async function readRewardQuote(
+  client: PublicClient,
+  input: {
+    tier: Address;
+    gross: bigint;
+    blockNumber: bigint;
+  },
+) {
+  const quote = await client.readContract({
+    address: input.tier,
+    abi: membershipTierAbi,
+    functionName: "previewShares",
+    args: [input.gross],
+    blockNumber: input.blockNumber,
+  });
+  return quote.sharesAdded;
+}
+
+/** Canonical weight may have grown again since this successful payment. */
+export function reconcilePaymentWeight(
+  receipt: SuccessfulReceiptLogs,
+  input: {
+    tier: Address;
+    payer: Address;
+    recipient: Address;
+    gross: bigint;
+    periods: bigint;
+    tokenId: bigint;
+    shares: bigint;
+  },
+) {
+  if (!receiptProvesPayment(receipt, input)) return undefined;
+  if (input.gross === 0n) return 0n;
+  const issued = receiptIssuedShares(receipt, input.tier, input.tokenId);
+  return issued && input.shares >= issued.tokenShares
+    ? issued.amount
+    : undefined;
+}
+
+export function averageRewardBoost(shares: bigint, gross: bigint) {
+  if (gross === 0n) return "0×";
+  return `${Number((shares * 10000n) / gross) / 10000}×`;
+}
+
+/** Restoration is historical weight in this receipt, separate from its new issuance. */
+export function receiptRestoredRewardWeight(
+  receipt: SuccessfulReceiptLogs,
+  tier: Address,
+  tokenId: bigint,
+) {
+  const issued = receiptIssuedShares(receipt, tier, tokenId);
+  if (!issued) return 0n;
+  const activation = parseEventLogs({
+    abi: membershipTierAbi,
+    eventName: "RewardEligibilityUpdated",
+    logs: receipt.logs,
+    strict: true,
+  }).find(
+    (event) =>
+      isSameAddress(event.address, tier) &&
+      event.args.tokenId === tokenId &&
+      event.args.eligible &&
+      event.args.eligibleShares === issued.tokenShares,
+  );
+  return activation && issued.tokenShares >= issued.amount
+    ? issued.tokenShares - issued.amount
+    : 0n;
+}
 
 export type MembershipActionState =
   | "unready"
@@ -31,7 +114,6 @@ export type PaymentPreview = {
   duration: bigint;
   resultingExpiration: bigint;
   exactApproval: bigint;
-  sharesAdded: bigint;
   split?: SplitPreview;
   appliedReferral: bigint;
   appliedCreator: bigint;
@@ -72,7 +154,6 @@ export function buildPaymentPreview(input: {
     duration,
     resultingExpiration: base + duration,
     exactApproval: input.allowance < gross ? gross : 0n,
-    sharesAdded: gross,
     split,
     appliedReferral: split && input.referralApplies ? split.referral : 0n,
     appliedCreator: split

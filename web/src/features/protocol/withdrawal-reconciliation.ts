@@ -4,24 +4,25 @@ import { membershipTierAbi } from "@/contracts";
 import type { SuccessfulReceiptLogs } from "@/features/protocol/write-reconciliation";
 import { isSameAddress } from "@/lib/address";
 
-export function receiptProvesCreatorWithdrawal(
+export function receiptCreatorWithdrawal(
   receipt: SuccessfulReceiptLogs,
   input: {
     tier: Address;
     owner: Address;
-    amount: bigint;
   },
 ) {
-  if (input.amount === 0n) return false;
-  return parseEventLogs({
+  const event = parseEventLogs({
     abi: membershipTierAbi,
     eventName: "CreatorProceedsWithdrawn",
     logs: receipt.logs,
     strict: true,
-  }).some(
+  }).find(
     (event) =>
       isSameAddress(event.address, input.tier) &&
       isSameAddress(event.args.owner, input.owner) &&
-      event.args.amount >= input.amount,
+      event.args.amount > 0n,
   );
+  return event
+    ? { amount: event.args.amount, recipient: event.args.owner }
+    : undefined;
 }

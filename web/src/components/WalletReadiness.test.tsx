@@ -50,6 +50,7 @@ describe("WalletReadiness", () => {
           factory: testnetFactory,
           address: testnetToken,
           registryIndex: 0,
+          minimumPayment: 1n,
           listed: true,
           enabled: true,
           name: "Global Dollar",

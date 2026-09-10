@@ -29,7 +29,8 @@ for (const kind of ["AMD", "WETH"] as const)
         kind === "AMD"
           ? requiredAnvilAddress("scaledPaymentToken")
           : "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73";
-      const price = 10000000000000n,
+      const price =
+          kind === "AMD" ? 2_000_000_000_000_000n : 410_000_000_000_000n,
         tier = await f.tier(`${kind} earned burn`, asset, 10000, price),
         gross = price * 12n;
       if (kind === "WETH")
@@ -48,8 +49,8 @@ for (const kind of ["AMD", "WETH"] as const)
       ]);
       await f.testClient.increaseTime({ seconds: 300 });
       await f.testClient.mine({ blocks: 1 });
-      await f.write(member, tier, membershipTierAbi, "accrueProtocolFees", [
-        [1n],
+      await f.write(member, tier, membershipTierAbi, "processAccounting", [
+        25n,
       ]);
       await f.write(member, tier, membershipTierAbi, "releaseProtocolFees");
       const inventory = () =>
@@ -106,23 +107,18 @@ for (const kind of ["AMD", "WETH"] as const)
       const preview = await f.client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "previewRefundComponents",
+        functionName: "previewRefund",
         args: [1n],
       });
-      expect(preview[1]).toBe(preview[0]);
-      expect(preview[2]).toBe(0n);
-      expect(preview[3]).toBe(0n);
+      expect(preview.fundingScaled[3]).toBe(preview.grossRefund * (1n << 128n));
+      expect(preview.fundingScaled.slice(0, 3)).toEqual([0n, 0n, 0n]);
       const beforeRefund = await f.client.readContract({
         address: asset,
         abi: erc20Abi,
         functionName: "balanceOf",
         args: [member],
       });
-      await f.write(creator, tier, membershipTierAbi, "refund", [
-        1n,
-        gross,
-        0n,
-      ]);
+      await f.write(creator, tier, membershipTierAbi, "refund", [1n, gross]);
       const afterRefund = await f.client.readContract({
         address: asset,
         abi: erc20Abi,
@@ -132,8 +128,19 @@ for (const kind of ["AMD", "WETH"] as const)
       const finalState = await f.client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "protocolFeeState",
+        functionName: "allocationState",
         args: [1n],
+      });
+      const held = await f.client.readContract({
+        address: asset,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [tier],
+      });
+      const protectedCash = await f.client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "totalProtectedLiability",
       });
       expect(afterRefund).toBeGreaterThan(beforeRefund);
       await f.retain(`asset-burn-refund-${kind}`, {
@@ -149,6 +156,14 @@ for (const kind of ["AMD", "WETH"] as const)
         beforeRefund,
         afterRefund,
         finalState,
+        refundAccounting: {
+          allocated: gross,
+          held,
+          protected: protectedCash,
+          before: beforeRefund,
+          after: afterRefund,
+          generation: finalState.generation,
+        },
       });
     } finally {
       await revertAnvil(snapshot);

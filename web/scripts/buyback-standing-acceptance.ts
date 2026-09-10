@@ -61,7 +61,7 @@ const snapshot = async () => ({
       feeHoldings: await client.readContract({
         address: t.address,
         abi: membershipTierAbi,
-        functionName: "protocolFeeHoldings",
+        functionName: "reserveState",
       }),
     })),
   ),

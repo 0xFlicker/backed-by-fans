@@ -8,6 +8,7 @@ import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {AuthenticAssetFixture} from "./helpers/AuthenticAssetFixture.sol";
+import {ForkTierCodeFixture} from "./helpers/ForkTierCodeFixture.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {
@@ -22,6 +23,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
 
     function setUp() public override {
         super.setUp();
+        new ForkTierCodeFixture().install();
         _launch(keccak256("protocol-buybacks"));
         _buy(developer, 0.01 ether);
         IERC20[] memory assets = new IERC20[](1);
@@ -30,7 +32,14 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         bbf = MembershipFactory(
             deployCode(
                 "MembershipFactory.sol:MembershipFactory",
-                abi.encode(assets, media, address(this), address(token))
+                abi.encode(
+                    assets,
+                    media,
+                    address(this),
+                    address(token),
+                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.minimumPayments(assets)
+                )
             )
         );
         vault = ProtocolBuybackVault(payable(bbf.buybackVault()));
@@ -107,6 +116,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         } else {
             acquired = _acquire(asset, trader, 0.001 ether);
         }
+        bbf.setMinimumPayment(asset, 1);
         bbf.setPaymentTokenEnabled(asset, true);
         address renderer = deployCode("OnchainMetadataRenderer.sol:OnchainMetadataRenderer");
         MembershipTypes.TierConfig memory config =
@@ -123,13 +133,15 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         uint256 id = tier.purchase(12, address(0));
         vm.stopPrank();
         vm.warp(block.timestamp + 300);
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = id;
         vm.prank(developer);
-        tier.accrueProtocolFees(ids);
+        tier.processAccounting(25);
         vm.prank(developer);
         uint256 released = tier.releaseProtocolFees();
-        assertEq(released, gross / 4);
+        // The per-second Q128 rate floors until END; three periods can leave a
+        // fractional earned raw unit even when the ideal quarter is integral.
+        // The protocol deliberately floors the Q128 rate before elapsed-time integration.
+        // forge-lint: disable-next-line(divide-before-multiply)
+        assertEq(released, (gross * tier.ACCOUNTING_SCALE() / 1200) * 300 / tier.ACCOUNTING_SCALE());
         assertEq(IERC20(asset).balanceOf(address(tier)), gross - released);
         _memberLimits(asset);
         uint256 routerBalance = Integration.ROUTER.balance;
@@ -154,7 +166,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         assertEq(supply - token.totalSupply(), burned);
         assertEq(vault.inventory(asset, BuybackTypes.SourceBucket.Membership).available, 0);
         assertEq(vault.inventory(asset, BuybackTypes.SourceBucket.Donation).totalReceived, 0);
-        _assertReservedRefund(tier, asset, id, gross - released);
+        _assertReservedRefund(tier, asset, id, gross * 900 / 1200);
         _assertAllowancesCleared(asset);
         emit log_named_address("Authentic payment asset", asset);
         emit log_named_uint("Membership released raw input", released);
@@ -174,16 +186,19 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
     function _assertReservedRefund(MembershipTier tier, address asset, uint256 id, uint256 expected)
         private
     {
-        (uint256 refund, uint256 reserve, uint256 creator, uint256 topup) =
-            tier.previewRefundComponents(id);
+        MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
+        uint256 refund = quote.grossRefund;
         assertEq(refund, expected);
-        assertEq(reserve, refund);
-        assertEq(creator, 0);
-        assertEq(topup, 0);
+        assertEq(quote.fundingScaled[3], refund * tier.ACCOUNTING_SCALE());
+        assertEq(quote.fundingScaled[0] + quote.fundingScaled[1] + quote.fundingScaled[2], 0);
         uint256 beforeRefund = IERC20(asset).balanceOf(trader);
-        tier.refund(id, refund, 0);
+        uint256 heldBefore = IERC20(asset).balanceOf(address(tier));
+        tier.refund(id, refund);
         assertEq(IERC20(asset).balanceOf(trader) - beforeRefund, refund);
-        assertEq(IERC20(asset).balanceOf(address(tier)), 0);
+        uint256 remainder = IERC20(asset).balanceOf(address(tier));
+        assertEq(remainder, heldBefore - refund);
+        assertEq(remainder, tier.totalProtectedLiability());
+        assertLe(remainder, 1, "only protected fractional earned/cancellation residue remains");
         emit log_named_uint("Unused membership refunded from reserve", refund);
     }
 

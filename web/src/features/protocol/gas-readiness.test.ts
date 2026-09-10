@@ -16,18 +16,26 @@ function client(balance: bigint) {
 describe("gas readiness", () => {
   it("reserves both the wrapped ETH amount and the network fee", async () => {
     await expect(
-      assertSufficientGas(client(1239n), account, { value: 1000n }),
+      assertSufficientGas(client(1199n), account, { value: 1000n }),
     ).rejects.toThrow("including its ETH amount and network fee");
     await expect(
-      assertSufficientGas(client(1240n), account, { value: 1000n }),
-    ).resolves.toBe(240n);
+      assertSufficientGas(client(1200n), account, { value: 1000n }),
+    ).resolves.toBe(200n);
   });
-  it("requires a twenty-percent safety margin before returning a write", async () => {
+  it("honors an explicit caller gas limit", async () => {
     await expect(
-      assertSufficientGas(client(239n), account, {}),
+      assertSufficientGas(client(1999n), account, { gas: 1000n }),
     ).rejects.toThrow("Fund gas before retrying");
-    await expect(assertSufficientGas(client(240n), account, {})).resolves.toBe(
-      240n,
+    await expect(
+      assertSufficientGas(client(2000n), account, { gas: 1000n }),
+    ).resolves.toBe(2000n);
+  });
+  it("uses the RPC estimate without an additional safety margin", async () => {
+    await expect(
+      assertSufficientGas(client(199n), account, {}),
+    ).rejects.toThrow("Fund gas before retrying");
+    await expect(assertSufficientGas(client(200n), account, {})).resolves.toBe(
+      200n,
     );
   });
 });

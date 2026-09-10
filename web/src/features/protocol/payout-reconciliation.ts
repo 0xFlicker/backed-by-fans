@@ -12,6 +12,7 @@ export function receiptProvesPayment(
     recipient: Address;
     gross: bigint;
     periods: bigint;
+    tokenId?: bigint;
   },
 ) {
   if (input.periods === 0n) return false;
@@ -26,54 +27,76 @@ export function receiptProvesPayment(
       isSameAddress(event.args.payer, input.payer) &&
       isSameAddress(event.args.recipient, input.recipient) &&
       event.args.gross === input.gross &&
+      (input.tokenId === undefined || event.args.tokenId === input.tokenId) &&
       event.args.periods === input.periods,
   );
 }
 
-export function receiptProvesRewardClaim(
+/** Execution-time shares from the supplied payment receipt, never a prior quote. */
+export function receiptIssuedShares(
   receipt: SuccessfulReceiptLogs,
-  input: { tier: Address; tokenId: bigint; owner: Address; amount: bigint },
+  tier: Address,
+  tokenId: bigint,
 ) {
-  if (input.amount === 0n) return false;
   return parseEventLogs({
+    abi: membershipTierAbi,
+    eventName: "SharesIssued",
+    logs: receipt.logs,
+    strict: true,
+  }).find(
+    (event) =>
+      isSameAddress(event.address, tier) && event.args.tokenId === tokenId,
+  )?.args;
+}
+
+export function receiptRewardClaim(
+  receipt: SuccessfulReceiptLogs,
+  input: { tier: Address; tokenId: bigint; owner: Address },
+) {
+  const event = parseEventLogs({
     abi: membershipTierAbi,
     eventName: "RewardClaimed",
     logs: receipt.logs,
     strict: true,
-  }).some(
+  }).find(
     (event) =>
       isSameAddress(event.address, input.tier) &&
       event.args.tokenId === input.tokenId &&
       isSameAddress(event.args.owner, input.owner) &&
-      event.args.amount >= input.amount,
+      event.args.amount > 0n,
   );
+  return event
+    ? { amount: event.args.amount, recipient: event.args.owner }
+    : undefined;
 }
 
-export function receiptProvesReferralClaim(
+export function receiptReferralClaim(
   receipt: SuccessfulReceiptLogs,
-  input: { tier: Address; referrer: Address; amount: bigint },
+  input: { tier: Address; referrer: Address },
 ) {
-  if (input.amount === 0n) return false;
-  return parseEventLogs({
+  const event = parseEventLogs({
     abi: membershipTierAbi,
     eventName: "ReferralClaimed",
     logs: receipt.logs,
     strict: true,
-  }).some(
+  }).find(
     (event) =>
       isSameAddress(event.address, input.tier) &&
       isSameAddress(event.args.referrer, input.referrer) &&
-      event.args.amount >= input.amount,
+      event.args.amount > 0n,
   );
+  return event
+    ? { amount: event.args.amount, recipient: event.args.referrer }
+    : undefined;
 }
 
-export function receiptProvesMembershipRefund(
+export function receiptMembershipRefund(
   receipt: SuccessfulReceiptLogs,
   input: {
     tier: Address;
     tokenId: bigint;
     recipient: Address;
-    tierOwner: Address;
+    maxGrossRefund: bigint;
   },
 ) {
   return parseEventLogs({
@@ -81,11 +104,11 @@ export function receiptProvesMembershipRefund(
     eventName: "MembershipRefunded",
     logs: receipt.logs,
     strict: true,
-  }).some(
+  }).find(
     (event) =>
       isSameAddress(event.address, input.tier) &&
       event.args.tokenId === input.tokenId &&
-      isSameAddress(event.args.recipient, input.recipient) &&
-      isSameAddress(event.args.tierOwner, input.tierOwner),
-  );
+      event.args.grossRefund <= input.maxGrossRefund &&
+      isSameAddress(event.args.recipient, input.recipient),
+  )?.args;
 }

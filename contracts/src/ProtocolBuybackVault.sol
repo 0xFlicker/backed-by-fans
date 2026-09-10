@@ -569,6 +569,10 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
     }
 
     // Normalize only this receipt, preserving any unrelated unsynchronized WETH.
+    // Both callers hold nonReentrant and receive() is empty. These deliberately
+    // captured balances assert exact unwrap deltas; they are not reused inventory.
+    // A callback attempting syncDonation/recordEarnedFees/process cannot enter.
+    // slither-disable-next-line reentrancy-balance
     function _normalizeReceipt(address asset, uint256 amount) private {
         if (asset != BuybackIntegration.WETH) return;
         uint256 ethBefore = address(this).balance;

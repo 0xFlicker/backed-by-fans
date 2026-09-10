@@ -71,6 +71,7 @@ const paymentTokens: AcceptedPaymentTokenReadState = {
       factory,
       address: paymentToken,
       registryIndex: 0,
+      minimumPayment: 1n,
       listed: true,
       enabled: true,
       name: "Advanced Micro Devices",

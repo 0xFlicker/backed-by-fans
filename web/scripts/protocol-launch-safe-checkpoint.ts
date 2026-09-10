@@ -19,6 +19,7 @@ import { executeForkSafePayload } from "./protocol-safe-transactions";
 import {
   readAdminContext,
   preparePaymentTokenPayload,
+  prepareMinimumPaymentPayload,
   prepareBuybackPayload,
   validateAdminRpc,
 } from "./protocol-admin";
@@ -100,7 +101,14 @@ export async function main() {
   ) => {
     const context = await readAdminContext(client, 31337, factory);
     const payload = paymentToken
-      ? await preparePaymentTokenPayload(client, context, paymentToken, true)
+      ? action === "minimum"
+        ? await prepareMinimumPaymentPayload(
+            client,
+            context,
+            paymentToken,
+            input as bigint,
+          )
+        : await preparePaymentTokenPayload(client, context, paymentToken, true)
       : await prepareBuybackPayload(client, context, action, {
           ...(input as object),
           expectedSafeNonceRaw: context.safeNonce.toString(),
@@ -117,8 +125,19 @@ export async function main() {
   const usdg = "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168" as Address;
   const amd = "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC" as Address;
   const weth = "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73" as Address;
-  for (const paymentToken of [amd, weth, token])
+  for (const paymentToken of [amd, weth, token]) {
+    // The launch token is fixture-only onboarding, outside the supported currency calibration.
+    await configure(
+      "minimum",
+      paymentToken === amd
+        ? 2_000_000_000_000_000n
+        : paymentToken === weth
+          ? 410_000_000_000_000n
+          : 1n,
+      paymentToken,
+    );
     await configure("onboard", undefined, paymentToken);
+  }
   const usdPool = {
     currency0: zeroAddress,
     currency1: usdg,

@@ -1,17 +1,17 @@
 "use client";
 
-import { readRefundFunding } from "@/features/creator/management-read";
+import {
+  readRefundFunding,
+  isCurrentRefundQuote,
+} from "@/features/creator/management-read";
+import { RewardCurveSummary } from "@/features/creator/RewardCurveControls";
+import { VestingSummary } from "@/features/membership/VestingSummary";
+import { ReleaseTierFees } from "@/features/protocol/ReleaseTierFees";
 
 import { useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
-import {
-  erc20Abi,
-  getAddress,
-  zeroAddress,
-  type Address,
-  type Hash,
-} from "viem";
+import { getAddress, zeroAddress, type Address, type Hash } from "viem";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
@@ -31,13 +31,14 @@ import { readTierManagementState } from "@/features/creator/management-read";
 import { ExpiredMembershipSyncControl } from "@/features/creator/ExpiredMembershipSyncControl";
 import { RendererManagementControl } from "@/features/creator/RendererManagementControl";
 import { reconcileExpiredMembershipSync } from "@/features/creator/expired-membership-sync";
-import { receiptProvesMembershipRefund } from "@/features/protocol/payout-reconciliation";
+import { receiptMembershipRefund } from "@/features/protocol/payout-reconciliation";
+import { formatMembershipDate } from "@/features/membership/date";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import {
   receiptProvesGrantRevocation,
   reconcileTierGrant,
 } from "@/features/protocol/grant-reconciliation";
-import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
+import { receiptCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import {
   isSuccessfulWriteReceipt,
   reconcileSuccessfulWrite,
@@ -107,16 +108,17 @@ function ManagementControls({
   const [grantPeriods, setGrantPeriods] = useState("1");
   const [revokeToken, setRevokeToken] = useState("");
   const [refundToken, setRefundToken] = useState("");
-  const [refundPreview, setRefundPreview] = useState<{
-    capturedBlock: bigint;
-    tokenId: bigint;
-    recipient: Address;
-    gross: bigint;
-    protocol: bigint;
-    creator: bigint;
-    topUp: bigint;
-  }>();
+  const [refundPreview, setRefundPreview] = useState<
+    Awaited<ReturnType<typeof readRefundFunding>> & {
+      capturedBlock: bigint;
+      tokenId: bigint;
+    }
+  >();
   const refundPreviewVersion = useRef(0);
+  const [refundOutcome, setRefundOutcome] =
+    useState<ReturnType<typeof receiptMembershipRefund>>();
+  const [payout, setPayout] =
+    useState<ReturnType<typeof receiptCreatorWithdrawal>>();
   const operationInFlight = useRef(false);
   const [description, setDescription] = useState(snapshot.description);
   const [externalURI, setExternalURI] = useState(snapshot.externalURI);
@@ -183,50 +185,15 @@ function ManagementControls({
     reconcile: (
       receipt: SuccessfulWriteReceipt,
     ) => Promise<unknown | undefined>,
-    approval?: () => Promise<SendWrite>,
   ) {
     setActiveAction(label);
+    setRefundOutcome(undefined);
+    setPayout(undefined);
     let waitingForReceipt = false;
     try {
       dispatch({ type: "SIMULATE" });
-      if (approval) {
-        const sendApproval = await approval();
-        dispatch({ type: "SIMULATED", approvalRequired: true });
-        const approvalHash = await sendApproval();
-        dispatch({ type: "SUBMITTED", hash: approvalHash });
-        waitingForReceipt = true;
-        let approvalCancelled = false;
-        const approvalReceipt = await client.waitForTransactionReceipt({
-          hash: approvalHash,
-          onReplaced: (replacement) => {
-            approvalCancelled ||= replacement.reason === "cancelled";
-            dispatch({
-              type: "REPLACED",
-              replacementHash: replacement.transaction.hash,
-              reason: replacement.reason,
-            });
-          },
-        });
-        waitingForReceipt = false;
-        if (approvalCancelled) {
-          dispatch({
-            type: "CANCELLED",
-            error: `The wallet cancelled the ${paymentTokenState?.symbol ?? "token"} approval.`,
-          });
-          return undefined;
-        }
-        if (approvalReceipt.status === "reverted") {
-          dispatch({
-            type: "REVERTED",
-            error: `The ${paymentTokenState?.symbol ?? "token"} approval reverted onchain.`,
-          });
-          return undefined;
-        }
-        dispatch({ type: "APPROVED" });
-      }
-
       const send = await simulate();
-      if (!approval) dispatch({ type: "SIMULATED", approvalRequired: false });
+      dispatch({ type: "SIMULATED", approvalRequired: false });
       dispatch({ type: "SIGN" });
       const hash = await send();
       dispatch({ type: "SIGNED" });
@@ -280,11 +247,8 @@ function ManagementControls({
     reconcile: (
       receipt: SuccessfulWriteReceipt,
     ) => Promise<unknown | undefined>,
-    approval?: () => Promise<SendWrite>,
   ) {
-    return runExclusive(() =>
-      performUnlocked(label, simulate, reconcile, approval),
-    );
+    return runExclusive(() => performUnlocked(label, simulate, reconcile));
   }
 
   async function reconcileSnapshot(
@@ -364,7 +328,7 @@ function ManagementControls({
     return {
       paidSeconds: balances[0],
       grantSeconds: balances[1],
-      refundableGross: refund[0],
+      refundableGross: refund.grossRefund,
     };
   }
 
@@ -416,25 +380,15 @@ function ManagementControls({
         return;
       }
       const previewBlock = refreshed.capturedBlock;
-      const [refund, recipient] = await Promise.all([
-        readRefundFunding(client, {
-          tier: snapshot.address,
-          tokenId,
-          blockNumber: previewBlock,
-        }),
-        client.readContract({
-          address: snapshot.address,
-          abi: membershipTierAbi,
-          functionName: "ownerOf",
-          args: [tokenId],
-          blockNumber: previewBlock,
-        }),
-      ]);
+      const refund = await readRefundFunding(client, {
+        tier: snapshot.address,
+        tokenId,
+        blockNumber: previewBlock,
+      });
       if (version !== refundPreviewVersion.current) return;
       setRefundPreview({
         capturedBlock: previewBlock,
         tokenId,
-        recipient,
         ...refund,
       });
     } catch (error) {
@@ -444,13 +398,13 @@ function ManagementControls({
   }
 
   async function refund() {
+    setRefundOutcome(undefined);
     const tokenId = parseTokenId(refundToken);
     const preview =
       refundPreview?.capturedBlock === capturedBlock && snapshot.paused
         ? refundPreview
         : undefined;
     if (!preview || preview.tokenId !== tokenId || !account.address) return;
-    const owner = account.address;
     await runExclusive(async () => {
       try {
         const paused = await client.readContract({
@@ -466,51 +420,44 @@ function ManagementControls({
           });
           return;
         }
-        let approval: (() => Promise<SendWrite>) | undefined;
-        if (preview.topUp > 0n) {
-          const allowance = await client.readContract({
-            address: snapshot.paymentToken,
-            abi: erc20Abi,
-            functionName: "allowance",
-            args: [owner, snapshot.address],
-          });
-          if (allowance < preview.topUp) {
-            approval = async () => {
-              const { request } = await simulateContract(wagmiConfig, {
-                account: owner,
-                chainId: expectedChainId,
-                address: snapshot.paymentToken,
-                abi: erc20Abi,
-                functionName: "approve",
-                args: [snapshot.address, preview.topUp],
-              });
-              await assertSufficientGas(client, owner, request);
-              return () => write.writeContractAsync(request);
-            };
-          }
+        const freshRefund = await readRefundFunding(client, {
+          tier: snapshot.address,
+          tokenId: preview.tokenId,
+          blockNumber: await client.getBlockNumber({ cacheTime: 0 }),
+        });
+        if (
+          !isCurrentRefundQuote(freshRefund) ||
+          freshRefund.generation !== preview.generation ||
+          freshRefund.grossRefund > preview.grossRefund
+        ) {
+          throw new Error(
+            "Advance membership accounting and read a fresh refund preview before continuing.",
+          );
         }
         await performUnlocked(
           `Refund membership #${preview.tokenId}`,
-          tierWrite("refund", [preview.tokenId, preview.gross, preview.topUp]),
+          tierWrite("refund", [preview.tokenId, preview.grossRefund]),
           async (receipt) => {
-            if (
-              !receiptProvesMembershipRefund(receipt, {
-                tier: snapshot.address,
-                tokenId: preview.tokenId,
-                recipient: preview.recipient,
-                tierOwner: snapshot.creator,
-              })
-            ) {
-              return undefined;
-            }
-            const current = await readTokenTime(preview.tokenId);
-            return current.paidSeconds === 0n &&
-              current.grantSeconds === 0n &&
-              current.refundableGross === 0n
-              ? current
-              : undefined;
+            const refunded = receiptMembershipRefund(receipt, {
+              tier: snapshot.address,
+              tokenId: preview.tokenId,
+              recipient: preview.recipient,
+              maxGrossRefund: preview.grossRefund,
+            });
+            if (!refunded) return undefined;
+            const current = await client.readContract({
+              address: snapshot.address,
+              abi: membershipTierAbi,
+              functionName: "allocationState",
+              args: [preview.tokenId],
+              blockNumber: await client.getBlockNumber({ cacheTime: 0 }),
+            });
+            // Later grants, reactivation or another cancellation may already be
+            // visible. This receipt and the advanced generation prove this refund.
+            if (current.generation <= preview.generation) return undefined;
+            setRefundOutcome(refunded);
+            return current;
           },
-          approval,
         );
       } catch (error) {
         dispatch({ type: "FAILED", error: decodeTransactionError(error) });
@@ -692,7 +639,12 @@ function ManagementControls({
               <dt>Referral</dt>
               <dd>{(snapshot.referralBps / 100).toFixed(2)}%</dd>
             </div>
+            <div>
+              <dt>Protocol allocation</dt>
+              <dd>{(snapshot.protocolFeeBps / 100).toFixed(2)}%</dd>
+            </div>
           </dl>
+          <RewardCurveSummary terms={snapshot} token={paymentTokenState} />
           {scheduledPeriodPrice ? (
             <p className="small-copy" role="status">
               Starting {scheduledPeriodPrice.effectiveAt.toLocaleString()}, the
@@ -702,8 +654,9 @@ function ManagementControls({
             </p>
           ) : null}
           <p className="small-copy">
-            Price, period, token, reward, referral, and the fixed 1% protocol
-            fee cannot be edited here or by the protocol operator.
+            Price, period, token, allocation rates, early-support boost and
+            window are permanent. All four allocations vest as paid time is
+            consumed.
           </p>
         </section>
 
@@ -885,12 +838,10 @@ function ManagementControls({
           <section className="control-group">
             <div>
               <p className="eyebrow">Gross refund</p>
-              <h2>Preview before any top-up</h2>
+              <h2>Refund unused membership time</h2>
               <p>
-                Refunds pay the membership token owner from unused protocol
-                reserves, then creator proceeds, then your bounded top-up.
-                Earned protocol fees, rewards and referrals are never clawed
-                back.
+                Refunds pay the membership owner from that membership’s reserved
+                unused payments. Previously earned amounts remain claimable.
               </p>
               <p className="small-copy">
                 Pause the tier and wait for confirmation before previewing. A
@@ -904,6 +855,7 @@ function ManagementControls({
                 inputMode="numeric"
                 onChange={(event) => {
                   refundPreviewVersion.current += 1;
+                  setRefundOutcome(undefined);
                   setRefundToken(event.target.value);
                   setRefundPreview(undefined);
                 }}
@@ -927,39 +879,83 @@ function ManagementControls({
               <dl className="refund-preview" aria-live="polite">
                 <div>
                   <dt>Gross refund</dt>
-                  <dd>{paymentLabel(currentRefundPreview.gross)}</dd>
+                  <dd>{paymentLabel(currentRefundPreview.grossRefund)}</dd>
                 </div>
                 <div>
-                  <dt>Exact owner top-up</dt>
-                  <dd>{paymentLabel(currentRefundPreview.topUp)}</dd>
+                  <dt>Recipient</dt>
+                  <dd>{currentRefundPreview.recipient}</dd>
                 </div>
                 <div>
-                  <dt>Unearned protocol reserve</dt>
-                  <dd>{paymentLabel(currentRefundPreview.protocol)}</dd>
+                  <dt>Funding</dt>
+                  <dd>Reserved unused membership payments</dd>
                 </div>
                 <div>
-                  <dt>Creator proceeds used</dt>
-                  <dd>{paymentLabel(currentRefundPreview.creator)}</dd>
+                  <dt>Accounting</dt>
+                  <dd>
+                    {currentRefundPreview.complete
+                      ? "Settled and ready"
+                      : currentRefundPreview.projected
+                        ? "Current refund projection; accounting settles with the refund"
+                        : "Historical funding estimate: advance accounting before refunding"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Access measured at</dt>
+                  <dd>
+                    {formatMembershipDate(currentRefundPreview.accessAsOf)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Accounting through</dt>
+                  <dd>
+                    {formatMembershipDate(currentRefundPreview.accountingAsOf)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Refund calculated at</dt>
+                  <dd>
+                    {formatMembershipDate(currentRefundPreview.fundingAsOf)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Unused time at this read</dt>
+                  <dd>
+                    {currentRefundPreview.paidSeconds.toLocaleString()} paid
+                    seconds and{" "}
+                    {currentRefundPreview.grantSeconds.toLocaleString()} granted
+                    seconds
+                  </dd>
                 </div>
               </dl>
+            )}
+            {refundOutcome && transaction.phase === "confirmed" && (
+              <p role="status">
+                Refunded {paymentLabel(refundOutcome.grossRefund)} to{" "}
+                {refundOutcome.recipient}. Canceled{" "}
+                {refundOutcome.canceledPaidSeconds.toLocaleString()} paid
+                seconds and{" "}
+                {refundOutcome.canceledGrantSeconds.toLocaleString()} granted
+                seconds. Historical reward weight is retained.
+              </p>
             )}
             <button
               className="button button-warning"
               disabled={
                 !canOwnerWrite ||
                 !currentRefundPreview ||
+                !isCurrentRefundQuote(currentRefundPreview) ||
                 currentRefundPreview.tokenId !== refundTokenValue
               }
               onClick={() => void refund()}
               type="button"
             >
-              Approve exact top-up and refund
+              Refund unused time
             </button>
           </section>
 
           <section className="control-group">
             <div>
-              <p className="eyebrow">Creator proceeds</p>
+              <p className="eyebrow">Settled creator proceeds</p>
               <h2>{paymentLabel(snapshot.creatorProceeds)}</h2>
               <p>
                 Withdrawal has one fixed destination: the current tier owner. No
@@ -973,15 +969,16 @@ function ManagementControls({
                 void perform(
                   "Withdraw creator proceeds",
                   tierWrite("withdrawCreatorProceeds"),
-                  (receipt) =>
-                    reconcileSnapshot(
-                      (next) =>
-                        receiptProvesCreatorWithdrawal(receipt, {
-                          tier: snapshot.address,
-                          owner: snapshot.creator,
-                          amount: snapshot.creatorProceeds,
-                        }) && next.creatorProceeds === 0n,
-                    ),
+                  async (receipt) => {
+                    const paid = receiptCreatorWithdrawal(receipt, {
+                      tier: snapshot.address,
+                      owner: snapshot.creator,
+                    });
+                    if (!paid) return undefined;
+                    const next = await reconcileSnapshot(() => true);
+                    if (next) setPayout(paid);
+                    return next;
+                  },
                 )
               }
               type="button"
@@ -989,6 +986,22 @@ function ManagementControls({
               Withdraw to current owner
             </button>
           </section>
+
+          <VestingSummary
+            reserves={snapshot.reserves}
+            paymentLabel={paymentLabel}
+            creator
+          />
+          <ReleaseTierFees
+            chainId={expectedChainId}
+            tier={snapshot.address}
+            blockNumber={capturedBlock}
+            onConfirmed={async () => {
+              refundPreviewVersion.current += 1;
+              setRefundPreview(undefined);
+              await onRefresh();
+            }}
+          />
 
           <section className="control-group">
             <div>
@@ -1047,8 +1060,8 @@ function ManagementControls({
               <p className="eyebrow">Two-step ownership</p>
               <h2>Move the creator role deliberately</h2>
               <p>
-                Controls, prior proceeds, and refund top-up responsibility move
-                only after the pending wallet accepts.
+                Controls and unclaimed creator proceeds move only after the
+                pending wallet accepts.
               </p>
             </div>
             <label className="creator-field">
@@ -1124,6 +1137,12 @@ function ManagementControls({
       )}
       <p className="eyebrow">Prepared action · {activeAction}</p>
       <TransactionFlow state={transaction} />
+      {payout && transaction.phase === "confirmed" && (
+        <p role="status">
+          Paid {paymentLabel(payout.amount)} to {payout.recipient}. New earnings
+          may still become available.
+        </p>
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ const mock = vi.hoisted(() => ({ snapshot: vi.fn() }));
 vi.mock("@/features/protocol/protocol-read", () => ({
   readPublicBuybacks: mock.snapshot,
 }));
-it("combines WETH earnings into ETH without counting future fees as earned", async () => {
+it("combines WETH earnings into ETH without counting historical reserves as earned", async () => {
   const factory = "0x1111111111111111111111111111111111111111",
     vault = "0x2222222222222222222222222222222222222222",
     tier = "0x3333333333333333333333333333333333333333",
@@ -22,11 +22,12 @@ it("combines WETH earnings into ETH without counting future fees as earned", asy
       assetCoverage: { nextOffset: null },
     },
   });
-  const readContract = vi.fn(async ({ functionName, args }) => {
-    if (functionName === "protocolFeeState")
-      return args[0] === 1n
-        ? { uncheckpointedEarned: 2n, unearned: 5n }
-        : { uncheckpointedEarned: 3n, unearned: 7n };
+  const readContract = vi.fn(async ({ functionName }) => {
+    if (functionName === "reserveState")
+      return {
+        unearnedScaled: [0n, 0n, 0n, 12n * (1n << 128n) + 5n],
+        status: { accountedThrough: 900n, complete: false },
+      };
     return {
       tiers: [tier],
       paymentToken: weth,
@@ -39,7 +40,12 @@ it("combines WETH earnings into ETH without counting future fees as earned", asy
     { readContract } as unknown as PublicClient,
     {} as DeploymentAvailability,
   );
-  expect(result.fees.get(zeroAddress)).toEqual({ earned: 15n, future: 12n });
+  expect(result.fees.get(zeroAddress)).toEqual({
+    earned: 10n,
+    reservedScaled: 12n * (1n << 128n) + 5n,
+    accountedThrough: 900n,
+    complete: false,
+  });
   expect(result.fees.has(weth)).toBe(false);
   expect(
     readContract.mock.calls.every(([args]) => args.blockNumber === 42n),

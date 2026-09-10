@@ -650,10 +650,46 @@ async function inspectToken(
     decimals,
     listed,
     enabled,
+    minimumPayment: await client.readContract({
+      address: context.factory,
+      abi: membershipFactoryAbi,
+      functionName: "minimumPayment",
+      args: [token],
+      blockNumber,
+    }),
     vaultBalanceRaw: vaultBalance,
     uiMultiplier: scaling[0],
     newUIMultiplier: scaling[1],
     effectiveAt: scaling[2],
+  };
+}
+
+export async function prepareMinimumPaymentPayload(
+  client: PublicClient,
+  context: AdminContext,
+  token: Address,
+  minimum: bigint,
+) {
+  if (minimum <= 0n || minimum >= 1n << 112n)
+    throw new Error("Minimum must be a positive uint112 raw token amount.");
+  const metadata = await inspectToken(client, context, token);
+  const call = {
+    abi: membershipFactoryAbi,
+    functionName: "setMinimumPayment",
+    args: [token, minimum],
+  } as const;
+  await client.simulateContract({
+    ...call,
+    address: context.factory,
+    account: context.safe,
+    blockNumber: context.blockNumber,
+  });
+  const data = encodeFunctionData(call);
+  return {
+    ...envelope(context, context.factory, data, context.factoryCodeHash),
+    decoded: decodeFunctionData({ abi: membershipFactoryAbi, data }),
+    metadata,
+    postconditions: { paymentToken: token, minimumPayment: minimum },
   };
 }
 
@@ -688,7 +724,7 @@ async function main() {
   const [kind, network, action, ...args] = process.argv.slice(2);
   if (!(
     (kind === "tokens" &&
-      ["list", "inspect", "enable", "disable"].includes(action)) ||
+      ["list", "inspect", "enable", "disable", "minimum"].includes(action)) ||
     (kind === "buybacks" && ["inspect", "prepare"].includes(action))
   ))
     throw new Error(
@@ -736,6 +772,23 @@ async function main() {
         );
       }
       console.log(json({ context, tokens }));
+      return;
+    }
+    if (action === "minimum") {
+      if (args.length !== 2)
+        throw new Error(
+          "minimum requires a token and positive raw amount; prepares a Safe payload only.",
+        );
+      console.log(
+        json(
+          await prepareMinimumPaymentPayload(
+            client,
+            context,
+            address(args[0]),
+            raw(args[1], "minimum payment", 112, true),
+          ),
+        ),
+      );
       return;
     }
     if (args.length !== 1)

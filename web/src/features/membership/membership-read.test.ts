@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/direct-read", () => ({
   multicall3Address: "0xca11bde05977b3631167028862be2a173976ca11",
   readTierSnapshotState: vi.fn(),
+  readTierAccounting: vi.fn(),
   verifyMulticall3: vi.fn(),
 }));
 
@@ -13,7 +14,11 @@ import type {
   TierArtConfig,
   TierMediaConfig,
 } from "@/contracts/types";
-import { readTierSnapshotState, verifyMulticall3 } from "@/lib/direct-read";
+import {
+  readTierSnapshotState,
+  readTierAccounting,
+  verifyMulticall3,
+} from "@/lib/direct-read";
 
 const tier = getAddress("0x1111111111111111111111111111111111111111");
 const factory = getAddress("0x2222222222222222222222222222222222222222");
@@ -86,6 +91,16 @@ const snapshotData = {
   protocolFeeBps: 100,
   rewardBps: 0,
   referralBps: 0,
+  startingBoostBps: 10000,
+  earlySupportGross: 0n,
+  grossPaid: 0n,
+  minimumPayment: 1n,
+  accounting: {
+    accountedThrough: 1000n,
+    nextBoundary: 0n,
+    scheduledMembers: 0n,
+    complete: true,
+  },
   supplyCap: 0n,
   occupiedSupply: 0n,
   maxPrepaidPeriods: 0n,
@@ -94,8 +109,29 @@ const snapshotData = {
   protocolDependencies,
 };
 
+const vesting = {
+  earned: {
+    creator: 99n,
+    member: 70n,
+    referral: 50n,
+    protocol: 1n,
+    fractionalScaled: [0n, 15n, 1n, 8n] as const,
+    status: { ...snapshotData.accounting, complete: false },
+  },
+  reserves: {
+    unearnedScaled: [100n, 10n, 5n, 5n] as const,
+    cancellationScaled: [0n, 0n, 0n, 0n] as const,
+    unassignedMemberScaled: 0n,
+    distributionDustScaled: 0n,
+    indexCarryScaled: 3n,
+    status: { ...snapshotData.accounting, complete: false },
+  },
+  allocation: undefined,
+};
+
 describe("supporter direct reads", () => {
   beforeEach(() => {
+    vi.mocked(readTierAccounting).mockResolvedValue(vesting);
     vi.mocked(verifyMulticall3).mockResolvedValue("missing");
     vi.mocked(readTierSnapshotState).mockResolvedValue({
       status: "valid",
@@ -125,6 +161,16 @@ describe("supporter direct reads", () => {
         protocolFeeBps: 100,
         rewardBps: 0,
         referralBps: 0,
+        startingBoostBps: 10000,
+        earlySupportGross: 0n,
+        grossPaid: 0n,
+        minimumPayment: 1n,
+        accounting: {
+          accountedThrough: 1000n,
+          nextBoundary: 0n,
+          scheduledMembers: 0n,
+          complete: true,
+        },
         supplyCap: 0n,
         occupiedSupply: 0n,
         maxPrepaidPeriods: 0n,
@@ -162,6 +208,13 @@ describe("supporter direct reads", () => {
     expect(readContract).toHaveBeenCalledWith(
       expect.objectContaining({ functionName: "creatorProceeds" }),
     );
+    expect(state).toMatchObject({ data: { vesting } });
+    expect(readTierAccounting).toHaveBeenCalledWith(client, {
+      tier,
+      tokenId: 0n,
+      referrer: creator.toLowerCase(),
+      blockNumber: 10n,
+    });
   });
 
   it("batches wallet and credential reads through verified Multicall3", async () => {
@@ -186,6 +239,16 @@ describe("supporter direct reads", () => {
         protocolFeeBps: 100,
         rewardBps: 0,
         referralBps: 0,
+        startingBoostBps: 10000,
+        earlySupportGross: 0n,
+        grossPaid: 0n,
+        minimumPayment: 1n,
+        accounting: {
+          accountedThrough: 1000n,
+          nextBoundary: 0n,
+          scheduledMembers: 0n,
+          complete: true,
+        },
         supplyCap: 0n,
         occupiedSupply: 0n,
         maxPrepaidPeriods: 0n,
@@ -214,13 +277,13 @@ describe("supporter direct reads", () => {
         success(60n),
         success(70n),
         success(true),
-        success([80n, 8n, 72n, 0n]),
+        success({ grossRefund: 80n }),
       ]);
     const client = {
       getBlock: vi.fn().mockResolvedValue({ timestamp: 1_000n }),
       getBalance: vi.fn(),
       multicall,
-      readContract: vi.fn(),
+      readContract: vi.fn().mockResolvedValue(600n),
     } as unknown as PublicClient;
 
     const state = await readTierSupporterState(client, {
@@ -243,14 +306,18 @@ describe("supporter direct reads", () => {
           grantSeconds: 20n,
           rewardEligible: true,
           refundableGross: 80n,
-          protocolRefundContribution: 8n,
-          creatorRefundContribution: 72n,
-          ownerTopUp: 0n,
         },
       },
     });
     expect(multicall).toHaveBeenCalledTimes(2);
-    expect(client.readContract).not.toHaveBeenCalled();
+    expect(state).toMatchObject({ data: { totalEligibleRewardShares: 600n } });
+    expect(client.readContract).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        address: tier,
+        functionName: "totalRewardShares",
+        blockNumber: 10n,
+      }),
+    );
     expect(client.getBalance).not.toHaveBeenCalled();
   });
 
@@ -270,6 +337,7 @@ describe("supporter direct reads", () => {
     const client = {
       getBlock: vi.fn().mockResolvedValue({ timestamp: 1_000n }),
       multicall,
+      readContract: vi.fn().mockResolvedValue(600n),
     } as unknown as PublicClient;
 
     const state = await readTierSupporterState(client, {
@@ -312,6 +380,7 @@ describe("supporter direct reads", () => {
     const client = {
       getBlock: vi.fn().mockResolvedValue({ timestamp: 2_100n }),
       multicall,
+      readContract: vi.fn().mockResolvedValue(600n),
     } as unknown as PublicClient;
 
     const state = await readTierSupporterState(client, {
@@ -336,5 +405,24 @@ describe("supporter direct reads", () => {
         },
       },
     });
+    expect(state).toMatchObject({ data: { vesting } });
+  });
+
+  it("does not replace unavailable accounting with zero balances", async () => {
+    vi.mocked(readTierAccounting).mockRejectedValueOnce(
+      new Error("accounting read unavailable"),
+    );
+    const client = {
+      getBlock: vi.fn().mockResolvedValue({ timestamp: 1_000n }),
+      getBalance: vi.fn().mockResolvedValue(0n),
+      readContract: vi.fn().mockResolvedValue(0n),
+    } as unknown as PublicClient;
+    const result = await readTierSupporterState(client, {
+      tier,
+      deployment,
+      wallet: token,
+    });
+    expect(result.status).toBe("unavailable");
+    expect(result).not.toHaveProperty("data");
   });
 });

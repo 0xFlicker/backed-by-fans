@@ -11,7 +11,15 @@
       "expectedDecimals": 6,
       "requiresScaledUI": false,
       "observedName": "Global Dollar",
-      "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6"
+      "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",
+      "minimumPayment": "1000000",
+      "minimumCalibration": {
+        "targetUSD": "1",
+        "referencePriceUSD": "1",
+        "referenceDate": "2026-09-09",
+        "referenceMultiplier": "1000000000000000000",
+        "source": "USDG nominal dollar denomination"
+      }
     },
     {
       "symbol": "AMD",
@@ -23,7 +31,15 @@
       "supportsPendingMultiplier": true,
       "observedUIMultiplier": "1000000000000000000",
       "observedNewUIMultiplier": "1000000000000000000",
-      "observedEffectiveAt": 0
+      "observedEffectiveAt": 0,
+      "minimumPayment": "2000000000000000",
+      "minimumCalibration": {
+        "targetUSD": "1",
+        "referencePriceUSD": "521.10",
+        "referenceDate": "2026-09-09",
+        "referenceMultiplier": "1000000000000000000",
+        "source": "https://stockanalysis.com/stocks/amd/history/"
+      }
     },
     {
       "symbol": "NFLX",
@@ -35,7 +51,15 @@
       "supportsPendingMultiplier": true,
       "observedUIMultiplier": "1000000000000000000",
       "observedNewUIMultiplier": "1000000000000000000",
-      "observedEffectiveAt": 0
+      "observedEffectiveAt": 0,
+      "minimumPayment": "14000000000000000",
+      "minimumCalibration": {
+        "targetUSD": "1",
+        "referencePriceUSD": "76.03",
+        "referenceDate": "2026-09-09",
+        "referenceMultiplier": "1000000000000000000",
+        "source": "https://stockanalysis.com/stocks/nflx/history/"
+      }
     },
     {
       "symbol": "PLTR",
@@ -47,7 +71,15 @@
       "supportsPendingMultiplier": true,
       "observedUIMultiplier": "1000000000000000000",
       "observedNewUIMultiplier": "1000000000000000000",
-      "observedEffectiveAt": 0
+      "observedEffectiveAt": 0,
+      "minimumPayment": "6000000000000000",
+      "minimumCalibration": {
+        "targetUSD": "1",
+        "referencePriceUSD": "169.53",
+        "referenceDate": "2026-09-09",
+        "referenceMultiplier": "1000000000000000000",
+        "source": "https://stockanalysis.com/stocks/pltr/history/"
+      }
     },
     {
       "symbol": "AMZN",
@@ -59,7 +91,15 @@
       "supportsPendingMultiplier": true,
       "observedUIMultiplier": "1000000000000000000",
       "observedNewUIMultiplier": "1000000000000000000",
-      "observedEffectiveAt": 0
+      "observedEffectiveAt": 0,
+      "minimumPayment": "4000000000000000",
+      "minimumCalibration": {
+        "targetUSD": "1",
+        "referencePriceUSD": "252.40",
+        "referenceDate": "2026-09-09",
+        "referenceMultiplier": "1000000000000000000",
+        "source": "https://stockanalysis.com/stocks/amzn/history/"
+      }
     },
     {
       "symbol": "TSLA",
@@ -71,7 +111,15 @@
       "supportsPendingMultiplier": true,
       "observedUIMultiplier": "1000000000000000000",
       "observedNewUIMultiplier": "1000000000000000000",
-      "observedEffectiveAt": 0
+      "observedEffectiveAt": 0,
+      "minimumPayment": "2800000000000000",
+      "minimumCalibration": {
+        "targetUSD": "1",
+        "referencePriceUSD": "367.81",
+        "referenceDate": "2026-09-09",
+        "referenceMultiplier": "1000000000000000000",
+        "source": "https://stockanalysis.com/stocks/tsla/history/"
+      }
     }
   ]
 }

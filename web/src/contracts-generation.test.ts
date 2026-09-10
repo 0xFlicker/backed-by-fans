@@ -227,12 +227,21 @@ async function createGenerationFixture() {
     mkdir(scriptDirectory, { recursive: true }),
     mkdir(join(webDirectory, "src"), { recursive: true }),
     mkdir(binaryDirectory, { recursive: true }),
+    mkdir(join(project, "contracts/scripts"), { recursive: true }),
   ]);
 
   const sourceScript = fileURLToPath(
     new URL("../scripts/generate-contracts.sh", import.meta.url),
   );
   const generationScript = join(scriptDirectory, "generate-contracts.sh");
+  await writeFile(
+    join(project, "contracts/scripts/build-linked-protocol.sh"),
+    `#!/usr/bin/env bash
+set -euo pipefail
+[[ -d "$BBF_TEST_LOCK_DIRECTORY" ]]
+printf '%s\\n' 'linked build' >>"$BBF_TEST_GENERATION_LOG"
+`,
+  );
   await copyFile(sourceScript, generationScript);
   await chmod(generationScript, 0o755);
 
@@ -320,7 +329,7 @@ describe("ordinary contract generation lock", () => {
 
     expect(result).toMatchObject({ code: 0, stderr: "" });
     await expect(readFile(fixture.generationLog, "utf8")).resolves.toBe(
-      "x wagmi generate\nx prettier --write src/contracts.ts\n",
+      "linked build\nx wagmi generate\nx prettier --write src/contracts.ts\n",
     );
     await expect(pathExists(fixture.lockDirectory)).resolves.toBe(false);
   });

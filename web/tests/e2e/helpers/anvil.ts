@@ -157,6 +157,7 @@ export async function revertAnvil(snapshot: string) {
 export function anvilPublicClient() {
   return createPublicClient({
     chain: foundry,
+    pollingInterval: 200,
     transport: http(requiredAnvilRpc()),
   });
 }
@@ -167,14 +168,25 @@ export async function sendContract(input: {
   abi: Abi;
   functionName: string;
   args?: readonly unknown[];
+  gas?: bigint;
 }) {
   const data = encodeFunctionData({
     abi: input.abi,
     functionName: input.functionName,
     args: input.args ?? [],
   });
+  const client = anvilPublicClient();
+  // Fixture writes also cross clock boundaries; Anvil's exact estimate has no
+  // wallet safety margin. Explicit gas budgets remain untouched.
+  const estimated = input.gas ?? (await client.estimateContractGas(input));
+  const gas = input.gas ?? (estimated * 12n + 9n) / 10n + 100_000n;
   const hash = await rpcRequest<Hash>("eth_sendTransaction", [
-    { from: input.account, to: input.address, data },
+    {
+      from: input.account,
+      to: input.address,
+      data,
+      gas: `0x${gas.toString(16)}`,
+    },
   ]);
   return anvilPublicClient().waitForTransactionReceipt({ hash });
 }

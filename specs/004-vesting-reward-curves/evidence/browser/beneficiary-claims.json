@@ -1,0 +1,140 @@
+{
+  "kind": "local mock payment token; real protocol",
+  "tier": "0x2CAFA0784BA403eeAf9DBba7258D5351646cD992",
+  "originalCreator": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "currentCreator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "originalProceeds": "27900014",
+  "evidence": [
+    {
+      "receipt": "0xc883d94aa2b9c08df0b86085a9e4aef082648423b16876736a2f1a424b575bec",
+      "events": [
+        {
+          "eventName": "RewardClaimed",
+          "args": {
+            "tokenId": "1",
+            "owner": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+            "amount": "1500000"
+          },
+          "address": "0x2cafa0784ba403eeaf9dbba7258d5351646cd992",
+          "topics": [
+            "0x24b5efa61dd1cfc659205a97fb8ed868f3cb8c81922bab2b96423e5de1de2cb7",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "0x00000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8"
+          ],
+          "data": "0x000000000000000000000000000000000000000000000000000000000016e360",
+          "blockHash": "0x867596cc1db1ff1e1b950719bd3e1ac44a438cdbf8b65d5ca318eac0bb01a862",
+          "blockNumber": "845",
+          "blockTimestamp": "1796788688",
+          "transactionHash": "0xc883d94aa2b9c08df0b86085a9e4aef082648423b16876736a2f1a424b575bec",
+          "transactionIndex": 0,
+          "logIndex": 1,
+          "removed": false
+        }
+      ],
+      "after": {
+        "creator": "27900326",
+        "member": "17",
+        "referral": "300003",
+        "protocol": "300003",
+        "fractionalScaled": [
+          "171716564788806909803277000972506038185",
+          "188520632291075475900233771709853925248",
+          "173817073226590480565396597314681574946",
+          "173817073226590480565396597314681574946"
+        ],
+        "status": {
+          "accountedThrough": "1796788752",
+          "nextBoundary": "1820116661",
+          "scheduledMembers": "1",
+          "complete": false
+        }
+      }
+    },
+    {
+      "receipt": "0x9a59c2eb8fd690f5046e9c70ea324f6fe2920decd7922a1dabf722fba0b62d3d",
+      "events": [
+        {
+          "eventName": "CreatorProceedsWithdrawn",
+          "args": {
+            "owner": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+            "amount": "27900326"
+          },
+          "address": "0x2cafa0784ba403eeaf9dbba7258d5351646cd992",
+          "topics": [
+            "0xa6cc4cdb33ff0ecbde3b05027b5c78fc8e3390ff07644d277ac11f81e7625575",
+            "0x00000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000001a9b9a6",
+          "blockHash": "0xf04e6d8c3c042d42e426337abadeef72e3dbd9274c28d248e851d7705e8c9098",
+          "blockNumber": "854",
+          "blockTimestamp": "1796788756",
+          "transactionHash": "0x9a59c2eb8fd690f5046e9c70ea324f6fe2920decd7922a1dabf722fba0b62d3d",
+          "transactionIndex": 0,
+          "logIndex": 1,
+          "removed": false
+        }
+      ],
+      "after": {
+        "creator": "244",
+        "member": "30",
+        "referral": "300006",
+        "protocol": "300006",
+        "fractionalScaled": [
+          "165415039475456197516918211945991811989",
+          "228430292608963320380506102211006656320",
+          "45686058521792664076101220442225643450",
+          "45686058521792664076101220442225643450"
+        ],
+        "status": {
+          "accountedThrough": "1796788820",
+          "nextBoundary": "1820116661",
+          "scheduledMembers": "1",
+          "complete": false
+        }
+      }
+    },
+    {
+      "receipt": "0x76bdc469fb8fb943dcaeaceae8474961036189433e5296beaa7259c7bda08032",
+      "events": [
+        {
+          "eventName": "ReferralClaimed",
+          "args": {
+            "referrer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            "amount": "300006"
+          },
+          "address": "0x2cafa0784ba403eeaf9dbba7258d5351646cd992",
+          "topics": [
+            "0x6cd4d40588b17656762e007b5b0c873a86cc13d23123cd1c44b4389b8aafa105",
+            "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+          ],
+          "data": "0x00000000000000000000000000000000000000000000000000000000000493e6",
+          "blockHash": "0xada86786ec1262fc0d68f116b73ca252e472d3c5af7e9dee70a00a3165d47af9",
+          "blockNumber": "864",
+          "blockTimestamp": "1796788825",
+          "transactionHash": "0x76bdc469fb8fb943dcaeaceae8474961036189433e5296beaa7259c7bda08032",
+          "transactionIndex": 0,
+          "logIndex": 1,
+          "removed": false
+        }
+      ],
+      "after": {
+        "creator": "492",
+        "member": "43",
+        "referral": "2",
+        "protocol": "300008",
+        "fractionalScaled": [
+          "18904575940052136859076367079536054220",
+          "333980841607587751177015818405085707392",
+          "270965588474080628313427928140109227864",
+          "270965588474080628313427928140109227864"
+        ],
+        "status": {
+          "accountedThrough": "1796788889",
+          "nextBoundary": "1820116661",
+          "scheduledMembers": "1",
+          "complete": false
+        }
+      }
+    }
+  ]
+}

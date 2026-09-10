@@ -44,9 +44,7 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
     ]);
     await f.testClient.increaseTime({ seconds: 300 });
     await f.testClient.mine({ blocks: 1 });
-    await f.write(member, tier, membershipTierAbi, "accrueProtocolFees", [
-      [1n],
-    ]);
+    await f.write(member, tier, membershipTierAbi, "processAccounting", [25n]);
     await f.write(member, tier, membershipTierAbi, "releaseProtocolFees");
     const wallet = createWalletClient({
       chain: anvil,

@@ -51,5 +51,8 @@ acquire_generation_lock() {
 
 acquire_generation_lock
 cd "$web_dir"
+if [[ -z "${BBF_WAGMI_FOUNDRY_PROJECT:-}" ]]; then
+  (cd "$web_dir/../contracts" && bash scripts/build-linked-protocol.sh)
+fi
 bun x wagmi generate
 bun x prettier --write src/contracts.ts

@@ -1,0 +1,228 @@
+{
+  "config": {
+    "argv": [
+      "/Users/user/.nvm/versions/node/v26.2.0/bin/node",
+      "/Users/user/Development/backed-by-fans/web/node_modules/.bin/playwright",
+      "test",
+      "tests/e2e/vesting-accessibility.spec.ts",
+      "--project",
+      "desktop",
+      "--workers",
+      "1",
+      "--output",
+      "/Users/user/Development/backed-by-fans/specs/004-vesting-reward-curves/evidence/browser/convergence/test-results"
+    ],
+    "configFile": "/Users/user/Development/backed-by-fans/web/playwright.config.ts",
+    "rootDir": "/Users/user/Development/backed-by-fans/web/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/user/Development/backed-by-fans/specs/004-vesting-reward-curves/evidence/browser/convergence/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop",
+        "name": "desktop",
+        "testDir": "/Users/user/Development/backed-by-fans/web/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/user/Development/backed-by-fans/specs/004-vesting-reward-curves/evidence/browser/convergence/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "tablet",
+        "name": "tablet",
+        "testDir": "/Users/user/Development/backed-by-fans/web/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/user/Development/backed-by-fans/specs/004-vesting-reward-curves/evidence/browser/convergence/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phone",
+        "name": "phone",
+        "testDir": "/Users/user/Development/backed-by-fans/web/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/user/Development/backed-by-fans/specs/004-vesting-reward-curves/evidence/browser/convergence/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/Users/user/Development/backed-by-fans/web/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/renderer-lab\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/user/Development/backed-by-fans/specs/004-vesting-reward-curves/evidence/browser/convergence/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/Users/user/Development/backed-by-fans/web/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/renderer-lab\\.spec\\.ts/"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/Users/user/Development/backed-by-fans/specs/004-vesting-reward-curves/evidence/browser/convergence/report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "vesting-accessibility.spec.ts",
+      "file": "vesting-accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "@anvil vesting accessibility: keyboard presets, custom correction and semantic summary",
+          "ok": true,
+          "tags": [
+            "anvil"
+          ],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1114,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-10T07:18:43.336Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "be1d1eacf108b8a50dac-f31e61728e441f21a98b",
+          "file": "vesting-accessibility.spec.ts",
+          "line": 5,
+          "column": 1
+        },
+        {
+          "title": "@anvil vesting accessibility: motion preferences, forced colors, 200 percent text and 320px reflow",
+          "ok": true,
+          "tags": [
+            "anvil"
+          ],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 609,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-09-10T07:18:44.620Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "be1d1eacf108b8a50dac-39a3929596c9d6ef33f6",
+          "file": "vesting-accessibility.spec.ts",
+          "line": 116,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-10T07:18:43.069Z",
+    "duration": 2191.638,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

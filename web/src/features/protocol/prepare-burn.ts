@@ -1,19 +1,16 @@
-import {
-  BaseError,
-  ContractFunctionRevertedError,
-  zeroAddress,
-  type Address,
-  type PublicClient,
-} from "viem";
+import { zeroAddress, type Address, type PublicClient } from "viem";
 import {
   membershipFactoryAbi,
   membershipTierAbi,
   protocolBuybackVaultAbi,
-  protocolBurnRouterAbi,
 } from "@/contracts";
 
 /** Fresh, bounded discovery only. The router rechecks all purchase eligibility at execution. */
-export async function prepareBurn(client: PublicClient, factory: Address) {
+export async function prepareAdvance(
+  client: PublicClient,
+  factory: Address,
+  selectedTier?: Address,
+) {
   const block = await client.getBlock();
   const blockNumber = block.number;
   const [router, vault, protocolToken, tierCount, tokenCount] =
@@ -53,14 +50,23 @@ export async function prepareBurn(client: PublicClient, factory: Address) {
     throw new Error(
       "This protocol exceeds the browser's discovery limit. Use the execution runner.",
     );
-  // Advance member pages once per tier-page cycle so later membership IDs
-  // remain reachable even when the tier and member page counts share factors.
-  const tierPages = tierCount === 0n ? 1n : (tierCount + 99n) / 100n;
-  const tierOffset = (blockNumber % tierPages) * 100n;
-  const tierLength =
-    tierCount - tierOffset < 100n ? tierCount - tierOffset : 100n;
-  const tiers =
-    tierCount === 0n
+  const tierPages = tierCount === 0n ? 1n : (tierCount + 7n) / 8n;
+  const tierOffset = (blockNumber % tierPages) * 8n;
+  const tierLength = tierCount - tierOffset < 8n ? tierCount - tierOffset : 8n;
+  if (
+    selectedTier &&
+    !(await client.readContract({
+      address: factory,
+      abi: membershipFactoryAbi,
+      functionName: "isRegisteredTier",
+      args: [selectedTier],
+      blockNumber,
+    }))
+  )
+    throw new Error("This membership is not registered with this protocol.");
+  const tiers = selectedTier
+    ? [selectedTier]
+    : tierCount === 0n
       ? []
       : await client.readContract({
           address: factory,
@@ -94,115 +100,50 @@ export async function prepareBurn(client: PublicClient, factory: Address) {
     throw new Error(
       "This protocol exceeds the browser's 32-currency batch limit.",
     );
-  const counts = await Promise.all(
-    tiers.map((address) =>
-      client.readContract({
-        address,
-        abi: membershipTierAbi,
-        functionName: "totalMinted",
-        blockNumber,
-      }),
-    ),
+  const discovery = await Promise.allSettled(
+    tiers.map(async (tier) => {
+      const [status, held] = await Promise.all([
+        client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "accountingStatus",
+          blockNumber,
+        }),
+        client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "protocolFeeEarnedHeld",
+          blockNumber,
+        }),
+      ]);
+      return { tier, status, held };
+    }),
   );
-  const memberPageSize = BigInt(
-    Math.min(100, Math.floor(1000 / Math.max(tiers.length, 1))),
+  if (selectedTier && discovery[0]?.status === "rejected")
+    throw discovery[0].reason;
+  const ready = discovery.flatMap((item) =>
+    item.status === "fulfilled" &&
+    (item.value.held > 0n ||
+      (!item.value.status.complete && item.value.status.scheduledMembers > 0n))
+      ? [item.value]
+      : [],
   );
-  const incompleteDiscovery =
-    BigInt(tiers.length) < tierCount ||
-    counts.some((count) => count > memberPageSize);
-  const candidates: { tier: Address; id: bigint; priority: bigint }[] = [];
-  const heldTiers: Address[] = [];
-  // Bound simultaneous tier discovery, while held fees and member states
-  // within each group share a single RPC latency phase.
-  for (let start = 0; start < tiers.length; start += 4) {
-    const discovered = await Promise.all(
-      tiers.slice(start, start + 4).map(async (tier, index) => {
-        const count = counts[start + index];
-        const memberPages = (count + memberPageSize - 1n) / memberPageSize;
-        const offset =
-          memberPages === 0n
-            ? 0n
-            : ((blockNumber / tierPages) % memberPages) * memberPageSize;
-        const length = Number(
-          count - offset < memberPageSize ? count - offset : memberPageSize,
-        );
-        const [held, states] = await Promise.all([
-          client.readContract({
-            address: tier,
-            abi: membershipTierAbi,
-            functionName: "protocolFeeEarnedHeld",
-            blockNumber,
-          }),
-          Promise.all(
-            Array.from({ length }, (_, i) =>
-              client.readContract({
-                address: tier,
-                abi: membershipTierAbi,
-                functionName: "protocolFeeState",
-                args: [offset + BigInt(i) + 1n],
-                blockNumber,
-              }),
-            ),
-          ),
-        ]);
-        return { tier, offset, held, states };
-      }),
-    );
-    // Promise.all preserves registry ordering regardless of response timing.
-    for (const { tier, offset, held, states } of discovered) {
-      if (held > 0n) heldTiers.push(tier);
-      states.forEach((state, i) => {
-        if (state.uncheckpointedEarned > 0n)
-          candidates.push({
-            tier,
-            id: offset + BigInt(i) + 1n,
-            // Prioritize the most overdue share, independent of currency decimals.
-            priority:
-              (state.uncheckpointedEarned * 10n ** 18n) /
-              (state.uncheckpointedEarned + state.unearned),
-          });
-      });
-    }
-  }
-  candidates.sort((a, b) =>
-    a.priority > b.priority ? -1 : a.priority < b.priority ? 1 : 0,
-  );
-  const grouped = new Map<Address, bigint[]>(
-    heldTiers.map((tier) => [tier, []]),
-  );
-  for (const candidate of candidates) {
-    const ids = grouped.get(candidate.tier) ?? [];
-    ids.push(candidate.id);
-    grouped.set(candidate.tier, ids);
-  }
-  const collections: { tier: Address; tokenIds: bigint[] }[] = [];
-  let members = 0;
-  let unavailableCollections = 0;
-  for (const [tier, ids] of grouped) {
-    if (collections.length === 8 || members === 100) break;
-    const collection = { tier, tokenIds: ids.slice(0, 100 - members) };
-    try {
-      // Read-only self-call simulation keeps failed currencies from occupying
-      // every collection slot and starving independently healthy tiers.
-      const result = await client.simulateContract({
-        address: router,
-        abi: protocolBurnRouterAbi,
-        functionName: "collect",
-        args: [collection],
-        account: router,
-        blockNumber,
-      });
-      if (result.result === 0n) continue;
-      collections.push(collection);
-      members += collection.tokenIds.length;
-    } catch (error) {
-      const reverted =
-        error instanceof BaseError &&
-        error.walk((cause) => cause instanceof ContractFunctionRevertedError);
-      if (!(reverted instanceof ContractFunctionRevertedError)) throw error;
-      unavailableCollections++;
-    }
-  }
+  const accountingCount = ready.filter(
+    (item) => !item.status.complete && item.status.scheduledMembers > 0n,
+  ).length;
+  let remaining = 25n;
+  let remainingTiers = accountingCount;
+  const advanceTiers = ready.map((item) => {
+    const maxAccountingSteps =
+      !item.status.complete && item.status.scheduledMembers > 0n
+        ? remaining / BigInt(remainingTiers--)
+        : 0n;
+    remaining -= maxAccountingSteps;
+    return { tier: item.tier, maxAccountingSteps };
+  });
+  const unavailableTiers = discovery.filter(
+    (item) => item.status === "rejected",
+  ).length;
   const purchases = await Promise.all(
     (protocolToken === zeroAddress ? [] : assets).map(async (asset) => {
       const [revision, lastBuy] = await Promise.all([
@@ -230,13 +171,12 @@ export async function prepareBurn(client: PublicClient, factory: Address) {
   );
   return {
     router,
-    collections,
-    unavailableCollections,
+    tiers: advanceTiers,
+    unavailableTiers,
     purchases: purchases.map(({ asset, revision }) => ({ asset, revision })),
     deadline: block.timestamp + 300n,
-    moreCollections:
-      incompleteDiscovery ||
-      members < candidates.length ||
-      heldTiers.some((tier) => !collections.some((c) => c.tier === tier)),
+    moreAccounting:
+      (!selectedTier && BigInt(tiers.length) < tierCount) ||
+      ready.some((item) => !item.status.complete),
   };
 }

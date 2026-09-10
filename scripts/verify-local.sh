@@ -11,8 +11,9 @@ cd "$repo_root/contracts"
 ./scripts/test-manage-payment-tokens.sh
 ./scripts/test-manage-buybacks.sh
 forge fmt --check
-FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
-FOUNDRY_PROFILE=robinhood forge test \
+linked_manifest="$(bash scripts/build-linked-protocol.sh)"
+linked_mapping="$(jq -er '.mapping' "$linked_manifest")"
+FOUNDRY_PROFILE=robinhood forge test --libraries "$linked_mapping" \
   --code-size-limit 1000000 \
   --gas-limit 1000000000 \
   -vvv
@@ -29,7 +30,7 @@ case "$slither_version" in
     exit 1
     ;;
 esac
-slither . --config-file slither.config.json --fail-high
+FOUNDRY_LIBRARIES="$linked_mapping" slither . --skip-clean --config-file slither.config.json --fail-high
 
 echo "== Web =="
 cd "$repo_root/web"

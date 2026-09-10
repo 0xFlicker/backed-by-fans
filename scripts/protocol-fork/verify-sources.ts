@@ -4,15 +4,121 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { compareRuntime, type ImmutableReferences } from "./verify-runtime";
+import {
+  compareRuntime,
+  exactLibraryRuntime,
+  verifyTierCodeStores,
+  type ImmutableReferences,
+} from "./verify-runtime";
+import type { verifyProtocolGraph } from "./verify-protocol-graph";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const require = createRequire(resolve(root, "web/package.json"));
 const {
   keccak256,
+  getCreate2Address,
+  stringToHex,
+  encodeAbiParameters,
+  concatHex,
 }: typeof import("../../web/node_modules/viem") = require("viem");
 const sha256 = (value: string | Buffer) =>
   createHash("sha256").update(value).digest("hex");
+
+/** Recheck retained protocol bytes offline; raw store data never uses metadata masking. */
+export function verifyRetainedProtocolSources(
+  proof: Awaited<ReturnType<typeof verifyProtocolGraph>>,
+) {
+  if (proof.schemaVersion !== 2 || proof.stores.length !== 2)
+    throw new Error("Invalid protocol graph proof");
+  if (!Array.isArray(proof.minimumPayments) || proof.minimumPayments.some((item) => BigInt(item.minimum) <= 0n || BigInt(item.minimum) >= (1n << 112n))) throw new Error("Invalid retained minimum payments");
+  const ledgerSalt = keccak256(stringToHex("Backed By Fans vesting ledger v1"));
+  const ledgerAddress = getCreate2Address({
+    from: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+    salt: ledgerSalt,
+    bytecodeHash: keccak256(proof.library.initCode),
+  });
+  if (
+    ledgerAddress.toLowerCase() !== proof.library.address.toLowerCase() ||
+    proof.library.salt !== ledgerSalt
+  )
+    throw new Error("Retained library deployment identity differs");
+  const [a, b] = proof.stores;
+  if (
+    proof.executorCodeStore.runtime !==
+      `0x00${proof.executorCodeStore.creationCode.slice(2)}` ||
+    keccak256(proof.executorCodeStore.runtime) !==
+      proof.executorCodeStore.runtimeCodeHash
+  )
+    throw new Error("Retained executor code store differs");
+  if (a.role !== "tierCodeStoreA" || b.role !== "tierCodeStoreB")
+    throw new Error("Reordered tier code stores");
+  verifyTierCodeStores(proof.tierCreationCode, a.runtime, b.runtime);
+  if (keccak256(proof.tierCreationCode) !== proof.creationCodeHash)
+    throw new Error("Tier creation source hash differs");
+  if (
+    proof.tierLibraries[
+      "src/libraries/VestingLedger.sol:VestingLedger"
+    ].toLowerCase() !== proof.library.address.toLowerCase()
+  )
+    throw new Error("Retained library link differs");
+  if (
+    exactLibraryRuntime(
+      proof.library.runtimeTemplate,
+      proof.library.address,
+    ).toLowerCase() !== proof.library.runtime?.toLowerCase()
+  )
+    throw new Error("Retained library source differs");
+  if (
+    keccak256(proof.library.runtime as `0x${string}`) !==
+    proof.library.runtimeCodeHash
+  )
+    throw new Error("Retained library runtime hash differs");
+  for (const item of proof.stores) {
+    if (keccak256(item.runtime) !== item.runtimeCodeHash)
+      throw new Error("Retained store runtime hash differs");
+    const expectedSalt = keccak256(
+      stringToHex(
+        `Backed By Fans tier code ${item.role === "tierCodeStoreA" ? "A" : "B"} v1`,
+      ),
+    );
+    const expectedInitCode = concatHex([
+      proof.storeCreationCode,
+      encodeAbiParameters([{ type: "bytes" }], [`0x${item.runtime.slice(4)}`]),
+    ]);
+    if (item.salt !== expectedSalt || item.initCode !== expectedInitCode)
+      throw new Error("Retained store deployment payload differs");
+    if (
+      getCreate2Address({
+        from: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+        salt: expectedSalt,
+        bytecodeHash: keccak256(item.initCode),
+      }).toLowerCase() !== item.address.toLowerCase()
+    )
+      throw new Error("Retained store address differs");
+  }
+  const roles = new Set(proof.records.map((record) => record.role));
+  for (const role of [
+    "factory",
+    "tierDeployer",
+    "buybackVault",
+    "burnRouter",
+    "mediaStoreFactory",
+    "renderer",
+    "previewHarness",
+  ]) {
+    if (!roles.has(role as (typeof proof.records)[number]["role"]))
+      throw new Error(`Missing protocol source: ${role}`);
+  }
+  for (const record of proof.records) {
+    const result = compareRuntime(
+      record.compiled.object,
+      record.code,
+      record.compiled.immutableReferences ?? {},
+    );
+    if (!result.exact)
+      throw new Error(`${record.role}: retained protocol metadata differs`);
+  }
+}
 
 // Offline reproduction: runtime-record contains code read at the pinned origin,
 // never RPC credentials. Preflight subsequently compares these locks to the live

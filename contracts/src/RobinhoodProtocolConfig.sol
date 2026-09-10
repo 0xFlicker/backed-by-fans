@@ -59,6 +59,22 @@ library RobinhoodProtocolConfig {
         revert UnsupportedRobinhoodChain(block.chainid);
     }
 
+    /// @notice $1 calibration dated 2026-09-09; exact references live in config/payment-tokens.
+    function initialMinimumPayments() internal view returns (uint112[] memory minima) {
+        IERC20[] memory tokens = initialPaymentTokens();
+        minima = new uint112[](tokens.length);
+        minima[0] = 1_000_000;
+        minima[1] = 2_000_000_000_000_000;
+        if (block.chainid == MAINNET_CHAIN_ID) {
+            minima[2] = 410_000_000_000_000;
+        } else {
+            minima[2] = 14_000_000_000_000_000;
+            minima[3] = 6_000_000_000_000_000;
+            minima[4] = 4_000_000_000_000_000;
+            minima[5] = 2_800_000_000_000_000;
+        }
+    }
+
     function initialRenderer() internal pure returns (address) {
         return create2Address(
             INITIAL_RENDERER_SALT, keccak256(type(OnchainMetadataRenderer).creationCode)

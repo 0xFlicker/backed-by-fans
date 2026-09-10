@@ -22,6 +22,7 @@ import {IProtocolBuybackVault} from "../src/interfaces/IProtocolBuybackVault.sol
 import {ProtocolLaunchValidation} from "../src/libraries/ProtocolLaunchValidation.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
+import {TierCodeDeployment} from "./TierCodeDeployment.sol";
 
 interface IMainnetUSDGDeploymentTarget {
     function paused() external view returns (bool);
@@ -44,7 +45,7 @@ interface IProtocolSafe {
     function getStorageAt(uint256 offset, uint256 length) external view returns (bytes memory);
 }
 
-abstract contract ProtocolDeployment is Script {
+abstract contract ProtocolDeployment is TierCodeDeployment {
     error DeploymentInvariantFailed();
     error InvalidOperationalAddress();
     error InvalidPaymentToken(address token);
@@ -89,14 +90,19 @@ abstract contract ProtocolDeployment is Script {
             MembershipFactory factory
         )
     {
+        MembershipTypes.TierCodeConfig memory tierCode = _ensureTierCodeStores();
         mediaStoreFactory = new OnchainMediaStoreFactory();
         renderer = new OnchainMetadataRenderer();
         previewHarness = new RendererPreviewHarness();
+        uint112[] memory minima = new uint112[](1);
+        minima[0] = 1_000_000;
         factory = new MembershipFactory(
             _singletonPaymentToken(paymentToken),
             address(mediaStoreFactory),
             protocolOwner,
-            protocolToken
+            protocolToken,
+            tierCode,
+            minima
         );
     }
 
@@ -109,6 +115,9 @@ abstract contract ProtocolDeployment is Script {
         address protocolOwner,
         address protocolToken
     ) internal view {
+        _checkVestingLedger();
+        _checkTierCodeStores();
+        MembershipTypes.TierCodeConfig memory tierCode = tierCodeConfiguration();
         address tierDeployer = factory.deployer();
         address vault = factory.buybackVault();
         address executor = IProtocolBuybackVault(vault).executor();
@@ -125,6 +134,16 @@ abstract contract ProtocolDeployment is Script {
                 || factory.mediaStoreFactoryRuntimeCodehash() != address(mediaStoreFactory).codehash
                 || factory.pendingOwner() != address(0) || factory.protocolToken() != protocolToken
                 || MembershipTierDeployer(tierDeployer).factory() != address(factory)
+                || MembershipTierDeployer(tierDeployer).creationCodeStoreA() != tierCode.storeA
+                || MembershipTierDeployer(tierDeployer).creationCodeStoreB() != tierCode.storeB
+                || MembershipTierDeployer(tierDeployer).tierCreationCodeLength()
+                    != tierCode.creationCodeLength
+                || MembershipTierDeployer(tierDeployer).tierCreationCodeHash()
+                    != tierCode.creationCodeHash
+                || MembershipTierDeployer(tierDeployer).creationCodeStoreAHash()
+                    != tierCode.storeA.codehash
+                || MembershipTierDeployer(tierDeployer).creationCodeStoreBHash()
+                    != tierCode.storeB.codehash
         ) {
             revert DeploymentInvariantFailed();
         }
@@ -258,7 +277,9 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
                 RobinhoodProtocolConfig.initialPaymentTokens(),
                 RobinhoodProtocolConfig.mediaStoreFactory(),
                 INITIAL_PROTOCOL_AUTHORITY,
-                configuredProtocolToken()
+                configuredProtocolToken(),
+                tierCodeConfiguration(),
+                RobinhoodProtocolConfig.initialMinimumPayments()
             )
         );
     }

@@ -8,7 +8,7 @@ import signal
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 spec = importlib.util.spec_from_file_location("lifecycle", Path(__file__).with_name("lifecycle.py"))
 lifecycle = importlib.util.module_from_spec(spec)
@@ -16,6 +16,28 @@ spec.loader.exec_module(lifecycle)
 
 
 class Guards(unittest.TestCase):
+    def test_restored_clock_cannot_precede_saved_vesting_or_current_time(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "state.json"
+            state.write_text(json.dumps({"block": {"timestamp": "0xc8"}}))
+            for current, expected in [(100, 201), (300, 301)]:
+                with self.subTest(current=current), patch.object(lifecycle, "rpc", side_effect=[{"timestamp": hex(current)}, None, None]) as rpc:
+                    self.assertEqual(lifecycle.restore_clock("http://127.0.0.1:8547", state), expected)
+                    self.assertEqual(rpc.call_args_list, [
+                        call("http://127.0.0.1:8547", "eth_getBlockByNumber", ["latest", False]),
+                        call("http://127.0.0.1:8547", "evm_setNextBlockTimestamp", [expected]),
+                        call("http://127.0.0.1:8547", "evm_mine"),
+                    ])
+
+    def test_restore_clock_rejects_missing_or_invalid_saved_timestamp(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(lifecycle, "rpc") as rpc:
+            state = Path(directory) / "state.json"
+            for saved in ["{}", '{"block":{"timestamp":"bad-time"}}', '{"block":{"timestamp":"-1"}}', "invalid-json"]:
+                state.write_text(saved)
+                with self.assertRaisesRegex(ValueError, "valid block timestamp"):
+                    lifecycle.restore_clock("http://127.0.0.1:8547", state)
+            rpc.assert_not_called()
+
     def test_no_token_entrypoint_rejects_saved_state_before_starting_services(self):
         for env in [
             {"BBF_FORK_RESTORE_STATE": "/tmp/state"},

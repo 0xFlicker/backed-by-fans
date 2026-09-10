@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
+import { verifyProtocolGraph } from "../../scripts/protocol-fork/verify-protocol-graph";
 import {
   encodeFunctionData,
   createPublicClient,
@@ -88,6 +89,19 @@ async function main() {
   if ((await client.getChainId()) !== 31337)
     throw new Error("Local fork required");
   await readAdminContext(client, 31337, bootstrap.factory);
+  const vaultArtifact = await artifact(
+    "ProtocolBuybackVault.sol/ProtocolBuybackVault.json",
+  );
+  const executor = (await client.readContract({
+    address: bootstrap.buybackVault,
+    abi: vaultArtifact.abi,
+    functionName: "executor",
+  })) as Address;
+  await verifyProtocolGraph(
+    client,
+    { ...bootstrap, executor },
+    resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/out"),
+  );
   const test = createTestClient({
     chain: anvil,
     mode: "anvil",
@@ -150,57 +164,77 @@ async function main() {
       transport: http(rpc, { retryCount: 0 }),
     });
     for (const token of [weth, amd]) {
-      const nonce = await client.readContract({
-        address: bootstrap.safe,
-        abi: iSafeAbi,
-        functionName: "nonce",
-      });
-      const data = encodeFunctionData({
-        abi: membershipFactoryAbi,
-        functionName: "setPaymentTokenEnabled",
-        args: [token, true],
-      });
-      const fields = [
-        bootstrap.factory as Address,
-        0n,
-        data,
-        0,
-        0n,
-        0n,
-        0n,
-        zeroAddress,
-        zeroAddress,
-      ] as const;
-      const hash = await client.readContract({
-        address: bootstrap.safe,
-        abi: iSafeAbi,
-        functionName: "getTransactionHash",
-        args: [...fields, nonce],
-      });
-      const signature = await signer.sign({ hash });
-      const simulation = await client.simulateContract({
-        address: bootstrap.safe,
-        abi: iSafeAbi,
-        functionName: "execTransaction",
-        args: [...fields, signature],
-        account: signer,
-      });
-      if (!simulation.result)
-        throw new Error("Payment currency setup simulation failed");
-      const receipt = await client.waitForTransactionReceipt({
-        hash: await safeWallet.writeContract(simulation.request),
-      });
-      await retain("enable-payment-token", { token, receipt });
-      if (
-        receipt.status !== "success" ||
-        !(await client.readContract({
-          address: bootstrap.factory,
-          abi: membershipFactoryAbi,
-          functionName: "isPaymentTokenEnabled",
-          args: [token],
-        }))
-      )
-        throw new Error("Payment currency setup failed");
+      for (const configureMinimum of [true, false]) {
+        const nonce = await client.readContract({
+          address: bootstrap.safe,
+          abi: iSafeAbi,
+          functionName: "nonce",
+        });
+        const minimum =
+          token === weth ? 410_000_000_000_000n : 2_000_000_000_000_000n;
+        const data = configureMinimum
+          ? encodeFunctionData({
+              abi: membershipFactoryAbi,
+              functionName: "setMinimumPayment",
+              args: [token, minimum],
+            })
+          : encodeFunctionData({
+              abi: membershipFactoryAbi,
+              functionName: "setPaymentTokenEnabled",
+              args: [token, true],
+            });
+        const fields = [
+          bootstrap.factory as Address,
+          0n,
+          data,
+          0,
+          0n,
+          0n,
+          0n,
+          zeroAddress,
+          zeroAddress,
+        ] as const;
+        const hash = await client.readContract({
+          address: bootstrap.safe,
+          abi: iSafeAbi,
+          functionName: "getTransactionHash",
+          args: [...fields, nonce],
+        });
+        const signature = await signer.sign({ hash });
+        const simulation = await client.simulateContract({
+          address: bootstrap.safe,
+          abi: iSafeAbi,
+          functionName: "execTransaction",
+          args: [...fields, signature],
+          account: signer,
+        });
+        if (!simulation.result)
+          throw new Error("Payment currency setup simulation failed");
+        const receipt = await client.waitForTransactionReceipt({
+          hash: await safeWallet.writeContract(simulation.request),
+        });
+        await retain(
+          configureMinimum ? "set-minimum-payment" : "enable-payment-token",
+          { token, minimum, receipt },
+        );
+        if (
+          receipt.status !== "success" ||
+          (configureMinimum
+            ? (await client.readContract({
+                address: bootstrap.factory,
+                abi: membershipFactoryAbi,
+                functionName: "minimumPayment",
+                args: [token],
+              })) !== minimum
+            : !(await client.readContract({
+                address: bootstrap.factory,
+                abi: membershipFactoryAbi,
+                functionName: "isPaymentTokenEnabled",
+                args: [token],
+              })))
+        )
+          throw new Error("Payment currency setup failed");
+      }
     }
   }
   const [routerArtifact, quoterArtifact, permitArtifact] = await Promise.all([
@@ -396,10 +430,13 @@ async function main() {
     name: "Local Creator Circle",
     symbol: "LOCAL",
     pricePerPeriod: 10_000_000n,
+    minimumPayment: 1_000_000n,
     periodDuration: 2592000n,
     protocolFeeBps: 100,
     rewardBps: 500,
     referralBps: 100,
+    startingBoostBps: 15000,
+    earlySupportGross: 10_000_000_000n,
     supplyCap: 0n,
     maxPrepaidPeriods: 12n,
     metadata: {

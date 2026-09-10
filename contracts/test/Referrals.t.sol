@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 
 import {Test} from "forge-std/Test.sol";
@@ -24,6 +25,7 @@ contract ReferralsTest is Test {
     uint64 private constant _START = 1_000_000;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(_START);
         member = makeAddr("member");
         payer = makeAddr("payer");
@@ -48,17 +50,23 @@ contract ReferralsTest is Test {
         paymentToken.approve(address(tier), type(uint256).max);
     }
 
-    function test_firstPositiveSelfPaymentLocksAndUsesReferrerImmediately() public {
+    function test_firstPositiveSelfPaymentLocksReferrerAndReservesBeforeEarning() public {
         vm.prank(member);
         uint256 tokenId = tier.purchase(1, referrer);
 
         (MembershipTypes.ReferralStatus status, address lockedReferrer) = tier.referralOf(tokenId);
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.LockedAddress));
         assertEq(lockedReferrer, referrer);
+        assertEq(tier.claimableReferral(referrer), 0);
+        assertEq(tier.creatorProceeds(), 0);
+        assertEq(tier.reserveState().unearnedScaled[2], 100_000 * (1 << 128));
+        assertEq(tier.tokenOf(referrer), 0);
+        _vest(_PERIOD / 2);
+        assertApproxEqAbs(tier.claimableReferral(referrer), 50_000, 1);
+        _vest(_PERIOD / 2);
         assertEq(tier.claimableReferral(referrer), 100_000);
-        assertEq(tier.totalReferralLiability(), 100_000);
         assertEq(tier.creatorProceeds(), 9_300_000);
-        assertEq(tier.rewardReserve(), 500_000);
+        assertApproxEqAbs(tier.claimableReward(tokenId), 500_000, 1);
     }
 
     function test_explicitNoneLocksAndLaterReplacementFailsAtomically() public {
@@ -92,6 +100,7 @@ contract ReferralsTest is Test {
         tier.purchase(1, replacement);
 
         assertEq(tier.expiresAt(tokenId), _START + 2 * _PERIOD);
+        _vest(2 * _PERIOD);
         assertEq(tier.claimableReferral(referrer), 200_000);
         assertEq(tier.claimableReferral(replacement), 0);
     }
@@ -102,6 +111,7 @@ contract ReferralsTest is Test {
 
         (, address lockedReferrer) = tier.referralOf(tokenId);
         assertEq(lockedReferrer, member);
+        _vest(_PERIOD);
         assertEq(tier.claimableReferral(member), 100_000);
     }
 
@@ -111,7 +121,7 @@ contract ReferralsTest is Test {
 
         (MembershipTypes.ReferralStatus status,) = tier.referralOf(tokenId);
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.Unset));
-        assertEq(tier.creatorProceeds(), 9_400_000);
+        assertEq(tier.creatorProceeds(), 0);
         assertEq(tier.ownerOf(tokenId), member);
         assertEq(tier.sharesOf(tokenId), 10_000_000);
         assertEq(tier.tokenOf(payer), 0);
@@ -121,6 +131,14 @@ contract ReferralsTest is Test {
         vm.prank(payer);
         tier.gift(member, 1, MembershipTypes.ReferralStatus.LockedAddress, referrer);
 
+        // The earlier unattributed gift never acquires the later locked
+        // referrer. Only its own subsequent service intervals can earn referral cash.
+        _vest(_PERIOD);
+        assertEq(tier.claimableReferral(referrer), 0);
+        assertEq(tier.creatorProceeds(), 9_400_000);
+        _vest(_PERIOD);
+        assertEq(tier.claimableReferral(referrer), 100_000);
+        _vest(_PERIOD);
         assertEq(tier.claimableReferral(referrer), 200_000);
         assertEq(tier.creatorProceeds(), 28_000_000);
         assertEq(tier.sharesOf(tokenId), 30_000_000);
@@ -140,10 +158,11 @@ contract ReferralsTest is Test {
 
         assertEq(paymentToken.balanceOf(payer), payerBalance);
         assertEq(tier.expiresAt(tokenId), expiration);
-        assertEq(tier.claimableReferral(referrer), 100_000);
+        assertEq(tier.claimableReferral(referrer), 0);
 
         vm.prank(payer);
         tier.gift(member, 1, MembershipTypes.ReferralStatus.LockedAddress, referrer);
+        _vest(2 * _PERIOD);
         assertEq(tier.claimableReferral(referrer), 200_000);
     }
 
@@ -169,6 +188,7 @@ contract ReferralsTest is Test {
         tier.renewSubscription(tokenId, 2 * _PERIOD);
 
         assertEq(tier.expiresAt(tokenId), _START + 4 * _PERIOD);
+        _vest(3 * _PERIOD);
         assertEq(tier.claimableReferral(referrer), 300_000);
     }
 
@@ -194,5 +214,41 @@ contract ReferralsTest is Test {
         vm.prank(member);
         vm.expectRevert(MembershipTier.InvalidPeriods.selector);
         zeroTier.renewSubscription(tokenId, 2 * _PERIOD);
+    }
+
+    function test_oneReferrerClaimsIndependentStreamsAtRateAndSuspensionBoundaries() public {
+        vm.prank(member);
+        uint256 first = tier.purchase(1, referrer);
+        _vest(_PERIOD / 2);
+        uint256 paid = tier.claimableReferral(referrer);
+        vm.prank(referrer);
+        assertEq(tier.claimReferral(), paid);
+        vm.prank(payer);
+        uint256 second = tier.purchase(2, referrer);
+        _vest(_PERIOD / 2);
+        assertApproxEqAbs(tier.claimableReferral(referrer) + paid, 150_000, 1);
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = first;
+        tier.synchronizeExpiredMemberships(ids);
+        assertFalse(tier.rewardEligible(first));
+        assertEq(tier.tokenOf(referrer), 0);
+        _vest(_PERIOD);
+        uint256 next = tier.claimableReferral(referrer);
+        vm.prank(referrer);
+        assertEq(tier.claimReferral(), next);
+        paid += next;
+        _vest(_PERIOD / 2);
+        vm.prank(referrer);
+        paid += tier.claimReferral();
+        assertEq(paid, 300_000);
+        assertEq(tier.claimableReferral(referrer), 0);
+        assertEq(tier.allocationLots(first, 0, 0, 1)[0].referrer, referrer);
+        assertEq(tier.allocationLots(second, 0, 0, 1)[0].referrer, referrer);
+        assertGe(paymentToken.balanceOf(address(tier)), tier.totalProtectedLiability());
+    }
+
+    function _vest(uint64 elapsed) private {
+        vm.warp(block.timestamp + elapsed);
+        tier.processAccounting(25);
     }
 }

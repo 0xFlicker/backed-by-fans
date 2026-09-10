@@ -12,6 +12,8 @@ import {
     ProtocolDeployment,
     RobinhoodDeploymentGuard
 } from "../../script/DeployDirectProtocol.s.sol";
+import {TierCodeBuild} from "../../script/TierCodeDeployment.sol";
+import {ImmutableCodeStore} from "../../src/ImmutableCodeStore.sol";
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTier} from "../../src/MembershipTier.sol";
 import {MembershipTierDeployer} from "../../src/MembershipTierDeployer.sol";
@@ -22,6 +24,7 @@ import {RobinhoodProtocolConfig} from "../../src/RobinhoodProtocolConfig.sol";
 import {ERC8056InterfaceIds} from "../../src/interfaces/IERC8056.sol";
 import {ProtocolLaunchValidation} from "../../src/libraries/ProtocolLaunchValidation.sol";
 import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory.sol";
+import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {MockScaledToken} from "../mocks/MockScaledToken.sol";
 import {MockUSDG} from "../mocks/MockUSDG.sol";
@@ -32,6 +35,10 @@ contract WrongDecimalsUSDG is ERC20 {
 
 /// @dev Mainnet fork tests cover the exact Paxos code hashes. This harness isolates other guards.
 contract DeployProtocolHarness is DeployProtocol {
+    function ensureVestingLedger() external {
+        _ensureTierCodeStores();
+    }
+
     function _validateMainnetUSDGState(address) internal view override {}
 
     function validatedDeploymentState()
@@ -84,6 +91,93 @@ contract DeployProtocolHarness is DeployProtocol {
 }
 
 contract DeploymentScriptsTest is Test {
+    function test_wholeLinkedCreationGraphFitsReleaseLimits() public {
+        string[9] memory artifacts = [
+            "MembershipTier.sol:MembershipTier",
+            "MembershipTierDeployer.sol:MembershipTierDeployer",
+            "MembershipFactory.sol:MembershipFactory",
+            "ProtocolBuybackVault.sol:ProtocolBuybackVault",
+            "PonsBuybackExecutor.sol:PonsBuybackExecutor",
+            "ProtocolBurnRouter.sol:ProtocolBurnRouter",
+            "OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory",
+            "OnchainMetadataRenderer.sol:OnchainMetadataRenderer",
+            "RendererPreviewHarness.sol:RendererPreviewHarness"
+        ];
+        for (uint256 i; i < artifacts.length; ++i) {
+            uint256 creationSize = vm.getCode(artifacts[i]).length;
+            uint256 runtimeSize = vm.getDeployedCode(artifacts[i]).length;
+            assertLe(creationSize, 196_608, artifacts[i]);
+            assertLe(runtimeSize, 98_304, artifacts[i]);
+            if (i == 0) assertLe(creationSize, 49_150, "two immutable tier code stores");
+            emit log_named_uint(string.concat(artifacts[i], " creation bytes"), creationSize);
+            emit log_named_uint(string.concat(artifacts[i], " runtime bytes"), runtimeSize);
+        }
+        for (uint256 i; i < 2; ++i) {
+            vm.chainId(i == 0 ? _MAINNET_CHAIN_ID : _TESTNET_CHAIN_ID);
+            uint256 dataSize = 32 + _publicDeployment.factoryInitCode().length;
+            assertLe(dataSize, 95_000, "exact raw CREATE2 transaction");
+            assertLt(dataSize, 65_000, "split factory retains substantial headroom");
+            emit log_named_uint("factory raw CREATE2 bytes", dataSize);
+        }
+        for (uint256 i; i < 2; ++i) {
+            uint256 size = 32 + _publicDeployment.tierCodeInitCode(i != 0).length;
+            assertLe(size, 95_000, "store exact raw CREATE2 transaction");
+            assertLe(size - 32, 196_608, "store initcode limit");
+            assertLe(TierCodeBuild.chunk(i != 0).length + 1, 24_576, "store runtime limit");
+            emit log_named_uint(
+                i == 0 ? "store A raw CREATE2 bytes" : "store B raw CREATE2 bytes", size
+            );
+        }
+    }
+
+    function test_externalStoresAreExactImmutableAndReusableAcrossFactories() public {
+        MembershipTypes.TierCodeConfig memory config = _publicDeployment.tierCodeConfiguration();
+        assertEq(config.creationCodeHash, keccak256(type(MembershipTier).creationCode));
+        assertEq(config.creationCodeLength, type(MembershipTier).creationCode.length);
+        assertEq(config.storeA.code, abi.encodePacked(hex"00", TierCodeBuild.chunk(false)));
+        assertEq(config.storeB.code, abi.encodePacked(hex"00", TierCodeBuild.chunk(true)));
+        MembershipTierDeployer first = new MembershipTierDeployer(address(this), config);
+        MembershipTierDeployer second = new MembershipTierDeployer(address(123), config);
+        assertEq(first.creationCodeStoreA(), second.creationCodeStoreA());
+        assertEq(first.creationCodeStoreB(), second.creationCodeStoreB());
+        assertEq(first.creationCodeStoreAHash(), config.storeA.codehash);
+        assertEq(first.creationCodeStoreBHash(), config.storeB.codehash);
+        vm.expectRevert(MembershipTierDeployer.OnlyFactory.selector);
+        second.deploy(MembershipTestConfig.defaultConfig(address(this), address(1), address(2)));
+    }
+
+    function test_missingReorderedTruncatedAndWrongHashStoresAreRejected() public {
+        MembershipTypes.TierCodeConfig memory config = _publicDeployment.tierCodeConfiguration();
+        address originalA = config.storeA;
+        config.storeA = address(0);
+        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
+        new MembershipTierDeployer(address(this), config);
+        config.storeA = config.storeB;
+        config.storeB = originalA;
+        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
+        new MembershipTierDeployer(address(this), config);
+        config = _publicDeployment.tierCodeConfiguration();
+        config.creationCodeHash = bytes32(uint256(1));
+        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
+        new MembershipTierDeployer(address(this), config);
+        config = _publicDeployment.tierCodeConfiguration();
+        vm.etch(config.storeA, hex"00");
+        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
+        new MembershipTierDeployer(address(this), config);
+    }
+
+    function test_executablePrefixAndPostBindingCorruptionAreRejected() public {
+        MembershipTypes.TierCodeConfig memory config = _publicDeployment.tierCodeConfiguration();
+        MembershipTierDeployer deployer = new MembershipTierDeployer(address(this), config);
+        bytes memory code = config.storeA.code;
+        code[0] = 0x01;
+        vm.etch(config.storeA, code);
+        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
+        new MembershipTierDeployer(address(this), config);
+        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
+        deployer.deploy(MembershipTestConfig.defaultConfig(address(this), address(1), address(2)));
+    }
+
     function test_publicPlanAcceptsDeferredTokenAndRejectsNoncanonicalLaunchWiring() public {
         address configured = vm.envAddress("PROTOCOL_TOKEN_ADDRESS");
         vm.setEnv("PROTOCOL_TOKEN_ADDRESS", vm.toString(address(0)));
@@ -104,7 +198,11 @@ contract DeploymentScriptsTest is Test {
             MembershipTestConfig.paymentTokens(membershipAsset),
             address(media),
             address(this),
-            address(launchedToken)
+            address(launchedToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(
+                MembershipTestConfig.paymentTokens(membershipAsset)
+            )
         );
         ProtocolBuybackVault vault = ProtocolBuybackVault(payable(factory.buybackVault()));
         assertEq(factory.protocolToken(), address(launchedToken));
@@ -148,6 +246,7 @@ contract DeploymentScriptsTest is Test {
         _publicDeployment = new DeployProtocolHarness();
         _strictDeployment = new DeployProtocol();
         vm.etch(_publicDeployment.CREATE2_DEPLOYER(), _CREATE2_DEPLOYER_RUNTIME);
+        _publicDeployment.ensureVestingLedger();
         _installCanonicalUSDG(_publicDeployment.ROBINHOOD_MAINNET_USDG());
         _installScaledToken(
             RobinhoodProtocolConfig.MAINNET_AMD,
@@ -308,6 +407,19 @@ contract DeploymentScriptsTest is Test {
         assertEq(vm.envAddress("BBF_RELEASE_RENDERER_ADDRESS"), predicted.renderer);
         assertEq(vm.envAddress("BBF_RELEASE_PREVIEW_HARNESS_ADDRESS"), predicted.previewHarness);
         assertEq(vm.envAddress("BBF_RELEASE_FACTORY_ADDRESS"), predicted.factory);
+        MembershipTypes.TierCodeConfig memory tierCode = _publicDeployment.tierCodeConfiguration();
+        assertEq(vm.envAddress("BBF_RELEASE_STORE_A_ADDRESS"), tierCode.storeA);
+        assertEq(vm.envAddress("BBF_RELEASE_STORE_B_ADDRESS"), tierCode.storeB);
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_STORE_A_INIT_HASH"),
+            keccak256(_publicDeployment.tierCodeInitCode(false))
+        );
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_STORE_B_INIT_HASH"),
+            keccak256(_publicDeployment.tierCodeInitCode(true))
+        );
+        assertEq(vm.envBytes32("BBF_RELEASE_STORE_A_RUNTIME_HASH"), tierCode.storeA.codehash);
+        assertEq(vm.envBytes32("BBF_RELEASE_STORE_B_RUNTIME_HASH"), tierCode.storeB.codehash);
 
         (
             OnchainMediaStoreFactory mediaStoreFactory,

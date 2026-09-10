@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -13,6 +14,7 @@ import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {IMembershipFactory} from "../src/interfaces/IMembershipFactory.sol";
 import {IMembershipRenderer} from "../src/interfaces/IMembershipRenderer.sol";
 import {IOnchainMediaStoreFactory} from "../src/interfaces/IOnchainMediaStoreFactory.sol";
+import {RewardCurve} from "../src/libraries/RewardCurve.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
@@ -112,6 +114,7 @@ contract FactoryAndFeesTest is Test {
     address private nextOwner;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         creator = makeAddr("creator");
         nextOwner = makeAddr("nextOwner");
 
@@ -124,8 +127,73 @@ contract FactoryAndFeesTest is Test {
             _tokens(paymentToken, stockToken),
             address(mediaStoreFactory),
             address(this),
-            address(paymentToken)
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(_tokens(paymentToken, stockToken))
         );
+    }
+
+    function test_minimumSnapshotBoundariesAndZeroPWYW() public {
+        factory.setMinimumPayment(address(paymentToken), 1_000_000);
+        MembershipTypes.TierConfig memory cfg =
+            MembershipTestConfig.defaultConfig(creator, address(renderer), address(paymentToken));
+        cfg.minimumPayment = 1_000_000;
+        cfg.pricePerPeriod = 999_999;
+        vm.prank(creator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MembershipFactory.PaymentBelowMinimum.selector, 999_999, 1_000_000
+            )
+        );
+        factory.createTier(cfg);
+        cfg.pricePerPeriod = 1_000_000;
+        vm.prank(creator);
+        MembershipTier fixedTier = MembershipTier(factory.createTier(cfg));
+        assertEq(fixedTier.minimumPayment(), 1_000_000);
+        cfg.pricePerPeriod = 0;
+        cfg.tierSalt = bytes32(uint256(456));
+        vm.prank(creator);
+        MembershipTier pwyw = MembershipTier(factory.createTier(cfg));
+        pwyw.contribute(0, address(0));
+        assertEq(pwyw.lifetimeGross(), 0);
+        uint64 cursor = pwyw.accountingStatus().accountedThrough;
+        vm.warp(block.timestamp + 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(MembershipTier.PaymentBelowMinimum.selector, 999_999, 1_000_000)
+        );
+        pwyw.contribute(999_999, address(0));
+        assertEq(pwyw.accountingStatus().accountedThrough, cursor);
+        factory.setMinimumPayment(address(paymentToken), 2_000_000);
+        assertEq(pwyw.minimumPayment(), 1_000_000);
+        paymentToken.mint(address(this), 1_000_000);
+        paymentToken.approve(address(pwyw), 1_000_000);
+        pwyw.contribute(1_000_000, address(0));
+        assertEq(pwyw.lifetimeGross(), 1_000_000);
+        cfg.tierSalt = bytes32(uint256(457));
+        vm.prank(creator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MembershipFactory.MinimumPaymentChanged.selector, 1_000_000, 2_000_000
+            )
+        );
+        factory.createTier(cfg);
+        cfg.minimumPayment = 2_000_000;
+        vm.prank(creator);
+        assertEq(MembershipTier(factory.createTier(cfg)).minimumPayment(), 2_000_000);
+    }
+
+    function test_minimumAuthorityAndEnablement() public {
+        vm.prank(creator);
+        vm.expectRevert();
+        factory.setMinimumPayment(address(paymentToken), 10);
+        vm.expectRevert(MembershipFactory.InvalidMinimumPayment.selector);
+        factory.setMinimumPayment(address(paymentToken), 0);
+        MockUSDG fresh = new MockUSDG();
+        vm.expectRevert(MembershipFactory.InvalidMinimumPayment.selector);
+        factory.setPaymentTokenEnabled(address(fresh), true);
+        factory.setMinimumPayment(address(fresh), 1_000_000);
+        factory.setPaymentTokenEnabled(address(fresh), true);
+        assertTrue(factory.isPaymentTokenEnabled(address(fresh)));
     }
 
     function test_constructorSetsProtocolDependenciesAndNonAdminDeployer() public view {
@@ -188,6 +256,7 @@ contract FactoryAndFeesTest is Test {
 
     function test_ownerCanAppendDisableAndReenablePaymentTokenWithoutDuplicateEvents() public {
         MockUSDG laterToken = new MockUSDG();
+        factory.setMinimumPayment(address(laterToken), 1);
 
         vm.expectEmit(true, true, false, true, address(factory));
         emit IMembershipFactory.PaymentTokenListed(address(laterToken), 2);
@@ -553,7 +622,12 @@ contract FactoryAndFeesTest is Test {
         IERC20[] memory emptyTokens = new IERC20[](0);
         vm.expectRevert(MembershipFactory.EmptyPaymentTokenList.selector);
         new MembershipFactory(
-            emptyTokens, address(mediaStoreFactory), address(this), address(paymentToken)
+            emptyTokens,
+            address(mediaStoreFactory),
+            address(this),
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(emptyTokens)
         );
 
         IERC20[] memory invalidTokens = _tokens(IERC20(address(0)));
@@ -561,12 +635,22 @@ contract FactoryAndFeesTest is Test {
             abi.encodeWithSelector(MembershipFactory.InvalidPaymentToken.selector, address(0))
         );
         new MembershipFactory(
-            invalidTokens, address(mediaStoreFactory), address(this), address(paymentToken)
+            invalidTokens,
+            address(mediaStoreFactory),
+            address(this),
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(invalidTokens)
         );
 
         vm.expectRevert(MembershipFactory.InvalidAddress.selector);
         new MembershipFactory(
-            _tokens(paymentToken), address(0), address(this), address(paymentToken)
+            _tokens(paymentToken),
+            address(0),
+            address(this),
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(_tokens(paymentToken))
         );
 
         address notToken = makeAddr("notToken");
@@ -577,17 +661,29 @@ contract FactoryAndFeesTest is Test {
             _tokens(IERC20(notToken)),
             address(mediaStoreFactory),
             address(this),
-            address(paymentToken)
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(_tokens(IERC20(notToken)))
         );
 
         vm.expectRevert(MembershipFactory.InvalidContract.selector);
         new MembershipFactory(
-            _tokens(paymentToken), makeAddr("notMediaFactory"), address(this), address(paymentToken)
+            _tokens(paymentToken),
+            makeAddr("notMediaFactory"),
+            address(this),
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(_tokens(paymentToken))
         );
 
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
         new MembershipFactory(
-            _tokens(paymentToken), address(mediaStoreFactory), address(0), address(paymentToken)
+            _tokens(paymentToken),
+            address(mediaStoreFactory),
+            address(0),
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(_tokens(paymentToken))
         );
 
         vm.expectRevert(
@@ -599,7 +695,9 @@ contract FactoryAndFeesTest is Test {
             _tokens(paymentToken, paymentToken),
             address(mediaStoreFactory),
             address(this),
-            address(paymentToken)
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(_tokens(paymentToken, paymentToken))
         );
     }
 
@@ -673,6 +771,7 @@ contract FactoryAndFeesTest is Test {
         uint16 rate,
         bool referred
     ) public {
+        gross = uint128(bound(gross, 0, type(uint112).max));
         rate = uint16(bound(rate, 100, 10_000));
         MembershipTypes.TierConfig memory config = _defaultConfig(creator);
         config.pricePerPeriod = 0;
@@ -686,10 +785,14 @@ contract FactoryAndFeesTest is Test {
         uint256 fee = uint256(gross) * rate / 10_000;
         uint256 reward = uint256(gross) * config.rewardBps / 10_000;
         uint256 referral = referred ? uint256(gross) * config.referralBps / 10_000 : 0;
-        assertEq(tier.creatorProceeds(), uint256(gross) - fee - reward - referral);
-        assertEq(tier.rewardReserve(), reward);
-        assertEq(tier.totalReferralLiability(), referral);
-        assertEq(tier.totalProtectedLiability(), fee + reward + referral);
+        uint256 q = 1 << 128;
+        MembershipTypes.ReserveState memory reserves = tier.reserveState();
+        assertEq(reserves.unearnedScaled[0], (uint256(gross) - fee - reward - referral) * q);
+        assertEq(reserves.unearnedScaled[1], reward * q);
+        assertEq(reserves.unearnedScaled[2], referral * q);
+        assertEq(reserves.unearnedScaled[3], fee * q);
+        assertEq(tier.creatorProceeds(), 0);
+        assertEq(tier.totalProtectedLiability(), gross);
         assertEq(paymentToken.balanceOf(address(tier)), gross);
         assertEq(paymentToken.balanceOf(address(factory)), 0);
         assertEq(paymentToken.balanceOf(factory.buybackVault()), 0);
@@ -749,6 +852,25 @@ contract FactoryAndFeesTest is Test {
         tier.renounceOwnership();
     }
 
+    function test_curveTermsValidateAtFactoryAndDirectTierAndReadBack() public {
+        MembershipTypes.TierConfig memory config = _defaultConfig(creator);
+        config.startingBoostBps = 15_000;
+        config.earlySupportGross = uint112(config.pricePerPeriod * 1000);
+        MembershipTier tier = MembershipTier(_createTier(factory, creator, config));
+        assertEq(tier.startingBoostBps(), 15_000);
+        assertEq(tier.earlySupportGross(), config.earlySupportGross);
+        MembershipTypes.ShareQuote memory quote = tier.previewShares(config.earlySupportGross);
+        assertEq(quote.grossBefore, 0);
+        assertEq(quote.grossAfter, config.earlySupportGross);
+        assertEq(quote.sharesAdded, uint256(config.earlySupportGross) * 5 / 4);
+        config.tierSalt = keccak256("invalid-curve");
+        config.earlySupportGross++;
+        vm.expectRevert(RewardCurve.InvalidCurveSettings.selector);
+        _createTier(factory, creator, config);
+        vm.expectRevert(RewardCurve.InvalidCurveSettings.selector);
+        new MembershipTier(address(factory), paymentToken, config);
+    }
+
     function test_runtimeAndInitcodeRemainBelowNetworkLimits() public {
         uint256 gasBefore = gasleft();
         address tier = _createTier(factory, creator, _defaultConfig(creator));
@@ -767,6 +889,97 @@ contract FactoryAndFeesTest is Test {
         assertLt(type(OnchainMetadataRenderer).creationCode.length, _RENDERER_INITCODE_LIMIT);
         assertLt(address(mediaStoreFactory).code.length, _STANDARD_RUNTIME_LIMIT);
         assertLt(deployGas, _MAX_TIER_DEPLOY_GAS);
+    }
+
+    function test_invalidCurveSettingsMatchFactoryAndDirectConstruction() public {
+        for (uint256 i; i < 8; ++i) {
+            MembershipTypes.TierConfig memory config = _defaultConfig(creator);
+            config.startingBoostBps = 15_000;
+            config.pricePerPeriod = 1;
+            config.earlySupportGross = 1000;
+            if (i == 0) config.startingBoostBps = 0;
+            if (i == 1) config.startingBoostBps = 10_050;
+            if (i == 2) config.startingBoostBps = 100_100;
+            if (i == 3) config.startingBoostBps = 10_000; // None requires H=0.
+            if (i == 4) config.earlySupportGross = 0;
+            if (i == 5) config.pricePerPeriod = 3; // H is not whole periods.
+            if (i == 6) config.earlySupportGross = uint112(uint256(type(uint64).max) + 1);
+            if (i == 7) config.pricePerPeriod = uint256(type(uint112).max) + 1;
+            vm.prank(creator);
+            vm.expectRevert(RewardCurve.InvalidCurveSettings.selector);
+            factory.createTier(config);
+            vm.expectRevert(RewardCurve.InvalidCurveSettings.selector);
+            new MembershipTier(address(factory), paymentToken, config);
+        }
+        assertEq(factory.tierCount(), 0);
+    }
+
+    function test_curveAndRatesStayImmutableAcrossOwnershipAndLaterPublication() public {
+        MembershipTypes.TierConfig memory config = _defaultConfig(creator);
+        config.startingBoostBps = 23_700;
+        config.earlySupportGross = uint112(config.pricePerPeriod * 731);
+        MembershipTier tier = MembershipTier(_createTier(factory, creator, config));
+        vm.prank(creator);
+        tier.transferOwnership(nextOwner);
+        vm.prank(nextOwner);
+        tier.acceptOwnership();
+        bytes[] memory calls = new bytes[](5);
+        calls[0] =
+            abi.encodeWithSignature("setRewardCurve(uint32,uint112)", uint32(10_000), uint112(0));
+        calls[1] = abi.encodeWithSignature("setStartingBoostBps(uint32)", uint32(30_000));
+        calls[2] = abi.encodeWithSignature("setEarlySupportGross(uint112)", uint112(1));
+        calls[3] = abi.encodeWithSignature("setRewardBps(uint16)", uint16(0));
+        calls[4] = abi.encodeWithSignature("setReferralBps(uint16)", uint16(0));
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(nextOwner);
+            (bool changed,) = address(tier).call(calls[i]);
+            assertFalse(changed);
+        }
+        config.tierSalt = keccak256("later publication defaults");
+        config.startingBoostBps = 10_000;
+        config.earlySupportGross = 0;
+        _createTier(factory, creator, config);
+        assertEq(tier.startingBoostBps(), 23_700);
+        assertEq(tier.earlySupportGross(), config.pricePerPeriod * 731);
+        assertEq(tier.rewardBps(), config.rewardBps);
+        assertEq(tier.referralBps(), config.referralBps);
+    }
+
+    function test_lifetimeCapacityRejectsNewPaymentsWithoutBlockingClaimsRefundsOrFreeAccess()
+        public
+    {
+        MembershipTypes.TierConfig memory config = _defaultConfig(creator);
+        config.pricePerPeriod = 0;
+        config.periodDuration = 100;
+        config.startingBoostBps = 100_000;
+        config.earlySupportGross = 1000;
+        MembershipTier tier = MembershipTier(_createTier(factory, creator, config));
+        uint256 cap = type(uint112).max;
+        paymentToken.mint(address(this), cap + 1);
+        paymentToken.approve(address(tier), type(uint256).max);
+        uint256 id = tier.contribute(cap, address(0));
+        assertEq(tier.lifetimeGross(), cap);
+        assertEq(tier.sharesOf(id), cap + 4500);
+        uint64 expiry = tier.expiresAt(id);
+        bytes32 reservesBefore = keccak256(abi.encode(tier.reserveState()));
+        vm.expectRevert(MembershipTier.CurveCapacityExceeded.selector);
+        tier.contribute(1, address(0));
+        assertEq(paymentToken.balanceOf(address(this)), 1);
+        assertEq(tier.expiresAt(id), expiry);
+        assertEq(keccak256(abi.encode(tier.reserveState())), reservesBefore);
+        vm.warp(block.timestamp + 50);
+        tier.processAccounting(25);
+        assertGt(tier.claimReward(id), 0);
+        vm.prank(creator);
+        assertGt(tier.withdrawCreatorProceeds(), 0);
+        vm.prank(creator);
+        assertEq(tier.refund(id, cap), cap / 2);
+        assertEq(tier.lifetimeGross(), cap);
+        assertEq(tier.sharesOf(id), cap + 4500);
+        tier.contribute(0, address(0));
+        assertTrue(tier.isActive(address(this)));
+        assertFalse(tier.rewardEligible(id));
+        assertEq(tier.lifetimeGross(), cap);
     }
 
     function _createTier(

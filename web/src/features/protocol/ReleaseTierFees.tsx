@@ -4,126 +4,161 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
-import { parseEventLogs, type Address } from "viem";
-import { membershipTierAbi } from "@/contracts";
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  zeroAddress,
+  type Address,
+} from "viem";
+import {
+  membershipTierAbi,
+  membershipFactoryAbi,
+  protocolBurnRouterAbi,
+  protocolBuybackVaultAbi,
+} from "@/contracts";
 import type { SupportedChainId } from "@/lib/chains";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { decodeTransactionError } from "@/lib/transaction-state";
 import { assertSufficientGas } from "./gas-readiness";
+import { receiptAdvance, buybackSkipReason } from "./buyback-reconciliation";
+import { formatMembershipDate } from "@/features/membership/date";
+
+import { advanceCall, type AdvanceMode } from "./advance-call";
 
 export function ReleaseTierFees({
   chainId,
   tier,
   blockNumber,
+  onConfirmed,
 }: {
   chainId: SupportedChainId;
   tier: Address;
   blockNumber: bigint;
+  onConfirmed?: () => Promise<unknown>;
 }) {
   const account = useHydratedAccount();
   const config = useConfig();
   const client = usePublicClient({ chainId });
   const write = useWriteContract();
   const cache = useQueryClient();
-  const [offset, setOffset] = useState(0n);
-  async function readPage() {
+  const [mode, setMode] = useState<AdvanceMode>("accounting");
+  async function readStatus() {
     if (!client) throw new Error("The network is unavailable.");
-    const block = await client.getBlockNumber();
-    const [total, held, limit] = await Promise.all([
+    const block = await client.getBlock();
+    const [status, held, factory] = await Promise.all([
       client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "totalMinted",
-        blockNumber: block,
+        functionName: "accountingStatus",
+        blockNumber: block.number,
       }),
       client.readContract({
         address: tier,
         abi: membershipTierAbi,
         functionName: "protocolFeeEarnedHeld",
-        blockNumber: block,
+        blockNumber: block.number,
       }),
       client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "MAX_SYNC_BATCH_SIZE",
-        blockNumber: block,
+        functionName: "factory",
+        blockNumber: block.number,
       }),
     ]);
-    const end = total < offset + limit ? total : offset + limit;
-    const ids = Array.from(
-      { length: Number(end > offset ? end - offset : 0n) },
-      (_, i) => offset + BigInt(i) + 1n,
-    );
-    const states = await Promise.all(
-      ids.map((id) =>
-        client.readContract({
-          address: tier,
-          abi: membershipTierAbi,
-          functionName: "protocolFeeState",
-          args: [id],
-          blockNumber: block,
-        }),
-      ),
-    );
-    return {
-      total,
-      held,
-      limit,
-      end,
-      eligible: ids.filter((_, i) => states[i].uncheckpointedEarned > 0n),
-    };
+    const [router, vault, protocolToken, paymentToken] = await Promise.all([
+      client.readContract({
+        address: factory,
+        abi: membershipFactoryAbi,
+        functionName: "burnRouter",
+        blockNumber: block.number,
+      }),
+      client.readContract({
+        address: factory,
+        abi: membershipFactoryAbi,
+        functionName: "buybackVault",
+        blockNumber: block.number,
+      }),
+      client.readContract({
+        address: factory,
+        abi: membershipFactoryAbi,
+        functionName: "protocolToken",
+        blockNumber: block.number,
+      }),
+      client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "paymentToken",
+        blockNumber: block.number,
+      }),
+    ]);
+    const purchases: { asset: Address; revision: bigint }[] = [];
+    if (protocolToken !== zeroAddress) {
+      const asset = await client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "canonicalAsset",
+        args: [paymentToken],
+        blockNumber: block.number,
+      });
+      const revision = await client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "revision",
+        args: [asset],
+        blockNumber: block.number,
+      });
+      purchases.push({ asset, revision });
+    }
+    return { status, held, router, purchases, timestamp: block.timestamp };
   }
-  const page = useQuery({
+  const state = useQuery({
     queryKey: [
       "protocol",
       chainId,
-      "fee-actions",
+      "accounting-actions",
       tier,
-      offset.toString(),
       blockNumber.toString(),
     ],
     enabled: Boolean(client),
-    queryFn: readPage,
+    queryFn: readStatus,
     retry: false,
   });
   const action = useMutation({
     retry: false,
-    mutationFn: async (kind: "accrue" | "release") => {
+    mutationFn: async () => {
       if (!client || !account.address || account.chainId !== chainId)
         throw new Error("Connect your wallet on this network.");
-      const current = await readPage();
-      if (kind === "accrue" && current.eligible.length === 0)
-        throw new Error(
-          "No fees await accrual in this batch. Refresh or check the next batch.",
-        );
-      if (kind === "release" && current.held === 0n)
-        throw new Error("No earned fees await release. Accrue fees first.");
-      const request =
-        kind === "accrue"
-          ? (
-              await simulateContract(config, {
-                account: account.address,
-                chainId,
-                address: tier,
-                abi: membershipTierAbi,
-                functionName: "accrueProtocolFees",
-                args: [current.eligible],
-              })
-            ).request
-          : (
-              await simulateContract(config, {
-                account: account.address,
-                chainId,
-                address: tier,
-                abi: membershipTierAbi,
-                functionName: "releaseProtocolFees",
-              })
-            ).request;
+      const current = await readStatus();
+      let simulation;
+      try {
+        simulation = await simulateContract(config, {
+          account: account.address,
+          chainId,
+          address: current.router,
+          abi: protocolBurnRouterAbi,
+          ...advanceCall(
+            mode,
+            [{ tier, maxAccountingSteps: 25n }],
+            current.purchases,
+            current.timestamp + 300n,
+          ),
+        });
+      } catch (error) {
+        const reverted =
+          error instanceof BaseError &&
+          error.walk((cause) => cause instanceof ContractFunctionRevertedError);
+        if (
+          reverted instanceof ContractFunctionRevertedError &&
+          reverted.data?.errorName === "NothingToDo"
+        )
+          throw new Error(
+            "Nothing is ready to advance, release or buy back. Refresh as paid time is used or buybacks become eligible.",
+          );
+        throw error;
+      }
+      const { request } = simulation;
       await assertSufficientGas(client, account.address, request);
-      const hash =
-        request.functionName === "accrueProtocolFees"
-          ? await write.writeContractAsync(request)
-          : await write.writeContractAsync(request);
+      const hash = await write.writeContractAsync(request);
       let cancelled = false;
       const receipt = await client.waitForTransactionReceipt({
         hash,
@@ -133,37 +168,30 @@ export function ReleaseTierFees({
       });
       if (cancelled) throw new Error("Your wallet cancelled this transaction.");
       if (receipt.status !== "success")
-        throw new Error("The fee transaction reverted.");
-      const events = parseEventLogs({
-        abi: membershipTierAbi,
-        logs: receipt.logs,
-      }).filter((log) => log.address.toLowerCase() === tier.toLowerCase());
-      const confirmed =
-        kind === "accrue"
-          ? events.some(
-              (log) =>
-                log.eventName === "ProtocolFeesAccrued" &&
-                current.eligible.includes(log.args.tokenId) &&
-                log.args.amount > 0n,
-            )
-          : events.some(
-              (log) =>
-                log.eventName === "ProtocolFeesReleased" &&
-                log.args.amount > 0n,
-            );
-      if (!confirmed)
-        throw new Error(
-          "The receipt does not confirm the requested fee action. Refresh activity.",
-        );
+        throw new Error("The accounting transaction reverted.");
+      const outcome = receiptAdvance(receipt, {
+        router: current.router,
+        caller: account.address,
+      });
+      if (!outcome)
+        throw new Error("The receipt does not confirm this accounting action.");
+      const next = await readStatus();
       const refresh = await Promise.allSettled([
-        cache.invalidateQueries(
-          { queryKey: ["protocol", chainId] },
-          { throwOnError: true },
-        ),
+        cache.invalidateQueries({
+          predicate: (query) => query.queryKey.includes(tier),
+        }),
+        onConfirmed?.() ?? Promise.resolve(),
       ]);
       return {
-        kind,
+        ...outcome.completed,
         hash: receipt.transactionHash,
+        status: next.status,
+        timestamp: next.timestamp,
+        skipped: [
+          ...new Set(
+            outcome.skipped.map((item) => buybackSkipReason(item.reason)),
+          ),
+        ],
         refreshFailed: refresh.some((item) => item.status === "rejected"),
       };
     },
@@ -172,100 +200,111 @@ export function ReleaseTierFees({
     !account.isConnected ||
     account.chainId !== chainId ||
     action.isPending ||
-    page.isFetching ||
-    page.isError;
+    state.isFetching ||
+    state.isError;
   return (
-    <section aria-label="Release tier fees" className="protocol-section">
-      <h3>Move earned fees into the buyback vault</h3>
+    <section
+      aria-label="Advance membership accounting"
+      id={`tier-accounting-${tier.toLowerCase()}`}
+      className="protocol-section"
+    >
+      <h3>Advance membership accounting</h3>
       <p>
-        Anyone can accrue and release fees. You pay network gas; the funds
-        always go to the protocol buyback vault.
+        Anyone can settle earned allocations, release protocol funding and
+        attempt eligible buybacks for this payment asset in one transaction. You
+        pay the network fee. Accounting processes up to 25 checkpoints per call.
+        Buyback-only uses funds already released to the vault. Both also
+        releases newly earned protocol funding.
       </p>
-      <p>
-        First accrue elapsed membership fees, then release them. Afterwards, use
-        Process membership fees in the USDG or other payment-token section
-        above.
-      </p>
-      {page.data && (
+      {state.data && (
         <p className="small-copy">
-          Membership IDs{" "}
-          {page.data.end > offset ? (offset + 1n).toString() : "0"}–
-          {page.data.end.toString()} of {page.data.total.toString()}.{" "}
-          {page.data.eligible.length} have fees awaiting accrual. Release
-          includes all fees already accrued for this tier.
+          Accounting through{" "}
+          {formatMembershipDate(state.data.status.accountedThrough)}.
+          {state.data.status.complete
+            ? " All due checkpoints are complete."
+            : state.data.status.scheduledMembers === 0n
+              ? " No funding checkpoints remain."
+              : state.data.status.nextBoundary > state.data.timestamp
+                ? " No checkpoints are due. New paid time may be waiting to settle."
+                : " More accounting remains."}{" "}
+          Already-settled claims remain available.
         </p>
       )}
+      <label className="creator-field">
+        <span>Action</span>
+        <select
+          value={mode}
+          disabled={action.isPending}
+          onChange={(event) => setMode(event.target.value as AdvanceMode)}
+        >
+          <option value="accounting">Advance accounting</option>
+          <option value="buyback">Buyback and burn</option>
+          <option value="both">Both</option>
+        </select>
+      </label>
       <div className="creator-actions">
         <button
           type="button"
           className="button button-dark"
-          disabled={blocked || !page.data?.eligible.length}
-          onClick={() => action.mutate("accrue")}
+          disabled={blocked}
+          onClick={() => action.mutate()}
         >
-          Accrue fees
-        </button>
-        <button
-          type="button"
-          className="button button-dark"
-          disabled={blocked || !page.data?.held}
-          onClick={() => action.mutate("release")}
-        >
-          Release earned fees
+          {action.isPending
+            ? "Working…"
+            : mode === "accounting"
+              ? "Advance accounting"
+              : mode === "buyback"
+                ? "Buyback and burn"
+                : "Advance and burn"}
         </button>
         <button
           type="button"
           className="button button-light"
-          disabled={action.isPending || page.isFetching}
-          onClick={() => void page.refetch()}
+          disabled={action.isPending || state.isFetching}
+          onClick={() => void state.refetch()}
         >
-          Refresh fee eligibility
+          Refresh accounting
         </button>
-        {offset > 0n && page.data && (
-          <button
-            type="button"
-            disabled={action.isPending}
-            onClick={() => setOffset(offset - page.data!.limit)}
-          >
-            Previous membership batch
-          </button>
-        )}
-        {page.data && page.data.end < page.data.total && (
-          <button
-            type="button"
-            disabled={action.isPending}
-            onClick={() => setOffset(page.data!.end)}
-          >
-            Next membership batch
-          </button>
-        )}
       </div>
       {!account.isConnected ? (
         <p>Connect a wallet to continue.</p>
       ) : account.chainId !== chainId ? (
         <p>Switch your wallet to this network.</p>
       ) : null}
-      {page.isError && (
-        <p role="alert">
-          Fee eligibility could not be read. Refresh to try again.
-        </p>
+      {state.isError && (
+        <p role="alert">Accounting could not be read. Refresh to try again.</p>
       )}
       {action.isPending && (
         <p role="status">
           {write.isPending
             ? "Confirm in your wallet."
-            : "Checking fees and waiting for confirmation…"}
+            : "Checking accounting and waiting for confirmation…"}
         </p>
       )}
       {action.error && (
-        <p role="alert">{decodeTransactionError(action.error)}</p>
+        <p role="alert">
+          {decodeTransactionError(action.error)} No changes from a reverted
+          transaction are retained. Choose Advance accounting to catch up
+          independently of buybacks.
+        </p>
       )}
       {action.data && (
         <p role="status">
-          {action.data.kind === "accrue"
-            ? "Fees accrued. Release earned fees next."
-            : "Fees released. You can now process them in the payment-token section above."}
+          {action.data.processedSteps.toString()} checkpoints completed.
+          Protocol funds released from {action.data.releasedTiers.toString()}{" "}
+          membership tiers. {action.data.purchases.toString()} buyback actions
+          completed.
+          {action.data.status.complete
+            ? " Accounting is caught up."
+            : action.data.status.scheduledMembers === 0n
+              ? " No funding checkpoints remain."
+              : action.data.status.nextBoundary > action.data.timestamp
+                ? " All due checkpoints are processed. Refresh your membership action to continue."
+                : " More remains. Advance again to continue."}
+          {action.data.skipped.length > 0 &&
+            ` Buybacks skipped: ${action.data.skipped.join(", ")}.`}
           {action.data.refreshFailed &&
-            " Refresh activity to load the updated totals."}
+            " Refresh the page to load the updated balances."}
         </p>
       )}
       {(action.data?.hash ?? write.data) && (

@@ -9,11 +9,13 @@ import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {AuthenticAssetFixture} from "./helpers/AuthenticAssetFixture.sol";
+import {ForkTierCodeFixture} from "./helpers/ForkTierCodeFixture.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 contract DeferredProtocolTokenForkTest is AuthenticAssetFixture {
     function test_membershipEarnsBeforeAuthenticLaunchThenBurnsAfterBinding() public {
+        new ForkTierCodeFixture().install();
         IERC20[] memory assets = new IERC20[](1);
         assets[0] = IERC20(Integration.WETH);
         MembershipFactory factory = MembershipFactory(
@@ -23,7 +25,9 @@ contract DeferredProtocolTokenForkTest is AuthenticAssetFixture {
                     assets,
                     deployCode("OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory"),
                     address(this),
-                    address(0)
+                    address(0),
+                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.minimumPayments(assets)
                 )
             )
         );
@@ -47,9 +51,8 @@ contract DeferredProtocolTokenForkTest is AuthenticAssetFixture {
         uint256 id = tier.purchase(4, address(0));
         vm.stopPrank();
         vm.warp(block.timestamp + 100);
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = id;
-        tier.accrueProtocolFees(ids);
+        assertEq(id, 1);
+        tier.processAccounting(25);
         uint256 released = tier.releaseProtocolFees();
         assertGt(released, 0);
         assertEq(address(vault).balance, released);
@@ -59,12 +62,12 @@ contract DeferredProtocolTokenForkTest is AuthenticAssetFixture {
             ),
             uint256(BuybackTypes.Status.TokenNotLaunched)
         );
-        uint256 reserved = tier.protocolFeeHoldings();
+        uint256 reserved = tier.reserveState().unearnedScaled[3];
 
         _launch(keccak256("deferred-protocol-token"));
         factory.bindProtocolToken(address(token));
         assertEq(address(vault).balance, released);
-        assertEq(tier.protocolFeeHoldings(), reserved);
+        assertEq(tier.reserveState().unearnedScaled[3], reserved);
         BuybackTypes.TypedRoute memory route;
         vault.setRoute(address(0), route);
         vault.setLimits(
@@ -84,7 +87,7 @@ contract DeferredProtocolTokenForkTest is AuthenticAssetFixture {
         );
         assertLt(token.totalSupply(), supply);
         assertEq(address(vault).balance, 0);
-        assertEq(tier.protocolFeeHoldings(), reserved);
+        assertEq(tier.reserveState().unearnedScaled[3], reserved);
         assertEq(
             vault.inventory(address(0), BuybackTypes.SourceBucket.Membership).totalSpent, released
         );

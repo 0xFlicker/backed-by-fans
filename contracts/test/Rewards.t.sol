@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -22,8 +23,10 @@ contract RewardsTest is Test {
 
     uint64 private constant _PERIOD = 30 days;
     uint64 private constant _START = 1_000_000;
+    uint256 private constant Q = 1 << 128;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(_START);
         firstMember = makeAddr("firstMember");
         secondMember = makeAddr("secondMember");
@@ -44,54 +47,58 @@ contract RewardsTest is Test {
         _fundAndApprove(payer, 1_000_000_000);
     }
 
-    function test_firstPositivePaymentMintsGrossSharesAndCurrentReward() public {
+    function test_firstPositivePaymentMintsSharesAndReservesRewardsUntilService() public {
         vm.prank(firstMember);
-        uint256 tokenId = tier.purchase(1, address(0));
-
-        assertEq(tier.sharesOf(tokenId), 10_000_000);
+        uint256 id = tier.purchase(1, address(0));
+        assertEq(tier.sharesOf(id), 10_000_000);
         assertEq(tier.totalRewardShares(), 10_000_000);
-        assertEq(tier.rewardReserve(), 500_000);
-        assertEq(tier.claimableReward(tokenId), 500_000);
+        assertEq(tier.reserveState().unearnedScaled[1], 500_000 * Q);
+        assertEq(tier.claimableReward(id), 0);
+        vm.warp(_START + _PERIOD);
+        tier.processAccounting(25);
+        assertEq(_credit(tier, id) + tier.reserveState().indexCarryScaled, 500_000 * Q);
     }
 
-    function test_newSharesReceiveCurrentButNoEarlierRewards() public {
+    function test_newSharesReceiveOnlyFundingConsumedAfterTheyJoin() public {
         vm.prank(firstMember);
-        uint256 firstToken = tier.purchase(1, address(0));
-        assertEq(tier.claimableReward(firstToken), 500_000);
-
+        uint256 first = tier.purchase(1, address(0));
+        vm.warp(_START + _PERIOD / 2);
         vm.prank(secondMember);
-        uint256 secondToken = tier.purchase(1, address(0));
-
-        assertEq(tier.claimableReward(firstToken), 750_000);
-        assertEq(tier.claimableReward(secondToken), 250_000);
-        assertEq(tier.claimableReward(firstToken) + tier.claimableReward(secondToken), 1_000_000);
-        assertEq(tier.rewardReserve(), 1_000_000);
+        uint256 second = tier.purchase(1, address(0));
+        assertEq(tier.claimableReward(second), 0);
+        assertApproxEqAbs(_credit(tier, first), 250_000 * Q, 40_000_000);
+        vm.warp(_START + _PERIOD);
+        tier.processAccounting(25);
+        // First stream: 375k/125k. Second stream: 125k/125k so far.
+        assertApproxEqAbs(_credit(tier, first), 500_000 * Q, 80_000_000);
+        assertApproxEqAbs(_credit(tier, second), 250_000 * Q, 80_000_000);
     }
 
     function test_grantOnlyCredentialGetsNoEarlierRewardBeforeFirstShares() public {
         vm.prank(firstMember);
-        uint256 firstToken = tier.purchase(1, address(0));
-        uint256 secondToken = tier.grantTime(secondMember, 1);
-
-        assertEq(tier.sharesOf(secondToken), 0);
-        assertEq(tier.claimableReward(secondToken), 0);
-
+        uint256 first = tier.purchase(1, address(0));
+        uint256 second = tier.grantTime(secondMember, 1);
+        vm.warp(_START + _PERIOD / 2);
+        tier.processAccounting(25);
+        assertEq(tier.sharesOf(second), 0);
+        assertEq(tier.claimableReward(second), 0);
+        uint256 earlier = _credit(tier, first);
         vm.prank(secondMember);
         tier.purchase(1, address(0));
-
-        assertEq(tier.claimableReward(firstToken), 750_000);
-        assertEq(tier.claimableReward(secondToken), 250_000);
+        assertEq(_credit(tier, first), earlier);
+        assertEq(_credit(tier, second), 0);
     }
 
-    function test_giftAssignsSharesAndRewardToRecipientCredential() public {
+    function test_giftAssignsSharesAndVestedRewardsToRecipientCredential() public {
         vm.prank(payer);
-        uint256 tokenId =
-            tier.gift(firstMember, 2, MembershipTypes.ReferralStatus.Unset, address(0));
-
-        assertEq(tier.ownerOf(tokenId), firstMember);
-        assertEq(tier.sharesOf(tokenId), 20_000_000);
-        assertEq(tier.claimableReward(tokenId), 1_000_000);
+        uint256 id = tier.gift(firstMember, 2, MembershipTypes.ReferralStatus.Unset, address(0));
+        assertEq(tier.ownerOf(id), firstMember);
+        assertEq(tier.sharesOf(id), 20_000_000);
+        assertEq(tier.claimableReward(id), 0);
         assertEq(tier.tokenOf(payer), 0);
+        vm.warp(_START + 2 * _PERIOD);
+        tier.processAccounting(25);
+        assertEq(_credit(tier, id) + tier.reserveState().indexCarryScaled, 1_000_000 * Q);
     }
 
     function test_sharesSurviveButBecomeIneligibleAfterExpirationSynchronization() public {
@@ -107,7 +114,7 @@ contract RewardsTest is Test {
         assertEq(tier.sharesOf(tokenId), shares);
         assertEq(tier.totalRewardShares(), 0);
         assertFalse(tier.rewardEligible(tokenId));
-        assertEq(tier.claimableReward(tokenId), 500_000);
+        assertApproxEqAbs(_credit(tier, tokenId), 500_000 * Q, 10_000_000);
     }
 
     function test_zeroContributionMintsNoSharesOrReward() public {
@@ -117,7 +124,7 @@ contract RewardsTest is Test {
 
         assertEq(zeroTier.sharesOf(tokenId), 0);
         assertEq(zeroTier.totalRewardShares(), 0);
-        assertEq(zeroTier.rewardReserve(), 0);
+        assertEq(zeroTier.reserveState().unearnedScaled[1], 0);
         assertEq(zeroTier.claimableReward(tokenId), 0);
     }
 
@@ -133,15 +140,17 @@ contract RewardsTest is Test {
 
         uint256 reward = gross * 500 / 10_000;
         assertEq(reward, 100_000_000_000_000_000_000_000_000);
-        assertEq(zeroTier.rewardReserve(), reward);
+        vm.warp(_START + _PERIOD);
+        zeroTier.processAccounting(25);
+        assertEq(zeroTier.allocationState(tokenId).earnedScaled[1], reward * Q);
         assertEq(zeroTier.claimableReward(tokenId), reward - 1);
 
         vm.prank(firstMember);
         assertEq(zeroTier.claimReward(tokenId), reward - 1);
-        assertEq(zeroTier.rewardReserve(), 1);
+        assertEq(_credit(zeroTier, tokenId) + zeroTier.reserveState().indexCarryScaled, Q);
     }
 
-    function test_nearUintRangeContributionSettlesRewardWithoutIntermediateOverflow() public {
+    function test_maximumSupportedContributionSettlesRewardWithoutIntermediateOverflow() public {
         MockUSDG largeSupplyToken = new MockUSDG();
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
             address(this), address(renderer), address(largeSupplyToken)
@@ -153,7 +162,7 @@ contract RewardsTest is Test {
             config
         );
         address largeHolder = makeAddr("largeHolder");
-        uint256 gross = type(uint256).max;
+        uint256 gross = type(uint112).max;
         largeSupplyToken.mint(largeHolder, gross);
         vm.prank(largeHolder);
         largeSupplyToken.approve(address(largeTier), gross);
@@ -161,6 +170,8 @@ contract RewardsTest is Test {
         vm.prank(largeHolder);
         uint256 tokenId = largeTier.contribute(gross, address(0));
 
+        vm.warp(_START + _PERIOD);
+        largeTier.processAccounting(25);
         uint256 allocatedReward = Math.mulDiv(gross, config.rewardBps, 10_000);
         assertEq(largeTier.sharesOf(tokenId), gross);
         assertLe(largeTier.claimableReward(tokenId), allocatedReward);
@@ -168,8 +179,11 @@ contract RewardsTest is Test {
 
         vm.prank(largeHolder);
         uint256 claimed = largeTier.claimReward(tokenId);
-        assertEq(claimed + largeTier.rewardReserve(), allocatedReward);
-        assertLe(largeTier.rewardReserve(), 1);
+        assertEq(
+            claimed * Q + _credit(largeTier, tokenId) + largeTier.reserveState().indexCarryScaled,
+            allocatedReward * Q
+        );
+        assertLe(allocatedReward - claimed, 1);
     }
 
     function testFuzz_cohortClaimsAndRemainingReserveConserveEveryRewardAllocation(
@@ -195,9 +209,11 @@ contract RewardsTest is Test {
 
         uint256 allocated = uint256(firstGross) * 500 / 10_000 + uint256(secondGross) * 500 / 10_000
             + uint256(thirdGross) * 500 / 10_000;
+        vm.warp(_START + _PERIOD);
+        zeroTier.processAccounting(25);
         uint256 claimableBefore = zeroTier.claimableReward(firstToken)
             + zeroTier.claimableReward(secondToken) + zeroTier.claimableReward(thirdToken);
-        assertLe(claimableBefore, zeroTier.rewardReserve());
+        assertLe(claimableBefore, allocated);
 
         vm.prank(firstMember);
         uint256 firstClaim = zeroTier.claimReward(firstToken);
@@ -206,7 +222,137 @@ contract RewardsTest is Test {
         vm.prank(payer);
         uint256 thirdClaim = zeroTier.claimReward(thirdToken);
 
-        assertEq(firstClaim + secondClaim + thirdClaim + zeroTier.rewardReserve(), allocated);
+        MembershipTypes.ReserveState memory reserves = zeroTier.reserveState();
+        assertEq(
+            (firstClaim + secondClaim + thirdClaim) * Q + _credit(zeroTier, firstToken)
+                + _credit(zeroTier, secondToken) + _credit(zeroTier, thirdToken)
+                + reserves.indexCarryScaled + reserves.distributionDustScaled,
+            allocated * Q
+        );
+    }
+
+    function _credit(MembershipTier target, uint256 id) private view returns (uint256) {
+        MembershipTypes.EarnedBalances memory balances = target.earnedBalances(id, address(0));
+        return balances.member * Q + balances.fractionalScaled[1];
+    }
+
+    function test_trackedThirtyTokenStreamAttributes225And75PlusConcurrentFunding() public {
+        MembershipTier target = _streamTier(30);
+        uint256 first = _contribution(target, firstMember, 60_000_000);
+        vm.warp(_START + 15);
+        uint256 second = _contribution(target, secondMember, 60_000_000);
+        assertEq(_credit(target, second), 0);
+        vm.warp(_START + 30);
+        target.processAccounting(25);
+        // The tracked first stream attributes 22.5/7.5. The second stream has
+        // consumed 15 tokens of funding and adds 7.5/7.5, independently.
+        assertApproxEqAbs(_credit(target, first), (22_500_000 + 7_500_000) * Q, 240_000_000);
+        assertApproxEqAbs(_credit(target, second), (7_500_000 + 7_500_000) * Q, 240_000_000);
+        assertEq(target.allocationState(first).earnedScaled[1], 30_000_000 * Q);
+        assertEq(target.allocationState(second).earnedScaled[1], 15_000_000 * Q);
+    }
+
+    function test_trackedStreamSuspensionRestorationAttributesTwentyAndTen() public {
+        MembershipTier target = _streamTier(30);
+        uint256 second = _contribution(target, secondMember, 60);
+        vm.warp(_START + 30);
+        uint256 first = _contribution(target, firstMember, 60);
+        uint256 secondEarlier = _credit(target, second);
+        vm.warp(_START + 40);
+        assertEq(_sync(target, second), 1);
+        assertEq(target.totalRewardShares(), 60);
+        vm.warp(_START + 50);
+        _contribution(target, secondMember, 1);
+        _contribution(target, firstMember, 1);
+        assertEq(target.totalRewardShares(), 122);
+        vm.warp(_START + 60);
+        target.processAccounting(25);
+        // Each minimum payment rounds its member allocation to zero. Both
+        // weights become 61 at the same timestamp, preserving equal weighting.
+        assertApproxEqAbs(_credit(target, first), 20 * Q, 1000);
+        assertApproxEqAbs(_credit(target, second) - secondEarlier, 10 * Q, 1000);
+        assertEq(target.allocationState(first).earnedScaled[1], 30 * Q);
+        assertEq(target.sharesOf(second), 61);
+    }
+
+    function test_equalTotalDifferentMembersFlushesCarryWithoutReassigningIt() public {
+        MembershipTier target = _streamTier(31);
+        uint256 first = _contribution(target, firstMember, 7);
+        _contribution(target, secondMember, 7);
+        vm.warp(_START + 10);
+        target.processAccounting(25);
+        uint256 carry = target.reserveState().indexCarryScaled;
+        uint256 originalCredit = _credit(target, first);
+        assertGt(carry, 0);
+        target.refund(first, 7);
+        _contribution(target, payer, 7);
+        assertEq(target.totalRewardShares(), 14);
+        assertEq(target.reserveState().indexCarryScaled, 0);
+        assertGe(target.reserveState().distributionDustScaled, carry);
+        vm.warp(_START + 41);
+        target.processAccounting(25);
+        assertEq(_credit(target, first), originalCredit);
+    }
+
+    function test_denseProcessingAndRepeatedClaimsEqualSparsePayoutPlusFraction() public {
+        MembershipTier dense = _streamTier(31);
+        MembershipTier sparse = _streamTier(31);
+        _contribution(dense, firstMember, 7);
+        _contribution(dense, secondMember, 6);
+        _contribution(sparse, firstMember, 7);
+        _contribution(sparse, secondMember, 6);
+        uint256 paidFirst;
+        uint256 paidSecond;
+        for (uint64 elapsed = 1; elapsed <= 42; ++elapsed) {
+            vm.warp(_START + elapsed);
+            dense.processAccounting(1);
+            if (elapsed == 11) {
+                _contribution(dense, payer, 5);
+                _contribution(sparse, payer, 5);
+            }
+            if (elapsed % 2 == 0) {
+                vm.prank(firstMember);
+                paidFirst += dense.claimReward(1);
+            }
+            if (elapsed % 3 == 0) {
+                vm.prank(secondMember);
+                paidSecond += dense.claimReward(2);
+            }
+        }
+        dense.processAccounting(25);
+        sparse.processAccounting(25);
+        assertEq(_credit(sparse, 1), paidFirst * Q + _credit(dense, 1));
+        assertEq(_credit(sparse, 2), paidSecond * Q + _credit(dense, 2));
+        assertEq(_credit(sparse, 3), _credit(dense, 3));
+        assertEq(abi.encode(dense.reserveState()), abi.encode(sparse.reserveState()));
+        MembershipTypes.ReserveState memory reserves = sparse.reserveState();
+        assertEq(
+            _credit(sparse, 1) + _credit(sparse, 2) + _credit(sparse, 3) + reserves.indexCarryScaled
+                + reserves.distributionDustScaled,
+            8 * Q
+        );
+    }
+
+    function _streamTier(uint64 duration) private returns (MembershipTier target) {
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            address(this), address(renderer), address(paymentToken)
+        );
+        config.pricePerPeriod = 0;
+        config.periodDuration = duration;
+        config.rewardBps = 5000;
+        config.referralBps = 0;
+        target = new MembershipTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
+        );
+    }
+
+    function _contribution(MembershipTier target, address account, uint256 gross)
+        private
+        returns (uint256 id)
+    {
+        _fundAndApproveFor(account, target, gross);
+        vm.prank(account);
+        id = target.contribute(gross, address(0));
     }
 
     function _deployZeroTier() private returns (MembershipTier zeroTier) {

@@ -13,6 +13,7 @@ import {
   parseBuybackInput,
   prepareBuybackPayload,
   preparePaymentTokenPayload,
+  prepareMinimumPaymentPayload,
   validateAdminRpc,
   type AdminContext,
 } from "./protocol-admin";
@@ -81,6 +82,43 @@ describe("optional token capabilities", () => {
       true,
     );
     expect(payload.metadata).toMatchObject({ symbol: "WETH", decimals: 18 });
+    expect(client.simulateContract).toHaveBeenCalledOnce();
+  });
+  it("prepares a Safe minimum update and rejects values outside positive uint112", async () => {
+    const client = tokenClient(
+      new ContractFunctionRevertedError({
+        abi: [],
+        functionName: "supportsInterface",
+        data: "0x",
+      }),
+    );
+    const payload = await prepareMinimumPaymentPayload(
+      client as unknown as PublicClient,
+      context,
+      asset,
+      1_000_000n,
+    );
+    expect(payload.decoded).toMatchObject({
+      functionName: "setMinimumPayment",
+      args: [asset, 1_000_000n],
+    });
+    expect(payload.postconditions).toEqual({
+      paymentToken: asset,
+      minimumPayment: 1_000_000n,
+    });
+    expect(client.simulateContract).toHaveBeenCalledWith(
+      expect.objectContaining({ account: context.safe, blockNumber: 10n }),
+    );
+    for (const minimum of [0n, -1n, 1n << 112n]) {
+      await expect(
+        prepareMinimumPaymentPayload(
+          client as unknown as PublicClient,
+          context,
+          asset,
+          minimum,
+        ),
+      ).rejects.toThrow("positive uint112");
+    }
     expect(client.simulateContract).toHaveBeenCalledOnce();
   });
   it("propagates transport failures instead of declaring an asset unscaled", async () => {

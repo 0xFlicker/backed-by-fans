@@ -1,0 +1,181 @@
+{
+  "scope": "Fresh authentic local fork execution; independently corrected offline evidence verification. No public deployment.",
+  "run": "artifacts/protocol-fork/vesting-final-005",
+  "origin": {
+    "chainId": 4663,
+    "blockNumber": "58083838",
+    "blockHash": "0xbed1732da1a4301c9f3ea9c5eafbdf76f80e8b4afade3e3c0fe66d41f794ea6c"
+  },
+  "executionChainId": 31337,
+  "source": {
+    "commit": "d67bf93a9bb8eb95f181cb42520e5538d6052b20",
+    "dirty": true,
+    "snapshotSha256": "7ff6ea77557ff936dc444dee6efa0116aeae294b88540454d73be424ef1d535e"
+  },
+  "libraryRuntimeHash": "0xb0e7da714f3a81f00e99545a54ada2488b79bfc91d420c5a72db8a754c2be18c",
+  "originalLifecyclePreserved": true,
+  "postExecutionChanges": "At corrected offline verification: verifier and unit tests only. Later convergence: RewardCurveControls presentation/editor plus its component, wizard and accessibility regressions, separately verified below. Contract, deployment, runner and accounting execution sources unchanged.",
+  "verifier": {
+    "path": "scripts/protocol-fork/verify-evidence.ts",
+    "sha256": "2d861bb917c90bc2272f97ed6d63cab15d6dc50e0d9062fb8c443358e765b0e2",
+    "command": "bun scripts/protocol-fork/verify-evidence.ts artifacts/protocol-fork/vesting-final-005",
+    "runLocalPassed": true,
+    "completePriorFeatureReproductionAcceptance": false
+  },
+  "browser": {
+    "startTime": "2026-09-10T06:42:14.822Z",
+    "duration": 1244007.147,
+    "expected": 73,
+    "skipped": 98,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "contracts": {
+    "passed": 465,
+    "skipped": 1,
+    "skipScope": "Separate opt-in chain-46630 Safe test"
+  },
+  "webUnitAtExecution": 632,
+  "webUnitAfterVerifierRegression": 633,
+  "deploymentTransactions": [
+    {
+      "roles": [
+        "protocolToken",
+        "curve"
+      ],
+      "hash": "0x902e8821825c77175c511711ed5f139b7cb341dd397f033c27dfd4562c450b94",
+      "calldataBytes": 996,
+      "serializedBytes": 1110,
+      "gasUsed": "3534189",
+      "createsContract": false
+    },
+    {
+      "roles": [],
+      "hash": "0xd36982cb5793ac78893b365ca8a9d2a50d6052ac294e761cb7852bf9faef3b52",
+      "calldataBytes": 100,
+      "serializedBytes": 212,
+      "gasUsed": "148034",
+      "createsContract": false
+    },
+    {
+      "roles": [
+        "safe"
+      ],
+      "hash": "0xf898ea2a48f3c2d90ecac08a1cacbd648cfe482343828f79d2dcde746405651c",
+      "calldataBytes": 580,
+      "serializedBytes": 687,
+      "gasUsed": "303615",
+      "createsContract": false
+    },
+    {
+      "roles": [
+        "vestingLedger"
+      ],
+      "hash": "0xe44e1f2237d62298ef0e8c42fab68b3d997b8948aeb6fbd45a4844b40295a3d7",
+      "calldataBytes": 15814,
+      "serializedBytes": 15921,
+      "gasUsed": "3462119",
+      "createsContract": false
+    },
+    {
+      "roles": [
+        "tierCodeStoreA"
+      ],
+      "hash": "0xa63240dae3816a0e414d95d928f2eee775122a540ac7c8c709cd5ca945abc6ca",
+      "calldataBytes": 20251,
+      "serializedBytes": 20358,
+      "gasUsed": "4350613",
+      "createsContract": false
+    },
+    {
+      "roles": [
+        "tierCodeStoreB"
+      ],
+      "hash": "0x1fe240eaefe4357bb3dc6d9b067fff6a7ff3ae38f661b82d33b6f67837bfc786",
+      "calldataBytes": 20251,
+      "serializedBytes": 20358,
+      "gasUsed": "4349085",
+      "createsContract": false
+    },
+    {
+      "roles": [
+        "mediaStoreFactory"
+      ],
+      "hash": "0xf526d63fcbbeb4cc8cfaede6e8e9ee63d3311f22f0e03e90b390cf9178194720",
+      "calldataBytes": 9997,
+      "serializedBytes": 10084,
+      "gasUsed": "2208937",
+      "createsContract": true
+    },
+    {
+      "roles": [
+        "renderer"
+      ],
+      "hash": "0x0994c1e00234b7f52193d9617d0393630c71db0b0ca2535638fa50412ad7275d",
+      "calldataBytes": 52427,
+      "serializedBytes": 52514,
+      "gasUsed": "11386163",
+      "createsContract": true
+    },
+    {
+      "roles": [
+        "previewHarness"
+      ],
+      "hash": "0x7690f772cd4022dd5dcf088b38e375c7ff8ebe010b85feb07d64c12562b7f099",
+      "calldataBytes": 850,
+      "serializedBytes": 937,
+      "gasUsed": "231032",
+      "createsContract": true
+    },
+    {
+      "roles": [
+        "factory",
+        "buybackVault",
+        "executor",
+        "tierDeployer",
+        "burnRouter",
+        "executorCodeStore"
+      ],
+      "hash": "0x917d6936065b4eb15217d83d05512388681491e7ec0c1b15fa0267edf99a6022",
+      "calldataBytes": 55949,
+      "serializedBytes": 56037,
+      "gasUsed": "13832607",
+      "createsContract": true
+    }
+  ],
+  "deploymentRuntimeBytes": {
+    "safe": 123,
+    "protocolToken": 3248,
+    "curve": 10229,
+    "factory": 10166,
+    "buybackVault": 18213,
+    "executor": 10613,
+    "mediaStoreFactory": 9969,
+    "renderer": 52399,
+    "previewHarness": 822,
+    "vestingLedger": 15730,
+    "tierCodeStoreA": 19821,
+    "tierCodeStoreB": 19822,
+    "tierDeployer": 2808,
+    "burnRouter": 6774,
+    "executorCodeStore": 13221
+  },
+  "remainingFeatureAcceptance": [
+    "T074 named screen-reader session and its convergence evidence check T089; permission to enable VoiceOver is pending"
+  ],
+  "priorFeatureReproduction": "Second fresh same-source 003 release certificate is not run; this does not claim completeAcceptance or public release.",
+  "convergencePresentation": {
+    "task": "T088",
+    "sourceHashes": {
+      "web/src/features/creator/RewardCurveControls.tsx": "35e34a2437a8b5bee81ae4856cf9a4afd9ac0607aa8d40d1343aeec0afd35682",
+      "web/src/features/creator/RewardCurveControls.test.tsx": "ba82b54420948465fc749c869cfcc305b0f18f7c8b482cf4eae458460dd7f118",
+      "web/src/features/creator/CreateTierWizard.test.tsx": "3b530e838f561adb8466fad0baf7699f5d0eb0ac9e4448e07affd225ec979fe6",
+      "web/tests/e2e/vesting-accessibility.spec.ts": "bd0293df1cf40e6c9cae841e58850926dfcd9cca746ca00d2bcd47a83a0f581a"
+    },
+    "webTestsPassed": 641,
+    "focusedBrowserTestsPassed": 2,
+    "productionBuild": "passed",
+    "browserEvidence": "specs/004-vesting-reward-curves/evidence/browser/convergence/",
+    "evidenceClass": "local final split graph with mock payment asset; no new authentic fork claim"
+  }
+}

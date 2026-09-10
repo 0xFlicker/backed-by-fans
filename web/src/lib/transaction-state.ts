@@ -162,6 +162,12 @@ export function decodeTransactionError(error: unknown): string {
       (cause) => cause instanceof ContractFunctionRevertedError,
     );
     if (reverted instanceof ContractFunctionRevertedError) {
+      if (reverted.data?.errorName === "MinimumPaymentChanged")
+        return "The currency minimum changed. Refresh and review the membership terms before publishing.";
+      if (reverted.data?.errorName === "PaymentBelowMinimum")
+        return "This payment is below the membership minimum. Review the minimum amount and try again.";
+      if (reverted.data?.errorName === "AccountingBehind")
+        return "Membership accounting needs to catch up. Advance accounting, refresh this action and try again.";
       return reverted.reason || reverted.shortMessage;
     }
     return error.shortMessage;

@@ -8,34 +8,57 @@ import {BuybackTypes} from "./types/BuybackTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-/// @notice Permissionless, typed fee collection and burning in one transaction.
-/// @dev Holds no protocol funds, approvals, administrator or arbitrary call facility.
+/// @notice Permissionless bounded accounting, earned-fund release and buybacks.
+/// @dev No funds, approvals, administrator, arbitrary user calldata or worker entitlements.
 contract ProtocolBurnRouter is ReentrancyGuard {
-    struct Collection {
+    struct AdvanceTier {
         address tier;
-        uint256[] tokenIds;
+        uint256 maxAccountingSteps;
     }
 
     struct Purchase {
         address asset;
         uint64 revision;
     }
-
     address public immutable factory;
     IProtocolBuybackVault public immutable vault;
-    /// @notice First source to attempt for a canonical asset, rotated only after success.
     mapping(address asset => BuybackTypes.SourceBucket) public nextSource;
 
+    uint256 public constant MAX_TIERS = 8;
+    uint256 public constant MAX_PURCHASES = 32;
+    uint256 public constant MAX_ACCOUNTING_STEPS = 25;
     error InvalidBatch();
-    error OnlySelf();
     error UnregisteredTier();
     error DeadlineExpired();
     error NothingToDo();
+    error InvalidAccountingResult();
+    error InvalidBurnMeasurement();
+    error StaleRevision();
 
-    event CollectionFailed(address indexed tier, bytes reason);
-    event PurchaseFailed(address indexed asset, BuybackTypes.SourceBucket bucket, bytes reason);
-    event BurnCompleted(
-        address indexed caller, uint256 releasedTiers, uint256 purchases, uint256 burned
+    event AccountingAdvanced(
+        address indexed caller,
+        address indexed tier,
+        uint256 processedSteps,
+        uint64 accountedThrough,
+        bool complete,
+        uint256 earnedScaledDelta
+    );
+    event TierReleased(
+        address indexed caller, address indexed tier, address indexed asset, uint256 amount
+    );
+    event PurchaseSkipped(
+        address indexed asset, BuybackTypes.SourceBucket bucket, BuybackTypes.Status reason
+    );
+    event PurchaseCompleted(
+        address indexed caller, address indexed asset, BuybackTypes.SourceBucket bucket
+    );
+    event AdvanceCompleted(
+        address indexed caller,
+        uint256 processedSteps,
+        uint256 releasedTiers,
+        uint256 purchases,
+        uint256 burned,
+        bool burnMeasured
     );
 
     constructor(address factory_, address vault_) {
@@ -43,29 +66,95 @@ contract ProtocolBurnRouter is ReentrancyGuard {
         vault = IProtocolBuybackVault(vault_);
     }
 
-    /// @notice Collect selected earned fees and attempt one buy per currency/source.
-    /// @dev Rechecks limits after release and after each purchase. No cooldown is bypassed.
+    /// @notice Atomically advance accounting, release earned fees and execute eligible buybacks.
     // forge-lint: disable-next-item(block-timestamp)
-    function burn(Collection[] calldata collections, Purchase[] calldata purchases, uint64 deadline)
+    function advance(AdvanceTier[] calldata tiers, Purchase[] calldata purchases, uint64 deadline)
         external
         nonReentrant
-        returns (uint256 releasedTiers, uint256 purchaseCount, uint256 burned)
+        returns (
+            uint256 processedSteps,
+            uint256 releasedTiers,
+            uint256 purchaseCount,
+            uint256 burned
+        )
     {
-        if (block.timestamp > deadline) {
-            revert DeadlineExpired();
+        if (block.timestamp > deadline) revert DeadlineExpired();
+        _validate(tiers, purchases);
+        bool useful;
+        for (uint256 i; i < tiers.length; ++i) {
+            if (tiers[i].maxAccountingSteps != 0) {
+                (uint256 steps, bool earned) = _advanceTier(tiers[i]);
+                processedSteps += steps;
+                useful = useful || steps != 0 || earned;
+            }
+            if (_releaseTier(tiers[i].tier)) ++releasedTiers;
         }
-        if (collections.length > 8 || purchases.length > 32) revert InvalidBatch();
-        uint256 members;
-        for (uint256 i; i < collections.length; ++i) {
-            members += collections[i].tokenIds.length;
-            if (!IMembershipFactory(factory).isRegisteredTier(collections[i].tier)) {
+        bool measured;
+        if (purchases.length != 0) {
+            (purchaseCount, burned, measured) = _buyback(purchases, deadline);
+        }
+        if (!useful && releasedTiers == 0 && purchaseCount == 0) revert NothingToDo();
+        emit AdvanceCompleted(
+            msg.sender, processedSteps, releasedTiers, purchaseCount, burned, measured
+        );
+    }
+
+    /// @notice Settle accounting without transferring funds or touching trading contracts.
+    function advanceAccounting(AdvanceTier[] calldata tiers)
+        external
+        nonReentrant
+        returns (uint256 processedSteps)
+    {
+        _validateTiers(tiers);
+        bool useful;
+        for (uint256 i; i < tiers.length; ++i) {
+            if (tiers[i].maxAccountingSteps == 0) continue;
+            (uint256 steps, bool earned) = _advanceTier(tiers[i]);
+            processedSteps += steps;
+            useful = useful || steps != 0 || earned;
+        }
+        if (!useful) revert NothingToDo();
+        emit AdvanceCompleted(msg.sender, processedSteps, 0, 0, 0, false);
+    }
+
+    /// @notice Buy and burn only inventory already released to the vault.
+    // forge-lint: disable-next-item(block-timestamp)
+    function buyback(Purchase[] calldata purchases, uint64 deadline)
+        external
+        nonReentrant
+        returns (uint256 purchaseCount, uint256 burned)
+    {
+        if (block.timestamp > deadline) revert DeadlineExpired();
+        _validatePurchases(purchases);
+        bool measured;
+        (purchaseCount, burned, measured) = _buyback(purchases, deadline);
+        if (purchaseCount == 0) revert NothingToDo();
+        emit AdvanceCompleted(msg.sender, 0, 0, purchaseCount, burned, measured);
+    }
+
+    function _validate(AdvanceTier[] calldata tiers, Purchase[] calldata purchases) private view {
+        _validateTiers(tiers);
+        _validatePurchases(purchases);
+    }
+
+    function _validateTiers(AdvanceTier[] calldata tiers) private view {
+        if (tiers.length > MAX_TIERS) revert InvalidBatch();
+        uint256 steps;
+        for (uint256 i; i < tiers.length; ++i) {
+            if (tiers[i].maxAccountingSteps > MAX_ACCOUNTING_STEPS) revert InvalidBatch();
+            steps += tiers[i].maxAccountingSteps;
+            if (!IMembershipFactory(factory).isRegisteredTier(tiers[i].tier)) {
                 revert UnregisteredTier();
             }
             for (uint256 j; j < i; ++j) {
-                if (collections[j].tier == collections[i].tier) revert InvalidBatch();
+                if (tiers[j].tier == tiers[i].tier) revert InvalidBatch();
             }
         }
-        if (members > 100) revert InvalidBatch();
+        if (steps > MAX_ACCOUNTING_STEPS) revert InvalidBatch();
+    }
+
+    function _validatePurchases(Purchase[] calldata purchases) private view {
+        if (purchases.length > MAX_PURCHASES) revert InvalidBatch();
         for (uint256 i; i < purchases.length; ++i) {
             if (vault.canonicalAsset(purchases[i].asset) != purchases[i].asset) {
                 revert InvalidBatch();
@@ -74,66 +163,66 @@ contract ProtocolBurnRouter is ReentrancyGuard {
                 if (purchases[j].asset == purchases[i].asset) revert InvalidBatch();
             }
         }
-        for (uint256 i; i < collections.length; ++i) {
-            // Isolate a failed currency's collection, including its accrual, from other work.
-            try this.collect(collections[i]) returns (uint256 released) {
-                if (released > 0) ++releasedTiers;
-            } catch (bytes memory reason) {
-                emit CollectionFailed(collections[i].tier, reason);
-            }
+    }
+
+    function _advanceTier(AdvanceTier calldata item) private returns (uint256 steps, bool earned) {
+        uint64 cursor;
+        bool complete;
+        uint256 delta;
+        (steps, cursor, complete, delta) =
+            IMembershipTier(item.tier).processAccounting(item.maxAccountingSteps);
+        if (steps > item.maxAccountingSteps) revert InvalidAccountingResult();
+        emit AccountingAdvanced(msg.sender, item.tier, steps, cursor, complete, delta);
+        earned = delta != 0;
+    }
+
+    function _releaseTier(address tier) private returns (bool) {
+        address asset = address(IMembershipTier(tier).paymentToken());
+        uint256 amount = IMembershipTier(tier).releaseProtocolFees();
+        emit TierReleased(msg.sender, tier, asset, amount);
+        return amount != 0;
+    }
+
+    function _measure() private view returns (address token, uint256 supply) {
+        token = vault.protocolToken();
+        if (token != address(0)) supply = IERC20(token).totalSupply();
+    }
+
+    function _buyback(Purchase[] calldata purchases, uint64 deadline)
+        private
+        returns (uint256 count, uint256 burned, bool measured)
+    {
+        (address beforeToken, uint256 beforeSupply) = _measure();
+        count = _purchaseBatch(purchases, deadline);
+        (address afterToken, uint256 afterSupply) = _measure();
+        if (beforeToken != afterToken || afterSupply > beforeSupply) {
+            revert InvalidBurnMeasurement();
         }
-        IERC20 token = IERC20(vault.protocolToken());
-        if (address(token) != address(0)) {
-            uint256 supplyBefore = token.totalSupply();
-            purchaseCount = _purchaseBatch(purchases, deadline);
-            burned = supplyBefore - token.totalSupply();
-        }
-        if (releasedTiers == 0 && purchaseCount == 0) revert NothingToDo();
-        emit BurnCompleted(msg.sender, releasedTiers, purchaseCount, burned);
+        measured = beforeToken != address(0);
+        burned = beforeSupply - afterSupply;
     }
 
     function _purchaseBatch(Purchase[] calldata purchases, uint64 deadline)
         private
-        returns (uint256 purchaseCount)
+        returns (uint256 count)
     {
         for (uint256 i; i < purchases.length; ++i) {
-            // Snapshot the order so a successful attempt cannot repeat the same bucket.
-            uint256 first = uint256(nextSource[purchases[i].asset]);
+            Purchase calldata item = purchases[i];
+            uint256 first = uint256(nextSource[item.asset]);
             for (uint256 b; b < 2; ++b) {
                 BuybackTypes.SourceBucket bucket = BuybackTypes.SourceBucket((first + b) % 2);
-                // Each attempt is isolated: stale settings, cooling currencies and venue
-                // failures cannot roll back another currency's successful work.
-                try this.purchase(purchases[i], bucket, deadline) returns (bool processed) {
-                    if (processed) {
-                        ++purchaseCount;
-                        nextSource[purchases[i].asset] =
-                            BuybackTypes.SourceBucket((uint256(bucket) + 1) % 2);
-                    }
-                } catch (bytes memory reason) {
-                    emit PurchaseFailed(purchases[i].asset, bucket, reason);
+                BuybackTypes.ProcessingState memory state =
+                    vault.processingStatus(item.asset, bucket);
+                if (state.revision != item.revision) revert StaleRevision();
+                if (state.status != BuybackTypes.Status.Ready) {
+                    emit PurchaseSkipped(item.asset, bucket, state.status);
+                    continue;
                 }
+                vault.process(item.asset, bucket, state.maxInput, item.revision, deadline);
+                ++count;
+                nextSource[item.asset] = BuybackTypes.SourceBucket((uint256(bucket) + 1) % 2);
+                emit PurchaseCompleted(msg.sender, item.asset, bucket);
             }
         }
-    }
-
-    /// @dev Self-call boundary rolls back just this collection on token failure.
-    function collect(Collection calldata collection) external returns (uint256) {
-        if (msg.sender != address(this)) revert OnlySelf();
-        IMembershipTier tier = IMembershipTier(collection.tier);
-        if (collection.tokenIds.length > 0) tier.accrueProtocolFees(collection.tokenIds);
-        return tier.releaseProtocolFees();
-    }
-
-    function purchase(Purchase calldata item, BuybackTypes.SourceBucket bucket, uint64 deadline)
-        external
-        returns (bool)
-    {
-        if (msg.sender != address(this)) revert OnlySelf();
-        BuybackTypes.ProcessingState memory state = vault.processingStatus(item.asset, bucket);
-        if (state.status != BuybackTypes.Status.Ready || state.revision != item.revision) {
-            return false;
-        }
-        vault.process(item.asset, bucket, state.maxInput, item.revision, deadline);
-        return true;
     }
 }

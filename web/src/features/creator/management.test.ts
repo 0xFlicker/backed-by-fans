@@ -1,8 +1,11 @@
 import { getAddress, zeroAddress, type PublicClient } from "viem";
 import { describe, expect, it, vi } from "vitest";
-import { readRefundFunding } from "@/features/creator/management-read";
+import {
+  readRefundFunding,
+  isCurrentRefundQuote,
+} from "@/features/creator/management-read";
 
-import type { TierManagementSnapshot } from "@/contracts/types";
+import type { TierManagementSnapshot, RefundQuote } from "@/contracts/types";
 import {
   managementPermissions,
   parseTokenId,
@@ -20,8 +23,37 @@ const base = {
 } as TierManagementSnapshot;
 
 describe("creator management constraints", () => {
+  it("distinguishes settled/current projected refunds from historical or mismatched-time estimates", () => {
+    const quote: RefundQuote = {
+      recipient: owner,
+      paidSeconds: 90n,
+      grantSeconds: 0n,
+      accessAsOf: 110n,
+      accountingAsOf: 100n,
+      fundingAsOf: 110n,
+      projected: true,
+      complete: false,
+      grossRefund: 90n,
+      fundingScaled: [80n, 5n, 3n, 2n],
+      cancellationScaled: [0n, 0n, 0n, 0n],
+      generation: 0n,
+    };
+    expect(isCurrentRefundQuote(quote)).toBe(true);
+    expect(isCurrentRefundQuote({ ...quote, projected: false })).toBe(false);
+    expect(isCurrentRefundQuote({ ...quote, fundingAsOf: 100n })).toBe(false);
+    expect(
+      isCurrentRefundQuote({
+        ...quote,
+        projected: false,
+        complete: true,
+        accountingAsOf: 110n,
+      }),
+    ).toBe(true);
+  });
   it("reads all refund funding components from one pinned contract response", async () => {
-    const readContract = vi.fn().mockResolvedValue([90n, 9n, 81n, 0n]);
+    const readContract = vi
+      .fn()
+      .mockResolvedValue({ grossRefund: 90n, complete: true });
     const client = { readContract } as unknown as PublicClient;
     expect(
       await readRefundFunding(client, {
@@ -29,10 +61,10 @@ describe("creator management constraints", () => {
         tokenId: 12n,
         blockNumber: 50n,
       }),
-    ).toEqual({ gross: 90n, protocol: 9n, creator: 81n, topUp: 0n });
+    ).toEqual({ grossRefund: 90n, complete: true });
     expect(readContract).toHaveBeenCalledWith(
       expect.objectContaining({
-        functionName: "previewRefundComponents",
+        functionName: "previewRefund",
         args: [12n],
         blockNumber: 50n,
       }),

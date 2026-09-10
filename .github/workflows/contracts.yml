@@ -57,7 +57,9 @@ jobs:
         run: forge fmt --check src script test
 
       - name: Run Forge build
-        run: forge build --ignore-eip-3860
+        run: |
+          manifest="$(bash scripts/build-linked-protocol.sh)"
+          echo "BBF_LIBRARY_MAPPING=$(jq -er '.mapping' "$manifest")" >> "$GITHUB_ENV"
 
       - name: Validate deployment tooling
         run: |
@@ -65,13 +67,18 @@ jobs:
           ./scripts/test-create-safe.sh
           ./scripts/test-deploy-protocol.sh
           ./scripts/test-manage-payment-tokens.sh
-          forge test --match-path "test/deployment/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv
+          forge test --libraries "$BBF_LIBRARY_MAPPING" --match-path "test/deployment/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv
 
       - name: Run unit and fuzz tests
-        run: forge test --no-match-path "test/{invariants,deployment,fork}/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv
+        run: forge test --libraries "$BBF_LIBRARY_MAPPING" --no-match-path "test/{invariants,deployment,fork}/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv
 
       - name: Run stateful invariants
-        run: forge test --match-path "test/invariants/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv
+        run: forge test --libraries "$BBF_LIBRARY_MAPPING" --match-path "test/invariants/*.t.sol" --code-size-limit 1000000 --gas-limit 1000000000 -vvv
+
+      - name: Validate full capacity and focused independent histories
+        run: |
+          BBF_FULL_VESTING_CAPACITY=true forge test --libraries "$BBF_LIBRARY_MAPPING" --match-contract VestingCapacityTest --code-size-limit 1000000 --gas-limit 100000000000 -vv
+          python3 test/models/run_vesting_histories.py --histories 16 --actions 100
 
       - name: Install Slither
         run: pipx install slither-analyzer==0.11.6
@@ -80,4 +87,4 @@ jobs:
         run: slither --version
 
       - name: Run Slither high-severity gate
-        run: slither . --config-file slither.config.json --fail-high
+        run: FOUNDRY_LIBRARIES="$BBF_LIBRARY_MAPPING" slither . --skip-clean --config-file slither.config.json --fail-high

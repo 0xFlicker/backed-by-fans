@@ -87,7 +87,7 @@ export async function executeForkSafePayload(input: {
   if (
     !(
       registry
-        ? ["setPaymentTokenEnabled"]
+        ? ["setPaymentTokenEnabled", "setMinimumPayment"]
         : [
             "setRoute",
             "setLimits",
@@ -239,6 +239,17 @@ export async function executeForkSafePayload(input: {
     });
     if (enabled !== expected)
       throw new Error("Token eligibility postcondition failed");
+  } else if (decoded.functionName === "setMinimumPayment") {
+    const [token, expected] = decoded.args;
+    const observed = await client.readContract({
+      address: context.factory,
+      abi: membershipFactoryAbi,
+      functionName: "minimumPayment",
+      args: [token],
+      blockNumber,
+    });
+    if (observed !== expected)
+      throw new Error("Minimum payment postcondition failed");
   } else if (decoded.functionName === "setRoute") {
     const [asset] = decoded.args;
     const route = await client.readContract({

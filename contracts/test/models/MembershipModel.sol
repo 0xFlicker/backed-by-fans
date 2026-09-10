@@ -8,113 +8,144 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 library MembershipModel {
     using SafeCast for uint256;
 
-    uint256 internal constant REWARD_SCALE = 1e27;
+    uint256 internal constant ACCOUNTING_SCALE = 1 << 128;
 
-    struct FeeLot {
+    /// @dev Slow absolute-interval oracle. It scans all lots and never uses a heap,
+    /// generation prefix, member index or production accounting library.
+    struct FundingLot {
         uint256 gross;
-        uint256 fee;
-        uint256 duration;
+        uint64 start;
+        uint64 end;
+        uint256[4] amounts;
+        uint256[4] recognizedScaled;
+        address referrer;
+        bool canceled;
     }
 
-    struct FeeSchedule {
-        FeeLot[] lots;
-        uint256 consumed;
-        uint256 recognized;
-        uint256 generation;
-        uint256 lifetimeAllocated;
-        uint256 lifetimeEarned;
-        uint256 refunded;
-        uint256 rounding;
+    struct FundingBook {
+        mapping(uint256 => FundingLot[]) lots;
+        mapping(uint256 => uint256) generation;
+        mapping(address => uint256) referralEarnedScaled;
+        uint256 tokenCount;
+        uint64 accountedThrough;
+        uint256[4] allocatedScaled;
+        uint256[4] earnedScaled;
+        uint256[4] unearnedScaled;
+        uint256[4] cancellationScaled;
+        uint256[4] refundedScaled;
     }
 
-    struct FeeBook {
-        mapping(uint256 => FeeSchedule) schedules;
-        uint256 allocated;
-        uint256 held;
-        uint256 earnedHeld;
-        uint256 released;
-        uint256 refunded;
-        uint256 rounding;
-    }
-
-    function allocateFee(
-        FeeBook storage book,
+    function fund(
+        FundingBook storage book,
         uint256 id,
         uint256 gross,
-        uint256 rate,
-        uint256 duration
+        uint64 start,
+        uint64 duration,
+        uint16 protocolBps,
+        uint16 rewardBps,
+        uint16 referralBps,
+        address referrer
     ) internal {
-        uint256 fee = Math.mulDiv(gross, rate, 10_000);
-        book.schedules[id].lots.push(FeeLot(gross, fee, duration));
-        book.schedules[id].lifetimeAllocated += fee;
-        book.allocated += fee;
-        book.held += fee;
-    }
-
-    function recognizeFee(FeeBook storage book, uint256 id, uint256 consumed) internal {
-        FeeSchedule storage schedule = book.schedules[id];
-        schedule.consumed += consumed;
-        (, uint256 earned,) = feeEntitlement(schedule.lots, schedule.consumed);
-        uint256 delta = earned - schedule.recognized;
-        schedule.recognized = earned;
-        schedule.lifetimeEarned += delta;
-        book.earnedHeld += delta;
-    }
-
-    function cancelFee(FeeBook storage book, uint256 id, uint256 grossRefund)
-        internal
-        returns (uint256 contribution)
-    {
-        FeeSchedule storage schedule = book.schedules[id];
-        (uint256 allocated, uint256 earned,) = feeEntitlement(schedule.lots, schedule.consumed);
-        contribution = Math.min(allocated - earned, grossRefund);
-        uint256 rounding = allocated - earned - contribution;
-        assert(rounding <= 1);
-        book.held -= contribution;
-        book.refunded += contribution;
-        book.earnedHeld += rounding;
-        book.rounding += rounding;
-        schedule.refunded += contribution;
-        schedule.rounding += rounding;
-        schedule.consumed = 0;
-        schedule.recognized = 0;
-        ++schedule.generation;
-        // Deliberately slow reference cleanup; production must use logical generations.
-        delete schedule.lots;
-    }
-
-    function releaseFees(FeeBook storage book) internal returns (uint256 released) {
-        released = book.earnedHeld;
-        book.held -= released;
-        book.released += released;
-        book.earnedHeld = 0;
-    }
-
-    /// @dev Traverses every purchase without production prefixes or checkpoint indices.
-    function feeEntitlement(FeeLot[] memory lots, uint256 paidConsumed)
-        internal
-        pure
-        returns (uint256 allocated, uint256 earned, uint256 grossRefund)
-    {
-        for (uint256 i; i < lots.length; ++i) {
-            FeeLot memory lot = lots[i];
-            uint256 consumed = Math.min(paidConsumed, lot.duration);
-            allocated += lot.fee;
-            earned += Math.mulDiv(lot.fee, consumed, lot.duration);
-            grossRefund += Math.mulDiv(lot.gross, lot.duration - consumed, lot.duration);
-            paidConsumed -= consumed;
+        if (id > book.tokenCount) book.tokenCount = id;
+        FundingLot memory lot;
+        lot.gross = gross;
+        lot.start = start;
+        lot.end = start + duration;
+        lot.referrer = referrer;
+        lot.amounts[1] = gross * rewardBps / 10_000;
+        lot.amounts[2] = referrer == address(0) ? 0 : gross * referralBps / 10_000;
+        lot.amounts[3] = gross * protocolBps / 10_000;
+        lot.amounts[0] = gross - lot.amounts[1] - lot.amounts[2] - lot.amounts[3];
+        book.lots[id].push(lot);
+        for (uint256 p; p < 4; ++p) {
+            book.allocatedScaled[p] += lot.amounts[p] * ACCOUNTING_SCALE;
+            book.unearnedScaled[p] += lot.amounts[p] * ACCOUNTING_SCALE;
         }
     }
 
-    function refundFunding(uint256 unearned, uint256 gross, uint256 creator)
+    /// @dev Called after fully drained accounting; partial END checkpoints have
+    /// separate scheduler tests and are not approximated by this interval oracle.
+    function recognize(FundingBook storage book, uint64 through) internal {
+        for (uint256 id = 1; id <= book.tokenCount; ++id) {
+            FundingLot[] storage lots = book.lots[id];
+            for (uint256 i; i < lots.length; ++i) {
+                FundingLot storage lot = lots[i];
+                if (lot.canceled) continue;
+                for (uint256 p; p < 4; ++p) {
+                    uint256 scaled = lot.amounts[p] * ACCOUNTING_SCALE;
+                    uint256 earned = through >= lot.end
+                        ? scaled
+                        : through <= lot.start
+                            ? 0
+                            : scaled / (lot.end - lot.start) * (through - lot.start);
+                    uint256 delta = earned - lot.recognizedScaled[p];
+                    lot.recognizedScaled[p] = earned;
+                    book.earnedScaled[p] += delta;
+                    book.unearnedScaled[p] -= delta;
+                    if (p == 2) book.referralEarnedScaled[lot.referrer] += delta;
+                }
+            }
+        }
+        book.accountedThrough = through;
+    }
+
+    function unusedGross(FundingBook storage book, uint256 id, uint64 timestamp)
         internal
-        pure
-        returns (uint256 protocol, uint256 creatorUsed, uint256 topUp, uint256 rounding)
+        view
+        returns (uint256 gross)
     {
-        protocol = Math.min(unearned, gross);
-        creatorUsed = Math.min(creator, gross - protocol);
-        topUp = gross - protocol - creatorUsed;
-        rounding = unearned - protocol;
+        FundingLot[] storage lots = book.lots[id];
+        for (uint256 i; i < lots.length; ++i) {
+            FundingLot storage lot = lots[i];
+            if (lot.canceled || timestamp >= lot.end) continue;
+            gross += timestamp <= lot.start
+                ? lot.gross
+                : lot.gross * (lot.end - timestamp) / (lot.end - lot.start);
+        }
+    }
+
+    function cancel(FundingBook storage book, uint256 id) internal returns (uint256 gross) {
+        gross = unusedGross(book, id, book.accountedThrough);
+        FundingLot[] storage lots = book.lots[id];
+        uint256[4] memory unearned;
+        for (uint256 i; i < lots.length; ++i) {
+            FundingLot storage lot = lots[i];
+            if (lot.canceled) continue;
+            for (uint256 p; p < 4; ++p) {
+                unearned[p] += lot.amounts[p] * ACCOUNTING_SCALE - lot.recognizedScaled[p];
+            }
+            lot.canceled = true;
+        }
+        uint256 remaining = gross * ACCOUNTING_SCALE;
+        for (uint256 p; p < 4; ++p) {
+            uint256 taken = Math.min(remaining, unearned[p]);
+            book.refundedScaled[p] += taken;
+            book.cancellationScaled[p] += unearned[p] - taken;
+            book.unearnedScaled[p] -= unearned[p];
+            remaining -= taken;
+        }
+        assert(remaining == 0);
+        ++book.generation[id];
+    }
+
+    function currentRates(FundingBook storage book)
+        internal
+        view
+        returns (uint256[4] memory rates)
+    {
+        for (uint256 id = 1; id <= book.tokenCount; ++id) {
+            FundingLot[] storage lots = book.lots[id];
+            for (uint256 i; i < lots.length; ++i) {
+                FundingLot storage lot = lots[i];
+                if (
+                    lot.canceled || book.accountedThrough < lot.start
+                        || book.accountedThrough >= lot.end
+                ) continue;
+                for (uint256 p; p < 4; ++p) {
+                    rates[p] += lot.amounts[p] * ACCOUNTING_SCALE / (lot.end - lot.start);
+                }
+            }
+        }
     }
 
     /// @dev Intentionally straightforward lifecycle oracle. It eagerly checkpoints each model
@@ -125,32 +156,6 @@ library MembershipModel {
         uint64 checkpoint;
         bool occupied;
         bool initialized;
-    }
-
-    /// @dev Slow payment oracle. Reward allocation is applied eagerly to every issued token,
-    ///      rather than using the production cumulative-index/debt representation.
-    struct PaymentBook {
-        address paymentToken;
-        uint256 creatorProceeds;
-        uint256 rewardReserve;
-        uint256 totalReferralLiability;
-        uint256 totalRewardShares;
-        uint256 tokenCount;
-        mapping(uint256 tokenId => uint256 shares) shares;
-        mapping(uint256 tokenId => bool eligible) rewardEligible;
-        mapping(uint256 tokenId => uint256 scaledReward) scaledRewards;
-        mapping(uint256 tokenId => uint256 wholeCredit) rewardCredits;
-        mapping(address referrer => uint256 amount) referralCredits;
-    }
-
-    error PaymentTokenMismatch(address expected, address actual);
-
-    function initialize(PaymentBook storage book, address paymentToken) internal {
-        address existing = book.paymentToken;
-        if (existing != address(0) && existing != paymentToken) {
-            revert PaymentTokenMismatch(existing, paymentToken);
-        }
-        book.paymentToken = paymentToken;
     }
 
     function addPaidTime(Lifecycle storage state, uint64 timestamp, uint64 duration) internal {
@@ -229,100 +234,6 @@ library MembershipModel {
 
     function active(Lifecycle storage state, uint64 timestamp) internal view returns (bool) {
         return state.initialized && timestamp < expiration(state);
-    }
-
-    function applyPayment(
-        PaymentBook storage book,
-        address paymentToken,
-        uint256 tokenId,
-        uint256 gross,
-        uint16 protocolFeeBps,
-        uint16 rewardBps,
-        uint16 referralBps,
-        address referrer
-    ) internal {
-        if (book.paymentToken != paymentToken) {
-            revert PaymentTokenMismatch(book.paymentToken, paymentToken);
-        }
-        uint256 protocolFee = Math.mulDiv(gross, protocolFeeBps, 10_000);
-        uint256 reward = Math.mulDiv(gross, rewardBps, 10_000);
-        uint256 referral = referrer == address(0) ? 0 : Math.mulDiv(gross, referralBps, 10_000);
-        uint256 creator = gross - protocolFee - reward - referral;
-
-        if (book.shares[tokenId] == 0) ++book.tokenCount;
-        activateRewards(book, tokenId);
-        book.shares[tokenId] += gross;
-        book.totalRewardShares += gross;
-        book.creatorProceeds += creator;
-        book.rewardReserve += reward;
-        if (referral != 0) {
-            book.referralCredits[referrer] += referral;
-            book.totalReferralLiability += referral;
-        }
-
-        if (reward == 0) return;
-        uint256 indexIncrease = Math.mulDiv(reward, REWARD_SCALE, book.totalRewardShares);
-        for (uint256 currentTokenId = 1; currentTokenId <= book.tokenCount; ++currentTokenId) {
-            if (book.rewardEligible[currentTokenId]) {
-                book.scaledRewards[currentTokenId] += book.shares[currentTokenId] * indexIncrease;
-            }
-        }
-        book.rewardCredits[tokenId] += mulmod(reward, REWARD_SCALE, book.totalRewardShares)
-        / REWARD_SCALE;
-    }
-
-    function activateRewards(PaymentBook storage book, uint256 tokenId) internal {
-        if (book.rewardEligible[tokenId]) return;
-        book.rewardEligible[tokenId] = true;
-        book.totalRewardShares += book.shares[tokenId];
-    }
-
-    function deactivateRewards(PaymentBook storage book, uint256 tokenId) internal {
-        if (!book.rewardEligible[tokenId]) return;
-        book.rewardEligible[tokenId] = false;
-        book.totalRewardShares -= book.shares[tokenId];
-    }
-
-    function claimableReward(PaymentBook storage book, uint256 tokenId)
-        internal
-        view
-        returns (uint256)
-    {
-        return book.rewardCredits[tokenId] + book.scaledRewards[tokenId] / REWARD_SCALE;
-    }
-
-    function claimReward(PaymentBook storage book, uint256 tokenId)
-        internal
-        returns (uint256 amount)
-    {
-        amount = claimableReward(book, tokenId);
-        book.rewardCredits[tokenId] = 0;
-        book.scaledRewards[tokenId] %= REWARD_SCALE;
-        book.rewardReserve -= amount;
-    }
-
-    function claimReferral(PaymentBook storage book, address referrer)
-        internal
-        returns (uint256 amount)
-    {
-        amount = book.referralCredits[referrer];
-        book.referralCredits[referrer] = 0;
-        book.totalReferralLiability -= amount;
-    }
-
-    function withdrawCreatorProceeds(PaymentBook storage book) internal returns (uint256 amount) {
-        amount = book.creatorProceeds;
-        book.creatorProceeds = 0;
-    }
-
-    function applyRefund(PaymentBook storage book, uint256 grossRefund)
-        internal
-        returns (uint256 ownerTopUp)
-    {
-        if (grossRefund > book.creatorProceeds) {
-            ownerTopUp = grossRefund - book.creatorProceeds;
-        }
-        book.creatorProceeds -= grossRefund - ownerTopUp;
     }
 
     function _prepareIncrease(Lifecycle storage state, uint64 timestamp) private {

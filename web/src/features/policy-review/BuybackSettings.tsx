@@ -1,4 +1,5 @@
 "use client";
+import { formatMembershipDate } from "@/features/membership/date";
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -609,8 +610,18 @@ function SettingsEditor({
                   <dd>{amount(fees?.earned ?? 0n)}</dd>
                 </div>
                 <div>
-                  <dt>Future fees · not yet earned</dt>
-                  <dd>{amount(fees?.future ?? 0n)}</dd>
+                  <dt>Reserved funding · includes unprocessed time</dt>
+                  <dd>{amount((fees?.reservedScaled ?? 0n) / (1n << 128n))}</dd>
+                </div>
+                <div>
+                  <dt>Membership accounting</dt>
+                  <dd>
+                    {!fees
+                      ? "No membership funding"
+                      : fees.complete
+                        ? "Complete at this read"
+                        : `Incomplete; settled through ${formatMembershipDate(fees.accountedThrough)}. Advance accounting to recognize more earned funding.`}
+                  </dd>
                 </div>
                 <div>
                   <dt>Membership buyback</dt>

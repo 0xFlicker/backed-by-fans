@@ -1,0 +1,66 @@
+{
+  "kind": "local mock payment token; real split protocol graph",
+  "tier": "0x2CAFA0784BA403eeAf9DBba7258D5351646cD992",
+  "variablePrice": true,
+  "claims": [
+    "0xae24d61044dbcbed7e1a058cb13fb082a0f0e921931f43545dc25707a7ee5b89",
+    "0x2bff1da0aa335d5b3a3c963b4d8238110bfcd8d5573ddf639126ad5951690c6e",
+    "0x8fd8e2f741857ff5090502454677113523fa3d357f62b9c603a492916bdb4060",
+    "0xe493595005145d88ba5da3abb859379426f20734671d27b437e664536c50f30e"
+  ],
+  "earned": {
+    "creator": "23999999",
+    "member": "2999999",
+    "referral": "1499999",
+    "protocol": "1499999",
+    "fractionalScaled": [
+      "340282366920938463463374607431768115456",
+      "340282366920938463463374607431660211456",
+      "340282366920938463463374607431768043456",
+      "340282366920938463463374607431768043456"
+    ],
+    "status": {
+      "accountedThrough": "1789660665",
+      "nextBoundary": "1791604665",
+      "scheduledMembers": "1",
+      "complete": false
+    }
+  },
+  "funding": {
+    "recipient": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "paidSeconds": "7127980",
+    "grantSeconds": "0",
+    "accessAsOf": "1789660685",
+    "accountingAsOf": "1789660665",
+    "grossRefund": "149999074",
+    "fundingScaled": [
+      "40833631969500081587113498540251124805674573040",
+      "5104203996187510198389187317531390600709645640",
+      "2552101998093755099194593658765695300354822820",
+      "2552101972887653845791744513330539194297150244"
+    ],
+    "cancellationScaled": [
+      "0",
+      "0",
+      "0",
+      "25206101253402849145435156106057672576"
+    ],
+    "generation": "0",
+    "complete": false,
+    "fundingAsOf": "1789660685",
+    "projected": true
+  },
+  "actual": {
+    "tokenId": "1",
+    "recipient": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "grossRefund": "149998935",
+    "canceledPaidSeconds": "7127977",
+    "canceledGrantSeconds": "0"
+  },
+  "execution": "1789660688",
+  "shares": "180000000",
+  "cursor": "180000000",
+  "liability": "1069",
+  "custody": "1069",
+  "receipt": "0x4c6f4108f9aada2ce875455acb6c01429b60138e1d367ecf746509c9909e3196"
+}

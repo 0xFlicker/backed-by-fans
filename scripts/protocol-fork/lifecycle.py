@@ -60,6 +60,20 @@ def process_identity(pid):
         return ""
 
 
+def restore_clock(url, state_path):
+    try:
+        saved = int(json.loads(state_path.read_text())["block"]["timestamp"], 16)
+        if saved < 0:
+            raise ValueError("Negative timestamp")
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError("Saved Anvil state must include a valid block timestamp") from error
+    current = int(rpc(url, "eth_getBlockByNumber", ["latest", False])["timestamp"], 16)
+    timestamp = max(saved, current) + 1
+    rpc(url, "evm_setNextBlockTimestamp", [timestamp])
+    rpc(url, "evm_mine")
+    return timestamp
+
+
 def stop(run_id):
     path = STATE_ROOT / f"{run_id}.json"
     state = json.loads(path.read_text())
@@ -191,8 +205,16 @@ class Run:
         if self.restore_state:
             return self.restore_for_review()
         self.command("preflight", ["bun", str(ROOT / "scripts/protocol-fork/preflight.ts")])
+        self.command("linked-build", ["bash", "scripts/build-linked-protocol.sh"], ROOT / "contracts")
+        link_path = ROOT / "contracts/out/vesting-leaf/link-manifest.json"
+        link = json.loads(link_path.read_text())
+        if link.get("schemaVersion") != 1 or not link.get("mapping"):
+            raise RuntimeError("Missing deterministic library build mapping")
+        link_args = ["--libraries", link["mapping"]]
+        shutil.copy2(link_path, self.evidence / "link-manifest.json")
         if self.args.mode == "run":
-            self.command("contracts", ["forge", "test", "--json", "--code-size-limit", "1000000", "--gas-limit", "1000000000"], ROOT / "contracts")
+            self.command("curve-calibration", ["python3", str(ROOT / "specs/004-vesting-reward-curves/evidence/curve-calibration.py"), "--solidity"])
+            self.command("contracts", ["forge", "test", *link_args, "--json", "--code-size-limit", "1000000", "--gas-limit", "1000000000"], ROOT / "contracts")
         node = self.service("anvil", ["anvil", "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--silent"])
         for _ in range(200):
             if node.poll() is not None:
@@ -212,7 +234,7 @@ class Run:
         developer = subprocess.check_output(["cast", "wallet", "address", "--private-key", self.env["BBF_CHECKPOINT_DEVELOPER_KEY"]], text=True).strip()
         rpc(self.rpc_url, "anvil_setBalance", [developer, hex(20 * 10**18)])
         deployment = "DeployForkProtocolNoToken" if self.without_token else "DeployForkProtocol"
-        self.command("bootstrap", ["forge", "script", f"script/{deployment}.s.sol:{deployment}", "--rpc-url", self.rpc_url, "--broadcast", "--slow", "--code-size-limit", "300000", "--legacy", "--with-gas-price", "2000000000"], ROOT / "contracts")
+        self.command("bootstrap", ["forge", "script", f"script/{deployment}.s.sol:{deployment}", *link_args, "--rpc-url", self.rpc_url, "--broadcast", "--slow", "--code-size-limit", "300000", "--legacy", "--with-gas-price", "2000000000"], ROOT / "contracts")
         source = ROOT / "contracts/deployments/protocol-fork" / self.args.run_id / "bootstrap.json"
         shutil.copy2(source, self.evidence / "bootstrap.json")
         if not self.without_token:
@@ -261,6 +283,9 @@ class Run:
             raise RuntimeError("Restored Anvil readiness timed out")
         if rpc(self.rpc_url, "eth_getBlockByNumber", [hex(int(PIN["blockNumber"])), False])["hash"] != PIN["blockHash"]:
             raise RuntimeError("Restored fork origin mismatch")
+        # load-state restores storage, but interval mining starts at wall time.
+        # A saved vesting cursor must never observe an earlier block timestamp.
+        restore_clock(self.rpc_url, Path(self.restore_state))
         source = Path(self.restore_evidence)
         for name in ("bootstrap.json", "browser-environment.json"):
             shutil.copy2(source / name, self.evidence / name)

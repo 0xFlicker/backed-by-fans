@@ -2438,9 +2438,6 @@ export const iWrappedNativeAbi = [
 // MembershipFactory
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
- */
 export const membershipFactoryAbi = [
   {
     type: "constructor",
@@ -2453,6 +2450,30 @@ export const membershipFactoryAbi = [
       { name: "mediaStoreFactory_", internalType: "address", type: "address" },
       { name: "initialOwner", internalType: "address", type: "address" },
       { name: "protocolToken_", internalType: "address", type: "address" },
+      {
+        name: "tierCode",
+        internalType: "struct MembershipTypes.TierCodeConfig",
+        type: "tuple",
+        components: [
+          { name: "storeA", internalType: "address", type: "address" },
+          { name: "storeB", internalType: "address", type: "address" },
+          {
+            name: "creationCodeLength",
+            internalType: "uint256",
+            type: "uint256",
+          },
+          {
+            name: "creationCodeHash",
+            internalType: "bytes32",
+            type: "bytes32",
+          },
+        ],
+      },
+      {
+        name: "initialMinimumPayments",
+        internalType: "uint112[]",
+        type: "uint112[]",
+      },
     ],
     stateMutability: "nonpayable",
   },
@@ -2499,10 +2520,17 @@ export const membershipFactoryAbi = [
           { name: "name", internalType: "string", type: "string" },
           { name: "symbol", internalType: "string", type: "string" },
           { name: "pricePerPeriod", internalType: "uint256", type: "uint256" },
+          { name: "minimumPayment", internalType: "uint112", type: "uint112" },
           { name: "periodDuration", internalType: "uint64", type: "uint64" },
           { name: "protocolFeeBps", internalType: "uint16", type: "uint16" },
           { name: "rewardBps", internalType: "uint16", type: "uint16" },
           { name: "referralBps", internalType: "uint16", type: "uint16" },
+          { name: "startingBoostBps", internalType: "uint32", type: "uint32" },
+          {
+            name: "earlySupportGross",
+            internalType: "uint112",
+            type: "uint112",
+          },
           { name: "supplyCap", internalType: "uint64", type: "uint64" },
           { name: "maxPrepaidPeriods", internalType: "uint64", type: "uint64" },
           {
@@ -2634,6 +2662,13 @@ export const membershipFactoryAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "", internalType: "address", type: "address" }],
+    name: "minimumPayment",
+    outputs: [{ name: "", internalType: "uint112", type: "uint112" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [],
     name: "owner",
     outputs: [{ name: "", internalType: "address", type: "address" }],
@@ -2693,6 +2728,16 @@ export const membershipFactoryAbi = [
     name: "renounceOwnership",
     outputs: [],
     stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "token", internalType: "address", type: "address" },
+      { name: "minimum", internalType: "uint112", type: "uint112" },
+    ],
+    name: "setMinimumPayment",
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -2824,6 +2869,25 @@ export const membershipFactoryAbi = [
     type: "event",
     anonymous: false,
     inputs: [
+      {
+        name: "token",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "minimum",
+        internalType: "uint112",
+        type: "uint112",
+        indexed: false,
+      },
+    ],
+    name: "PaymentTokenMinimumUpdated",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
       { name: "tier", internalType: "address", type: "address", indexed: true },
       {
         name: "engine",
@@ -2917,6 +2981,20 @@ export const membershipFactoryAbi = [
     inputs: [
       { name: "tier", internalType: "address", type: "address", indexed: true },
       {
+        name: "minimum",
+        internalType: "uint112",
+        type: "uint112",
+        indexed: false,
+      },
+    ],
+    name: "TierMinimumPaymentConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      {
         name: "renderer",
         internalType: "address",
         type: "address",
@@ -2924,6 +3002,26 @@ export const membershipFactoryAbi = [
       },
     ],
     name: "TierRendererConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      {
+        name: "startingBoostBps",
+        internalType: "uint32",
+        type: "uint32",
+        indexed: false,
+      },
+      {
+        name: "earlySupportGross",
+        internalType: "uint112",
+        type: "uint112",
+        indexed: false,
+      },
+    ],
+    name: "TierRewardCurveConfigured",
   },
   {
     type: "event",
@@ -2990,6 +3088,7 @@ export const membershipFactoryAbi = [
   { type: "error", inputs: [], name: "EmptyPaymentTokenList" },
   { type: "error", inputs: [], name: "InvalidAddress" },
   { type: "error", inputs: [], name: "InvalidContract" },
+  { type: "error", inputs: [], name: "InvalidMinimumPayment" },
   { type: "error", inputs: [], name: "InvalidPageSize" },
   {
     type: "error",
@@ -3023,6 +3122,14 @@ export const membershipFactoryAbi = [
   },
   {
     type: "error",
+    inputs: [
+      { name: "expected", internalType: "uint112", type: "uint112" },
+      { name: "actual", internalType: "uint112", type: "uint112" },
+    ],
+    name: "MinimumPaymentChanged",
+  },
+  {
+    type: "error",
     inputs: [{ name: "owner", internalType: "address", type: "address" }],
     name: "OwnableInvalidOwner",
   },
@@ -3032,6 +3139,14 @@ export const membershipFactoryAbi = [
     name: "OwnableUnauthorizedAccount",
   },
   { type: "error", inputs: [], name: "OwnershipRenunciationDisabled" },
+  {
+    type: "error",
+    inputs: [
+      { name: "amount", internalType: "uint256", type: "uint256" },
+      { name: "minimum", internalType: "uint256", type: "uint256" },
+    ],
+    name: "PaymentBelowMinimum",
+  },
   {
     type: "error",
     inputs: [{ name: "token", internalType: "address", type: "address" }],
@@ -3060,21 +3175,6 @@ export const membershipFactoryAbi = [
   },
 ] as const;
 
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
- */
-export const membershipFactoryAddress = {
-  46630: "0x72681c494302092cE571ae10A27fC59a1E4AF206",
-} as const;
-
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
- */
-export const membershipFactoryConfig = {
-  address: membershipFactoryAddress,
-  abi: membershipFactoryAbi,
-} as const;
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // MembershipTier
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3101,10 +3201,17 @@ export const membershipTierAbi = [
           { name: "name", internalType: "string", type: "string" },
           { name: "symbol", internalType: "string", type: "string" },
           { name: "pricePerPeriod", internalType: "uint256", type: "uint256" },
+          { name: "minimumPayment", internalType: "uint112", type: "uint112" },
           { name: "periodDuration", internalType: "uint64", type: "uint64" },
           { name: "protocolFeeBps", internalType: "uint16", type: "uint16" },
           { name: "rewardBps", internalType: "uint16", type: "uint16" },
           { name: "referralBps", internalType: "uint16", type: "uint16" },
+          { name: "startingBoostBps", internalType: "uint32", type: "uint32" },
+          {
+            name: "earlySupportGross",
+            internalType: "uint112",
+            type: "uint112",
+          },
           { name: "supplyCap", internalType: "uint64", type: "uint64" },
           { name: "maxPrepaidPeriods", internalType: "uint64", type: "uint64" },
           {
@@ -3176,7 +3283,42 @@ export const membershipTierAbi = [
   {
     type: "function",
     inputs: [],
+    name: "ACCOUNTING_SCALE",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "BOOST_STEP_BPS",
+    outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "MAX_ACCOUNTING_STEPS",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "MAX_BOOST_BPS",
+    outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
     name: "MAX_DESCRIPTION_BYTES",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "MAX_LIFETIME_GROSS",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
@@ -3218,24 +3360,135 @@ export const membershipTierAbi = [
   {
     type: "function",
     inputs: [],
+    name: "MIN_ENABLED_BOOST_BPS",
+    outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "NORMAL_BOOST_BPS",
+    outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
     name: "acceptOwnership",
     outputs: [],
     stateMutability: "nonpayable",
   },
   {
     type: "function",
-    inputs: [
-      { name: "tokenIds", internalType: "uint256[]", type: "uint256[]" },
+    inputs: [],
+    name: "accountingStatus",
+    outputs: [
+      {
+        name: "status",
+        internalType: "struct MembershipTypes.AccountingStatus",
+        type: "tuple",
+        components: [
+          { name: "accountedThrough", internalType: "uint64", type: "uint64" },
+          { name: "nextBoundary", internalType: "uint64", type: "uint64" },
+          {
+            name: "scheduledMembers",
+            internalType: "uint256",
+            type: "uint256",
+          },
+          { name: "complete", internalType: "bool", type: "bool" },
+        ],
+      },
     ],
-    name: "accrueProtocolFees",
-    outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: "view",
   },
   {
     type: "function",
     inputs: [{ name: "recipient", internalType: "address", type: "address" }],
     name: "activeBalanceOf",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "generation", internalType: "uint256", type: "uint256" },
+      { name: "offset", internalType: "uint256", type: "uint256" },
+      { name: "limit", internalType: "uint256", type: "uint256" },
+    ],
+    name: "allocationLots",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.AllocationLot[]",
+        type: "tuple[]",
+        components: [
+          { name: "start", internalType: "uint64", type: "uint64" },
+          { name: "end", internalType: "uint64", type: "uint64" },
+          { name: "gross", internalType: "uint256", type: "uint256" },
+          {
+            name: "allocations",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          { name: "referrer", internalType: "address", type: "address" },
+          { name: "canceled", internalType: "bool", type: "bool" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "allocationState",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.AllocationState",
+        type: "tuple",
+        components: [
+          { name: "generation", internalType: "uint256", type: "uint256" },
+          { name: "lotCursor", internalType: "uint256", type: "uint256" },
+          { name: "lotCount", internalType: "uint256", type: "uint256" },
+          {
+            name: "allocatedScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "earnedScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "unearnedScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          { name: "refundableGross", internalType: "uint256", type: "uint256" },
+          {
+            name: "status",
+            internalType: "struct MembershipTypes.AccountingStatus",
+            type: "tuple",
+            components: [
+              {
+                name: "accountedThrough",
+                internalType: "uint64",
+                type: "uint64",
+              },
+              { name: "nextBoundary", internalType: "uint64", type: "uint64" },
+              {
+                name: "scheduledMembers",
+                internalType: "uint256",
+                type: "uint256",
+              },
+              { name: "complete", internalType: "bool", type: "bool" },
+            ],
+          },
+        ],
+      },
+    ],
     stateMutability: "view",
   },
   {
@@ -3323,7 +3576,7 @@ export const membershipTierAbi = [
     type: "function",
     inputs: [{ name: "referrer", internalType: "address", type: "address" }],
     name: "claimableReferral",
-    outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
   {
@@ -3355,6 +3608,59 @@ export const membershipTierAbi = [
     inputs: [],
     name: "description",
     outputs: [{ name: "", internalType: "string", type: "string" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "earlySupportGross",
+    outputs: [{ name: "", internalType: "uint112", type: "uint112" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "referrer", internalType: "address", type: "address" },
+    ],
+    name: "earnedBalances",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.EarnedBalances",
+        type: "tuple",
+        components: [
+          { name: "creator", internalType: "uint256", type: "uint256" },
+          { name: "member", internalType: "uint256", type: "uint256" },
+          { name: "referral", internalType: "uint256", type: "uint256" },
+          { name: "protocol", internalType: "uint256", type: "uint256" },
+          {
+            name: "fractionalScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "status",
+            internalType: "struct MembershipTypes.AccountingStatus",
+            type: "tuple",
+            components: [
+              {
+                name: "accountedThrough",
+                internalType: "uint64",
+                type: "uint64",
+              },
+              { name: "nextBoundary", internalType: "uint64", type: "uint64" },
+              {
+                name: "scheduledMembers",
+                internalType: "uint256",
+                type: "uint256",
+              },
+              { name: "complete", internalType: "bool", type: "bool" },
+            ],
+          },
+        ],
+      },
+    ],
     stateMutability: "view",
   },
   {
@@ -3451,6 +3757,13 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
+    inputs: [],
+    name: "lifetimeGross",
+    outputs: [{ name: "", internalType: "uint112", type: "uint112" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
     name: "locked",
     outputs: [{ name: "", internalType: "bool", type: "bool" }],
@@ -3485,6 +3798,13 @@ export const membershipTierAbi = [
         ],
       },
     ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "minimumPayment",
+    outputs: [{ name: "", internalType: "uint112", type: "uint112" }],
     stateMutability: "view",
   },
   {
@@ -3548,24 +3868,51 @@ export const membershipTierAbi = [
     inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
     name: "previewRefund",
     outputs: [
-      { name: "grossRefund", internalType: "uint256", type: "uint256" },
-      { name: "ownerTopUp", internalType: "uint256", type: "uint256" },
+      {
+        name: "",
+        internalType: "struct MembershipTypes.RefundPreview",
+        type: "tuple",
+        components: [
+          { name: "recipient", internalType: "address", type: "address" },
+          { name: "paidSeconds", internalType: "uint64", type: "uint64" },
+          { name: "grantSeconds", internalType: "uint64", type: "uint64" },
+          { name: "accessAsOf", internalType: "uint64", type: "uint64" },
+          { name: "accountingAsOf", internalType: "uint64", type: "uint64" },
+          { name: "grossRefund", internalType: "uint256", type: "uint256" },
+          {
+            name: "fundingScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "cancellationScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          { name: "generation", internalType: "uint256", type: "uint256" },
+          { name: "complete", internalType: "bool", type: "bool" },
+          { name: "fundingAsOf", internalType: "uint64", type: "uint64" },
+          { name: "projected", internalType: "bool", type: "bool" },
+        ],
+      },
     ],
     stateMutability: "view",
   },
   {
     type: "function",
-    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
-    name: "previewRefundComponents",
+    inputs: [{ name: "gross", internalType: "uint256", type: "uint256" }],
+    name: "previewShares",
     outputs: [
-      { name: "grossRefund", internalType: "uint256", type: "uint256" },
       {
-        name: "protocolContribution",
-        internalType: "uint256",
-        type: "uint256",
+        name: "quote",
+        internalType: "struct MembershipTypes.ShareQuote",
+        type: "tuple",
+        components: [
+          { name: "grossBefore", internalType: "uint112", type: "uint112" },
+          { name: "grossAfter", internalType: "uint112", type: "uint112" },
+          { name: "sharesAdded", internalType: "uint256", type: "uint256" },
+        ],
       },
-      { name: "creatorContribution", internalType: "uint256", type: "uint256" },
-      { name: "ownerTopUp", internalType: "uint256", type: "uint256" },
     ],
     stateMutability: "view",
   },
@@ -3575,6 +3922,18 @@ export const membershipTierAbi = [
     name: "pricePerPeriod",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "maxSteps", internalType: "uint256", type: "uint256" }],
+    name: "processAccounting",
+    outputs: [
+      { name: "processedSteps", internalType: "uint256", type: "uint256" },
+      { name: "accountedThrough", internalType: "uint64", type: "uint64" },
+      { name: "complete", internalType: "bool", type: "bool" },
+      { name: "earnedScaledDelta", internalType: "uint256", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -3588,68 +3947,6 @@ export const membershipTierAbi = [
     inputs: [],
     name: "protocolFeeEarnedHeld",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "protocolFeeHoldings",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "tokenId", internalType: "uint256", type: "uint256" },
-      { name: "offset", internalType: "uint256", type: "uint256" },
-      { name: "limit", internalType: "uint256", type: "uint256" },
-    ],
-    name: "protocolFeeLots",
-    outputs: [
-      {
-        name: "page",
-        internalType: "struct MembershipTypes.ProtocolFeeLot[]",
-        type: "tuple[]",
-        components: [
-          { name: "startPaid", internalType: "uint256", type: "uint256" },
-          { name: "endPaid", internalType: "uint256", type: "uint256" },
-          { name: "fee", internalType: "uint256", type: "uint256" },
-          { name: "cumulativeFee", internalType: "uint256", type: "uint256" },
-        ],
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
-    name: "protocolFeeState",
-    outputs: [
-      {
-        name: "result",
-        internalType: "struct MembershipTypes.ProtocolFeeState",
-        type: "tuple",
-        components: [
-          { name: "generation", internalType: "uint256", type: "uint256" },
-          { name: "consumedPaid", internalType: "uint256", type: "uint256" },
-          { name: "allocated", internalType: "uint256", type: "uint256" },
-          { name: "earned", internalType: "uint256", type: "uint256" },
-          { name: "unearned", internalType: "uint256", type: "uint256" },
-          {
-            name: "uncheckpointedEarned",
-            internalType: "uint256",
-            type: "uint256",
-          },
-          { name: "refunded", internalType: "uint256", type: "uint256" },
-          {
-            name: "cancellationRounding",
-            internalType: "uint256",
-            type: "uint256",
-          },
-          { name: "lotCount", internalType: "uint256", type: "uint256" },
-        ],
-      },
-    ],
     stateMutability: "view",
   },
   {
@@ -3688,12 +3985,10 @@ export const membershipTierAbi = [
     inputs: [
       { name: "tokenId", internalType: "uint256", type: "uint256" },
       { name: "maxGrossRefund", internalType: "uint256", type: "uint256" },
-      { name: "maxOwnerTopUp", internalType: "uint256", type: "uint256" },
     ],
     name: "refund",
     outputs: [
       { name: "grossRefund", internalType: "uint256", type: "uint256" },
-      { name: "ownerTopUp", internalType: "uint256", type: "uint256" },
     ],
     stateMutability: "nonpayable",
   },
@@ -3730,6 +4025,65 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
+    inputs: [],
+    name: "reserveState",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.ReserveState",
+        type: "tuple",
+        components: [
+          {
+            name: "unearnedScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "cancellationScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "unassignedMemberScaled",
+            internalType: "uint256",
+            type: "uint256",
+          },
+          {
+            name: "distributionDustScaled",
+            internalType: "uint256",
+            type: "uint256",
+          },
+          {
+            name: "indexCarryScaled",
+            internalType: "uint256",
+            type: "uint256",
+          },
+          {
+            name: "status",
+            internalType: "struct MembershipTypes.AccountingStatus",
+            type: "tuple",
+            components: [
+              {
+                name: "accountedThrough",
+                internalType: "uint64",
+                type: "uint64",
+              },
+              { name: "nextBoundary", internalType: "uint64", type: "uint64" },
+              {
+                name: "scheduledMembers",
+                internalType: "uint256",
+                type: "uint256",
+              },
+              { name: "complete", internalType: "bool", type: "bool" },
+            ],
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
     name: "revokeGrantTime",
     outputs: [
@@ -3748,20 +4102,13 @@ export const membershipTierAbi = [
     type: "function",
     inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
     name: "rewardEligible",
-    outputs: [{ name: "eligible", internalType: "bool", type: "bool" }],
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
     stateMutability: "view",
   },
   {
     type: "function",
     inputs: [],
     name: "rewardPerShare",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "rewardReserve",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
@@ -3893,7 +4240,14 @@ export const membershipTierAbi = [
     type: "function",
     inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
     name: "sharesOf",
-    outputs: [{ name: "shares", internalType: "uint256", type: "uint256" }],
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "startingBoostBps",
+    outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
     stateMutability: "view",
   },
   {
@@ -3977,41 +4331,6 @@ export const membershipTierAbi = [
   {
     type: "function",
     inputs: [],
-    name: "totalProtocolFeeAllocated",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "totalProtocolFeeCancellationRounding",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "totalProtocolFeeRefunded",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "totalProtocolFeeReleased",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "totalReferralLiability",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
     name: "totalRewardShares",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
@@ -4040,6 +4359,32 @@ export const membershipTierAbi = [
     name: "withdrawCreatorProceeds",
     outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "accountedThrough",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+      {
+        name: "processedSteps",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      { name: "complete", internalType: "bool", type: "bool", indexed: false },
+      {
+        name: "earnedScaledDelta",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "AccountingProgress",
   },
   {
     type: "event",
@@ -4157,6 +4502,120 @@ export const membershipTierAbi = [
         name: "tokenId",
         internalType: "uint256",
         type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "generation",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "cancellationScaled",
+        internalType: "uint256[4]",
+        type: "uint256[4]",
+        indexed: false,
+      },
+    ],
+    name: "FundingGenerationCanceled",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "generation",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "lotIndex",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      { name: "end", internalType: "uint64", type: "uint64", indexed: false },
+    ],
+    name: "FundingLotCompleted",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "generation",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "lotIndex",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      { name: "start", internalType: "uint64", type: "uint64", indexed: false },
+      { name: "end", internalType: "uint64", type: "uint64", indexed: false },
+      {
+        name: "gross",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "creatorAmount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "memberAmount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "referralAmount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "protocolAmount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "referrer",
+        internalType: "address",
+        type: "address",
+        indexed: false,
+      },
+    ],
+    name: "FundingLotScheduled",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
         indexed: false,
       },
     ],
@@ -4198,21 +4657,21 @@ export const membershipTierAbi = [
         indexed: true,
       },
       {
-        name: "tierOwner",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
         name: "grossRefund",
         internalType: "uint256",
         type: "uint256",
         indexed: false,
       },
       {
-        name: "ownerTopUp",
-        internalType: "uint256",
-        type: "uint256",
+        name: "canceledPaidSeconds",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+      {
+        name: "canceledGrantSeconds",
+        internalType: "uint64",
+        type: "uint64",
         indexed: false,
       },
     ],
@@ -4430,86 +4889,6 @@ export const membershipTierAbi = [
     anonymous: false,
     inputs: [
       {
-        name: "tokenId",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: true,
-      },
-      {
-        name: "generation",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: true,
-      },
-      {
-        name: "lotIndex",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      {
-        name: "asset",
-        internalType: "address",
-        type: "address",
-        indexed: false,
-      },
-      {
-        name: "amount",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      {
-        name: "startPaid",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      {
-        name: "endPaid",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-    ],
-    name: "ProtocolFeeAllocated",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "tokenId",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: true,
-      },
-      {
-        name: "generation",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: true,
-      },
-      {
-        name: "amount",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      {
-        name: "cumulativeEarned",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-    ],
-    name: "ProtocolFeesAccrued",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
         name: "vault",
         internalType: "address",
         type: "address",
@@ -4585,27 +4964,21 @@ export const membershipTierAbi = [
         indexed: true,
       },
       {
-        name: "protocolContribution",
+        name: "generation",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "grossRefund",
         internalType: "uint256",
         type: "uint256",
         indexed: false,
       },
       {
-        name: "creatorContribution",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      {
-        name: "ownerTopUp",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      {
-        name: "cancellationRounding",
-        internalType: "uint256",
-        type: "uint256",
+        name: "fundingScaled",
+        internalType: "uint256[4]",
+        type: "uint256[4]",
         indexed: false,
       },
     ],
@@ -4661,37 +5034,6 @@ export const membershipTierAbi = [
       },
     ],
     name: "RewardEligibilityUpdated",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "tokenId",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: true,
-      },
-      {
-        name: "reward",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      {
-        name: "rewardPerShare",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-      {
-        name: "directRemainder",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
-    ],
-    name: "RewardPerShareUpdated",
   },
   {
     type: "event",
@@ -4809,7 +5151,16 @@ export const membershipTierAbi = [
     ],
     name: "Unlocked",
   },
+  {
+    type: "error",
+    inputs: [
+      { name: "accountedThrough", internalType: "uint64", type: "uint64" },
+      { name: "nextBoundary", internalType: "uint64", type: "uint64" },
+    ],
+    name: "AccountingBehind",
+  },
   { type: "error", inputs: [], name: "CapacityReached" },
+  { type: "error", inputs: [], name: "CurveCapacityExceeded" },
   { type: "error", inputs: [], name: "DurationOverflow" },
   {
     type: "error",
@@ -4869,10 +5220,9 @@ export const membershipTierAbi = [
   { type: "error", inputs: [], name: "IncorrectPricingMode" },
   { type: "error", inputs: [], name: "InexactTokenTransfer" },
   { type: "error", inputs: [], name: "InvalidAddress" },
-  { type: "error", inputs: [], name: "InvalidCancellationRounding" },
-  { type: "error", inputs: [], name: "InvalidFeePageSize" },
   { type: "error", inputs: [], name: "InvalidMediaConfig" },
   { type: "error", inputs: [], name: "InvalidMetadata" },
+  { type: "error", inputs: [], name: "InvalidMinimumPayment" },
   { type: "error", inputs: [], name: "InvalidPaidDuration" },
   { type: "error", inputs: [], name: "InvalidPeriodDuration" },
   { type: "error", inputs: [], name: "InvalidPeriods" },
@@ -4905,16 +5255,15 @@ export const membershipTierAbi = [
     inputs: [{ name: "account", internalType: "address", type: "address" }],
     name: "OwnableUnauthorizedAccount",
   },
+  { type: "error", inputs: [], name: "OwnershipRenunciationDisabled" },
   {
     type: "error",
     inputs: [
-      { name: "required", internalType: "uint256", type: "uint256" },
-      { name: "maximum", internalType: "uint256", type: "uint256" },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+      { name: "minimum", internalType: "uint256", type: "uint256" },
     ],
-    name: "OwnerTopUpLimitExceeded",
+    name: "PaymentBelowMinimum",
   },
-  { type: "error", inputs: [], name: "OwnershipRenunciationDisabled" },
-  { type: "error", inputs: [], name: "PaymentOverflow" },
   { type: "error", inputs: [], name: "PrepaymentLimitExceeded" },
   { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
   { type: "error", inputs: [], name: "ReferralChoiceMismatch" },
@@ -4945,9 +5294,6 @@ export const membershipTierAbi = [
 // OnchainMediaStoreFactory
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
- */
 export const onchainMediaStoreFactoryAbi = [
   {
     type: "function",
@@ -5302,28 +5648,10 @@ export const onchainMediaStoreFactoryAbi = [
   },
 ] as const;
 
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
- */
-export const onchainMediaStoreFactoryAddress = {
-  46630: "0x94d79131c69bD41Da715D9C9DEaA851588b7174c",
-} as const;
-
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
- */
-export const onchainMediaStoreFactoryConfig = {
-  address: onchainMediaStoreFactoryAddress,
-  abi: onchainMediaStoreFactoryAbi,
-} as const;
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // OnchainMetadataRenderer
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
- */
 export const onchainMetadataRendererAbi = [
   {
     type: "function",
@@ -5818,21 +6146,6 @@ export const onchainMetadataRendererAbi = [
   },
 ] as const;
 
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
- */
-export const onchainMetadataRendererAddress = {
-  46630: "0xc21aDdA35ED9565E808fdd2a254c51831D90330a",
-} as const;
-
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
- */
-export const onchainMetadataRendererConfig = {
-  address: onchainMetadataRendererAddress,
-  abi: onchainMetadataRendererAbi,
-} as const;
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // PonsBuybackExecutor
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -5974,14 +6287,39 @@ export const protocolBurnRouterAbi = [
   },
   {
     type: "function",
+    inputs: [],
+    name: "MAX_ACCOUNTING_STEPS",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "MAX_PURCHASES",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "MAX_TIERS",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [
       {
-        name: "collections",
-        internalType: "struct ProtocolBurnRouter.Collection[]",
+        name: "tiers",
+        internalType: "struct ProtocolBurnRouter.AdvanceTier[]",
         type: "tuple[]",
         components: [
           { name: "tier", internalType: "address", type: "address" },
-          { name: "tokenIds", internalType: "uint256[]", type: "uint256[]" },
+          {
+            name: "maxAccountingSteps",
+            internalType: "uint256",
+            type: "uint256",
+          },
         ],
       },
       {
@@ -5995,8 +6333,9 @@ export const protocolBurnRouterAbi = [
       },
       { name: "deadline", internalType: "uint64", type: "uint64" },
     ],
-    name: "burn",
+    name: "advance",
     outputs: [
+      { name: "processedSteps", internalType: "uint256", type: "uint256" },
       { name: "releasedTiers", internalType: "uint256", type: "uint256" },
       { name: "purchaseCount", internalType: "uint256", type: "uint256" },
       { name: "burned", internalType: "uint256", type: "uint256" },
@@ -6007,17 +6346,44 @@ export const protocolBurnRouterAbi = [
     type: "function",
     inputs: [
       {
-        name: "collection",
-        internalType: "struct ProtocolBurnRouter.Collection",
-        type: "tuple",
+        name: "tiers",
+        internalType: "struct ProtocolBurnRouter.AdvanceTier[]",
+        type: "tuple[]",
         components: [
           { name: "tier", internalType: "address", type: "address" },
-          { name: "tokenIds", internalType: "uint256[]", type: "uint256[]" },
+          {
+            name: "maxAccountingSteps",
+            internalType: "uint256",
+            type: "uint256",
+          },
         ],
       },
     ],
-    name: "collect",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    name: "advanceAccounting",
+    outputs: [
+      { name: "processedSteps", internalType: "uint256", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "purchases",
+        internalType: "struct ProtocolBurnRouter.Purchase[]",
+        type: "tuple[]",
+        components: [
+          { name: "asset", internalType: "address", type: "address" },
+          { name: "revision", internalType: "uint64", type: "uint64" },
+        ],
+      },
+      { name: "deadline", internalType: "uint64", type: "uint64" },
+    ],
+    name: "buyback",
+    outputs: [
+      { name: "purchaseCount", internalType: "uint256", type: "uint256" },
+      { name: "burned", internalType: "uint256", type: "uint256" },
+    ],
     stateMutability: "nonpayable",
   },
   {
@@ -6042,29 +6408,6 @@ export const protocolBurnRouterAbi = [
   },
   {
     type: "function",
-    inputs: [
-      {
-        name: "item",
-        internalType: "struct ProtocolBurnRouter.Purchase",
-        type: "tuple",
-        components: [
-          { name: "asset", internalType: "address", type: "address" },
-          { name: "revision", internalType: "uint64", type: "uint64" },
-        ],
-      },
-      {
-        name: "bucket",
-        internalType: "enum BuybackTypes.SourceBucket",
-        type: "uint8",
-      },
-      { name: "deadline", internalType: "uint64", type: "uint64" },
-    ],
-    name: "purchase",
-    outputs: [{ name: "", internalType: "bool", type: "bool" }],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     inputs: [],
     name: "vault",
     outputs: [
@@ -6086,6 +6429,45 @@ export const protocolBurnRouterAbi = [
         type: "address",
         indexed: true,
       },
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      {
+        name: "processedSteps",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "accountedThrough",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+      { name: "complete", internalType: "bool", type: "bool", indexed: false },
+      {
+        name: "earnedScaledDelta",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "AccountingAdvanced",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "caller",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "processedSteps",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
       {
         name: "releasedTiers",
         internalType: "uint256",
@@ -6104,17 +6486,39 @@ export const protocolBurnRouterAbi = [
         type: "uint256",
         indexed: false,
       },
+      {
+        name: "burnMeasured",
+        internalType: "bool",
+        type: "bool",
+        indexed: false,
+      },
     ],
-    name: "BurnCompleted",
+    name: "AdvanceCompleted",
   },
   {
     type: "event",
     anonymous: false,
     inputs: [
-      { name: "tier", internalType: "address", type: "address", indexed: true },
-      { name: "reason", internalType: "bytes", type: "bytes", indexed: false },
+      {
+        name: "caller",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "asset",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "bucket",
+        internalType: "enum BuybackTypes.SourceBucket",
+        type: "uint8",
+        indexed: false,
+      },
     ],
-    name: "CollectionFailed",
+    name: "PurchaseCompleted",
   },
   {
     type: "event",
@@ -6132,15 +6536,48 @@ export const protocolBurnRouterAbi = [
         type: "uint8",
         indexed: false,
       },
-      { name: "reason", internalType: "bytes", type: "bytes", indexed: false },
+      {
+        name: "reason",
+        internalType: "enum BuybackTypes.Status",
+        type: "uint8",
+        indexed: false,
+      },
     ],
-    name: "PurchaseFailed",
+    name: "PurchaseSkipped",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "caller",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      { name: "tier", internalType: "address", type: "address", indexed: true },
+      {
+        name: "asset",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "amount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "TierReleased",
   },
   { type: "error", inputs: [], name: "DeadlineExpired" },
+  { type: "error", inputs: [], name: "InvalidAccountingResult" },
   { type: "error", inputs: [], name: "InvalidBatch" },
+  { type: "error", inputs: [], name: "InvalidBurnMeasurement" },
   { type: "error", inputs: [], name: "NothingToDo" },
-  { type: "error", inputs: [], name: "OnlySelf" },
   { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
+  { type: "error", inputs: [], name: "StaleRevision" },
   { type: "error", inputs: [], name: "UnregisteredTier" },
 ] as const;
 
@@ -6844,9 +7281,6 @@ export const protocolBuybackVaultAbi = [
 // RendererPreviewHarness
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x369d13442eEb924105879Eb0EF0b39b619A1DF70)
- */
 export const rendererPreviewHarnessAbi = [
   {
     type: "function",
@@ -6874,21 +7308,6 @@ export const rendererPreviewHarnessAbi = [
   { type: "error", inputs: [], name: "EmptyCallData" },
   { type: "error", inputs: [], name: "EmptyCreationCode" },
 ] as const;
-
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x369d13442eEb924105879Eb0EF0b39b619A1DF70)
- */
-export const rendererPreviewHarnessAddress = {
-  46630: "0x369d13442eEb924105879Eb0EF0b39b619A1DF70",
-} as const;
-
-/**
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x369d13442eEb924105879Eb0EF0b39b619A1DF70)
- */
-export const rendererPreviewHarnessConfig = {
-  address: rendererPreviewHarnessAddress,
-  abi: rendererPreviewHarnessAbi,
-} as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // RendererRegistry
@@ -9549,535 +9968,450 @@ export const useSimulateIWrappedNativeWithdraw =
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactory = /*#__PURE__*/ createUseReadContract({
   abi: membershipFactoryAbi,
-  address: membershipFactoryAddress,
 });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"burnRouter"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryBurnRouter =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "burnRouter",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"buybackVault"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryBuybackVault =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "buybackVault",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"deployer"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryDeployer =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "deployer",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isPaymentTokenEnabled"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryIsPaymentTokenEnabled =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "isPaymentTokenEnabled",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isPaymentTokenListed"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryIsPaymentTokenListed =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "isPaymentTokenListed",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isRegisteredTier"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryIsRegisteredTier =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "isRegisteredTier",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"isTierSaltUsed"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryIsTierSaltUsed =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "isTierSaltUsed",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"maxPageSize"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryMaxPageSize =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "maxPageSize",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"mediaStoreFactory"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryMediaStoreFactory =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "mediaStoreFactory",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"mediaStoreFactoryRuntimeCodehash"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryMediaStoreFactoryRuntimeCodehash =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "mediaStoreFactoryRuntimeCodehash",
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"minimumPayment"`
+ */
+export const useReadMembershipFactoryMinimumPayment =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "minimumPayment",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"owner"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryOwner =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "owner",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"paymentTokenCount"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryPaymentTokenCount =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "paymentTokenCount",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"paymentTokens"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryPaymentTokens =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "paymentTokens",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"pendingOwner"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryPendingOwner =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "pendingOwner",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"predictTierIdentity"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryPredictTierIdentity =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "predictTierIdentity",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"protocolToken"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryProtocolToken =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "protocolToken",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"rendererSchema"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryRendererSchema =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "rendererSchema",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"renounceOwnership"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryRenounceOwnership =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "renounceOwnership",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"tierCount"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryTierCount =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "tierCount",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"tierForIdentity"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryTierForIdentity =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "tierForIdentity",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"tiers"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useReadMembershipFactoryTiers =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "tiers",
   });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWriteMembershipFactory = /*#__PURE__*/ createUseWriteContract({
   abi: membershipFactoryAbi,
-  address: membershipFactoryAddress,
 });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"acceptOwnership"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWriteMembershipFactoryAcceptOwnership =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "acceptOwnership",
   });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"bindProtocolToken"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWriteMembershipFactoryBindProtocolToken =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "bindProtocolToken",
   });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"createTier"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWriteMembershipFactoryCreateTier =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "createTier",
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setMinimumPayment"`
+ */
+export const useWriteMembershipFactorySetMinimumPayment =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "setMinimumPayment",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setPaymentTokenEnabled"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWriteMembershipFactorySetPaymentTokenEnabled =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "setPaymentTokenEnabled",
   });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"transferOwnership"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWriteMembershipFactoryTransferOwnership =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "transferOwnership",
   });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useSimulateMembershipFactory =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
-  });
+  /*#__PURE__*/ createUseSimulateContract({ abi: membershipFactoryAbi });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"acceptOwnership"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useSimulateMembershipFactoryAcceptOwnership =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "acceptOwnership",
   });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"bindProtocolToken"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useSimulateMembershipFactoryBindProtocolToken =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "bindProtocolToken",
   });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"createTier"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useSimulateMembershipFactoryCreateTier =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "createTier",
   });
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setMinimumPayment"`
+ */
+export const useSimulateMembershipFactorySetMinimumPayment =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "setMinimumPayment",
+  });
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"setPaymentTokenEnabled"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useSimulateMembershipFactorySetPaymentTokenEnabled =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "setPaymentTokenEnabled",
   });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"transferOwnership"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useSimulateMembershipFactoryTransferOwnership =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     functionName: "transferOwnership",
   });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
-  });
+  /*#__PURE__*/ createUseWatchContractEvent({ abi: membershipFactoryAbi });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"OwnershipTransferStarted"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryOwnershipTransferStartedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "OwnershipTransferStarted",
   });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"OwnershipTransferred"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryOwnershipTransferredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "OwnershipTransferred",
   });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"PaymentTokenDisabled"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryPaymentTokenDisabledEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "PaymentTokenDisabled",
   });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"PaymentTokenEnabled"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryPaymentTokenEnabledEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "PaymentTokenEnabled",
   });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"PaymentTokenListed"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryPaymentTokenListedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "PaymentTokenListed",
   });
 
 /**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"PaymentTokenMinimumUpdated"`
+ */
+export const useWatchMembershipFactoryPaymentTokenMinimumUpdatedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "PaymentTokenMinimumUpdated",
+  });
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierArtConfigured"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryTierArtConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "TierArtConfigured",
   });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierCreated"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryTierCreatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "TierCreated",
   });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierMetadataConfigured"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryTierMetadataConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "TierMetadataConfigured",
   });
 
 /**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierMinimumPaymentConfigured"`
+ */
+export const useWatchMembershipFactoryTierMinimumPaymentConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "TierMinimumPaymentConfigured",
+  });
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierRendererConfigured"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryTierRendererConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "TierRendererConfigured",
   });
 
 /**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierRewardCurveConfigured"`
+ */
+export const useWatchMembershipFactoryTierRewardCurveConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "TierRewardCurveConfigured",
+  });
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"TierTermsConfigured"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x72681c494302092cE571ae10A27fC59a1E4AF206)
  */
 export const useWatchMembershipFactoryTierTermsConfiguredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipFactoryAbi,
-    address: membershipFactoryAddress,
     eventName: "TierTermsConfigured",
   });
 
@@ -10089,12 +10423,57 @@ export const useReadMembershipTier = /*#__PURE__*/ createUseReadContract({
 });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"ACCOUNTING_SCALE"`
+ */
+export const useReadMembershipTierAccountingScale =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "ACCOUNTING_SCALE",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"BOOST_STEP_BPS"`
+ */
+export const useReadMembershipTierBoostStepBps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "BOOST_STEP_BPS",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"MAX_ACCOUNTING_STEPS"`
+ */
+export const useReadMembershipTierMaxAccountingSteps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "MAX_ACCOUNTING_STEPS",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"MAX_BOOST_BPS"`
+ */
+export const useReadMembershipTierMaxBoostBps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "MAX_BOOST_BPS",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"MAX_DESCRIPTION_BYTES"`
  */
 export const useReadMembershipTierMaxDescriptionBytes =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "MAX_DESCRIPTION_BYTES",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"MAX_LIFETIME_GROSS"`
+ */
+export const useReadMembershipTierMaxLifetimeGross =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "MAX_LIFETIME_GROSS",
   });
 
 /**
@@ -10143,12 +10522,57 @@ export const useReadMembershipTierMaxUriBytes =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"MIN_ENABLED_BOOST_BPS"`
+ */
+export const useReadMembershipTierMinEnabledBoostBps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "MIN_ENABLED_BOOST_BPS",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"NORMAL_BOOST_BPS"`
+ */
+export const useReadMembershipTierNormalBoostBps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "NORMAL_BOOST_BPS",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"accountingStatus"`
+ */
+export const useReadMembershipTierAccountingStatus =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "accountingStatus",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"activeBalanceOf"`
  */
 export const useReadMembershipTierActiveBalanceOf =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "activeBalanceOf",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"allocationLots"`
+ */
+export const useReadMembershipTierAllocationLots =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "allocationLots",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"allocationState"`
+ */
+export const useReadMembershipTierAllocationState =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "allocationState",
   });
 
 /**
@@ -10219,6 +10643,24 @@ export const useReadMembershipTierDescription =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "description",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"earlySupportGross"`
+ */
+export const useReadMembershipTierEarlySupportGross =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "earlySupportGross",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"earnedBalances"`
+ */
+export const useReadMembershipTierEarnedBalances =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "earnedBalances",
   });
 
 /**
@@ -10301,6 +10743,15 @@ export const useReadMembershipTierIsRenewable =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"lifetimeGross"`
+ */
+export const useReadMembershipTierLifetimeGross =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "lifetimeGross",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"locked"`
  */
 export const useReadMembershipTierLocked = /*#__PURE__*/ createUseReadContract({
@@ -10324,6 +10775,15 @@ export const useReadMembershipTierMediaConfig =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "mediaConfig",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"minimumPayment"`
+ */
+export const useReadMembershipTierMinimumPayment =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "minimumPayment",
   });
 
 /**
@@ -10403,12 +10863,12 @@ export const useReadMembershipTierPreviewRefund =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"previewRefundComponents"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"previewShares"`
  */
-export const useReadMembershipTierPreviewRefundComponents =
+export const useReadMembershipTierPreviewShares =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
-    functionName: "previewRefundComponents",
+    functionName: "previewShares",
   });
 
 /**
@@ -10436,33 +10896,6 @@ export const useReadMembershipTierProtocolFeeEarnedHeld =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "protocolFeeEarnedHeld",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"protocolFeeHoldings"`
- */
-export const useReadMembershipTierProtocolFeeHoldings =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "protocolFeeHoldings",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"protocolFeeLots"`
- */
-export const useReadMembershipTierProtocolFeeLots =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "protocolFeeLots",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"protocolFeeState"`
- */
-export const useReadMembershipTierProtocolFeeState =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "protocolFeeState",
   });
 
 /**
@@ -10502,6 +10935,15 @@ export const useReadMembershipTierRenounceOwnership =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"reserveState"`
+ */
+export const useReadMembershipTierReserveState =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "reserveState",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"rewardBps"`
  */
 export const useReadMembershipTierRewardBps =
@@ -10529,15 +10971,6 @@ export const useReadMembershipTierRewardPerShare =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"rewardReserve"`
- */
-export const useReadMembershipTierRewardReserve =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "rewardReserve",
-  });
-
-/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setApprovalForAll"`
  */
 export const useReadMembershipTierSetApprovalForAll =
@@ -10553,6 +10986,15 @@ export const useReadMembershipTierSharesOf =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "sharesOf",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"startingBoostBps"`
+ */
+export const useReadMembershipTierStartingBoostBps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "startingBoostBps",
   });
 
 /**
@@ -10634,51 +11076,6 @@ export const useReadMembershipTierTotalProtectedLiability =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"totalProtocolFeeAllocated"`
- */
-export const useReadMembershipTierTotalProtocolFeeAllocated =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "totalProtocolFeeAllocated",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"totalProtocolFeeCancellationRounding"`
- */
-export const useReadMembershipTierTotalProtocolFeeCancellationRounding =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "totalProtocolFeeCancellationRounding",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"totalProtocolFeeRefunded"`
- */
-export const useReadMembershipTierTotalProtocolFeeRefunded =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "totalProtocolFeeRefunded",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"totalProtocolFeeReleased"`
- */
-export const useReadMembershipTierTotalProtocolFeeReleased =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "totalProtocolFeeReleased",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"totalReferralLiability"`
- */
-export const useReadMembershipTierTotalReferralLiability =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "totalReferralLiability",
-  });
-
-/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"totalRewardShares"`
  */
 export const useReadMembershipTierTotalRewardShares =
@@ -10701,15 +11098,6 @@ export const useWriteMembershipTierAcceptOwnership =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipTierAbi,
     functionName: "acceptOwnership",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"accrueProtocolFees"`
- */
-export const useWriteMembershipTierAccrueProtocolFees =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: membershipTierAbi,
-    functionName: "accrueProtocolFees",
   });
 
 /**
@@ -10763,6 +11151,15 @@ export const useWriteMembershipTierGrantTime =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipTierAbi,
     functionName: "grantTime",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"processAccounting"`
+ */
+export const useWriteMembershipTierProcessAccounting =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipTierAbi,
+    functionName: "processAccounting",
   });
 
 /**
@@ -10916,15 +11313,6 @@ export const useSimulateMembershipTierAcceptOwnership =
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"accrueProtocolFees"`
- */
-export const useSimulateMembershipTierAccrueProtocolFees =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: membershipTierAbi,
-    functionName: "accrueProtocolFees",
-  });
-
-/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"cancelSubscription"`
  */
 export const useSimulateMembershipTierCancelSubscription =
@@ -10976,6 +11364,15 @@ export const useSimulateMembershipTierGrantTime =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipTierAbi,
     functionName: "grantTime",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"processAccounting"`
+ */
+export const useSimulateMembershipTierProcessAccounting =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipTierAbi,
+    functionName: "processAccounting",
   });
 
 /**
@@ -11120,6 +11517,15 @@ export const useWatchMembershipTierEvent =
   /*#__PURE__*/ createUseWatchContractEvent({ abi: membershipTierAbi });
 
 /**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"AccountingProgress"`
+ */
+export const useWatchMembershipTierAccountingProgressEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    eventName: "AccountingProgress",
+  });
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"Approval"`
  */
 export const useWatchMembershipTierApprovalEvent =
@@ -11162,6 +11568,33 @@ export const useWatchMembershipTierExpiredMembershipSynchronizedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipTierAbi,
     eventName: "ExpiredMembershipSynchronized",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"FundingGenerationCanceled"`
+ */
+export const useWatchMembershipTierFundingGenerationCanceledEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    eventName: "FundingGenerationCanceled",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"FundingLotCompleted"`
+ */
+export const useWatchMembershipTierFundingLotCompletedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    eventName: "FundingLotCompleted",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"FundingLotScheduled"`
+ */
+export const useWatchMembershipTierFundingLotScheduledEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    eventName: "FundingLotScheduled",
   });
 
 /**
@@ -11264,24 +11697,6 @@ export const useWatchMembershipTierPresentationUpdatedEvent =
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"ProtocolFeeAllocated"`
- */
-export const useWatchMembershipTierProtocolFeeAllocatedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: membershipTierAbi,
-    eventName: "ProtocolFeeAllocated",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"ProtocolFeesAccrued"`
- */
-export const useWatchMembershipTierProtocolFeesAccruedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: membershipTierAbi,
-    eventName: "ProtocolFeesAccrued",
-  });
-
-/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"ProtocolFeesReleased"`
  */
 export const useWatchMembershipTierProtocolFeesReleasedEvent =
@@ -11333,15 +11748,6 @@ export const useWatchMembershipTierRewardEligibilityUpdatedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipTierAbi,
     eventName: "RewardEligibilityUpdated",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"RewardPerShareUpdated"`
- */
-export const useWatchMembershipTierRewardPerShareUpdatedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: membershipTierAbi,
-    eventName: "RewardPerShareUpdated",
   });
 
 /**
@@ -11400,368 +11806,267 @@ export const useWatchMembershipTierUnlockedEvent =
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactory =
-  /*#__PURE__*/ createUseReadContract({
-    abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
-  });
+  /*#__PURE__*/ createUseReadContract({ abi: onchainMediaStoreFactoryAbi });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"creatorMedia"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryCreatorMedia =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "creatorMedia",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"creatorMediaCount"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryCreatorMediaCount =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "creatorMediaCount",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"isRegisteredMedia"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryIsRegisteredMedia =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "isRegisteredMedia",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"maxCodeStorePayloadBytes"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryMaxCodeStorePayloadBytes =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "maxCodeStorePayloadBytes",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"maxPageSize"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryMaxPageSize =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "maxPageSize",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"maxRenderableMediaBytes"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryMaxRenderableMediaBytes =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "maxRenderableMediaBytes",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"mediaKey"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryMediaKey =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "mediaKey",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"mediaRecord"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryMediaRecord =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "mediaRecord",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"mediaStore"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryMediaStore =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "mediaStore",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"predictStore"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryPredictStore =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "predictStore",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"validateOnchainMedia"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useReadOnchainMediaStoreFactoryValidateOnchainMedia =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "validateOnchainMedia",
   });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useWriteOnchainMediaStoreFactory =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
-  });
+  /*#__PURE__*/ createUseWriteContract({ abi: onchainMediaStoreFactoryAbi });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"store"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useWriteOnchainMediaStoreFactoryStore =
   /*#__PURE__*/ createUseWriteContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "store",
   });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useSimulateOnchainMediaStoreFactory =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
-  });
+  /*#__PURE__*/ createUseSimulateContract({ abi: onchainMediaStoreFactoryAbi });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"store"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useSimulateOnchainMediaStoreFactoryStore =
   /*#__PURE__*/ createUseSimulateContract({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     functionName: "store",
   });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useWatchOnchainMediaStoreFactoryEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
   });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `eventName` set to `"MediaStored"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x94d79131c69bD41Da715D9C9DEaA851588b7174c)
  */
 export const useWatchOnchainMediaStoreFactoryMediaStoredEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: onchainMediaStoreFactoryAbi,
-    address: onchainMediaStoreFactoryAddress,
     eventName: "MediaStored",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRenderer =
-  /*#__PURE__*/ createUseReadContract({
-    abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
-  });
+  /*#__PURE__*/ createUseReadContract({ abi: onchainMetadataRendererAbi });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"MAX_DESCRIPTION_BYTES"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererMaxDescriptionBytes =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "MAX_DESCRIPTION_BYTES",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"MAX_NAME_BYTES"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererMaxNameBytes =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "MAX_NAME_BYTES",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"MAX_RENDERABLE_MEDIA_BYTES"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererMaxRenderableMediaBytes =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "MAX_RENDERABLE_MEDIA_BYTES",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"MAX_URI_BYTES"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererMaxUriBytes =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "MAX_URI_BYTES",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"engineCount"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererEngineCount =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "engineCount",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"engineName"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererEngineName =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "engineName",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"previewSVG"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererPreviewSvg =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "previewSVG",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"previewTokenURI"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererPreviewTokenUri =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "previewTokenURI",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"renderTokenURI"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererRenderTokenUri =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "renderTokenURI",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"rendererName"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererRendererName =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "rendererName",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"rendererSchema"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererRendererSchema =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "rendererSchema",
   });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMetadataRendererAbi}__ and `functionName` set to `"validateConfiguration"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xc21aDdA35ED9565E808fdd2a254c51831D90330a)
  */
 export const useReadOnchainMetadataRendererValidateConfiguration =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMetadataRendererAbi,
-    address: onchainMetadataRendererAddress,
     functionName: "validateConfiguration",
   });
 
@@ -11847,6 +12152,33 @@ export const useReadProtocolBurnRouter = /*#__PURE__*/ createUseReadContract({
 });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"MAX_ACCOUNTING_STEPS"`
+ */
+export const useReadProtocolBurnRouterMaxAccountingSteps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "MAX_ACCOUNTING_STEPS",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"MAX_PURCHASES"`
+ */
+export const useReadProtocolBurnRouterMaxPurchases =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "MAX_PURCHASES",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"MAX_TIERS"`
+ */
+export const useReadProtocolBurnRouterMaxTiers =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBurnRouterAbi,
+    functionName: "MAX_TIERS",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"factory"`
  */
 export const useReadProtocolBurnRouterFactory =
@@ -11881,30 +12213,30 @@ export const useWriteProtocolBurnRouter = /*#__PURE__*/ createUseWriteContract({
 });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"burn"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"advance"`
  */
-export const useWriteProtocolBurnRouterBurn =
+export const useWriteProtocolBurnRouterAdvance =
   /*#__PURE__*/ createUseWriteContract({
     abi: protocolBurnRouterAbi,
-    functionName: "burn",
+    functionName: "advance",
   });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"collect"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"advanceAccounting"`
  */
-export const useWriteProtocolBurnRouterCollect =
+export const useWriteProtocolBurnRouterAdvanceAccounting =
   /*#__PURE__*/ createUseWriteContract({
     abi: protocolBurnRouterAbi,
-    functionName: "collect",
+    functionName: "advanceAccounting",
   });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"purchase"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"buyback"`
  */
-export const useWriteProtocolBurnRouterPurchase =
+export const useWriteProtocolBurnRouterBuyback =
   /*#__PURE__*/ createUseWriteContract({
     abi: protocolBurnRouterAbi,
-    functionName: "purchase",
+    functionName: "buyback",
   });
 
 /**
@@ -11914,30 +12246,30 @@ export const useSimulateProtocolBurnRouter =
   /*#__PURE__*/ createUseSimulateContract({ abi: protocolBurnRouterAbi });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"burn"`
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"advance"`
  */
-export const useSimulateProtocolBurnRouterBurn =
+export const useSimulateProtocolBurnRouterAdvance =
   /*#__PURE__*/ createUseSimulateContract({
     abi: protocolBurnRouterAbi,
-    functionName: "burn",
+    functionName: "advance",
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"collect"`
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"advanceAccounting"`
  */
-export const useSimulateProtocolBurnRouterCollect =
+export const useSimulateProtocolBurnRouterAdvanceAccounting =
   /*#__PURE__*/ createUseSimulateContract({
     abi: protocolBurnRouterAbi,
-    functionName: "collect",
+    functionName: "advanceAccounting",
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"purchase"`
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"buyback"`
  */
-export const useSimulateProtocolBurnRouterPurchase =
+export const useSimulateProtocolBurnRouterBuyback =
   /*#__PURE__*/ createUseSimulateContract({
     abi: protocolBurnRouterAbi,
-    functionName: "purchase",
+    functionName: "buyback",
   });
 
 /**
@@ -11947,30 +12279,48 @@ export const useWatchProtocolBurnRouterEvent =
   /*#__PURE__*/ createUseWatchContractEvent({ abi: protocolBurnRouterAbi });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"BurnCompleted"`
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"AccountingAdvanced"`
  */
-export const useWatchProtocolBurnRouterBurnCompletedEvent =
+export const useWatchProtocolBurnRouterAccountingAdvancedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBurnRouterAbi,
-    eventName: "BurnCompleted",
+    eventName: "AccountingAdvanced",
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"CollectionFailed"`
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"AdvanceCompleted"`
  */
-export const useWatchProtocolBurnRouterCollectionFailedEvent =
+export const useWatchProtocolBurnRouterAdvanceCompletedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBurnRouterAbi,
-    eventName: "CollectionFailed",
+    eventName: "AdvanceCompleted",
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"PurchaseFailed"`
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"PurchaseCompleted"`
  */
-export const useWatchProtocolBurnRouterPurchaseFailedEvent =
+export const useWatchProtocolBurnRouterPurchaseCompletedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBurnRouterAbi,
-    eventName: "PurchaseFailed",
+    eventName: "PurchaseCompleted",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"PurchaseSkipped"`
+ */
+export const useWatchProtocolBurnRouterPurchaseSkippedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBurnRouterAbi,
+    eventName: "PurchaseSkipped",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `eventName` set to `"TierReleased"`
+ */
+export const useWatchProtocolBurnRouterTierReleasedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBurnRouterAbi,
+    eventName: "TierReleased",
   });
 
 /**
@@ -12441,70 +12791,46 @@ export const useWatchProtocolBuybackVaultRouteConfiguredEvent =
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererPreviewHarnessAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x369d13442eEb924105879Eb0EF0b39b619A1DF70)
  */
 export const useReadRendererPreviewHarness =
-  /*#__PURE__*/ createUseReadContract({
-    abi: rendererPreviewHarnessAbi,
-    address: rendererPreviewHarnessAddress,
-  });
+  /*#__PURE__*/ createUseReadContract({ abi: rendererPreviewHarnessAbi });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererPreviewHarnessAbi}__ and `functionName` set to `"MAX_FAILURE_REASON_BYTES"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x369d13442eEb924105879Eb0EF0b39b619A1DF70)
  */
 export const useReadRendererPreviewHarnessMaxFailureReasonBytes =
   /*#__PURE__*/ createUseReadContract({
     abi: rendererPreviewHarnessAbi,
-    address: rendererPreviewHarnessAddress,
     functionName: "MAX_FAILURE_REASON_BYTES",
   });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link rendererPreviewHarnessAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x369d13442eEb924105879Eb0EF0b39b619A1DF70)
  */
 export const useWriteRendererPreviewHarness =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: rendererPreviewHarnessAbi,
-    address: rendererPreviewHarnessAddress,
-  });
+  /*#__PURE__*/ createUseWriteContract({ abi: rendererPreviewHarnessAbi });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link rendererPreviewHarnessAbi}__ and `functionName` set to `"preview"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x369d13442eEb924105879Eb0EF0b39b619A1DF70)
  */
 export const useWriteRendererPreviewHarnessPreview =
   /*#__PURE__*/ createUseWriteContract({
     abi: rendererPreviewHarnessAbi,
-    address: rendererPreviewHarnessAddress,
     functionName: "preview",
   });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link rendererPreviewHarnessAbi}__
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x369d13442eEb924105879Eb0EF0b39b619A1DF70)
  */
 export const useSimulateRendererPreviewHarness =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: rendererPreviewHarnessAbi,
-    address: rendererPreviewHarnessAddress,
-  });
+  /*#__PURE__*/ createUseSimulateContract({ abi: rendererPreviewHarnessAbi });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link rendererPreviewHarnessAbi}__ and `functionName` set to `"preview"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x369d13442eEb924105879Eb0EF0b39b619A1DF70)
  */
 export const useSimulateRendererPreviewHarnessPreview =
   /*#__PURE__*/ createUseSimulateContract({
     abi: rendererPreviewHarnessAbi,
-    address: rendererPreviewHarnessAddress,
     functionName: "preview",
   });
 

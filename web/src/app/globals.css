@@ -1470,6 +1470,126 @@ dd {
   margin-top: 1.5rem;
 }
 
+.reward-curve-controls {
+  border-top: 1px solid var(--line);
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+}
+
+.reward-curve-controls > p,
+.reward-curve-summary p {
+  line-height: 1.6;
+  max-width: 49rem;
+}
+
+.reward-curve-presets {
+  border: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: 0.65rem;
+  margin: 1.25rem 0;
+  padding: 0;
+}
+
+.reward-curve-presets label {
+  align-items: center;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+  display: flex;
+  gap: 0.6rem;
+  min-height: 4.5rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0.8rem;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.reward-curve-presets label:has(input:checked) {
+  background: var(--encore);
+  border-color: var(--backstage);
+}
+
+.reward-curve-presets input {
+  accent-color: var(--backstage);
+}
+.reward-curve-presets strong,
+.reward-curve-presets small {
+  display: block;
+}
+.reward-curve-summary {
+  margin: 1.25rem 0;
+}
+.reward-curve-summary p + p {
+  margin-top: 0.6rem;
+}
+.reward-curve-chart {
+  width: 100%;
+  max-width: 38rem;
+  animation: reward-curve-enter 180ms ease-out;
+}
+.reward-curve-chart text {
+  fill: var(--muted-ink);
+  font-size: 11px;
+}
+.reward-curve-chart svg {
+  display: block;
+  width: 100%;
+}
+.reward-curve-axis {
+  fill: none;
+  stroke: var(--line);
+}
+.reward-curve-baseline {
+  fill: none;
+  stroke: var(--muted-ink);
+  stroke-dasharray: 5 5;
+}
+.reward-curve-line {
+  fill: none;
+  stroke: var(--fan-blue);
+  stroke-width: 3;
+}
+
+@keyframes reward-curve-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reward-curve-chart {
+    animation: none;
+  }
+  .reward-curve-presets label {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .reward-curve-presets label {
+    border-color: CanvasText;
+  }
+  .reward-curve-presets label:has(input:checked) {
+    outline: 2px solid Highlight;
+  }
+  .reward-curve-line,
+  .reward-curve-axis,
+  .reward-curve-baseline {
+    stroke: CanvasText;
+  }
+  .reward-curve-chart text {
+    fill: CanvasText;
+  }
+}
+
 .creator-field {
   align-content: start;
   display: grid;
@@ -2721,6 +2841,11 @@ dd {
 
 .supporter-columns.is-single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.vesting-summary {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
 }
 
 .supporter-primary,

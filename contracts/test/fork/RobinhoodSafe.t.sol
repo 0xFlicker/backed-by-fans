@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
+import {ForkTierCodeFixture} from "./helpers/ForkTierCodeFixture.sol";
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
@@ -134,14 +136,22 @@ contract ProtocolSafeForkTest is PonsForkFixture {
 
     function setUp() public override {
         super.setUp();
+        new ForkTierCodeFixture().install();
         _launch(keccak256("threshold-safe-test"));
         safe = _createSafe(0xA000, 1);
         IERC20[] memory assets = new IERC20[](1);
         assets[0] = IERC20(USDG);
         bbf = new MembershipFactory(
-            assets, address(new OnchainMediaStoreFactory()), address(safe), address(token)
+            assets,
+            address(new OnchainMediaStoreFactory()),
+            address(safe),
+            address(token),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(assets)
         );
         bbfVault = ProtocolBuybackVault(payable(bbf.buybackVault()));
+        vm.prank(address(safe));
+        bbf.setMinimumPayment(AMD, 1); // Registry authorization fixture minimum.
     }
 
     function test_thresholdSignedRegistryChangesAndFailedInnerCallHaveDistinctEvidence() public {

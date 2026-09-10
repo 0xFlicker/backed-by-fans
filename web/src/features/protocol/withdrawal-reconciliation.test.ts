@@ -7,7 +7,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { membershipTierAbi } from "@/contracts";
-import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
+import { receiptCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 
 const contract = getAddress("0x1111111111111111111111111111111111111111");
 const recipient = getAddress("0x2222222222222222222222222222222222222222");
@@ -25,25 +25,32 @@ function withdrawalLog(amount: bigint): Log {
 }
 
 describe("withdrawal receipt reconciliation", () => {
-  it("requires the exact tier, owner, and amount", () => {
+  it("returns actual positive cash for the exact tier and owner", () => {
     const receipt = {
       status: "success" as const,
       logs: [withdrawalLog(12n)],
     };
 
     expect(
-      receiptProvesCreatorWithdrawal(receipt, {
+      receiptCreatorWithdrawal(receipt, {
         tier: contract,
         owner: recipient,
-        amount: 12n,
       }),
-    ).toBe(true);
+    ).toEqual({ amount: 12n, recipient });
     expect(
-      receiptProvesCreatorWithdrawal(receipt, {
+      receiptCreatorWithdrawal(receipt, {
         tier: contract,
         owner: getAddress("0x3333333333333333333333333333333333333333"),
-        amount: 12n,
       }),
-    ).toBe(false);
+    ).toBeUndefined();
+    expect(
+      receiptCreatorWithdrawal(
+        { logs: [withdrawalLog(0n)] },
+        { tier: contract, owner: recipient },
+      ),
+    ).toBeUndefined();
+    expect(
+      receiptCreatorWithdrawal(receipt, { tier: recipient, owner: recipient }),
+    ).toBeUndefined();
   });
 });

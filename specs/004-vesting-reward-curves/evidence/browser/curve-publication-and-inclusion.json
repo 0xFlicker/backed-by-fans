@@ -1,0 +1,32 @@
+[
+  {
+    "preset": "None",
+    "tier": "0x503Df3c549a87A8d4a81A5a10628C0aA6116FA25",
+    "startingBoostBps": 10000,
+    "earlySupportGross": "0"
+  },
+  {
+    "preset": "Some",
+    "tier": "0xF7A83E3B654e20e0FFCaC6bE3Fc321BD34aA885b",
+    "startingBoostBps": 15000,
+    "earlySupportGross": "10000000000"
+  },
+  {
+    "preset": "More",
+    "tier": "0x94F9AA912dBb19CF662174ad0c14f2b5b73641b4",
+    "startingBoostBps": 30000,
+    "earlySupportGross": "10000000000"
+  },
+  {
+    "preset": "Custom",
+    "tier": "0x8c61074CD695f9B3A73A1397D5764BDA4a0BCadD",
+    "startingBoostBps": 23700,
+    "earlySupportGross": "20000000"
+  },
+  {
+    "quoted": "33700000",
+    "actual": "23425000",
+    "tokenShares": "23425000",
+    "paymentHash": "0x84f715439e034c594e3ffecbba5c3b10a1791f761a81ac50cbb37f74e6c301ad"
+  }
+]

@@ -1,8 +1,135 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 import {BuybackIntegration} from "../../src/libraries/BuybackIntegration.sol";
+import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+/// @dev Synthetic stage adversaries, never authentic venue or cash evidence.
+contract AdvanceStageFault {
+    enum Fault {
+        None,
+        Revert,
+        ExhaustGas,
+        LongRevert,
+        Malformed,
+        ExcessSteps
+    }
+
+    function _fault(Fault fault) internal pure {
+        if (fault == Fault.Revert) revert("Injected stage failure");
+        if (fault == Fault.ExhaustGas) {
+            assembly { for {} 1 {} {} }
+        }
+        if (fault == Fault.LongRevert) {
+            bytes memory reason = new bytes(65_536);
+            assembly { revert(add(reason, 32), mload(reason)) }
+        }
+        if (fault == Fault.Malformed) {
+            assembly { return(0, 0) }
+        }
+    }
+}
+
+contract AdvanceFaultTier is AdvanceStageFault {
+    address public immutable paymentToken;
+    Fault public accountFault;
+    Fault public releaseFault;
+    uint256 public accounted;
+    uint256 public released;
+
+    constructor(address asset) {
+        paymentToken = asset;
+    }
+
+    function configure(Fault account_, Fault release_) external {
+        accountFault = account_;
+        releaseFault = release_;
+    }
+
+    function processAccounting(uint256 maximum) external returns (uint256, uint64, bool, uint256) {
+        ++accounted;
+        _fault(accountFault);
+        return (accountFault == Fault.ExcessSteps ? maximum + 1 : 1, 1000, true, 1);
+    }
+
+    function releaseProtocolFees() external returns (uint256) {
+        ++released;
+        _fault(releaseFault);
+        return 1;
+    }
+}
+
+contract AdvanceFaultRegistry {
+    address private immutable _tier;
+
+    constructor(address tier) {
+        _tier = tier;
+    }
+
+    function isRegisteredTier(address tier) external view returns (bool) {
+        return tier == _tier;
+    }
+}
+
+contract AdvanceMeasurementToken is AdvanceStageFault {
+    uint256 private _supply = 100;
+    Fault public fault;
+    Fault public afterPurchase;
+
+    function configure(Fault before_, Fault after_) external {
+        fault = before_;
+        afterPurchase = after_;
+    }
+
+    function totalSupply() external view returns (uint256) {
+        _fault(fault);
+        return _supply;
+    }
+
+    function settle() external {
+        --_supply;
+        fault = afterPurchase;
+    }
+}
+
+contract AdvanceFaultVault is AdvanceStageFault {
+    AdvanceMeasurementToken private immutable _token;
+    Fault public purchaseFault;
+    uint256 public purchases;
+
+    constructor(AdvanceMeasurementToken token_) {
+        _token = token_;
+    }
+
+    function protocolToken() external view returns (address) {
+        return address(_token);
+    }
+
+    function canonicalAsset(address asset) external pure returns (address) {
+        return asset;
+    }
+
+    function configure(Fault fault) external {
+        purchaseFault = fault;
+    }
+
+    function processingStatus(address, BuybackTypes.SourceBucket)
+        external
+        pure
+        returns (BuybackTypes.ProcessingState memory state)
+    {
+        state.status = BuybackTypes.Status.Ready;
+        state.available = 1;
+        state.maxInput = 1;
+    }
+
+    function process(address, BuybackTypes.SourceBucket, uint256, uint64, uint64) external {
+        ++purchases;
+        _fault(purchaseFault);
+        _token.settle();
+    }
+}
 
 /// @dev Explicit synthetic fault injection. Never used in authentic fork evidence.
 contract FaultBurnToken is ERC20 {

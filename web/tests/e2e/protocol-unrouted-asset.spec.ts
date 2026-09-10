@@ -15,6 +15,7 @@ import {
 import {
   readAdminContext,
   preparePaymentTokenPayload,
+  prepareMinimumPaymentPayload,
 } from "../../scripts/protocol-admin";
 import { executeForkSafePayload } from "../../scripts/protocol-safe-transactions";
 import { forkContext, testKey } from "./helpers/protocol-fork";
@@ -115,6 +116,22 @@ test("@protocol-fork a compatible authentic token without an approved route rema
         args: [creator],
       }),
     ]);
+    // This newly launched token is a fixture, not a calibrated supported currency.
+    const minimumContext = await readAdminContext(f.client, 31337, b.factory);
+    const minimumPayload = await prepareMinimumPaymentPayload(
+      f.client,
+      minimumContext,
+      asset,
+      1n,
+    );
+    const minimumResult = await executeForkSafePayload({
+      rpcUrl: f.rpc,
+      factory: b.factory,
+      payload: minimumPayload,
+      signerKeys: f.signerKeys,
+      relayerKey: testKey(49153),
+    });
+    f.receipts.push({ payload: minimumPayload, ...minimumResult });
     const context = await readAdminContext(f.client, 31337, b.factory),
       payload = await preparePaymentTokenPayload(
         f.client,
@@ -141,9 +158,7 @@ test("@protocol-fork a compatible authentic token without an approved route rema
     ]);
     await f.testClient.increaseTime({ seconds: 300 });
     await f.testClient.mine({ blocks: 1 });
-    await f.write(member, tier, membershipTierAbi, "accrueProtocolFees", [
-      [1n],
-    ]);
+    await f.write(member, tier, membershipTierAbi, "processAccounting", [25n]);
     await f.write(member, tier, membershipTierAbi, "releaseProtocolFees");
     const pending = await f.client.readContract({
       address: b.buybackVault,

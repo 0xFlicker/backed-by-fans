@@ -33,14 +33,20 @@ import {
   classifyMembershipState,
   parsePaymentAmount,
   validateGift,
+  readRewardQuote,
+  reconcilePaymentWeight,
+  averageRewardBoost,
+  receiptRestoredRewardWeight,
 } from "@/features/membership/state";
 import {
   receiptProvesPayment,
-  receiptProvesReferralClaim,
-  receiptProvesRewardClaim,
+  receiptReferralClaim,
+  receiptRewardClaim,
 } from "@/features/protocol/payout-reconciliation";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
-import { receiptProvesCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
+import { receiptCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
+import { VestingSummary } from "@/features/membership/VestingSummary";
+import { ReleaseTierFees } from "@/features/protocol/ReleaseTierFees";
 import {
   isSuccessfulWriteReceipt,
   reconcileSuccessfulWrite,
@@ -210,7 +216,25 @@ export function MembershipExperience({
   const [giftRecipient, setGiftRecipient] = useState("");
   const [giftPeriods, setGiftPeriods] = useState("1");
   const [preparedAction, setPreparedAction] = useState("");
+  const [issuedWeight, setIssuedWeight] = useState<bigint>();
+  const [restoredWeight, setRestoredWeight] = useState(0n);
+  const [payout, setPayout] = useState<{
+    amount: bigint;
+    recipient: Address;
+  }>();
   const paymentTokenState = snapshot.paymentTokenState;
+  const eligibleWeight = snapshot.credential?.rewardEligible
+    ? snapshot.credential.shares
+    : 0n;
+  const totalWeight = snapshot.totalEligibleRewardShares;
+  const rewardShare =
+    eligibleWeight === 0n || totalWeight === 0n
+      ? "0%"
+      : totalWeight === undefined
+        ? "Unavailable"
+        : eligibleWeight * 10000n < totalWeight
+          ? "<0.01%"
+          : `${Number((eligibleWeight * 10000n) / totalWeight) / 100}%`;
   const paymentLabel = (raw: bigint) =>
     paymentTokenState
       ? `${formatRawTokenAmount({
@@ -219,6 +243,16 @@ export function MembershipExperience({
           multiplier: paymentTokenState.uiMultiplier,
         })} ${paymentTokenState.symbol}`
       : "Payment token unavailable";
+  // Weight uses the token's fixed decimal denomination, never its changing
+  // display multiplier: a stock split must not change permanent reward weight.
+  const weightLabel = (raw: bigint) =>
+    paymentTokenState
+      ? formatRawTokenAmount({
+          raw,
+          decimals: paymentTokenState.decimals,
+          multiplier: 10n ** 18n,
+        })
+      : "Unavailable";
   const scheduledPeriodPrice = paymentTokenState
     ? scheduledDisplayAdjustment({
         raw: snapshot.pricePerPeriod,
@@ -286,7 +320,9 @@ export function MembershipExperience({
     : undefined;
   const primaryInputValid =
     snapshot.pricePerPeriod === 0n
-      ? contributionValue !== undefined
+      ? contributionValue !== undefined &&
+        (contributionValue === 0n ||
+          contributionValue >= snapshot.minimumPayment)
       : periodValue !== undefined;
   const selfPreview = buildPaymentPreview({
     now: snapshot.capturedTimestamp,
@@ -303,6 +339,22 @@ export function MembershipExperience({
   });
   const reacquiring =
     actionState === "joinable" || actionState === "historical-synchronized";
+  const rewardQuote = useQuery({
+    queryKey: [
+      "reward-shares",
+      expectedChainId,
+      snapshot.address,
+      capturedBlock.toString(),
+      selfPreview.gross.toString(),
+    ],
+    enabled: Boolean(primaryInputValid && fresh && client),
+    queryFn: () =>
+      readRewardQuote(client, {
+        tier: snapshot.address,
+        gross: selfPreview.gross,
+        blockNumber: capturedBlock,
+      }),
+  });
   const capacityFull =
     reacquiring &&
     snapshot.supplyCap !== 0n &&
@@ -351,6 +403,22 @@ export function MembershipExperience({
           referralApplies: giftState.data.referralStatus === "locked-address",
         })
       : undefined;
+  const giftRewardQuote = useQuery({
+    queryKey: [
+      "reward-shares",
+      expectedChainId,
+      snapshot.address,
+      capturedBlock.toString(),
+      giftPreview?.gross.toString(),
+    ],
+    enabled: Boolean(giftPreview && fresh && client),
+    queryFn: () =>
+      readRewardQuote(client, {
+        tier: snapshot.address,
+        gross: giftPreview!.gross,
+        blockNumber: capturedBlock,
+      }),
+  });
   const giftReacquiresCapacity =
     giftState.data !== undefined && !giftState.data.occupied;
   const giftCapacityFull =
@@ -417,6 +485,9 @@ export function MembershipExperience({
     approve?: () => Promise<SendWrite>,
   ) {
     setPreparedAction(label);
+    setIssuedWeight(undefined);
+    setRestoredWeight(0n);
+    setPayout(undefined);
     let waitingForReceipt = false;
     try {
       dispatch({ type: "SIMULATE" });
@@ -534,6 +605,15 @@ export function MembershipExperience({
     return provesAction(state.data) ? state.data : undefined;
   }
 
+  async function reconcilePayout(
+    paid: { amount: bigint; recipient: Address } | undefined,
+  ) {
+    if (!paid) return undefined;
+    const next = await reconcileSnapshot(() => true);
+    if (next) setPayout(paid);
+    return next;
+  }
+
   async function buyForSelf() {
     if (
       periodValue === undefined ||
@@ -547,7 +627,6 @@ export function MembershipExperience({
       snapshot.pricePerPeriod === 0n
         ? tierWrite("contribute", [contributionValue, paymentReferrer])
         : tierWrite("purchase", [periodValue, paymentReferrer]);
-    const priorShares = snapshot.credential?.shares ?? 0n;
     const expectedReferral =
       snapshot.credential?.referralStatus !== undefined &&
       snapshot.credential.referralStatus !== "unset"
@@ -560,23 +639,35 @@ export function MembershipExperience({
     await perform(
       primaryTitle,
       simulate,
-      (receipt) =>
-        reconcileSnapshot((next) => {
+      async (receipt) => {
+        let actual: bigint | undefined;
+        const reconciled = await reconcileSnapshot((next) => {
           const credential = next.credential;
-          return Boolean(
-            receiptProvesPayment(receipt, {
-              tier: snapshot.address,
-              payer,
-              recipient: payer,
-              gross: selfPreview.gross,
-              periods: snapshot.pricePerPeriod === 0n ? 1n : periodValue,
-            }) &&
-            credential &&
-            credential.expiration >= selfPreview.resultingExpiration &&
-            credential.shares >= priorShares + selfPreview.sharesAdded &&
-            credential.referralStatus === expectedReferral,
+          if (!credential || credential.referralStatus !== expectedReferral)
+            return false;
+          actual = reconcilePaymentWeight(receipt, {
+            tier: snapshot.address,
+            payer,
+            recipient: payer,
+            gross: selfPreview.gross,
+            periods: snapshot.pricePerPeriod === 0n ? 1n : periodValue,
+            tokenId: credential.tokenId,
+            shares: credential.shares,
+          });
+          return actual !== undefined;
+        });
+        if (reconciled) {
+          setIssuedWeight(actual);
+          setRestoredWeight(
+            receiptRestoredRewardWeight(
+              receipt,
+              snapshot.address,
+              reconciled.credential!.tokenId,
+            ),
           );
-        }),
+        }
+        return reconciled;
+      },
       approval(selfPreview.exactApproval),
     );
   }
@@ -620,10 +711,33 @@ export function MembershipExperience({
           recipient: normalizedGift,
           blockNumber,
         });
-        return recipient.expiration >= giftPreview.resultingExpiration &&
-          recipient.occupied
-          ? recipient
-          : undefined;
+        if (recipient.tokenId === 0n) return undefined;
+        const shares = await client.readContract({
+          address: snapshot.address,
+          abi: membershipTierAbi,
+          functionName: "sharesOf",
+          args: [recipient.tokenId],
+          blockNumber,
+        });
+        const actual = reconcilePaymentWeight(receipt, {
+          tier: snapshot.address,
+          payer: account.address!,
+          recipient: normalizedGift,
+          gross: giftPreview.gross,
+          periods: giftPeriodValue,
+          tokenId: recipient.tokenId,
+          shares,
+        });
+        if (actual === undefined) return undefined;
+        setIssuedWeight(actual);
+        setRestoredWeight(
+          receiptRestoredRewardWeight(
+            receipt,
+            snapshot.address,
+            recipient.tokenId,
+          ),
+        );
+        return recipient;
       },
       approval(giftPreview.exactApproval),
     );
@@ -845,7 +959,24 @@ export function MembershipExperience({
               <dt>Through</dt>
               <dd>{formatMembershipDate(snapshot.credential.expiration)}</dd>
             </div>
+            <div>
+              <dt>Reward share</dt>
+              <dd>{rewardShare}</dd>
+            </div>
+            <div>
+              <dt>Reward eligibility</dt>
+              <dd>
+                {snapshot.credential.rewardEligible
+                  ? "Eligible"
+                  : "Not eligible"}
+              </dd>
+            </div>
           </dl>
+          <p className="small-copy">
+            {snapshot.credential.rewardEligible
+              ? "Your weight can earn new rewards until the creator syncs an expired membership or cancels its remaining access. Expiration alone does not suspend it."
+              : "Your historical weight is retained. A positive payment restores it; free access and grants do not. Already-earned rewards remain claimable."}
+          </p>
         </section>
       )}
 
@@ -864,13 +995,17 @@ export function MembershipExperience({
                   Optional {paymentTokenState?.symbol ?? "token"} contribution
                 </span>
                 <input
-                  aria-invalid={contributionValue === undefined}
+                  aria-invalid={!primaryInputValid}
                   inputMode="decimal"
                   min="0"
                   onChange={(event) => setContribution(event.target.value)}
                   value={contribution}
                 />
-                <small>Enter 0 to join without a payment.</small>
+                <small>
+                  Enter 0 to join without a payment, or at least{" "}
+                  {paymentLabel(snapshot.minimumPayment)}. This minimum is fixed
+                  for this membership.
+                </small>
               </label>
             ) : (
               <label className="creator-field">
@@ -906,6 +1041,40 @@ export function MembershipExperience({
                 <dd>{formatMembershipDate(selfPreview.resultingExpiration)}</dd>
               </div>
             </dl>
+            <p className="small-copy" aria-live="polite">
+              {!primaryInputValid
+                ? "Enter a valid payment to preview reward weight."
+                : rewardQuote.data !== undefined
+                  ? `Estimated new reward weight: ${weightLabel(rewardQuote.data)} shares (${averageRewardBoost(rewardQuote.data, selfPreview.gross)} average).`
+                  : rewardQuote.isError
+                    ? "Reward weight preview is unavailable. The contract will check this payment before confirmation."
+                    : "Checking reward weight…"}
+            </p>
+            <p className="small-copy">
+              This quote does not reserve an early-support position. Other
+              purchases may change the weight issued when your payment is
+              included. Weight is permanent; cash rewards vest as paid
+              membership time is consumed. A zero payment adds access only and
+              cannot reactivate suspended weight.
+            </p>
+            {snapshot.credential?.rewardEligible &&
+              snapshot.pricePerPeriod === 0n &&
+              selfPreview.gross === 0n && (
+                <p className="small-copy">
+                  Free renewal keeps your existing weight eligible until
+                  suspension. It adds no new weight or reward funding.
+                </p>
+              )}
+            {snapshot.credential &&
+              !snapshot.credential.rewardEligible &&
+              snapshot.credential.shares > 0n &&
+              selfPreview.gross > 0n && (
+                <p className="small-copy">
+                  A positive payment also restores your current{" "}
+                  {weightLabel(snapshot.credential.shares)} historical shares.
+                  That restored weight is separate from the new-weight estimate.
+                </p>
+              )}
             {scheduledPeriodPrice ? (
               <p className="small-copy" role="status">
                 Starting {scheduledPeriodPrice.effectiveAt.toLocaleString()},
@@ -1012,6 +1181,29 @@ export function MembershipExperience({
                   )}
                 </span>
                 {transaction.error && <span>{transaction.error}</span>}
+                {transaction.error?.includes(
+                  "Membership accounting needs to catch up",
+                ) && (
+                  <a
+                    href={`#tier-accounting-${snapshot.address.toLowerCase()}`}
+                  >
+                    Catch up accounting
+                  </a>
+                )}
+                {transaction.phase === "confirmed" &&
+                  issuedWeight !== undefined && (
+                    <span>
+                      Actual new reward weight: {weightLabel(issuedWeight)}{" "}
+                      shares. Cash rewards vest over paid membership time.
+                    </span>
+                  )}
+                {transaction.phase === "confirmed" && restoredWeight > 0n && (
+                  <span>
+                    Historical reward weight restored:{" "}
+                    {weightLabel(restoredWeight)} shares. No rewards are
+                    backfilled for the suspended interval.
+                  </span>
+                )}
                 {displayedHash && explorerUrl && (
                   <a
                     href={`${explorerUrl}/tx/${displayedHash}`}
@@ -1030,7 +1222,7 @@ export function MembershipExperience({
           <aside className="supporter-secondary">
             {hasClaims && (
               <section className="claim-groups" aria-labelledby="claims-title">
-                <p className="eyebrow">Available now</p>
+                <p className="eyebrow">Settled and available now</p>
                 <h2 id="claims-title">Funds for this wallet</h2>
                 {rewardClaim > 0n && snapshot.credential && (
                   <div className="claim-row">
@@ -1048,14 +1240,12 @@ export function MembershipExperience({
                             snapshot.credential!.tokenId,
                           ]),
                           (receipt) =>
-                            reconcileSnapshot(
-                              (next) =>
-                                receiptProvesRewardClaim(receipt, {
-                                  tier: snapshot.address,
-                                  tokenId: snapshot.credential!.tokenId,
-                                  owner: snapshot.credential!.owner,
-                                  amount: snapshot.credential!.claimableReward,
-                                }) && next.credential?.claimableReward === 0n,
+                            reconcilePayout(
+                              receiptRewardClaim(receipt, {
+                                tier: snapshot.address,
+                                tokenId: snapshot.credential!.tokenId,
+                                owner: snapshot.credential!.owner,
+                              }),
                             ),
                         )
                       }
@@ -1079,16 +1269,13 @@ export function MembershipExperience({
                           "Claim referral proceeds",
                           tierWrite("claimReferral"),
                           (receipt) =>
-                            reconcileSnapshot(
-                              (next) =>
-                                Boolean(
-                                  snapshot.wallet &&
-                                  receiptProvesReferralClaim(receipt, {
+                            reconcilePayout(
+                              snapshot.wallet
+                                ? receiptReferralClaim(receipt, {
                                     tier: snapshot.address,
                                     referrer: snapshot.wallet,
-                                    amount: snapshot.claimableReferral ?? 0n,
-                                  }),
-                                ) && (next.claimableReferral ?? 0n) === 0n,
+                                  })
+                                : undefined,
                             ),
                         )
                       }
@@ -1115,13 +1302,11 @@ export function MembershipExperience({
                             "Withdraw creator proceeds",
                             tierWrite("withdrawCreatorProceeds"),
                             (receipt) =>
-                              reconcileSnapshot(
-                                (next) =>
-                                  receiptProvesCreatorWithdrawal(receipt, {
-                                    tier: snapshot.address,
-                                    owner: snapshot.creator,
-                                    amount: snapshot.creatorProceeds!,
-                                  }) && next.creatorProceeds === 0n,
+                              reconcilePayout(
+                                receiptCreatorWithdrawal(receipt, {
+                                  tier: snapshot.address,
+                                  owner: snapshot.creator,
+                                }),
                               ),
                           )
                         }
@@ -1138,6 +1323,27 @@ export function MembershipExperience({
               </section>
             )}
           </aside>
+        )}
+
+        {payout && transaction.phase === "confirmed" && (
+          <p className="vesting-summary" role="status">
+            Paid {paymentLabel(payout.amount)} to {payout.recipient}. New
+            earnings may still become available.
+          </p>
+        )}
+        {snapshot.vesting && (
+          <div className="vesting-summary">
+            <VestingSummary
+              reserves={snapshot.vesting.reserves}
+              paymentLabel={paymentLabel}
+            />
+            <ReleaseTierFees
+              chainId={expectedChainId}
+              tier={snapshot.address}
+              blockNumber={capturedBlock}
+              onConfirmed={onRefresh}
+            />
+          </div>
         )}
 
         {snapshot.pricePerPeriod > 0n && (
@@ -1193,6 +1399,15 @@ export function MembershipExperience({
                     </dd>
                   </div>
                 </dl>
+              )}
+              {giftPreview && (
+                <p className="small-copy" aria-live="polite">
+                  {giftRewardQuote.data !== undefined
+                    ? `Estimated new reward weight for the recipient: ${weightLabel(giftRewardQuote.data)} shares (${averageRewardBoost(giftRewardQuote.data, giftPreview.gross)} average). Other purchases may change this before inclusion.`
+                    : giftRewardQuote.isError
+                      ? "Recipient reward weight preview is unavailable."
+                      : "Checking recipient reward weight…"}
+                </p>
               )}
               {giftCapacityFull && (
                 <p className="inline-status" role="alert">

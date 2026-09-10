@@ -9,6 +9,7 @@ import {
   type Address,
   type Hex,
   type PublicClient,
+  type ContractFunctionArgs,
 } from "viem";
 
 import {
@@ -25,27 +26,11 @@ import { readProtocolDependencies } from "@/features/protocol/protocol-read";
 import type { SuccessfulWriteReceipt } from "@/features/protocol/write-reconciliation";
 import { isSameAddress } from "@/lib/address";
 
-export type TierPublicationConfig = {
-  creator: Address;
-  tierSalt: Hex;
-  renderer: Address;
-  paymentToken: Address;
-  name: string;
-  symbol: string;
-  pricePerPeriod: bigint;
-  periodDuration: bigint;
-  protocolFeeBps: number;
-  rewardBps: number;
-  referralBps: number;
-  supplyCap: bigint;
-  maxPrepaidPeriods: bigint;
-  metadata: {
-    description: string;
-    externalURI: string;
-  };
-  art: TierArtConfig;
-  media: TierMediaConfig;
-};
+export type TierPublicationConfig = ContractFunctionArgs<
+  typeof membershipFactoryAbi,
+  "nonpayable",
+  "createTier"
+>[0];
 
 export type ConfirmedOnchainMedia = TierMediaConfig & {
   mime: 1 | 2;
@@ -508,6 +493,7 @@ async function matchesLaunchTerms(
     name,
     symbol,
     price,
+    minimumPayment,
     duration,
     rewardBps,
     protocolFeeBps,
@@ -518,6 +504,8 @@ async function matchesLaunchTerms(
     externalURI,
     art,
     media,
+    startingBoostBps,
+    earlySupportGross,
   ] = await Promise.all([
     client.readContract({
       address: tier,
@@ -565,6 +553,12 @@ async function matchesLaunchTerms(
       address: tier,
       abi: membershipTierAbi,
       functionName: "pricePerPeriod",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "minimumPayment",
       blockNumber,
     }),
     client.readContract({
@@ -627,6 +621,18 @@ async function matchesLaunchTerms(
       functionName: "mediaConfig",
       blockNumber,
     }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "startingBoostBps",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "earlySupportGross",
+      blockNumber,
+    }),
   ]);
 
   return (
@@ -638,10 +644,13 @@ async function matchesLaunchTerms(
     name === config.name &&
     symbol === config.symbol &&
     price === config.pricePerPeriod &&
+    minimumPayment === config.minimumPayment &&
     duration === config.periodDuration &&
     rewardBps === config.rewardBps &&
     protocolFeeBps === config.protocolFeeBps &&
     referralBps === config.referralBps &&
+    startingBoostBps === config.startingBoostBps &&
+    earlySupportGross === config.earlySupportGross &&
     supplyCap === config.supplyCap &&
     maxPrepaidPeriods === config.maxPrepaidPeriods &&
     description === config.metadata.description &&

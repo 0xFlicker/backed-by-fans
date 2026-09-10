@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
@@ -11,8 +13,16 @@ import {BuybackTypes} from "../src/types/BuybackTypes.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
+import {
+    AdvanceFaultRegistry,
+    AdvanceFaultTier,
+    AdvanceFaultVault,
+    AdvanceMeasurementToken,
+    AdvanceStageFault
+} from "./mocks/BuybackFaults.sol";
 import {MockUSDG} from "./mocks/MockUSDG.sol";
 import {Test} from "forge-std/Test.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract ProtocolBurnRouterTest is Test {
     MembershipFactory factory;
@@ -22,6 +32,7 @@ contract ProtocolBurnRouterTest is Test {
     MockUSDG token;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(1000);
         token = new MockUSDG();
         SyntheticPonsBinding.bind(address(token));
@@ -29,7 +40,9 @@ contract ProtocolBurnRouterTest is Test {
             MembershipTestConfig.paymentTokens(token),
             address(new OnchainMediaStoreFactory()),
             address(this),
-            address(token)
+            address(token),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(token))
         );
         vault = ProtocolBuybackVault(payable(factory.buybackVault()));
         router = ProtocolBurnRouter(factory.burnRouter());
@@ -50,11 +63,9 @@ contract ProtocolBurnRouterTest is Test {
         vault.setBuybacksPaused(false);
     }
 
-    function collections() internal view returns (ProtocolBurnRouter.Collection[] memory c) {
-        c = new ProtocolBurnRouter.Collection[](1);
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 1;
-        c[0] = ProtocolBurnRouter.Collection(address(tier), ids);
+    function advanceTiers() internal view returns (ProtocolBurnRouter.AdvanceTier[] memory c) {
+        c = new ProtocolBurnRouter.AdvanceTier[](1);
+        c[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 25);
     }
 
     function purchases() internal view returns (ProtocolBurnRouter.Purchase[] memory p) {
@@ -62,20 +73,22 @@ contract ProtocolBurnRouterTest is Test {
         p[0] = ProtocolBurnRouter.Purchase(address(token), 0);
     }
 
-    function test_anyWalletAccruesReleasesAndBurnsInOneCall() public {
+    function test_anyWalletAdvancesReleasesAndBurnsInOneCall() public {
         uint256 beforeSupply = token.totalSupply();
         vm.prank(address(0xBEEF));
-        (uint256 released, uint256 bought, uint256 burned) =
-            router.burn(collections(), purchases(), 1200);
+        (, uint256 released, uint256 bought, uint256 burned) =
+            router.advance(advanceTiers(), purchases(), 1200);
         assertEq(released, 1);
         assertEq(bought, 1);
         assertEq(burned, 250);
         assertEq(beforeSupply - token.totalSupply(), 250);
-        assertEq(tier.protocolFeeHoldings(), 750);
-        assertEq(tier.totalProtocolFeeReleased(), 250);
+        assertEq(tier.reserveState().unearnedScaled[3] / tier.ACCOUNTING_SCALE(), 750);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived, 250
+        );
         assertEq(token.balanceOf(address(router)), 0);
         assertEq(vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).available, 0);
-        assertEq(tier.protocolFeeState(1).unearned, 750);
+        assertEq(tier.reserveState().unearnedScaled[3] / tier.ACCOUNTING_SCALE(), 750);
         assertEq(
             uint256(router.nextSource(address(token))), uint256(BuybackTypes.SourceBucket.Donation)
         );
@@ -84,7 +97,7 @@ contract ProtocolBurnRouterTest is Test {
     function test_directBurnProcessesBothSourcesOnceWhenBothAreReady() public {
         assertTrue(token.transfer(address(vault), 100));
         vault.syncDonation(address(token));
-        (, uint256 bought, uint256 burned) = router.burn(collections(), purchases(), 1200);
+        (,, uint256 bought, uint256 burned) = router.advance(advanceTiers(), purchases(), 1200);
         assertEq(bought, 2);
         assertEq(burned, 350);
         assertEq(
@@ -100,11 +113,11 @@ contract ProtocolBurnRouterTest is Test {
     }
 
     function test_directBurnProcessesBothSourcesAfterDonationBecomesPreferred() public {
-        router.burn(collections(), purchases(), 1200);
+        router.advance(advanceTiers(), purchases(), 1200);
         assertTrue(token.transfer(address(vault), 100));
         vault.syncDonation(address(token));
         vm.warp(1200);
-        (, uint256 bought, uint256 burned) = router.burn(collections(), purchases(), 1200);
+        (,, uint256 bought, uint256 burned) = router.advance(advanceTiers(), purchases(), 1200);
         assertEq(bought, 2);
         assertEq(burned, 350);
         assertEq(
@@ -119,10 +132,10 @@ contract ProtocolBurnRouterTest is Test {
     }
 
     function test_pausedAndStalePurchasesPreserveDonationPreference() public {
-        router.burn(collections(), purchases(), 1200);
+        router.advance(advanceTiers(), purchases(), 1200);
         vm.warp(1200);
         vault.setBuybacksPaused(true);
-        (, uint256 bought,) = router.burn(collections(), purchases(), 1400);
+        (,, uint256 bought,) = router.advance(advanceTiers(), purchases(), 1400);
         assertEq(bought, 0);
         assertEq(
             uint256(router.nextSource(address(token))), uint256(BuybackTypes.SourceBucket.Donation)
@@ -131,24 +144,26 @@ contract ProtocolBurnRouterTest is Test {
         vm.warp(1300);
         ProtocolBurnRouter.Purchase[] memory p = purchases();
         p[0].revision = 99;
-        (, bought,) = router.burn(collections(), p, 1400);
-        assertEq(bought, 0);
+        vm.expectRevert(ProtocolBurnRouter.StaleRevision.selector);
+        router.advance(advanceTiers(), p, 1400);
         assertEq(
             uint256(router.nextSource(address(token))), uint256(BuybackTypes.SourceBucket.Donation)
         );
     }
 
     function test_secondSameBlockCallHasNoWorkAndCannotDoubleRelease() public {
-        router.burn(collections(), purchases(), 1200);
+        router.advance(advanceTiers(), purchases(), 1200);
         vm.expectRevert(ProtocolBurnRouter.NothingToDo.selector);
-        router.burn(collections(), purchases(), 1200);
-        assertEq(tier.totalProtocolFeeReleased(), 250);
+        router.advance(advanceTiers(), purchases(), 1200);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived, 250
+        );
     }
 
-    function test_collectionCanProgressWhileBuybacksPaused() public {
+    function test_accountingCanProgressWhileBuybacksPaused() public {
         vault.setBuybacksPaused(true);
-        (uint256 released, uint256 bought, uint256 burned) =
-            router.burn(collections(), purchases(), 1200);
+        (, uint256 released, uint256 bought, uint256 burned) =
+            router.advance(advanceTiers(), purchases(), 1200);
         assertEq(released, 1);
         assertEq(bought, 0);
         assertEq(burned, 0);
@@ -157,54 +172,208 @@ contract ProtocolBurnRouterTest is Test {
         );
     }
 
-    function test_failedAccrualDoesNotBlockExistingDonationBurn() public {
+    function test_failedAccountingRollsBackAndDonationCanBurnSeparately() public {
         assertTrue(token.transfer(address(vault), 100));
         vault.syncDonation(address(token));
-        ProtocolBurnRouter.Collection[] memory c = collections();
-        c[0].tokenIds[0] = 999;
-        (uint256 released, uint256 bought, uint256 burned) = router.burn(c, purchases(), 1200);
-        assertEq(released, 0);
+        vm.mockCallRevert(
+            address(tier),
+            abi.encodeWithSelector(tier.processAccounting.selector),
+            abi.encodeWithSignature("AccountingFailure()")
+        );
+        vm.expectRevert(abi.encodeWithSignature("AccountingFailure()"));
+        router.advance(advanceTiers(), purchases(), 1200);
+        assertEq(tier.accountingStatus().accountedThrough, 1000);
+        (uint256 bought, uint256 burned) = router.buyback(purchases(), 1200);
         assertEq(bought, 1);
         assertEq(burned, 100);
-        assertEq(tier.totalProtocolFeeReleased(), 0);
     }
 
-    function test_staleRevisionSkipsPurchaseButKeepsCollection() public {
+    function test_staleRevisionRollsBackAccountingAndRelease() public {
         ProtocolBurnRouter.Purchase[] memory p = purchases();
         p[0].revision = 99;
-        (, uint256 bought, uint256 burned) = router.burn(collections(), p, 1200);
-        assertEq(bought, 0);
-        assertEq(burned, 0);
-        assertEq(tier.totalProtocolFeeReleased(), 250);
+        vm.expectRevert(ProtocolBurnRouter.StaleRevision.selector);
+        router.advance(advanceTiers(), p, 1200);
+        assertEq(tier.accountingStatus().accountedThrough, 1000);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived, 0
+        );
     }
 
-    function test_deadlineAndUnregisteredTierRejectBeforeCollection() public {
+    function test_deadlineAndUnregisteredTierRejectBeforeAccounting() public {
         vm.expectRevert(ProtocolBurnRouter.DeadlineExpired.selector);
-        router.burn(collections(), purchases(), 1099);
-        ProtocolBurnRouter.Collection[] memory c = collections();
+        router.advance(advanceTiers(), purchases(), 1099);
+        ProtocolBurnRouter.AdvanceTier[] memory c = advanceTiers();
         c[0].tier = address(token);
         vm.expectRevert(ProtocolBurnRouter.UnregisteredTier.selector);
-        router.burn(c, purchases(), 1200);
-        assertEq(tier.totalProtocolFeeReleased(), 0);
+        router.advance(c, purchases(), 1200);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived, 0
+        );
     }
 
-    function test_duplicateCurrenciesAndOversizedCollectionRejected() public {
+    function test_duplicateCurrenciesAndOversizedAccountingRejected() public {
         ProtocolBurnRouter.Purchase[] memory p = new ProtocolBurnRouter.Purchase[](2);
         p[0] = purchases()[0];
         p[1] = p[0];
         vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
-        router.burn(collections(), p, 1200);
-        ProtocolBurnRouter.Collection[] memory c = collections();
-        c[0].tokenIds = new uint256[](101);
+        router.advance(advanceTiers(), p, 1200);
+        ProtocolBurnRouter.AdvanceTier[] memory c = advanceTiers();
+        c[0].maxAccountingSteps = 101;
         vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
-        router.burn(c, purchases(), 1200);
+        router.advance(c, purchases(), 1200);
     }
 
-    function test_helpersCannotBeCalledByUserAndRouterCannotAdministerVault() public {
-        vm.expectRevert(ProtocolBurnRouter.OnlySelf.selector);
-        router.collect(collections()[0]);
-        vm.expectRevert(ProtocolBurnRouter.OnlySelf.selector);
-        router.purchase(purchases()[0], BuybackTypes.SourceBucket.Membership, 1200);
+    function test_zeroBudgetReleasesSettledFundsWithoutMovingCursor() public {
+        tier.processAccounting(25);
+        vm.warp(1150);
+        ProtocolBurnRouter.AdvanceTier[] memory items = advanceTiers();
+        items[0].maxAccountingSteps = 0;
+        (uint256 steps, uint256 released, uint256 bought, uint256 burned) =
+            router.advance(items, new ProtocolBurnRouter.Purchase[](0), 1200);
+        assertEq(steps, 0);
+        assertEq(released, 1);
+        assertEq(bought, 0);
+        assertEq(burned, 0);
+        assertEq(tier.accountingStatus().accountedThrough, 1100);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived, 250
+        );
+    }
+
+    function test_failedReleaseRollsBackAndAccountingCanRunSeparately() public {
+        vm.mockCallRevert(
+            address(tier),
+            abi.encodeWithSelector(tier.releaseProtocolFees.selector),
+            abi.encodeWithSignature("ReleaseFailure()")
+        );
+        vm.expectRevert(abi.encodeWithSignature("ReleaseFailure()"));
+        router.advance(advanceTiers(), new ProtocolBurnRouter.Purchase[](0), 1200);
+        assertEq(tier.accountingStatus().accountedThrough, 1000);
+        router.advanceAccounting(advanceTiers());
+        assertEq(tier.protocolFeeEarnedHeld(), 250);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived, 0
+        );
+    }
+
+    function test_duplicateTiersAndSharedBudgetFailBeforeAnyAccounting() public {
+        ProtocolBurnRouter.AdvanceTier[] memory items = new ProtocolBurnRouter.AdvanceTier[](2);
+        items[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 12);
+        items[1] = items[0];
+        vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
+        router.advance(items, new ProtocolBurnRouter.Purchase[](0), 1200);
+        assertEq(tier.accountingStatus().accountedThrough, 1000);
+
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            address(this), address(new OnchainMetadataRenderer()), address(token)
+        );
+        config.tierSalt = bytes32(uint256(2));
+        address other = factory.createTier(config);
+        items[1] = ProtocolBurnRouter.AdvanceTier(other, 51);
+        vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
+        router.advance(items, new ProtocolBurnRouter.Purchase[](0), 1200);
+        assertEq(tier.accountingStatus().accountedThrough, 1000);
+    }
+
+    function test_emptyRequestHasNoUsefulWork() public {
+        vm.expectRevert(ProtocolBurnRouter.NothingToDo.selector);
+        router.advance(
+            new ProtocolBurnRouter.AdvanceTier[](0), new ProtocolBurnRouter.Purchase[](0), 1200
+        );
+    }
+
+    function test_requestedBudgetIsMaximumAndEqualTimeProgressCanResumeWithoutEarningAgain()
+        public
+    {
+        for (uint256 i; i < 3; ++i) {
+            address member = address(SafeCast.toUint160(0x100 + i));
+            token.mint(member, 1000);
+            vm.startPrank(member);
+            token.approve(address(tier), 1000);
+            tier.purchase(1, address(0));
+            vm.stopPrank();
+        }
+        vm.warp(1200);
+        ProtocolBurnRouter.AdvanceTier[] memory items = advanceTiers();
+        items[0].maxAccountingSteps = 2;
+        ProtocolBurnRouter.Purchase[] memory none = new ProtocolBurnRouter.Purchase[](0);
+        (uint256 steps, uint256 released, uint256 bought, uint256 burned) =
+            router.advance(items, none, 1200);
+        assertEq(steps, 2);
+        assertEq(released, 1);
+        assertEq(bought + burned, 0);
+        assertEq(tier.accountingStatus().accountedThrough, 1200);
+        assertFalse(tier.accountingStatus().complete);
+        uint256 received =
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived;
+        items[0].maxAccountingSteps = 25;
+        (steps, released,,) = router.advance(items, none, 1200);
+        assertEq(steps, 1, "actual work, not the caller's maximum");
+        assertEq(released, 0, "the same interval cannot earn twice");
+        assertTrue(tier.accountingStatus().complete);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived,
+            received
+        );
+        vm.expectRevert(ProtocolBurnRouter.NothingToDo.selector);
+        router.advance(items, none, 1200);
+    }
+
+    function test_accountingOnlyPaysNoWorkerAndDoesNotCallVaultOrRelease() public {
+        vm.mockCallRevert(
+            address(tier), abi.encodeWithSelector(tier.releaseProtocolFees.selector), hex"abcd"
+        );
+        vm.mockCallRevert(
+            address(vault), abi.encodeWithSelector(vault.protocolToken.selector), hex"abcd"
+        );
+        address worker = address(0xBEEF);
+        vm.prank(worker);
+        assertEq(router.advanceAccounting(advanceTiers()), 0);
+        assertEq(tier.protocolFeeEarnedHeld(), 250);
+        assertEq(token.balanceOf(worker), 0);
+        vm.expectRevert(ProtocolBurnRouter.NothingToDo.selector);
+        router.advanceAccounting(advanceTiers());
+    }
+
+    function test_outerBatchBoundsRejectBeforeAnyWork() public {
+        ProtocolBurnRouter.AdvanceTier[] memory tooMany = new ProtocolBurnRouter.AdvanceTier[](9);
+        vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
+        router.advance(tooMany, new ProtocolBurnRouter.Purchase[](0), 1200);
+        vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
+        router.advance(advanceTiers(), new ProtocolBurnRouter.Purchase[](33), 1200);
+        assertEq(tier.accountingStatus().accountedThrough, 1000);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived, 0
+        );
+    }
+
+    function test_twoTiersCanUseExactlyTheSharedBudgetWithoutMixingMoney() public {
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            address(this), address(new OnchainMetadataRenderer()), address(token)
+        );
+        config.tierSalt = bytes32(uint256(22));
+        config.pricePerPeriod = 1000;
+        config.periodDuration = 100;
+        config.protocolFeeBps = 1000;
+        MembershipTier other = MembershipTier(factory.createTier(config));
+        token.approve(address(other), 1000);
+        other.purchase(1, address(0));
+        vm.warp(1200);
+        ProtocolBurnRouter.AdvanceTier[] memory items = new ProtocolBurnRouter.AdvanceTier[](2);
+        items[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 12);
+        items[1] = ProtocolBurnRouter.AdvanceTier(address(other), 13);
+        (uint256 steps, uint256 released,,) =
+            router.advance(items, new ProtocolBurnRouter.Purchase[](0), 1200);
+        assertEq(steps, 1);
+        assertEq(released, 2, "return value counts tiers, never sums arbitrary currencies");
+        assertTrue(tier.accountingStatus().complete);
+        assertTrue(other.accountingStatus().complete);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived, 600
+        );
+    }
+
+    function test_routerCannotAdministerVault() public {
         vm.prank(address(router));
         vm.expectRevert(ProtocolBuybackVault.OnlyProtocolAuthority.selector);
         vault.setBuybacksPaused(true);
@@ -262,8 +431,8 @@ contract SyntheticRouterCooldownVault {
         ++processCount[asset];
         if (attemptReentry) {
             try ProtocolBurnRouter(msg.sender)
-                .burn(
-                    new ProtocolBurnRouter.Collection[](0),
+                .advance(
+                    new ProtocolBurnRouter.AdvanceTier[](0),
                     new ProtocolBurnRouter.Purchase[](0),
                     type(uint64).max
                 ) {}
@@ -286,19 +455,19 @@ contract ProtocolBurnRouterSyntheticCooldownTest is Test {
         router = new ProtocolBurnRouter(address(0), address(vault));
     }
 
-    function _burn(bool includeOther) internal returns (uint256 bought) {
+    function _advance(bool includeOther) internal returns (uint256 bought) {
         ProtocolBurnRouter.Purchase[] memory p =
             new ProtocolBurnRouter.Purchase[](includeOther ? 2 : 1);
         p[0] = ProtocolBurnRouter.Purchase(ASSET, 0);
         if (includeOther) p[1] = ProtocolBurnRouter.Purchase(OTHER_ASSET, 0);
-        (, bought,) = router.burn(new ProtocolBurnRouter.Collection[](0), p, type(uint64).max);
+        (,, bought,) = router.advance(new ProtocolBurnRouter.AdvanceTier[](0), p, type(uint64).max);
     }
 
     function test_syntheticSuccessiveEligibleBatchesAlternateSources() public {
         assertEq(uint256(router.nextSource(ASSET)), uint256(BuybackTypes.SourceBucket.Membership));
         for (uint256 i; i < 4; ++i) {
             vm.warp(1000 + i * 60);
-            assertEq(_burn(false), 1);
+            assertEq(_advance(false), 1);
             assertEq(vault.processCount(ASSET), i + 1);
             assertEq(uint256(vault.lastSource(ASSET)), i % 2);
             assertEq(uint256(router.nextSource(ASSET)), (i + 1) % 2);
@@ -306,34 +475,99 @@ contract ProtocolBurnRouterSyntheticCooldownTest is Test {
     }
 
     function test_syntheticCoolingAssetPreservesPreferenceWhileOtherAssetSucceeds() public {
-        _burn(false);
-        assertEq(_burn(true), 1);
+        _advance(false);
+        assertEq(_advance(true), 1);
         assertEq(vault.processCount(ASSET), 1);
         assertEq(vault.processCount(OTHER_ASSET), 1);
         assertEq(uint256(router.nextSource(ASSET)), uint256(BuybackTypes.SourceBucket.Donation));
         vm.warp(1060);
-        assertEq(_burn(false), 1);
+        assertEq(_advance(false), 1);
         assertEq(uint256(vault.lastSource(ASSET)), uint256(BuybackTypes.SourceBucket.Donation));
     }
 
-    function test_syntheticPurchaseFailurePreservesPreferenceAndOtherAssetProgress() public {
-        _burn(false);
+    function test_syntheticPurchaseFailureRollsBackOtherAssetProgress() public {
+        _advance(false);
         vm.warp(1060);
         vault.setFailPurchases(ASSET, true);
-        assertEq(_burn(true), 1);
+        vm.expectRevert(SyntheticRouterCooldownVault.SyntheticPurchaseFailure.selector);
+        _advance(true);
         assertEq(vault.processCount(ASSET), 1);
-        assertEq(vault.processCount(OTHER_ASSET), 1);
+        assertEq(vault.processCount(OTHER_ASSET), 0);
         assertEq(uint256(router.nextSource(ASSET)), uint256(BuybackTypes.SourceBucket.Donation));
         vault.setFailPurchases(ASSET, false);
-        assertEq(_burn(false), 1);
+        assertEq(_advance(false), 1);
         assertEq(uint256(vault.lastSource(ASSET)), uint256(BuybackTypes.SourceBucket.Donation));
     }
 
-    function test_syntheticPurchaseCallbackCannotReenterBurn() public {
+    function test_syntheticPurchaseCallbackCannotReenterAdvance() public {
         vault.setAttemptReentry();
-        assertEq(_burn(false), 1);
+        assertEq(_advance(false), 1);
         assertEq(vault.reentryFailure(), abi.encodeWithSignature("ReentrancyGuardReentrantCall()"));
         assertEq(vault.processCount(ASSET), 1);
         assertEq(uint256(router.nextSource(ASSET)), uint256(BuybackTypes.SourceBucket.Donation));
+    }
+}
+
+/// @dev Real router with synthetic adversarial endpoints. This proves stage
+/// atomic rollback, not asset custody or venue behavior.
+contract ProtocolBurnRouterStageFaultTest is Test {
+    AdvanceFaultTier private tier;
+    AdvanceFaultVault private vault;
+    AdvanceMeasurementToken private token;
+    ProtocolBurnRouter private router;
+
+    function setUp() public {
+        vm.warp(1000);
+        token = new AdvanceMeasurementToken();
+        tier = new AdvanceFaultTier(address(token));
+        vault = new AdvanceFaultVault(token);
+        router = new ProtocolBurnRouter(
+            address(new AdvanceFaultRegistry(address(tier))), address(vault)
+        );
+    }
+
+    function _advance()
+        private
+        returns (uint256 steps, uint256 releases, uint256 buys, uint256 burns)
+    {
+        ProtocolBurnRouter.AdvanceTier[] memory items = new ProtocolBurnRouter.AdvanceTier[](1);
+        items[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 2);
+        ProtocolBurnRouter.Purchase[] memory purchase = new ProtocolBurnRouter.Purchase[](1);
+        purchase[0] = ProtocolBurnRouter.Purchase(address(token), 0);
+        return router.advance{gas: 18_000_000}(items, purchase, 1000);
+    }
+
+    function testFuzz_successCannotMeanGasStarvedPartialWork(uint32 suppliedGas) public {
+        uint256 gasLimit = bound(uint256(suppliedGas), 25_000, 1_000_000);
+        ProtocolBurnRouter.AdvanceTier[] memory items = new ProtocolBurnRouter.AdvanceTier[](1);
+        items[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 2);
+        ProtocolBurnRouter.Purchase[] memory purchase = new ProtocolBurnRouter.Purchase[](1);
+        purchase[0] = ProtocolBurnRouter.Purchase(address(token), 0);
+        (bool ok,) = address(router).call{gas: gasLimit}(
+            abi.encodeCall(router.advance, (items, purchase, 1000))
+        );
+        assertEq(tier.accounted(), ok ? 1 : 0);
+        assertEq(tier.released(), ok ? 1 : 0);
+        assertEq(vault.purchases(), ok ? 2 : 0);
+    }
+
+    function test_allStageFaultsRollbackEntireCall() public {
+        for (uint256 stage; stage < 4; ++stage) {
+            for (uint256 fault = 1; fault <= (stage == 0 ? 5 : stage == 2 ? 3 : 4); ++fault) {
+                uint256 checkpoint = vm.snapshotState();
+                AdvanceStageFault.Fault mode = AdvanceStageFault.Fault(fault);
+                if (stage == 0) tier.configure(mode, AdvanceStageFault.Fault.None);
+                if (stage == 1) tier.configure(AdvanceStageFault.Fault.None, mode);
+                if (stage == 2) vault.configure(mode);
+                if (stage == 3) token.configure(AdvanceStageFault.Fault.None, mode);
+                vm.expectRevert();
+                _advance();
+                assertEq(tier.accounted(), 0);
+                assertEq(tier.released(), 0);
+                assertEq(vault.purchases(), 0);
+                assertEq(uint256(router.nextSource(address(token))), 0);
+                assertTrue(vm.revertToState(checkpoint));
+            }
+        }
     }
 }

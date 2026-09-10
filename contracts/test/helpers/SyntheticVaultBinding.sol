@@ -19,6 +19,9 @@ library SyntheticVaultBinding {
         _VM.mockCall(
             factory, abi.encodeWithSignature("isRegisteredTier(address)"), abi.encode(true)
         );
+        _VM.mockCall(
+            factory, abi.encodeWithSignature("minimumPayment(address)"), abi.encode(uint112(1))
+        );
         return factory;
     }
 }

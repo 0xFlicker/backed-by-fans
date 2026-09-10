@@ -25,8 +25,15 @@ export async function readCalculator(
     throw new Error(
       "This local review is limited to 1,000 tiers. Use a bounded protocol index before reviewing a larger deployment.",
     );
-  const fees = new Map<string, { earned: bigint; future: bigint }>();
-  let membersRead = 0;
+  const fees = new Map<
+    string,
+    {
+      earned: bigint;
+      reservedScaled: bigint;
+      complete: boolean;
+      accountedThrough: bigint;
+    }
+  >();
   for (let offset = 0n; offset < tierCount; offset += 100n) {
     const tiers = await client.readContract({
       address: factory,
@@ -36,7 +43,7 @@ export async function readCalculator(
       blockNumber,
     });
     for (const tier of tiers) {
-      const [paymentToken, earnedHeld, count] = await Promise.all([
+      const [paymentToken, earnedHeld, reserves] = await Promise.all([
         client.readContract({
           address: tier,
           abi: membershipTierAbi,
@@ -52,7 +59,7 @@ export async function readCalculator(
         client.readContract({
           address: tier,
           abi: membershipTierAbi,
-          functionName: "totalMinted",
+          functionName: "reserveState",
           blockNumber,
         }),
       ]);
@@ -65,34 +72,15 @@ export async function readCalculator(
       });
       const amounts = fees.get(canonical.toLowerCase()) ?? {
         earned: 0n,
-        future: 0n,
+        reservedScaled: 0n,
+        complete: true,
+        accountedThrough: reserves.status.accountedThrough,
       };
       amounts.earned += earnedHeld;
-      membersRead += Number(count);
-      if (membersRead > 5000)
-        throw new Error(
-          "This local review is limited to 5,000 memberships; funds were not silently omitted.",
-        );
-      for (let start = 1n; start <= count; start += 50n) {
-        const length = Number(
-          count - start + 1n < 50n ? count - start + 1n : 50n,
-        );
-        const members = await Promise.all(
-          Array.from({ length }, (_, i) =>
-            client.readContract({
-              address: tier,
-              abi: membershipTierAbi,
-              functionName: "protocolFeeState",
-              args: [start + BigInt(i)],
-              blockNumber,
-            }),
-          ),
-        );
-        for (const member of members) {
-          amounts.earned += member.uncheckpointedEarned;
-          amounts.future += member.unearned;
-        }
-      }
+      amounts.reservedScaled += reserves.unearnedScaled[3];
+      amounts.complete &&= reserves.status.complete;
+      if (reserves.status.accountedThrough < amounts.accountedThrough)
+        amounts.accountedThrough = reserves.status.accountedThrough;
       fees.set(canonical.toLowerCase(), amounts);
     }
   }

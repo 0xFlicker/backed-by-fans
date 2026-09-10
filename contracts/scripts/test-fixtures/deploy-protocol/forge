@@ -40,6 +40,12 @@ case "${1:-}" in
       }'
     ;;
   build)
+    if [[ "$*" == *"--out out/vesting-leaf"* ]]; then
+      mkdir -p out/vesting-leaf/VestingLedger.sol
+      jq -n '{bytecode: {object: "0x6006", linkReferences: {}},
+        deployedBytecode: {object: "0x73000000000000000000000000000000000000000000", linkReferences: {}}}' \
+        > out/vesting-leaf/VestingLedger.sol/VestingLedger.json
+    fi
     exit 0
     ;;
   clean)
@@ -53,6 +59,9 @@ case "${1:-}" in
       *OnchainMediaStoreFactory:bytecode) printf '%s\n' "${MOCK_MEDIA_BYTECODE:-0x6001}" ;;
       *OnchainMetadataRenderer:bytecode) printf '0x6002\n' ;;
       *RendererPreviewHarness:bytecode) printf '0x6005\n' ;;
+      *MembershipTier:bytecode) printf '0x60076008\n' ;;
+      *ImmutableCodeStore:bytecode) printf '0x6009\n' ;;
+      *ImmutableCodeStore:deployedBytecode) printf '0x00\n' ;;
       *MembershipFactory:bytecode)
         if [[ -n "${MOCK_FACTORY_BYTECODE_BYTES:-}" ]]; then
           awk -v bytes="$MOCK_FACTORY_BYTECODE_BYTES" \
@@ -74,7 +83,7 @@ case "${1:-}" in
       state_file="$MOCK_LOCAL_STATE"
     fi
     prefix="$(cat "$state_file")"
-    if [[ "$*" == *"ValidateCompletedProtocol"* && "$prefix" != "4" ]]; then
+    if [[ "$*" == *"ValidateCompletedProtocol"* && "$prefix" != "7" ]]; then
       exit 1
     fi
     printf 'Backed By Fans expected media store factory %s\n' "$MOCK_MEDIA_ADDRESS"

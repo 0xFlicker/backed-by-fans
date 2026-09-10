@@ -8,9 +8,16 @@ import {
   erc20Abi,
   parseEventLogs,
   zeroAddress,
+  keccak256,
+  isAddress,
+  isAddressEqual,
 } from "../../web/node_modules/viem";
-import { protocolBuybackVaultAbi } from "../../web/src/contracts";
+import {
+  membershipTierAbi,
+  protocolBuybackVaultAbi,
+} from "../../web/src/contracts";
 import { extractReceipts } from "./export-evidence";
+import { verifyRetainedProtocolSources } from "./verify-sources";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const require = createRequire(resolve(root, "web/package.json"));
@@ -89,6 +96,103 @@ export function reconcileBurnReceipts(
   }
   return burned;
 }
+/** These scenarios fund only protocol allocations; every remaining unit stays protected. */
+export function reconcileVestedRefund(value: Json) {
+  const accounting = value.refundAccounting as Json;
+  const preview = value.preview as Json;
+  const funding = preview.fundingScaled as unknown[];
+  assert(
+    Array.isArray(funding) && funding.length === 4,
+    "Missing refund funding purposes",
+  );
+  assert(
+    (preview.complete === true ||
+      (preview.projected === true &&
+        n(preview.fundingAsOf) === n(preview.accessAsOf) &&
+        n(preview.fundingAsOf) >= n(preview.accountingAsOf))) &&
+      funding.slice(0, 3).every((amount) => n(amount) === 0n) &&
+      n(funding[3]) === n(preview.grossRefund) * (1n << 128n),
+    "Refund is not funded by reserved protocol cash",
+  );
+  const events = extractReceipts(value.receipts)
+    .flatMap((receipt) =>
+      parseEventLogs({
+        abi: membershipTierAbi,
+        logs: receipt.logs as Log[],
+      }),
+    )
+    .filter(
+      (event) =>
+        event.address.toLowerCase() === String(value.tier).toLowerCase(),
+    );
+  const released = events.reduce(
+    (sum, event) =>
+      sum +
+      (event.eventName === "ProtocolFeesReleased" ? event.args.amount : 0n),
+    0n,
+  );
+  const refunds = events.filter(
+    (event) => event.eventName === "MembershipRefunded",
+  );
+  assert(refunds.length === 1, "Missing unique refund receipt");
+  const refund = refunds[0].args.grossRefund;
+  assert(
+    refund > 0n &&
+      refund <= n(preview.grossRefund) &&
+      refund === n(accounting.after) - n(accounting.before),
+    "Refund receipt differs from received cash",
+  );
+  assert(
+    n(accounting.allocated) === n(accounting.held) + released + refund,
+    "Vested refund raw cash does not conserve",
+  );
+  assert(
+    n(accounting.held) === n(accounting.protected) &&
+      n(accounting.generation) === n(preview.generation) + 1n,
+    "Refund residue or cancellation generation differs",
+  );
+}
+
+/** The approved standing operating model runs one finite sweep per process. */
+export function reconcileRunnerReplacement(runner: Json) {
+  assert(
+    runner.executionMode === "one-shot" &&
+      runner.maximumGasPercent === 100 &&
+      isAddress(String(runner.callerA)) &&
+      isAddress(String(runner.callerB)) &&
+      !isAddressEqual(
+        runner.callerA as `0x${string}`,
+        runner.callerB as `0x${string}`,
+      ) &&
+      n(runner.gasAfterRemoval) === 0n &&
+      typeof runner.firstProcessAfterMsB === "number" &&
+      runner.firstProcessAfterMsB > 0 &&
+      runner.firstProcessAfterMsB <= 60_000 &&
+      n(runner.releasedB) > n(runner.releasedA),
+    "Runner independence failed",
+  );
+  for (const name of ["logsA", "logsB"]) {
+    const logs = runner[name] as Json[];
+    const sweeps = logs.filter((row) => row.action === "sweep-complete");
+    const visits = logs.filter((row) => row.action === "tier-visit");
+    assert(
+      sweeps.length === 1 &&
+        n(sweeps[0].visits) > 0n &&
+        n(sweeps[0].visits) === n(sweeps[0].visitBound) &&
+        BigInt(visits.length) === n(sweeps[0].visitBound) &&
+        new Set(visits.map((row) => String(row.tier).toLowerCase())).size ===
+          visits.length &&
+        visits.every(
+          (row, i) =>
+            isAddress(String(row.tier)) &&
+            n(row.visits) === BigInt(i + 1) &&
+            n(row.visitBound) === n(sweeps[0].visitBound) &&
+            row.complete === (i === visits.length - 1),
+        ),
+      `Missing bounded one-shot ${name} progress`,
+    );
+  }
+}
 export async function ownedArtifact(directory: string, path: string) {
   assert(
     !isAbsolute(path) && !path.split(/[\\/]/).includes(".."),
@@ -158,27 +262,27 @@ const requirements: Record<string, Requirement> = {
     ],
   },
   "Continuous accrual": {
-    contracts: ["ProtocolFeeAccrualTest", "AccountingInvariantTest"],
+    contracts: ["VestingLedgerTest", "AccountingInvariantTest"],
     scenarios: ["runner-replacement"],
   },
   "Accrual lifecycle": {
-    contracts: ["ProtocolFeeAccrualTest", "MembershipInvariantTest"],
+    contracts: ["PublicVestingTest", "MembershipInvariantTest"],
     browser: ["expired NFT"],
   },
   "Refund and release race": {
     contracts: [
-      "ProtocolFeeAccrualTest",
+      "PublicVestingTest",
       "FixedPriceRefundsAndOwnershipTest",
       "AdversarialRefundsTest",
     ],
   },
   "Collection and forecast": {
-    contracts: ["ProtocolFeeAccrualTest"],
+    contracts: ["PublicVestingTest"],
     browser: ["conditional forecasts"],
     scenarios: ["runner-replacement"],
   },
   "Collector traversal": {
-    contracts: ["ProtocolFeeAccrualTest"],
+    contracts: ["VestingSchedulerTest", "VestingCapacityTest"],
     scenarios: ["runner-replacement"],
   },
   "Asset coverage": {
@@ -328,6 +432,56 @@ export async function verifyEvidence(
   const finalSource = await read("source-at-export.json");
   const measurements = await read("deployment-measurements.json");
   assert(
+    manifest.protocolGraph === "protocol-graph.json",
+    "Protocol graph artifact is missing",
+  );
+  const protocolGraph = await read("protocol-graph.json");
+  verifyRetainedProtocolSources(protocolGraph);
+  for (const record of [
+    ...protocolGraph.records.map(
+      (row: { role: string; address: string; code: `0x${string}` }) => ({
+        role: row.role,
+        address: row.address,
+        runtimeCodeHash: keccak256(row.code),
+      }),
+    ),
+    { role: "vestingLedger", ...protocolGraph.library },
+    ...protocolGraph.stores,
+    { role: "executorCodeStore", ...protocolGraph.executorCodeStore },
+  ]) {
+    const deployment = manifest.deployments.find(
+      (row: { role: string }) => row.role === record.role,
+    );
+    assert(
+      deployment?.address.toLowerCase() === record.address.toLowerCase() &&
+        deployment?.runtimeCodeHash === record.runtimeCodeHash,
+      `Deployment graph identity differs: ${record.role}`,
+    );
+    if (record.initCode) {
+      const transaction = measurements.transactions.find(
+        (row: { hash: string }) => row.hash === deployment.receipt,
+      );
+      assert(
+        transaction?.input?.toLowerCase() ===
+          `${record.salt}${record.initCode.slice(2)}`.toLowerCase(),
+        `Actual CREATE2 payload differs: ${record.role}`,
+      );
+    }
+  }
+  for (const role of [
+    "vestingLedger",
+    "tierCodeStoreA",
+    "tierCodeStoreB",
+    "tierDeployer",
+    "burnRouter",
+    "executorCodeStore",
+  ]) {
+    assert(
+      manifest.deployments.some((row: { role: string }) => row.role === role),
+      `Missing deployment proof: ${role}`,
+    );
+  }
+  assert(
     measurements.deployments.length === manifest.deployments.length &&
       measurements.deployments.every(
         (row: { runtimeBytes: number }) =>
@@ -375,6 +529,30 @@ export async function verifyEvidence(
   );
   const browser = await read("browser/report.json"),
     cases = browserCases(browser);
+  for (const name of [
+    "reward-curves publishes all presets",
+    "vesting-lifecycle distinguishes free access",
+    "vested-refund mixed free and paid periods",
+    "vested-refund checkpoint recovery after claims",
+    "vested-claims pays all beneficiaries",
+    "vested-account discovers a burned membership",
+    "vesting-recovery resumes purchase",
+    "vesting-recovery resumes refund",
+    "vesting-recovery resumes sync",
+    "vesting accessibility: keyboard presets",
+    "vesting accessibility: motion preferences",
+  ]) {
+    assert(
+      cases.some(
+        (test) =>
+          test.projectName === "desktop" &&
+          test.title.includes(name) &&
+          test.results.length === 1 &&
+          test.results[0].status === "passed",
+      ),
+      `Required vesting/curve browser journey absent/failed/skipped: ${name}`,
+    );
+  }
   const webUnit = await read("web-unit.json");
   assert(
     webUnit.success === true && webUnit.numFailedTests === 0,
@@ -426,7 +604,7 @@ export async function verifyEvidence(
     const before = n(s.supplyBefore ?? s.openingSupply),
       after = n(s.supplyAfter ?? s.afterBurnSupply);
     assert(before > after, `${name}: no supply destruction`);
-    // The scheduled runner receipts are in the exported mined branch because
+    // The runner receipts are in the exported mined branch because
     // the runner is an independently spawned process, not the scenario helper.
     let source: unknown = s.receipts;
     if (name === "runner-replacement") {
@@ -462,50 +640,13 @@ export async function verifyEvidence(
     reconcileInventory(s.released);
     reconcileInventory(s.spent);
     reconcileInventory(s.burned);
-    const final = s.finalState as Json,
-      preview = s.preview as string[];
-    assert(
-      n(final.allocated) === n(final.earned) + n(final.refunded),
-      `${name}: full-reserve refund conservation failed`,
-    );
-    assert(
-      n(preview[0]) === n(preview[1]) &&
-        n(preview[2]) === 0n &&
-        n(preview[3]) === 0n,
-      `${name}: creator top-up needed`,
-    );
-    assert(
-      n(s.afterRefund) - n(s.beforeRefund) === n(final.refunded),
-      `${name}: refund transfer differs from reserve accounting`,
-    );
+    reconcileVestedRefund(s);
   }
-  const direct = await scenario("wallet-direct-burn-refund");
-  assert(
-    n(direct.allocated) ===
-      n(direct.held) + n(direct.released) + n(direct.refunded) &&
-      n(direct.topup) === 0n,
-    "Direct-burn reserve accounting failed",
-  );
+  reconcileVestedRefund(await scenario("wallet-direct-burn-refund"));
   const runner = await scenario("runner-replacement");
   reconcileInventory(runner.inventory);
   reconcileInventory(runner.tokenInventory);
-  assert(
-    runner.callerA !== runner.callerB &&
-      n(runner.gasAfterRemoval) === 0n &&
-      typeof runner.firstProcessAfterMsB === "number" &&
-      runner.intervalSecondsB === 30 &&
-      runner.firstProcessAfterMsB > 0 &&
-      runner.firstProcessAfterMsB <= 2 * runner.intervalSecondsB * 1000 &&
-      n(runner.releasedB) > n(runner.releasedA),
-    "Runner independence failed",
-  );
-  for (const name of ["logsA", "logsB"]) {
-    const logs = runner[name] as { action: string }[];
-    assert(
-      logs.filter((row) => row.action === "sweep-complete").length >= 2,
-      `Missing scheduled ${name} progress`,
-    );
-  }
+  reconcileRunnerReplacement(runner);
   const graduated = await scenario("graduation-pool-compensation");
   const crossing = graduated.crossing as Json;
   reconcileInventory(crossing);

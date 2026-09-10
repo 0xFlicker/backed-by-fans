@@ -1,23 +1,29 @@
 import type { Address, PublicClient } from "viem";
 
 import { membershipTierAbi } from "@/contracts";
-import type { TierManagementSnapshot } from "@/contracts/types";
+import type { TierManagementSnapshot, RefundQuote } from "@/contracts/types";
 import type { ReadyDeployment } from "@/lib/config";
 import { readTierSnapshotState } from "@/lib/direct-read";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
+
+export function isCurrentRefundQuote(quote: RefundQuote) {
+  return (
+    (quote.complete || quote.projected) &&
+    quote.fundingAsOf === quote.accessAsOf
+  );
+}
 
 export async function readRefundFunding(
   client: PublicClient,
   input: { tier: Address; tokenId: bigint; blockNumber: bigint },
 ) {
-  const [gross, protocol, creator, topUp] = await client.readContract({
+  return client.readContract({
     address: input.tier,
     abi: membershipTierAbi,
-    functionName: "previewRefundComponents",
+    functionName: "previewRefund",
     args: [input.tokenId],
     blockNumber: input.blockNumber,
   });
-  return { gross, protocol, creator, topUp };
 }
 
 export async function readTierManagementState(
@@ -28,29 +34,42 @@ export async function readTierManagementState(
   if (tier.status !== "valid" && tier.status !== "stale") return tier;
 
   try {
-    const [pendingOwner, creatorProceeds, totalMinted] = await Promise.all([
-      client.readContract({
-        address: input.tier,
-        abi: membershipTierAbi,
-        functionName: "pendingOwner",
-        blockNumber: tier.capturedBlock,
-      }),
-      client.readContract({
-        address: input.tier,
-        abi: membershipTierAbi,
-        functionName: "creatorProceeds",
-        blockNumber: tier.capturedBlock,
-      }),
-      client.readContract({
-        address: input.tier,
-        abi: membershipTierAbi,
-        functionName: "totalMinted",
-        blockNumber: tier.capturedBlock,
-      }),
-    ]);
+    const [pendingOwner, creatorProceeds, totalMinted, reserves] =
+      await Promise.all([
+        client.readContract({
+          address: input.tier,
+          abi: membershipTierAbi,
+          functionName: "pendingOwner",
+          blockNumber: tier.capturedBlock,
+        }),
+        client.readContract({
+          address: input.tier,
+          abi: membershipTierAbi,
+          functionName: "creatorProceeds",
+          blockNumber: tier.capturedBlock,
+        }),
+        client.readContract({
+          address: input.tier,
+          abi: membershipTierAbi,
+          functionName: "totalMinted",
+          blockNumber: tier.capturedBlock,
+        }),
+        client.readContract({
+          address: input.tier,
+          abi: membershipTierAbi,
+          functionName: "reserveState",
+          blockNumber: tier.capturedBlock,
+        }),
+      ]);
     return {
       ...tier,
-      data: { ...tier.data, pendingOwner, creatorProceeds, totalMinted },
+      data: {
+        ...tier.data,
+        pendingOwner,
+        creatorProceeds,
+        totalMinted,
+        reserves,
+      },
     };
   } catch (error) {
     const classified = classifyReadError(error);

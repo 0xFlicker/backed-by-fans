@@ -1,10 +1,45 @@
 import {
   decodeEventLog,
+  parseEventLogs,
   isAddressEqual,
   type Address,
   type TransactionReceipt,
 } from "viem";
-import { protocolBuybackVaultAbi } from "@/contracts";
+import { protocolBuybackVaultAbi, protocolBurnRouterAbi } from "@/contracts";
+
+/** Only the supplied successful receipt proves completed work; later balances may change. */
+export function receiptAdvance(
+  receipt: TransactionReceipt,
+  input: { router: Address; caller: Address },
+) {
+  if (receipt.status !== "success") return undefined;
+  const events = parseEventLogs({
+    abi: protocolBurnRouterAbi,
+    logs: receipt.logs,
+  }).filter((event) => isAddressEqual(event.address, input.router));
+  const completion = events.find(
+    (event) =>
+      event.eventName === "AdvanceCompleted" &&
+      isAddressEqual(event.args.caller, input.caller),
+  );
+  if (!completion || completion.eventName !== "AdvanceCompleted")
+    return undefined;
+  return {
+    completed: completion.args,
+    accounting: events
+      .filter((event) => event.eventName === "AccountingAdvanced")
+      .map((event) => event.args),
+    releases: events
+      .filter((event) => event.eventName === "TierReleased")
+      .map((event) => event.args),
+    purchases: events
+      .filter((event) => event.eventName === "PurchaseCompleted")
+      .map((event) => event.args),
+    skipped: events
+      .filter((event) => event.eventName === "PurchaseSkipped")
+      .map((event) => event.args),
+  };
+}
 
 /** Called only after wagmi/viem supplies a successful receipt. */
 export function receiptBuyback(
@@ -61,4 +96,20 @@ export function receiptBuyback(
     }
   }
   return undefined;
+}
+
+export function buybackSkipReason(status: number): string {
+  const reasons = [
+    "ready",
+    "no released funds",
+    "buybacks paused",
+    "no trading route",
+    "trading limits not configured",
+    "below the buyback minimum",
+    "cooldown",
+    "launch penalty active",
+    "graduation pending",
+    "protocol token not launched",
+  ];
+  return reasons[status] ?? `status ${status}`;
 }

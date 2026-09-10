@@ -66,7 +66,10 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
     await installAnvilWallet(page, caller);
     await page.goto("/chains/31337/protocol");
     await connectAnvilWallet(page, caller);
-    const burn = page.getByRole("button", { name: "Burn", exact: true });
+    const burn = page.getByRole("button", {
+      name: "Advance and burn",
+      exact: true,
+    });
     await expect(burn).toBeEnabled();
     await burn.click();
     await expect(page.locator(".protocol-burn [role=status]")).toContainText(
@@ -87,9 +90,9 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
     const completed = parseEventLogs({
       abi: protocolBurnRouterAbi,
       logs: receipt.logs,
-    }).find((e) => e.eventName === "BurnCompleted");
-    expect(completed?.eventName).toBe("BurnCompleted");
-    if (!completed || completed.eventName !== "BurnCompleted")
+    }).find((e) => e.eventName === "AdvanceCompleted");
+    expect(completed?.eventName).toBe("AdvanceCompleted");
+    if (!completed || completed.eventName !== "AdvanceCompleted")
       throw new Error("Missing batch receipt");
     expect(completed.args.releasedTiers).toBe(3n);
     expect(completed.args.purchases).toBeGreaterThanOrEqual(3n);
@@ -98,16 +101,19 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
       const state = await client.readContract({
         address: tier.address,
         abi: membershipTierAbi,
-        functionName: "protocolFeeState",
+        functionName: "allocationState",
         args: [1n],
       });
-      expect(state.unearned).toBeGreaterThan(0n);
+      expect(state.unearnedScaled[3] / (1n << 128n)).toBeGreaterThan(0n);
       expect(
-        await client.readContract({
-          address: tier.address,
-          abi: membershipTierAbi,
-          functionName: "totalProtocolFeeReleased",
-        }),
+        await client
+          .readContract({
+            address: boot.buybackVault,
+            abi: protocolBuybackVaultAbi,
+            functionName: "inventory",
+            args: [tier.paymentToken, 0],
+          })
+          .then((inventory) => inventory.totalReceived),
       ).toBeGreaterThan(0n);
     }
     await page
@@ -140,7 +146,7 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
     const afterBurn = await supply();
     await burn.click();
     await expect(page.locator(".protocol-burn [role=status]")).toContainText(
-      "Earned fees collected",
+      "Earned fees released",
       { timeout: 60000 },
     );
     expect(await supply()).toBe(afterBurn);

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { usdgAbi } from "../../src/contracts";
+import { membershipTierAbi, usdgAbi } from "../../src/contracts";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -141,7 +141,15 @@ test.describe("@anvil configured local Anvil membership", () => {
       ).toBeVisible();
       await expect(
         page.locator(".claim-row").filter({ hasText: "Membership rewards" }),
-      ).toContainText("0.5 USDG");
+      ).toHaveCount(0);
+      await expect(
+        client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "claimableReward",
+          args: [1n],
+        }),
+      ).resolves.toBe(0n);
       await expect(
         client.readContract({
           address: usdg,

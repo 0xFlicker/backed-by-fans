@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 
 import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 
@@ -21,6 +22,7 @@ contract CapacityAndPauseTest is Test {
     uint64 private constant _START = 1_000_000;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(_START);
         member = makeAddr("member");
         competitor = makeAddr("competitor");

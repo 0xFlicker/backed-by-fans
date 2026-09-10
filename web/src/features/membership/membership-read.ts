@@ -11,12 +11,14 @@ import type {
   ReferralStatus,
   SupporterCredential,
   TierSupporterSnapshot,
+  RefundQuote,
 } from "@/contracts/types";
 import { isSameAddress } from "@/lib/address";
 import type { ReadyDeployment } from "@/lib/config";
 import {
   multicall3Address,
   readTierSnapshotState,
+  readTierAccounting,
   verifyMulticall3,
 } from "@/lib/direct-read";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
@@ -41,6 +43,9 @@ async function readMulticallValues(
     blockNumber,
     multicallAddress: multicall3Address,
   })) as MulticallResult[];
+  if (results.length !== contracts.length) {
+    throw new Error("The batched membership read was incomplete.");
+  }
   if (results.some((result) => result.status !== "success")) {
     throw new Error("A required batched membership read failed.");
   }
@@ -80,7 +85,7 @@ async function readCredentialMulticallValues(
   const values = results.map((result) =>
     result.status === "success" ? result.result : undefined,
   );
-  if (!minted) values[8] = [0n, 0n, 0n, 0n];
+  if (!minted) values[8] = undefined;
   return values;
 }
 
@@ -236,11 +241,11 @@ async function readCredential(
       ? await client.readContract({
           address: tier,
           abi: membershipTierAbi,
-          functionName: "previewRefundComponents",
+          functionName: "previewRefund",
           args: [tokenId],
           blockNumber,
         })
-      : ([0n, 0n, 0n, 0n] as const);
+      : undefined;
   return credentialFromValues(tokenId, wallet, [
     balance,
     active,
@@ -283,10 +288,8 @@ function credentialFromValues(
     shares: shares as bigint,
     rewardEligible: rewardEligible as boolean,
     claimableReward: reward as bigint,
-    refundableGross: (refund as readonly bigint[])[0],
-    protocolRefundContribution: (refund as readonly bigint[])[1],
-    creatorRefundContribution: (refund as readonly bigint[])[2],
-    ownerTopUp: (refund as readonly bigint[])[3],
+    refundableGross: (refund as RefundQuote | undefined)?.grossRefund ?? 0n,
+    refund: refund as RefundQuote | undefined,
     referralStatus: referralStatus((referral as readonly [number, Address])[0]),
     referrer: (referral as readonly [number, Address])[1],
   } satisfies SupporterCredential;
@@ -349,7 +352,7 @@ function credentialContracts(
     {
       address: tier,
       abi: membershipTierAbi,
-      functionName: "previewRefundComponents",
+      functionName: "previewRefund",
       args: [tokenId],
     },
   ];
@@ -501,7 +504,21 @@ export async function readTierSupporterState(
           : undefined,
       ]);
     }
-    const block = await blockPromise;
+    const [block, vesting, totalEligibleRewardShares] = await Promise.all([
+      blockPromise,
+      readTierAccounting(client, {
+        tier: input.tier,
+        tokenId,
+        referrer: wallet,
+        blockNumber,
+      }),
+      client.readContract({
+        address: input.tier,
+        abi: membershipTierAbi,
+        functionName: "totalRewardShares",
+        blockNumber,
+      }),
+    ]);
 
     return {
       ...tier,
@@ -515,6 +532,8 @@ export async function readTierSupporterState(
         claimableReferral: referralClaim,
         creatorProceeds,
         credential,
+        vesting,
+        totalEligibleRewardShares,
       },
     };
   } catch (error) {

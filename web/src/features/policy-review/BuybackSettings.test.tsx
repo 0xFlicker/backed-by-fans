@@ -89,7 +89,12 @@ beforeEach(() => {
     fees: new Map([
       [
         zeroAddress,
-        { earned: 1000000000000000000n, future: 9000000000000000000n },
+        {
+          earned: 1000000000000000000n,
+          reservedScaled: 9000000000000000000n * (1n << 128n),
+          complete: false,
+          accountedThrough: 900n,
+        },
       ],
     ]),
     data: {

@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
+import { advanceCall, type AdvanceMode } from "./advance-call";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 import {
   BaseError,
+  isAddress,
   ContractFunctionRevertedError,
-  parseEventLogs,
   type Address,
   type PublicClient,
 } from "viem";
@@ -15,21 +18,22 @@ import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { decodeTransactionError } from "@/lib/transaction-state";
 import { formatRawTokenAmount, tokenMultiplierScale } from "@/lib/token-amount";
-import { isSameAddress } from "@/lib/address";
-import { prepareBurn } from "./prepare-burn";
+import { receiptAdvance, buybackSkipReason } from "./buyback-reconciliation";
+import { prepareAdvance } from "./prepare-burn";
 import { assertSufficientGas } from "./gas-readiness";
 
 export function Burn({
   chainId,
   factory,
   symbol,
-  tokenLaunched = true,
 }: {
   chainId: SupportedChainId;
   factory: Address;
   symbol?: string;
   tokenLaunched?: boolean;
 }) {
+  const [mode, setMode] = useState<AdvanceMode>("both");
+  const [selectedTier, setSelectedTier] = useState("");
   const account = useHydratedAccount();
   const client = usePublicClient({ chainId });
   const config = useConfig();
@@ -41,7 +45,15 @@ export function Burn({
       if (!client || !account.address || account.chainId !== chainId)
         throw new Error("Connect your wallet on this network.");
       write.reset();
-      const plan = await prepareBurn(client as PublicClient, factory);
+      if (mode !== "buyback" && selectedTier && !isAddress(selectedTier))
+        throw new Error("Enter a valid membership contract address.");
+      const plan = await prepareAdvance(
+        client as PublicClient,
+        factory,
+        mode !== "buyback" && selectedTier
+          ? (selectedTier as Address)
+          : undefined,
+      );
       let simulation;
       try {
         simulation = await simulateContract(config, {
@@ -49,8 +61,7 @@ export function Burn({
           account: account.address,
           address: plan.router,
           abi: protocolBurnRouterAbi,
-          functionName: "burn",
-          args: [plan.collections, plan.purchases, plan.deadline],
+          ...advanceCall(mode, plan.tiers, plan.purchases, plan.deadline),
           ...(chainId === 31337 ? { gasPrice: 2_000_000_000n } : {}),
         });
       } catch (error) {
@@ -62,9 +73,9 @@ export function Burn({
           reverted.data?.errorName === "NothingToDo"
         )
           throw new Error(
-            plan.unavailableCollections > 0
-              ? "Some fee collections are unavailable, and no other work is ready. Check the membership details below."
-              : "Nothing is ready to burn or collect right now. Try again as fees earn and cooldowns finish.",
+            plan.unavailableTiers > 0
+              ? "Some membership accounting is unavailable, and no other work is ready. Check the membership details below."
+              : "Nothing is ready to advance or burn right now. Try again as fees earn and cooldowns finish.",
           );
         throw error;
       }
@@ -84,20 +95,15 @@ export function Burn({
       if (cancelled) throw new Error("Your wallet cancelled this transaction.");
       if (receipt.status !== "success")
         throw new Error(
-          "The transaction reverted. Press Burn to check the latest available work.",
+          "The transaction reverted. No changes were retained. Choose Advance accounting to catch up independently of buybacks.",
         );
-      const events = parseEventLogs({
-        abi: protocolBurnRouterAbi,
-        logs: receipt.logs,
-      }).filter((event) => isSameAddress(event.address, plan.router));
-      const completed = events.find(
-        (event) =>
-          event.eventName === "BurnCompleted" &&
-          isSameAddress(event.args.caller, account.address!),
-      );
-      if (!completed || completed.eventName !== "BurnCompleted")
+      const outcome = receiptAdvance(receipt, {
+        router: plan.router,
+        caller: account.address,
+      });
+      if (!outcome)
         throw new Error(
-          "This receipt does not confirm a completed burn batch. Refresh activity to check.",
+          "This receipt does not confirm a completed accounting and buyback batch. Refresh activity to check.",
         );
       const refresh = await Promise.allSettled([
         cache.invalidateQueries(
@@ -106,16 +112,15 @@ export function Burn({
         ),
       ]);
       return {
-        ...completed.args,
+        ...outcome.completed,
         receipt,
-        more: plan.moreCollections,
-        failures:
-          plan.unavailableCollections +
-          events.filter(
-            (event) =>
-              event.eventName === "CollectionFailed" ||
-              event.eventName === "PurchaseFailed",
-          ).length,
+        more: plan.moreAccounting,
+        unavailable: plan.unavailableTiers,
+        skipped: [
+          ...new Set(
+            outcome.skipped.map((item) => buybackSkipReason(item.reason)),
+          ),
+        ],
         refreshFailed: refresh.some((result) => result.status === "rejected"),
       };
     },
@@ -131,6 +136,36 @@ export function Burn({
   const explorer = getSupportedChain(chainId).blockExplorers?.default.url;
   return (
     <div className="protocol-burn">
+      <label className="creator-field">
+        <span>Action</span>
+        <select
+          value={mode}
+          disabled={action.isPending}
+          onChange={(event) => setMode(event.target.value as AdvanceMode)}
+        >
+          <option value="accounting">Advance accounting</option>
+          <option value="buyback">Buyback and burn</option>
+          <option value="both">Both</option>
+        </select>
+      </label>
+      {mode !== "buyback" && (
+        <details>
+          <summary>Choose a membership instead of automatic selection</summary>
+          <label className="creator-field">
+            <span>Membership contract address</span>
+            <input
+              value={selectedTier}
+              disabled={action.isPending}
+              onChange={(event) => setSelectedTier(event.target.value.trim())}
+              placeholder="0x…"
+            />
+          </label>
+          <p className="small-copy">
+            Leave blank for automatic selection. Each transaction shares up to
+            25 checkpoints across selected memberships.
+          </p>
+        </details>
+      )}
       <button
         type="button"
         className="button button-dark"
@@ -143,20 +178,22 @@ export function Burn({
       >
         {action.isPending
           ? "Working…"
-          : tokenLaunched
-            ? "Burn"
-            : "Collect fees"}
+          : mode === "accounting"
+            ? "Advance accounting"
+            : mode === "buyback"
+              ? "Buyback and burn"
+              : "Advance and burn"}
       </button>
       <p className="small-copy">
         {!account.isConnected
-          ? tokenLaunched
-            ? "Connect a wallet to burn."
-            : "Connect a wallet to collect fees."
+          ? "Connect a wallet to continue."
           : account.chainId !== chainId
             ? "Switch your wallet to this network."
-            : tokenLaunched
-              ? "Collect earned fees and burn in one transaction. You pay the network fee."
-              : "Collect earned fees into the vault. You pay the network fee."}
+            : mode === "accounting"
+              ? "Settle up to 25 checkpoints without trading. You pay the network fee."
+              : mode === "buyback"
+                ? "Buy and burn using funds already released to the vault. You pay the network fee."
+                : "Advance accounting, release earned fees and execute eligible buybacks in one transaction. An execution failure rolls back the transaction."}
       </p>
       {action.isPending && (
         <p role="status">
@@ -175,16 +212,27 @@ export function Burn({
           <p>
             {result.burned > 0n
               ? `${burnedAmount} ${symbol || "protocol tokens"} burned.`
-              : tokenLaunched
-                ? "Earned fees collected. Purchases will proceed when eligible."
-                : "Earned fees collected. They remain in the vault until the protocol token is launched."}
+              : result.releasedTiers > 0n
+                ? "Earned fees released to the buyback vault."
+                : "Membership accounting advanced."}
+            {result.processedSteps > 0n &&
+              ` ${result.processedSteps} accounting checkpoints completed.`}
+            {!result.burnMeasured &&
+              result.purchases > 0n &&
+              " Purchases completed; the burn amount could not be measured."}
             {result.releasedTiers > 0n &&
               result.burned > 0n &&
               ` Fees collected from ${result.releasedTiers} membership${result.releasedTiers === 1n ? "" : "s"}.`}
           </p>
-          {(result.more || result.failures > 0) && (
+          {(result.more || result.unavailable > 0) && (
             <p className="small-copy">
-              Some work remains. Press Burn to check what can run next.
+              Some work remains. Run another batch or choose a membership to
+              advance.
+            </p>
+          )}
+          {result.skipped.length > 0 && (
+            <p className="small-copy">
+              Buybacks skipped: {result.skipped.join(", ")}.
             </p>
           )}
           {result.refreshFailed && (

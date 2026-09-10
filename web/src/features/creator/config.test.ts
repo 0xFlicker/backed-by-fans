@@ -26,6 +26,7 @@ const paymentToken: AcceptedPaymentToken = {
   factory: creator,
   address: paymentTokenAddress,
   registryIndex: 0,
+  minimumPayment: 1n,
   listed: true,
   enabled: true,
   name: "Global Dollar",
@@ -66,6 +67,156 @@ function evaluate(
 }
 
 describe("creator tier configuration", () => {
+  it("enforces the published currency floor per period and snapshots the reviewed minimum", () => {
+    const token = { ...paymentToken, minimumPayment: 1_000_000n };
+    expect(
+      evaluate(
+        { ...validCreatorForm, displayedPrice: "0.999999" },
+        creative,
+        token,
+      ).errors.displayedPrice,
+    ).toBeDefined();
+    for (const displayedPrice of ["0", "1"]) {
+      const result = evaluate(
+        { ...validCreatorForm, displayedPrice },
+        creative,
+        token,
+      );
+      expect(result.errors.displayedPrice).toBeUndefined();
+      expect(result.config?.minimumPayment).toBe(1_000_000n);
+    }
+  });
+  it("makes curve previews available before wallet connection and publishes custom settings", () => {
+    const form = {
+      ...validCreatorForm,
+      startingBoost: "2.37",
+      earlySupportWindow: "731",
+    };
+    expect(
+      evaluateCreatorForm(form, undefined, creative, paymentToken).curve,
+    ).toEqual({
+      startingBoostBps: 23700,
+      earlySupportGross: 7_310_000_000n,
+      pricePerPeriod: 10_000_000n,
+    });
+    expect(evaluate(form).config).toMatchObject({
+      startingBoostBps: 23700,
+      earlySupportGross: 7_310_000_000n,
+    });
+  });
+  it("requires a representable window when the default exceeds raw bounds or rounds to zero", () => {
+    const highPrecision = { ...paymentToken, decimals: 36 };
+    expect(
+      evaluate(
+        { ...validCreatorForm, displayedPrice: "0" },
+        creative,
+        highPrecision,
+      ).errors.earlySupportWindow,
+    ).toBeDefined();
+    expect(
+      evaluate(
+        {
+          ...validCreatorForm,
+          displayedPrice: "0",
+          earlySupportWindow: "0.001",
+        },
+        creative,
+        highPrecision,
+      ).config?.earlySupportGross,
+    ).toBe(10n ** 33n);
+    const hugeMultiplier = {
+      ...paymentToken,
+      scaledUI: true,
+      uiMultiplier: 10n ** 40n,
+    };
+    expect(
+      evaluate(
+        { ...validCreatorForm, displayedPrice: "0" },
+        creative,
+        hugeMultiplier,
+      ).errors.earlySupportWindow,
+    ).toBeDefined();
+    expect(
+      evaluate(
+        {
+          ...validCreatorForm,
+          displayedPrice: "0",
+          earlySupportWindow: "10000000000000000",
+        },
+        creative,
+        hugeMultiplier,
+      ).config?.earlySupportGross,
+    ).toBe(1n);
+  });
+  it("keeps fixed windows in purchased periods and PWYW windows in the selected token units", () => {
+    const form = {
+      ...validCreatorForm,
+      startingBoost: "3",
+      earlySupportWindow: "25",
+    };
+    const original = evaluate(form).config!;
+    expect(
+      evaluate({ ...form, displayedPrice: "20" }).config?.earlySupportGross,
+    ).toBe(500_000_000n);
+    const scaled = {
+      ...paymentToken,
+      scaledUI: true,
+      uiMultiplier: 2n * tokenMultiplierScale,
+    };
+    expect(
+      evaluate({ ...form, displayedPrice: "0" }, creative, scaled).config
+        ?.earlySupportGross,
+    ).toBe(12_500_000n);
+    expect(original.earlySupportGross).toBe(250_000_000n);
+  });
+  it("defaults Some to 1.5x across 1,000 paid periods and normalizes None", () => {
+    expect(evaluate().config).toMatchObject({
+      startingBoostBps: 15000,
+      earlySupportGross: 10_000_000_000n,
+    });
+    expect(
+      evaluate({
+        ...validCreatorForm,
+        startingBoost: "1",
+        earlySupportWindow: "invalid",
+      }).config,
+    ).toMatchObject({ startingBoostBps: 10000, earlySupportGross: 0n });
+  });
+  it("converts a PWYW window using the payment token's display units", () => {
+    expect(
+      evaluate({ ...validCreatorForm, displayedPrice: "0" }).config,
+    ).toMatchObject({
+      startingBoostBps: 15000,
+      earlySupportGross: 10_000_000_000n,
+    });
+    expect(
+      evaluate({
+        ...validCreatorForm,
+        displayedPrice: "0",
+        earlySupportWindow: "12.34",
+      }).config?.earlySupportGross,
+    ).toBe(12_340_000n);
+  });
+  it.each(["0.99", "10.01", "1.005", "NaN"])(
+    "rejects unsupported boost %s",
+    (startingBoost) => {
+      expect(
+        evaluate({ ...validCreatorForm, startingBoost }).errors.startingBoost,
+      ).toBeDefined();
+    },
+  );
+  it("rejects fractional fixed windows and overflow instead of clamping", () => {
+    expect(
+      evaluate({ ...validCreatorForm, earlySupportWindow: "1.5" }).errors
+        .earlySupportWindow,
+    ).toBeDefined();
+    expect(
+      evaluate({
+        ...validCreatorForm,
+        earlySupportWindow: "99999999999999999999999999",
+      }).config,
+    ).toBeUndefined();
+  });
   it("defaults to 1% and accepts exact two-decimal protocol allocations", () => {
     expect(defaultCreatorForm.protocolPercent).toBe("1");
     expect(evaluate().config?.protocolFeeBps).toBe(100);

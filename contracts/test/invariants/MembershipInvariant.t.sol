@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {LinkedVestingFixture} from "../helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
 
 import {SyntheticVaultBinding} from "../helpers/SyntheticVaultBinding.sol";
@@ -18,7 +19,7 @@ import {MembershipModel} from "../models/MembershipModel.sol";
 
 contract MembershipHandler is Test {
     using MembershipModel for MembershipModel.Lifecycle;
-    using MembershipModel for MembershipModel.FeeBook;
+    using MembershipModel for MembershipModel.FundingBook;
 
     uint256 private constant _MAX_GROSS = 100_000_000;
 
@@ -33,7 +34,10 @@ contract MembershipHandler is Test {
     mapping(uint256 tokenId => MembershipTypes.ReferralStatus status) public ghostReferralStatus;
     mapping(uint256 tokenId => address referrer) public ghostReferrer;
     mapping(uint256 tokenId => MembershipModel.Lifecycle state) private _modelLifecycle;
-    MembershipModel.FeeBook private _fees;
+    MembershipModel.FundingBook private _funding;
+    uint256 private constant Q = 1 << 128;
+    uint256 private _protocolPaid;
+    mapping(uint256 => bool) public ghostRewardEligible;
 
     constructor(
         AdversarialERC20 paymentToken_,
@@ -47,6 +51,7 @@ contract MembershipHandler is Test {
         tier = tier_;
         creator = creator_;
         _actors = actors_;
+        _funding.accountedThrough = uint64(block.timestamp);
 
         for (uint256 i; i < actors_.length; ++i) {
             vm.prank(actors_[i]);
@@ -64,11 +69,10 @@ contract MembershipHandler is Test {
         uint256 gross = grossSeed % (_MAX_GROSS + 1);
         if (gross != 0) paymentToken.mint(actor, gross);
         address choice = _referralChoice(actor, referralSeed);
+        _settle();
         vm.prank(actor);
         uint256 tokenId = tier.contribute(gross, choice);
-        _checkpointModelFees(tokenId);
-        _fees.allocateFee(tokenId, gross, tier.protocolFeeBps(), tier.periodDuration());
-        _modelLifecycle[tokenId].addPaidTime(_timestamp(), tier.periodDuration());
+        _modelContribution(tokenId, gross);
         _recordMonotonicState(tokenId);
     }
 
@@ -79,9 +83,9 @@ contract MembershipHandler is Test {
 
         uint64 periods = 1;
         if (periodSeed % 2 != 0) periods = 2;
+        _settle();
         vm.prank(creator);
         uint256 tokenId = tier.grantTime(actor, periods);
-        _checkpointModelFees(tokenId);
         _modelLifecycle[tokenId].addGrantTime(
             _timestamp(), uint64(uint256(periods) * tier.periodDuration())
         );
@@ -94,10 +98,11 @@ contract MembershipHandler is Test {
         (, uint64 grantSeconds,) = tier.timeBalances(tokenId);
         if (grantSeconds == 0) return;
 
+        _settle();
         vm.prank(creator);
         tier.revokeGrantTime(tokenId);
-        _checkpointModelFees(tokenId);
         _modelLifecycle[tokenId].revokeGrantTime(_timestamp());
+        if (_modelLifecycle[tokenId].paidSeconds == 0) ghostRewardEligible[tokenId] = false;
         _recordMonotonicState(tokenId);
     }
 
@@ -105,11 +110,12 @@ contract MembershipHandler is Test {
         address actor = _actor(actorSeed);
         uint256 tokenId = tier.tokenOf(actor);
         if (tokenId == 0 || tier.balanceOf(actor) == 0) return;
-        _fundTopUp(tokenId);
+        _settle();
 
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
-        _cancelModelFees(tokenId);
+        tier.refund(tokenId, type(uint256).max);
+        _funding.cancel(tokenId);
+        ghostRewardEligible[tokenId] = false;
         _modelLifecycle[tokenId].refundTime(_timestamp());
         assertEq(_grossRefund(tokenId), 0);
         _recordMonotonicState(tokenId);
@@ -122,11 +128,12 @@ contract MembershipHandler is Test {
         if (tokenId == 0) return;
         if (!_canIncreaseTime(actor)) return;
         if (tier.balanceOf(actor) != 0) {
-            _fundTopUp(tokenId);
+            _settle();
 
             vm.prank(creator);
-            tier.refund(tokenId, type(uint256).max, type(uint256).max);
-            _cancelModelFees(tokenId);
+            tier.refund(tokenId, type(uint256).max);
+            _funding.cancel(tokenId);
+            ghostRewardEligible[tokenId] = false;
             _modelLifecycle[tokenId].refundTime(_timestamp());
             assertEq(_grossRefund(tokenId), 0);
         }
@@ -134,11 +141,10 @@ contract MembershipHandler is Test {
         uint256 newGross = grossSeed % (_MAX_GROSS + 1);
         if (newGross != 0) paymentToken.mint(actor, newGross);
         address referralChoice = _referralChoice(actor, grossSeed >> 1);
+        _settle();
         vm.prank(actor);
         tier.contribute(newGross, referralChoice);
-        _checkpointModelFees(tokenId);
-        _fees.allocateFee(tokenId, newGross, tier.protocolFeeBps(), tier.periodDuration());
-        _modelLifecycle[tokenId].addPaidTime(_timestamp(), tier.periodDuration());
+        _modelContribution(tokenId, newGross);
         assertEq(_grossRefund(tokenId), newGross);
         _recordMonotonicState(tokenId);
     }
@@ -146,15 +152,14 @@ contract MembershipHandler is Test {
     function synchronizeTwice(uint256 actorSeed) external {
         uint256 tokenId = tier.tokenOf(_actor(actorSeed));
         if (tokenId == 0) return;
-        if (_modelLifecycle[tokenId].occupied && !_modelLifecycle[tokenId].active(_timestamp())) {
-            _checkpointModelFees(tokenId);
-        }
+        _settle();
         bool expectedRelease = _modelLifecycle[tokenId].synchronize(_timestamp());
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
         vm.prank(creator);
         uint256 released = tier.synchronizeExpiredMemberships(tokenIds);
         assertEq(released, expectedRelease ? 1 : 0);
+        if (expectedRelease) ghostRewardEligible[tokenId] = false;
         vm.prank(creator);
         assertEq(tier.synchronizeExpiredMemberships(tokenIds), 0);
         assertFalse(_modelLifecycle[tokenId].synchronize(_timestamp()));
@@ -166,61 +171,76 @@ contract MembershipHandler is Test {
         tier.setPaused(pausedSeed % 2 == 0);
     }
 
-    function accrue(uint256 actorSeed) external {
-        uint256 id = tier.tokenOf(_actor(actorSeed));
-        if (id == 0) return;
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = id;
-        tier.accrueProtocolFees(ids);
-        _checkpointModelFees(id);
+    function advance(uint256) external {
+        _settle();
     }
 
     function release() external {
-        assertEq(tier.releaseProtocolFees(), _fees.releaseFees());
+        uint256 expected = _funding.earnedScaled[3] / Q - _protocolPaid;
+        assertEq(tier.releaseProtocolFees(), expected);
+        _protocolPaid += expected;
     }
 
-    function _checkpointModelFees(uint256 id) private {
+    function _settle() private {
+        for (uint256 calls;; ++calls) {
+            assertLt(calls, 500);
+            (uint256 steps,, bool complete,) = tier.processAccounting(25);
+            if (complete) break;
+            assertGt(steps, 0);
+        }
+        _funding.recognize(_timestamp());
+    }
+
+    function _modelContribution(uint256 id, uint256 gross) private {
         (uint64 remaining,,) = _modelLifecycle[id].projected(_timestamp());
-        _fees.recognizeFee(id, _modelLifecycle[id].paidSeconds - remaining);
-        MembershipModel.checkpoint(_modelLifecycle[id], _timestamp());
+        (, address referrer) = tier.referralOf(id);
+        _funding.fund(
+            id,
+            gross,
+            _timestamp() + remaining,
+            tier.periodDuration(),
+            tier.protocolFeeBps(),
+            tier.rewardBps(),
+            tier.referralBps(),
+            referrer
+        );
+        _modelLifecycle[id].addPaidTime(_timestamp(), tier.periodDuration());
+        if (gross != 0) {
+            ghostShareFloor[id] += gross;
+            ghostRewardEligible[id] = true;
+        }
     }
 
-    function _cancelModelFees(uint256 id) private {
-        _checkpointModelFees(id);
-        MembershipModel.FeeSchedule storage schedule = _fees.schedules[id];
-        (,, uint256 gross) = MembershipModel.feeEntitlement(schedule.lots, schedule.consumed);
-        _fees.cancelFee(id, gross);
-    }
-
-    function assertFeeConservation() external view {
-        assertEq(tier.totalProtocolFeeAllocated(), _fees.allocated);
-        assertEq(tier.protocolFeeHoldings(), _fees.held);
-        assertEq(tier.protocolFeeEarnedHeld(), _fees.earnedHeld);
-        assertEq(tier.totalProtocolFeeReleased(), _fees.released);
-        assertEq(tier.totalProtocolFeeRefunded(), _fees.refunded);
-        assertEq(tier.totalProtocolFeeCancellationRounding(), _fees.rounding);
-        assertEq(_fees.allocated, _fees.held + _fees.released + _fees.refunded);
-        uint256 unearned;
-        uint256 pending;
+    function assertFundingConservation() external view {
+        MembershipTypes.ReserveState memory reserves = tier.reserveState();
+        uint256 memberCredit;
+        uint256 referralCredit;
         for (uint256 i; i < _actors.length; ++i) {
             uint256 id = tier.tokenOf(_actors[i]);
-            if (id == 0) continue;
-            MembershipModel.FeeSchedule storage schedule = _fees.schedules[id];
-            (uint64 remaining,,) = _modelLifecycle[id].projected(_timestamp());
-            (uint256 allocated, uint256 earned,) = MembershipModel.feeEntitlement(
-                schedule.lots, schedule.consumed + _modelLifecycle[id].paidSeconds - remaining
-            );
-            MembershipTypes.ProtocolFeeState memory state = tier.protocolFeeState(id);
-            assertEq(state.unearned, allocated - earned);
-            assertEq(state.uncheckpointedEarned, earned - schedule.recognized);
-            assertEq(state.earned, schedule.lifetimeEarned + earned - schedule.recognized);
-            assertEq(state.refunded, schedule.refunded);
-            assertEq(state.cancellationRounding, schedule.rounding);
-            assertEq(state.generation, schedule.generation);
-            unearned += allocated - earned;
-            pending += earned - schedule.recognized;
+            MembershipTypes.EarnedBalances memory balances = tier.earnedBalances(id, _actors[i]);
+            memberCredit += balances.member * Q + balances.fractionalScaled[1];
+            referralCredit += balances.referral * Q + balances.fractionalScaled[2];
+            if (id != 0) assertEq(tier.allocationState(id).generation, _funding.generation[id]);
         }
-        assertEq(_fees.held, unearned + pending + _fees.earnedHeld);
+        MembershipTypes.EarnedBalances memory global = tier.earnedBalances(0, address(0));
+        uint256[4] memory earned = [
+            global.creator * Q + global.fractionalScaled[0],
+            memberCredit + reserves.indexCarryScaled + reserves.distributionDustScaled,
+            referralCredit,
+            (global.protocol + _protocolPaid) * Q + global.fractionalScaled[3]
+        ];
+        for (uint256 p; p < 4; ++p) {
+            assertEq(earned[p], _funding.earnedScaled[p]);
+            assertEq(reserves.unearnedScaled[p], _funding.unearnedScaled[p]);
+            assertEq(reserves.cancellationScaled[p], _funding.cancellationScaled[p]);
+            assertEq(
+                _funding.allocatedScaled[p],
+                earned[p] + _funding.unearnedScaled[p] + _funding.cancellationScaled[p]
+                    + _funding.refundedScaled[p]
+            );
+        }
+        assertEq(reserves.unassignedMemberScaled, 0);
+        assertEq(paymentToken.balanceOf(address(tier)), tier.totalProtectedLiability());
     }
 
     function warp(uint256 elapsedSeed) external {
@@ -308,13 +328,8 @@ contract MembershipHandler is Test {
         return address(0);
     }
 
-    function _fundTopUp(uint256 tokenId) private {
-        (, uint256 ownerTopUp) = tier.previewRefund(tokenId);
-        if (ownerTopUp != 0) paymentToken.mint(creator, ownerTopUp);
-    }
-
-    function _grossRefund(uint256 tokenId) private view returns (uint256 grossRefund) {
-        (grossRefund,) = tier.previewRefund(tokenId);
+    function _grossRefund(uint256 tokenId) private view returns (uint256) {
+        return tier.previewRefund(tokenId).grossRefund;
     }
 
     function _canIncreaseTime(address actor) private view returns (bool) {
@@ -326,8 +341,8 @@ contract MembershipHandler is Test {
 
     function _recordMonotonicState(uint256 tokenId) private {
         uint256 shares = tier.sharesOf(tokenId);
-        assertGe(shares, ghostShareFloor[tokenId]);
-        ghostShareFloor[tokenId] = shares;
+        assertEq(shares, ghostShareFloor[tokenId]);
+        assertEq(tier.rewardEligible(tokenId), ghostRewardEligible[tokenId]);
 
         (MembershipTypes.ReferralStatus status, address referrer) = tier.referralOf(tokenId);
         MembershipTypes.ReferralStatus priorStatus = ghostReferralStatus[tokenId];
@@ -363,7 +378,7 @@ contract MembershipHandler is Test {
         uint64 checkpoint;
         (paidSeconds, grantSeconds, checkpoint) = tier.timeBalances(tokenId);
         uint256 refundPreview;
-        if (tier.balanceOf(actor) != 0) (refundPreview,) = tier.previewRefund(tokenId);
+        if (tier.balanceOf(actor) != 0) refundPreview = tier.previewRefund(tokenId).grossRefund;
         bytes32 timeState =
             keccak256(abi.encode(paidSeconds, grantSeconds, checkpoint, refundPreview));
         return keccak256(abi.encode(tokenId, timeState, _economicFingerprint(tokenId, actor)));
@@ -391,8 +406,8 @@ contract MembershipHandler is Test {
                 tier.occupiedSupply(),
                 tier.totalRewardShares(),
                 tier.creatorProceeds(),
-                tier.rewardReserve(),
-                tier.totalReferralLiability()
+                tier.reserveState(),
+                tier.earnedBalances(0, address(0))
             )
         );
     }
@@ -423,6 +438,7 @@ contract MembershipInvariantTest is StdInvariant, Test {
     MembershipHandler private _handler;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         _paymentToken = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         OnchainMediaStoreFactory mediaStoreFactory = new OnchainMediaStoreFactory();
@@ -432,7 +448,9 @@ contract MembershipInvariantTest is StdInvariant, Test {
             MembershipTestConfig.paymentTokens(_paymentToken),
             address(mediaStoreFactory),
             address(this),
-            address(_paymentToken)
+            address(_paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(_paymentToken))
         );
 
         MembershipTypes.TierConfig memory config =
@@ -462,14 +480,14 @@ contract MembershipInvariantTest is StdInvariant, Test {
         selectors[7] = MembershipHandler.warp.selector;
         selectors[8] = MembershipHandler.failedPausedContribution.selector;
         selectors[9] = MembershipHandler.failedInboundTransfer.selector;
-        selectors[10] = MembershipHandler.accrue.selector;
+        selectors[10] = MembershipHandler.advance.selector;
         selectors[11] = MembershipHandler.release.selector;
         targetContract(address(_handler));
         targetSelector(FuzzSelector({addr: address(_handler), selectors: selectors}));
     }
 
     function invariant_identityLocksSharesAndOccupancyRemainConsistent() public view {
-        _handler.assertFeeConservation();
+        _handler.assertFundingConservation();
         assertEq(address(_tier.paymentToken()), address(_paymentToken));
         assertTrue(_factory.isPaymentTokenListed(address(_paymentToken)));
         uint256 totalMinted = _tier.totalMinted();
@@ -526,6 +544,7 @@ contract MembershipInvariantTest is StdInvariant, Test {
 
 contract RewardSettlementIndependenceTest is Test {
     function test_settlementFrequencyDoesNotChangePayoutsOrAssignPriorRewardsToNewShares() public {
+        new LinkedVestingFixture().install();
         AdversarialERC20 token = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config =
@@ -547,6 +566,10 @@ contract RewardSettlementIndependenceTest is Test {
         token.approve(address(deferred), type(uint256).max);
         frequent.contribute(100_000, address(0));
         deferred.contribute(100_000, address(0));
+        vm.stopPrank();
+        vm.warp(block.timestamp + config.periodDuration / 2);
+        frequent.processAccounting(25);
+        vm.startPrank(first);
         uint256 earlyClaim = frequent.claimReward(frequent.tokenOf(first));
         vm.stopPrank();
 
@@ -562,6 +585,11 @@ contract RewardSettlementIndependenceTest is Test {
         vm.startPrank(first);
         frequent.contribute(37_000, address(0));
         deferred.contribute(37_000, address(0));
+        vm.stopPrank();
+        vm.warp(block.timestamp + 2 * config.periodDuration);
+        frequent.processAccounting(25);
+        deferred.processAccounting(25);
+        vm.startPrank(first);
         uint256 frequentFirstFinal = frequent.claimReward(frequent.tokenOf(first));
         uint256 deferredFirstFinal = deferred.claimReward(deferred.tokenOf(first));
         vm.stopPrank();
@@ -573,7 +601,11 @@ contract RewardSettlementIndependenceTest is Test {
 
         assertEq(earlyClaim + frequentFirstFinal, deferredFirstFinal);
         assertEq(frequentSecondFinal, deferredSecondFinal);
-        assertEq(frequent.rewardReserve(), deferred.rewardReserve());
+        assertEq(abi.encode(frequent.reserveState()), abi.encode(deferred.reserveState()));
+        assertEq(
+            frequent.earnedBalances(1, address(0)).fractionalScaled[1],
+            deferred.earnedBalances(1, address(0)).fractionalScaled[1]
+        );
     }
 }
 
@@ -581,6 +613,7 @@ contract FrozenGiftLifecycleTest is Test {
     function test_frozenPrepaidGiftRetainsIdentitySharesAndCapacityUntilNaturalExpiryAndSync()
         public
     {
+        new LinkedVestingFixture().install();
         AdversarialERC20 token = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config =
@@ -627,23 +660,19 @@ contract FrozenGiftLifecycleTest is Test {
         address recipient,
         uint256 tokenId
     ) private {
-        (uint256 grossRefund, uint256 ownerTopUp) = tier.previewRefund(tokenId);
-        token.mint(address(this), ownerTopUp);
-        token.approve(address(tier), type(uint256).max);
+        MembershipTypes.RefundPreview memory quote = tier.previewRefund(tokenId);
         token.setFrozen(recipient, true);
 
         uint256 tierBalance = token.balanceOf(address(tier));
         uint256 creatorProceeds = tier.creatorProceeds();
-        uint256 rewardReserve = tier.rewardReserve();
+        bytes32 reserves = keccak256(abi.encode(tier.reserveState()));
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max);
 
-        (uint256 refundAfterFailure, uint256 topUpAfterFailure) = tier.previewRefund(tokenId);
-        assertEq(refundAfterFailure, grossRefund);
-        assertEq(topUpAfterFailure, ownerTopUp);
+        assertEq(abi.encode(tier.previewRefund(tokenId)), abi.encode(quote));
         assertEq(token.balanceOf(address(tier)), tierBalance);
         assertEq(tier.creatorProceeds(), creatorProceeds);
-        assertEq(tier.rewardReserve(), rewardReserve);
+        assertEq(keccak256(abi.encode(tier.reserveState())), reserves);
         assertTrue(tier.isOccupied(tokenId));
         assertEq(tier.occupiedSupply(), 1);
     }

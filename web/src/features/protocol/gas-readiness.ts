@@ -1,8 +1,5 @@
 import { formatEther, type Address, type PublicClient } from "viem";
 
-const gasSafetyNumerator = 12n;
-const gasSafetyDenominator = 10n;
-
 export async function assertSufficientGas(
   client: PublicClient,
   account: Address,
@@ -13,9 +10,15 @@ export async function assertSufficientGas(
     client.estimateContractGas(request as never),
     client.getGasPrice(),
   ]);
-  const estimatedCost =
-    (gas * gasPrice * gasSafetyNumerator + gasSafetyDenominator - 1n) /
-    gasSafetyDenominator;
+  const requestedGas =
+    typeof request === "object" &&
+    request !== null &&
+    "gas" in request &&
+    typeof request.gas === "bigint"
+      ? request.gas
+      : 0n;
+  const fundedGas = requestedGas > gas ? requestedGas : gas;
+  const estimatedCost = fundedGas * gasPrice;
   const value =
     typeof request === "object" &&
     request !== null &&

@@ -234,7 +234,7 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       "Graduated WETH membership",
       weth,
       10000,
-      1000000000000n,
+      410_000_000_000_000n,
     );
     await f.write(
       trader,
@@ -242,11 +242,11 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       await compiledAbi("AuthenticAssetFixture.sol/IAuthenticWETH.json"),
       "deposit",
       [],
-      12000000000000n,
+      4_920_000_000_000_000n,
     );
     await f.write(trader, weth, erc20Abi, "approve", [
       membershipTier,
-      12000000000000n,
+      4_920_000_000_000_000n,
     ]);
     await f.write(trader, membershipTier, membershipTierAbi, "purchase", [
       12n,
@@ -258,8 +258,8 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       trader,
       membershipTier,
       membershipTierAbi,
-      "accrueProtocolFees",
-      [[1n]],
+      "processAccounting",
+      [25n],
     );
     await f.write(
       trader,

@@ -1,7 +1,163 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
+import { zeroAddress } from "viem";
+import { membershipTierAbi, usdgAbi } from "../../src/contracts";
+import {
+  anvilPublicClient,
+  connectAnvilWallet,
+  expectReconciled,
+  expectSuccessfulReceipt,
+  installAnvilWallet,
+  requiredAnvilAddress,
+  revertAnvil,
+  rpcRequest,
+  sendContract,
+  snapshotAnvil,
+} from "./helpers/anvil";
 
 const validTier = "0x2222222222222222222222222222222222222222";
+
+test("@anvil vested-account discovers a burned membership's durable earned claim", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  test.skip(
+    !process.env.BBF_ANVIL_TIER_ADDRESS,
+    "Requires a configured local tier.",
+  );
+  test.skip(
+    testInfo.project.name !== "desktop",
+    "One discovery journey is sufficient.",
+  );
+  const checkpoint = await snapshotAnvil();
+  const creator = requiredAnvilAddress("creator");
+  const member = requiredAnvilAddress("member");
+  const tier = requiredAnvilAddress("tier");
+  const token = requiredAnvilAddress("paymentToken");
+  const client = anvilPublicClient();
+  try {
+    const price = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "pricePerPeriod",
+    });
+    const name = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "name",
+    });
+    expect(price).toBeGreaterThan(0n);
+    expectSuccessfulReceipt(
+      await sendContract({
+        account: member,
+        address: token,
+        abi: usdgAbi,
+        functionName: "approve",
+        args: [tier, price * 2n],
+      }),
+    );
+    expectSuccessfulReceipt(
+      await sendContract({
+        account: member,
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "purchase",
+        args: [2n, zeroAddress],
+      }),
+    );
+    const id = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "tokenOf",
+      args: [member],
+    });
+    const end = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "expiresAt",
+      args: [id],
+    });
+    await rpcRequest("evm_setNextBlockTimestamp", [Number(end + 1n)]);
+    await rpcRequest("evm_mine");
+    expectSuccessfulReceipt(
+      await sendContract({
+        account: creator,
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "synchronizeExpiredMemberships",
+        args: [[id]],
+      }),
+    );
+    const earned = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "claimableReward",
+      args: [id],
+    });
+    expect(earned).toBeGreaterThan(0n);
+    await installAnvilWallet(page, member);
+    await page.goto("/account");
+    await page
+      .getByRole("combobox", { name: "Membership network" })
+      .selectOption("31337");
+    await connectAnvilWallet(page, member);
+    const card = page
+      .locator(".account-membership-card")
+      .filter({ hasText: name });
+    await expect(card).toContainText("Membership ended");
+    await expect(card).toContainText("Rewards ready");
+    await card
+      .getByRole("link", { name: "View membership", exact: true })
+      .click();
+    await expect(page).toHaveURL(
+      new RegExp(`/chains/31337/tiers/${tier}`, "i"),
+    );
+    await page
+      .locator(".claim-row")
+      .filter({ hasText: "Membership rewards" })
+      .getByRole("button", { name: "Claim to this wallet" })
+      .click();
+    await expectReconciled(page, "Claim membership rewards");
+    expect(
+      await client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "claimableReward",
+        args: [id],
+      }),
+    ).toBe(0n);
+    expect(
+      await client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "rewardEligible",
+        args: [id],
+      }),
+    ).toBe(false);
+    const path = testInfo.outputPath("account-durable-claim.json");
+    await writeFile(
+      path,
+      JSON.stringify(
+        {
+          kind: "local mock payment token; real split graph",
+          tier,
+          tokenId: String(id),
+          earned: String(earned),
+          after: { claimable: "0", eligible: false },
+        },
+        null,
+        2,
+      ),
+    );
+    await testInfo.attach("account-durable-claim", {
+      path,
+      contentType: "application/json",
+    });
+  } finally {
+    await revertAnvil(checkpoint);
+  }
+});
 
 test("keeps account recovery focused on retrying discovery", async ({
   page,

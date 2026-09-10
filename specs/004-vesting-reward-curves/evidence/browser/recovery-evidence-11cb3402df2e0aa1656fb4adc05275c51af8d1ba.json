@@ -1,0 +1,195 @@
+{
+  "kind": "real local split graph, mock payment asset",
+  "operation": "refund",
+  "tier": "0xa9d9A510DbF3096eDA575Cb5c61FBA3eA5AD96fB",
+  "behind": {
+    "accountedThrough": "1789101219",
+    "nextBoundary": "1791606819",
+    "scheduledMembers": "102",
+    "complete": false
+  },
+  "statuses": [
+    {
+      "accountedThrough": "1791606838",
+      "nextBoundary": "1791606839",
+      "scheduledMembers": "82",
+      "complete": false
+    },
+    {
+      "accountedThrough": "1791606858",
+      "nextBoundary": "1791606859",
+      "scheduledMembers": "62",
+      "complete": false
+    },
+    {
+      "accountedThrough": "1791606878",
+      "nextBoundary": "1791606879",
+      "scheduledMembers": "42",
+      "complete": false
+    },
+    {
+      "accountedThrough": "1791606898",
+      "nextBoundary": "1791606899",
+      "scheduledMembers": "22",
+      "complete": false
+    },
+    {
+      "accountedThrough": "1791606918",
+      "nextBoundary": "1791606919",
+      "scheduledMembers": "2",
+      "complete": false
+    },
+    {
+      "accountedThrough": "1796790849",
+      "nextBoundary": "1820118818",
+      "scheduledMembers": "1",
+      "complete": false
+    }
+  ],
+  "completions": [
+    {
+      "eventName": "AdvanceCompleted",
+      "args": {
+        "caller": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "processedSteps": "20",
+        "releasedTiers": "1",
+        "purchases": "0",
+        "burned": "0",
+        "burnMeasured": false
+      },
+      "address": "0x487df9b6725106787a0edcf5d855bdeac2cd4c8e",
+      "topics": [
+        "0xf34a3437a22148be56fba106e0d020a8b2b8944be3716aa9a0732dcdca4cde90",
+        "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+      ],
+      "data": "0x00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "blockHash": "0xfbc03504b24301e887459a456db62308bb302972b671a00d66a1f9660f9315e7",
+      "blockNumber": "3088",
+      "blockTimestamp": "1796790827",
+      "transactionHash": "0x3e0e06ea0d3df3dc8a744f9f80eae2f5eef2f2ad65f553d54f2f02165d558be7",
+      "transactionIndex": 0,
+      "logIndex": 26,
+      "removed": false
+    },
+    {
+      "eventName": "AdvanceCompleted",
+      "args": {
+        "caller": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "processedSteps": "20",
+        "releasedTiers": "1",
+        "purchases": "0",
+        "burned": "0",
+        "burnMeasured": false
+      },
+      "address": "0x487df9b6725106787a0edcf5d855bdeac2cd4c8e",
+      "topics": [
+        "0xf34a3437a22148be56fba106e0d020a8b2b8944be3716aa9a0732dcdca4cde90",
+        "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+      ],
+      "data": "0x00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "blockHash": "0xa9612522e91ca507be1aa841c236f989d83a102857621f989b3d5a7048472093",
+      "blockNumber": "3093",
+      "blockTimestamp": "1796790832",
+      "transactionHash": "0xae2115d25e84c0b14bc28ec0a652e679fbb1507f2c8c6d09b208d2ad904b1c38",
+      "transactionIndex": 0,
+      "logIndex": 26,
+      "removed": false
+    },
+    {
+      "eventName": "AdvanceCompleted",
+      "args": {
+        "caller": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "processedSteps": "20",
+        "releasedTiers": "1",
+        "purchases": "0",
+        "burned": "0",
+        "burnMeasured": false
+      },
+      "address": "0x487df9b6725106787a0edcf5d855bdeac2cd4c8e",
+      "topics": [
+        "0xf34a3437a22148be56fba106e0d020a8b2b8944be3716aa9a0732dcdca4cde90",
+        "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+      ],
+      "data": "0x00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "blockHash": "0x182df722279e7282ae3ebbffc4a31f3e435bf557f1f1a33f3917b1b933f4983e",
+      "blockNumber": "3097",
+      "blockTimestamp": "1796790836",
+      "transactionHash": "0x138d4527c53c3f4d53f862f91e00fa7c164f8a7d4510691143d4c131f6ea3efb",
+      "transactionIndex": 0,
+      "logIndex": 26,
+      "removed": false
+    },
+    {
+      "eventName": "AdvanceCompleted",
+      "args": {
+        "caller": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "processedSteps": "20",
+        "releasedTiers": "1",
+        "purchases": "0",
+        "burned": "0",
+        "burnMeasured": false
+      },
+      "address": "0x487df9b6725106787a0edcf5d855bdeac2cd4c8e",
+      "topics": [
+        "0xf34a3437a22148be56fba106e0d020a8b2b8944be3716aa9a0732dcdca4cde90",
+        "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+      ],
+      "data": "0x00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "blockHash": "0x4e3ff494f3b498c27da49b0f76398a4db51ce97fe4f11c9903c094268fc50dfe",
+      "blockNumber": "3101",
+      "blockTimestamp": "1796790840",
+      "transactionHash": "0x06a54863be3d59e785aa1e45d2890d13abd1eddd91872062f16d37dccd0237c4",
+      "transactionIndex": 0,
+      "logIndex": 26,
+      "removed": false
+    },
+    {
+      "eventName": "AdvanceCompleted",
+      "args": {
+        "caller": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "processedSteps": "20",
+        "releasedTiers": "1",
+        "purchases": "0",
+        "burned": "0",
+        "burnMeasured": false
+      },
+      "address": "0x487df9b6725106787a0edcf5d855bdeac2cd4c8e",
+      "topics": [
+        "0xf34a3437a22148be56fba106e0d020a8b2b8944be3716aa9a0732dcdca4cde90",
+        "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+      ],
+      "data": "0x00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "blockHash": "0x4494dcf14ba40974c33012e137aa060e87f7e3f52a76288e8e54b01eb6cfb044",
+      "blockNumber": "3106",
+      "blockTimestamp": "1796790845",
+      "transactionHash": "0x9477ba4f793ccf1a4ad2242b46326f25c407c8fb190dca64ef80437535a1a0e7",
+      "transactionIndex": 0,
+      "logIndex": 26,
+      "removed": false
+    },
+    {
+      "eventName": "AdvanceCompleted",
+      "args": {
+        "caller": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "processedSteps": "1",
+        "releasedTiers": "1",
+        "purchases": "0",
+        "burned": "0",
+        "burnMeasured": false
+      },
+      "address": "0x487df9b6725106787a0edcf5d855bdeac2cd4c8e",
+      "topics": [
+        "0xf34a3437a22148be56fba106e0d020a8b2b8944be3716aa9a0732dcdca4cde90",
+        "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+      ],
+      "data": "0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "blockHash": "0x9743cbbf28e60504563a2ae2ff337b10a31fd6601d6804dc31702aa1707b0dd1",
+      "blockNumber": "3110",
+      "blockTimestamp": "1796790849",
+      "transactionHash": "0xf4700e6fa389a290b484beb324346f4fd0b6c80d25d90874c1022d5398c40169",
+      "transactionIndex": 0,
+      "logIndex": 7,
+      "removed": false
+    }
+  ]
+}

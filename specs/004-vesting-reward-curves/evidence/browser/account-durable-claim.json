@@ -1,0 +1,10 @@
+{
+  "kind": "local mock payment token; real split graph",
+  "tier": "0x380059F1587AA411508a7C0Bd59B20C49026eF4B",
+  "tokenId": "1",
+  "earned": "199",
+  "after": {
+    "claimable": "0",
+    "eligible": false
+  }
+}

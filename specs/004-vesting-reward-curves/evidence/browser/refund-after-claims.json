@@ -1,0 +1,66 @@
+{
+  "kind": "local mock payment token; real split protocol graph",
+  "tier": "0x2CAFA0784BA403eeAf9DBba7258D5351646cD992",
+  "variablePrice": false,
+  "claims": [
+    "0xc84d5e1917e5b9522634870f796eb137f29c7f9bb0fd219431bf49707801c4a5",
+    "0x9f7761b7e33f6319acadb8aed63018a911bad17b7ae1e9eebffc19edfe0cbd87",
+    "0xd9abf731e2ec07dd26136e3ec517984e7b698ce0c0d9579cfebbd4d374388c13",
+    "0x639c5d4827bfcd6e185f9aa2acbe57202ac68aaf20bf28a3a8b33e1393ebc159"
+  ],
+  "earned": {
+    "creator": "32500006",
+    "member": "3692308",
+    "referral": "1500000",
+    "protocol": "2000000",
+    "fractionalScaled": [
+      "58814236257939981339348697580794163954",
+      "218452877529491359260438019585615319552",
+      "131281777361473172632474771385708340542",
+      "131281777361473172632474771385708340542"
+    ],
+    "status": {
+      "accountedThrough": "1796788667",
+      "nextBoundary": "1820116665",
+      "scheduledMembers": "1",
+      "complete": false
+    }
+  },
+  "funding": {
+    "recipient": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "paidSeconds": "23327979",
+    "grantSeconds": "0",
+    "accessAsOf": "1796788686",
+    "accountingAsOf": "1796788667",
+    "grossRefund": "89999918",
+    "fundingScaled": [
+      "24500308362968972641869969479325718425045796755",
+      "3062538545371121580233746184915714803131696597",
+      "1531269272685560790116873092457857401569736309",
+      "1531268938704719182529121915442038996299430947"
+    ],
+    "cancellationScaled": [
+      "0",
+      "0",
+      "0",
+      "333980841607587751177015818405270305362"
+    ],
+    "generation": "0",
+    "complete": false,
+    "fundingAsOf": "1796788686",
+    "projected": true
+  },
+  "actual": {
+    "tokenId": "1",
+    "recipient": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "grossRefund": "89999915",
+    "canceledPaidSeconds": "23327978",
+    "canceledGrantSeconds": "0"
+  },
+  "execution": "1796788687",
+  "shares": "120000000",
+  "cursor": "130000000",
+  "liability": "307771",
+  "custody": "307771",
+  "receipt": "0x9d81bf8847c4c62572b4f784ee4adc492dd038b5b4397ffe725d2b40465fdca7"
+}

@@ -16,6 +16,7 @@ import {
 } from "viem";
 import {
   membershipFactoryAbi,
+  protocolBurnRouterAbi,
   membershipTierAbi,
   protocolBuybackVaultAbi,
   iSafeAbi,
@@ -251,7 +252,12 @@ export async function rehearseBuybacks(
     args: [0n, tierCount],
     blockNumber: captured.number,
   });
-  let visitedMembers = 0n;
+  const router = await client.readContract({
+    address: input.factory,
+    abi: membershipFactoryAbi,
+    functionName: "burnRouter",
+    blockNumber: captured.number,
+  });
   for (const tier of tiers) {
     signal?.throwIfAborted();
     const payment = await client.readContract({
@@ -268,52 +274,30 @@ export async function rehearseBuybacks(
       blockNumber: captured.number,
     });
     if (!canonical.some((x) => isAddressEqual(x, currency))) continue;
-    const count = await client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "totalMinted",
-      blockNumber: captured.number,
-    });
-    visitedMembers += count;
-    if (visitedMembers > 2000n)
-      throw new Error("Rehearsal is bounded to 2,000 memberships");
-    let willAccrue = false;
-    for (let first = 1n; first <= count; first += 100n) {
-      const ids = Array.from(
-        {
-          length: Number(count - first + 1n < 100n ? count - first + 1n : 100n),
-        },
-        (_, i) => first + BigInt(i),
+    const [status, held] = await Promise.all([
+      client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "accountingStatus",
+        blockNumber: captured.number,
+      }),
+      client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "protocolFeeEarnedHeld",
+        blockNumber: captured.number,
+      }),
+    ]);
+    const maxAccountingSteps =
+      !status.complete && status.scheduledMembers > 0n ? 25n : 0n;
+    if (maxAccountingSteps || held > 0n)
+      setup.push(
+        call(router, protocolBurnRouterAbi, "advance", [
+          [{ tier, maxAccountingSteps }],
+          [],
+          captured.timestamp + 300n,
+        ]),
       );
-      const states = await Promise.all(
-        ids.map((id) =>
-          client.readContract({
-            address: tier,
-            abi: membershipTierAbi,
-            functionName: "protocolFeeState",
-            args: [id],
-            blockNumber: captured.number,
-          }),
-        ),
-      );
-      const eligible = ids.filter(
-        (_, i) => states[i].uncheckpointedEarned > 0n,
-      );
-      if (eligible.length) {
-        setup.push(
-          call(tier, membershipTierAbi, "accrueProtocolFees", [eligible]),
-        );
-        willAccrue = true;
-      }
-    }
-    const held = await client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "protocolFeeEarnedHeld",
-      blockNumber: captured.number,
-    });
-    if (willAccrue || held > 0n)
-      setup.push(call(tier, membershipTierAbi, "releaseProtocolFees"));
   }
   const makeBlock = (calls: Call[], number: bigint, time: bigint): Block => ({
     blockOverrides: {

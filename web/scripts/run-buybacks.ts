@@ -8,6 +8,7 @@ import {
   defineChain,
   getAddress,
   http,
+  parseEventLogs,
   zeroAddress,
   erc20Abi,
   type Abi,
@@ -20,6 +21,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import {
   membershipFactoryAbi,
+  protocolBurnRouterAbi,
   membershipTierAbi,
   protocolBuybackVaultAbi,
   iPonsLaunchFactoryAbi,
@@ -61,7 +63,7 @@ type Options = {
   maxGasPercent?: number;
   log: (event: Record<string, unknown>) => void;
 };
-type TierCursor = { tier: Address; count: bigint; next: bigint; done: boolean };
+type TierCursor = { tier: Address };
 type Sweep = {
   blockNumber: bigint;
   tiers: TierCursor[];
@@ -158,7 +160,6 @@ export function createBuybackRunner(options: Options) {
         "One execution sweep is limited to 1,000 tiers; use bounded indexing for a larger deployment",
       );
     const tiers: TierCursor[] = [];
-    let memberships = 0n;
     for (let offset = 0n; offset < count; offset += PAGE) {
       const limit = count - offset < PAGE ? count - offset : PAGE;
       const page = await client.readContract({
@@ -170,32 +171,11 @@ export function createBuybackRunner(options: Options) {
       });
       if (BigInt(page.length) !== limit)
         throw new Error("Incomplete captured tier page");
-      const bounds = await Promise.all(
-        page.map((tier) =>
-          client.readContract({
-            address: tier,
-            abi: membershipTierAbi,
-            functionName: "totalMinted",
-            blockNumber,
-          }),
-        ),
-      );
-      memberships += bounds.reduce((sum, value) => sum + value, 0n);
-      if (memberships > 5000n)
-        throw new Error(
-          "One execution sweep is limited to 5,000 memberships; no writes were made",
-        );
-      page.forEach((tier, i) =>
-        tiers.push({ tier, count: bounds[i], next: 1n, done: false }),
-      );
+      page.forEach((tier) => tiers.push({ tier }));
     }
     if (new Set(tiers.map((x) => x.tier.toLowerCase())).size !== tiers.length)
       throw new Error("Duplicate captured tier");
-    const visitBound = tiers.reduce(
-      (sum, tier) =>
-        sum + (tier.count === 0n ? 1n : (tier.count + PAGE - 1n) / PAGE),
-      0n,
-    );
+    const visitBound = BigInt(tiers.length);
     log({ action: "sweep-start", blockNumber, tierCount: count, visitBound });
     return { blockNumber, tiers, nextTier: 0, visits: 0n, visitBound };
   }
@@ -480,77 +460,70 @@ export function createBuybackRunner(options: Options) {
       return { complete: true };
     }
     const current = sweep.tiers[sweep.nextTier];
-    const firstId = current.next;
-    const end =
-      current.count + 1n < firstId + PAGE ? current.count + 1n : firstId + PAGE;
-    const ids = Array.from(
-      { length: Number(end - firstId) },
-      (_, i) => firstId + BigInt(i),
-    );
-    const block = (await client.getBlock()).number;
-    const states = await Promise.all(
-      ids.map((id) =>
-        client.readContract({
-          address: current.tier,
-          abi: membershipTierAbi,
-          functionName: "protocolFeeState",
-          args: [id],
-          blockNumber: block,
-        }),
-      ),
-    );
-    // Advance only after a complete discovery page. Eligibility uses all
-    // historical credentials, including expired or burned credentials.
-    current.next = end;
-    current.done = end > current.count;
-    sweep.visits++;
-    if (!sweep.tiers.every((tier) => tier.done)) {
-      do {
-        sweep.nextTier = (sweep.nextTier + 1) % sweep.tiers.length;
-      } while (sweep.tiers[sweep.nextTier].done);
-    }
-    const eligible = ids.filter((_, i) => states[i].uncheckpointedEarned > 0n);
-    if (eligible.length)
-      await act(
-        current.tier,
-        membershipTierAbi,
-        "accrueProtocolFees",
-        [eligible],
-        { firstId, lastId: end - 1n },
-      );
-    const earned = await client.readContract({
-      address: current.tier,
-      abi: membershipTierAbi,
-      functionName: "protocolFeeEarnedHeld",
-    });
-    if (earned > 0n) {
+    const block = await client.getBlock();
+    const [status, earned, router] = await Promise.all([
+      client.readContract({
+        address: current.tier,
+        abi: membershipTierAbi,
+        functionName: "accountingStatus",
+        blockNumber: block.number,
+      }),
+      client.readContract({
+        address: current.tier,
+        abi: membershipTierAbi,
+        functionName: "protocolFeeEarnedHeld",
+        blockNumber: block.number,
+      }),
+      client.readContract({
+        address: factory,
+        abi: membershipFactoryAbi,
+        functionName: "burnRouter",
+        blockNumber: block.number,
+      }),
+    ]);
+    const maxAccountingSteps =
+      !status.complete && status.scheduledMembers > 0n ? 25n : 0n;
+    if (maxAccountingSteps || earned > 0n) {
       const receipt = await act(
-        current.tier,
-        membershipTierAbi,
-        "releaseProtocolFees",
-        [],
-        { amount: earned },
+        router,
+        protocolBurnRouterAbi,
+        "advance",
+        [
+          [{ tier: current.tier, maxAccountingSteps }],
+          [],
+          block.timestamp + 300n,
+        ],
+        { tier: current.tier, maxAccountingSteps },
       );
-      if (receipt)
+      if (receipt) {
+        const events = parseEventLogs({
+          abi: protocolBurnRouterAbi,
+          logs: receipt.logs,
+        }).filter(
+          (event) => event.address.toLowerCase() === router.toLowerCase(),
+        );
         log({
-          action: "release-state",
+          action: "advance-state",
           tier: current.tier,
-          blockNumber: receipt.blockNumber,
-          earnedHeld: await client.readContract({
+          events,
+          accounting: await client.readContract({
             address: current.tier,
             abi: membershipTierAbi,
-            functionName: "protocolFeeEarnedHeld",
+            functionName: "accountingStatus",
             blockNumber: receipt.blockNumber,
           }),
         });
+      }
     }
-    const complete = sweep.tiers.every((tier) => tier.done);
+    // Each captured tier gets one bounded turn. A later sweep resumes any backlog;
+    // an indefinitely busy tier cannot prevent other tiers or purchases from progressing.
+    sweep.nextTier++;
+    sweep.visits++;
+    const complete = sweep.nextTier === sweep.tiers.length;
     if (complete) await processAvailable();
     log({
       action: "tier-visit",
       tier: current.tier,
-      firstId,
-      lastId: end - 1n,
       visits: sweep.visits,
       visitBound: sweep.visitBound,
       complete,
@@ -564,7 +537,7 @@ export function createBuybackRunner(options: Options) {
       });
       sweep = undefined;
     }
-    return { complete, tier: current.tier, firstId };
+    return { complete, tier: current.tier };
   }
   // Keep scheduled discovery state in memory. This is not receipt recovery.
   return {

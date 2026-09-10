@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useInfiniteQuery, useQuery, useMutation } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { zeroAddress, type Address, type PublicClient } from "viem";
 import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
@@ -16,13 +16,7 @@ import {
   readProtocolActivityPage,
   type PublicBuybacks,
 } from "./protocol-read";
-import {
-  readFeeForecastPage,
-  reconcileTierFees,
-  readNextFeeLotPage,
-  forecastMemberFees,
-  type MemberFeeProjection,
-} from "./fee-forecast";
+import { readTierFunding } from "./fee-forecast";
 import { readAcceptedPaymentToken } from "@/lib/payment-token-read";
 import { formatRawTokenAmount } from "@/lib/token-amount";
 
@@ -554,19 +548,6 @@ function TierForecast({
   blockNumber: bigint;
   snapshot: PublicBuybacks;
 }) {
-  const [lotMembers, setLotMembers] = useState<
-    Record<string, MemberFeeProjection>
-  >({});
-  const moreLots = useMutation({
-    retry: false,
-    mutationFn: (member: MemberFeeProjection) =>
-      readNextFeeLotPage(client, tier, blockNumber, member),
-    onSuccess: (member) =>
-      setLotMembers((previous) => ({
-        ...previous,
-        [member.id.toString()]: member,
-      })),
-  });
   const token = useQuery({
     queryKey: [
       "protocol",
@@ -593,41 +574,26 @@ function TierForecast({
       });
     },
   });
-  const pages = useInfiniteQuery({
+  const funding = useQuery({
     queryKey: [
       "protocol",
       snapshot.chainId,
-      "forecast",
+      "funding",
       tier,
       blockNumber.toString(),
     ],
-    initialPageParam: 0n,
-    queryFn: ({ pageParam }) =>
-      readFeeForecastPage(client, tier, { blockNumber, offset: pageParam }),
-    getNextPageParam: (last) => last.nextOffset ?? undefined,
+    queryFn: () => readTierFunding(client, tier, { blockNumber }),
   });
-  if (pages.isError)
+  if (funding.isError)
     return (
-      <p className="inline-status">
-        Fee schedules are unavailable. No zero forecast was assumed.
+      <p role="alert">
+        Membership funding could not be read. Refresh to try again.
       </p>
     );
-  if (!pages.data) return <p role="status">Loading fee schedules…</p>;
-  const first = pages.data.pages[0],
-    members = pages.data.pages
-      .flatMap((page) => page.members)
-      .map((member) => lotMembers[member.id.toString()] ?? member);
-  const reconciliation = reconcileTierFees(first.ledger, { ...first, members });
-  const sum = (key: "next24h" | "next7d" | "next30d") =>
-    members.reduce(
-      (total, member) => total + forecastMemberFees(member)[key],
-      0n,
-    );
-  const pendingLots = members.find((member) => !member.completeLots);
-  const display = (raw: bigint | null) =>
-    raw === null ? (
-      "Partial coverage"
-    ) : token.data ? (
+  if (!funding.data) return <p role="status">Loading membership funding…</p>;
+  const current = funding.data;
+  const display = (raw: bigint) =>
+    token.data ? (
       <span title={`${raw} raw units`}>
         {formatRawTokenAmount({
           raw,
@@ -642,109 +608,29 @@ function TierForecast({
   return (
     <div className="protocol-forecast">
       <p className="small-copy">
-        {members.length} of {first.totalMembers.toString()} historical
-        memberships ·{" "}
-        {members.every((m) => m.completeLots)
-          ? "All loaded fee lots"
-          : "Partial lot coverage"}{" "}
-        · Block {blockNumber.toString()}
+        Accounting through{" "}
+        {new Date(
+          Number(current.accounting.accountedThrough) * 1000,
+        ).toLocaleString()}
+        .
+        {current.accounting.complete
+          ? " All due accounting is settled."
+          : " More accounting remains; reserved funds may include amounts still awaiting processing."}
       </p>
-      {!reconciliation.storedConserved && (
-        <p role="alert">Stored fee reconciliation failed.</p>
-      )}
-      {reconciliation.projectedConserved === false && (
-        <p role="alert">Projected fee reconciliation failed.</p>
-      )}
       <dl className="protocol-ledger">
         <div>
-          <dt>Allocated fees</dt>
-          <dd>{display(first.ledger.allocated)}</dd>
+          <dt>Earned and ready to release</dt>
+          <dd>{display(current.earnedHeld)}</dd>
         </div>
         <div>
-          <dt>Protected holdings</dt>
-          <dd>{display(first.ledger.holdings)}</dd>
-        </div>
-        <div>
-          <dt>Unearned reserve</dt>
-          <dd>{display(reconciliation.unearned)}</dd>
-        </div>
-        <div>
-          <dt>Earned awaiting release</dt>
-          <dd>{display(reconciliation.earnedAwaitingRelease)}</dd>
-        </div>
-        <div>
-          <dt>Immediately releasable</dt>
-          <dd>{display(reconciliation.immediatelyReleasable)}</dd>
-        </div>
-        <div>
-          <dt>Released</dt>
-          <dd>{display(first.ledger.released)}</dd>
-        </div>
-        <div>
-          <dt>Refunded from fee reserve</dt>
-          <dd>{display(first.ledger.refunded)}</dd>
+          <dt>Reserved protocol funding</dt>
+          <dd>{display(current.reserved)}</dd>
         </div>
       </dl>
       <p className="small-copy">
-        {token.data ? (
-          <>
-            Payment token:{" "}
-            <AddressValue
-              value={token.data.address}
-              chainId={snapshot.chainId}
-            />
-            . Display scaling is captured at the same block; exact raw units are
-            available on each amount.
-          </>
-        ) : (
-          "Payment token display data is unavailable; amounts use raw units."
-        )}
+        Reserved funding earns as paid membership time is consumed. Refunds can
+        reduce it. It is not a scheduled buyback or a personal reward estimate.
       </p>
-      <dl className="protocol-forecast-horizons">
-        <div>
-          <dt>Next 24 hours</dt>
-          <dd>{display(sum("next24h"))}</dd>
-        </div>
-        <div>
-          <dt>Next 7 days</dt>
-          <dd>{display(sum("next7d"))}</dd>
-        </div>
-        <div>
-          <dt>Next 30 days</dt>
-          <dd>{display(sum("next30d"))}</dd>
-        </div>
-      </dl>
-      <p>
-        {reconciliation.complete && members.every((m) => m.completeLots)
-          ? "Complete coverage of existing paid schedules."
-          : "Partial forecast: only loaded members and fee lots are included."}{" "}
-        These are estimated earnings, not scheduled or guaranteed buybacks.
-      </p>
-      {moreLots.isError && (
-        <p role="alert">
-          Additional fee lots are unavailable. The forecast remains partial.
-        </p>
-      )}
-      {pendingLots && (
-        <button
-          type="button"
-          className="button button-light"
-          disabled={moreLots.isPending}
-          onClick={() => moreLots.mutate(pendingLots)}
-        >
-          Load next 100 fee lots for membership #{pendingLots.id.toString()}
-        </button>
-      )}
-      {pages.hasNextPage && (
-        <button
-          type="button"
-          className="button button-light"
-          disabled={pages.isFetchingNextPage}
-          onClick={() => void pages.fetchNextPage()}
-        >
-          Load next 100 memberships
-        </button>
-      )}
     </div>
   );
 }

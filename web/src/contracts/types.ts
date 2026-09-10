@@ -34,6 +34,12 @@ export type TierMediaConfig = ContractFunctionReturnType<
   "mediaConfig"
 >;
 
+export type RefundQuote = ContractFunctionReturnType<
+  typeof membershipTierAbi,
+  "view",
+  "previewRefund"
+>;
+
 export type TierSummary = {
   address: Address;
   name: string;
@@ -55,6 +61,7 @@ export type CatalogTierSummary = TierSummary & {
 };
 
 export type TierSnapshot = TierSummary & {
+  minimumPayment: bigint;
   description: string;
   externalURI: string;
   tierIdentity: Hex;
@@ -63,6 +70,14 @@ export type TierSnapshot = TierSummary & {
   rewardBps: number;
   protocolFeeBps: number;
   referralBps: number;
+  startingBoostBps: number;
+  earlySupportGross: bigint;
+  grossPaid: bigint;
+  accounting: ContractFunctionReturnType<
+    typeof membershipTierAbi,
+    "view",
+    "accountingStatus"
+  >;
   supplyCap: bigint;
   occupiedSupply: bigint;
   maxPrepaidPeriods: bigint;
@@ -77,6 +92,11 @@ export type TierManagementSnapshot = TierSnapshot & {
   pendingOwner: Address;
   creatorProceeds: bigint;
   totalMinted: bigint;
+  reserves: ContractFunctionReturnType<
+    typeof membershipTierAbi,
+    "view",
+    "reserveState"
+  >;
 };
 
 export type ReferralStatus = "unset" | "locked-none" | "locked-address";
@@ -94,14 +114,13 @@ export type SupporterCredential = {
   rewardEligible: boolean;
   claimableReward: bigint;
   refundableGross: bigint;
-  protocolRefundContribution: bigint;
-  creatorRefundContribution: bigint;
-  ownerTopUp: bigint;
+  refund?: RefundQuote;
   referralStatus: ReferralStatus;
   referrer: Address;
 };
 
 export type TierSupporterSnapshot = TierSnapshot & {
+  totalEligibleRewardShares?: bigint;
   capturedTimestamp: bigint;
   wallet?: Address;
   walletPaymentTokenBalance?: bigint;
@@ -110,6 +129,25 @@ export type TierSupporterSnapshot = TierSnapshot & {
   claimableReferral?: bigint;
   creatorProceeds?: bigint;
   credential?: SupporterCredential;
+  vesting?: {
+    earned: ContractFunctionReturnType<
+      typeof membershipTierAbi,
+      "view",
+      "earnedBalances"
+    >;
+    reserves: ContractFunctionReturnType<
+      typeof membershipTierAbi,
+      "view",
+      "reserveState"
+    >;
+    allocation:
+      | ContractFunctionReturnType<
+          typeof membershipTierAbi,
+          "view",
+          "allocationState"
+        >
+      | undefined;
+  };
 };
 
 export type CatalogPage = {

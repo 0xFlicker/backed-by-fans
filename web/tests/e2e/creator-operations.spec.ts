@@ -102,6 +102,14 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
     await page.getByRole("button", { name: "Revoke grant time" }).click();
     await expectReconciled(page, "Revoke remaining grant time");
 
+    const advance = page.getByRole("region", {
+      name: "Advance membership accounting",
+    });
+    await advance.getByRole("button", { name: "Advance accounting" }).click();
+    await expect(advance.getByRole("status")).toContainText(
+      "checkpoints completed",
+      { timeout: 45_000 },
+    );
     await page
       .getByRole("button", { name: "Withdraw to current owner" })
       .click();
@@ -123,22 +131,18 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
     await expectReconciled(page, "Pause tier");
     await expect(readRefundPreview).toBeEnabled();
     await readRefundPreview.click();
-    const [grossRefund, ownerTopUp] = await client.readContract({
+    const { grossRefund } = await client.readContract({
       address: configuredTier,
       abi: membershipTierAbi,
       functionName: "previewRefund",
       args: [1n],
     });
-    const refundPreview = page.locator(".refund-preview");
+    const refundPreview = page.locator(".refund-preview[aria-live]");
     await expect(
       refundPreview.getByText("Gross refund").locator(".."),
     ).toContainText(usdgDisplay(grossRefund));
-    await expect(
-      refundPreview.getByText("Exact owner top-up").locator(".."),
-    ).toContainText(usdgDisplay(ownerTopUp));
-    await page
-      .getByRole("button", { name: "Approve exact top-up and refund" })
-      .click();
+
+    await page.getByRole("button", { name: "Refund unused time" }).click();
     await expectReconciled(page, "Refund membership #1");
     await expect(refundPreview).toHaveCount(0);
     await page.getByRole("button", { name: "Unpause time increases" }).click();
@@ -203,6 +207,23 @@ test("@anvil creator sync burns an expired NFT while its member can claim and re
       functionName: "tokenOf",
       args: [member],
     });
+    const expires = await client.readContract({
+      address: configuredTier,
+      abi: membershipTierAbi,
+      functionName: "expiresAt",
+      args: [tokenId],
+    });
+    await rpcRequest("evm_setNextBlockTimestamp", [Number(expires)]);
+    await rpcRequest("evm_mine");
+    expectSuccessfulReceipt(
+      await sendContract({
+        account: member,
+        address: configuredTier,
+        abi: membershipTierAbi,
+        functionName: "processAccounting",
+        args: [25n],
+      }),
+    );
     const accrued = await client.readContract({
       address: configuredTier,
       abi: membershipTierAbi,

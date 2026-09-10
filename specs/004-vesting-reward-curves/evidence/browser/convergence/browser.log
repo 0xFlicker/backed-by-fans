@@ -1,0 +1,10 @@
+$ playwright test "tests/e2e/vesting-accessibility.spec.ts" --project desktop --workers "1" --output "/Users/user/Development/backed-by-fans/specs/004-vesting-reward-curves/evidence/browser/convergence/test-results"
+
+Running 2 tests using 1 worker
+
+(node:60993) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [desktop] › tests/e2e/vesting-accessibility.spec.ts:5:1 › @anvil vesting accessibility: keyboard presets, custom correction and semantic summary (1.1s)
+  ✓  2 [desktop] › tests/e2e/vesting-accessibility.spec.ts:116:1 › @anvil vesting accessibility: motion preferences, forced colors, 200 percent text and 320px reflow (609ms)
+
+  2 passed (2.2s)

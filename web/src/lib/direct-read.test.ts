@@ -20,6 +20,7 @@ vi.mock("@/lib/payment-token-read", () => ({
         factory: "0x1111111111111111111111111111111111111111",
         address: "0x3333333333333333333333333333333333333333",
         registryIndex: 0,
+        minimumPayment: 1n,
         listed: true,
         enabled: true,
         name: "Global Dollar",
@@ -46,6 +47,8 @@ import {
   maxCatalogPageLimit,
   multicall3RuntimeHash,
   readCatalogPage,
+  readTierAccounting,
+  readAllocationLots,
   readTierSnapshotState,
   readTierSummaries,
   validateTierRouteParam,
@@ -258,6 +261,17 @@ describe("direct reads", () => {
       100n,
       2n,
       12n,
+      100,
+      15000,
+      1_000_000_000n,
+      20_000_000n,
+      {
+        accountedThrough: 1000n,
+        nextBoundary: 1000n,
+        scheduledMembers: 2n,
+        complete: false,
+      },
+      1n,
     ];
     const multicall = vi
       .fn()
@@ -284,11 +298,128 @@ describe("direct reads", () => {
         renderer,
         art,
         media,
+        startingBoostBps: 15000,
+        earlySupportGross: 1_000_000_000n,
+        grossPaid: 20_000_000n,
+        minimumPayment: 1n,
+        accounting: {
+          accountedThrough: 1000n,
+          nextBoundary: 1000n,
+          scheduledMembers: 2n,
+          complete: false,
+        },
       },
     });
     expect(result).not.toHaveProperty("data.rendererVersion");
     expect(result).not.toHaveProperty("data.rendererRuntimeCodehash");
     expect(multicall).toHaveBeenCalledTimes(1);
     expect(readContract).not.toHaveBeenCalled();
+    multicall.mockResolvedValueOnce(values.slice(0, -1).map(success));
+    vi.mocked(keccak256).mockReturnValueOnce(multicall3RuntimeHash);
+    const incomplete = await readTierSnapshotState(
+      client({
+        getBytecode: vi.fn().mockResolvedValue("0x6000"),
+        multicall,
+      } as Partial<PublicClient>),
+      { tier: tierA, deployment },
+    );
+    expect(incomplete).toMatchObject({
+      status: "partial",
+      missing: ["minimumPayment"],
+    });
+  });
+
+  it("keeps fractional reserves and incomplete accounting separate from settled raw cash", async () => {
+    const status = {
+      accountedThrough: 100n,
+      nextBoundary: 120n,
+      scheduledMembers: 1n,
+      complete: false,
+    };
+    const earned = {
+      creator: 24n,
+      member: 2n,
+      referral: 1n,
+      protocol: 1n,
+      fractionalScaled: [0n, 17n, 8n, 8n],
+      status,
+    };
+    const reserves = {
+      unearnedScaled: [72n, 9n, 4n, 4n],
+      cancellationScaled: [0n, 1n, 0n, 0n],
+      unassignedMemberScaled: 0n,
+      distributionDustScaled: 3n,
+      indexCarryScaled: 7n,
+      status,
+    };
+    const allocation = {
+      generation: 2n,
+      lotCursor: 0n,
+      lotCount: 1n,
+      allocatedScaled: [96n, 12n, 6n, 6n],
+      earnedScaled: [24n, 3n, 2n, 2n],
+      unearnedScaled: [72n, 9n, 4n, 4n],
+      refundableGross: 90n,
+      status,
+    };
+    const readContract = vi.fn(({ functionName }: { functionName: string }) =>
+      Promise.resolve(
+        {
+          earnedBalances: earned,
+          reserveState: reserves,
+          allocationState: allocation,
+        }[functionName as "earnedBalances"],
+      ),
+    );
+    const input = {
+      tier: tierA,
+      tokenId: 7n,
+      referrer: factory,
+      blockNumber: 12n,
+    };
+    expect(
+      await readTierAccounting(
+        client({ readContract } as Partial<PublicClient>),
+        input,
+      ),
+    ).toEqual({ earned, reserves, allocation });
+    expect(readContract).toHaveBeenCalledTimes(3);
+    for (const [request] of readContract.mock.calls)
+      expect(request).toMatchObject({ blockNumber: 12n });
+    readContract.mockRejectedValueOnce(new Error("unavailable"));
+    await expect(
+      readTierAccounting(
+        client({ readContract } as Partial<PublicClient>),
+        input,
+      ),
+    ).rejects.toThrow("unavailable");
+  });
+
+  it("reads one bounded lot page and never expands a history automatically", async () => {
+    const readContract = vi
+      .fn()
+      .mockResolvedValue([{ start: 100n, end: 200n, gross: 120n }]);
+    const reader = client({ readContract } as Partial<PublicClient>);
+    const input = {
+      tier: tierA,
+      tokenId: 7n,
+      generation: 2n,
+      offset: 300n,
+      limit: 8,
+      blockNumber: 12n,
+    };
+    await readAllocationLots(reader, input);
+    expect(readContract).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        functionName: "allocationLots",
+        args: [7n, 2n, 300n, 8n],
+        blockNumber: 12n,
+      }),
+    );
+    for (const limit of [0, 101, 1.5])
+      await expect(
+        readAllocationLots(reader, { ...input, limit }),
+      ).rejects.toThrow(RangeError);
+    expect(readContract).toHaveBeenCalledTimes(1);
   });
 });

@@ -28,6 +28,7 @@ export type AcceptedPaymentToken = {
   registryIndex: number;
   listed: boolean;
   enabled: boolean;
+  minimumPayment: bigint;
   name: string;
   symbol: string;
   decimals: number;
@@ -206,7 +207,7 @@ export async function readAcceptedPaymentToken(
     blockNumber: bigint;
   },
 ): Promise<AcceptedPaymentToken> {
-  const [listed, enabled, display] = await Promise.all([
+  const [listed, enabled, display, minimumPayment] = await Promise.all([
     requiredRead("registry listing", () =>
       client.readContract({
         address: input.factory,
@@ -226,6 +227,15 @@ export async function readAcceptedPaymentToken(
       }),
     ),
     readTokenDisplay(client, input.address, input.blockNumber),
+    requiredRead("minimum payment", () =>
+      client.readContract({
+        address: input.factory,
+        abi: membershipFactoryAbi,
+        functionName: "minimumPayment",
+        args: [input.address],
+        blockNumber: input.blockNumber,
+      }),
+    ),
   ]);
   if (!listed) throw new TokenReadError("registry listing", "not listed");
   const contract = { address: input.address, blockNumber: input.blockNumber };
@@ -247,6 +257,7 @@ export async function readAcceptedPaymentToken(
     registryIndex: input.registryIndex,
     listed,
     enabled,
+    minimumPayment,
     ...display,
     ...(walletRawBalance === undefined ? {} : { walletRawBalance }),
     readBlock: input.blockNumber,

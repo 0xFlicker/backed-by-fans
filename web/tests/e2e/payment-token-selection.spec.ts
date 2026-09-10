@@ -17,6 +17,7 @@ import {
   installAnvilWallet,
   requiredAnvilAddress,
   requiredAnvilRpc,
+  rpcRequest,
   revertAnvil,
   sendContract,
   snapshotAnvil,
@@ -208,10 +209,34 @@ for (const scenario of [
       });
       expect(renewedExpiration - firstExpiration).toBe(2_592_000n);
 
+      // Settle half of the first period; the remaining paid time stays refundable.
+      await rpcRequest("evm_setNextBlockTimestamp", [
+        Number(firstExpiration - 1_296_000n),
+      ]);
+      await rpcRequest("evm_mine");
+      expectSuccessfulReceipt(
+        await sendContract({
+          account: member,
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "processAccounting",
+          args: [25n],
+        }),
+      );
+      const earnedReward = await client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "claimableReward",
+        args: [tokenId],
+      });
+      expect(earnedReward).toBeGreaterThan(0n);
+      expect(earnedReward).toBeLessThan(rawPrice / 10n);
+      await page.reload();
+      await switchAnvilAccount(page, member);
       const rewardRow = page
         .locator(".claim-row")
         .filter({ hasText: "Membership rewards" });
-      await expect(rewardRow).toContainText(shown(rawPrice / 10n));
+      await expect(rewardRow).toContainText(shown(earnedReward));
       await rewardRow
         .getByRole("button", { name: "Claim to this wallet" })
         .click();
@@ -225,12 +250,15 @@ for (const scenario of [
         }),
       ).resolves.toBe(0n);
       await expect(
-        client.readContract({
-          address: tier,
-          abi: membershipTierAbi,
-          functionName: "protocolFeeHoldings",
-        }),
-      ).resolves.toBe((rawPrice * 2n) / 100n);
+        client
+          .readContract({
+            address: tier,
+            abi: membershipTierAbi,
+            functionName: "allocationState",
+            args: [tokenId],
+          })
+          .then((allocation) => allocation.allocatedScaled[3]),
+      ).resolves.toBe(2n * (rawPrice / 100n) * (1n << 128n));
       await expect(
         client.readContract({
           address: tier,
@@ -246,8 +274,8 @@ for (const scenario of [
           account: member,
           address: tier,
           abi: membershipTierAbi,
-          functionName: "accrueProtocolFees",
-          args: [[tokenId]],
+          functionName: "processAccounting",
+          args: [25n],
         }),
       );
       expectSuccessfulReceipt(
@@ -288,11 +316,16 @@ for (const scenario of [
         }),
       );
 
+      const earnedCreator = await client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "creatorProceeds",
+      });
       await page.goto(`/chains/31337/tiers/${tier}/manage`);
       await switchAnvilAccount(page, creator);
       await expect(
         page.getByRole("heading", {
-          name: shown((rawPrice * 2n * 94n) / 100n),
+          name: shown(earnedCreator),
         }),
       ).toBeVisible();
       await page.getByRole("button", { name: "Pause time increases" }).click();
@@ -301,13 +334,13 @@ for (const scenario of [
         .getByLabel("Membership token", { exact: true })
         .fill(tokenId.toString());
       await page.getByRole("button", { name: "Read refund preview" }).click();
-      const [grossRefund, ownerTopUp] = await client.readContract({
+      const { grossRefund } = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
         functionName: "previewRefund",
         args: [tokenId],
       });
-      const refundPreview = page.locator(".refund-preview");
+      const refundPreview = page.locator(".refund-preview[aria-live]");
       const display = (raw: bigint) =>
         `${formatRawTokenAmount({
           raw,
@@ -315,10 +348,8 @@ for (const scenario of [
           multiplier: shownMultiplier,
         })} AMD`;
       await expect(refundPreview).toContainText(display(grossRefund));
-      await expect(refundPreview).toContainText(display(ownerTopUp));
-      await page
-        .getByRole("button", { name: "Approve exact top-up and refund" })
-        .click();
+
+      await page.getByRole("button", { name: "Refund unused time" }).click();
       await expectReconciled(page, `Refund membership #${tokenId}`);
       await expect(
         client.readContract({

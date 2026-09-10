@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {MembershipTier} from "../../src/MembershipTier.sol";
+import {ProtocolBurnRouter} from "../../src/ProtocolBurnRouter.sol";
 import {BuybackIntegration as Integration} from "../../src/libraries/BuybackIntegration.sol";
 import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
+import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
+import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {ProtocolBuybacksForkTest} from "./ProtocolBuybacks.t.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
@@ -10,9 +14,75 @@ import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
-/// @notice Injected failures are isolated and removed before recovery proof.
+/// @notice Injected failures roll back each attempted transaction; separate accounting remains available.
 contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
     uint64 private activeRevision;
+
+    function test_combinedAdvanceRollsBackReleaseAndTradeFailuresAndAccountingCanProceed() public {
+        vm.warp(block.timestamp + curve.snipeTaxSeconds());
+        uint256 acquired = _acquire(USDG, trader, 0.001 ether);
+        bbf.setMinimumPayment(USDG, 1); // Arithmetic fixture minimum.
+        bbf.setPaymentTokenEnabled(USDG, true);
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            address(this), deployCode("OnchainMetadataRenderer.sol:OnchainMetadataRenderer"), USDG
+        );
+        config.protocolFeeBps = 10_000;
+        config.rewardBps = 0;
+        config.referralBps = 0;
+        config.pricePerPeriod = acquired / 2;
+        config.periodDuration = 100;
+        MembershipTier tier = MembershipTier(bbf.createTier(config));
+        vm.startPrank(trader);
+        assertTrue(IERC20(USDG).approve(address(tier), acquired));
+        tier.purchase(2, address(0));
+        vm.stopPrank();
+        vm.prank(developer);
+        assertTrue(token.transfer(address(vault), 123));
+        vault.syncDonation(address(token));
+        vm.warp(block.timestamp + 100);
+        ProtocolBurnRouter router = ProtocolBurnRouter(bbf.burnRouter());
+        ProtocolBurnRouter.AdvanceTier[] memory tiers = new ProtocolBurnRouter.AdvanceTier[](1);
+        tiers[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 25);
+        ProtocolBurnRouter.Purchase[] memory purchases = new ProtocolBurnRouter.Purchase[](1);
+        purchases[0] = ProtocolBurnRouter.Purchase(address(token), 0);
+        vm.mockCallRevert(
+            USDG,
+            abi.encodeWithSelector(IERC20.transfer.selector),
+            abi.encodeWithSignature("InjectedIssuerFreeze()")
+        );
+        uint256 supply = token.totalSupply();
+        vm.prank(trader);
+        vm.expectRevert();
+        router.advance(tiers, purchases, uint64(block.timestamp));
+        assertEq(token.totalSupply(), supply);
+        assertFalse(tier.accountingStatus().complete);
+        assertEq(tier.protocolFeeEarnedHeld(), 0);
+        // Accounting-only never touches the frozen payment transfer.
+        router.advanceAccounting(tiers);
+        assertTrue(tier.accountingStatus().complete);
+        uint256 held = tier.protocolFeeEarnedHeld();
+        assertGt(held, 0);
+        assertEq(IERC20(USDG).balanceOf(address(tier)), config.pricePerPeriod * 2);
+        vm.clearMockedCalls();
+
+        _memberLimits(USDG);
+        tiers[0].maxAccountingSteps = 0;
+        purchases[0] = ProtocolBurnRouter.Purchase(USDG, vault.revision(USDG));
+        // The release destination is unaffected; only delivery to the executor
+        // is faulted. The failed trade must roll back the preceding release.
+        vm.mockCallRevert(
+            USDG,
+            abi.encodeWithSelector(IERC20.transfer.selector, vault.executor()),
+            abi.encodeWithSignature("InjectedExecutorDeliveryFailure()")
+        );
+        vm.prank(trader);
+        vm.expectRevert();
+        router.advance(tiers, purchases, uint64(block.timestamp));
+        assertEq(tier.protocolFeeEarnedHeld(), held);
+        assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Membership).available, 0);
+        assertGe(IERC20(USDG).balanceOf(address(tier)), tier.totalProtectedLiability());
+        vm.clearMockedCalls();
+    }
 
     function _pendingUSDG() private returns (uint256 amount) {
         vm.warp(block.timestamp + curve.snipeTaxSeconds());

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
 
 import {Test} from "forge-std/Test.sol";
@@ -70,6 +71,7 @@ contract CustomRendererImageInputTest is Test {
     address private creator;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         creator = makeAddr("creator");
         paymentToken = new MockUSDG();
         mediaStoreFactory = new OnchainMediaStoreFactory();
@@ -79,7 +81,9 @@ contract CustomRendererImageInputTest is Test {
             MembershipTestConfig.paymentTokens(paymentToken),
             address(mediaStoreFactory),
             address(this),
-            address(paymentToken)
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(paymentToken))
         );
     }
 

@@ -1,15 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {ProtocolBuybackVault} from "../src/ProtocolBuybackVault.sol";
+import {BuybackIntegration} from "../src/libraries/BuybackIntegration.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {BuybackTypes} from "../src/types/BuybackTypes.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {MockUSDG} from "./mocks/MockUSDG.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {Test} from "forge-std/Test.sol";
+
+/// @dev Deliberately hostile WETH replacement for one local guard regression only.
+contract ReenteringUnwrapFixture {
+    mapping(address => uint256) public balanceOf;
+    bool public callbackSucceeded;
+    bytes public callbackError;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function withdraw(uint256 amount) external {
+        (callbackSucceeded, callbackError) =
+            msg.sender.call(abi.encodeWithSignature("syncDonation(address)", address(this)));
+        balanceOf[msg.sender] -= amount;
+        (bool sent,) = msg.sender.call{value: amount}("");
+        require(sent, "unwrap failed");
+    }
+}
 
 /// @notice Synthetic authority fixture. Genuine Safe signatures and successor
 /// acceptance are tested separately on the canonical fork contracts.
@@ -20,6 +41,7 @@ contract BuybackAdministrationTest is Test {
     address private admin = address(0xA11CE);
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(1000);
         token = new MockUSDG();
         SyntheticPonsBinding.bind(address(token));
@@ -27,7 +49,9 @@ contract BuybackAdministrationTest is Test {
             MembershipTestConfig.paymentTokens(token),
             address(new OnchainMediaStoreFactory()),
             admin,
-            address(token)
+            address(token),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(token))
         );
         vault = ProtocolBuybackVault(payable(factory.buybackVault()));
     }
@@ -51,6 +75,25 @@ contract BuybackAdministrationTest is Test {
         vm.prank(admin);
         vault.setBuybacksPaused(false);
         assertFalse(vault.buybacksPaused());
+    }
+
+    function test_unwrapCallbackCannotReusePreWithdrawalBalances() public {
+        address weth = BuybackIntegration.WETH;
+        vm.etch(weth, address(new ReenteringUnwrapFixture()).code);
+        vm.deal(weth, 10);
+        ReenteringUnwrapFixture wrapped = ReenteringUnwrapFixture(weth);
+        wrapped.mint(address(vault), 10);
+        assertEq(vault.syncDonation(weth), 10);
+        assertFalse(wrapped.callbackSucceeded());
+        assertEq(wrapped.callbackError(), abi.encodeWithSignature("ReentrancyGuardReentrantCall()"));
+        assertEq(wrapped.balanceOf(address(vault)), 0);
+        assertEq(address(vault).balance, 10);
+        BuybackTypes.Inventory memory held =
+            vault.inventory(address(0), BuybackTypes.SourceBucket.Donation);
+        assertEq(held.available, 10);
+        assertEq(held.totalReceived, 10);
+        assertEq(vault.syncDonation(weth), 0);
+        assertEq(vault.syncDonation(address(0)), 0);
     }
 
     function test_routeAndLimitsChangesAdvanceRevisionWithoutClearingStandingLimits() public {

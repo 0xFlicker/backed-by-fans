@@ -3,11 +3,9 @@ pragma solidity =0.8.36;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {ImmutableCodeStore} from "./ImmutableCodeStore.sol";
-import {MembershipTier} from "./MembershipTier.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 
-/// @notice Isolates full membership-tier creation code from the factory runtime.
+/// @notice Loads tier creation code from separately deployed immutable bytecode stores.
 /// @dev The bound factory may deploy tiers, but this contract has no owner or tier authority.
 contract MembershipTierDeployer {
     uint256 private constant _RUNTIME_LIMIT = 24_576;
@@ -17,6 +15,8 @@ contract MembershipTierDeployer {
     address public immutable creationCodeStoreB;
     uint256 public immutable tierCreationCodeLength;
     bytes32 public immutable tierCreationCodeHash;
+    bytes32 public immutable creationCodeStoreAHash;
+    bytes32 public immutable creationCodeStoreBHash;
 
     error CreationCodeCorrupted();
     error CreationCodeTooLarge();
@@ -24,29 +24,42 @@ contract MembershipTierDeployer {
     error InvalidAddress();
     error OnlyFactory();
 
-    constructor(address factory_) {
+    constructor(address factory_, MembershipTypes.TierCodeConfig memory tierCode) {
         if (factory_ == address(0)) revert InvalidAddress();
         factory = factory_;
-
-        bytes memory creationCode = type(MembershipTier).creationCode;
-        uint256 codeLength = creationCode.length;
+        uint256 codeLength = tierCode.creationCodeLength;
         uint256 firstLength = codeLength / 2;
         uint256 secondLength = codeLength - firstLength;
-        if (firstLength + 1 > _RUNTIME_LIMIT || secondLength + 1 > _RUNTIME_LIMIT) {
+        if (codeLength < 2 || firstLength + 1 > _RUNTIME_LIMIT || secondLength + 1 > _RUNTIME_LIMIT)
+        {
             revert CreationCodeTooLarge();
         }
-
-        bytes memory firstChunk = new bytes(firstLength);
-        bytes memory secondChunk = new bytes(secondLength);
-        assembly ("memory-safe") {
-            mcopy(add(firstChunk, 0x20), add(creationCode, 0x20), firstLength)
-            mcopy(add(secondChunk, 0x20), add(add(creationCode, 0x20), firstLength), secondLength)
+        address firstStore = tierCode.storeA;
+        address secondStore = tierCode.storeB;
+        if (
+            firstStore.code.length != firstLength + 1 || secondStore.code.length != secondLength + 1
+        ) {
+            revert CreationCodeCorrupted();
         }
-
-        creationCodeStoreA = address(new ImmutableCodeStore(firstChunk));
-        creationCodeStoreB = address(new ImmutableCodeStore(secondChunk));
+        bytes memory creationCode = new bytes(codeLength);
+        uint256 prefixes;
+        assembly ("memory-safe") {
+            extcodecopy(firstStore, 0, 0, 1)
+            prefixes := byte(0, mload(0))
+            extcodecopy(secondStore, 0, 0, 1)
+            prefixes := or(prefixes, byte(0, mload(0)))
+            extcodecopy(firstStore, add(creationCode, 32), 1, firstLength)
+            extcodecopy(secondStore, add(add(creationCode, 32), firstLength), 1, secondLength)
+        }
+        if (prefixes != 0 || keccak256(creationCode) != tierCode.creationCodeHash) {
+            revert CreationCodeCorrupted();
+        }
+        creationCodeStoreA = firstStore;
+        creationCodeStoreB = secondStore;
+        creationCodeStoreAHash = firstStore.codehash;
+        creationCodeStoreBHash = secondStore.codehash;
         tierCreationCodeLength = codeLength;
-        tierCreationCodeHash = keccak256(creationCode);
+        tierCreationCodeHash = tierCode.creationCodeHash;
     }
 
     function deploy(MembershipTypes.TierConfig calldata config) external returns (address tier) {
@@ -54,6 +67,12 @@ contract MembershipTierDeployer {
 
         address firstStore = creationCodeStoreA;
         address secondStore = creationCodeStoreB;
+        if (
+            firstStore.codehash != creationCodeStoreAHash
+                || secondStore.codehash != creationCodeStoreBHash
+        ) {
+            revert CreationCodeCorrupted();
+        }
         uint256 codeLength = tierCreationCodeLength;
         uint256 firstLength = codeLength / 2;
         uint256 secondLength = codeLength - firstLength;

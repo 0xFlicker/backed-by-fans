@@ -30,7 +30,7 @@ for (const kind of ["WETH", "protocol-token"] as const)
         kind === "WETH"
           ? "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73"
           : f.bootstrap.protocolToken;
-      const price = 1000000000000n,
+      const price = kind === "WETH" ? 410_000_000_000_000n : 1_000_000_000_000n,
         name = `${kind} Backstage`;
       const tier = await f.tier(name, asset, 10000, price);
       if (kind === "WETH")
@@ -103,7 +103,7 @@ for (const kind of ["WETH", "protocol-token"] as const)
       const state = await f.client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "protocolFeeState",
+        functionName: "allocationState",
         args: [tokenId],
       });
       await f.retain(`asset-lifecycle-${kind}`, {

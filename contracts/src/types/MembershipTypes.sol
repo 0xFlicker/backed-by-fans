@@ -3,6 +3,14 @@ pragma solidity =0.8.36;
 
 /// @notice Shared constructor and rendering value types for the membership protocol.
 library MembershipTypes {
+    /// @notice Independently deployed STOP-prefixed chunks of the exact linked tier initcode.
+    struct TierCodeConfig {
+        address storeA;
+        address storeB;
+        uint256 creationCodeLength;
+        bytes32 creationCodeHash;
+    }
+
     enum ImageFit {
         Cover,
         Contain,
@@ -78,15 +86,25 @@ library MembershipTypes {
         string name;
         string symbol;
         uint256 pricePerPeriod;
+        uint112 minimumPayment;
         uint64 periodDuration;
         uint16 protocolFeeBps;
         uint16 rewardBps;
         uint16 referralBps;
+        uint32 startingBoostBps;
+        uint112 earlySupportGross;
         uint64 supplyCap;
         uint64 maxPrepaidPeriods;
         TierMetadata metadata;
         ArtConfig art;
         MediaConfig media;
+    }
+
+    /// @notice Exact issuance for one observed cursor, not a reservation of curve position.
+    struct ShareQuote {
+        uint112 grossBefore;
+        uint112 grossAfter;
+        uint256 sharesAdded;
     }
 
     /// @notice Lazy paid-first time checkpoint and separately cached occupancy.
@@ -103,30 +121,65 @@ library MembershipTypes {
         address referrer;
     }
 
-    /// @notice Current refundable variable-price lot and consumed seconds within it.
-    struct RefundCursor {
-        uint256 lot;
-        uint64 consumedSeconds;
+    struct AccountingStatus {
+        uint64 accountedThrough;
+        uint64 nextBoundary;
+        uint256 scheduledMembers;
+        bool complete;
     }
 
-    struct ProtocolFeeLot {
-        uint256 startPaid;
-        uint256 endPaid;
-        uint256 fee;
-        uint256 cumulativeFee;
+    /// @notice Settled raw balances; fractional values use ACCOUNTING_SCALE.
+    struct EarnedBalances {
+        uint256 creator;
+        uint256 member;
+        uint256 referral;
+        uint256 protocol;
+        uint256[4] fractionalScaled;
+        AccountingStatus status;
     }
 
-    /// @notice Member entitlement; releases are aggregate tier accounting, never member transfers.
-    struct ProtocolFeeState {
+    struct AllocationState {
         uint256 generation;
-        uint256 consumedPaid;
-        uint256 allocated;
-        uint256 earned;
-        uint256 unearned;
-        uint256 uncheckpointedEarned;
-        uint256 refunded;
-        uint256 cancellationRounding;
+        uint256 lotCursor;
         uint256 lotCount;
+        uint256[4] allocatedScaled;
+        uint256[4] earnedScaled;
+        uint256[4] unearnedScaled;
+        uint256 refundableGross;
+        AccountingStatus status;
+    }
+
+    struct AllocationLot {
+        uint64 start;
+        uint64 end;
+        uint256 gross;
+        uint256[4] allocations;
+        address referrer;
+        bool canceled;
+    }
+
+    struct ReserveState {
+        uint256[4] unearnedScaled;
+        uint256[4] cancellationScaled;
+        uint256 unassignedMemberScaled;
+        uint256 distributionDustScaled;
+        uint256 indexCarryScaled;
+        AccountingStatus status;
+    }
+
+    struct RefundPreview {
+        address recipient;
+        uint64 paidSeconds;
+        uint64 grantSeconds;
+        uint64 accessAsOf;
+        uint64 accountingAsOf;
+        uint256 grossRefund;
+        uint256[4] fundingScaled;
+        uint256[4] cancellationScaled;
+        uint256 generation;
+        bool complete;
+        uint64 fundingAsOf;
+        bool projected;
     }
 
     /// @notice One-way presentation data passed from a tier to the stateless renderer.

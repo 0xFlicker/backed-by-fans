@@ -1,7 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { getAddress, zeroAddress } from "viem";
+import {
+  encodeAbiParameters,
+  encodeEventTopics,
+  getAddress,
+  zeroAddress,
+} from "viem";
+import { membershipTierAbi } from "@/contracts";
+import type { ReadState } from "@/lib/read-state";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { artworkRetryDelayMs } from "@/components/ResilientArtworkImage";
@@ -15,13 +22,38 @@ import { tierArtworkRevision } from "@/lib/tier-artwork-revision";
 
 const wallet = getAddress("0x1111111111111111111111111111111111111111");
 const readContract = vi.hoisted(() => vi.fn());
+const paymentWrite = vi.hoisted(() => ({
+  simulate: vi.fn(),
+  send: vi.fn(),
+  receipt: vi.fn(),
+}));
+vi.mock("@wagmi/core", () => ({ simulateContract: paymentWrite.simulate }));
+vi.mock("@/features/protocol/gas-readiness", () => ({
+  assertSufficientGas: vi.fn(),
+}));
+vi.mock("@/lib/config", async (original) => ({
+  ...(await original<typeof import("@/lib/config")>()),
+  getDeployment: () => ({
+    status: "ready",
+    chainId: 46630,
+    factoryAddress: "0x4444444444444444444444444444444444444444",
+    rendererAddress: "0x6666666666666666666666666666666666666666",
+    previewHarnessAddress: "0x8888888888888888888888888888888888888888",
+  }),
+}));
 
 vi.mock("wagmi", () => ({
   useAccount: () => ({ address: wallet, chainId: 46_630, isConnected: true }),
   useChainId: () => 46_630,
   useConfig: () => ({}),
-  usePublicClient: () => ({ readContract }),
-  useWriteContract: () => ({ isPending: false, writeContractAsync: vi.fn() }),
+  usePublicClient: () => ({
+    readContract,
+    waitForTransactionReceipt: paymentWrite.receipt,
+  }),
+  useWriteContract: () => ({
+    isPending: false,
+    writeContractAsync: paymentWrite.send,
+  }),
 }));
 vi.mock("@/components/WalletControl", () => ({
   WalletControl: () => <button type="button">Connect wallet</button>,
@@ -88,6 +120,7 @@ const snapshot: TierSupporterSnapshot = {
     factory,
     address: paymentToken,
     registryIndex: 0,
+    minimumPayment: 1n,
     listed: true,
     enabled: true,
     name: "Global Dollar",
@@ -113,6 +146,16 @@ const snapshot: TierSupporterSnapshot = {
   protocolFeeBps: 100,
   rewardBps: 500,
   referralBps: 100,
+  startingBoostBps: 10000,
+  earlySupportGross: 0n,
+  grossPaid: 0n,
+  minimumPayment: 1n,
+  accounting: {
+    accountedThrough: 1000n,
+    nextBoundary: 0n,
+    scheduledMembers: 0n,
+    complete: true,
+  },
   supplyCap: 100n,
   occupiedSupply: 3n,
   maxPrepaidPeriods: 12n,
@@ -120,6 +163,7 @@ const snapshot: TierSupporterSnapshot = {
   capturedTimestamp: 2_000_000_000n,
   wallet,
   walletPaymentTokenBalance: 100_000_000n,
+  totalEligibleRewardShares: 100_000_000n,
   walletEthBalance: 1n,
   allowance: 0n,
   claimableReferral: 0n,
@@ -152,16 +196,20 @@ function credential(
     rewardEligible: true,
     claimableReward: 2_000_000n,
     refundableGross: 10_000_000n,
-    protocolRefundContribution: 100_000n,
-    creatorRefundContribution: 9_400_000n,
-    ownerTopUp: 500_000n,
+
     referralStatus: "locked-none" as const,
     referrer: zeroAddress,
     ...overrides,
   };
 }
 
-function renderExperience(value: TierSupporterSnapshot, capturedBlock = 100n) {
+function renderExperience(
+  value: TierSupporterSnapshot,
+  capturedBlock = 100n,
+  onRefresh: () => Promise<
+    ReadState<TierSupporterSnapshot> | undefined
+  > = async () => undefined,
+) {
   return render(
     <QueryClientProvider
       client={
@@ -172,7 +220,7 @@ function renderExperience(value: TierSupporterSnapshot, capturedBlock = 100n) {
         capturedBlock={capturedBlock}
         expectedChainId={46630}
         fresh
-        onRefresh={async () => undefined}
+        onRefresh={onRefresh}
         snapshot={value}
       />
     </QueryClientProvider>,
@@ -181,9 +229,26 @@ function renderExperience(value: TierSupporterSnapshot, capturedBlock = 100n) {
 
 describe("supporter membership experience", () => {
   beforeEach(() => {
+    paymentWrite.simulate
+      .mockReset()
+      .mockImplementation(async (_config, request) => ({ request }));
+    paymentWrite.send.mockReset().mockResolvedValue(`0x${"12".repeat(32)}`);
+    paymentWrite.receipt.mockReset();
     readContract.mockReset();
     readContract.mockImplementation(
-      async ({ functionName }: { functionName: string }) => {
+      async ({
+        functionName,
+        args,
+      }: {
+        functionName: string;
+        args?: bigint[];
+      }) => {
+        if (functionName === "previewShares")
+          return {
+            grossBefore: 0n,
+            grossAfter: args![0],
+            sharesAdded: args![0],
+          };
         if (functionName === "tokenURI" || functionName === "previewTokenURI") {
           return canonicalTokenURI;
         }
@@ -191,6 +256,235 @@ describe("supporter membership experience", () => {
       },
     );
   });
+
+  it("shows the captured-block quote and confirms actual issuance despite a changed curve and shortened access", async () => {
+    const user = userEvent.setup();
+    readContract.mockResolvedValue({
+      grossBefore: 0n,
+      grossAfter: 10_000_000n,
+      sharesAdded: 15_000_000n,
+    });
+    paymentWrite.receipt.mockResolvedValue({
+      status: "success",
+      transactionHash: `0x${"12".repeat(32)}`,
+      logs: [
+        {
+          address: snapshot.address,
+          topics: encodeEventTopics({
+            abi: membershipTierAbi,
+            eventName: "PaymentProcessed",
+            args: { payer: wallet, recipient: wallet, tokenId: 1n },
+          }),
+          data: encodeAbiParameters(
+            [{ type: "uint256" }, { type: "uint64" }],
+            [10_000_000n, 1n],
+          ),
+        },
+        {
+          address: snapshot.address,
+          topics: encodeEventTopics({
+            abi: membershipTierAbi,
+            eventName: "SharesIssued",
+            args: { tokenId: 1n },
+          }),
+          data: encodeAbiParameters(
+            [{ type: "uint256" }, { type: "uint256" }, { type: "uint256" }],
+            [11_000_000n, 21_000_000n, 100_000_000n],
+          ),
+        },
+        {
+          address: snapshot.address,
+          topics: encodeEventTopics({
+            abi: membershipTierAbi,
+            eventName: "RewardEligibilityUpdated",
+            args: { tokenId: 1n },
+          }),
+          data: encodeAbiParameters(
+            [{ type: "bool" }, { type: "uint256" }, { type: "uint256" }],
+            [true, 21_000_000n, 100_000_000n],
+          ),
+        },
+      ],
+    });
+    const next = {
+      ...snapshot,
+      credential: credential({
+        shares: 24_000_000n,
+        expiration: snapshot.capturedTimestamp + 60n,
+      }),
+    };
+    renderExperience(
+      {
+        ...snapshot,
+        allowance: 100_000_000n,
+        credential: credential({ rewardEligible: false }),
+      },
+      321n,
+      async () => ({ status: "valid", data: next, capturedBlock: 330n }),
+    );
+    expect(await screen.findByText(/15 shares \(1.5× average\)/)).toBeVisible();
+    expect(readContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionName: "previewShares",
+        blockNumber: 321n,
+        args: [10_000_000n],
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Renew active membership" }),
+    );
+    expect(
+      await screen.findByText(/Actual new reward weight: 11 shares/),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Historical reward weight restored: 10 shares/),
+    ).toBeVisible();
+    expect(paymentWrite.send).toHaveBeenCalledWith(
+      (await paymentWrite.simulate.mock.results[0].value).request,
+    );
+  });
+
+  for (const kind of ["member", "referral", "creator"] as const) {
+    for (const actual of [1_000_000n, 3_000_000n]) {
+      it(`confirms actual ${kind} payout ${actual} with a positive refreshed balance`, async () => {
+        const user = userEvent.setup();
+        const eventName =
+          kind === "member"
+            ? "RewardClaimed"
+            : kind === "referral"
+              ? "ReferralClaimed"
+              : "CreatorProceedsWithdrawn";
+        paymentWrite.receipt.mockResolvedValue({
+          status: "success",
+          transactionHash: `0x${"12".repeat(32)}`,
+          logs: [
+            {
+              address: snapshot.address,
+              topics: encodeEventTopics({
+                abi: membershipTierAbi,
+                eventName,
+                args:
+                  kind === "member"
+                    ? { owner: wallet, tokenId: 1n }
+                    : kind === "referral"
+                      ? { referrer: wallet }
+                      : { owner: wallet },
+              }),
+              data: encodeAbiParameters([{ type: "uint256" }], [actual]),
+            },
+          ],
+        });
+        const current = {
+          ...snapshot,
+          paused: true,
+          creator: wallet,
+          credential: credential({
+            claimableReward: kind === "member" ? 2_000_000n : 0n,
+            rewardEligible: false,
+            active: false,
+          }),
+          claimableReferral: kind === "referral" ? 2_000_000n : 0n,
+          creatorProceeds: kind === "creator" ? 2_000_000n : 0n,
+        };
+        const refresh = vi.fn(
+          async (): Promise<ReadState<TierSupporterSnapshot>> => ({
+            status: "valid",
+            capturedBlock: 102n,
+            data: {
+              ...current,
+              credential: {
+                ...current.credential,
+                claimableReward: 7_000_000n,
+              },
+              claimableReferral: 7_000_000n,
+              creatorProceeds: 7_000_000n,
+            },
+          }),
+        );
+        renderExperience(current, 100n, refresh);
+        await user.click(
+          screen.getByRole("button", {
+            name:
+              kind === "creator"
+                ? "Withdraw to this wallet"
+                : "Claim to this wallet",
+          }),
+        );
+        expect(
+          await screen.findByText(
+            `Paid ${actual / 1_000_000n} USDG to ${wallet}. New earnings may still become available.`,
+          ),
+        ).toBeVisible();
+        expect(refresh).toHaveBeenCalledOnce();
+        expect(paymentWrite.send).toHaveBeenCalledOnce();
+      });
+    }
+  }
+
+  it("shows failed quote reads as unavailable instead of zero or estimated cash", async () => {
+    readContract.mockRejectedValue(new Error("RPC unavailable"));
+    renderExperience(snapshot);
+    expect(
+      await screen.findByText(/Reward weight preview is unavailable/),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/Estimated new reward weight: 0 shares/),
+    ).toBeNull();
+  });
+
+  it("shows eligible reward percentage independent of token display adjustments", () => {
+    renderExperience({
+      ...snapshot,
+      paymentTokenState: {
+        ...snapshot.paymentTokenState!,
+        decimals: 18,
+        uiMultiplier: 2n * 10n ** 18n,
+      },
+      totalEligibleRewardShares: 8_991_000_000_000_000_000n,
+      credential: credential({ shares: 899_100_000_000_000_000n }),
+    });
+    const status = screen.getByRole("region", {
+      name: "Current membership status",
+    });
+    expect(within(status).getByText("10%")).toBeVisible();
+  });
+
+  it.each([true, false])(
+    "keeps free access separate from existing reward eligibility (%s)",
+    async (rewardEligible) => {
+      renderExperience({
+        ...snapshot,
+        pricePerPeriod: 0n,
+        credential: credential({ rewardEligible }),
+      });
+      const status = screen.getByRole("region", {
+        name: "Current membership status",
+      });
+      expect(within(status).getByText("Active", { exact: true })).toBeVisible();
+      expect(
+        within(status).getByText(rewardEligible ? "Eligible" : "Not eligible", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      expect(
+        within(status).getByText(rewardEligible ? "10%" : "0%"),
+      ).toBeVisible();
+      if (rewardEligible)
+        expect(
+          screen.getByText(/Free renewal keeps your existing weight eligible/),
+        ).toBeVisible();
+      else
+        expect(
+          within(status).getByText(/free access and grants do not/),
+        ).toBeVisible();
+      expect(
+        await screen.findByText(/Estimated new reward weight: 0 shares/),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("button", { name: "Claim to this wallet" }),
+      ).toBeVisible();
+    },
+  );
 
   it("presents join, active renewal, held-expiry, and synchronized history distinctly", () => {
     const view = renderExperience(snapshot);
@@ -351,7 +645,11 @@ describe("supporter membership experience", () => {
         `/api/chains/46630/tiers/${snapshot.address}/artwork?v=${tierArtworkRevision(snapshot)}`,
       ),
     );
-    expect(readContract).not.toHaveBeenCalled();
+    expect(
+      readContract.mock.calls.every(
+        ([call]) => call.functionName === "previewShares",
+      ),
+    ).toBe(true);
     expect(
       screen.getByRole("region", { name: "Current membership status" }),
     ).toHaveTextContent("Membership active");

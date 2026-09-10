@@ -71,11 +71,11 @@ test("@protocol-unbound memberships and fee collection work before token launch"
       const fees = await client.readContract({
         address: tier.address,
         abi: membershipTierAbi,
-        functionName: "protocolFeeState",
+        functionName: "allocationState",
         args: [BigInt(tier.tokenId)],
       });
-      expect(fees.uncheckpointedEarned).toBeGreaterThan(0n);
-      expect(fees.unearned).toBeGreaterThan(0n);
+      expect(fees.status.complete).toBe(false);
+      expect(fees.unearnedScaled[3] / (1n << 128n)).toBeGreaterThan(0n);
     }
     await installAnvilWallet(page, caller);
     await page.goto("/chains/31337/protocol");
@@ -86,13 +86,13 @@ test("@protocol-unbound memberships and fee collection work before token launch"
         .first(),
     ).toBeVisible();
     const collect = page.getByRole("button", {
-      name: "Collect fees",
+      name: "Advance and burn",
       exact: true,
     });
     await expect(collect).toBeEnabled();
     await collect.click();
     await expect(page.locator(".protocol-burn [role=status]")).toContainText(
-      "Earned fees collected",
+      "Earned fees released",
       { timeout: 60000 },
     );
     expect(
@@ -104,19 +104,22 @@ test("@protocol-unbound memberships and fee collection work before token launch"
     ).toBe(0n);
     for (const tier of demo.tiers) {
       expect(
-        await client.readContract({
-          address: tier.address,
-          abi: membershipTierAbi,
-          functionName: "totalProtocolFeeReleased",
-        }),
+        await client
+          .readContract({
+            address: boot.buybackVault,
+            abi: protocolBuybackVaultAbi,
+            functionName: "inventory",
+            args: [tier.paymentToken, 0],
+          })
+          .then((inventory) => inventory.totalReceived),
       ).toBeGreaterThan(0n);
       const fees = await client.readContract({
         address: tier.address,
         abi: membershipTierAbi,
-        functionName: "protocolFeeState",
+        functionName: "allocationState",
         args: [BigInt(tier.tokenId)],
       });
-      expect(fees.unearned).toBeGreaterThan(0n);
+      expect(fees.unearnedScaled[3] / (1n << 128n)).toBeGreaterThan(0n);
     }
     await page.screenshot({
       path: resolve(directory, "unbound-collected.png"),

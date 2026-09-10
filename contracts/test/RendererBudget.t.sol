@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
 
 import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
@@ -46,6 +47,7 @@ contract RendererBudgetTest is Test {
     OnchainMetadataRenderer private renderer;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         paymentToken = new MockUSDG();
         mediaFactory = new OnchainMediaStoreFactory();
         renderer = new OnchainMetadataRenderer();
@@ -72,7 +74,11 @@ contract RendererBudgetTest is Test {
             MembershipTestConfig.paymentTokens(IERC20(address(paymentToken))),
             address(mediaFactory),
             address(this),
-            address(paymentToken)
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(
+                MembershipTestConfig.paymentTokens(IERC20(address(paymentToken)))
+            )
         );
         MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
             address(this), address(renderer), address(paymentToken)

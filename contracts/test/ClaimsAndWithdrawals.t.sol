@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -23,6 +25,8 @@ contract ClaimsAndWithdrawalsTest is Test {
     address private nextOwner;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
+        vm.warp(1000);
         member = makeAddr("member");
         referrer = makeAddr("referrer");
         stranger = makeAddr("stranger");
@@ -46,6 +50,13 @@ contract ClaimsAndWithdrawalsTest is Test {
         vm.prank(member);
         uint256 tokenId = tier.purchase(1, referrer);
 
+        assertEq(tier.creatorProceeds(), 0);
+        assertEq(tier.claimableReward(tokenId), 0);
+        assertEq(tier.claimableReferral(referrer), 0);
+        _vest(30 days);
+        uint256 reward = tier.claimableReward(tokenId);
+        assertApproxEqAbs(reward, 500_000, 1);
+
         uint256 ownerBefore = paymentToken.balanceOf(address(this));
         assertEq(tier.withdrawCreatorProceeds(), 9_300_000);
         assertEq(paymentToken.balanceOf(address(this)) - ownerBefore, 9_300_000);
@@ -63,29 +74,33 @@ contract ClaimsAndWithdrawalsTest is Test {
         tier.claimReward(tokenId);
 
         vm.prank(member);
-        assertEq(tier.claimReward(tokenId), 500_000);
-        assertEq(paymentToken.balanceOf(address(tier)), 100_000);
+        assertEq(tier.claimReward(tokenId), reward);
+        assertEq(paymentToken.balanceOf(address(tier)), 600_000 - reward);
         assertEq(tier.creatorProceeds(), 0);
-        assertEq(tier.rewardReserve(), 0);
-        assertEq(tier.totalReferralLiability(), 0);
-        assertEq(tier.totalProtectedLiability(), 100_000);
+        assertEq(tier.claimableReward(tokenId), 0);
+        assertEq(tier.claimableReferral(referrer), 0);
+        assertEq(tier.totalProtectedLiability(), 600_000 - reward);
     }
 
     function test_creatorWithdrawalCannotConsumeRewardOrReferralLiabilities() public {
         vm.prank(member);
         tier.purchase(2, referrer);
 
+        _vest(60 days);
+
         assertEq(tier.withdrawCreatorProceeds(), 18_600_000);
 
         assertEq(paymentToken.balanceOf(address(tier)), 1_400_000);
-        assertEq(tier.rewardReserve(), 1_000_000);
-        assertEq(tier.totalReferralLiability(), 200_000);
+        assertApproxEqAbs(tier.claimableReward(1), 1_000_000, 1);
+        assertEq(tier.claimableReferral(referrer), 200_000);
         assertEq(tier.totalProtectedLiability(), 1_400_000);
     }
 
     function test_currentOwnerReceivesPreexistingCreatorProceedsAfterTwoStepTransfer() public {
         vm.prank(member);
         tier.purchase(1, address(0));
+
+        _vest(30 days);
 
         tier.transferOwnership(nextOwner);
         vm.prank(nextOwner);
@@ -106,12 +121,16 @@ contract ClaimsAndWithdrawalsTest is Test {
         uint256 tokenId = tier.purchase(1, referrer);
         tier.setPaused(true);
 
+        _vest(30 days);
+        uint256 reward = tier.claimableReward(tokenId);
+
         assertEq(tier.withdrawCreatorProceeds(), 9_300_000);
         vm.prank(referrer);
         assertEq(tier.claimReferral(), 100_000);
         vm.prank(member);
-        assertEq(tier.claimReward(tokenId), 500_000);
-        assertEq(paymentToken.balanceOf(address(tier)), 100_000);
+        assertEq(tier.claimReward(tokenId), reward);
+        assertApproxEqAbs(reward, 500_000, 1);
+        assertEq(paymentToken.balanceOf(address(tier)), 600_000 - reward);
     }
 
     function test_twoTokenClaimsAndRefundsRemainIndependent() public {
@@ -137,10 +156,13 @@ contract ClaimsAndWithdrawalsTest is Test {
         vm.prank(secondMember);
         uint256 secondTokenId = secondTier.purchase(1, secondReferrer);
 
+        _vest(15 days);
+        secondTier.processAccounting(25);
+
         uint256 secondBalanceBefore = secondToken.balanceOf(address(secondTier));
         uint256 secondCreatorBefore = secondTier.creatorProceeds();
-        uint256 secondRewardBefore = secondTier.rewardReserve();
-        uint256 secondReferralBefore = secondTier.totalReferralLiability();
+        uint256 secondRewardBefore = secondTier.claimableReward(secondTokenId);
+        uint256 secondReferralBefore = secondTier.claimableReferral(secondReferrer);
 
         tier.withdrawCreatorProceeds();
         vm.prank(referrer);
@@ -150,22 +172,113 @@ contract ClaimsAndWithdrawalsTest is Test {
 
         assertEq(secondToken.balanceOf(address(secondTier)), secondBalanceBefore);
         assertEq(secondTier.creatorProceeds(), secondCreatorBefore);
-        assertEq(secondTier.rewardReserve(), secondRewardBefore);
-        assertEq(secondTier.totalReferralLiability(), secondReferralBefore);
+        assertEq(secondTier.claimableReward(secondTokenId), secondRewardBefore);
+        assertEq(secondTier.claimableReferral(secondReferrer), secondReferralBefore);
 
-        (uint256 refundAmount, uint256 ownerTopUp) = secondTier.previewRefund(secondTokenId);
-        secondToken.mint(address(this), ownerTopUp);
-        secondToken.approve(address(secondTier), ownerTopUp);
+        uint256 refundAmount = secondTier.previewRefund(secondTokenId).grossRefund;
         uint256 firstTokenBalanceBefore = paymentToken.balanceOf(address(tier));
-        secondTier.refund(secondTokenId, refundAmount, ownerTopUp);
+        secondTier.refund(secondTokenId, refundAmount);
 
         assertEq(paymentToken.balanceOf(address(tier)), firstTokenBalanceBefore);
         assertEq(tier.creatorProceeds(), 0);
-        assertEq(tier.rewardReserve(), 0);
-        assertEq(tier.totalReferralLiability(), 0);
-        assertEq(secondTier.creatorProceeds(), 0);
-        assertEq(secondTier.rewardReserve(), secondRewardBefore);
-        assertEq(secondTier.totalReferralLiability(), secondReferralBefore);
+        assertApproxEqAbs(tier.reserveState().unearnedScaled[1] / (1 << 128), 250_000, 1);
+        assertEq(tier.claimableReferral(referrer), 0);
+        assertEq(secondTier.creatorProceeds(), secondCreatorBefore);
+        assertEq(secondTier.claimableReward(secondTokenId), secondRewardBefore);
+        assertEq(secondTier.reserveState().unearnedScaled[1], 0);
+        assertEq(secondTier.claimableReferral(secondReferrer), secondReferralBefore);
+    }
+
+    function _vest(uint256 elapsed) private {
+        vm.warp(block.timestamp + elapsed);
+        tier.processAccounting(25);
+    }
+
+    function test_fractionalCreditRemainsAfterClaimsAndLaterCashCanAccrue() public {
+        vm.prank(member);
+        uint256 id = tier.purchase(1, referrer);
+        _vest(1 days);
+        MembershipTypes.EarnedBalances memory before_ = tier.earnedBalances(id, referrer);
+        assertGt(before_.fractionalScaled[0], 0);
+        assertGt(before_.fractionalScaled[1], 0);
+        assertEq(tier.withdrawCreatorProceeds(), before_.creator);
+        vm.prank(member);
+        assertEq(tier.claimReward(id), before_.member);
+        vm.prank(referrer);
+        assertEq(tier.claimReferral(), before_.referral);
+        assertEq(tier.releaseProtocolFees(), before_.protocol);
+        MembershipTypes.EarnedBalances memory after_ = tier.earnedBalances(id, referrer);
+        assertEq(after_.creator + after_.member + after_.referral + after_.protocol, 0);
+        for (uint256 i; i < 4; ++i) {
+            assertEq(after_.fractionalScaled[i], before_.fractionalScaled[i]);
+        }
+        _vest(1 days);
+        after_ = tier.earnedBalances(id, referrer);
+        assertGt(after_.creator, 0);
+        assertGt(after_.member, 0);
+        assertGt(after_.referral, 0);
+        assertGt(after_.protocol, 0);
+        assertEq(tier.sharesOf(id), 10_000_000);
+        assertEq(tier.lifetimeGross(), 10_000_000);
+        assertGe(paymentToken.balanceOf(address(tier)), tier.totalProtectedLiability());
+    }
+
+    function test_settledClaimsDoNotRequireFinishingPendingEqualTimeCheckpoints() public {
+        vm.prank(member);
+        uint256 id = tier.purchase(1, referrer);
+        for (uint256 i; i < 100; ++i) {
+            address other = address(SafeCast.toUint160(0x1000 + i));
+            paymentToken.mint(other, 10_000_000);
+            vm.startPrank(other);
+            paymentToken.approve(address(tier), 10_000_000);
+            tier.purchase(1, referrer);
+            vm.stopPrank();
+        }
+        vm.warp(block.timestamp + 30 days);
+        tier.processAccounting(1);
+        tier.setPaused(true);
+        assertFalse(tier.accountingStatus().complete);
+        uint256 pending = tier.accountingStatus().scheduledMembers;
+        MembershipTypes.EarnedBalances memory balances = tier.earnedBalances(id, referrer);
+        assertGt(balances.member, 0);
+        assertEq(tier.withdrawCreatorProceeds(), balances.creator);
+        vm.prank(member);
+        assertEq(tier.claimReward(id), balances.member);
+        vm.prank(referrer);
+        assertEq(tier.claimReferral(), balances.referral);
+        assertEq(tier.releaseProtocolFees(), balances.protocol);
+        assertEq(tier.accountingStatus().scheduledMembers, pending);
+        assertFalse(tier.accountingStatus().complete);
+        assertGe(paymentToken.balanceOf(address(tier)), tier.totalProtectedLiability());
+    }
+
+    function test_burnedCredentialRetainsFixedWalletClaimAndZeroClaimsEmitNothing() public {
+        vm.prank(member);
+        uint256 id = tier.purchase(1, referrer);
+        _vest(30 days);
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = id;
+        tier.synchronizeExpiredMemberships(ids);
+        tier.setPaused(true);
+        assertFalse(tier.rewardEligible(id));
+        assertEq(tier.tokenOf(member), id);
+        vm.expectRevert();
+        tier.ownerOf(id);
+        uint256 amount = tier.claimableReward(id);
+        assertGt(amount, 0);
+        vm.prank(stranger);
+        vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
+        tier.claimReward(id);
+        vm.prank(member);
+        assertEq(tier.claimReward(id), amount);
+        assertFalse(tier.rewardEligible(id));
+        assertEq(tier.sharesOf(id), 10_000_000);
+        vm.recordLogs();
+        vm.prank(member);
+        assertEq(tier.claimReward(id), 0);
+        vm.prank(stranger);
+        assertEq(tier.claimReferral(), 0);
+        assertEq(vm.getRecordedLogs().length, 0);
     }
 }
 
@@ -208,6 +321,8 @@ contract AdversarialPaymentsAndExitsTest is Test {
     uint64 private observedCheckpoint;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
+        vm.warp(1000);
         feeVault = makeAddr("feeVault");
         member = makeAddr("member");
         referrer = makeAddr("referrer");
@@ -254,24 +369,40 @@ contract AdversarialPaymentsAndExitsTest is Test {
         _assertNoPaymentState();
     }
 
+    function test_zeroEarnedClaimsDoNotAttemptFrozenTokenDeliveryOrEmitPayouts() public {
+        vm.prank(member);
+        uint256 id = tier.purchase(1, referrer);
+        paymentToken.setTransferBehavior(AdversarialERC20.Behavior.RevertTransfer);
+        paymentToken.setFrozen(member, true);
+        paymentToken.setFrozen(referrer, true);
+        paymentToken.setFrozen(address(this), true);
+        vm.recordLogs();
+        assertEq(tier.withdrawCreatorProceeds(), 0);
+        vm.prank(member);
+        assertEq(tier.claimReward(id), 0);
+        vm.prank(referrer);
+        assertEq(tier.claimReferral(), 0);
+        assertEq(tier.releaseProtocolFees(), 0);
+        assertEq(vm.getRecordedLogs().length, 0);
+        assertEq(tier.totalProtectedLiability(), 10_000_000);
+    }
+
     function test_failedEarnedReleasePreservesAccountingWithoutBlockingPayment() public {
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.ReturnFalse);
         vm.prank(member);
         uint256 id = tier.purchase(1, referrer);
         vm.warp(block.timestamp + 30 days);
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = id;
-        tier.accrueProtocolFees(ids);
+        assertEq(id, 1);
+        tier.processAccounting(25);
         vm.expectRevert();
         tier.releaseProtocolFees();
-        assertEq(tier.protocolFeeEarnedHeld(), 100_000);
-        assertEq(tier.protocolFeeHoldings(), 100_000);
+        assertEq(tier.earnedBalances(id, referrer).protocol, 100_000);
         assertEq(paymentToken.balanceOf(address(tier)), 10_000_000);
         assertEq(paymentToken.balanceOf(tier.buybackVault()), 0);
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.TaxedTransfer);
         vm.expectRevert(MembershipTier.InexactTokenTransfer.selector);
         tier.releaseProtocolFees();
-        assertEq(tier.protocolFeeEarnedHeld(), 100_000);
+        assertEq(tier.earnedBalances(id, referrer).protocol, 100_000);
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Normal);
         assertEq(tier.releaseProtocolFees(), 100_000);
         assertEq(paymentToken.balanceOf(tier.buybackVault()), 100_000);
@@ -283,7 +414,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         vm.prank(member);
         uint256 id = tier.purchase(1, address(0));
         assertEq(tier.sharesOf(id), 10_000_000);
-        assertEq(tier.protocolFeeHoldings(), 100_000);
+        assertEq(tier.reserveState().unearnedScaled[3], 100_000 * (1 << 128));
         assertTrue(tier.isActive(member));
     }
 
@@ -330,6 +461,10 @@ contract AdversarialPaymentsAndExitsTest is Test {
     function test_failedCreatorRewardAndReferralExitsRestoreLiabilities() public {
         vm.prank(member);
         uint256 tokenId = tier.purchase(1, referrer);
+        vm.warp(block.timestamp + 30 days);
+        tier.processAccounting(25);
+        uint256 reward = tier.claimableReward(tokenId);
+        assertApproxEqAbs(reward, 500_000, 1);
         uint256 tierBalance = paymentToken.balanceOf(address(tier));
 
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.ReturnFalse);
@@ -346,8 +481,8 @@ contract AdversarialPaymentsAndExitsTest is Test {
         vm.prank(member);
         vm.expectRevert(MembershipTier.InexactTokenTransfer.selector);
         tier.claimReward(tokenId);
-        assertEq(tier.rewardReserve(), 500_000);
-        assertEq(tier.claimableReward(tokenId), 500_000);
+        assertEq(tier.reserveState().unearnedScaled[1], 0);
+        assertEq(tier.claimableReward(tokenId), reward);
 
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Normal);
         paymentToken.setFrozen(referrer, true);
@@ -355,7 +490,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
         tier.claimReferral();
         assertEq(tier.claimableReferral(referrer), 100_000);
-        assertEq(tier.totalReferralLiability(), 100_000);
+        assertEq(tier.earnedBalances(tokenId, referrer).referral, 100_000);
         assertEq(paymentToken.balanceOf(address(tier)), tierBalance);
     }
 
@@ -370,6 +505,9 @@ contract AdversarialPaymentsAndExitsTest is Test {
         uint256 firstTokenId = tier.purchase(1, referrer);
         vm.prank(secondMember);
         uint256 secondTokenId = tier.purchase(1, secondReferrer);
+
+        vm.warp(block.timestamp + 30 days);
+        tier.processAccounting(25);
 
         uint256 firstReward = tier.claimableReward(firstTokenId);
         uint256 secondReward = tier.claimableReward(secondTokenId);
@@ -403,20 +541,23 @@ contract AdversarialPaymentsAndExitsTest is Test {
         paymentToken.mint(address(claimant), 10_000_000);
         claimant.purchase();
         uint256 tokenId = claimant.tokenId();
-        assertEq(tier.claimableReward(tokenId), 500_000);
+        vm.warp(block.timestamp + 30 days);
+        tier.processAccounting(25);
+        uint256 reward = tier.claimableReward(tokenId);
+        assertApproxEqAbs(reward, 500_000, 1);
 
         paymentToken.setCallback(
             address(claimant), abi.encodeCall(ReentrantRewardClaimant.reenterClaim, ())
         );
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Callback);
 
-        assertEq(claimant.claim(), 500_000);
+        assertEq(claimant.claim(), reward);
 
         assertEq(claimant.callbackAttempts(), 1);
         assertFalse(claimant.reentrySucceeded());
-        assertEq(paymentToken.balanceOf(address(claimant)), 500_000);
+        assertEq(paymentToken.balanceOf(address(claimant)), reward);
         assertEq(tier.claimableReward(tokenId), 0);
-        assertEq(tier.rewardReserve(), 0);
+        assertEq(tier.totalProtectedLiability(), 10_000_000 - reward);
     }
 
     function _expectFailedInbound(AdversarialERC20.Behavior behavior, bytes memory revertData)
@@ -436,7 +577,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         assertEq(tier.occupiedSupply(), 0);
         assertEq(tier.totalRewardShares(), 0);
         assertEq(tier.creatorProceeds(), 0);
-        assertEq(tier.rewardReserve(), 0);
-        assertEq(tier.totalReferralLiability(), 0);
+        assertEq(tier.reserveState().unearnedScaled[1], 0);
+        assertEq(tier.claimableReferral(referrer), 0);
     }
 }

@@ -152,17 +152,29 @@ test("@protocol-fork independently funded callers replace one-shot collection an
       f.client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "protocolFeeState",
+        functionName: "allocationState",
         args: [1n],
         blockNumber,
       });
+    const readReleased = async () => {
+      const [allocation, held] = await Promise.all([
+        readState(),
+        f.client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "protocolFeeEarnedHeld",
+        }),
+      ]);
+      return allocation.earnedScaled[3] / (1n << 128n) - held;
+    };
     const accrualBlock = await f.client.getBlock();
     const before = await readState(accrualBlock.number);
     const elapsed = accrualBlock.timestamp - start;
     expect(elapsed).toBeGreaterThanOrEqual(300n);
     expect(elapsed).toBeLessThan(1200n);
-    expect(before.uncheckpointedEarned).toBe((12_000_000n * elapsed) / 1200n);
-    expect(before.unearned).toBe(12_000_000n - before.uncheckpointedEarned);
+    expect(before.earnedScaled[3]).toBe(0n);
+    expect(before.unearnedScaled[3]).toBe(12_000_000n * (1n << 128n));
+    expect(before.status.complete).toBe(false);
     const a = privateKeyToAccount(testKey(0xb001)),
       b = privateKeyToAccount(testKey(0xb002));
     await f.testClient.setBalance({ address: a.address, value: 10n ** 18n });
@@ -178,13 +190,13 @@ test("@protocol-fork independently funded callers replace one-shot collection an
       f.bootstrap.factory,
     );
     const afterA = await readState();
-    const releasedA = await f.client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "totalProtocolFeeReleased",
-    });
-    expect(releasedA).toBeGreaterThanOrEqual(3_000_000n);
-    expect(afterA.earned).toBe(releasedA + afterA.uncheckpointedEarned);
+    const releasedA = await readReleased();
+    const rate = before.allocatedScaled[3] / 1200n;
+    expect(releasedA).toBe(
+      (rate * (afterA.status.accountedThrough - start)) / (1n << 128n),
+    );
+    expect(releasedA).toBeGreaterThan(0n);
+    expect(afterA.earnedScaled[3] / (1n << 128n)).toBe(releasedA);
     const gasAfterA = await f.client.getBalance({ address: a.address });
     expect(gasAfterA).toBeLessThan(10n ** 18n);
     await f.testClient.setBalance({ address: a.address, value: 0n });
@@ -192,25 +204,15 @@ test("@protocol-fork independently funded callers replace one-shot collection an
     await f.testClient.setNextBlockTimestamp({ timestamp: start + 600n });
     await f.testClient.mine({ blocks: 1 });
     const stopped = await readState();
-    expect(stopped.earned).toBeGreaterThan(afterA.earned);
-    expect(stopped.uncheckpointedEarned).toBe(stopped.earned - releasedA);
-    expect(
-      await f.client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "totalProtocolFeeReleased",
-      }),
-    ).toBe(releasedA);
+    expect(stopped.earnedScaled).toEqual(afterA.earnedScaled);
+    expect(stopped.status.complete).toBe(false);
+    expect(await readReleased()).toBe(releasedA);
     const runB = await oneShotRunner(
       testKey(0xb002),
       f.rpc,
       f.bootstrap.factory,
     );
-    const releasedB = await f.client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "totalProtocolFeeReleased",
-    });
+    const releasedB = await readReleased();
     const inventory = await f.client.readContract({
       address: f.bootstrap.buybackVault,
       abi: protocolBuybackVaultAbi,
@@ -228,7 +230,11 @@ test("@protocol-fork independently funded callers replace one-shot collection an
       abi: erc20Abi,
       functionName: "totalSupply",
     });
-    expect(releasedB).toBeGreaterThanOrEqual(6_000_000n);
+    const afterB = await readState();
+    expect(releasedB).toBe(
+      (rate * (afterB.status.accountedThrough - start)) / (1n << 128n),
+    );
+    expect(releasedB).toBeGreaterThan(releasedA);
     expect(inventory.totalReceived).toBe(releasedB);
     expect(inventory.available).toBe(
       inventory.totalReceived - inventory.totalSpent,

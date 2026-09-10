@@ -4,6 +4,7 @@ pragma solidity =0.8.36;
 import {DeployForkProtocol} from "./DeployForkProtocol.s.sol";
 
 /// @notice Local membership protocol with no Pons launch or protocol-token purchase.
+/// @dev Inherits the same preserved-leaf deployment and runtime checks through _deployLocal.
 contract DeployForkProtocolNoToken is DeployForkProtocol {
     function _deployFork(address developer, address[] memory owners, bytes32 salt, uint256)
         internal

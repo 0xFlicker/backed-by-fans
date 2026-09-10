@@ -75,9 +75,7 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
     ).toBe(true);
     await f.testClient.increaseTime({ seconds: 300 });
     await f.testClient.mine({ blocks: 1 });
-    await f.write(member, tier, membershipTierAbi, "accrueProtocolFees", [
-      [1n],
-    ]);
+    await f.write(member, tier, membershipTierAbi, "processAccounting", [25n]);
     await f.write(member, tier, membershipTierAbi, "releaseProtocolFees");
     const inventory = () =>
       f.client.readContract({

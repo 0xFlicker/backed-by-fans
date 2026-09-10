@@ -10,7 +10,15 @@
       "implementation": "0x68184c449e1a8f34fa18d289737129fd27b66f8f",
       "implementationRuntimeCodehash": "0x3a551ac5c744af57e68a1d1431ac403c0f516ffd7d224a75746aee11fc4f3baf",
       "expectedDecimals": 6,
-      "requiresScaledUI": false
+      "requiresScaledUI": false,
+      "minimumPayment": "1000000",
+      "minimumCalibration": {
+        "targetUSD": "1",
+        "referencePriceUSD": "1",
+        "referenceDate": "2026-09-09",
+        "referenceMultiplier": "1000000000000000000",
+        "source": "USDG nominal dollar denomination"
+      }
     },
     {
       "symbol": "AMD",
@@ -19,7 +27,15 @@
       "implementation": null,
       "implementationRuntimeCodehash": null,
       "expectedDecimals": 18,
-      "requiresScaledUI": true
+      "requiresScaledUI": true,
+      "minimumPayment": "2000000000000000",
+      "minimumCalibration": {
+        "targetUSD": "1",
+        "referencePriceUSD": "521.10",
+        "referenceDate": "2026-09-09",
+        "referenceMultiplier": "1000000000000000000",
+        "source": "https://stockanalysis.com/stocks/amd/history/"
+      }
     },
     {
       "symbol": "WETH",
@@ -28,7 +44,15 @@
       "implementation": "0xc6b81b429797e0f555440b70cd99e032d7ae947e",
       "implementationRuntimeCodehash": "0xbe1295f37be34ffe03ad779bda0ef278907e1856b51a3be2f35ee541d75d4650",
       "expectedDecimals": 18,
-      "requiresScaledUI": false
+      "requiresScaledUI": false,
+      "minimumPayment": "410000000000000",
+      "minimumCalibration": {
+        "targetUSD": "1",
+        "referencePriceUSD": "2465.43",
+        "referenceDate": "2026-09-09",
+        "referenceMultiplier": "1000000000000000000",
+        "source": "https://myfin.us/cryptocurrencies/ethereum/historical-data"
+      }
     }
   ]
 }

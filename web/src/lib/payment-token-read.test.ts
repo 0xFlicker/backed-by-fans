@@ -38,6 +38,7 @@ function tokenClient(
     }) => {
       expect(blockNumber).toBe(90n);
       if (address === factory) {
+        if (functionName === "minimumPayment") return Promise.resolve(1n);
         if (functionName === "paymentTokenCount") return Promise.resolve(2n);
         if (functionName === "paymentTokens") {
           expect(args).toEqual([0n, 100n]);
@@ -122,6 +123,7 @@ describe("accepted payment-token reads", () => {
           factory,
           address: stock,
           registryIndex: 1,
+          minimumPayment: 1n,
           listed: true,
           enabled: true,
           name: "AMD",
@@ -139,6 +141,7 @@ describe("accepted payment-token reads", () => {
           factory,
           address: usdg,
           registryIndex: 0,
+          minimumPayment: 1n,
           listed: true,
           enabled: true,
           name: "Global Dollar",

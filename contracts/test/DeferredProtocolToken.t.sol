@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
@@ -23,6 +24,7 @@ contract DeferredProtocolTokenTest is Test {
     MockUSDG asset;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(1000);
         asset = new MockUSDG();
         // No Pons fixture installed: membership deployment must not touch launch dependencies.
@@ -30,7 +32,9 @@ contract DeferredProtocolTokenTest is Test {
             MembershipTestConfig.paymentTokens(asset),
             address(new OnchainMediaStoreFactory()),
             address(this),
-            address(0)
+            address(0),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(asset))
         );
         vault = ProtocolBuybackVault(payable(factory.buybackVault()));
         router = ProtocolBurnRouter(factory.burnRouter());
@@ -51,15 +55,13 @@ contract DeferredProtocolTokenTest is Test {
     }
 
     function _collect() private {
-        ProtocolBurnRouter.Collection[] memory collections = new ProtocolBurnRouter.Collection[](1);
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 1;
-        collections[0] = ProtocolBurnRouter.Collection(address(tier), ids);
+        ProtocolBurnRouter.AdvanceTier[] memory tiers = new ProtocolBurnRouter.AdvanceTier[](1);
+        tiers[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 25);
         ProtocolBurnRouter.Purchase[] memory purchases = new ProtocolBurnRouter.Purchase[](1);
         purchases[0] = ProtocolBurnRouter.Purchase(address(0), 0);
         vm.prank(address(0xBEEF));
-        (uint256 released, uint256 bought, uint256 burned) =
-            router.burn(collections, purchases, 1200);
+        (, uint256 released, uint256 bought, uint256 burned) =
+            router.advance(tiers, purchases, 1200);
         assertEq(released, 1);
         assertEq(bought, 0);
         assertEq(burned, 0);
@@ -70,11 +72,11 @@ contract DeferredProtocolTokenTest is Test {
         assertEq(vault.executor(), address(0));
         _collect();
         assertEq(asset.balanceOf(address(vault)), 250);
-        assertEq(tier.protocolFeeState(1).unearned, 750);
-        (uint256 gross, uint256 topup) = tier.refund(1, 3000, 0);
+        assertEq(tier.reserveState().unearnedScaled[3] / tier.ACCOUNTING_SCALE(), 750);
+        uint256 gross = tier.refund(1, 3000);
         assertEq(gross, 3000);
-        assertEq(topup, 0);
-        assertEq(tier.protocolFeeHoldings(), 0);
+        assertEq(tier.reserveState().unearnedScaled[3], 0);
+        assertEq(tier.protocolFeeEarnedHeld(), 0);
         assertEq(
             vault.inventory(address(asset), BuybackTypes.SourceBucket.Membership).available, 250
         );
@@ -140,7 +142,7 @@ contract DeferredProtocolTokenTest is Test {
         vault.process(address(asset), BuybackTypes.SourceBucket.Membership, 250, 0, 1200);
         assertEq(asset.totalSupply(), supply - 250);
         assertEq(asset.balanceOf(address(vault)), 100);
-        assertEq(tier.protocolFeeState(1).unearned, 750);
+        assertEq(tier.reserveState().unearnedScaled[3] / tier.ACCOUNTING_SCALE(), 750);
         vm.expectRevert(ProtocolBuybackVault.ProtocolTokenAlreadyBound.selector);
         factory.bindProtocolToken(address(asset));
         vm.expectRevert(ProtocolBuybackVault.ProtocolTokenAlreadyBound.selector);

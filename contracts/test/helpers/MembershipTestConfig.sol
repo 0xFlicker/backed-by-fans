@@ -3,9 +3,25 @@ pragma solidity =0.8.36;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import {TierCodeBuild} from "../../script/TierCodeDeployment.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 
 library MembershipTestConfig {
+    function minimumPayments(IERC20[] memory tokens)
+        internal
+        pure
+        returns (uint112[] memory minima)
+    {
+        minima = new uint112[](tokens.length);
+        for (uint256 i; i < tokens.length; ++i) {
+            minima[i] = 1;
+        }
+    }
+
+    function tierCode() internal pure returns (MembershipTypes.TierCodeConfig memory) {
+        return TierCodeBuild.configuration();
+    }
+
     function defaultConfig(address creator, address renderer, address paymentToken)
         internal
         pure
@@ -19,10 +35,13 @@ library MembershipTestConfig {
             name: "Creator Backers",
             symbol: "BACK",
             pricePerPeriod: 10_000_000,
+            minimumPayment: 1,
             periodDuration: 30 days,
             protocolFeeBps: 100,
             rewardBps: 500,
             referralBps: 100,
+            startingBoostBps: 10_000,
+            earlySupportGross: 0,
             supplyCap: 0,
             maxPrepaidPeriods: 12,
             metadata: MembershipTypes.TierMetadata({

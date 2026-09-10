@@ -88,6 +88,7 @@ const initialState: CatalogInitialState = {
           factory,
           address: token,
           registryIndex: 0,
+          minimumPayment: 1n,
           listed: true,
           enabled: true,
           name: "AMD Stock Token",

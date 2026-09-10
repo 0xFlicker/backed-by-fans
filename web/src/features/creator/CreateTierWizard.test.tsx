@@ -217,6 +217,7 @@ describe("creator setup component", () => {
           factory: "0x1111111111111111111111111111111111111111",
           address: "0x2222222222222222222222222222222222222222",
           registryIndex: 0,
+          minimumPayment: 1n,
           listed: true,
           enabled: true,
           name: "Global Dollar",
@@ -321,6 +322,41 @@ describe("creator setup component", () => {
     expect(
       screen.getByText(/unearned reserves help fund refunds/i),
     ).toBeInTheDocument();
+  });
+
+  it("offers Some, More, None and custom curve terms with an immutable text review", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: /^support split$/i }));
+    expect(screen.getByRole("radio", { name: /^some/i })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: /^more/i }));
+    expect(screen.getByText(/starts at 3×/i)).toBeVisible();
+    await user.click(screen.getByRole("radio", { name: /^custom/i }));
+    const boost = screen.getByLabelText("Starting boost (×)");
+    await user.clear(boost);
+    await user.type(boost, "2.37");
+    const window = screen.getByLabelText(
+      "Early-support window (purchased periods)",
+    );
+    await user.clear(window);
+    await user.type(window, "731");
+    expect(screen.getByText(/starts at 2.37×/i)).toBeVisible();
+    expect(document.querySelector(".reward-curve-chart")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: /^review$/i }));
+    expect(screen.getByText(/starts at 2.37×/i)).toBeVisible();
+    expect(screen.getByText(/731 purchased periods/i)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /^support split$/i }));
+    await user.clear(screen.getByLabelText("Starting boost (×)"));
+    await user.type(screen.getByLabelText("Starting boost (×)"), "1.5");
+    await user.click(screen.getByRole("button", { name: /^review$/i }));
+    expect(screen.getByText("Custom.")).toBeVisible();
+    expect(screen.getByText(/731 purchased periods/i)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /^support split$/i }));
+    await user.click(screen.getByRole("radio", { name: /^none/i }));
+    expect(screen.getByText(/normal linear weight/i)).toBeVisible();
   });
 
   it("starts the Art Studio with the original renderer selected", async () => {

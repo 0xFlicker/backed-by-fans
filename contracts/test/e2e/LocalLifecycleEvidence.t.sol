@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {LinkedVestingFixture} from "../helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,6 +19,7 @@ import {MockUSDG} from "../mocks/MockUSDG.sol";
 /// @notice Local-only lifecycle evidence. This is neither a public-testnet pilot nor an audit.
 contract LocalLifecycleEvidenceTest is Test {
     uint64 private constant _START = 1_000_000;
+    uint256 private constant Q = 1 << 128;
 
     MockUSDG private paymentToken;
     MockScaledToken private scaledPaymentToken;
@@ -36,6 +38,7 @@ contract LocalLifecycleEvidenceTest is Test {
     address private nextProtocolOwner;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(_START);
         creator = makeAddr("creator");
         nextCreator = makeAddr("nextCreator");
@@ -57,7 +60,12 @@ contract LocalLifecycleEvidenceTest is Test {
         paymentTokens[1] = scaledPaymentToken;
         SyntheticPonsBinding.bind(address(paymentToken));
         factory = new MembershipFactory(
-            paymentTokens, address(mediaStoreFactory), address(this), address(paymentToken)
+            paymentTokens,
+            address(mediaStoreFactory),
+            address(this),
+            address(paymentToken),
+            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.minimumPayments(paymentTokens)
         );
 
         MembershipTypes.TierConfig memory config =
@@ -124,10 +132,15 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(uint256(giftStatus), uint256(MembershipTypes.ReferralStatus.Unset));
 
         assertEq(paymentToken.balanceOf(address(factory)), 0);
-        assertEq(tier.protocolFeeHoldings(), 300_000);
-        assertEq(tier.creatorProceeds(), 28_000_000);
-        assertEq(tier.rewardReserve(), 1_500_000);
-        assertEq(tier.totalReferralLiability(), 200_000);
+        MembershipTypes.ReserveState memory reserves = tier.reserveState();
+        assertEq(reserves.unearnedScaled[0], 28_000_000 * Q);
+        assertEq(reserves.unearnedScaled[1], 1_500_000 * Q);
+        assertEq(reserves.unearnedScaled[2], 200_000 * Q);
+        assertEq(reserves.unearnedScaled[3], 300_000 * Q);
+        assertEq(tier.creatorProceeds(), 0);
+        assertEq(tier.claimableReward(memberToken), 0);
+        assertEq(tier.claimableReferral(referrer), 0);
+        assertEq(tier.protocolFeeEarnedHeld(), 0);
         _assertTierCustody(0);
 
         vm.prank(creator);
@@ -148,14 +161,13 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(tier.owner(), nextCreator);
 
         vm.warp(_START + 15 days);
-        (uint256 refundPreview, uint256 topUpPreview) = tier.previewRefund(memberToken);
-        assertEq(refundPreview, 15_000_000);
-        assertEq(topUpPreview, 0);
+        tier.processAccounting(25);
+        MembershipTypes.RefundPreview memory refundPreview = tier.previewRefund(memberToken);
+        assertTrue(refundPreview.complete);
+        assertEq(refundPreview.grossRefund, 15_000_000);
         vm.prank(nextCreator);
-        (uint256 refundPaid, uint256 topUpPaid) =
-            tier.refund(memberToken, refundPreview, topUpPreview);
-        assertEq(refundPaid, refundPreview);
-        assertEq(topUpPaid, topUpPreview);
+        uint256 refundPaid = tier.refund(memberToken, refundPreview.grossRefund);
+        assertEq(refundPaid, refundPreview.grossRefund);
         assertFalse(tier.isActive(member));
         assertEq(tier.ownerOf(memberToken), member);
         assertEq(tier.balanceOf(member), 1);
@@ -172,16 +184,16 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(_syncAs(tier, giftToken, nextCreator), 1);
         assertEq(tier.occupiedSupply(), 0);
 
-        assertEq(tier.claimableReward(memberToken), 1_083_333);
+        assertEq(tier.claimableReward(memberToken), 333_333);
         assertEq(tier.claimableReward(giftToken), 416_666);
         vm.prank(member);
-        assertEq(tier.claimReward(memberToken), 1_083_333);
+        assertEq(tier.claimReward(memberToken), 333_333);
         vm.prank(giftRecipient);
         assertEq(tier.claimReward(giftToken), 416_666);
         vm.prank(referrer);
-        assertEq(tier.claimReferral(), 200_000);
+        assertEq(tier.claimReferral(), 49_999);
         vm.prank(nextCreator);
-        assertEq(tier.withdrawCreatorProceeds(), 13_150_000);
+        assertEq(tier.withdrawCreatorProceeds(), 14_049_999);
         _assertTierCustody(0);
 
         // This synthetic lifecycle cannot nominate an EOA as protocol authority.
@@ -197,13 +209,13 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(factory.pendingOwner(), address(0));
         assertEq(factory.protocolToken(), address(paymentToken));
         // Expired credentials have earned the remaining allocation. Release is public.
-        assertEq(tier.releaseProtocolFees(), 150_000);
-        // One base unit remains protected as reward-index rounding dust.
-        assertEq(paymentToken.balanceOf(address(tier)), 1);
+        assertEq(tier.releaseProtocolFees(), 149_999);
+        // Every fractional beneficiary credit and cancellation residue stays protected.
+        assertEq(paymentToken.balanceOf(address(tier)), 4);
         assertEq(paymentToken.balanceOf(address(factory)), 0);
-        assertEq(paymentToken.balanceOf(factory.buybackVault()), 150_000);
-        assertEq(tier.rewardReserve(), 1);
-        assertEq(tier.totalReferralLiability(), 0);
+        assertEq(paymentToken.balanceOf(factory.buybackVault()), 149_999);
+        assertEq(tier.totalProtectedLiability(), 4);
+        assertEq(tier.claimableReferral(referrer), 0);
         assertEq(tier.creatorProceeds(), 0);
 
         uint256 observedSupply = paymentToken.balanceOf(member) + paymentToken.balanceOf(giftPayer)
@@ -221,9 +233,107 @@ contract LocalLifecycleEvidenceTest is Test {
         paymentToken.approve(address(tier), type(uint256).max);
     }
 
+    function test_local120TokenTraceClaimsThenRefundsReservedNinety() public {
+        MembershipTier target = _traceTier(false);
+        paymentToken.mint(member, 120_000_000);
+        vm.startPrank(member);
+        paymentToken.approve(address(target), type(uint256).max);
+        uint256 id = target.purchase(12, referrer);
+        vm.stopPrank();
+        MembershipTypes.EarnedBalances memory cash = target.earnedBalances(id, referrer);
+        assertEq(cash.creator + cash.member + cash.referral + cash.protocol, 0);
+        assertEq(target.totalProtectedLiability(), 120_000_000);
+        assertEq(target.sharesOf(id), 120_000_000);
+        vm.warp(_START + 30);
+        target.processAccounting(25);
+        cash = target.earnedBalances(id, referrer);
+        assertEq(cash.creator, 24_000_000);
+        assertLe(3_000_000 - cash.member, 1);
+        assertEq(cash.referral, 1_500_000);
+        assertEq(cash.protocol, 1_500_000);
+        vm.prank(creator);
+        uint256 creatorCash = target.withdrawCreatorProceeds();
+        vm.prank(member);
+        uint256 memberCash = target.claimReward(id);
+        vm.prank(referrer);
+        uint256 referralCash = target.claimReferral();
+        uint256 protocolCash = target.releaseProtocolFees();
+        assertEq(creatorCash, cash.creator);
+        assertEq(memberCash, cash.member);
+        assertEq(referralCash, cash.referral);
+        assertEq(protocolCash, cash.protocol);
+        vm.prank(creator);
+        uint256 refunded = target.refund(id, 90_000_000);
+        assertEq(refunded, 90_000_000);
+        uint256 remainder = paymentToken.balanceOf(address(target));
+        assertEq(
+            creatorCash + memberCash + referralCash + protocolCash + refunded + remainder,
+            120_000_000
+        );
+        assertEq(target.totalProtectedLiability(), remainder);
+        assertEq(target.lifetimeGross(), 120_000_000);
+        vm.warp(_START + 120);
+        target.processAccounting(25);
+        assertEq(target.creatorProceeds(), 0);
+        assertEq(target.protocolFeeEarnedHeld(), 0);
+        emit log_named_uint("purchase reserved", 120_000_000);
+        emit log_named_uint("creator claimed at three periods", creatorCash);
+        emit log_named_uint("member claimed at three periods", memberCash);
+        emit log_named_uint("referral claimed at three periods", referralCash);
+        emit log_named_uint("protocol released at three periods", protocolCash);
+        emit log_named_uint("unused gross refunded", refunded);
+        emit log_named_uint("remaining protected fraction rounded up", remainder);
+    }
+
+    function test_localFreeGapAndLargeSinglePeriodContributionTrace() public {
+        MembershipTier target = _traceTier(true);
+        paymentToken.mint(member, 120_000_000);
+        vm.startPrank(member);
+        paymentToken.approve(address(target), type(uint256).max);
+        uint256 id = target.contribute(0, address(0));
+        target.contribute(120_000_000, referrer);
+        vm.stopPrank();
+        MembershipTypes.AllocationLot[] memory lots = target.allocationLots(id, 0, 0, 100);
+        assertEq(lots.length, 1);
+        assertEq(lots[0].start, _START + 10);
+        assertEq(lots[0].end, _START + 20);
+        assertEq(target.sharesOf(id), 120_000_000);
+        vm.warp(_START + 10);
+        target.processAccounting(25);
+        assertEq(target.creatorProceeds(), 0);
+        vm.warp(_START + 15);
+        target.processAccounting(25);
+        assertEq(target.creatorProceeds(), 48_000_000);
+        assertEq(target.allocationState(id).earnedScaled[1], 6_000_000 * Q);
+        vm.warp(_START + 20);
+        target.processAccounting(25);
+        MembershipTypes.AllocationState memory state = target.allocationState(id);
+        uint256 total;
+        for (uint256 purpose; purpose < 4; ++purpose) {
+            assertEq(state.unearnedScaled[purpose], 0);
+            total += state.earnedScaled[purpose];
+        }
+        assertEq(total, 120_000_000 * Q);
+        emit log_named_uint("free purchased gap seconds", 10);
+        emit log_named_uint("funded service seconds", 10);
+        emit log_named_uint("all four allocations fully earned", total / Q);
+    }
+
+    function _traceTier(bool variablePrice) private returns (MembershipTier target) {
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(creator, tier.renderer(), address(paymentToken));
+        config.tierSalt = keccak256(abi.encode("vesting trace", variablePrice));
+        config.pricePerPeriod = variablePrice ? 0 : 10_000_000;
+        config.periodDuration = 10;
+        config.protocolFeeBps = 500;
+        config.rewardBps = 1000;
+        config.referralBps = 500;
+        vm.prank(creator);
+        target = MembershipTier(factory.createTier(config));
+    }
+
     function _assertTierCustody(uint256 expectedSurplus) private view {
-        uint256 liabilities = tier.creatorProceeds() + tier.rewardReserve()
-            + tier.totalReferralLiability() + tier.protocolFeeHoldings();
+        uint256 liabilities = tier.totalProtectedLiability();
         assertEq(paymentToken.balanceOf(address(tier)), liabilities + expectedSurplus);
     }
 

@@ -2,11 +2,13 @@ import { isAddress, zeroAddress, zeroHash, type Address } from "viem";
 
 import type { TierPublicationConfig } from "@/features/protocol/registry-reconciliation";
 import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
-import { displayedToRaw } from "@/lib/token-amount";
+import { displayedToRaw, formatRawTokenAmount } from "@/lib/token-amount";
+import type { RewardCurveTerms } from "@/lib/reward-curve";
 
 export const bpsDenominator = 10_000;
 export const secondsPerDay = 86_400n;
 export const uint64Max = (1n << 64n) - 1n;
+export const maxLifetimeGross = (1n << 112n) - 1n;
 
 export type CreatorForm = {
   name: string;
@@ -19,6 +21,8 @@ export type CreatorForm = {
   protocolPercent: string;
   rewardPercent: string;
   referralPercent: string;
+  startingBoost: string;
+  earlySupportWindow: string;
   supplyCap: string;
   maxPrepaidPeriods: string;
 };
@@ -43,6 +47,7 @@ export type CreatorFormResult = {
   errors: Partial<Record<keyof CreatorForm, string>>;
   config?: TierConfig;
   split?: SplitPreview;
+  curve?: RewardCurveTerms;
   warnings: string[];
   creativeError?: string;
 };
@@ -58,6 +63,8 @@ export const defaultCreatorForm: CreatorForm = {
   protocolPercent: "1",
   rewardPercent: "5",
   referralPercent: "1",
+  startingBoost: "1.5",
+  earlySupportWindow: "",
   supplyCap: "0",
   maxPrepaidPeriods: "12",
 };
@@ -176,6 +183,9 @@ export function evaluateCreatorForm(
         decimals: paymentToken.decimals,
         multiplier: paymentToken.uiMultiplier,
       });
+      if (pricePerPeriod > 0n && pricePerPeriod < paymentToken.minimumPayment) {
+        errors.displayedPrice = `Use at least ${formatRawTokenAmount({ raw: paymentToken.minimumPayment, decimals: paymentToken.decimals, multiplier: paymentToken.uiMultiplier })} ${paymentToken.symbol} per period, or 0 for pay what you want.`;
+      }
     } catch (error) {
       errors.displayedPrice =
         error instanceof Error
@@ -216,6 +226,55 @@ export function evaluateCreatorForm(
   }
 
   const supplyCap = parseWholeUint64(form.supplyCap);
+  if (pricePerPeriod !== undefined && pricePerPeriod > maxLifetimeGross) {
+    errors.displayedPrice = "This amount exceeds the supported contract range.";
+  }
+  const boostMatch = /^(\d+)(?:\.(\d{1,2}))?$/.exec(form.startingBoost.trim());
+  const startingBoostBps = boostMatch
+    ? Number(boostMatch[1]) * 10000 +
+      Number((boostMatch[2] ?? "").padEnd(2, "0")) * 100
+    : 0;
+  if (
+    !Number.isSafeInteger(startingBoostBps) ||
+    startingBoostBps < 10000 ||
+    startingBoostBps > 100000
+  ) {
+    errors.startingBoost =
+      "Use a starting boost from 1 to 10 with up to 2 decimals.";
+  }
+  let earlySupportGross = 0n;
+  if (
+    startingBoostBps > 10000 &&
+    pricePerPeriod !== undefined &&
+    paymentToken
+  ) {
+    try {
+      if (pricePerPeriod > 0n) {
+        const periods = parseWholeUint64(
+          form.earlySupportWindow.trim() || "1000",
+        );
+        if (!periods)
+          throw new Error("Use a positive whole number of purchased periods.");
+        earlySupportGross = periods * pricePerPeriod;
+      } else {
+        earlySupportGross = displayedToRaw({
+          displayed: form.earlySupportWindow.trim() || "10000",
+          decimals: paymentToken.decimals,
+          multiplier: paymentToken.uiMultiplier,
+        });
+      }
+      if (earlySupportGross <= 0n || earlySupportGross > maxLifetimeGross) {
+        throw new Error(
+          "The early-support window exceeds the supported contract range. Enter a smaller positive amount.",
+        );
+      }
+    } catch (error) {
+      errors.earlySupportWindow =
+        error instanceof Error
+          ? error.message
+          : "Enter a valid early-support window.";
+    }
+  }
   if (supplyCap === undefined) {
     errors.supplyCap = "Enter a whole number of 0 or more.";
   }
@@ -265,6 +324,14 @@ export function evaluateCreatorForm(
         ? "Choose an artwork collection before publishing."
         : undefined;
 
+  const curve =
+    pricePerPeriod !== undefined &&
+    !errors.displayedPrice &&
+    !errors.startingBoost &&
+    !errors.earlySupportWindow
+      ? { pricePerPeriod, startingBoostBps, earlySupportGross }
+      : undefined;
+
   if (
     !creator ||
     !creative ||
@@ -279,12 +346,13 @@ export function evaluateCreatorForm(
     supplyCap === undefined ||
     maxPrepaidPeriods === undefined
   ) {
-    return { errors, split, warnings, creativeError };
+    return { errors, split, curve, warnings, creativeError };
   }
 
   return {
     errors,
     split,
+    curve,
     warnings,
     config: {
       creator,
@@ -294,10 +362,13 @@ export function evaluateCreatorForm(
       name,
       symbol,
       pricePerPeriod,
+      minimumPayment: paymentToken.minimumPayment,
       periodDuration,
       protocolFeeBps,
       rewardBps,
       referralBps,
+      startingBoostBps,
+      earlySupportGross,
       supplyCap,
       maxPrepaidPeriods,
       metadata: { description, externalURI },

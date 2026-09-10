@@ -8,10 +8,10 @@ import { describe, expect, it } from "vitest";
 
 import { membershipTierAbi } from "@/contracts";
 import {
-  receiptProvesMembershipRefund,
+  receiptMembershipRefund,
   receiptProvesPayment,
-  receiptProvesReferralClaim,
-  receiptProvesRewardClaim,
+  receiptReferralClaim,
+  receiptRewardClaim,
 } from "@/features/protocol/payout-reconciliation";
 
 const tier = getAddress("0x1111111111111111111111111111111111111111");
@@ -86,52 +86,90 @@ describe("payout receipt reconciliation", () => {
     const receipt = { status: "success" as const, logs: [reward, referral] };
 
     expect(
-      receiptProvesRewardClaim(receipt, {
+      receiptRewardClaim(receipt, {
         tier,
         tokenId: 4n,
         owner,
-        amount: 9n,
       }),
-    ).toBe(true);
+    ).toEqual({ amount: 9n, recipient: owner });
     expect(
-      receiptProvesReferralClaim(receipt, {
+      receiptReferralClaim(receipt, {
         tier,
         referrer: owner,
-        amount: 7n,
       }),
-    ).toBe(true);
+    ).toEqual({ amount: 7n, recipient: owner });
+    for (const mismatch of [
+      { tier: other },
+      { owner: other },
+      { tokenId: 5n },
+    ]) {
+      expect(
+        receiptRewardClaim(receipt, { tier, tokenId: 4n, owner, ...mismatch }),
+      ).toBeUndefined();
+    }
+    expect(
+      receiptReferralClaim(receipt, { tier, referrer: other }),
+    ).toBeUndefined();
+    expect(
+      receiptReferralClaim(receipt, { tier: other, referrer: owner }),
+    ).toBeUndefined();
+    const emptyAmount = encodeAbiParameters([{ type: "uint256" }], [0n]);
+    const zeros = {
+      logs: [
+        { ...reward, data: emptyAmount },
+        { ...referral, data: emptyAmount },
+      ],
+    };
+    expect(
+      receiptRewardClaim(zeros, { tier, tokenId: 4n, owner }),
+    ).toBeUndefined();
+    expect(
+      receiptReferralClaim(zeros, { tier, referrer: owner }),
+    ).toBeUndefined();
   });
 
-  it("requires the exact refund token, recipient, owner, and tier", () => {
+  it("requires the exact refund token, recipient, and tier", () => {
     const refund = {
       address: tier,
       data: encodeAbiParameters(
-        [{ type: "uint256" }, { type: "uint256" }],
-        [10n, 2n],
+        [{ type: "uint256" }, { type: "uint64" }, { type: "uint64" }],
+        [10n, 2n, 0n],
       ),
       topics: encodeEventTopics({
         abi: membershipTierAbi,
         eventName: "MembershipRefunded",
-        args: { tokenId: 4n, recipient: owner, tierOwner: creator },
+        args: { tokenId: 4n, recipient: owner },
       }),
     } as Log;
     const receipt = { status: "success" as const, logs: [refund] };
 
     expect(
-      receiptProvesMembershipRefund(receipt, {
+      receiptMembershipRefund(receipt, {
         tier,
         tokenId: 4n,
         recipient: owner,
-        tierOwner: creator,
+        maxGrossRefund: 10n,
       }),
-    ).toBe(true);
+    ).toMatchObject({
+      grossRefund: 10n,
+      canceledPaidSeconds: 2n,
+      canceledGrantSeconds: 0n,
+    });
     expect(
-      receiptProvesMembershipRefund(receipt, {
+      receiptMembershipRefund(receipt, {
         tier,
         tokenId: 5n,
         recipient: owner,
-        tierOwner: creator,
+        maxGrossRefund: 10n,
       }),
-    ).toBe(false);
+    ).toBeUndefined();
+    expect(
+      receiptMembershipRefund(receipt, {
+        tier,
+        tokenId: 4n,
+        recipient: owner,
+        maxGrossRefund: 9n,
+      }),
+    ).toBeUndefined();
   });
 });

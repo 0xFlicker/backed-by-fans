@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -26,6 +27,7 @@ contract ExpiredMembershipSyncTest is Test {
     uint64 private constant _START = 1_000_000;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(_START);
         member = makeAddr("syncMember");
         secondMember = makeAddr("syncSecondMember");
@@ -64,6 +66,36 @@ contract ExpiredMembershipSyncTest is Test {
         uint256[] memory unknown = _singleton(tokenId + 1);
         vm.expectRevert(abi.encodeWithSelector(MembershipTier.InvalidTokenId.selector, tokenId + 1));
         tier.synchronizeExpiredMemberships(unknown);
+    }
+
+    function test_naturalExpiryKeepsWeightUntilDelayedPausedSyncSettlesItsCutoff() public {
+        vm.prank(member);
+        uint256 first = tier.purchase(1, address(0));
+        vm.prank(secondMember);
+        uint256 second = tier.purchase(2, address(0));
+        vm.warp(_START + 30 days);
+        tier.processAccounting(25);
+        assertFalse(tier.isActive(member));
+        assertTrue(tier.rewardEligible(first));
+        // Permanent gross weights are 1:2, even while the first service ends.
+        uint256 atExpiration = tier.claimableReward(first);
+        vm.warp(_START + 45 days);
+        tier.setPaused(true);
+        tier.synchronizeExpiredMemberships(_singleton(first));
+        uint256 atSync = tier.claimableReward(first);
+        assertGt(atSync, atExpiration);
+        assertApproxEqAbs(atSync, uint256(1_250_000) / 3, 1);
+        assertEq(tier.accountingStatus().accountedThrough, block.timestamp);
+        assertFalse(tier.rewardEligible(first));
+        assertEq(tier.totalRewardShares(), tier.sharesOf(second));
+        vm.warp(_START + 60 days);
+        tier.processAccounting(25);
+        assertEq(tier.claimableReward(first), atSync);
+        uint256 before = paymentToken.balanceOf(member);
+        vm.prank(member);
+        tier.claimReward(first);
+        assertEq(paymentToken.balanceOf(member), before + atSync);
+        assertEq(tier.synchronizeExpiredMemberships(_singleton(first)), 0);
     }
 
     function test_mixedBatchBurnsOnlyStillExpiredAndSkipsDuplicatesAndBurnedTokens() public {
@@ -141,6 +173,7 @@ contract ExpiredMembershipSyncTest is Test {
         vm.prank(secondMember);
         tier.purchase(1, address(0));
         vm.warp(tier.expiresAt(tokenId));
+        tier.processAccounting(25);
 
         uint256 accrued = tier.claimableReward(tokenId);
         assertGt(accrued, 0);
@@ -185,8 +218,8 @@ contract ExpiredMembershipSyncTest is Test {
         uint256 activeToken = tier.purchase(1, address(0));
 
         tier.setPaused(true);
-        (uint256 grossRefund, uint256 ownerTopUp) = tier.previewRefund(refundedToken);
-        tier.refund(refundedToken, grossRefund, ownerTopUp);
+        MembershipTypes.RefundPreview memory quote = tier.previewRefund(refundedToken);
+        tier.refund(refundedToken, quote.grossRefund);
         uint256 refundedCredit = tier.claimableReward(refundedToken);
         assertFalse(tier.rewardEligible(refundedToken));
 
@@ -200,6 +233,8 @@ contract ExpiredMembershipSyncTest is Test {
         uint256 reactivatedCredit = tier.claimableReward(refundedToken);
         vm.prank(secondMember);
         tier.purchase(1, address(0));
+        vm.warp(block.timestamp + 1 days);
+        tier.processAccounting(25);
         assertGt(tier.claimableReward(refundedToken), reactivatedCredit);
 
         vm.warp(tier.expiresAt(refundedToken));
@@ -214,11 +249,13 @@ contract ExpiredMembershipSyncTest is Test {
         assertTrue(tier.rewardEligible(activeToken));
 
         tier.grantTime(member, 1);
-        assertTrue(tier.rewardEligible(refundedToken));
+        assertFalse(tier.rewardEligible(refundedToken));
         uint256 grantReactivatedCredit = tier.claimableReward(refundedToken);
         vm.prank(secondMember);
         tier.purchase(1, address(0));
-        assertGt(tier.claimableReward(refundedToken), grantReactivatedCredit);
+        vm.warp(block.timestamp + 1 days);
+        tier.processAccounting(25);
+        assertEq(tier.claimableReward(refundedToken), grantReactivatedCredit);
     }
 
     function test_roundingAndCustodyConserveAcrossBurnClaimInactiveIntervalAndReactivation()
@@ -232,8 +269,7 @@ contract ExpiredMembershipSyncTest is Test {
 
         vm.prank(member);
         uint256 tokenId = zeroTier.contribute(firstGross, address(0));
-        uint256 firstReward = firstGross * 500 / 10_000;
-        assertEq(zeroTier.claimableReward(tokenId), firstReward - 1);
+        assertEq(zeroTier.claimableReward(tokenId), 0);
 
         vm.prank(secondMember);
         uint256 otherToken = zeroTier.contribute(secondGross, address(0));
@@ -258,15 +294,22 @@ contract ExpiredMembershipSyncTest is Test {
         uint256 afterRejoinPayment = zeroTier.claimableReward(tokenId);
         vm.prank(secondMember);
         zeroTier.contribute(secondGross, address(0));
+        vm.warp(block.timestamp + 1 days);
+        zeroTier.processAccounting(25);
         assertGt(zeroTier.claimableReward(tokenId), afterRejoinPayment);
 
-        uint256 reserveBeforeClaims = zeroTier.rewardReserve();
+        uint256 reserveBeforeClaims = paymentToken.balanceOf(address(zeroTier));
+        uint256 unearnedBefore = zeroTier.reserveState().unearnedScaled[1];
         vm.prank(member);
         uint256 firstClaim = zeroTier.claimReward(tokenId);
         vm.prank(secondMember);
         uint256 secondClaim = zeroTier.claimReward(otherToken);
-        assertEq(firstClaim + secondClaim + zeroTier.rewardReserve(), reserveBeforeClaims);
-        assertGt(zeroTier.rewardReserve(), 0);
+        assertEq(
+            firstClaim + secondClaim + paymentToken.balanceOf(address(zeroTier)),
+            reserveBeforeClaims
+        );
+        assertEq(zeroTier.reserveState().unearnedScaled[1], unearnedBefore);
+        assertGt(unearnedBefore, 0);
     }
 
     function test_purchaseRemintsSameIdReactivatesLifetimeSharesAndPreservesReferral() public {

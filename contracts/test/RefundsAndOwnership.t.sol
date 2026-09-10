@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -30,6 +31,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
     uint64 private constant _START = 1_000_000;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(_START);
         creator = makeAddr("creator");
         nextCreator = makeAddr("nextCreator");
@@ -53,128 +55,124 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
     }
 
     function test_fixedRefundProratesAllRemainingPaidSecondsAtImmutablePrice() public {
-        uint256 tokenId = _purchase(member, 2, address(0));
+        uint256 id = _purchase(member, 2, address(0));
         vm.warp(_START + 15 days);
-
-        (uint256 preview, uint256 topUp) = tier.previewRefund(tokenId);
-        assertEq(preview, 15_000_000);
-        assertEq(topUp, 0);
-
+        tier.processAccounting(25);
+        MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
+        assertTrue(quote.complete);
+        assertEq(quote.grossRefund, 15_000_000);
+        uint256 sum;
+        for (uint256 i; i < 4; ++i) {
+            sum += quote.fundingScaled[i];
+        }
+        assertEq(sum, quote.grossRefund * (1 << 128));
         vm.prank(creator);
-        (uint256 refunded, uint256 paidTopUp) = tier.refund(tokenId, preview, topUp);
-
-        assertEq(refunded, preview);
-        assertEq(paidTopUp, topUp);
+        assertEq(tier.refund(id, quote.grossRefund), quote.grossRefund);
         assertEq(paymentToken.balanceOf(member), 95_000_000);
-        assertEq(tier.creatorProceeds(), 3_950_000);
-        assertEq(tier.rewardReserve(), 1_000_000);
-        assertEq(tier.totalProtectedLiability(), 1_050_000);
+        assertApproxEqAbs(tier.creatorProceeds(), 4_700_000, 1);
+        assertApproxEqAbs(tier.claimableReward(id), 250_000, 1);
+        assertEq(tier.totalProtectedLiability(), 5_000_000);
+        assertEq(tier.lifetimeGross(), 20_000_000);
+        assertEq(tier.sharesOf(id), 20_000_000);
     }
 
-    function test_immediateRefundUsesCreatorProceedsAndOnlyExactOwnerTopUp() public {
-        uint256 tokenId = _purchase(member, 1, address(0));
-        uint256 creatorBalanceBefore = paymentToken.balanceOf(creator);
-
-        (uint256 grossRefund, uint256 ownerTopUp) = tier.previewRefund(tokenId);
-        assertEq(grossRefund, 10_000_000);
-        assertEq(ownerTopUp, 500_000);
-
+    function test_immediateRefundUsesOnlyThisMembershipReservedFunding() public {
+        uint256 id = _purchase(member, 1, address(0));
+        uint256 ownerBalance = paymentToken.balanceOf(creator);
         vm.prank(creator);
-        tier.refund(tokenId, grossRefund, ownerTopUp);
-
-        assertEq(paymentToken.balanceOf(creator), creatorBalanceBefore - ownerTopUp);
+        paymentToken.approve(address(tier), 0);
+        vm.prank(creator);
+        tier.refund(id, 10_000_000);
+        assertEq(paymentToken.balanceOf(creator), ownerBalance);
         assertEq(paymentToken.balanceOf(member), 100_000_000);
-        assertEq(paymentToken.balanceOf(address(tier)), 500_000);
+        assertEq(paymentToken.balanceOf(address(tier)), 0);
+        assertEq(tier.totalProtectedLiability(), 0);
+        assertEq(tier.claimableReward(id), 0);
         assertEq(tier.creatorProceeds(), 0);
-        assertEq(tier.rewardReserve(), 500_000);
     }
 
-    function test_refundRejectsOwnerTopUpAbovePreviewedMaximumWithoutChangingState() public {
-        uint256 tokenId = _purchase(member, 1, address(0));
-        (uint256 previewedRefund, uint256 previewedTopUp) = tier.previewRefund(tokenId);
-        assertEq(previewedTopUp, 500_000);
-
+    function test_partialRefundAfterAllClaimsNeedsNoOwnerBalanceOrAllowance() public {
+        uint256 id = _purchase(member, 2, referrer);
+        vm.warp(_START + 15 days);
+        tier.processAccounting(25);
         vm.prank(creator);
         tier.withdrawCreatorProceeds();
-
+        vm.prank(member);
+        tier.claimReward(id);
+        vm.prank(referrer);
+        tier.claimReferral();
+        tier.releaseProtocolFees();
+        uint256 ownerBalance = paymentToken.balanceOf(creator);
         vm.prank(creator);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MembershipTier.OwnerTopUpLimitExceeded.selector,
-                previewedRefund - 100_000,
-                previewedTopUp
-            )
-        );
-        tier.refund(tokenId, previewedRefund, previewedTopUp);
-
-        (uint64 paidSeconds, uint64 grantSeconds,) = tier.timeBalances(tokenId);
-        assertEq(paidSeconds, _PERIOD);
-        assertEq(grantSeconds, 0);
-        assertEq(paymentToken.balanceOf(member), 90_000_000);
+        assertTrue(paymentToken.transfer(payer, ownerBalance));
+        vm.prank(creator);
+        paymentToken.approve(address(tier), 0);
+        uint256 memberBefore = paymentToken.balanceOf(member);
+        vm.prank(creator);
+        assertEq(tier.refund(id, 15_000_000), 15_000_000);
+        assertEq(paymentToken.balanceOf(member), memberBefore + 15_000_000);
+        assertEq(paymentToken.balanceOf(creator), 0);
+        assertEq(paymentToken.balanceOf(address(tier)), tier.totalProtectedLiability());
+        uint256 retained = paymentToken.balanceOf(address(tier));
+        vm.warp(_START + 90 days);
+        tier.processAccounting(25);
+        assertEq(paymentToken.balanceOf(address(tier)), retained);
         assertEq(tier.creatorProceeds(), 0);
-        (uint256 currentRefund, uint256 currentTopUp) = tier.previewRefund(tokenId);
-        assertEq(currentRefund, previewedRefund);
-        assertEq(currentTopUp, previewedRefund - 100_000);
+        assertEq(tier.claimableReward(id), 0);
+        assertEq(tier.claimableReferral(referrer), 0);
+        assertEq(tier.protocolFeeEarnedHeld(), 0);
     }
 
-    function test_refundRejectsPaidTimeAddedAfterPreviewEvenWhenCreatorProceedsAreAmple() public {
+    function test_refundRejectsPaidTimeAddedAfterPreviewAtomically() public {
         _purchase(payer, 2, address(0));
-        uint256 tokenId = _purchase(member, 1, address(0));
-        (uint256 previewedRefund, uint256 previewedTopUp) = tier.previewRefund(tokenId);
-        assertEq(previewedRefund, 10_000_000);
-        assertEq(previewedTopUp, 0);
-
+        uint256 id = _purchase(member, 1, address(0));
+        uint256 preview = tier.previewRefund(id).grossRefund;
         _purchase(member, 1, address(0));
-        (uint256 currentRefund, uint256 currentTopUp) = tier.previewRefund(tokenId);
-        assertEq(currentRefund, 20_000_000);
-        assertEq(currentTopUp, 0);
-
+        bytes32 before = keccak256(
+            abi.encode(tier.allocationState(id), tier.reserveState(), tier.accountingStatus())
+        );
         vm.prank(creator);
         vm.expectRevert(
             abi.encodeWithSelector(
-                MembershipTier.GrossRefundLimitExceeded.selector, currentRefund, previewedRefund
+                MembershipTier.GrossRefundLimitExceeded.selector, 20_000_000, preview
             )
         );
-        tier.refund(tokenId, previewedRefund, previewedTopUp);
-
-        (uint64 paidSeconds, uint64 grantSeconds,) = tier.timeBalances(tokenId);
-        assertEq(paidSeconds, 2 * _PERIOD);
-        assertEq(grantSeconds, 0);
-        assertEq(tier.creatorProceeds(), 37_600_000);
+        tier.refund(id, preview);
+        assertEq(
+            keccak256(
+                abi.encode(tier.allocationState(id), tier.reserveState(), tier.accountingStatus())
+            ),
+            before
+        );
+        assertEq(tier.creatorProceeds(), 0);
+        assertEq(tier.sharesOf(id), 20_000_000);
     }
 
-    function test_withdrawnProceedsUseOnlyUnearnedReserveBeforeTopUp() public {
-        uint256 tokenId = _purchase(member, 1, referrer);
+    function test_fullyVestedCancellationKeepsAllEarnedEntitlements() public {
+        uint256 id = _purchase(member, 1, referrer);
+        vm.warp(_START + _PERIOD);
+        tier.processAccounting(25);
+        assertEq(tier.creatorProceeds(), 9_300_000);
+        uint256 credit = tier.claimableReward(id);
         vm.prank(creator);
-        assertEq(tier.withdrawCreatorProceeds(), 9_300_000);
-
-        (uint256 grossRefund, uint256 ownerTopUp) = tier.previewRefund(tokenId);
-        assertEq(grossRefund, 10_000_000);
-        assertEq(ownerTopUp, grossRefund - 100_000);
-
-        vm.prank(creator);
-        tier.refund(tokenId, grossRefund, ownerTopUp);
-
-        assertEq(paymentToken.balanceOf(address(tier)), 600_000);
-        assertEq(tier.rewardReserve(), 500_000);
-        assertEq(tier.totalReferralLiability(), 100_000);
-        assertEq(tier.totalProtectedLiability(), 600_000);
+        assertEq(tier.refund(id, 0), 0);
+        assertEq(tier.creatorProceeds(), 9_300_000);
+        assertEq(tier.claimableReward(id), credit);
+        assertEq(tier.claimableReferral(referrer), 100_000);
+        assertEq(tier.protocolFeeEarnedHeld(), 100_000);
+        assertEq(paymentToken.balanceOf(address(tier)), 10_000_000);
     }
 
-    function test_unsolicitedSurplusNeverReducesRequiredOwnerTopUp() public {
-        uint256 tokenId = _purchase(member, 1, address(0));
-        vm.prank(creator);
-        tier.withdrawCreatorProceeds();
+    function test_unsolicitedSurplusIsNotRefundFundingOrBeneficiaryCash() public {
+        uint256 id = _purchase(member, 1, address(0));
         paymentToken.mint(address(tier), 2_000_000);
-
-        (uint256 grossRefund, uint256 ownerTopUp) = tier.previewRefund(tokenId);
-        assertEq(grossRefund, 10_000_000);
-        assertEq(ownerTopUp, grossRefund - 100_000);
-
+        assertEq(tier.previewRefund(id).grossRefund, 10_000_000);
         vm.prank(creator);
-        tier.refund(tokenId, grossRefund, ownerTopUp);
-        assertEq(paymentToken.balanceOf(address(tier)), 2_500_000);
-        assertEq(tier.rewardReserve(), 500_000);
+        tier.refund(id, 10_000_000);
+        assertEq(paymentToken.balanceOf(address(tier)), 2_000_000);
+        assertEq(tier.totalProtectedLiability(), 0);
+        assertEq(tier.creatorProceeds(), 0);
+        assertEq(tier.claimableReward(id), 0);
     }
 
     function test_refundClearsTimeButPreservesIdentityIncentivesAndHeldOccupancy() public {
@@ -184,7 +182,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
 
         uint256 shares = tier.sharesOf(tokenId);
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max);
 
         (uint64 paidSeconds, uint64 grantSeconds,) = tier.timeBalances(tokenId);
         assertEq(paidSeconds, 0);
@@ -192,7 +190,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         assertFalse(tier.isActive(member));
         assertEq(tier.ownerOf(tokenId), member);
         assertEq(tier.sharesOf(tokenId), shares);
-        assertEq(tier.claimableReward(tokenId), 500_000);
+        assertEq(tier.claimableReward(tokenId), 0);
         assertFalse(tier.rewardEligible(tokenId));
         assertEq(tier.totalRewardShares(), 0);
         (MembershipTypes.ReferralStatus status, address lockedReferrer) = tier.referralOf(tokenId);
@@ -214,13 +212,13 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         tier.gift(member, 2, MembershipTypes.ReferralStatus.Unset, address(0));
 
         vm.warp(_START + 45 days);
-        (uint256 grossRefund, uint256 ownerTopUp) = tier.previewRefund(tokenId);
+        tier.processAccounting(25);
+        uint256 grossRefund = tier.previewRefund(tokenId).grossRefund;
         assertEq(grossRefund, 15_000_000);
-        assertEq(ownerTopUp, 0);
 
         uint256 memberBefore = paymentToken.balanceOf(member);
         vm.prank(creator);
-        tier.refund(tokenId, grossRefund, ownerTopUp);
+        tier.refund(tokenId, grossRefund);
         assertEq(paymentToken.balanceOf(member) - memberBefore, 15_000_000);
         assertEq(paymentToken.balanceOf(payer), 90_000_000);
         assertEq(paymentToken.balanceOf(secondPayer), 80_000_000);
@@ -241,25 +239,19 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         vm.prank(creator);
         tier.setPaused(true);
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max);
         assertFalse(tier.isActive(member));
     }
 
     function test_cancellationAdapterAllowsFullExecutionTimeRefundWithoutCeilings() public {
-        uint256 tokenId = _purchase(member, 1, address(0));
-        (uint256 previewedRefund, uint256 previewedTopUp) = tier.previewRefund(tokenId);
-        assertEq(previewedRefund, 10_000_000);
-        assertEq(previewedTopUp, 500_000);
-
+        uint256 id = _purchase(member, 1, address(0));
+        assertEq(tier.previewRefund(id).grossRefund, 10_000_000);
         _purchase(member, 1, address(0));
+        uint256 ownerBefore = paymentToken.balanceOf(creator);
         vm.prank(creator);
-        tier.withdrawCreatorProceeds();
-        uint256 creatorBalanceBefore = paymentToken.balanceOf(creator);
-
-        vm.prank(creator);
-        tier.cancelSubscription(tokenId);
-
-        assertEq(creatorBalanceBefore - paymentToken.balanceOf(creator), 19_800_000);
+        tier.cancelSubscription(id);
+        assertEq(paymentToken.balanceOf(creator), ownerBefore);
+        assertEq(paymentToken.balanceOf(member), 100_000_000);
         assertFalse(tier.isActive(member));
     }
 
@@ -276,26 +268,30 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         tier.cancelSubscription(tokenId);
     }
 
-    function test_acceptedOwnershipMovesRefundAuthorityProceedsAndTopUpDuty() public {
-        uint256 tokenId = _purchase(member, 1, address(0));
+    function test_acceptedOwnershipMovesRefundAuthorityAndAllUnclaimedCreatorEarnings() public {
+        uint256 id = _purchase(member, 1, address(0));
+        vm.warp(_START + 15 days);
+        tier.processAccounting(25);
+        uint256 earned = tier.creatorProceeds();
         vm.prank(creator);
         tier.transferOwnership(nextCreator);
         vm.prank(nextCreator);
         tier.acceptOwnership();
-
         vm.prank(creator);
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, creator)
         );
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
-
-        uint256 nextBalanceBefore = paymentToken.balanceOf(nextCreator);
+        tier.refund(id, type(uint256).max);
         vm.prank(nextCreator);
-        (, uint256 topUp) = tier.refund(tokenId, type(uint256).max, type(uint256).max);
-
-        assertEq(topUp, 500_000);
-        assertEq(paymentToken.balanceOf(nextCreator), nextBalanceBefore - topUp);
-        assertEq(tier.creatorProceeds(), 0);
+        paymentToken.approve(address(tier), 0);
+        uint256 ownerBefore = paymentToken.balanceOf(nextCreator);
+        vm.prank(nextCreator);
+        tier.refund(id, 5_000_000);
+        assertEq(paymentToken.balanceOf(nextCreator), ownerBefore);
+        assertEq(tier.creatorProceeds(), earned);
+        vm.prank(nextCreator);
+        assertEq(tier.withdrawCreatorProceeds(), earned);
+        assertEq(paymentToken.balanceOf(nextCreator), ownerBefore + earned);
     }
 
     function testFuzz_fixedPreviewMatchesSlowTimeModel(
@@ -317,7 +313,8 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         uint256 remainingPaid = elapsed >= paidDuration ? 0 : paidDuration - elapsed;
 
         uint256 expected = MembershipModel.fixedRefund(remainingPaid, 10_000_000, _PERIOD);
-        (uint256 actual,) = tier.previewRefund(tokenId);
+        tier.processAccounting(25);
+        uint256 actual = tier.previewRefund(tokenId).grossRefund;
         assertEq(actual, expected);
     }
 
@@ -354,6 +351,7 @@ contract ZeroPriceRefundsTest is Test {
     uint64 private constant _START = 1_000_000;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(_START);
         creator = makeAddr("zeroCreator");
         member = makeAddr("zeroMember");
@@ -371,18 +369,16 @@ contract ZeroPriceRefundsTest is Test {
     function test_mixedZeroAndPositiveLotsRefundInBothOrders() public {
         _contribute(0);
         uint256 tokenId = _contribute(10_000_000);
-        (uint256 zeroFirstRefund, uint256 zeroFirstTopUp) = tier.previewRefund(tokenId);
+        uint256 zeroFirstRefund = tier.previewRefund(tokenId).grossRefund;
         assertEq(zeroFirstRefund, 10_000_000);
-        assertEq(zeroFirstTopUp, 500_000);
 
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max);
 
         _contribute(10_000_000);
         _contribute(0);
-        (uint256 positiveFirstRefund, uint256 positiveFirstTopUp) = tier.previewRefund(tokenId);
+        uint256 positiveFirstRefund = tier.previewRefund(tokenId).grossRefund;
         assertEq(positiveFirstRefund, 10_000_000);
-        assertEq(positiveFirstTopUp, 500_000);
     }
 
     function test_partialCurrentLotPlusLaterFullLotsUsesCumulativePrefixRange() public {
@@ -390,14 +386,14 @@ contract ZeroPriceRefundsTest is Test {
         _contribute(3_000_000);
         _contribute(5_000_000);
         vm.warp(_START + 15 days);
+        tier.processAccounting(25);
 
-        (uint256 grossRefund, uint256 topUp) = tier.previewRefund(tokenId);
+        uint256 grossRefund = tier.previewRefund(tokenId).grossRefund;
         assertEq(grossRefund, 14_000_000);
-        assertEq(topUp, 0);
 
         uint256 memberBefore = paymentToken.balanceOf(member);
         vm.prank(creator);
-        tier.refund(tokenId, grossRefund, topUp);
+        tier.refund(tokenId, grossRefund);
         assertEq(paymentToken.balanceOf(member) - memberBefore, grossRefund);
     }
 
@@ -408,13 +404,13 @@ contract ZeroPriceRefundsTest is Test {
         assertEq(_grossPreview(tokenId), 4_000_000);
 
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max);
 
         _contribute(3_000_000);
         vm.warp(block.timestamp + 15 days);
         assertEq(_grossPreview(tokenId), 1_500_000);
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max);
         assertEq(_grossPreview(tokenId), 0);
     }
 
@@ -431,7 +427,7 @@ contract ZeroPriceRefundsTest is Test {
         assertEq(_grossPreview(tokenId), 0);
 
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max);
         (uint64 paidSeconds, uint64 grantSeconds,) = tier.timeBalances(tokenId);
         assertEq(paidSeconds, 0);
         assertEq(grantSeconds, 0);
@@ -463,7 +459,7 @@ contract ZeroPriceRefundsTest is Test {
         uint256 tokenId = _contribute(0);
         uint256 gasBefore = gasleft();
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max);
         uint256 singleLotGas = gasBefore - gasleft();
 
         for (uint256 i; i < 2000; ++i) {
@@ -471,7 +467,7 @@ contract ZeroPriceRefundsTest is Test {
         }
         gasBefore = gasleft();
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        tier.refund(tokenId, type(uint256).max);
         uint256 manyLotGas = gasBefore - gasleft();
 
         assertLe(manyLotGas, singleLotGas + 10_000);
@@ -517,29 +513,27 @@ contract ZeroPriceRefundsTest is Test {
         tokenId = tier.contribute(gross, address(0));
     }
 
-    function _grossPreview(uint256 tokenId) private view returns (uint256 grossRefund) {
-        (grossRefund,) = tier.previewRefund(tokenId);
+    function _grossPreview(uint256 tokenId) private returns (uint256 grossRefund) {
+        tier.processAccounting(25);
+        grossRefund = tier.previewRefund(tokenId).grossRefund;
     }
 }
 
 contract ReentrantRefundOwner {
-    AdversarialERC20 private immutable _paymentToken;
     MembershipTier private immutable _tier;
     address private immutable _member;
 
-    constructor(AdversarialERC20 paymentToken, MembershipTier tier, address member) {
-        _paymentToken = paymentToken;
+    constructor(MembershipTier tier, address member) {
         _tier = tier;
         _member = member;
     }
 
-    function acceptAndApprove() external {
+    function accept() external {
         _tier.acceptOwnership();
-        _paymentToken.approve(address(_tier), type(uint256).max);
     }
 
     function refund(uint256 tokenId) external {
-        _tier.refund(tokenId, type(uint256).max, type(uint256).max);
+        _tier.refund(tokenId, type(uint256).max);
     }
 
     function reenterGrant() external {
@@ -555,6 +549,7 @@ contract AdversarialRefundsTest is Test {
     address private member;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         creator = makeAddr("adversarialCreator");
         member = makeAddr("adversarialMember");
         paymentToken = new AdversarialERC20();
@@ -574,32 +569,14 @@ contract AdversarialRefundsTest is Test {
         tier.purchase(1, address(0));
     }
 
-    function test_falseRevertingShortTaxedAndFrozenTopUpsLeaveRefundStateUnchanged() public {
-        _expectFailedTopUp(
-            AdversarialERC20.Behavior.ReturnFalse,
-            abi.encodeWithSelector(
-                SafeERC20.SafeERC20FailedOperation.selector, address(paymentToken)
-            )
-        );
-        _expectFailedTopUp(
-            AdversarialERC20.Behavior.RevertTransfer,
-            abi.encodeWithSelector(AdversarialERC20.ForcedTransferRevert.selector)
-        );
-        _expectFailedTopUp(
-            AdversarialERC20.Behavior.ShortTransfer,
-            abi.encodeWithSelector(MembershipTier.InexactTokenTransfer.selector)
-        );
-        _expectFailedTopUp(
-            AdversarialERC20.Behavior.TaxedTransfer,
-            abi.encodeWithSelector(MembershipTier.InexactTokenTransfer.selector)
-        );
-
-        paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.Normal);
+    function test_refundNeverPullsFromAFrozenOwnerWithBrokenTransferFrom() public {
         paymentToken.setFrozen(creator, true);
+        paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.RevertTransfer);
         vm.prank(creator);
-        vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
-        tier.refund(1, type(uint256).max, type(uint256).max);
-        _assertRefundStateUnchanged();
+        tier.refund(1, 10_000_000);
+        assertEq(paymentToken.balanceOf(member), 100_000_000);
+        assertEq(paymentToken.balanceOf(creator), 100_000_000);
+        assertEq(tier.creatorProceeds(), 0);
     }
 
     function test_falseRevertingShortTaxedAndFrozenRefundDeliveryIsAtomic() public {
@@ -626,40 +603,34 @@ contract AdversarialRefundsTest is Test {
         paymentToken.setFrozen(member, true);
         vm.prank(creator);
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
-        tier.refund(1, type(uint256).max, type(uint256).max);
+        tier.refund(1, type(uint256).max);
         _assertRefundStateUnchanged();
     }
 
-    function test_newOwnerAllowanceAndBalanceFailuresPreservePriorOwnerEconomics() public {
-        address unfundedOwner = makeAddr("unfundedOwner");
+    function test_unfundedNewOwnerCanRefundWithoutAllowance() public {
+        address newOwner = makeAddr("unfundedOwner");
         vm.prank(creator);
-        tier.transferOwnership(unfundedOwner);
-        vm.prank(unfundedOwner);
+        tier.transferOwnership(newOwner);
+        vm.prank(newOwner);
         tier.acceptOwnership();
-
-        vm.prank(unfundedOwner);
-        vm.expectRevert();
-        tier.refund(1, type(uint256).max, type(uint256).max);
-        _assertRefundStateUnchanged();
-
-        vm.prank(unfundedOwner);
-        paymentToken.approve(address(tier), type(uint256).max);
-        vm.prank(unfundedOwner);
-        vm.expectRevert();
-        tier.refund(1, type(uint256).max, type(uint256).max);
-        _assertRefundStateUnchanged();
+        assertEq(paymentToken.allowance(newOwner, address(tier)), 0);
+        assertEq(paymentToken.balanceOf(newOwner), 0);
+        vm.prank(newOwner);
+        assertEq(tier.refund(1, 10_000_000), 10_000_000);
+        assertEq(paymentToken.balanceOf(newOwner), 0);
+        assertEq(paymentToken.balanceOf(member), 100_000_000);
     }
 
-    function test_topUpCallbackCannotReenterGrantAfterRefundClearsTime() public {
-        ReentrantRefundOwner refundOwner = new ReentrantRefundOwner(paymentToken, tier, member);
+    function test_deliveryCallbackCannotReenterGrantAfterRefundClearsTime() public {
+        ReentrantRefundOwner refundOwner = new ReentrantRefundOwner(tier, member);
         vm.prank(creator);
         tier.transferOwnership(address(refundOwner));
-        refundOwner.acceptAndApprove();
+        refundOwner.accept();
         paymentToken.mint(address(refundOwner), 600_000);
         paymentToken.setCallback(
             address(refundOwner), abi.encodeCall(ReentrantRefundOwner.reenterGrant, ())
         );
-        paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.Callback);
+        paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Callback);
 
         refundOwner.refund(1);
 
@@ -670,24 +641,13 @@ contract AdversarialRefundsTest is Test {
         assertEq(grantSeconds, 0);
     }
 
-    function _expectFailedTopUp(AdversarialERC20.Behavior behavior, bytes memory revertData)
-        private
-    {
-        paymentToken.setTransferFromBehavior(behavior);
-        vm.prank(creator);
-        vm.expectRevert(revertData);
-        tier.refund(1, type(uint256).max, type(uint256).max);
-        _assertRefundStateUnchanged();
-        paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.Normal);
-    }
-
     function _expectFailedDelivery(AdversarialERC20.Behavior behavior, bytes memory revertData)
         private
     {
         paymentToken.setTransferBehavior(behavior);
         vm.prank(creator);
         vm.expectRevert(revertData);
-        tier.refund(1, type(uint256).max, type(uint256).max);
+        tier.refund(1, type(uint256).max);
         _assertRefundStateUnchanged();
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Normal);
     }
@@ -696,13 +656,15 @@ contract AdversarialRefundsTest is Test {
         (uint64 paidSeconds, uint64 grantSeconds,) = tier.timeBalances(1);
         assertEq(paidSeconds, 30 days);
         assertEq(grantSeconds, 0);
-        assertEq(tier.creatorProceeds(), 9_400_000);
-        assertEq(tier.rewardReserve(), 500_000);
+        assertEq(tier.creatorProceeds(), 0);
+        assertEq(tier.claimableReward(1), 0);
         assertEq(paymentToken.balanceOf(address(tier)), 10_000_000);
-        assertEq(tier.protocolFeeHoldings(), 100_000);
-        assertEq(tier.protocolFeeState(1).generation, 0);
-        (uint256 grossRefund, uint256 ownerTopUp) = tier.previewRefund(1);
-        assertEq(grossRefund, 10_000_000);
-        assertEq(ownerTopUp, 500_000);
+        assertEq(tier.reserveState().unearnedScaled[0], 9_400_000 * (1 << 128));
+        assertEq(tier.reserveState().unearnedScaled[1], 500_000 * (1 << 128));
+        assertEq(tier.reserveState().unearnedScaled[3], 100_000 * (1 << 128));
+        assertEq(tier.allocationState(1).generation, 0);
+        assertEq(tier.previewRefund(1).grossRefund, 10_000_000);
+        assertEq(tier.lifetimeGross(), 10_000_000);
+        assertTrue(tier.rewardEligible(1));
     }
 }

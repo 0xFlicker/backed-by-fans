@@ -95,10 +95,13 @@ const config: TierPublicationConfig = {
   name: "Creator membership",
   symbol: "FANS",
   pricePerPeriod: 10_000_000n,
+  minimumPayment: 1n,
   periodDuration: 2_592_000n,
   protocolFeeBps: 100,
   rewardBps: 500,
   referralBps: 100,
+  startingBoostBps: 10000,
+  earlySupportGross: 0n,
   supplyCap: 100n,
   maxPrepaidPeriods: 12n,
   metadata: { description: "Backstage access", externalURI: "" },
@@ -286,10 +289,13 @@ function reconciliationClient(
           name: publishedConfig.name,
           symbol: publishedConfig.symbol,
           pricePerPeriod: publishedConfig.pricePerPeriod,
+          minimumPayment: publishedConfig.minimumPayment,
           periodDuration: publishedConfig.periodDuration,
-          protocolFeeBps: 100,
+          protocolFeeBps: publishedConfig.protocolFeeBps,
           rewardBps: publishedConfig.rewardBps,
           referralBps: publishedConfig.referralBps,
+          startingBoostBps: publishedConfig.startingBoostBps,
+          earlySupportGross: publishedConfig.earlySupportGross,
           supplyCap: publishedConfig.supplyCap,
           maxPrepaidPeriods: publishedConfig.maxPrepaidPeriods,
           description: publishedConfig.metadata.description,
@@ -321,6 +327,45 @@ describe("created-tier reconciliation", () => {
       }),
     ).resolves.toBe(tier);
   });
+
+  it.each([15000, 30000, 23700])(
+    "verifies custom and preset curve terms (%i) and rejects different published terms",
+    async (startingBoostBps) => {
+      const custom = {
+        ...config,
+        startingBoostBps,
+        earlySupportGross: 731n * config.pricePerPeriod,
+      };
+      await expect(
+        reconcileCreatedTier(
+          reconciliationClient({ publishedConfig: custom }),
+          {
+            protocolDependencies,
+            config: custom,
+            receipt: publicationReceipt(tierCreatedLog(tier)),
+          },
+        ),
+      ).resolves.toBe(tier);
+      for (const changed of [
+        { ...custom, startingBoostBps: 10000 },
+        {
+          ...custom,
+          earlySupportGross: custom.earlySupportGross + config.pricePerPeriod,
+        },
+      ]) {
+        await expect(
+          reconcileCreatedTier(
+            reconciliationClient({ publishedConfig: changed }),
+            {
+              protocolDependencies,
+              config: custom,
+              receipt: publicationReceipt(tierCreatedLog(tier)),
+            },
+          ),
+        ).resolves.toBeUndefined();
+      }
+    },
+  );
 
   it("uses the receipt index when another creator took the prior slot", async () => {
     await expect(

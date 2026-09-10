@@ -158,6 +158,19 @@ export function ExpiredMembershipSyncControl({
           Find expired membership NFTs directly onchain, then burn up to 100 per
           wallet confirmation so ordinary NFT gates reflect current access.
         </p>
+        <p className="small-copy">
+          Sync settles rewards through this transaction, then suspends new
+          earning for the expired members. Historical weight and already-earned
+          claims remain. Only a positive payment restores suspended weight; free
+          renewals and grants do not.
+        </p>
+        <p className="small-copy">
+          If accounting is behind,{" "}
+          <a href={`#tier-accounting-${tier.toLowerCase()}`}>
+            advance accounting
+          </a>{" "}
+          and then scan again before syncing.
+        </p>
       </div>
 
       {visibleState.phase === "scanning" ? (
@@ -183,9 +196,10 @@ export function ExpiredMembershipSyncControl({
               <p>
                 Confirming burns these NFTs and stops their lifetime shares from
                 receiving new rewards. Rewards already earned remain claimable,
-                and a later purchase, contribution, gift, or grant restores the
-                same token ID and lifetime shares. NFT marketplaces and gates
-                may take time to index the burns.
+                and historical shares are retained. Later access can restore the
+                same token ID, but only a positive payment restores reward
+                eligibility. NFT marketplaces and gates may take time to index
+                the burns.
               </p>
               <button
                 className="button button-warning"

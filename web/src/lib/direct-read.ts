@@ -306,6 +306,11 @@ export async function readTierSnapshotState(
     "occupiedSupply",
     "maxPrepaidPeriods",
     "protocolFeeBps",
+    "startingBoostBps",
+    "earlySupportGross",
+    "lifetimeGross",
+    "accountingStatus",
+    "minimumPayment",
   ] as const;
 
   try {
@@ -323,9 +328,10 @@ export async function readTierSnapshotState(
         blockNumber,
         multicallAddress: multicall3Address,
       })) as MulticallResult[];
-      values = results.map((result, index) => {
-        if (result.status === "success") return result.result;
-        missing.push(fields[index]);
+      values = fields.map((field, index) => {
+        const result = results[index];
+        if (result?.status === "success") return result.result;
+        missing.push(field);
         return undefined;
       });
     } else {
@@ -398,6 +404,11 @@ export async function readTierSnapshotState(
       occupiedSupply: values[11] as bigint,
       maxPrepaidPeriods: values[12] as bigint,
       protocolFeeBps: Number(values[13]),
+      startingBoostBps: Number(values[14]),
+      earlySupportGross: values[15] as bigint,
+      grossPaid: values[16] as bigint,
+      accounting: values[17] as TierSnapshot["accounting"],
+      minimumPayment: values[18] as bigint,
       paymentToken: authenticity.paymentToken,
       paymentTokenState,
       factory: authenticity.protocolDependencies.factory,
@@ -427,4 +438,70 @@ export async function readTierSnapshotState(
           label: classified.label,
         };
   }
+}
+
+/** Finalized balances and protected reserves at the caller's captured block. */
+export async function readTierAccounting(
+  client: PublicClient,
+  input: {
+    tier: Address;
+    tokenId: bigint;
+    referrer: Address;
+    blockNumber: bigint;
+  },
+) {
+  const common = {
+    address: input.tier,
+    abi: membershipTierAbi,
+    blockNumber: input.blockNumber,
+  } as const;
+  const [earned, reserves, allocation] = await Promise.all([
+    client.readContract({
+      ...common,
+      functionName: "earnedBalances",
+      args: [input.tokenId, input.referrer],
+    }),
+    client.readContract({ ...common, functionName: "reserveState" }),
+    input.tokenId === 0n
+      ? undefined
+      : client.readContract({
+          ...common,
+          functionName: "allocationState",
+          args: [input.tokenId],
+        }),
+  ]);
+  return { earned, reserves, allocation };
+}
+
+/** A single explicit page; callers never scan a membership's full history. */
+export async function readAllocationLots(
+  client: PublicClient,
+  input: {
+    tier: Address;
+    tokenId: bigint;
+    generation: bigint;
+    offset: bigint;
+    limit: number;
+    blockNumber: bigint;
+  },
+) {
+  if (
+    input.tokenId < 1n ||
+    input.generation < 0n ||
+    input.offset < 0n ||
+    !Number.isInteger(input.limit) ||
+    input.limit < 1 ||
+    input.limit > 100
+  ) {
+    throw new RangeError(
+      "Funding history needs a known membership and a page of 1–100 lots.",
+    );
+  }
+  return client.readContract({
+    address: input.tier,
+    abi: membershipTierAbi,
+    functionName: "allocationLots",
+    args: [input.tokenId, input.generation, input.offset, BigInt(input.limit)],
+    blockNumber: input.blockNumber,
+  });
 }

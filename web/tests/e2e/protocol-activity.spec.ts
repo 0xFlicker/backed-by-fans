@@ -37,11 +37,16 @@ test.describe("@protocol-fork public buyback activity", () => {
     await expect(
       page.getByRole("heading", { name: "Pons trading compensation" }),
     ).toBeVisible();
-    await expect(
-      page.getByText(/Complete coverage of existing paid schedules/),
-    ).toBeVisible();
+    await expect(page.getByText(/Accounting through/).last()).toBeVisible();
     await expect(page.getByText(/Vesting is not a burn/)).toBeVisible();
-    await expect(page.getByText(/These are estimated earnings/)).toBeVisible();
+    await expect(
+      page.getByText(
+        /Reserved funding earns as paid membership time is consumed/,
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Reserved protocol funding", { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Process membership fees" }).first(),
     ).toBeDisabled();
@@ -55,6 +60,12 @@ test.describe("@protocol-fork public buyback activity", () => {
           document.documentElement.clientWidth,
       ),
     ).toBe(false);
+    // Measure the finished presentation, not a transient frame of its entrance fade.
+    await page.locator(".protocol-heading").evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      );
+    });
     const accessibility = await new AxeBuilder({ page }).analyze();
     expect(accessibility.violations).toEqual([]);
     await page.screenshot({
@@ -201,15 +212,13 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
     ).timestamp;
     await f.testClient.setNextBlockTimestamp({ timestamp: start + 350n });
     await f.testClient.mine({ blocks: 1 });
-    await f.write(member, tier, membershipTierAbi, "accrueProtocolFees", [
-      [1n],
-    ]);
-    await f.write(member, tier, membershipTierAbi, "releaseProtocolFees");
+    await f.write(member, tier, membershipTierAbi, "processAccounting", [25n]);
     const earned = await f.client.readContract({
       address: tier,
       abi: membershipTierAbi,
-      functionName: "totalProtocolFeeReleased",
+      functionName: "protocolFeeEarnedHeld",
     });
+    await f.write(member, tier, membershipTierAbi, "releaseProtocolFees");
     expect(earned).toBeGreaterThanOrEqual(350n);
     expect(earned).toBeLessThan(400n);
     const supplyBefore = await f.client.readContract({
@@ -253,50 +262,51 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
       args: [f.bootstrap.protocolToken, 0],
     });
     expect(inventory.available).toBe(0n);
-    const [gross, fromReserve, , topup] = await f.client.readContract({
+    await f.write(member, tier, membershipTierAbi, "processAccounting", [25n]);
+    const preview = await f.client.readContract({
       address: tier,
       abi: membershipTierAbi,
-      functionName: "previewRefundComponents",
+      functionName: "previewRefund",
       args: [1n],
     });
+    const gross = preview.grossRefund;
     expect(gross).toBeGreaterThan(0n);
-    expect(fromReserve).toBe(gross);
-    expect(topup).toBe(0n);
+    expect(preview.fundingScaled[3]).toBe(gross * (1n << 128n));
+    expect(preview.fundingScaled.slice(0, 3)).toEqual([0n, 0n, 0n]);
     const beforeBalance = await f.client.readContract({
       address: f.bootstrap.protocolToken,
       abi: erc20Abi,
       functionName: "balanceOf",
       args: [member],
     });
-    await f.write(creator, tier, membershipTierAbi, "refund", [1n, gross, 0n]);
+    await f.write(creator, tier, membershipTierAbi, "refund", [1n, gross]);
     const afterBalance = await f.client.readContract({
       address: f.bootstrap.protocolToken,
       abi: erc20Abi,
       functionName: "balanceOf",
       args: [member],
     });
-    const refunded = await f.client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "totalProtocolFeeRefunded",
-    });
-    expect(afterBalance - beforeBalance).toBe(refunded);
+    const refunded = afterBalance - beforeBalance;
     expect(refunded).toBeGreaterThan(0n);
-    const allocated = await f.client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "totalProtocolFeeAllocated",
-    });
+    const allocated = 1200n;
     const held = await f.client.readContract({
+      address: f.bootstrap.protocolToken,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [tier],
+    });
+    const protectedCash = await f.client.readContract({
       address: tier,
       abi: membershipTierAbi,
-      functionName: "protocolFeeHoldings",
+      functionName: "totalProtectedLiability",
     });
-    const released = await f.client.readContract({
+    const finalState = await f.client.readContract({
       address: tier,
       abi: membershipTierAbi,
-      functionName: "totalProtocolFeeReleased",
+      functionName: "allocationState",
+      args: [1n],
     });
+    const released = earned;
     expect(allocated).toBe(held + released + refunded);
     await f.retain("wallet-direct-burn-refund", {
       tier,
@@ -306,14 +316,21 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
       supplyAfter,
       inventory,
       gross,
-      fromReserve,
-      topup,
+      preview,
       beforeBalance,
       afterBalance,
       refunded,
       allocated,
       held,
       released,
+      refundAccounting: {
+        allocated,
+        held,
+        protected: protectedCash,
+        before: beforeBalance,
+        after: afterBalance,
+        generation: finalState.generation,
+      },
     });
     await page.screenshot({
       path: testInfo.outputPath("completed-membership-burn.png"),

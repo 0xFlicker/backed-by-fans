@@ -1,7 +1,9 @@
+import { formatRawTokenAmount } from "../../src/lib/token-amount";
 import { expect, test, type Page } from "@playwright/test";
 import { resolve } from "node:path";
+import { writeFile } from "node:fs/promises";
 
-import { erc20Abi } from "viem";
+import { erc20Abi, parseEventLogs, encodeFunctionData } from "viem";
 import { membershipFactoryAbi, membershipTierAbi } from "../../src/contracts";
 import {
   anvilEnabled,
@@ -144,15 +146,16 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
           Number(expires - 9n * period),
         ]);
         await rpcRequest("evm_mine");
-        // No collector has touched the position: entitlement advances in the view alone.
+        // Settled accounting remains at purchase until permissionless processing.
         const pending = await client.readContract({
           address: deployedTier,
           abi: membershipTierAbi,
-          functionName: "protocolFeeState",
+          functionName: "allocationState",
           args: [tokenId],
         });
-        expect(pending.unearned).toBe(90_000_000n);
-        expect(pending.uncheckpointedEarned).toBe(30_000_000n);
+        expect(pending.unearnedScaled[3]).toBe(120_000_000n * (1n << 128n));
+        expect(pending.earnedScaled[3]).toBe(0n);
+        expect(pending.status.complete).toBe(false);
         await expect(
           client.readContract({
             address: deployedTier,
@@ -168,15 +171,14 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
             args: [vault],
           }),
         ).resolves.toBe(0n);
-        expectSuccessfulReceipt(
-          await sendContract({
-            account: collector,
-            address: deployedTier,
-            abi: membershipTierAbi,
-            functionName: "accrueProtocolFees",
-            args: [[tokenId]],
-          }),
-        );
+        const processing = await sendContract({
+          account: collector,
+          address: deployedTier,
+          abi: membershipTierAbi,
+          functionName: "processAccounting",
+          args: [25n],
+        });
+        expectSuccessfulReceipt(processing);
         expectSuccessfulReceipt(
           await sendContract({
             account: collector,
@@ -186,11 +188,19 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
           }),
         );
         const released = await client.readContract({
-          address: deployedTier,
-          abi: membershipTierAbi,
-          functionName: "totalProtocolFeeReleased",
+          address: asset,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [vault],
         });
-        expect(released).toBeGreaterThanOrEqual(30_000_000n);
+        const processedAt = (
+          await client.getBlock({ blockNumber: processing.blockNumber })
+        ).timestamp;
+        const scale = 1n << 128n;
+        const rate = (120_000_000n * scale) / (12n * period);
+        expect(released).toBe(
+          (rate * (processedAt - (expires - 12n * period))) / scale,
+        );
         await expect(
           client.readContract({
             address: asset,
@@ -212,25 +222,24 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
         const funding = await client.readContract({
           address: deployedTier,
           abi: membershipTierAbi,
-          functionName: "previewRefundComponents",
+          functionName: "previewRefund",
           args: [tokenId],
         });
-        expect(funding[0]).toBeGreaterThan(0n);
-        expect(funding[1]).toBe(funding[0]);
-        expect(funding[2]).toBe(0n);
-        expect(funding[3]).toBe(0n);
+        expect(funding.grossRefund).toBeGreaterThan(0n);
+        expect(funding.fundingScaled[3]).toBe(
+          funding.grossRefund * (1n << 128n),
+        );
+        expect(funding.fundingScaled.slice(0, 3)).toEqual([0n, 0n, 0n]);
         const creatorBefore = await client.readContract({
           address: asset,
           abi: erc20Abi,
           functionName: "balanceOf",
           args: [creator],
         });
-        await expect(page.locator(".refund-preview")).toContainText(
-          "Unearned protocol reserve",
+        await expect(page.locator(".refund-preview[aria-live]")).toContainText(
+          "Reserved unused membership payments",
         );
-        await page
-          .getByRole("button", { name: "Approve exact top-up and refund" })
-          .click();
+        await page.getByRole("button", { name: "Refund unused time" }).click();
         await expectReconciled(page, `Refund membership #${tokenId}`);
         await expect(
           client.readContract({
@@ -258,11 +267,11 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
         const after = await client.readContract({
           address: deployedTier,
           abi: membershipTierAbi,
-          functionName: "protocolFeeState",
+          functionName: "allocationState",
           args: [tokenId],
         });
         expect(after.generation).toBe(1n);
-        expect(after.unearned).toBe(0n);
+        expect(after.unearnedScaled[3]).toBe(0n);
       }
     } finally {
       await revertAnvil(snapshot);
@@ -626,5 +635,199 @@ test("keeps creator setup keyboard reachable and responsive", async ({
   ) {
     const box = await controls.nth(index).boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
+// This journey also runs against the disposable split-deployment rehearsal.
+// It needs only the real local factory, asset and two funded unlocked accounts.
+test("@anvil reward-curves publishes all presets and confirms execution-time weight", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(240_000);
+  test.skip(
+    !process.env.BBF_ANVIL_RPC_URL,
+    "Requires a configured local chain.",
+  );
+  test.skip(
+    testInfo.project.name !== "desktop",
+    "One publication sequence is sufficient.",
+  );
+  const creator = requiredAnvilAddress("creator");
+  const member = requiredAnvilAddress("member");
+  const asset = requiredAnvilAddress("paymentToken");
+  const client = anvilPublicClient();
+  const checkpoint = await snapshotAnvil();
+  const evidence: unknown[] = [];
+  try {
+    await installAnvilWallet(page, creator);
+    for (const [preset, boost, periods] of [
+      ["None", 10000, 0n],
+      ["Some", 15000, 1000n],
+      ["More", 30000, 1000n],
+      ["Custom", 23700, 2n],
+    ] as const) {
+      await page.goto("/create");
+      await page
+        .getByRole("combobox", { name: "Membership network" })
+        .selectOption("31337");
+      await connectAnvilWallet(page, creator);
+      await page.getByLabel("Membership name").fill(`Curve ${preset}`);
+      await page.getByLabel("Symbol", { exact: true }).fill("CURVE");
+      await page.getByRole("button", { name: /^support split$/i }).click();
+      await page.getByRole("radio", { name: new RegExp(`^${preset}`) }).check();
+      if (preset === "Custom") {
+        await page
+          .getByLabel("Starting boost (×)", { exact: true })
+          .fill("2.37");
+        await page
+          .getByLabel("Early-support window (purchased periods)", {
+            exact: true,
+          })
+          .fill("2");
+      }
+      await page.getByRole("button", { name: /^risks$/i }).click();
+      await page.getByRole("checkbox").nth(0).check();
+      await page.getByRole("checkbox").nth(1).check();
+      await page.getByRole("button", { name: /^review$/i }).click();
+      const publish = page.getByRole("button", {
+        name: "Publish this membership",
+      });
+      await expect(publish).toBeEnabled({ timeout: 30_000 });
+      await publish.click();
+      await expect(
+        page.getByRole("heading", {
+          name: "Your membership is ready to share.",
+        }),
+      ).toBeVisible({ timeout: 45_000 });
+      const tier = (await page
+        .locator(".creator-success code")
+        .first()
+        .innerText()) as `0x${string}`;
+      const price = await client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "pricePerPeriod",
+      });
+      await expect(
+        client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "startingBoostBps",
+        }),
+      ).resolves.toBe(boost);
+      await expect(
+        client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "earlySupportGross",
+        }),
+      ).resolves.toBe(price * periods);
+      evidence.push({
+        preset,
+        tier,
+        startingBoostBps: boost,
+        earlySupportGross: String(price * periods),
+      });
+      if (preset !== "Custom") continue;
+      for (const account of [creator, member]) {
+        expectSuccessfulReceipt(
+          await sendContract({
+            account,
+            address: asset,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [tier, price * 10n],
+          }),
+        );
+      }
+      await page.getByRole("link", { name: "Open membership page" }).click();
+      await page.getByLabel("Periods", { exact: true }).fill("2");
+      const before = await client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "previewShares",
+        args: [price * 2n],
+      });
+      await expect(
+        page.getByText(
+          `Estimated new reward weight: ${formatRawTokenAmount({ raw: before.sharesAdded, decimals: 6, multiplier: 10n ** 18n })} shares (1.685× average).`,
+        ),
+      ).toBeVisible();
+      const paymentData = encodeFunctionData({
+        abi: membershipTierAbi,
+        functionName: "purchase",
+        args: [2n, "0x0000000000000000000000000000000000000000"],
+      });
+      let intervened = false;
+      let paymentHash: `0x${string}` | undefined;
+      await page.route(process.env.BBF_ANVIL_RPC_URL!, async (route) => {
+        const body = route.request().postDataJSON();
+        if (
+          body.method === "eth_sendTransaction" &&
+          body.params[0].data === paymentData &&
+          body.params[0].to?.toLowerCase() === tier.toLowerCase()
+        ) {
+          expect(intervened).toBe(false);
+          intervened = true;
+          expectSuccessfulReceipt(
+            await sendContract({
+              account: member,
+              address: tier,
+              abi: membershipTierAbi,
+              functionName: "purchase",
+              args: [1n, "0x0000000000000000000000000000000000000000"],
+            }),
+          );
+          const response = await route.fetch();
+          paymentHash = (await response.json()).result;
+          await route.fulfill({ response });
+        } else await route.continue();
+      });
+      await page
+        .getByRole("button", { name: "Join this membership", exact: true })
+        .click();
+      await expectReconciled(page, "Join this membership");
+      expect(intervened).toBe(true);
+      expect(paymentHash).toBeDefined();
+      const receipt = await client.getTransactionReceipt({
+        hash: paymentHash!,
+      });
+      expectSuccessfulReceipt(receipt);
+      const issued = parseEventLogs({
+        abi: membershipTierAbi,
+        eventName: "SharesIssued",
+        logs: receipt.logs,
+      }).find((log) => log.address.toLowerCase() === tier.toLowerCase())!.args;
+      expect(issued.amount).toBeLessThan(before.sharesAdded);
+      await expect(
+        page.getByText(
+          `Actual new reward weight: ${formatRawTokenAmount({ raw: issued.amount, decimals: 6, multiplier: 10n ** 18n })} shares. Cash rewards vest over paid membership time.`,
+        ),
+      ).toBeVisible();
+      await expect(
+        client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "lifetimeGross",
+        }),
+      ).resolves.toBe(price * 3n);
+      evidence.push({
+        quoted: String(before.sharesAdded),
+        actual: String(issued.amount),
+        tokenShares: String(issued.tokenShares),
+        paymentHash,
+      });
+      await page.unroute(process.env.BBF_ANVIL_RPC_URL!);
+    }
+    const evidencePath = testInfo.outputPath(
+      "curve-publication-and-inclusion.json",
+    );
+    await writeFile(evidencePath, JSON.stringify(evidence, null, 2));
+    await testInfo.attach("curve-publication-and-inclusion.json", {
+      path: evidencePath,
+      contentType: "application/json",
+    });
+  } finally {
+    await revertAnvil(checkpoint);
   }
 });

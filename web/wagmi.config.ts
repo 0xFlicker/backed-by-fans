@@ -25,9 +25,9 @@ export default defineConfig({
   plugins: [
     foundry({
       project: foundryProject,
-      forge: stagedFoundryProject
-        ? { build: false, clean: false, rebuild: false }
-        : undefined,
+      // generate-contracts.sh owns the independent leaf build and deterministic
+      // consumer linking. A plain plugin rebuild would discard that mapping.
+      forge: { build: false, clean: false, rebuild: false },
       // The old fee-recipient factory's active pointer has been retired; its
       // timestamped historical receipt remains. Only the release wrapper may
       // promote a new run-latest after current runtime/dependency verification.

@@ -7,7 +7,9 @@ import {GraduationPhase} from "../../src/interfaces/external/ILaunchpadV2.sol";
 import {IPonsLaunchFactory} from "../../src/interfaces/external/IPons.sol";
 import {BuybackIntegration as Integration} from "../../src/libraries/BuybackIntegration.sol";
 import {OnchainMediaStoreFactory} from "../../src/media/OnchainMediaStoreFactory.sol";
+import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {AuthenticAssetFixture} from "./helpers/AuthenticAssetFixture.sol";
+import {ForkTierCodeFixture} from "./helpers/ForkTierCodeFixture.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
@@ -326,13 +328,21 @@ contract PonsCompensationForkTest is AuthenticAssetFixture {
     }
 
     function test_externalRecipientOverrideAndToggleCannotChangeBBFCustody() public {
+        new ForkTierCodeFixture().install();
         IERC20[] memory assets = new IERC20[](1);
         assets[0] = token;
         address media = deployCode("OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory");
         MembershipFactory bbf = MembershipFactory(
             deployCode(
                 "MembershipFactory.sol:MembershipFactory",
-                abi.encode(assets, media, address(this), address(token))
+                abi.encode(
+                    assets,
+                    media,
+                    address(this),
+                    address(token),
+                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.minimumPayments(assets)
+                )
             )
         );
         address custody = bbf.buybackVault();

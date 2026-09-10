@@ -20,24 +20,29 @@ import {
 
 async function nonPresentationState(client: PublicClient, tier: Address) {
   return Promise.all(
-    [
-      "paymentToken",
-      "pricePerPeriod",
-      "periodDuration",
-      "rewardBps",
-      "referralBps",
-      "supplyCap",
-      "maxPrepaidPeriods",
-      "occupiedSupply",
-      "totalMinted",
-      "creatorProceeds",
-      "rewardReserve",
-      "totalReferralLiability",
-    ].map((functionName) =>
+    (
+      [
+        "paymentToken",
+        "pricePerPeriod",
+        "periodDuration",
+        "rewardBps",
+        "referralBps",
+        "supplyCap",
+        "maxPrepaidPeriods",
+        "occupiedSupply",
+        "totalMinted",
+        "creatorProceeds",
+        "totalProtectedLiability",
+        "startingBoostBps",
+        "earlySupportGross",
+        "lifetimeGross",
+        "rewardPerShare",
+      ] as const
+    ).map((functionName) =>
       client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: functionName as never,
+        functionName,
       }),
     ),
   );

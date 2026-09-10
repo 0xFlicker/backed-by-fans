@@ -11,6 +11,7 @@ import {
   type Abi,
   type Address,
   type Hex,
+  type ContractFunctionArgs,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
@@ -76,7 +77,19 @@ export async function forkContext() {
       account,
       transport: http(rpc, { retryCount: 0 }),
     });
+    // The authentic fixture uses a local signer, so supply the clock-boundary
+    // margin a browser wallet would ordinarily add to its gas estimate.
+    const estimated = await client.estimateContractGas({
+      address,
+      abi,
+      functionName,
+      args,
+      value,
+      account,
+      gasPrice: 2_000_000_000n,
+    });
     const simulation = await client.simulateContract({
+      gas: (estimated * 12n + 9n) / 10n + 100_000n,
       address,
       abi,
       functionName,
@@ -128,7 +141,11 @@ export async function forkContext() {
     price = 10_000_000n,
   ) => {
     const creator = requiredAnvilAddress("creator");
-    const config = {
+    const config: ContractFunctionArgs<
+      typeof membershipFactoryAbi,
+      "nonpayable",
+      "createTier"
+    >[0] = {
       creator,
       tierSalt: keccak256(
         new TextEncoder().encode(`${bootstrap.runId}:${name}`),
@@ -138,10 +155,18 @@ export async function forkContext() {
       name,
       symbol: "TEST",
       pricePerPeriod: price,
+      minimumPayment: await client.readContract({
+        address: bootstrap.factory,
+        abi: membershipFactoryAbi,
+        functionName: "minimumPayment",
+        args: [asset],
+      }),
       periodDuration: 100n,
       protocolFeeBps: fee,
       rewardBps: 0,
       referralBps: 0,
+      startingBoostBps: 10000,
+      earlySupportGross: 0n,
       supplyCap: 0n,
       maxPrepaidPeriods: 12n,
       metadata: {

@@ -44,6 +44,10 @@ import {
 } from "@/features/creator/config";
 import { PaymentTokenPicker } from "@/features/creator/PaymentTokenPicker";
 import {
+  RewardCurveControls,
+  RewardCurveSummary,
+} from "@/features/creator/RewardCurveControls";
+import {
   CreatorStudio,
   type RendererChoice,
   type StudioRenderer,
@@ -2319,7 +2323,11 @@ export function CreateTierWizard() {
             <div className="creator-field-grid">
               <Field
                 error={result.errors.displayedPrice}
-                hint="Permanent. Enter 0 to let supporters choose the amount."
+                hint={
+                  selectedPaymentToken
+                    ? `Permanent. Minimum ${formattedPayment(selectedPaymentToken.minimumPayment, selectedPaymentToken)} per period, or 0 for pay what you want. Positive contributions must meet this minimum, which locks at publication.`
+                    : "Choose a payment token to see its minimum."
+                }
                 id="tier-price"
                 label={`Price per period${selectedPaymentToken ? ` (${selectedPaymentToken.symbol})` : ""}`}
               >
@@ -2362,9 +2370,10 @@ export function CreateTierWizard() {
               </p>
             )}
             <p>
-              Membership access starts immediately. The protocol allocation
-              earns continuously as paid time is used, then funds periodic token
-              buybacks and burns. Unearned reserves help fund refunds.
+              Membership access and reward weight start immediately. Every
+              allocation earns continuously as paid time is used: creator
+              proceeds, membership rewards, referrals, and protocol buybacks and
+              burns. Unearned reserves help fund refunds.
             </p>
             <p>
               Rewards are not equity, yield, dividends, or a promised return.
@@ -2420,6 +2429,16 @@ export function CreateTierWizard() {
                 />
               </Field>
             </div>
+            <RewardCurveControls
+              form={form}
+              result={result}
+              token={selectedPaymentToken}
+              onChange={(patch) => {
+                setForm((current) => ({ ...current, ...patch }));
+                setEconomicsAcknowledged(false);
+                resetCompletion();
+              }}
+            />
             {result.split && (
               <div className="split-preview" aria-label="Payment split preview">
                 <div>
@@ -2544,7 +2563,8 @@ export function CreateTierWizard() {
               />
               <span>
                 I understand the price, period, reward rate, referral rate,
-                payment currency, and protocol allocation are permanent.
+                payment currency, protocol allocation, early-support boost and
+                window are permanent.
               </span>
             </label>
             <label className="acknowledgement">
@@ -2566,6 +2586,18 @@ export function CreateTierWizard() {
         {step === "review" && (
           <div className="creator-step-panel">
             <h2 id="step-review">Review before publishing</h2>
+            {result.curve && (
+              <RewardCurveSummary
+                terms={result.curve}
+                token={selectedPaymentToken}
+              />
+            )}
+            <p>
+              All four allocations vest as paid time is consumed. Historical
+              reward weight stays permanent; eligibility continues until the
+              creator syncs an expired membership. A positive payment restores
+              suspended weight.
+            </p>
             <div className="terms-review">
               <section>
                 <h3>Permanent</h3>

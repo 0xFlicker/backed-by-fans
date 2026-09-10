@@ -6,6 +6,7 @@ import {ProtocolBuybackVault} from "../../src/ProtocolBuybackVault.sol";
 import {BuybackIntegration as Integration} from "../../src/libraries/BuybackIntegration.sol";
 import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
+import {LinkedVestingFixture} from "../helpers/LinkedVestingFixture.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {SyntheticConversionBinding} from "../helpers/SyntheticConversionBinding.sol";
 import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
@@ -104,10 +105,8 @@ contract BuybackHandler is Test {
         uint256 elapsed = block.timestamp - _started;
         if (elapsed > 1200) elapsed = 1200;
         recognized = elapsed * 600 / 1200;
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = _id;
         vm.prank(address(0xA));
-        tier.accrueProtocolFees(ids);
+        tier.processAccounting(25);
         if (releaseNow) _release();
     }
 
@@ -207,9 +206,16 @@ contract BuybackHandler is Test {
         }
         assertEq(token.totalSupply(), issued - burned);
         assertEq(token.balanceOf(address(tier)), 1200 - released);
-        assertEq(tier.protocolFeeHoldings(), 600 - released);
+        assertEq(
+            tier.reserveState().unearnedScaled[3] + tier.protocolFeeEarnedHeld()
+                * tier.ACCOUNTING_SCALE() + tier.earnedBalances(0, address(0)).fractionalScaled[3],
+            (600 - released) * tier.ACCOUNTING_SCALE()
+        );
         assertEq(tier.protocolFeeEarnedHeld(), recognized - released);
-        assertEq(tier.creatorProceeds() + tier.totalProtectedLiability(), 1200 - released);
+        uint256 elapsed = block.timestamp - _started;
+        if (elapsed > 1200) elapsed = 1200;
+        assertApproxEqAbs(tier.creatorProceeds(), elapsed * 240 / 1200, 1);
+        assertEq(tier.totalProtectedLiability(), 1200 - released);
         assertEq(token.balanceOf(vault.executor()), 0);
         assertEq(address(vault.executor()).balance, 0);
         assertEq(payment.balanceOf(vault.executor()), 0);
@@ -225,6 +231,7 @@ contract BuybackInvariantTest is StdInvariant, Test {
     BuybackHandler private _handler;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(1000);
         FaultBurnToken token = new FaultBurnToken();
         FaultBondingCurve curve = new FaultBondingCurve(address(token));
@@ -239,7 +246,14 @@ contract BuybackInvariantTest is StdInvariant, Test {
         MembershipFactory factory = MembershipFactory(
             deployCode(
                 "MembershipFactory.sol:MembershipFactory",
-                abi.encode(assets, media, address(this), address(token))
+                abi.encode(
+                    assets,
+                    media,
+                    address(this),
+                    address(token),
+                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.minimumPayments(assets)
+                )
             )
         );
         ProtocolBuybackVault vault = ProtocolBuybackVault(payable(factory.buybackVault()));

@@ -5,6 +5,43 @@ export type ImmutableReferences = Record<
   Array<{ start: number; length: number }>
 >;
 
+/** Code stores are data, not Solidity runtimes: compare every byte, including metadata. */
+export function verifyTierCodeStores(
+  creation: string,
+  storeA: string,
+  storeB: string,
+) {
+  const code = bytes(creation);
+  const length = code.length / 2;
+  if (length < 2 || length > 49150)
+    throw new Error("Tier creation code exceeds two-store bounds");
+  const split = Math.floor(length / 2) * 2;
+  if (bytes(storeA) !== `00${code.slice(0, split)}`)
+    throw new Error(
+      "Tier code store A differs from exact linked creation code",
+    );
+  if (bytes(storeB) !== `00${code.slice(split)}`)
+    throw new Error(
+      "Tier code store B differs from exact linked creation code",
+    );
+  return {
+    creationCodeLength: length,
+    storeALength: split / 2 + 1,
+    storeBLength: length - split / 2 + 1,
+  };
+}
+
+/** Libraries embed their own address at runtime; this is the sole allowed patch. */
+export function exactLibraryRuntime(template: string, address: string) {
+  const code = bytes(template);
+  if (
+    !/^0x[0-9a-fA-F]{40}$/.test(address) ||
+    !code.startsWith(`73${"00".repeat(20)}`)
+  )
+    throw new Error("Invalid library self-address template");
+  return `0x73${address.slice(2).toLowerCase()}${code.slice(42)}`;
+}
+
 function bytes(hex: string) {
   const value = hex.replace(/^0x/, "").toLowerCase();
   if (!value.length || value.length % 2 || !/^[0-9a-f]+$/.test(value))

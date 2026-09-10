@@ -14,6 +14,7 @@ import {
   toBytes,
   type Address,
   type Abi,
+  type ContractFunctionArgs,
 } from "viem";
 import { anvil } from "viem/chains";
 import {
@@ -173,10 +174,18 @@ try {
             name: `${currency.symbol} Fans`,
             symbol: `${currency.symbol}FANS`,
             pricePerPeriod: currency.price,
+            minimumPayment: await client.readContract({
+              address: bootstrap.factory,
+              abi: membershipFactoryAbi,
+              functionName: "minimumPayment",
+              args: [currency.address],
+            }),
             periodDuration: 2592000n,
             protocolFeeBps: 2500,
             rewardBps: 2500,
             referralBps: 1000,
+            startingBoostBps: 10000,
+            earlySupportGross: 0n,
             supplyCap: 0n,
             maxPrepaidPeriods: 12n,
             metadata: {
@@ -191,7 +200,11 @@ try {
               digest: zeroHash,
               runtimeCodehash: zeroHash,
             },
-          },
+          } satisfies ContractFunctionArgs<
+            typeof membershipFactoryAbi,
+            "nonpayable",
+            "createTier"
+          >[0],
         ],
       );
       tier = await client.readContract({

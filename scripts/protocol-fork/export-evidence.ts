@@ -6,6 +6,7 @@ import { resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Address, Hex, Log } from "../../web/node_modules/viem";
 import { captureSourceSnapshot } from "./preflight";
+import { verifyProtocolGraph } from "./verify-protocol-graph";
 import {
   iPonsLaunchFactoryAbi,
   iSafeAbi,
@@ -188,6 +189,7 @@ export async function exportEvidence(directory: string) {
           hash: Hex;
           contractAddress?: Address;
           contractName?: string;
+          additionalContracts?: { address: Address }[];
           function?: string;
           transaction: { to?: Address; input?: Hex; data?: Hex };
         }[];
@@ -281,6 +283,12 @@ export async function exportEvidence(directory: string) {
     abi: protocolBuybackVaultAbi,
     functionName: "executor",
   });
+  const graph = await verifyProtocolGraph(
+    client,
+    { ...bootstrap, executor },
+    resolve(root, "contracts/out"),
+  );
+  await writeFile(resolve(directory, "protocol-graph.json"), json(graph));
   for (const role of [
     "safe",
     "protocolToken",
@@ -291,19 +299,36 @@ export async function exportEvidence(directory: string) {
     "mediaStoreFactory",
     "renderer",
     "previewHarness",
+    "vestingLedger",
+    "tierCodeStoreA",
+    "tierCodeStoreB",
+    "tierDeployer",
+    "burnRouter",
+    "executorCodeStore",
   ]) {
     const address = (
       role === "executor" ? executor : bootstrap[role]
     ) as Address;
     const transaction = broadcast.transactions.find(
-      (tx) => tx.contractAddress?.toLowerCase() === address.toLowerCase(),
+      (tx) =>
+        tx.contractAddress?.toLowerCase() === address.toLowerCase() ||
+        (tx.additionalContracts ?? []).some(
+          (child: { address: string }) =>
+            child.address.toLowerCase() === address.toLowerCase(),
+        ),
     );
     const hash =
       role === "safe"
         ? safeReceipt.transactionHash
         : role === "protocolToken" || role === "curve"
           ? launchReceipt.transactionHash
-          : role === "buybackVault" || role === "executor"
+          : [
+                "buybackVault",
+                "executor",
+                "tierDeployer",
+                "burnRouter",
+                "executorCodeStore",
+              ].includes(role)
             ? broadcast.transactions.find(
                 (tx) =>
                   tx.contractAddress?.toLowerCase() ===
@@ -352,6 +377,7 @@ export async function exportEvidence(directory: string) {
     measuredTransactions.push({
       hash: receipt.transactionHash,
       calldataBytes: (tx.input.length - 2) / 2,
+      input: tx.input,
       serializedBytes: (serialized.length - 2) / 2,
       gasUsed: String(
         BigInt((receipt as Receipt & { gasUsed: string }).gasUsed),
@@ -476,6 +502,7 @@ export async function exportEvidence(directory: string) {
   }
   const manifest = {
     schemaVersion: 1,
+    protocolGraph: "protocol-graph.json",
     runId: bootstrap.runId,
     mode: "run",
     status: "running",

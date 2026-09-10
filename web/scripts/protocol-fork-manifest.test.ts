@@ -130,6 +130,9 @@ it("validates the bootstrap export without promoting it to receipt evidence", ()
     properties.map((key) => [key, address]),
   );
   Object.assign(value, {
+    tierCreationCodeHash: `0x${"1".repeat(64)}`,
+    vestingLedgerRuntimeCodehash: `0x${"2".repeat(64)}`,
+    tierCreationCodeLength: 40000,
     runId: "isolated-bootstrap",
     chainId: 31337,
     scope: "deployment-fragment-awaiting-receipts",
@@ -147,6 +150,24 @@ it("validates the bootstrap export without promoting it to receipt evidence", ()
     validateBootstrap(value),
     JSON.stringify(validateBootstrap.errors),
   ).toBe(true);
+  for (const key of [
+    "vestingLedger",
+    "tierCodeStoreA",
+    "tierCodeStoreB",
+    "tierDeployer",
+    "executorCodeStore",
+    "burnRouter",
+    "tierCreationCodeHash",
+    "vestingLedgerRuntimeCodehash",
+    "tierCreationCodeLength",
+  ]) {
+    const missing = { ...value };
+    delete missing[key];
+    expect(validateBootstrap(missing), key).toBe(false);
+  }
+  expect(validateBootstrap({ ...value, tierCreationCodeLength: 49151 })).toBe(
+    false,
+  );
   value.safeOwners = [address];
   value.safeThreshold = 1;
   expect(

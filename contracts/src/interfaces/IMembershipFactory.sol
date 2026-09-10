@@ -7,6 +7,10 @@ import {MembershipTypes} from "../types/MembershipTypes.sol";
 
 /// @notice Direct-read registry and deployment surface for official membership tiers.
 interface IMembershipFactory {
+    event PaymentTokenMinimumUpdated(address indexed token, uint112 minimum);
+    event TierMinimumPaymentConfigured(address indexed tier, uint112 minimum);
+    function minimumPayment(address token) external view returns (uint112);
+    function setMinimumPayment(address token, uint112 minimum) external;
     function owner() external view returns (address);
     event TierCreated(
         address indexed tier,
@@ -28,6 +32,9 @@ interface IMembershipFactory {
         uint64 maxPrepaidPeriods
     );
     event TierMetadataConfigured(address indexed tier, string description, string externalURI);
+    event TierRewardCurveConfigured(
+        address indexed tier, uint32 startingBoostBps, uint112 earlySupportGross
+    );
     event TierArtConfigured(
         address indexed tier,
         uint16 engine,

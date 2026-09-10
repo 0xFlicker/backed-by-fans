@@ -8,6 +8,7 @@ import {IPonsBuybackExecutor} from "../src/interfaces/IPonsBuybackExecutor.sol";
 import {BuybackIntegration as Integration} from "../src/libraries/BuybackIntegration.sol";
 import {BuybackTypes} from "../src/types/BuybackTypes.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
+import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {SyntheticConversionBinding} from "./helpers/SyntheticConversionBinding.sol";
 import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
@@ -33,6 +34,7 @@ contract PonsBuybackExecutorTest is Test {
     BuybackTypes.SourceBucket internal constant DONATION = BuybackTypes.SourceBucket.Donation;
 
     function setUp() public {
+        new LinkedVestingFixture().install();
         vm.warp(1000);
         token = new FaultBurnToken();
         curve = new FaultBondingCurve(address(token));
@@ -45,7 +47,14 @@ contract PonsBuybackExecutorTest is Test {
         factory = MembershipFactory(
             deployCode(
                 "MembershipFactory.sol:MembershipFactory",
-                abi.encode(assets, media, address(this), address(token))
+                abi.encode(
+                    assets,
+                    media,
+                    address(this),
+                    address(token),
+                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.minimumPayments(assets)
+                )
             )
         );
         vault = ProtocolBuybackVault(payable(factory.buybackVault()));
@@ -76,6 +85,7 @@ contract PonsBuybackExecutorTest is Test {
     {
         SyntheticConversionBinding.install();
         AdversarialERC20 payment = new AdversarialERC20();
+        factory.setMinimumPayment(address(payment), 1);
         factory.setPaymentTokenEnabled(address(payment), true);
         address renderer = deployCode("OnchainMetadataRenderer.sol:OnchainMetadataRenderer");
         MembershipTypes.TierConfig memory config =
@@ -90,9 +100,8 @@ contract PonsBuybackExecutorTest is Test {
         payment.approve(address(tier), 200);
         uint256 id = tier.purchase(2, address(0));
         vm.warp(block.timestamp + 1);
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = id;
-        tier.accrueProtocolFees(ids);
+        assertEq(id, 1);
+        tier.processAccounting(25);
         assertEq(tier.releaseProtocolFees(), 100);
         assertTrue(payment.transfer(address(vault), 100));
         vault.syncDonation(address(payment));
@@ -389,6 +398,7 @@ contract PonsBuybackExecutorTest is Test {
         public
     {
         _installSyntheticWrappedImplementation();
+        factory.setMinimumPayment(Integration.WETH, 1);
         factory.setPaymentTokenEnabled(Integration.WETH, true);
         address renderer = deployCode("OnchainMetadataRenderer.sol:OnchainMetadataRenderer");
         MembershipTypes.TierConfig memory config =
@@ -408,9 +418,8 @@ contract PonsBuybackExecutorTest is Test {
         (bool sent,) = address(vault).call{value: 10}("");
         assertTrue(sent);
         vm.warp(1001);
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = id;
-        tier.accrueProtocolFees(ids);
+        assertEq(id, 1);
+        tier.processAccounting(25);
         assertEq(tier.releaseProtocolFees(), 100);
         assertEq(vault.inventory(address(0), BuybackTypes.SourceBucket.Membership).available, 100);
         assertEq(vault.inventory(address(0), DONATION).available, 1000);
