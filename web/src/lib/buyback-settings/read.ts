@@ -30,8 +30,7 @@ export async function readCalculator(
     {
       earned: bigint;
       reservedScaled: bigint;
-      complete: boolean;
-      accountedThrough: bigint;
+      checkpointsDue: boolean;
     }
   >();
   for (let offset = 0n; offset < tierCount; offset += 100n) {
@@ -73,14 +72,13 @@ export async function readCalculator(
       const amounts = fees.get(canonical.toLowerCase()) ?? {
         earned: 0n,
         reservedScaled: 0n,
-        complete: true,
-        accountedThrough: reserves.status.accountedThrough,
+        checkpointsDue: false,
       };
       amounts.earned += earnedHeld;
       amounts.reservedScaled += reserves.unearnedScaled[3];
-      amounts.complete &&= reserves.status.complete;
-      if (reserves.status.accountedThrough < amounts.accountedThrough)
-        amounts.accountedThrough = reserves.status.accountedThrough;
+      amounts.checkpointsDue ||=
+        reserves.status.scheduledMembers > 0n &&
+        reserves.status.nextBoundary <= state.data.timestamp;
       fees.set(canonical.toLowerCase(), amounts);
     }
   }

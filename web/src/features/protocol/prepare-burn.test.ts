@@ -98,7 +98,7 @@ it("rotates bounded tier pages from fresh blocks without scanning membership IDs
   const next = await prepareAdvance(f.client, addr(1));
   expect(first.tiers[0].tier).not.toBe(next.tiers[0].tier);
   expect(next.tiers).toHaveLength(4);
-  expect(next.moreAccounting).toBe(true);
+  expect(next.accountingCoverageIncomplete).toBe(true);
 });
 it("uses zero accounting budget for settled release-only work", async () => {
   const plan = await prepareAdvance(fixture(1n, true, 5n).client, addr(1));

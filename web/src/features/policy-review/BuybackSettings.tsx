@@ -1,5 +1,4 @@
 "use client";
-import { formatMembershipDate } from "@/features/membership/date";
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -618,9 +617,9 @@ function SettingsEditor({
                   <dd>
                     {!fees
                       ? "No membership funding"
-                      : fees.complete
-                        ? "Complete at this read"
-                        : `Incomplete; settled through ${formatMembershipDate(fees.accountedThrough)}. Advance accounting to recognize more earned funding.`}
+                      : fees.checkpointsDue
+                        ? "Checkpoints are due. Advance accounting to catch up."
+                        : "No checkpoints are due."}
                   </dd>
                 </div>
                 <div>

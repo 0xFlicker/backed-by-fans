@@ -42,6 +42,11 @@ vi.mock("./prepare-burn", () => ({ prepareAdvance: m.prepare }));
 vi.mock("./gas-readiness", () => ({ assertSufficientGas: m.gas }));
 const router = "0x2222222222222222222222222222222222222222";
 const factory = "0x1111111111111111111111111111111111111111";
+async function clickReady() {
+  const button = screen.getByRole("button", { name: "Advance and burn" });
+  await waitFor(() => expect(button).toBeEnabled());
+  await userEvent.click(button);
+}
 function mount(
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
 ) {
@@ -59,11 +64,12 @@ beforeEach(() => {
     tiers: [],
     purchases: [],
     deadline: 1000n,
-    moreAccounting: false,
+    accountingCoverageIncomplete: false,
     unavailableTiers: 0,
   });
   m.simulate.mockResolvedValue({
     request: { address: router, functionName: "advance" },
+    result: [10n, 3n, 2n, 123n * 10n ** 18n],
   });
   m.write.mockResolvedValue(`0x${"1".repeat(64)}`);
   m.gas.mockResolvedValue(undefined);
@@ -90,16 +96,14 @@ beforeEach(() => {
     ],
   });
 });
-it("builds on click and sends exactly the simulated request once", async () => {
+it("previews before signing and submits a fresh simulation request", async () => {
   mount();
-  expect(m.prepare).not.toHaveBeenCalled();
-  await userEvent.click(
-    screen.getByRole("button", { name: "Advance and burn" }),
-  );
+  await waitFor(() => expect(m.prepare).toHaveBeenCalled());
+  await clickReady();
   expect(await screen.findByText(/123 protocol tokens burned/)).toBeVisible();
   expect(m.write).toHaveBeenCalledTimes(1);
   expect(m.write.mock.calls[0][0]).toBe(
-    (await m.simulate.mock.results[0].value).request,
+    (await m.simulate.mock.results[1].value).request,
   );
 });
 it("does not request a wallet transaction when nothing is ready", async () => {
@@ -114,12 +118,12 @@ it("does not request a wallet transaction when nothing is ready", async () => {
     }),
   );
   mount();
-  await userEvent.click(
+  expect(
+    await screen.findByText("Nothing needs advancing in this batch."),
+  ).toBeVisible();
+  expect(
     screen.getByRole("button", { name: "Advance and burn" }),
-  );
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Nothing is ready",
-  );
+  ).toBeDisabled();
   expect(m.write).not.toHaveBeenCalled();
 });
 it("does not call collection-only progress a burn", async () => {
@@ -134,18 +138,14 @@ it("does not call collection-only progress a burn", async () => {
   );
   m.receipt.mockResolvedValue(r);
   mount();
-  await userEvent.click(
-    screen.getByRole("button", { name: "Advance and burn" }),
-  );
+  await clickReady();
   expect(await screen.findByText(/Earned fees released/)).toBeVisible();
   expect(screen.queryByText(/tokens burned/)).not.toBeInTheDocument();
 });
 it("requires a matching completion event before claiming success", async () => {
   m.receipt.mockResolvedValue({ status: "success", logs: [] });
   mount();
-  await userEvent.click(
-    screen.getByRole("button", { name: "Advance and burn" }),
-  );
+  await clickReady();
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "does not confirm",
   );
@@ -164,9 +164,7 @@ it.each(["router", "caller"])(
       });
     m.receipt.mockResolvedValue(receipt);
     mount();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Advance and burn" }),
-    );
+    await clickReady();
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "does not confirm",
     );
@@ -179,24 +177,18 @@ it("shows a wallet cancellation instead of claiming a burn", async () => {
     return { status: "success", logs: [] };
   });
   mount();
-  await userEvent.click(
-    screen.getByRole("button", { name: "Advance and burn" }),
-  );
+  await clickReady();
   expect(await screen.findByRole("alert")).toHaveTextContent("cancelled");
 });
 
 it("reports a reverted transaction and prepares anew on the next click", async () => {
   m.receipt.mockResolvedValueOnce({ status: "reverted", logs: [] });
   mount();
-  await userEvent.click(
-    screen.getByRole("button", { name: "Advance and burn" }),
-  );
+  await clickReady();
   expect(await screen.findByRole("alert")).toHaveTextContent("reverted");
-  await userEvent.click(
-    screen.getByRole("button", { name: "Advance and burn" }),
-  );
+  await clickReady();
   expect(await screen.findByText(/protocol tokens burned/)).toBeVisible();
-  expect(m.prepare).toHaveBeenCalledTimes(2);
+  expect(m.prepare.mock.calls.length).toBeGreaterThanOrEqual(3);
 });
 
 it("refreshes protocol queries and keeps the burn confirmed when refetch fails", async () => {
@@ -217,9 +209,7 @@ it("refreshes protocol queries and keeps the burn confirmed when refetch fails",
       expect(observer.getCurrentResult().status).toBe("success"),
     );
     mount(cache);
-    await userEvent.click(
-      screen.getByRole("button", { name: "Advance and burn" }),
-    );
+    await clickReady();
     expect(await screen.findByText(/123 protocol tokens burned/)).toBeVisible();
     expect(
       await screen.findByText("Refresh activity to load the updated balances."),
@@ -235,9 +225,7 @@ it.each(["prepare", "write", "receipt"] as const)(
   async (stage) => {
     m[stage].mockRejectedValueOnce(new Error("Connection unavailable"));
     mount();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Advance and burn" }),
-    );
+    if (stage !== "prepare") await clickReady();
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Connection unavailable",
     );
@@ -245,10 +233,9 @@ it.each(["prepare", "write", "receipt"] as const)(
   },
 );
 
-it("disables repeated clicks while fresh planning is unresolved", async () => {
-  const plan = await m.prepare();
+it("does not enable submission while the preview is unresolved", async () => {
   let finish!: (value: unknown) => void;
-  m.prepare.mockClear();
+  const plan = await m.prepare();
   m.prepare.mockImplementationOnce(
     () =>
       new Promise((resolve) => {
@@ -256,12 +243,76 @@ it("disables repeated clicks while fresh planning is unresolved", async () => {
       }),
   );
   mount();
-  await userEvent.dblClick(
-    screen.getByRole("button", { name: "Advance and burn" }),
-  );
-  expect(screen.getByRole("button", { name: "Working…" })).toBeDisabled();
-  expect(m.prepare).toHaveBeenCalledTimes(1);
+  const button = screen.getByRole("button", { name: "Advance and burn" });
+  expect(button).toBeDisabled();
+  expect(m.write).not.toHaveBeenCalled();
   finish(plan);
-  expect(await screen.findByText(/protocol tokens burned/)).toBeVisible();
-  expect(m.write).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(button).toBeEnabled());
+});
+
+it.each([true, false])(
+  "reports remaining checkpoints from the receipt (complete=%s)",
+  async (complete) => {
+    const receipt = await m.receipt();
+    const event = getAbiItem({
+      abi: protocolBurnRouterAbi,
+      name: "AccountingAdvanced",
+    });
+    receipt.logs.push({
+      address: router,
+      topics: encodeEventTopics({
+        abi: protocolBurnRouterAbi,
+        eventName: "AccountingAdvanced",
+        args: { caller: m.account.address as `0x${string}`, tier: factory },
+      }),
+      data: encodeAbiParameters(
+        event.inputs.filter((input) => !input.indexed),
+        [25n, 1000n, complete, 1n],
+      ),
+    });
+    m.receipt.mockResolvedValue(receipt);
+    mount();
+    await clickReady();
+    await screen.findByText(/123 protocol tokens burned/);
+    expect(Boolean(screen.queryByText(/More checkpoints remain/))).toBe(
+      !complete,
+    );
+  },
+);
+
+it("keeps continuous accrual out of the main action but allows explicit settlement", async () => {
+  m.simulate.mockResolvedValue({
+    request: { address: router, functionName: "advance" },
+    result: [0n, 1n, 0n, 0n],
+  });
+  mount();
+  expect(await screen.findByText("Accounting is up to date.")).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Advance and burn" }),
+  ).toBeDisabled();
+  expect(m.write).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByText("Accounting details"));
+  m.simulate.mockResolvedValue({
+    request: { address: router, functionName: "advanceAccounting" },
+    result: 0n,
+  });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Settle accrued rewards" }),
+  );
+  await waitFor(() => expect(m.write).toHaveBeenCalledOnce());
+  expect(m.simulate.mock.calls[1][1].functionName).toBe("advanceAccounting");
+});
+it("does not submit if ready work disappears after the preview", async () => {
+  mount();
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Advance and burn" }),
+    ).toBeEnabled(),
+  );
+  m.simulate.mockResolvedValue({ request: {}, result: [0n, 0n, 0n, 0n] });
+  await clickReady();
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Nothing needs advancing right now.",
+  );
+  expect(m.write).not.toHaveBeenCalled();
 });

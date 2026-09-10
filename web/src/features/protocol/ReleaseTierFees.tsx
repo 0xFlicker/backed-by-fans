@@ -2,18 +2,11 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
-import {
-  BaseError,
-  ContractFunctionRevertedError,
-  zeroAddress,
-  type Address,
-} from "viem";
+import { zeroAddress, type Address } from "viem";
 import {
   membershipTierAbi,
   membershipFactoryAbi,
-  protocolBurnRouterAbi,
   protocolBuybackVaultAbi,
 } from "@/contracts";
 import type { SupportedChainId } from "@/lib/chains";
@@ -21,9 +14,9 @@ import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { decodeTransactionError } from "@/lib/transaction-state";
 import { assertSufficientGas } from "./gas-readiness";
 import { receiptAdvance, buybackSkipReason } from "./buyback-reconciliation";
-import { formatMembershipDate } from "@/features/membership/date";
+import { simulateAdvance } from "./simulate-advance";
 
-import { advanceCall, type AdvanceMode } from "./advance-call";
+import { type AdvanceMode } from "./advance-call";
 
 export function ReleaseTierFees({
   chainId,
@@ -42,7 +35,10 @@ export function ReleaseTierFees({
   const write = useWriteContract();
   const cache = useQueryClient();
   const [mode, setMode] = useState<AdvanceMode>("accounting");
-  async function readStatus() {
+  async function readStatus(
+    requestedMode: AdvanceMode = mode,
+    includePreview = true,
+  ) {
     if (!client) throw new Error("The network is unavailable.");
     const block = await client.getBlock();
     const [status, held, factory] = await Promise.all([
@@ -109,7 +105,28 @@ export function ReleaseTierFees({
       });
       purchases.push({ asset, revision });
     }
-    return { status, held, router, purchases, timestamp: block.timestamp };
+    const simulation = includePreview
+      ? await simulateAdvance(
+          config,
+          chainId,
+          account.address ?? zeroAddress,
+          requestedMode,
+          {
+            router,
+            tiers: [{ tier, maxAccountingSteps: 25n }],
+            purchases,
+            deadline: block.timestamp + 300n,
+          },
+        )
+      : null;
+    return {
+      status,
+      held,
+      router,
+      purchases,
+      timestamp: block.timestamp,
+      simulation,
+    };
   }
   const state = useQuery({
     queryKey: [
@@ -118,45 +135,25 @@ export function ReleaseTierFees({
       "accounting-actions",
       tier,
       blockNumber.toString(),
+      mode,
+      account.address,
     ],
     enabled: Boolean(client),
-    queryFn: readStatus,
+    queryFn: () => readStatus(),
+    refetchInterval: 30_000,
     retry: false,
   });
   const action = useMutation({
     retry: false,
-    mutationFn: async () => {
+    mutationFn: async (manual: boolean) => {
       if (!client || !account.address || account.chainId !== chainId)
         throw new Error("Connect your wallet on this network.");
-      const current = await readStatus();
-      let simulation;
-      try {
-        simulation = await simulateContract(config, {
-          account: account.address,
-          chainId,
-          address: current.router,
-          abi: protocolBurnRouterAbi,
-          ...advanceCall(
-            mode,
-            [{ tier, maxAccountingSteps: 25n }],
-            current.purchases,
-            current.timestamp + 300n,
-          ),
-        });
-      } catch (error) {
-        const reverted =
-          error instanceof BaseError &&
-          error.walk((cause) => cause instanceof ContractFunctionRevertedError);
-        if (
-          reverted instanceof ContractFunctionRevertedError &&
-          reverted.data?.errorName === "NothingToDo"
-        )
-          throw new Error(
-            "Nothing is ready to advance, release or buy back. Refresh as paid time is used or buybacks become eligible.",
-          );
-        throw error;
+      const current = await readStatus(manual ? "accounting" : mode);
+      if (!current.simulation || (!manual && !current.simulation.ready)) {
+        await state.refetch();
+        throw new Error("Nothing needs advancing right now.");
       }
-      const { request } = simulation;
+      const { request } = current.simulation;
       await assertSufficientGas(client, account.address, request);
       const hash = await write.writeContractAsync(request);
       let cancelled = false;
@@ -175,7 +172,7 @@ export function ReleaseTierFees({
       });
       if (!outcome)
         throw new Error("The receipt does not confirm this accounting action.");
-      const next = await readStatus();
+      const next = await readStatus(mode, false);
       const refresh = await Promise.allSettled([
         cache.invalidateQueries({
           predicate: (query) => query.queryKey.includes(tier),
@@ -210,19 +207,35 @@ export function ReleaseTierFees({
     >
       <h3>Advance membership accounting</h3>
       <p>Settle up to 25 checkpoints, run buybacks, or do both.</p>
-      {state.data && (
-        <p className="small-copy">
-          Accounting through{" "}
-          {formatMembershipDate(state.data.status.accountedThrough)}.
-          {state.data.status.complete
-            ? " All due checkpoints are complete."
-            : state.data.status.scheduledMembers === 0n
-              ? " No funding checkpoints remain."
-              : state.data.status.nextBoundary > state.data.timestamp
-                ? " No checkpoints are due. New paid time may be waiting to settle."
-                : " More accounting remains."}{" "}
-        </p>
-      )}
+      <div
+        className="small-copy"
+        aria-live="polite"
+        style={{ minHeight: "5rem" }}
+      >
+        {state.isPending
+          ? "Checking…"
+          : state.data && (
+              <>
+                {mode !== "buyback" && (
+                  <div>
+                    {state.data.simulation?.processedSteps
+                      ? `${state.data.simulation.processedSteps} checkpoints ready.`
+                      : "Accounting is up to date."}
+                  </div>
+                )}
+                {mode !== "accounting" && (
+                  <div>
+                    {state.data.simulation?.purchases
+                      ? `${state.data.simulation.purchases} buybacks ready.`
+                      : "No buyback ready. Waiting for funds or eligibility."}
+                  </div>
+                )}
+                {!state.data.simulation?.ready && (
+                  <div>Nothing needs advancing.</div>
+                )}
+              </>
+            )}
+      </div>
       <label className="creator-field">
         <span>Action</span>
         <select
@@ -239,8 +252,8 @@ export function ReleaseTierFees({
         <button
           type="button"
           className="button button-dark"
-          disabled={blocked}
-          onClick={() => action.mutate()}
+          disabled={blocked || !state.data?.simulation?.ready}
+          onClick={() => action.mutate(false)}
         >
           {action.isPending
             ? "Working…"
@@ -259,6 +272,23 @@ export function ReleaseTierFees({
           Refresh accounting
         </button>
       </div>
+      <details>
+        <summary>Accounting details</summary>
+        <p className="small-copy">
+          Rewards accrue between checkpoints. Settle them here to make newly
+          earned funds available.
+        </p>
+        {mode !== "buyback" && (
+          <button
+            type="button"
+            className="text-button"
+            disabled={blocked || !state.data?.simulation}
+            onClick={() => action.mutate(true)}
+          >
+            Settle accrued rewards
+          </button>
+        )}
+      </details>
       {!account.isConnected ? (
         <p>Connect a wallet to continue.</p>
       ) : account.chainId !== chainId ? (
@@ -279,18 +309,18 @@ export function ReleaseTierFees({
       )}
       {action.data && (
         <p role="status">
-          {action.data.processedSteps.toString()} checkpoints completed.
-          Protocol funds released from {action.data.releasedTiers.toString()}{" "}
-          membership tiers. {action.data.purchases.toString()} buyback actions
-          completed.
-          {action.data.status.complete
-            ? " Accounting is caught up."
-            : action.data.status.scheduledMembers === 0n
-              ? " No funding checkpoints remain."
-              : action.data.status.nextBoundary > action.data.timestamp
-                ? " All due checkpoints are processed. Refresh your membership action to continue."
-                : " More remains. Advance again to continue."}
-          {action.data.skipped.length > 0 &&
+          {action.data.status.complete ||
+          action.data.status.scheduledMembers === 0n ||
+          action.data.status.nextBoundary > action.data.timestamp
+            ? "Accounting is up to date."
+            : "More remains. Advance again to continue."}
+          {action.data.processedSteps > 0n &&
+            ` ${action.data.processedSteps} checkpoints completed.`}
+          {action.data.releasedTiers > 0n && " Protocol funding released."}
+          {action.data.purchases > 0n &&
+            ` ${action.data.purchases} buyback actions completed.`}
+          {action.data.purchases === 0n &&
+            action.data.skipped.length > 0 &&
             ` Buybacks skipped: ${action.data.skipped.join(", ")}.`}
           {action.data.refreshFailed &&
             " Refresh the page to load the updated balances."}

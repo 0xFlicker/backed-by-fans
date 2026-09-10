@@ -175,8 +175,7 @@ export async function prepareAdvance(
     unavailableTiers,
     purchases: purchases.map(({ asset, revision }) => ({ asset, revision })),
     deadline: block.timestamp + 300n,
-    moreAccounting:
-      (!selectedTier && BigInt(tiers.length) < tierCount) ||
-      ready.some((item) => !item.status.complete),
+    accountingCoverageIncomplete:
+      !selectedTier && BigInt(tiers.length) < tierCount,
   };
 }

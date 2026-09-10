@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { zeroAddress, type Address, type PublicClient } from "viem";
 import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
@@ -19,7 +23,7 @@ import {
 } from "./protocol-read";
 import { readTierFunding } from "./fee-forecast";
 import { readAcceptedPaymentToken } from "@/lib/payment-token-read";
-import { formatRawTokenAmount } from "@/lib/token-amount";
+import { formatLocalizedTokenAmount } from "@/lib/token-amount";
 
 type State = Awaited<ReturnType<typeof readPublicBuybacks>>;
 function Amount({
@@ -35,7 +39,7 @@ function Amount({
 }) {
   return (
     <span title={`${raw} raw units`}>
-      {formatRawTokenAmount({ raw, decimals, multiplier })}
+      {formatLocalizedTokenAmount({ raw, decimals, multiplier })}
       {symbol ? ` ${symbol}` : ""}
     </span>
   );
@@ -64,6 +68,7 @@ export function ProtocolActivity({
 }) {
   const client = usePublicClient({ chainId }),
     deployment = getDeployment(publicConfig, chainId);
+  const cache = useQueryClient();
   const [assetOffset, setAssetOffset] = useState(0);
   const query = useQuery({
     queryKey: ["protocol", chainId, "snapshot", assetOffset],
@@ -85,7 +90,7 @@ export function ProtocolActivity({
       ? protocolAsset.data.metadata?.symbol
       : undefined;
   const refresh = async () => {
-    await query.refetch();
+    await cache.invalidateQueries({ queryKey: ["protocol", chainId] });
   };
   return (
     <>
@@ -154,7 +159,7 @@ export function ProtocolActivity({
             className="protocol-section"
           >
             <h2 id="inventory-title">Released fees & burns</h2>
-            <p>Available funds and lifetime burns, by currency.</p>
+            <p>Available funds, spending and protocol tokens burned.</p>
             {state.data.assets.map((item) =>
               item.status !== "valid" ? (
                 <p className="inline-status" key={item.asset}>
@@ -187,14 +192,25 @@ export function ProtocolActivity({
                       </dd>
                     </div>
                     <div>
-                      <dt>Burned</dt>
+                      <dt>
+                        {item.asset.toLowerCase() ===
+                        state.data.protocolToken.toLowerCase()
+                          ? "Total burned"
+                          : "Spent"}
+                      </dt>
                       <dd>
                         <Amount
                           raw={
-                            item.data.membership.totalBurned +
-                            item.data.donation.totalBurned
+                            item.asset.toLowerCase() ===
+                            state.data.protocolToken.toLowerCase()
+                              ? item.data.membership.totalBurned +
+                                item.data.donation.totalBurned
+                              : item.data.membership.totalSpent +
+                                item.data.donation.totalSpent
                           }
-                          symbol={protocolTokenSymbol ?? "tokens"}
+                          decimals={item.data.metadata?.decimals ?? 0}
+                          multiplier={item.data.metadata?.uiMultiplier}
+                          symbol={item.data.metadata?.symbol}
                         />
                       </dd>
                     </div>
@@ -224,37 +240,45 @@ export function ProtocolActivity({
                               ["Available to process", "available"],
                               ["Burned", "totalBurned"],
                             ] as const
-                          ).map(([label, key]) => (
-                            <tr key={key}>
-                              <th scope="row">{label}</th>
-                              {[item.data.membership, item.data.donation].map(
-                                (bucket, i) => (
-                                  <td key={i}>
-                                    <Amount
-                                      raw={bucket[key]}
-                                      decimals={
-                                        key === "totalBurned"
-                                          ? 18
-                                          : (item.data.metadata?.decimals ?? 0)
-                                      }
-                                      multiplier={
-                                        key === "totalBurned"
-                                          ? 10n ** 18n
-                                          : item.data.metadata?.uiMultiplier
-                                      }
-                                      symbol={
-                                        key === "totalBurned"
-                                          ? "protocol tokens"
-                                          : item.data.metadata
-                                            ? ""
-                                            : "raw units"
-                                      }
-                                    />
-                                  </td>
-                                ),
-                              )}
-                            </tr>
-                          ))}
+                          )
+                            .filter(
+                              ([, key]) =>
+                                key !== "totalBurned" ||
+                                item.asset.toLowerCase() ===
+                                  state.data.protocolToken.toLowerCase(),
+                            )
+                            .map(([label, key]) => (
+                              <tr key={key}>
+                                <th scope="row">{label}</th>
+                                {[item.data.membership, item.data.donation].map(
+                                  (bucket, i) => (
+                                    <td key={i}>
+                                      <Amount
+                                        raw={bucket[key]}
+                                        decimals={
+                                          key === "totalBurned"
+                                            ? 18
+                                            : (item.data.metadata?.decimals ??
+                                              0)
+                                        }
+                                        multiplier={
+                                          key === "totalBurned"
+                                            ? 10n ** 18n
+                                            : item.data.metadata?.uiMultiplier
+                                        }
+                                        symbol={
+                                          key === "totalBurned"
+                                            ? "protocol tokens"
+                                            : item.data.metadata
+                                              ? ""
+                                              : "raw units"
+                                        }
+                                      />
+                                    </td>
+                                  ),
+                                )}
+                              </tr>
+                            ))}
                         </tbody>
                       </table>
                     </div>
@@ -619,7 +643,7 @@ function TierForecast({
   const display = (raw: bigint) =>
     token.data ? (
       <span title={`${raw} raw units`}>
-        {formatRawTokenAmount({
+        {formatLocalizedTokenAmount({
           raw,
           decimals: token.data.decimals,
           multiplier: token.data.uiMultiplier,

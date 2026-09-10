@@ -180,3 +180,25 @@ export function scheduledDisplayAdjustment(input: {
     }),
   };
 }
+
+/** Locale-aware display without converting large balances to floating point. */
+export function formatLocalizedTokenAmount(
+  input: Parameters<typeof formatRawTokenAmount>[0],
+  locale = "en-US",
+): string {
+  const [whole, fraction] = formatRawTokenAmount(input).split(".");
+  const formatter = new Intl.NumberFormat(locale);
+  const integer = formatter.format(BigInt(whole));
+  if (!fraction) return integer;
+  const separator = formatter
+    .formatToParts(1.1)
+    .find((part) => part.type === "decimal")!.value;
+  const digits = Array.from({ length: 10 }, (_, digit) =>
+    formatter.format(digit),
+  );
+  return (
+    integer +
+    separator +
+    [...fraction].map((digit) => digits[Number(digit)]).join("")
+  );
+}

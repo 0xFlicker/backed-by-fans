@@ -7,50 +7,63 @@ const mock = vi.hoisted(() => ({ snapshot: vi.fn() }));
 vi.mock("@/features/protocol/protocol-read", () => ({
   readPublicBuybacks: mock.snapshot,
 }));
-it("combines WETH earnings into ETH without counting historical reserves as earned", async () => {
-  const factory = "0x1111111111111111111111111111111111111111",
-    vault = "0x2222222222222222222222222222222222222222",
-    tier = "0x3333333333333333333333333333333333333333",
-    weth = "0x4444444444444444444444444444444444444444";
-  mock.snapshot.mockResolvedValue({
-    status: "valid",
-    capturedBlock: 42n,
-    data: {
-      factory,
-      vault,
-      tierCount: 1n,
-      assetCoverage: { nextOffset: null },
-    },
-  });
-  const readContract = vi.fn(async ({ functionName }) => {
-    if (functionName === "reserveState")
+it.each([
+  { nextBoundary: 950n, scheduledMembers: 1n, checkpointsDue: true },
+  { nextBoundary: 1000n, scheduledMembers: 1n, checkpointsDue: true },
+  { nextBoundary: 1100n, scheduledMembers: 1n, checkpointsDue: false },
+  { nextBoundary: 0n, scheduledMembers: 0n, checkpointsDue: false },
+])(
+  "aggregates funding and detects due checkpoints at $nextBoundary with $scheduledMembers scheduled",
+  async ({ nextBoundary, scheduledMembers, checkpointsDue }) => {
+    const factory = "0x1111111111111111111111111111111111111111",
+      vault = "0x2222222222222222222222222222222222222222",
+      tier = "0x3333333333333333333333333333333333333333",
+      weth = "0x4444444444444444444444444444444444444444";
+    mock.snapshot.mockResolvedValue({
+      status: "valid",
+      capturedBlock: 42n,
+      data: {
+        factory,
+        vault,
+        tierCount: 1n,
+        timestamp: 1000n,
+        assetCoverage: { nextOffset: null },
+      },
+    });
+    const readContract = vi.fn(async ({ functionName }) => {
+      if (functionName === "reserveState")
+        return {
+          unearnedScaled: [0n, 0n, 0n, 12n * (1n << 128n) + 5n],
+          status: {
+            accountedThrough: 900n,
+            complete: false,
+            scheduledMembers,
+            nextBoundary,
+          },
+        };
       return {
-        unearnedScaled: [0n, 0n, 0n, 12n * (1n << 128n) + 5n],
-        status: { accountedThrough: 900n, complete: false },
-      };
-    return {
-      tiers: [tier],
-      paymentToken: weth,
-      protocolFeeEarnedHeld: 10n,
-      totalMinted: 2n,
-      canonicalAsset: zeroAddress,
-    }[functionName as "tiers"];
-  });
-  const result = await readCalculator(
-    { readContract } as unknown as PublicClient,
-    {} as DeploymentAvailability,
-  );
-  expect(result.fees.get(zeroAddress)).toEqual({
-    earned: 10n,
-    reservedScaled: 12n * (1n << 128n) + 5n,
-    accountedThrough: 900n,
-    complete: false,
-  });
-  expect(result.fees.has(weth)).toBe(false);
-  expect(
-    readContract.mock.calls.every(([args]) => args.blockNumber === 42n),
-  ).toBe(true);
-});
+        tiers: [tier],
+        paymentToken: weth,
+        protocolFeeEarnedHeld: 10n,
+        totalMinted: 2n,
+        canonicalAsset: zeroAddress,
+      }[functionName as "tiers"];
+    });
+    const result = await readCalculator(
+      { readContract } as unknown as PublicClient,
+      {} as DeploymentAvailability,
+    );
+    expect(result.fees.get(zeroAddress)).toEqual({
+      earned: 10n,
+      reservedScaled: 12n * (1n << 128n) + 5n,
+      checkpointsDue,
+    });
+    expect(result.fees.has(weth)).toBe(false);
+    expect(
+      readContract.mock.calls.every(([args]) => args.blockNumber === 42n),
+    ).toBe(true);
+  },
+);
 
 it("does not mistake native ETH for an unlaunched protocol token", async () => {
   const readContract = vi.fn();

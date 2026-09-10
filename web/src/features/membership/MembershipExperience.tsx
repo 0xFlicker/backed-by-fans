@@ -318,17 +318,25 @@ export function MembershipExperience({
   const contributionValue = paymentTokenState
     ? parsePaymentAmount(contribution, paymentTokenState)
     : undefined;
+  const primaryInputEmpty =
+    (snapshot.pricePerPeriod === 0n ? contribution : periods).trim() === "";
   const primaryInputValid =
-    snapshot.pricePerPeriod === 0n
+    !primaryInputEmpty &&
+    (snapshot.pricePerPeriod === 0n
       ? contributionValue !== undefined &&
         (contributionValue === 0n ||
           contributionValue >= snapshot.minimumPayment)
-      : periodValue !== undefined;
+      : periodValue !== undefined);
   const selfPreview = buildPaymentPreview({
     now: snapshot.capturedTimestamp,
     currentExpiration: snapshot.credential?.expiration ?? 0n,
     periodDuration: snapshot.periodDuration,
-    periods: snapshot.pricePerPeriod === 0n ? 1n : (periodValue ?? 0n),
+    periods:
+      snapshot.pricePerPeriod === 0n
+        ? primaryInputEmpty
+          ? 0n
+          : 1n
+        : (periodValue ?? 0n),
     pricePerPeriod: snapshot.pricePerPeriod,
     contribution: contributionValue ?? 0n,
     allowance: snapshot.allowance ?? 0n,
@@ -657,6 +665,8 @@ export function MembershipExperience({
           return actual !== undefined;
         });
         if (reconciled) {
+          if (snapshot.pricePerPeriod === 0n) setContribution("");
+          else setPeriods("");
           setIssuedWeight(actual);
           setRestoredWeight(
             receiptRestoredRewardWeight(
@@ -989,7 +999,7 @@ export function MembershipExperience({
                   Optional {paymentTokenState?.symbol ?? "token"} contribution
                 </span>
                 <input
-                  aria-invalid={!primaryInputValid}
+                  aria-invalid={!primaryInputEmpty && !primaryInputValid}
                   inputMode="decimal"
                   min="0"
                   onChange={(event) => setContribution(event.target.value)}
@@ -1005,7 +1015,7 @@ export function MembershipExperience({
               <label className="creator-field">
                 <span>Periods</span>
                 <input
-                  aria-invalid={periodValue === undefined}
+                  aria-invalid={!primaryInputEmpty && periodValue === undefined}
                   inputMode="numeric"
                   min="1"
                   onChange={(event) => setPeriods(event.target.value)}
@@ -1038,13 +1048,15 @@ export function MembershipExperience({
             <details className="technical-details reward-preview-details">
               <summary>Reward details</summary>
               <p className="small-copy" aria-live="polite">
-                {!primaryInputValid
-                  ? "Enter a valid payment to preview reward weight."
-                  : rewardQuote.data !== undefined
-                    ? `Estimated new reward weight: ${weightLabel(rewardQuote.data)} shares (${averageRewardBoost(rewardQuote.data, selfPreview.gross)} average).`
-                    : rewardQuote.isError
-                      ? "Reward weight preview is unavailable. The contract will check this payment before confirmation."
-                      : "Checking reward weight…"}
+                {primaryInputEmpty
+                  ? ""
+                  : !primaryInputValid
+                    ? "Enter a valid payment to preview reward weight."
+                    : rewardQuote.data !== undefined
+                      ? `Estimated new reward weight: ${weightLabel(rewardQuote.data)} shares (${averageRewardBoost(rewardQuote.data, selfPreview.gross)} average).`
+                      : rewardQuote.isError
+                        ? "Reward weight preview is unavailable. The contract will check this payment before confirmation."
+                        : "Checking reward weight…"}
               </p>
               <p className="small-copy">
                 Reward weight is permanent. Rewards earn as paid time is used.
@@ -1081,7 +1093,9 @@ export function MembershipExperience({
               </p>
             ) : null}
             <p className="small-copy" aria-live="polite">
-              {!primaryInputValid ? (
+              {primaryInputEmpty ? (
+                ""
+              ) : !primaryInputValid ? (
                 snapshot.pricePerPeriod === 0n ? (
                   `Enter a valid ${paymentTokenState?.symbol ?? "token"} contribution.`
                 ) : (
@@ -1118,25 +1132,27 @@ export function MembershipExperience({
               </p>
             )}
             {wrappingAction(fundingShortfall)}
-            {walletReady && (snapshot.walletEthBalance ?? 0n) === 0n && (
-              <p className="funding-notice" role="status">
-                Add a small amount of ETH on {network.name} for gas.
-                {expectedChainId === 46_630 ? (
-                  <>
-                    {" "}
-                    Get test ETH from the{" "}
-                    <Link
-                      href={robinhoodTestnetFaucetUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      official faucet
-                    </Link>
-                    .
-                  </>
-                ) : null}
-              </p>
-            )}
+            {!primaryInputEmpty &&
+              walletReady &&
+              (snapshot.walletEthBalance ?? 0n) === 0n && (
+                <p className="funding-notice" role="status">
+                  Add a small amount of ETH on {network.name} for gas.
+                  {expectedChainId === 46_630 ? (
+                    <>
+                      {" "}
+                      Get test ETH from the{" "}
+                      <Link
+                        href={robinhoodTestnetFaucetUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        official faucet
+                      </Link>
+                      .
+                    </>
+                  ) : null}
+                </p>
+              )}
             {capacityFull && (
               <p className="inline-status" role="alert">
                 This membership is currently full.

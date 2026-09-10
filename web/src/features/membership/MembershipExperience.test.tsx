@@ -308,6 +308,7 @@ describe("supporter membership experience", () => {
     });
     const next = {
       ...snapshot,
+      walletPaymentTokenBalance: 0n,
       credential: credential({
         shares: 24_000_000n,
         expiration: snapshot.capturedTimestamp + 60n,
@@ -342,6 +343,23 @@ describe("supporter membership experience", () => {
     expect(
       screen.getByText(/Historical reward weight restored: 10 shares/),
     ).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Periods" })).toHaveValue("");
+    expect(screen.getByRole("textbox", { name: "Periods" })).toHaveAttribute(
+      "aria-invalid",
+      "false",
+    );
+    expect(
+      screen.getByRole("button", { name: "Renew active membership" }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: /^Wrap / }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Your wallet will first request an exact/),
+    ).not.toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "Periods" }), "2");
+    expect(screen.getByRole("textbox", { name: "Periods" })).toHaveValue("2");
+
     expect(paymentWrite.send).toHaveBeenCalledWith(
       (await paymentWrite.simulate.mock.results[0].value).request,
     );
@@ -602,6 +620,27 @@ describe("supporter membership experience", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("requires an explicit contribution after clearing a pay-what-you-want input", async () => {
+    const user = userEvent.setup();
+    renderExperience({ ...snapshot, pricePerPeriod: 0n });
+    const input = screen.getByRole("textbox", {
+      name: /Optional USDG contribution/,
+    });
+    await user.clear(input);
+    expect(
+      screen.getByRole("button", { name: "Add one membership period" }),
+    ).toBeDisabled();
+    expect(
+      within(screen.getByLabelText("Membership payment preview")).getByText(
+        "0 days",
+      ),
+    ).toBeVisible();
+    await user.type(input, "0");
+    expect(
+      screen.getByRole("button", { name: "Add one membership period" }),
+    ).toBeEnabled();
+  });
+
   it("keeps the payment preview in place while the periods field is empty", async () => {
     const user = userEvent.setup();
     renderExperience({ ...snapshot, credential: credential() });
@@ -610,10 +649,12 @@ describe("supporter membership experience", () => {
     const preview = screen.getByLabelText("Membership payment preview");
     await user.clear(periods);
 
-    expect(periods).toHaveAttribute("aria-invalid", "true");
+    expect(periods).toHaveAttribute("aria-invalid", "false");
     expect(within(preview).getByText("0 USDG")).toBeVisible();
     expect(within(preview).getByText("0 days")).toBeVisible();
-    expect(screen.getByText("Enter 1 or more whole periods.")).toBeVisible();
+    expect(
+      screen.queryByText("Enter 1 or more whole periods."),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Renew active membership" }),
     ).toBeDisabled();

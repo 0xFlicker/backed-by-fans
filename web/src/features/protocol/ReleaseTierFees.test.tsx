@@ -74,7 +74,15 @@ beforeEach(() => {
     if (functionName === "protocolToken") return zeroAddress;
     throw new Error("Unexpected " + functionName);
   });
-  mock.simulate.mockImplementation(async (_config, request) => ({ request }));
+  mock.simulate.mockImplementation(async (_config, request) => ({
+    request,
+    result:
+      request.functionName === "advanceAccounting"
+        ? 25n
+        : request.functionName === "buyback"
+          ? [1n, 123n]
+          : [25n, 1n, 1n, 123n],
+  }));
   mock.write.mockResolvedValue("0x" + "12".repeat(32));
   const event = getAbiItem({
     abi: protocolBurnRouterAbi,
@@ -111,7 +119,7 @@ it("lets any wallet advance and release with the exact simulated request", async
     args: [[{ tier, maxAccountingSteps: 25n }]],
   });
   expect(mock.write.mock.calls[0][0]).toBe(
-    (await mock.simulate.mock.results[0].value).request,
+    (await mock.simulate.mock.results[1].value).request,
   );
   expect(screen.getByText(/More remains. Advance again/)).toBeVisible();
   expect(
@@ -125,7 +133,11 @@ it("offers buyback-only without accounting or release", async () => {
   await waitFor(() => expect(button).toBeEnabled());
   await userEvent.click(button);
   await screen.findByText(/25 checkpoints completed/);
-  expect(mock.simulate.mock.calls[0][1]).toMatchObject({
+  expect(
+    mock.simulate.mock.calls.find(
+      ([, request]) => request.functionName === "buyback",
+    )![1],
+  ).toMatchObject({
     functionName: "buyback",
     args: [[], 1300n],
   });
@@ -144,9 +156,11 @@ it("includes the canonical payment asset's current buyback revision in the same 
   await waitFor(() => expect(button).toBeEnabled());
   await userEvent.click(button);
   await screen.findByText(/25 checkpoints completed/);
-  expect(mock.simulate.mock.calls[0][1].args[1]).toEqual([
-    { asset: zeroAddress, revision: 7n },
-  ]);
+  expect(
+    mock.simulate.mock.calls.find(
+      ([, request]) => request.functionName === "advance",
+    )![1].args[1],
+  ).toEqual([{ asset: zeroAddress, revision: 7n }]);
 });
 it("uses a fixed checkpoint budget without numerical input", () => {
   mount();
@@ -186,4 +200,22 @@ it("blocks the wrong network and reports failed reads", async () => {
   expect(
     screen.getByRole("button", { name: "Advance accounting" }),
   ).toBeDisabled();
+});
+
+it("shows up to date and requires explicit settlement for accrual alone", async () => {
+  mock.simulate.mockImplementation(async (_config, request) => ({
+    request,
+    result: 0n,
+  }));
+  mount();
+  expect(await screen.findByText("Accounting is up to date.")).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Advance accounting" }),
+  ).toBeDisabled();
+  expect(mock.write).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByText("Accounting details"));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Settle accrued rewards" }),
+  );
+  await waitFor(() => expect(mock.write).toHaveBeenCalledOnce());
 });

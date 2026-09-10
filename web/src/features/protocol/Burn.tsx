@@ -1,25 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { advanceCall, type AdvanceMode } from "./advance-call";
+import { type AdvanceMode } from "./advance-call";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { simulateContract } from "@wagmi/core";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
-import {
-  BaseError,
-  isAddress,
-  ContractFunctionRevertedError,
-  type Address,
-  type PublicClient,
-} from "viem";
-import { protocolBurnRouterAbi } from "@/contracts";
+import { isAddress, zeroAddress, type Address, type PublicClient } from "viem";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { decodeTransactionError } from "@/lib/transaction-state";
-import { formatRawTokenAmount, tokenMultiplierScale } from "@/lib/token-amount";
+import {
+  formatLocalizedTokenAmount,
+  tokenMultiplierScale,
+} from "@/lib/token-amount";
 import { receiptAdvance, buybackSkipReason } from "./buyback-reconciliation";
 import { prepareAdvance } from "./prepare-burn";
+import { simulateAdvance } from "./simulate-advance";
 import { assertSufficientGas } from "./gas-readiness";
 
 export function Burn({
@@ -39,45 +35,54 @@ export function Burn({
   const config = useConfig();
   const write = useWriteContract();
   const cache = useQueryClient();
+  async function checkAdvance(requestedMode: AdvanceMode = mode) {
+    if (!client) throw new Error("The network is unavailable.");
+    if (requestedMode !== "buyback" && selectedTier && !isAddress(selectedTier))
+      throw new Error("Enter a valid membership contract address.");
+    const plan = await prepareAdvance(
+      client as PublicClient,
+      factory,
+      requestedMode !== "buyback" && selectedTier
+        ? (selectedTier as Address)
+        : undefined,
+    );
+    const simulation = await simulateAdvance(
+      config,
+      chainId,
+      account.address ?? zeroAddress,
+      requestedMode,
+      plan,
+    );
+    return { plan, simulation };
+  }
+  const preview = useQuery({
+    queryKey: [
+      "protocol",
+      chainId,
+      "advance-preview",
+      factory,
+      account.address,
+      mode,
+      selectedTier,
+    ],
+    queryFn: () => checkAdvance(),
+    enabled: Boolean(client),
+    refetchInterval: 30_000,
+    retry: false,
+  });
   const action = useMutation({
     retry: false,
-    mutationFn: async () => {
+    mutationFn: async (manual: boolean) => {
       if (!client || !account.address || account.chainId !== chainId)
         throw new Error("Connect your wallet on this network.");
       write.reset();
-      if (mode !== "buyback" && selectedTier && !isAddress(selectedTier))
-        throw new Error("Enter a valid membership contract address.");
-      const plan = await prepareAdvance(
-        client as PublicClient,
-        factory,
-        mode !== "buyback" && selectedTier
-          ? (selectedTier as Address)
-          : undefined,
+      // Recheck immediately before signing; never submit a stale preview request.
+      const { plan, simulation } = await checkAdvance(
+        manual ? "accounting" : mode,
       );
-      let simulation;
-      try {
-        simulation = await simulateContract(config, {
-          chainId,
-          account: account.address,
-          address: plan.router,
-          abi: protocolBurnRouterAbi,
-          ...advanceCall(mode, plan.tiers, plan.purchases, plan.deadline),
-          ...(chainId === 31337 ? { gasPrice: 2_000_000_000n } : {}),
-        });
-      } catch (error) {
-        const reverted =
-          error instanceof BaseError &&
-          error.walk((cause) => cause instanceof ContractFunctionRevertedError);
-        if (
-          reverted instanceof ContractFunctionRevertedError &&
-          reverted.data?.errorName === "NothingToDo"
-        )
-          throw new Error(
-            plan.unavailableTiers > 0
-              ? "Some membership accounting is unavailable, and no other work is ready. Check the membership details below."
-              : "Nothing is ready to advance or burn right now. Try again as fees earn and cooldowns finish.",
-          );
-        throw error;
+      if (!simulation || (!manual && !simulation.ready)) {
+        await preview.refetch();
+        throw new Error("Nothing needs advancing right now.");
       }
       await assertSufficientGas(
         client as PublicClient,
@@ -114,7 +119,9 @@ export function Burn({
       return {
         ...outcome.completed,
         receipt,
-        more: plan.moreAccounting,
+        more: outcome.accounting.some((item) => !item.complete),
+        accountingCoverageIncomplete:
+          mode !== "buyback" && plan.accountingCoverageIncomplete,
         unavailable: plan.unavailableTiers,
         skipped: [
           ...new Set(
@@ -128,11 +135,11 @@ export function Burn({
   const result = action.data;
   const burnedAmount =
     result &&
-    formatRawTokenAmount({
+    formatLocalizedTokenAmount({
       raw: result.burned,
       decimals: 18,
       multiplier: tokenMultiplierScale,
-    }).replace(/^\d+/, (whole) => BigInt(whole).toLocaleString("en-US"));
+    });
   const explorer = getSupportedChain(chainId).blockExplorers?.default.url;
   return (
     <div className="protocol-burn">
@@ -166,15 +173,51 @@ export function Burn({
           </p>
         </details>
       )}
+      <div
+        className="small-copy"
+        aria-live="polite"
+        style={{ minHeight: "5rem" }}
+      >
+        {preview.isPending ? (
+          "Checking…"
+        ) : preview.isError ? (
+          <span role="alert">{decodeTransactionError(preview.error)}</span>
+        ) : (
+          <>
+            {mode !== "buyback" && (
+              <div>
+                {preview.data?.simulation?.processedSteps
+                  ? `${preview.data.simulation.processedSteps} checkpoints ready.`
+                  : preview.data?.plan.accountingCoverageIncomplete ||
+                      preview.data?.plan.unavailableTiers
+                    ? "No checkpoints ready in the checked memberships."
+                    : "Accounting is up to date."}
+              </div>
+            )}
+            {mode !== "accounting" && (
+              <div>
+                {preview.data?.simulation?.purchases
+                  ? `${formatLocalizedTokenAmount({ raw: preview.data.simulation.burned, decimals: 18, multiplier: tokenMultiplierScale })} ${symbol || "protocol tokens"} estimated to burn.`
+                  : "No buyback ready. Waiting for funds or eligibility."}
+              </div>
+            )}
+            {!preview.data?.simulation?.ready && (
+              <div>Nothing needs advancing in this batch.</div>
+            )}
+          </>
+        )}
+      </div>
       <button
         type="button"
         className="button button-dark"
         disabled={
+          !preview.data?.simulation?.ready ||
+          preview.isError ||
           action.isPending ||
           !account.isConnected ||
           account.chainId !== chainId
         }
-        onClick={() => action.mutate()}
+        onClick={() => action.mutate(false)}
       >
         {action.isPending
           ? "Working…"
@@ -195,6 +238,44 @@ export function Burn({
                 ? "Buy and burn using funds already released to the vault. You pay the network fee."
                 : "Settle rewards and run eligible buybacks. You pay the network fee."}
       </p>
+      <details>
+        <summary>Accounting details</summary>
+        <p className="small-copy">
+          Rewards accrue between checkpoints. Settle them here to make newly
+          earned funds available.
+        </p>
+        <button
+          type="button"
+          className="text-button"
+          disabled={action.isPending || preview.isFetching}
+          onClick={() => void preview.refetch()}
+        >
+          Refresh status
+        </button>
+        {mode !== "buyback" && (
+          <button
+            type="button"
+            className="text-button"
+            disabled={
+              action.isPending ||
+              preview.isError ||
+              !preview.data?.simulation ||
+              !account.isConnected ||
+              account.chainId !== chainId
+            }
+            onClick={() => action.mutate(true)}
+          >
+            Settle accrued rewards
+          </button>
+        )}
+        {(preview.data?.plan.accountingCoverageIncomplete ||
+          Boolean(preview.data?.plan.unavailableTiers)) && (
+          <p className="small-copy">
+            This preview covers a limited batch. Choose a membership to check it
+            directly.
+          </p>
+        )}
+      </details>
       {action.isPending && (
         <p role="status">
           {write.isPending
@@ -224,13 +305,17 @@ export function Burn({
               result.burned > 0n &&
               ` Fees collected from ${result.releasedTiers} membership${result.releasedTiers === 1n ? "" : "s"}.`}
           </p>
-          {(result.more || result.unavailable > 0) && (
+          {result.more && (
             <p className="small-copy">
-              Some work remains. Run another batch or choose a membership to
-              advance.
+              More checkpoints remain. Advance again to continue.
             </p>
           )}
-          {result.skipped.length > 0 && (
+          {(result.accountingCoverageIncomplete || result.unavailable > 0) && (
+            <p className="small-copy">
+              Some memberships weren’t checked in this batch.
+            </p>
+          )}
+          {result.purchases === 0n && result.skipped.length > 0 && (
             <p className="small-copy">
               Buybacks skipped: {result.skipped.join(", ")}.
             </p>

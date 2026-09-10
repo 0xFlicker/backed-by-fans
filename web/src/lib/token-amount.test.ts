@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   displayedToRaw,
+  formatLocalizedTokenAmount,
   formatRawTokenAmount,
   parseDisplayedUnits,
   rawToDisplayedUnits,
@@ -125,4 +126,33 @@ describe("token amount display", () => {
       }),
     ).toMatchObject({ currentFormatted: "0.05", futureFormatted: "0.1" });
   });
+});
+
+it.each([
+  ["en-US", "22,779,103.047"],
+  ["de-DE", "22.779.103,047"],
+  ["fr-FR", "22\u202f779\u202f103,047"],
+])("localizes amounts for %s", (locale, expected) => {
+  expect(
+    formatLocalizedTokenAmount(
+      { raw: 22779103047n, decimals: 3, multiplier: tokenMultiplierScale },
+      locale,
+    ),
+  ).toBe(expected);
+});
+it("localizes large balances and tiny fractions without precision loss", () => {
+  expect(
+    formatLocalizedTokenAmount({
+      raw: 9007199254740993123n,
+      decimals: 3,
+      multiplier: tokenMultiplierScale,
+    }),
+  ).toBe("9,007,199,254,740,993.123");
+  expect(
+    formatLocalizedTokenAmount({
+      raw: 1n,
+      decimals: 18,
+      multiplier: tokenMultiplierScale,
+    }),
+  ).toBe("0.000000000000000001");
 });
