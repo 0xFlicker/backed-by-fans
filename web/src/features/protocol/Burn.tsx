@@ -150,7 +150,7 @@ export function Burn({
       </label>
       {mode !== "buyback" && (
         <details>
-          <summary>Choose a membership instead of automatic selection</summary>
+          <summary>Choose membership</summary>
           <label className="creator-field">
             <span>Membership contract address</span>
             <input
@@ -190,10 +190,10 @@ export function Burn({
           : account.chainId !== chainId
             ? "Switch your wallet to this network."
             : mode === "accounting"
-              ? "Settle up to 25 checkpoints without trading. You pay the network fee."
+              ? "Settle up to 25 checkpoints. You pay the network fee."
               : mode === "buyback"
                 ? "Buy and burn using funds already released to the vault. You pay the network fee."
-                : "Advance accounting, release earned fees and execute eligible buybacks in one transaction. An execution failure rolls back the transaction."}
+                : "Settle rewards and run eligible buybacks. You pay the network fee."}
       </p>
       {action.isPending && (
         <p role="status">

@@ -25,9 +25,9 @@ describe("vesting balance summaries", () => {
       />,
     );
     expect(screen.getByText("10 units")).toBeVisible();
-    expect(screen.getByText(/not a personal payout estimate/)).toBeVisible();
+    expect(screen.getByText(/shared by eligible members/)).toBeVisible();
     expect(
-      screen.getByText(/Already-settled claims remain available/),
+      screen.getByText(/Advance accounting to make new earnings available/),
     ).toBeVisible();
     expect(screen.queryByText("Reserved creator funding")).toBeNull();
     expect(

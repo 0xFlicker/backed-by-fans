@@ -3522,3 +3522,341 @@ dd {
     border: 1px solid currentColor;
   }
 }
+
+/* Supporter surfaces retain the paper identity and a quieter reading order. */
+.protocol-page {
+  max-width: 76rem;
+}
+.protocol-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.7fr);
+  column-gap: clamp(2rem, 6vw, 6rem);
+  padding-bottom: 2.5rem;
+}
+.protocol-heading > .eyebrow,
+.protocol-heading > h1,
+.protocol-heading > p {
+  grid-column: 1;
+}
+.protocol-heading h1 {
+  font-size: clamp(3rem, 5vw, 5rem);
+  line-height: 1.05;
+}
+.protocol-heading > p:not(.eyebrow) {
+  font-size: 1.1rem;
+}
+.protocol-heading .protocol-burn {
+  grid-column: 2;
+  grid-row: 1 / span 4;
+  align-self: center;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.protocol-heading > button {
+  justify-self: start;
+  margin: 0;
+}
+.protocol-burn .creator-field {
+  margin: 0 0 1rem;
+}
+.protocol-burn > .button {
+  width: 100%;
+}
+.protocol-burn > .small-copy {
+  min-height: 3rem;
+  font-size: 0.85rem;
+}
+.protocol-burn details {
+  margin: 1rem 0;
+}
+.protocol-section {
+  border-top-width: 1px;
+}
+.protocol-asset {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.65fr) minmax(0, 1.35fr);
+  gap: 1.5rem 2rem;
+  padding: 2rem 0;
+  margin: 0;
+}
+.protocol-asset > header {
+  display: block;
+  margin: 0;
+}
+.protocol-asset h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.asset-highlights {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 0;
+}
+.asset-highlights dt {
+  font-size: 0.8rem;
+  color: var(--muted-ink);
+  margin-bottom: 0.5rem;
+}
+.asset-highlights dd {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.3vw, 1.85rem);
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.asset-records {
+  grid-column: 1 / -1;
+}
+.protocol-page .technical-details,
+.membership-experience .technical-details,
+.membership-experience .contract-facts {
+  border-top: 1px solid var(--line);
+  padding: 1rem 0;
+}
+.technical-details > summary,
+.contract-facts > summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 550;
+  color: var(--muted-ink);
+  padding: 0.4rem 0;
+}
+.technical-details[open] > summary,
+.contract-facts[open] > summary {
+  color: var(--backstage);
+  margin-bottom: 1.25rem;
+}
+.technical-details > p {
+  max-width: 65ch;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--muted-ink);
+}
+.technical-details a {
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+.technical-details pre {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  padding: 1.25rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  overflow: auto;
+  max-height: 24rem;
+}
+.protocol-page .snapshot-details {
+  border-top: 0;
+  padding: 0.5rem 0 1.5rem;
+}
+.protocol-page .technical-details.protocol-section > summary {
+  font-size: 1.15rem;
+  color: var(--backstage);
+}
+.membership-hero-copy h1 {
+  font-size: clamp(2.75rem, 5vw, 4.75rem);
+}
+.membership-status {
+  gap: 1.5rem 3rem;
+}
+.membership-status.status-active,
+.membership-status.status-expired-occupied {
+  border-left: 0;
+  padding-left: 0;
+}
+.membership-status dl > div,
+.payment-preview > div {
+  border-top: 0;
+}
+.membership-status dt,
+.payment-preview dt {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8rem;
+  font-weight: 450;
+  color: var(--muted-ink);
+}
+.membership-status dd {
+  font-size: 1rem;
+}
+.membership-eligibility {
+  grid-column: 1 / -1;
+}
+.supporter-action {
+  gap: 1rem;
+}
+.supporter-action h2,
+.claim-groups h2 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+}
+.supporter-action .action-description {
+  margin: 0;
+  color: var(--muted-ink);
+}
+.payment-preview {
+  min-height: 10rem;
+  padding: 1.25rem;
+  background: var(--paper);
+  border-radius: var(--radius-small);
+}
+.payment-preview > div {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: baseline;
+  padding: 0;
+}
+.payment-preview dd {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  min-height: 1.6em;
+}
+.supporter-action > p[aria-live],
+.reward-preview-details p[aria-live] {
+  min-height: 3.5em;
+  margin: 0;
+}
+.membership-accounting {
+  grid-column: 1 / -1;
+}
+.membership-accounting-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+}
+.membership-accounting-grid .vesting-summary {
+  grid-column: auto;
+}
+.membership-accounting-grid .protocol-section {
+  padding: 0;
+  border: 0;
+}
+.membership-accounting-grid h2,
+.membership-accounting-grid h3 {
+  font-size: 1.15rem;
+  margin: 0 0 1rem;
+}
+.membership-accounting-grid p {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--muted-ink);
+}
+.membership-experience .button,
+.protocol-page .button {
+  white-space: nowrap;
+}
+.membership-experience .creator-actions,
+.protocol-page .creator-actions {
+  align-items: center;
+}
+.membership-experience .claim-row {
+  gap: 1rem;
+}
+.membership-experience .claim-row span {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+}
+@media (max-width: 767px) {
+  .protocol-heading,
+  .protocol-asset,
+  .membership-accounting-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .protocol-heading .protocol-burn {
+    grid-column: 1;
+    grid-row: auto;
+    margin: 1.5rem 0 1rem;
+  }
+  .protocol-asset {
+    gap: 1.25rem;
+  }
+  .asset-highlights {
+    gap: 1rem;
+  }
+  .membership-accounting-grid {
+    gap: 2rem;
+  }
+  .membership-experience .creator-actions {
+    flex-wrap: wrap;
+  }
+}
+.protocol-heading {
+  max-width: none;
+  grid-template-rows: auto auto auto 1fr;
+  align-items: start;
+  padding-top: 0;
+}
+.protocol-heading > .eyebrow {
+  margin-bottom: 0.5rem;
+}
+.protocol-heading h1 {
+  margin: 0 0 1rem;
+}
+.protocol-heading .protocol-burn {
+  margin: 0;
+}
+.protocol-heading > button {
+  margin-top: 1rem;
+}
+.protocol-asset > .asset-records {
+  border-top: 0;
+  padding: 0;
+}
+.protocol-asset > .asset-records > summary {
+  font-size: 0.8rem;
+}
+@media (max-width: 767px) {
+  .protocol-heading .protocol-burn {
+    margin: 1.5rem 0 0;
+  }
+}
+.membership-essentials {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 767px) {
+  .membership-status dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem 1rem;
+  }
+  .membership-essentials {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .membership-essentials > div {
+    border: 0;
+    padding: 0;
+  }
+  .membership-essentials dd {
+    font-size: 1.3rem;
+  }
+  .payment-preview {
+    min-height: 12rem;
+  }
+}
+.membership-accounting-grid .control-group {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+.membership-accounting-grid .refund-preview {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  gap: 1.5rem;
+}
+.membership-accounting-grid .refund-preview > div {
+  border: 0;
+  padding: 0;
+}
+.membership-accounting-grid .refund-preview dt {
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+  font-weight: 450;
+}
+.membership-accounting-grid .refund-preview dd {
+  margin: 0.5rem 0 0;
+}

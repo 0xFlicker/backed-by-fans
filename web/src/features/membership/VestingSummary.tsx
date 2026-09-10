@@ -20,10 +20,9 @@ export function VestingSummary({
       className="control-group vesting-summary"
       aria-label="Vesting and accounting"
     >
-      <h2>As paid time is used</h2>
+      <h2>Rewards over time</h2>
       <p>
-        Creator proceeds, membership rewards, referrals and protocol funding
-        earn as paid membership time is used. Unused payments stay reserved for
+        Payments earn as membership time is used. Unused time stays reserved for
         refunds.
       </p>
       <dl className="refund-preview">
@@ -42,16 +41,13 @@ export function VestingSummary({
           <dd>{formatMembershipDate(reserves.status.accountedThrough)}</dd>
         </div>
       </dl>
-      <p>
-        The member reserve is shared by whoever is eligible as that time is
-        used. It is not a personal payout estimate.
-      </p>
+      <p>This pool is shared by eligible members as rewards earn.</p>
       <p>
         {reserves.status.complete
           ? "Accounting is up to date at this read."
           : reserves.status.scheduledMembers === 0n
             ? "No funding checkpoints remain. Already-settled claims remain available."
-            : "Accounting needs to advance before more earnings can become available. Already-settled claims remain available."}
+            : "Advance accounting to make new earnings available."}
       </p>
     </section>
   );

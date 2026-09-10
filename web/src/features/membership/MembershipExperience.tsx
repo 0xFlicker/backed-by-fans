@@ -861,7 +861,7 @@ export function MembershipExperience({
         </div>
         <div className="membership-hero-copy">
           <div className="membership-identity-heading">
-            <p className="eyebrow">Onchain membership</p>
+            <p className="eyebrow">Membership</p>
             <span className="membership-symbol">{snapshot.symbol}</span>
           </div>
           <h1 className="font-display">{snapshot.name}</h1>
@@ -898,10 +898,6 @@ export function MembershipExperience({
 
           <dl className="membership-essentials" aria-label="Membership terms">
             <div>
-              <dt>Protocol allocation</dt>
-              <dd>{snapshot.protocolFeeBps / 100}% of each payment</dd>
-            </div>
-            <div>
               <dt>Price</dt>
               <dd>{paymentLabel(snapshot.pricePerPeriod)}</dd>
             </div>
@@ -919,11 +915,6 @@ export function MembershipExperience({
               </dd>
             </div>
           </dl>
-          <p>
-            Access starts immediately. The protocol allocation earns
-            continuously as paid time is used and funds periodic token buybacks
-            and burns. Unearned reserves help fund unused-time refunds.
-          </p>
         </div>
       </section>
 
@@ -933,27 +924,14 @@ export function MembershipExperience({
           aria-label="Current membership status"
         >
           <div>
-            <p className="eyebrow">Your membership</p>
             <h2 id="membership-status-title">
               {membershipStatusTitle(snapshot.credential)}
             </h2>
           </div>
           <dl>
             <div>
-              <dt>Membership</dt>
-              <dd>#{snapshot.credential.tokenId.toString()}</dd>
-            </div>
-            <div>
               <dt>Access</dt>
               <dd>{snapshot.credential.active ? "Active" : "Inactive"}</dd>
-            </div>
-            <div>
-              <dt>NFT</dt>
-              <dd>
-                {snapshot.credential.minted
-                  ? "In this wallet"
-                  : "Burned after creator sync"}
-              </dd>
             </div>
             <div>
               <dt>Through</dt>
@@ -972,20 +950,36 @@ export function MembershipExperience({
               </dd>
             </div>
           </dl>
-          <p className="small-copy">
-            {snapshot.credential.rewardEligible
-              ? "Your weight can earn new rewards until the creator syncs an expired membership or cancels its remaining access. Expiration alone does not suspend it."
-              : "Your historical weight is retained. A positive payment restores it; free access and grants do not. Already-earned rewards remain claimable."}
-          </p>
+          <details className="technical-details membership-eligibility">
+            <summary>About your reward share</summary>
+            <p>Your share is your portion of the eligible reward pool.</p>
+            <dl>
+              {" "}
+              <div>
+                <dt>Membership</dt>
+                <dd>#{snapshot.credential.tokenId.toString()}</dd>
+              </div>
+              <div>
+                <dt>NFT</dt>
+                <dd>
+                  {snapshot.credential.minted
+                    ? "In this wallet"
+                    : "Burned after creator sync"}
+                </dd>
+              </div>
+            </dl>
+            <p>
+              {snapshot.credential.rewardEligible
+                ? "Rewards continue until the creator syncs an expired membership or cancels its remaining access."
+                : "A paid renewal restores your historical reward weight. Earned rewards remain available."}
+            </p>
+          </details>
         </section>
       )}
 
       <div className={`supporter-columns ${!hasClaims ? "is-single" : ""}`}>
         <div className="supporter-primary">
           <section className="supporter-action" aria-label="Membership action">
-            <p className="eyebrow">
-              {snapshot.credential ? "Continue" : "Join"}
-            </p>
             <h2 id="primary-action-title">{primaryTitle}</h2>
             <p className="action-description">{primaryDescription}</p>
             {!walletReady && <WalletControl />}
@@ -1041,40 +1035,42 @@ export function MembershipExperience({
                 <dd>{formatMembershipDate(selfPreview.resultingExpiration)}</dd>
               </div>
             </dl>
-            <p className="small-copy" aria-live="polite">
-              {!primaryInputValid
-                ? "Enter a valid payment to preview reward weight."
-                : rewardQuote.data !== undefined
-                  ? `Estimated new reward weight: ${weightLabel(rewardQuote.data)} shares (${averageRewardBoost(rewardQuote.data, selfPreview.gross)} average).`
-                  : rewardQuote.isError
-                    ? "Reward weight preview is unavailable. The contract will check this payment before confirmation."
-                    : "Checking reward weight…"}
-            </p>
-            <p className="small-copy">
-              This quote does not reserve an early-support position. Other
-              purchases may change the weight issued when your payment is
-              included. Weight is permanent; cash rewards vest as paid
-              membership time is consumed. A zero payment adds access only and
-              cannot reactivate suspended weight.
-            </p>
-            {snapshot.credential?.rewardEligible &&
-              snapshot.pricePerPeriod === 0n &&
-              selfPreview.gross === 0n && (
-                <p className="small-copy">
-                  Free renewal keeps your existing weight eligible until
-                  suspension. It adds no new weight or reward funding.
-                </p>
-              )}
-            {snapshot.credential &&
-              !snapshot.credential.rewardEligible &&
-              snapshot.credential.shares > 0n &&
-              selfPreview.gross > 0n && (
-                <p className="small-copy">
-                  A positive payment also restores your current{" "}
-                  {weightLabel(snapshot.credential.shares)} historical shares.
-                  That restored weight is separate from the new-weight estimate.
-                </p>
-              )}
+            <details className="technical-details reward-preview-details">
+              <summary>Reward details</summary>
+              <p className="small-copy" aria-live="polite">
+                {!primaryInputValid
+                  ? "Enter a valid payment to preview reward weight."
+                  : rewardQuote.data !== undefined
+                    ? `Estimated new reward weight: ${weightLabel(rewardQuote.data)} shares (${averageRewardBoost(rewardQuote.data, selfPreview.gross)} average).`
+                    : rewardQuote.isError
+                      ? "Reward weight preview is unavailable. The contract will check this payment before confirmation."
+                      : "Checking reward weight…"}
+              </p>
+              <p className="small-copy">
+                Reward weight is permanent. Rewards earn as paid time is used.
+                Your final weight is set at purchase. Free access adds no weight
+                and does not restore suspended reward eligibility.
+              </p>
+              {snapshot.credential?.rewardEligible &&
+                snapshot.pricePerPeriod === 0n &&
+                selfPreview.gross === 0n && (
+                  <p className="small-copy">
+                    Free renewal keeps your existing weight eligible until
+                    suspension. It adds no new weight or reward funding.
+                  </p>
+                )}
+              {snapshot.credential &&
+                !snapshot.credential.rewardEligible &&
+                snapshot.credential.shares > 0n &&
+                selfPreview.gross > 0n && (
+                  <p className="small-copy">
+                    A positive payment also restores your current{" "}
+                    {weightLabel(snapshot.credential.shares)} historical shares.
+                    That restored weight is separate from the new-weight
+                    estimate.
+                  </p>
+                )}
+            </details>
             {scheduledPeriodPrice ? (
               <p className="small-copy" role="status">
                 Starting {scheduledPeriodPrice.effectiveAt.toLocaleString()},
@@ -1186,6 +1182,15 @@ export function MembershipExperience({
                 ) && (
                   <a
                     href={`#tier-accounting-${snapshot.address.toLowerCase()}`}
+                    onClick={(event) => {
+                      const root = event.currentTarget.closest(
+                        ".membership-experience",
+                      );
+                      const details = root?.querySelector<HTMLDetailsElement>(
+                        ".membership-accounting",
+                      );
+                      if (details) details.open = true;
+                    }}
                   >
                     Catch up accounting
                   </a>
@@ -1222,8 +1227,7 @@ export function MembershipExperience({
           <aside className="supporter-secondary">
             {hasClaims && (
               <section className="claim-groups" aria-labelledby="claims-title">
-                <p className="eyebrow">Settled and available now</p>
-                <h2 id="claims-title">Funds for this wallet</h2>
+                <h2 id="claims-title">Available to claim</h2>
                 {rewardClaim > 0n && snapshot.credential && (
                   <div className="claim-row">
                     <div>
@@ -1316,10 +1320,7 @@ export function MembershipExperience({
                       </button>
                     </div>
                   )}
-                <p className="small-copy">
-                  Claims always pay this connected wallet. If the payment token
-                  cannot reach it, the funds remain available here.
-                </p>
+                <p className="small-copy">Paid to your connected wallet.</p>
               </section>
             )}
           </aside>
@@ -1332,18 +1333,21 @@ export function MembershipExperience({
           </p>
         )}
         {snapshot.vesting && (
-          <div className="vesting-summary">
-            <VestingSummary
-              reserves={snapshot.vesting.reserves}
-              paymentLabel={paymentLabel}
-            />
-            <ReleaseTierFees
-              chainId={expectedChainId}
-              tier={snapshot.address}
-              blockNumber={capturedBlock}
-              onConfirmed={onRefresh}
-            />
-          </div>
+          <details className="technical-details membership-accounting">
+            <summary>Rewards & accounting</summary>
+            <div className="membership-accounting-grid">
+              <VestingSummary
+                reserves={snapshot.vesting.reserves}
+                paymentLabel={paymentLabel}
+              />
+              <ReleaseTierFees
+                chainId={expectedChainId}
+                tier={snapshot.address}
+                blockNumber={capturedBlock}
+                onConfirmed={onRefresh}
+              />
+            </div>
+          </details>
         )}
 
         {snapshot.pricePerPeriod > 0n && (
@@ -1446,6 +1450,11 @@ export function MembershipExperience({
       <details className="contract-facts">
         <summary>Contract Addresses</summary>
         <dl>
+          {" "}
+          <div>
+            <dt>Protocol allocation</dt>
+            <dd>{snapshot.protocolFeeBps / 100}% of each payment</dd>
+          </div>
           <div>
             <dt>Membership</dt>
             <dd>

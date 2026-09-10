@@ -5,6 +5,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { zeroAddress, type Address, type PublicClient } from "viem";
 import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
+import { CopyableAddress } from "@/features/membership/RendererDetails";
 import { ReadStateView } from "@/components/ReadState";
 import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
@@ -47,17 +48,10 @@ function AddressValue({
   chainId: SupportedChainId;
 }) {
   const explorer = getSupportedChain(chainId).blockExplorers?.default.url;
-  return explorer ? (
-    <a
-      className="protocol-address"
-      href={`${explorer}/address/${value}`}
-      target="_blank"
-      rel="noreferrer"
-    >
-      {value}
-    </a>
-  ) : (
-    <code className="protocol-address">{value}</code>
+  if (value === zeroAddress)
+    return <span className="small-copy">Native ETH</span>;
+  return (
+    <CopyableAddress address={value} explorerUrl={explorer} label="Contract" />
   );
 }
 
@@ -96,13 +90,10 @@ export function ProtocolActivity({
   return (
     <>
       <header className="protocol-heading settle-in">
-        <p className="eyebrow">
-          Backed By Fans · {getSupportedChain(chainId).name}
-        </p>
+        <p className="eyebrow">{getSupportedChain(chainId).name}</p>
         <h1>Protocol activity</h1>
         <p>
-          Fees earn as membership time is used. Released fees buy and burn the
-          protocol token.
+          Memberships fund the protocol. Earned fees buy and burn its token.
         </p>
         {deployment.status === "ready" && (
           <Burn
@@ -117,7 +108,7 @@ export function ProtocolActivity({
         )}
         <button
           type="button"
-          className="button button-light"
+          className="text-button"
           onClick={() => void refresh()}
           disabled={query.isFetching}
         >
@@ -136,17 +127,20 @@ export function ProtocolActivity({
         <ReadStateView state={state} onRetry={() => void refresh()} />
       ) : (
         <>
-          <p className="small-copy">
-            Snapshot block {state.capturedBlock.toString()} ·{" "}
-            {new Date(Number(state.data.timestamp) * 1000)
-              .toISOString()
-              .replace("T", " ")
-              .replace(".000Z", " UTC")}
-          </p>
+          <details className="technical-details snapshot-details">
+            <summary>Updated snapshot</summary>
+            <p className="small-copy">
+              Snapshot block {state.capturedBlock.toString()} ·{" "}
+              {new Date(Number(state.data.timestamp) * 1000)
+                .toISOString()
+                .replace("T", " ")
+                .replace(".000Z", " UTC")}
+            </p>
+          </details>
           {state.data.protocolToken === zeroAddress && (
             <p className="inline-status" role="status">
-              Protocol token has not been deployed. Membership fees continue to
-              accrue. Collected fees remain in the vault for future buybacks.
+              The protocol token is coming soon. Membership fees are
+              accumulating.
             </p>
           )}
           {state.data.buybacksPaused && (
@@ -160,11 +154,7 @@ export function ProtocolActivity({
             className="protocol-section"
           >
             <h2 id="inventory-title">Released fees & burns</h2>
-            <p>
-              ETH and WETH share one balance and batch settings. Other
-              currencies and fee sources stay separate. A conversion moves
-              existing fees; it does not create additional revenue.
-            </p>
+            <p>Available funds and lifetime burns, by currency.</p>
             {state.data.assets.map((item) =>
               item.status !== "valid" ? (
                 <p className="inline-status" key={item.asset}>
@@ -174,7 +164,6 @@ export function ProtocolActivity({
                 <article className="protocol-asset" key={item.asset}>
                   <header>
                     <h3>{item.data.metadata?.symbol ?? "Token"}</h3>
-                    <AddressValue value={item.asset} chainId={chainId} />
                   </header>
                   {!item.data.conserved && (
                     <p className="inline-status" role="alert">
@@ -182,136 +171,169 @@ export function ProtocolActivity({
                       unavailable.
                     </p>
                   )}
-                  <div
-                    className="protocol-table-scroll"
-                    tabIndex={0}
-                    aria-label={`${item.data.metadata?.symbol ?? "Token"} inventory`}
-                  >
-                    <table className="protocol-table">
-                      <thead>
-                        <tr>
-                          <th scope="col">Recorded amount</th>
-                          <th scope="col">Membership fees</th>
-                          <th scope="col">Donations</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(
-                          [
-                            ["Received", "totalReceived"],
-                            ["Converted in", "totalConvertedIn"],
-                            ["Spent or directly burned", "totalSpent"],
-                            ["Available to process", "available"],
-                            ["Burned", "totalBurned"],
-                          ] as const
-                        ).map(([label, key]) => (
-                          <tr key={key}>
-                            <th scope="row">{label}</th>
-                            {[item.data.membership, item.data.donation].map(
-                              (bucket, i) => (
-                                <td key={i}>
-                                  <Amount
-                                    raw={bucket[key]}
-                                    decimals={
-                                      key === "totalBurned"
-                                        ? 18
-                                        : (item.data.metadata?.decimals ?? 0)
-                                    }
-                                    multiplier={
-                                      key === "totalBurned"
-                                        ? 10n ** 18n
-                                        : item.data.metadata?.uiMultiplier
-                                    }
-                                    symbol={
-                                      key === "totalBurned"
-                                        ? "protocol tokens"
-                                        : item.data.metadata
-                                          ? ""
-                                          : "raw units"
-                                    }
-                                  />
-                                </td>
-                              ),
-                            )}
+                  <dl className="asset-highlights">
+                    <div>
+                      <dt>Available</dt>
+                      <dd>
+                        <Amount
+                          raw={
+                            item.data.membership.available +
+                            item.data.donation.available
+                          }
+                          decimals={item.data.metadata?.decimals ?? 0}
+                          multiplier={item.data.metadata?.uiMultiplier}
+                          symbol={item.data.metadata?.symbol}
+                        />
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Burned</dt>
+                      <dd>
+                        <Amount
+                          raw={
+                            item.data.membership.totalBurned +
+                            item.data.donation.totalBurned
+                          }
+                          symbol={protocolTokenSymbol ?? "tokens"}
+                        />
+                      </dd>
+                    </div>
+                  </dl>
+                  <details className="technical-details asset-records">
+                    <summary>Balances & actions</summary>
+                    <AddressValue value={item.asset} chainId={chainId} />
+                    <div
+                      className="protocol-table-scroll"
+                      tabIndex={0}
+                      aria-label={`${item.data.metadata?.symbol ?? "Token"} inventory`}
+                    >
+                      <table className="protocol-table">
+                        <thead>
+                          <tr>
+                            <th scope="col">Recorded amount</th>
+                            <th scope="col">Membership fees</th>
+                            <th scope="col">Donations</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="protocol-actions">
-                    {([0, 1] as const).map((bucket) => (
-                      <ProcessBuyback
-                        key={bucket}
-                        chainId={chainId}
-                        vault={state.data.vault}
-                        protocolTokenSymbol={protocolTokenSymbol}
-                        asset={item.asset}
-                        bucket={bucket}
-                        status={
-                          item.data.eligibility[bucket].status === "valid"
-                            ? item.data.eligibility[bucket].data.status
-                            : undefined
-                        }
-                        amount={
-                          item.data.eligibility[bucket].status === "valid"
-                            ? item.data.eligibility[bucket].data.maxInput
-                            : 0n
-                        }
-                        nextEligibleAt={
-                          item.data.eligibility[bucket]?.status === "valid"
-                            ? item.data.eligibility[bucket].data.nextEligibleAt
-                            : undefined
-                        }
-                        fresh={
-                          query.isFetchedAfterMount &&
-                          !query.isError &&
-                          !query.isFetching &&
-                          item.data.conserved
-                        }
-                        onProcessed={refresh}
-                      />
-                    ))}
-                  </div>
-                  <details className="technical-details">
-                    <summary>Route, batch settings and raw units</summary>
-                    <p>
-                      Revision {item.data.revision.toString()} ·{" "}
-                      {item.data.route.pools.length} conversion pools ·{" "}
-                      {item.data.paused ? "Asset paused" : "Asset unpaused"}
-                    </p>
-                    <p>
-                      Batch minimum{" "}
-                      <Amount
-                        raw={item.data.limits.minInput}
-                        decimals={item.data.metadata?.decimals}
-                        symbol={item.data.metadata?.symbol}
-                        multiplier={item.data.metadata?.uiMultiplier}
-                      />{" "}
-                      · Maximum{" "}
-                      <Amount
-                        raw={item.data.limits.maxInput}
-                        decimals={item.data.metadata?.decimals}
-                        symbol={item.data.metadata?.symbol}
-                        multiplier={item.data.metadata?.uiMultiplier}
-                      />
-                    </p>
-                    <p>
-                      Minimum interval:{" "}
-                      {item.data.limits.minInterval.toString()} seconds for this
-                      currency; {state.data.globalMinInterval.toString()}{" "}
-                      seconds across the protocol.
-                    </p>
-                    <pre>
-                      {JSON.stringify(
-                        {
-                          route: item.data.route,
-                          membership: item.data.membership,
-                          donation: item.data.donation,
-                        },
-                        (_, v) => (typeof v === "bigint" ? v.toString() : v),
-                        2,
-                      )}
-                    </pre>
+                        </thead>
+                        <tbody>
+                          {(
+                            [
+                              ["Received", "totalReceived"],
+                              ["Converted in", "totalConvertedIn"],
+                              ["Spent or directly burned", "totalSpent"],
+                              ["Available to process", "available"],
+                              ["Burned", "totalBurned"],
+                            ] as const
+                          ).map(([label, key]) => (
+                            <tr key={key}>
+                              <th scope="row">{label}</th>
+                              {[item.data.membership, item.data.donation].map(
+                                (bucket, i) => (
+                                  <td key={i}>
+                                    <Amount
+                                      raw={bucket[key]}
+                                      decimals={
+                                        key === "totalBurned"
+                                          ? 18
+                                          : (item.data.metadata?.decimals ?? 0)
+                                      }
+                                      multiplier={
+                                        key === "totalBurned"
+                                          ? 10n ** 18n
+                                          : item.data.metadata?.uiMultiplier
+                                      }
+                                      symbol={
+                                        key === "totalBurned"
+                                          ? "protocol tokens"
+                                          : item.data.metadata
+                                            ? ""
+                                            : "raw units"
+                                      }
+                                    />
+                                  </td>
+                                ),
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="protocol-actions">
+                      {([0, 1] as const).map((bucket) => (
+                        <ProcessBuyback
+                          key={bucket}
+                          chainId={chainId}
+                          vault={state.data.vault}
+                          protocolTokenSymbol={protocolTokenSymbol}
+                          asset={item.asset}
+                          bucket={bucket}
+                          status={
+                            item.data.eligibility[bucket].status === "valid"
+                              ? item.data.eligibility[bucket].data.status
+                              : undefined
+                          }
+                          amount={
+                            item.data.eligibility[bucket].status === "valid"
+                              ? item.data.eligibility[bucket].data.maxInput
+                              : 0n
+                          }
+                          nextEligibleAt={
+                            item.data.eligibility[bucket]?.status === "valid"
+                              ? item.data.eligibility[bucket].data
+                                  .nextEligibleAt
+                              : undefined
+                          }
+                          fresh={
+                            query.isFetchedAfterMount &&
+                            !query.isError &&
+                            !query.isFetching &&
+                            item.data.conserved
+                          }
+                          onProcessed={refresh}
+                        />
+                      ))}
+                    </div>
+                    <details className="technical-details">
+                      <summary>Route & raw data</summary>
+                      <p>
+                        Revision {item.data.revision.toString()} ·{" "}
+                        {item.data.route.pools.length} conversion pools ·{" "}
+                        {item.data.paused ? "Asset paused" : "Asset unpaused"}
+                      </p>
+                      <p>
+                        Batch minimum{" "}
+                        <Amount
+                          raw={item.data.limits.minInput}
+                          decimals={item.data.metadata?.decimals}
+                          symbol={item.data.metadata?.symbol}
+                          multiplier={item.data.metadata?.uiMultiplier}
+                        />{" "}
+                        · Maximum{" "}
+                        <Amount
+                          raw={item.data.limits.maxInput}
+                          decimals={item.data.metadata?.decimals}
+                          symbol={item.data.metadata?.symbol}
+                          multiplier={item.data.metadata?.uiMultiplier}
+                        />
+                      </p>
+                      <p>
+                        Minimum interval:{" "}
+                        {item.data.limits.minInterval.toString()} seconds for
+                        this currency; {state.data.globalMinInterval.toString()}{" "}
+                        seconds across the protocol.
+                      </p>
+                      <pre>
+                        {JSON.stringify(
+                          {
+                            route: item.data.route,
+                            membership: item.data.membership,
+                            donation: item.data.donation,
+                          },
+                          (_, v) => (typeof v === "bigint" ? v.toString() : v),
+                          2,
+                        )}
+                      </pre>
+                    </details>
                   </details>
                 </article>
               ),
@@ -351,8 +373,11 @@ export function ProtocolActivity({
               blockNumber={state.capturedBlock}
             />
           )}
-          <section className="protocol-section" aria-labelledby="safe-title">
-            <h2 id="safe-title">Protocol configuration</h2>
+          <details
+            className="technical-details protocol-section"
+            aria-labelledby="safe-title"
+          >
+            <summary id="safe-title">Protocol configuration</summary>
             <p>
               The protocol Safe can onboard payment tokens, configure routes and
               standing batch sizes and cooldowns, and pause buybacks. It cannot
@@ -408,7 +433,7 @@ export function ProtocolActivity({
                 ))}
               </ul>
             </details>
-          </section>
+          </details>
           {state.data.protocolToken !== zeroAddress && (
             <PonsCompensation snapshot={state.data} />
           )}
@@ -460,13 +485,12 @@ function TierForecasts({
   });
   const tier = selected ?? tiers.data?.[0]?.address;
   return (
-    <section className="protocol-section" aria-labelledby="forecast-title">
-      <h2 id="forecast-title">Fees earning over time</h2>
-      <p>
-        Existing paid memberships only. Future refunds reduce these estimates.
-        Gas, liquidity, routes and standing batch settings determine when
-        released fees can buy tokens.
-      </p>
+    <details
+      className="technical-details protocol-section"
+      aria-labelledby="forecast-title"
+    >
+      <summary id="forecast-title">Membership funding</summary>
+      <p>Funding from current memberships, earned as paid time is used.</p>
       {tiers.isError ? (
         <p className="inline-status">Tier discovery is unavailable.</p>
       ) : tiers.isPending ? (
@@ -533,7 +557,7 @@ function TierForecasts({
           </button>
         )}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -628,8 +652,7 @@ function TierForecast({
         </div>
       </dl>
       <p className="small-copy">
-        Reserved funding earns as paid membership time is consumed. Refunds can
-        reduce it. It is not a scheduled buyback or a personal reward estimate.
+        Reserved funds earn over time and adjust for refunds.
       </p>
     </div>
   );
@@ -670,8 +693,11 @@ function ActivityHistory({
     .url;
   const rows = history.data?.pages.flatMap((page) => page.rows) ?? [];
   return (
-    <section className="protocol-section" aria-labelledby="history-title">
-      <h2 id="history-title">Activity & configuration history</h2>
+    <details
+      className="technical-details protocol-section"
+      aria-labelledby="history-title"
+    >
+      <summary id="history-title">Activity history</summary>
       <p>
         Fee releases, donations, conversions, burns and Safe changes. Pons
         trading compensation has its own ledger below.
@@ -737,15 +763,18 @@ function ActivityHistory({
           Load earlier activity
         </button>
       )}
-    </section>
+    </details>
   );
 }
 
 function PonsCompensation({ snapshot }: { snapshot: PublicBuybacks }) {
   const pons = snapshot.pons;
   return (
-    <section className="protocol-section" aria-labelledby="pons-title">
-      <h2 id="pons-title">Pons trading compensation</h2>
+    <details
+      className="technical-details protocol-section"
+      aria-labelledby="pons-title"
+    >
+      <summary id="pons-title">Trading fees</summary>
       <p>
         Ordinary Pons trading fees can pay the developer and fund Pons’s vested
         buybacks. Membership-fee purchases burn immediately and never enter that
@@ -810,10 +839,8 @@ function PonsCompensation({ snapshot }: { snapshot: PublicBuybacks }) {
             </div>
           </dl>
           <p>
-            Vesting is not a burn. External administrators can change Pons
-            configuration and redirect creator compensation under Pons’s rules;
-            some fee conversions require its operator. Payment-token issuers can
-            restrict transfers. These dependencies can leave buybacks pending.
+            Trading fees follow Pons settings. Its vested tokens are separate
+            from membership buybacks and burns.
           </p>
           <details>
             <summary>External roles and shared compensation balances</summary>
@@ -865,6 +892,6 @@ function PonsCompensation({ snapshot }: { snapshot: PublicBuybacks }) {
           </details>
         </>
       )}
-    </section>
+    </details>
   );
 }

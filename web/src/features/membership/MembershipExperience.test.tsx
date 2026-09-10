@@ -322,6 +322,9 @@ describe("supporter membership experience", () => {
       321n,
       async () => ({ status: "valid", data: next, capturedBlock: 330n }),
     );
+    await userEvent
+      .setup()
+      .click(screen.getByText("Reward details", { exact: true }));
     expect(await screen.findByText(/15 shares \(1.5× average\)/)).toBeVisible();
     expect(readContract).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -424,6 +427,9 @@ describe("supporter membership experience", () => {
   it("shows failed quote reads as unavailable instead of zero or estimated cash", async () => {
     readContract.mockRejectedValue(new Error("RPC unavailable"));
     renderExperience(snapshot);
+    await userEvent
+      .setup()
+      .click(screen.getByText("Reward details", { exact: true }));
     expect(
       await screen.findByText(/Reward weight preview is unavailable/),
     ).toBeVisible();
@@ -469,13 +475,21 @@ describe("supporter membership experience", () => {
       expect(
         within(status).getByText(rewardEligible ? "10%" : "0%"),
       ).toBeVisible();
+      await userEvent
+        .setup()
+        .click(screen.getByText("Reward details", { exact: true }));
+      await userEvent
+        .setup()
+        .click(screen.getByText("About your reward share", { exact: true }));
       if (rewardEligible)
         expect(
           screen.getByText(/Free renewal keeps your existing weight eligible/),
         ).toBeVisible();
       else
         expect(
-          within(status).getByText(/free access and grants do not/),
+          within(status).getByText(
+            /A paid renewal restores your historical reward weight/,
+          ),
         ).toBeVisible();
       expect(
         await screen.findByText(/Estimated new reward weight: 0 shares/),
@@ -565,6 +579,9 @@ describe("supporter membership experience", () => {
     expect(
       screen.queryByRole("button", { name: "Synchronize this place" }),
     ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByText("About your reward share", { exact: true }),
+    );
     expect(screen.getByText("Burned after creator sync")).toBeVisible();
   });
 
@@ -664,7 +681,7 @@ describe("supporter membership experience", () => {
 
     expect(gift).toHaveClass("gift-action");
     expect(gift?.parentElement).toHaveClass("supporter-columns");
-    expect(screen.getByText("Funds for this wallet")).toBeVisible();
+    expect(screen.getByText("Available to claim")).toBeVisible();
   });
 
   it("shows the onchain description and a valid creator link", () => {

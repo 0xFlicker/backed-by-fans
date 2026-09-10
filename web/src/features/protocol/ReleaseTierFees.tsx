@@ -209,13 +209,7 @@ export function ReleaseTierFees({
       className="protocol-section"
     >
       <h3>Advance membership accounting</h3>
-      <p>
-        Anyone can settle earned allocations, release protocol funding and
-        attempt eligible buybacks for this payment asset in one transaction. You
-        pay the network fee. Accounting processes up to 25 checkpoints per call.
-        Buyback-only uses funds already released to the vault. Both also
-        releases newly earned protocol funding.
-      </p>
+      <p>Settle up to 25 checkpoints, run buybacks, or do both.</p>
       {state.data && (
         <p className="small-copy">
           Accounting through{" "}
@@ -227,7 +221,6 @@ export function ReleaseTierFees({
               : state.data.status.nextBoundary > state.data.timestamp
                 ? " No checkpoints are due. New paid time may be waiting to settle."
                 : " More accounting remains."}{" "}
-          Already-settled claims remain available.
         </p>
       )}
       <label className="creator-field">
@@ -259,7 +252,7 @@ export function ReleaseTierFees({
         </button>
         <button
           type="button"
-          className="button button-light"
+          className="text-button"
           disabled={action.isPending || state.isFetching}
           onClick={() => void state.refetch()}
         >
@@ -282,11 +275,7 @@ export function ReleaseTierFees({
         </p>
       )}
       {action.error && (
-        <p role="alert">
-          {decodeTransactionError(action.error)} No changes from a reverted
-          transaction are retained. Choose Advance accounting to catch up
-          independently of buybacks.
-        </p>
+        <p role="alert">{decodeTransactionError(action.error)}</p>
       )}
       {action.data && (
         <p role="status">
