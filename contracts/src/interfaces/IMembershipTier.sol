@@ -235,6 +235,16 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function claimReferral() external returns (uint256 amount);
 
+    /// @notice Settle up to 25 checkpoints and claim all three payout categories for the caller.
+    function hasClaimInterest(address beneficiary) external view returns (bool);
+
+    function claimAll() external returns (MembershipTypes.ClaimResult memory);
+
+    /// @notice Factory-only batch entry; payouts always go to the supplied beneficiary.
+    function claimAllFor(address beneficiary, uint256 maxSteps)
+        external
+        returns (MembershipTypes.ClaimResult memory);
+
     function previewRefund(uint256 tokenId)
         external
         view

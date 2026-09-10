@@ -109,7 +109,14 @@ async function inspectTier(
       !creatorOwned &&
       tokenId === 0n &&
       claimableReferral === 0n &&
-      creatorProceeds === 0n
+      creatorProceeds === 0n &&
+      !(await client.readContract({
+        address: input.tier,
+        abi: membershipTierAbi,
+        functionName: "hasClaimInterest",
+        args: [input.wallet],
+        blockNumber: input.blockNumber,
+      }))
     ) {
       return {};
     }
@@ -369,7 +376,14 @@ async function inspectTiersWithMulticall(
       !creatorOwned &&
       candidate.tokenId === 0n &&
       candidate.claimableReferral === 0n &&
-      claim.creatorProceeds === 0n
+      claim.creatorProceeds === 0n &&
+      !(await client.readContract({
+        address: candidate.tier,
+        abi: membershipTierAbi,
+        functionName: "hasClaimInterest",
+        args: [input.wallet],
+        blockNumber: input.blockNumber,
+      }))
     ) {
       continue;
     }

@@ -183,3 +183,13 @@ Add a factory currency minimum, passed authoritatively into immutable tier terms
 ### Publication minimum review
 
 TierConfig includes the reviewed raw `minimumPayment`. The factory compares it with the current registry value and reverts `MinimumPaymentChanged(expected, actual)` if administration changed it before inclusion. The immutable tier binding uses that same value. The frontend refreshes review instead of silently accepting changed terms.
+
+## Account-wide settlement and claims (2026-09-10)
+
+`MembershipTier.claimAll()` settles up to 25 checkpoints and pays the caller's member, referral and current-owner proceeds in one exact token transfer. Individual settled-only claims remain usable while accounting is behind. Fractional credit and per-category events are preserved. `claimAllFor(beneficiary,maxSteps)` is restricted to the immutable factory and pays the beneficiary directly.
+
+`MembershipFactory.claimEverything(tiers)` accepts 1–8 unique registered tiers and shares 25 actual checkpoint operations. A depleted budget permits continuous integration only when no checkpoint is due. All claims and advances roll back on failure. `ClaimAccountingBehind(batchIndex,tier,accountedThrough,nextCheckpoint)` identifies the first blocked tier; `ClaimFailed(batchIndex,tier,reason)` retains other underlying errors. The factory is nonreentrant, has no claim custody and deploys no additional helper. Existing deployment bindings, source verification and payload/gas limits remain unchanged.
+
+The account page shows three-category totals by currency from a simulated factory claim. Larger collections use explicit batches. Discovery coverage is labelled; `hasClaimInterest` includes active referral streams before first settlement. A behind error yields a named tier link and a separate permissionless advance. Writes use fresh wagmi simulations unchanged. Changed claim/advance intent requires review before signing. Receipts confirm success, then canonical reads refresh. No transaction journal or compatibility path is introduced.
+
+Newly deployed immutable contracts are required. Existing fork state is not rewritten to imitate the new interface.

@@ -3860,3 +3860,21 @@ dd {
 .membership-accounting-grid .refund-preview dd {
   margin: 0.5rem 0 0;
 }
+
+.account-rewards {
+  padding: 1.5rem 0;
+  margin-bottom: 1.5rem;
+}
+.account-rewards > h2 {
+  font-size: 1.75rem;
+}
+.account-rewards p {
+  margin: 0.35rem 0;
+}
+.account-rewards .creator-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-top: 0.75rem;
+}

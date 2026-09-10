@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AccountRewards } from "./AccountRewards";
 import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react";
@@ -34,7 +35,7 @@ import {
   unavailableDeploymentState,
 } from "@/lib/read-state";
 import { useActiveNetwork } from "@/lib/use-active-network";
-import { formatRawTokenAmount } from "@/lib/token-amount";
+import { formatLocalizedTokenAmount } from "@/lib/token-amount";
 
 type ConnectedDiscoveryProps = {
   cacheKey: string;
@@ -176,7 +177,7 @@ function HydratedDiscovery({
         candidate.address.toLowerCase() === paymentToken.toLowerCase(),
     );
     return token
-      ? `${formatRawTokenAmount({
+      ? `${formatLocalizedTokenAmount({
           raw,
           decimals: token.decimals,
           multiplier: token.uiMultiplier,
@@ -218,6 +219,13 @@ function HydratedDiscovery({
 
   return (
     <section className="account-results">
+      <AccountRewards
+        deployment={deployment}
+        wallet={wallet}
+        tiers={currentCache.results}
+        complete={currentCache.complete}
+        formatAmount={claimLabel}
+      />
       <div className="account-results-heading">
         <div>
           <h2 className="font-display">Your memberships</h2>

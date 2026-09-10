@@ -4,6 +4,7 @@ pragma solidity =0.8.36;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {MembershipTierDeployer} from "./MembershipTierDeployer.sol";
 import {ProtocolBurnRouter} from "./ProtocolBurnRouter.sol";
@@ -18,7 +19,7 @@ import {VestingLedger} from "./libraries/VestingLedger.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 
 /// @notice Permissionless official-tier registry with a permanent vault and one-time token binding.
-contract MembershipFactory is Ownable2Step, IMembershipFactory {
+contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory {
     uint256 public constant override maxPageSize = 100;
     bytes32 public constant override rendererSchema =
         0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4;
@@ -102,6 +103,61 @@ contract MembershipFactory is Ownable2Step, IMembershipFactory {
             emit PaymentTokenListed(token, i);
             emit PaymentTokenEnabled(token);
         }
+    }
+
+    uint256 public constant MAX_CLAIM_TIERS = 8;
+    uint256 public constant MAX_CLAIM_STEPS = 25;
+    error InvalidClaimBatch();
+    error ClaimAccountingBehind(
+        uint256 batchIndex, address tier, uint64 accountedThrough, uint64 nextCheckpoint
+    );
+    error ClaimFailed(uint256 batchIndex, address tier, bytes reason);
+    event EverythingClaimed(address indexed beneficiary, uint256 tierCount);
+
+    /// @notice Atomically settle and pay the caller across an explicit bounded set of official tiers.
+    function claimEverything(address[] calldata tiers_)
+        external
+        override
+        nonReentrant
+        returns (MembershipTypes.ClaimResult[] memory results)
+    {
+        if (tiers_.length == 0 || tiers_.length > MAX_CLAIM_TIERS) {
+            revert InvalidClaimBatch();
+        }
+        for (uint256 i; i < tiers_.length; ++i) {
+            if (!isRegisteredTier[tiers_[i]]) revert InvalidClaimBatch();
+            for (uint256 j; j < i; ++j) {
+                if (tiers_[i] == tiers_[j]) revert InvalidClaimBatch();
+            }
+        }
+        results = new MembershipTypes.ClaimResult[](tiers_.length);
+        uint256 remaining = MAX_CLAIM_STEPS;
+        for (uint256 i; i < tiers_.length; ++i) {
+            try IMembershipTier(tiers_[i]).claimAllFor(msg.sender, remaining) returns (
+                MembershipTypes.ClaimResult memory result
+            ) {
+                remaining -= result.processedSteps;
+                results[i] = result;
+            } catch (bytes memory reason) {
+                // Intentionally retain only the four-byte Solidity error selector.
+                // forge-lint: disable-next-line(unsafe-typecast)
+                bytes4 failureSelector = bytes4(reason);
+                if (
+                    reason.length == 68
+                        && failureSelector == bytes4(keccak256("AccountingBehind(uint64,uint64)"))
+                ) {
+                    uint64 cursor;
+                    uint64 next;
+                    assembly ("memory-safe") {
+                        cursor := mload(add(reason, 36))
+                        next := mload(add(reason, 68))
+                    }
+                    revert ClaimAccountingBehind(i, tiers_[i], cursor, next);
+                }
+                revert ClaimFailed(i, tiers_[i], reason);
+            }
+        }
+        emit EverythingClaimed(msg.sender, tiers_.length);
     }
 
     /// @inheritdoc IMembershipFactory

@@ -336,7 +336,9 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         if (
             IMembershipRenderer(newRenderer).rendererSchema()
                 != IMembershipFactory(factory).rendererSchema()
-        ) revert InvalidRenderer();
+        ) {
+            revert InvalidRenderer();
+        }
         IMembershipRenderer(newRenderer).validateConfiguration(newArt, newMedia);
 
         address previousRenderer = renderer;
@@ -573,6 +575,68 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         if (amount == 0) return 0;
         _pushExact(recipient, amount);
         emit ReferralClaimed(recipient, amount);
+    }
+
+    /// @notice Includes active referral streams even before their first settlement.
+    function hasClaimInterest(address beneficiary) external view override returns (bool) {
+        return owner() == beneficiary || tokenOf[beneficiary] != 0
+            || _vesting.referrers[beneficiary].rate != 0
+            || VestingLedger.referrerCredit(_vesting, beneficiary) != 0;
+    }
+
+    function claimAll()
+        external
+        override
+        nonReentrant
+        returns (MembershipTypes.ClaimResult memory)
+    {
+        return _claimAll(msg.sender, MAX_ACCOUNTING_STEPS);
+    }
+
+    function claimAllFor(address beneficiary, uint256 maxSteps)
+        external
+        override
+        nonReentrant
+        returns (MembershipTypes.ClaimResult memory)
+    {
+        if (msg.sender != factory) revert ClaimFactoryOnly();
+        if (beneficiary == address(0) || maxSteps > MAX_ACCOUNTING_STEPS) revert InvalidClaim();
+        return _claimAll(beneficiary, maxSteps);
+    }
+
+    error ClaimFactoryOnly();
+    error InvalidClaim();
+
+    function _claimAll(address beneficiary, uint256 maxSteps)
+        private
+        returns (MembershipTypes.ClaimResult memory result)
+    {
+        // A depleted batch budget may still integrate continuous time, but cannot pop a checkpoint.
+        if (
+            maxSteps == 0 && _vesting.heap.length != 0
+                && _vesting.heap[0].timestamp <= _currentTimestamp()
+        ) {
+            revert AccountingBehind(_vesting.accountedThrough, _vesting.heap[0].timestamp);
+        }
+        VestingLedger.ProcessResult memory progress =
+            _processAccounting(maxSteps == 0 ? 1 : maxSteps);
+        if (!progress.complete) {
+            revert AccountingBehind(progress.accountedThrough, _vesting.heap[0].timestamp);
+        }
+        result.processedSteps = progress.processed;
+        uint256 tokenId = tokenOf[beneficiary];
+        if (tokenId != 0) {
+            result.reward = VestingLedger.takeMember(_vesting, tokenId);
+            if (result.reward != 0) emit RewardClaimed(tokenId, beneficiary, result.reward);
+        }
+        result.referral = VestingLedger.takeReferrer(_vesting, beneficiary);
+        if (result.referral != 0) emit ReferralClaimed(beneficiary, result.referral);
+        if (beneficiary == owner()) {
+            result.creator = VestingLedger.takeEarned(_vesting, 0, type(uint256).max);
+            if (result.creator != 0) emit CreatorProceedsWithdrawn(beneficiary, result.creator);
+        }
+        uint256 amount = result.reward + result.referral + result.creator;
+        if (amount != 0) _pushExact(beneficiary, amount);
     }
 
     /// @inheritdoc IMembershipTier

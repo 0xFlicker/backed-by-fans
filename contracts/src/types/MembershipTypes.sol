@@ -3,6 +3,13 @@ pragma solidity =0.8.36;
 
 /// @notice Shared constructor and rendering value types for the membership protocol.
 library MembershipTypes {
+    struct ClaimResult {
+        uint256 processedSteps;
+        uint256 reward;
+        uint256 referral;
+        uint256 creator;
+    }
+
     /// @notice Independently deployed STOP-prefixed chunks of the exact linked tier initcode.
     struct TierCodeConfig {
         address storeA;

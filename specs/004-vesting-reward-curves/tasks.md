@@ -270,3 +270,12 @@ Earlier completed tasks document the previous implementation, not acceptance of 
 ## Phase 12: Convergence
 
 - [X] T096 Align SC-011 with approved FR-050 atomic rollback and ordinary buyback skip behavior; retain separate accounting/release/buyback recovery scenarios. Source: SC-011, FR-050, Constitution II (contradicts, HIGH). Browser acceptance remains T095 and named screen-reader evidence remains T089, not duplicate tasks.
+
+### Follow-up: account-wide claims
+
+- [X] Add per-tier settle-and-claim across three categories, restricted factory forwarding and active-referral discovery.
+- [X] Add atomic factory claimEverything with eight-tier/25-checkpoint bounds and contextual errors; preserve settled-only claims.
+- [X] Add account rewards totals, explicit batches, named advance CTA, fresh simulation, receipt confirmation and refresh.
+- [X] Test ownership, all categories, multiple currencies, shared budget, rollback, transfer failures and reentrancy; verify unchanged graph limits.
+- [X] Complete frontend regression and generated-binding checks and record evidence in `evidence/account-claims.md`.
+- [ ] Rehearse account claims against newly deployed local contracts; preserve the current fork until a fresh deployment is selected.

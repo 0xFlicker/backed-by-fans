@@ -152,6 +152,33 @@ describe("bounded account discovery", () => {
     ).toBe(true);
   });
 
+  it("finds referral-only wallets before their first settlement", async () => {
+    const readContract = vi.fn(
+      async ({ functionName }) =>
+        ({
+          name: "Referral tier",
+          tokenOf: 0n,
+          claimableReferral: 0n,
+          owner: factory,
+          hasClaimInterest: true,
+        })[functionName as "name"],
+    );
+    const page = await discoverAccountPage(
+      {
+        getBlockNumber: async () => 80n,
+        readContract,
+      } as unknown as PublicClient,
+      { deployment, wallet, offset: 0n },
+    );
+    expect(page.results).toEqual([
+      expect.objectContaining({
+        tier: tierA,
+        tokenId: 0n,
+        claimableReferral: 0n,
+      }),
+    ]);
+  });
+
   it("inspects the no-Multicall fallback one tier at a time", async () => {
     let active = 0;
     let maximumActive = 0;

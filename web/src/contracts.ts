@@ -2480,6 +2480,20 @@ export const membershipFactoryAbi = [
   {
     type: "function",
     inputs: [],
+    name: "MAX_CLAIM_STEPS",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "MAX_CLAIM_TIERS",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
     name: "acceptOwnership",
     outputs: [],
     stateMutability: "nonpayable",
@@ -2504,6 +2518,25 @@ export const membershipFactoryAbi = [
     name: "buybackVault",
     outputs: [{ name: "", internalType: "address", type: "address" }],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "tiers_", internalType: "address[]", type: "address[]" }],
+    name: "claimEverything",
+    outputs: [
+      {
+        name: "results",
+        internalType: "struct MembershipTypes.ClaimResult[]",
+        type: "tuple[]",
+        components: [
+          { name: "processedSteps", internalType: "uint256", type: "uint256" },
+          { name: "reward", internalType: "uint256", type: "uint256" },
+          { name: "referral", internalType: "uint256", type: "uint256" },
+          { name: "creator", internalType: "uint256", type: "uint256" },
+        ],
+      },
+    ],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -2781,6 +2814,25 @@ export const membershipFactoryAbi = [
     name: "transferOwnership",
     outputs: [],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "beneficiary",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "tierCount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "EverythingClaimed",
   },
   {
     type: "event",
@@ -3079,6 +3131,25 @@ export const membershipFactoryAbi = [
     ],
     name: "TierTermsConfigured",
   },
+  {
+    type: "error",
+    inputs: [
+      { name: "batchIndex", internalType: "uint256", type: "uint256" },
+      { name: "tier", internalType: "address", type: "address" },
+      { name: "accountedThrough", internalType: "uint64", type: "uint64" },
+      { name: "nextCheckpoint", internalType: "uint64", type: "uint64" },
+    ],
+    name: "ClaimAccountingBehind",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "batchIndex", internalType: "uint256", type: "uint256" },
+      { name: "tier", internalType: "address", type: "address" },
+      { name: "reason", internalType: "bytes", type: "bytes" },
+    ],
+    name: "ClaimFailed",
+  },
   { type: "error", inputs: [], name: "CreatorMustBeCaller" },
   {
     type: "error",
@@ -3087,6 +3158,7 @@ export const membershipFactoryAbi = [
   },
   { type: "error", inputs: [], name: "EmptyPaymentTokenList" },
   { type: "error", inputs: [], name: "InvalidAddress" },
+  { type: "error", inputs: [], name: "InvalidClaimBatch" },
   { type: "error", inputs: [], name: "InvalidContract" },
   { type: "error", inputs: [], name: "InvalidMinimumPayment" },
   { type: "error", inputs: [], name: "InvalidPageSize" },
@@ -3157,6 +3229,7 @@ export const membershipFactoryAbi = [
     inputs: [{ name: "token", internalType: "address", type: "address" }],
     name: "PaymentTokenNotListed",
   },
+  { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
   {
     type: "error",
     inputs: [
@@ -3561,6 +3634,47 @@ export const membershipTierAbi = [
   {
     type: "function",
     inputs: [],
+    name: "claimAll",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.ClaimResult",
+        type: "tuple",
+        components: [
+          { name: "processedSteps", internalType: "uint256", type: "uint256" },
+          { name: "reward", internalType: "uint256", type: "uint256" },
+          { name: "referral", internalType: "uint256", type: "uint256" },
+          { name: "creator", internalType: "uint256", type: "uint256" },
+        ],
+      },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "beneficiary", internalType: "address", type: "address" },
+      { name: "maxSteps", internalType: "uint256", type: "uint256" },
+    ],
+    name: "claimAllFor",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.ClaimResult",
+        type: "tuple",
+        components: [
+          { name: "processedSteps", internalType: "uint256", type: "uint256" },
+          { name: "reward", internalType: "uint256", type: "uint256" },
+          { name: "referral", internalType: "uint256", type: "uint256" },
+          { name: "creator", internalType: "uint256", type: "uint256" },
+        ],
+      },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
     name: "claimReferral",
     outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
     stateMutability: "nonpayable",
@@ -3716,6 +3830,13 @@ export const membershipTierAbi = [
     name: "grantTime",
     outputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "beneficiary", internalType: "address", type: "address" }],
+    name: "hasClaimInterest",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
   },
   {
     type: "function",
@@ -5160,6 +5281,7 @@ export const membershipTierAbi = [
     name: "AccountingBehind",
   },
   { type: "error", inputs: [], name: "CapacityReached" },
+  { type: "error", inputs: [], name: "ClaimFactoryOnly" },
   { type: "error", inputs: [], name: "CurveCapacityExceeded" },
   { type: "error", inputs: [], name: "DurationOverflow" },
   {
@@ -5220,6 +5342,7 @@ export const membershipTierAbi = [
   { type: "error", inputs: [], name: "IncorrectPricingMode" },
   { type: "error", inputs: [], name: "InexactTokenTransfer" },
   { type: "error", inputs: [], name: "InvalidAddress" },
+  { type: "error", inputs: [], name: "InvalidClaim" },
   { type: "error", inputs: [], name: "InvalidMediaConfig" },
   { type: "error", inputs: [], name: "InvalidMetadata" },
   { type: "error", inputs: [], name: "InvalidMinimumPayment" },
@@ -9974,6 +10097,24 @@ export const useReadMembershipFactory = /*#__PURE__*/ createUseReadContract({
 });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"MAX_CLAIM_STEPS"`
+ */
+export const useReadMembershipFactoryMaxClaimSteps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "MAX_CLAIM_STEPS",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"MAX_CLAIM_TIERS"`
+ */
+export const useReadMembershipFactoryMaxClaimTiers =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipFactoryAbi,
+    functionName: "MAX_CLAIM_TIERS",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"burnRouter"`
  */
 export const useReadMembershipFactoryBurnRouter =
@@ -10197,6 +10338,15 @@ export const useWriteMembershipFactoryBindProtocolToken =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"claimEverything"`
+ */
+export const useWriteMembershipFactoryClaimEverything =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipFactoryAbi,
+    functionName: "claimEverything",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"createTier"`
  */
 export const useWriteMembershipFactoryCreateTier =
@@ -10257,6 +10407,15 @@ export const useSimulateMembershipFactoryBindProtocolToken =
   });
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"claimEverything"`
+ */
+export const useSimulateMembershipFactoryClaimEverything =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipFactoryAbi,
+    functionName: "claimEverything",
+  });
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"createTier"`
  */
 export const useSimulateMembershipFactoryCreateTier =
@@ -10297,6 +10456,15 @@ export const useSimulateMembershipFactoryTransferOwnership =
  */
 export const useWatchMembershipFactoryEvent =
   /*#__PURE__*/ createUseWatchContractEvent({ abi: membershipFactoryAbi });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"EverythingClaimed"`
+ */
+export const useWatchMembershipFactoryEverythingClaimedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipFactoryAbi,
+    eventName: "EverythingClaimed",
+  });
 
 /**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipFactoryAbi}__ and `eventName` set to `"OwnershipTransferStarted"`
@@ -10695,6 +10863,15 @@ export const useReadMembershipTierGetApproved =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "getApproved",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"hasClaimInterest"`
+ */
+export const useReadMembershipTierHasClaimInterest =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "hasClaimInterest",
   });
 
 /**
@@ -11110,6 +11287,24 @@ export const useWriteMembershipTierCancelSubscription =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"claimAll"`
+ */
+export const useWriteMembershipTierClaimAll =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipTierAbi,
+    functionName: "claimAll",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"claimAllFor"`
+ */
+export const useWriteMembershipTierClaimAllFor =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipTierAbi,
+    functionName: "claimAllFor",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"claimReferral"`
  */
 export const useWriteMembershipTierClaimReferral =
@@ -11319,6 +11514,24 @@ export const useSimulateMembershipTierCancelSubscription =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipTierAbi,
     functionName: "cancelSubscription",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"claimAll"`
+ */
+export const useSimulateMembershipTierClaimAll =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipTierAbi,
+    functionName: "claimAll",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"claimAllFor"`
+ */
+export const useSimulateMembershipTierClaimAllFor =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipTierAbi,
+    functionName: "claimAllFor",
   });
 
 /**

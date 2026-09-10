@@ -21,6 +21,8 @@ const deployment: ReadyDeployment = {
   ),
 };
 
+vi.mock("./AccountRewards", () => ({ AccountRewards: () => null }));
+
 vi.mock("wagmi", () => ({
   useAccount: () => ({
     address: wallet,
