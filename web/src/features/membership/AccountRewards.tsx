@@ -1,4 +1,5 @@
 "use client";
+import { readRewardUsdPrices, formatRewardUsd } from "@/lib/reward-usd";
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -197,11 +198,28 @@ export function AccountRewards({
     const amount = result.reward + result.referral + result.creator;
     if (amount > 0n) totals.set(token, (totals.get(token) ?? 0n) + amount);
   });
+  const tokens = [...totals.keys()];
+  const usd = useQuery({
+    queryKey: ["account-reward-usd", chainId, factoryAddress, ...tokens],
+    queryFn: () => readRewardUsdPrices(client!, factoryAddress, tokens),
+    enabled:
+      Boolean(client) &&
+      tokens.length > 0 &&
+      (chainId === 31337 || chainId === 4663),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    retry: false,
+  });
   const blocked = preview.data?.blocked;
   return (
     <section aria-label="Rewards" className="account-rewards protocol-section">
-      <h2 className="font-display">Your rewards</h2>
-      <div aria-live="polite" style={{ minHeight: "3rem" }}>
+      <div className="account-rewards-heading">
+        <p className="eyebrow">
+          {totals.size > 0 ? "Ready to collect" : "Earnings"}
+        </p>
+        <h2 className="font-display">Your rewards</h2>
+      </div>
+      <div aria-live="polite" className="account-reward-balances">
         {addresses.length === 0 ? (
           "No rewards found yet."
         ) : preview.isPending ? (
@@ -220,7 +238,21 @@ export function AccountRewards({
           "All claimed."
         ) : (
           [...totals].map(([token, amount]) => (
-            <p key={token}>{formatAmount(amount, token)}</p>
+            <div className="account-reward-balance" key={token}>
+              <p className="account-reward-amount">
+                {formatAmount(amount, token)}
+              </p>
+              <p className="account-reward-usd">
+                {(() => {
+                  const quote = usd.data?.find((item) => item.token === token);
+                  return quote
+                    ? `≈ ${formatRewardUsd(amount, quote.price, navigator.language)}`
+                    : usd.isError
+                      ? "USD estimate unavailable"
+                      : " ";
+                })()}
+              </p>
+            </div>
           ))
         )}
       </div>
@@ -250,7 +282,10 @@ export function AccountRewards({
           disabled={
             action.isPending || preview.isFetching || addresses.length === 0
           }
-          onClick={() => void preview.refetch()}
+          onClick={() => {
+            void preview.refetch();
+            void usd.refetch();
+          }}
         >
           Refresh
         </button>

@@ -91,50 +91,6 @@ export async function readMarketState(
     pool?: Pool;
     marginal: Fraction;
   }[] = [];
-  const poolMarginal = async (pool: Pool, from: Address) => {
-    if (
-      from.toLowerCase() !== pool.currency0.toLowerCase() &&
-      from.toLowerCase() !== pool.currency1.toLowerCase()
-    )
-      throw new Error("Disconnected conversion route");
-    const poolId = keccak256(
-      encodeAbiParameters(
-        [
-          { type: "address" },
-          { type: "address" },
-          { type: "uint24" },
-          { type: "int24" },
-          { type: "address" },
-        ],
-        [
-          pool.currency0,
-          pool.currency1,
-          pool.fee,
-          pool.tickSpacing,
-          pool.hooks,
-        ],
-      ),
-    );
-    // Uniswap v4 StateLibrary: pools mapping at slot 6, slot0 low 160 bits is sqrtPriceX96.
-    const slot = keccak256(
-      encodeAbiParameters(
-        [{ type: "bytes32" }, { type: "uint256" }],
-        [poolId, 6n],
-      ),
-    );
-    const word = await client.readContract({
-      address: manager,
-      abi: iPoolManagerAbi,
-      functionName: "extsload",
-      args: [slot],
-      blockNumber,
-    });
-    const sqrt = BigInt(word as Hex) & ((1n << 160n) - 1n);
-    if (sqrt === 0n) throw new Error("Pool is not initialized");
-    return from.toLowerCase() === pool.currency0.toLowerCase()
-      ? fraction(sqrt * sqrt, 1n << 192n)
-      : fraction(1n << 192n, sqrt * sqrt);
-  };
   for (const pool of pools) {
     const output =
       cursor.toLowerCase() === pool.currency0.toLowerCase()
@@ -144,7 +100,7 @@ export async function readMarketState(
       input: cursor,
       output,
       pool,
-      marginal: await poolMarginal(pool, cursor),
+      marginal: await readPoolMarginal(client, pool, cursor, blockNumber),
     });
     cursor = output;
   }
@@ -226,7 +182,7 @@ export async function readMarketState(
       input: zeroAddress,
       output: protocolToken,
       pool,
-      marginal: await poolMarginal(pool, zeroAddress),
+      marginal: await readPoolMarginal(client, pool, zeroAddress, blockNumber),
     });
   }
   return {
@@ -310,4 +266,48 @@ export async function quoteMarket(
     cursor = output;
   }
   return outputs;
+}
+
+export async function readPoolMarginal(
+  client: PublicClient,
+  pool: Pool,
+  from: Address,
+  blockNumber: bigint,
+) {
+  if (
+    from.toLowerCase() !== pool.currency0.toLowerCase() &&
+    from.toLowerCase() !== pool.currency1.toLowerCase()
+  )
+    throw new Error("Disconnected conversion route");
+  const poolId = keccak256(
+    encodeAbiParameters(
+      [
+        { type: "address" },
+        { type: "address" },
+        { type: "uint24" },
+        { type: "int24" },
+        { type: "address" },
+      ],
+      [pool.currency0, pool.currency1, pool.fee, pool.tickSpacing, pool.hooks],
+    ),
+  );
+  // Uniswap v4 StateLibrary: pools mapping at slot 6, slot0 low 160 bits is sqrtPriceX96.
+  const slot = keccak256(
+    encodeAbiParameters(
+      [{ type: "bytes32" }, { type: "uint256" }],
+      [poolId, 6n],
+    ),
+  );
+  const word = await client.readContract({
+    address: manager,
+    abi: iPoolManagerAbi,
+    functionName: "extsload",
+    args: [slot],
+    blockNumber,
+  });
+  const sqrt = BigInt(word as Hex) & ((1n << 160n) - 1n);
+  if (sqrt === 0n) throw new Error("Pool is not initialized");
+  return from.toLowerCase() === pool.currency0.toLowerCase()
+    ? fraction(sqrt * sqrt, 1n << 192n)
+    : fraction(1n << 192n, sqrt * sqrt);
 }

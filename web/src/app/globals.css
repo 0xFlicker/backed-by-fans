@@ -3861,20 +3861,78 @@ dd {
   margin: 0.5rem 0 0;
 }
 
+/* Account earnings */
+.account-heading {
+  border-bottom: 0;
+  gap: 0.75rem;
+  padding-bottom: 2.5rem;
+}
+.account-heading h1 {
+  font-size: clamp(3rem, 5vw, 5rem);
+  max-width: none;
+  line-height: 1;
+  margin: 0.5rem 0 0;
+}
 .account-rewards {
-  padding: 1.5rem 0;
-  margin-bottom: 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.75rem 3rem;
+  padding: 2rem 0 2.5rem;
+  margin-bottom: 2rem;
+  border-top: 0;
 }
-.account-rewards > h2 {
-  font-size: 1.75rem;
+.account-rewards-heading {
+  grid-column: 1 / -1;
 }
-.account-rewards p {
-  margin: 0.35rem 0;
+.account-rewards-heading h2 {
+  font-size: 2.25rem;
+  line-height: 1.1;
+  margin: 0.5rem 0 0;
+}
+.account-reward-balances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 3rem;
+  min-height: 4rem;
+  align-items: center;
+}
+.account-reward-balance {
+  min-width: 9rem;
+}
+.account-rewards .account-reward-amount {
+  font-size: clamp(1.35rem, 2.2vw, 1.9rem);
+  line-height: 1.3;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+.account-rewards .account-reward-usd {
+  font-size: 0.875rem;
+  color: var(--muted-ink);
+  min-height: 1.5rem;
+  margin: 0.4rem 0 0;
+  font-variant-numeric: tabular-nums;
 }
 .account-rewards .creator-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem 1.25rem;
-  margin-top: 0.75rem;
+  margin: 0;
+}
+.account-rewards > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .account-rewards {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .account-reward-balances {
+    gap: 1.25rem 2rem;
+  }
+  .account-heading {
+    padding-bottom: 1.5rem;
+  }
 }

@@ -459,13 +459,10 @@ export function AccountDiscovery({ initialDiscovery }: AccountDiscoveryProps) {
     <div className="account-stack">
       <header className="account-heading">
         <div>
-          <p className="eyebrow">Your account</p>
+          <p className="eyebrow">Backed by you</p>
           <h1 className="font-display">Your account.</h1>
         </div>
-        <p>
-          See the memberships you support, manage the ones you create, and
-          collect any earnings waiting for you.
-        </p>
+        <p>Your memberships, creations and earnings.</p>
       </header>
 
       {deployment.status !== "ready" ? (
