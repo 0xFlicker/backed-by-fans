@@ -1,0 +1,171 @@
+@font-face {
+  font-family: Geist;
+  src: url("/fonts/geist/dist/fonts/geist-sans/Geist-Regular.woff2");
+}
+@font-face {
+  font-family: Geist;
+  font-weight: 700;
+  src: url("/fonts/geist/dist/fonts/geist-sans/Geist-Bold.woff2");
+}
+@font-face {
+  font-family: Instrument;
+  src: url("/fonts/@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff2");
+}
+@page {
+  size: A4;
+  margin: 18mm 17mm 20mm;
+  @bottom-left {
+    content: "BACKED BY FANS";
+    font: 8px Geist;
+    color: #67645e;
+  }
+  @bottom-right {
+    content: counter(page);
+    font: 9px Geist;
+    color: #67645e;
+  }
+}
+@page:first {
+  margin: 0;
+  @bottom-left {
+    content: none;
+  }
+  @bottom-right {
+    content: none;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  color: #232321;
+  font:
+    10pt/1.45 Geist,
+    sans-serif;
+}
+h1,
+h2 {
+  font-family: Instrument, Georgia, serif;
+  font-weight: 400;
+  line-height: 1.08;
+}
+h2 {
+  font-size: 28pt;
+  margin: 24pt 0 12pt;
+}
+h3 {
+  font-size: 12pt;
+  margin: 20pt 0 8pt;
+}
+h2,
+h3 {
+  break-after: avoid;
+}
+p {
+  margin: 0 0 8pt;
+  break-inside: avoid;
+  orphans: 3;
+  widows: 3;
+}
+li {
+  margin: 4pt 0;
+}
+ul {
+  padding-left: 18pt;
+}
+a {
+  color: #34304f;
+  text-decoration-color: #aaa5b5;
+  text-underline-offset: 3px;
+}
+code {
+  font-size: 8pt;
+  overflow-wrap: anywhere;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 8.5pt;
+  margin: 14pt 0;
+  break-inside: avoid;
+}
+th,
+td {
+  padding: 8pt 6pt;
+  border-bottom: 1px solid #d9d6ce;
+  text-align: left;
+}
+th {
+  background: #f3f0e9;
+  font-weight: 700;
+}
+figure {
+  margin: 20pt 0;
+  break-inside: avoid;
+}
+figure img {
+  width: 100%;
+  display: block;
+}
+figure p {
+  margin-bottom: 7pt;
+}
+figure em {
+  font-size: 8pt;
+  font-style: normal;
+  color: #656159;
+}
+hr {
+  border: 0;
+  border-top: 1px solid #d9d6ce;
+  margin-top: 24pt;
+}
+.cover {
+  position: relative;
+  height: 297mm;
+  width: 210mm;
+  break-after: page;
+  overflow: hidden;
+  padding: 24mm 18mm;
+  background: #f4efe3;
+}
+.cover h1 {
+  position: relative;
+  z-index: 1;
+  font-size: 54pt;
+  margin: 0 0 8pt;
+}
+.cover h2 {
+  position: relative;
+  z-index: 1;
+  font: 17pt Geist;
+  margin: 0 0 12pt;
+}
+.cover p {
+  position: relative;
+  z-index: 1;
+  font-size: 9pt;
+}
+.cover em {
+  font-style: normal;
+}
+.cover p:has(img) {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+}
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Keep the source appendix together on its own page. */
+hr {
+  break-before: page;
+}
+h2 + p {
+  break-after: avoid;
+}

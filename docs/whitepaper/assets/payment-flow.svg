@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="960" viewBox="0 0 1400 960" role="img" aria-labelledby="title desc"><title id="title">How a membership payment is earned</title><desc id="desc">A creator sets tier terms. A fan funds membership time. Creator, member, referral and protocol allocations all accrue over paid time. Earned protocol fees are released before buyback and burn execution.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10" fill="none" stroke="#11131a" stroke-width="1.4"/></marker></defs>
+<rect width="1400" height="960" fill="#f7f2e8"/>
+<text x="60" y="48" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" text-anchor="start">BACKED BY FANS  /  02</text>
+<text x="60" y="105" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="500" text-anchor="start">A payment starts. Support keeps flowing.</text>
+<text x="60" y="147" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" text-anchor="start">Illustrative tier: 100 units for 30 days · 70% creator / 20% members / 5% referral / 5% protocol</text>
+<text x="350" y="222" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="700" text-anchor="middle">Creator</text>
+<text x="350" y="259" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" text-anchor="middle">Sets the tier’s terms</text>
+<text x="1050" y="222" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="700" text-anchor="middle">Fan</text>
+<text x="1050" y="259" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" text-anchor="middle">Pays to join or renew</text>
+<path d="M350 280 V296 Q350 308 362 308 H688 Q700 308 700 320 V334" fill="none" stroke="#11131a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M1050 280 V296 Q1050 308 1038 308 H712 Q700 308 700 320" fill="none" stroke="#11131a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="445" y="348" width="510" height="126" rx="12" fill="#fffdf8" stroke="#c9c3b8" stroke-width="2"/>
+<text x="700" y="392" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" text-anchor="middle">Membership tier</text>
+<text x="700" y="433" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" text-anchor="middle">Payment allocated; earnings accrue over time</text>
+<path d="M700 474 V516 M220 568 V530 Q220 516 234 516 H1166 Q1180 516 1180 530 V568 M540 516 V568 M860 516 V568" fill="none" stroke="#11131a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="700" y="548" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="middle">Earned over paid time</text>
+<rect x="80" y="568" width="280" height="156" rx="12" fill="#fffdf8" stroke="#c9c3b8" stroke-width="2"/>
+<text x="102" y="608" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" text-anchor="start">Creator</text>
+<text x="338" y="608" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" text-anchor="end">70%</text>
+<text x="102" y="655" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="400" text-anchor="start">35 units</text>
+<text x="102" y="694" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" text-anchor="start">Creator earnings</text>
+<rect x="400" y="568" width="280" height="156" rx="12" fill="#fffdf8" stroke="#c9c3b8" stroke-width="2"/>
+<text x="422" y="608" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" text-anchor="start">Members</text>
+<text x="658" y="608" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" text-anchor="end">20%</text>
+<text x="422" y="655" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="400" text-anchor="start">10 units</text>
+<text x="422" y="694" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" text-anchor="start">Shared reward pool</text>
+<rect x="720" y="568" width="280" height="156" rx="12" fill="#fffdf8" stroke="#c9c3b8" stroke-width="2"/>
+<text x="742" y="608" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" text-anchor="start">Referrer</text>
+<text x="978" y="608" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" text-anchor="end">5%</text>
+<text x="742" y="655" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="400" text-anchor="start">2.5 units</text>
+<text x="742" y="694" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" text-anchor="start">Recorded referrer</text>
+<rect x="1040" y="568" width="280" height="156" rx="12" fill="#fffdf8" stroke="#c9c3b8" stroke-width="2"/>
+<text x="1062" y="608" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" text-anchor="start">Protocol</text>
+<text x="1298" y="608" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" text-anchor="end">5%</text>
+<text x="1062" y="655" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="400" text-anchor="start">2.5 units</text>
+<text x="1062" y="694" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" text-anchor="start">Earned protocol fees</text>
+<text x="80" y="784" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="start">HALFWAY THROUGH THE PERIOD</text>
+<text x="80" y="821" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" text-anchor="start">Day 15: 50 units earned · 50 units still unearned</text>
+<path d="M1180 724 V766" fill="none" stroke="#11131a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1180" y="797" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="500" text-anchor="middle">Release fees</text>
+<path d="M1180 813 V843" fill="none" stroke="#11131a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1180" y="878" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" text-anchor="middle">Buyback → Burn</text>
+<text x="80" y="906" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="start">Example assumes a recorded referrer. Member amounts are pool totals, not individual rewards.</text>
+<text x="1180" y="914" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="middle">Separate execution</text>
+</svg>
