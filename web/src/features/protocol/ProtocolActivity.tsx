@@ -656,14 +656,14 @@ function TierForecast({
   return (
     <div className="protocol-forecast">
       <p className="small-copy">
-        Accounting through{" "}
+        Earnings through{" "}
         {new Date(
           Number(current.accounting.accountedThrough) * 1000,
         ).toLocaleString()}
         .
         {current.accounting.complete
-          ? " All due accounting is settled."
-          : " More accounting remains; reserved funds may include amounts still awaiting processing."}
+          ? " Current at this block."
+          : " Partial preview. Advance accounting to update the rest."}
       </p>
       <dl className="protocol-ledger">
         <div>

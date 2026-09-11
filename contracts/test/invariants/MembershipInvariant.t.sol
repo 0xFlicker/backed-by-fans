@@ -217,12 +217,14 @@ contract MembershipHandler is Test {
         uint256 referralCredit;
         for (uint256 i; i < _actors.length; ++i) {
             uint256 id = tier.tokenOf(_actors[i]);
-            MembershipTypes.EarnedBalances memory balances = tier.earnedBalances(id, _actors[i]);
+            MembershipTypes.EarnedBalances memory balances =
+            tier.previewAccounting(id, _actors[i], 0).settled;
             memberCredit += balances.member * Q + balances.fractionalScaled[1];
             referralCredit += balances.referral * Q + balances.fractionalScaled[2];
             if (id != 0) assertEq(tier.allocationState(id).generation, _funding.generation[id]);
         }
-        MembershipTypes.EarnedBalances memory global = tier.earnedBalances(0, address(0));
+        MembershipTypes.EarnedBalances memory global =
+        tier.previewAccounting(0, address(0), 0).settled;
         uint256[4] memory earned = [
             global.creator * Q + global.fractionalScaled[0],
             memberCredit + reserves.indexCarryScaled + reserves.distributionDustScaled,
@@ -407,7 +409,7 @@ contract MembershipHandler is Test {
                 tier.totalRewardShares(),
                 tier.creatorProceeds(),
                 tier.reserveState(),
-                tier.earnedBalances(0, address(0))
+                tier.previewAccounting(0, address(0), 0).settled
             )
         );
     }
@@ -603,8 +605,8 @@ contract RewardSettlementIndependenceTest is Test {
         assertEq(frequentSecondFinal, deferredSecondFinal);
         assertEq(abi.encode(frequent.reserveState()), abi.encode(deferred.reserveState()));
         assertEq(
-            frequent.earnedBalances(1, address(0)).fractionalScaled[1],
-            deferred.earnedBalances(1, address(0)).fractionalScaled[1]
+            frequent.previewAccounting(1, address(0), 0).settled.fractionalScaled[1],
+            deferred.previewAccounting(1, address(0), 0).settled.fractionalScaled[1]
         );
     }
 }

@@ -12,6 +12,7 @@ import { protocolBurnRouterAbi } from "@/contracts";
 import { ReleaseTierFees } from "./ReleaseTierFees";
 const mock = vi.hoisted(() => ({
   read: vi.fn(),
+  preview: vi.fn(),
   simulate: vi.fn(),
   write: vi.fn(),
   receipt: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("wagmi", () => ({
     isPending: false,
   }),
 }));
+vi.mock("./preview-advance", () => ({ previewAdvance: mock.preview }));
 vi.mock("@wagmi/core", () => ({ simulateContract: mock.simulate }));
 vi.mock("./gas-readiness", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./gas-readiness")>()),
@@ -56,7 +58,14 @@ function mount() {
   );
 }
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
+  mock.preview.mockResolvedValue({
+    processedSteps: 25n,
+    purchases: 1n,
+    ready: true,
+    useful: true,
+    complete: false,
+  });
   mock.chainId = 31337;
   mock.read.mockImplementation(async ({ functionName }) => {
     if (functionName === "accountingStatus")
@@ -119,7 +128,7 @@ it("lets any wallet advance and release with the exact simulated request", async
     args: [[{ tier, maxAccountingSteps: 25n }]],
   });
   expect(mock.write.mock.calls[0][0]).toBe(
-    (await mock.simulate.mock.results[1].value).request,
+    (await mock.simulate.mock.results[0].value).request,
   );
   expect(screen.getByText(/More remains. Advance again/)).toBeVisible();
   expect(
@@ -207,6 +216,13 @@ it("shows up to date and requires explicit settlement for accrual alone", async 
     request,
     result: 0n,
   }));
+  mock.preview.mockResolvedValue({
+    processedSteps: 0n,
+    purchases: 0n,
+    ready: false,
+    useful: true,
+    complete: true,
+  });
   mount();
   expect(await screen.findByText("Accounting is up to date.")).toBeVisible();
   expect(

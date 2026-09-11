@@ -27,7 +27,7 @@ describe("vesting balance summaries", () => {
     expect(screen.getByText("10 units")).toBeVisible();
     expect(screen.getByText(/shared by eligible members/)).toBeVisible();
     expect(
-      screen.getByText(/Advance accounting to make new earnings available/),
+      screen.getByText(/Claiming rewards settles new earnings automatically/),
     ).toBeVisible();
     expect(screen.queryByText("Reserved creator funding")).toBeNull();
     expect(

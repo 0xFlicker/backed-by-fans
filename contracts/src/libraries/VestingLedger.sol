@@ -200,15 +200,26 @@ library VestingLedger {
         return abi.encode(page);
     }
 
+    function encodedStatus(State storage self, uint64 now_) external view returns (bytes memory) {
+        return abi.encode(_status(self, now_));
+    }
+
     function encodedBalances(State storage self, uint256 tokenId, address referrer, uint64 now_)
         external
         view
         returns (bytes memory)
     {
-        MembershipTypes.EarnedBalances memory result;
+        return abi.encode(_balances(self, tokenId, referrer, now_));
+    }
+
+    function _balanceScaled(State storage self, uint256 tokenId, address referrer)
+        private
+        view
+        returns (uint256[4] memory)
+    {
         MemberAccount storage member = self.members[tokenId];
         ReferrerAccount storage referral = self.referrers[referrer];
-        uint256[4] memory scaled = [
+        return [
             self.earnedScaled[0],
             member.creditScaled
                 + (member.eligible ? member.shares * (self.rewardPerShare - member.index) : 0),
@@ -216,6 +227,13 @@ library VestingLedger {
                 * (self.accountedThrough - referral.accountedThrough),
             self.earnedScaled[3]
         ];
+    }
+
+    function _rawBalances(uint256[4] memory scaled)
+        private
+        pure
+        returns (MembershipTypes.EarnedBalances memory result)
+    {
         result.creator = scaled[0] / SCALE;
         result.member = scaled[1] / SCALE;
         result.referral = scaled[2] / SCALE;
@@ -223,8 +241,191 @@ library VestingLedger {
         for (uint256 i; i < PURPOSES; ++i) {
             result.fractionalScaled[i] = scaled[i] % SCALE;
         }
+    }
+
+    function _balances(State storage self, uint256 tokenId, address referrer, uint64 now_)
+        private
+        view
+        returns (MembershipTypes.EarnedBalances memory result)
+    {
+        result = _rawBalances(_balanceScaled(self, tokenId, referrer));
         result.status = _status(self, now_);
+    }
+
+    // The frontier visits the storage heap lazily: popping one stored root
+    // exposes its children and the next queued boundary for that member. Its size
+    // depends on the read budget, never on the total membership/history count.
+    struct PreviewNode {
+        Node node;
+        uint256 lotIndex;
+        uint256 source;
+    }
+
+    struct PreviewState {
+        PreviewNode[] frontier;
+        uint256 length;
+        uint256 scheduled;
+        uint64 cursor;
+        uint256[4] rates;
+        uint256[4] earned;
+        uint256 referralRate;
+        uint256 referralEarned;
+    }
+
+    function encodedPreview(
+        State storage self,
+        uint256 tokenId,
+        address referrer,
+        uint64 through,
+        uint256 maxSteps
+    ) external view returns (bytes memory) {
+        if (maxSteps > 256) revert InvalidAccountingSteps();
+        if (!self.initialized || through < self.accountedThrough) revert AccountingInvariant();
+        MembershipTypes.AccountingPreview memory result;
+        result.asOf = through;
+        result.settled = _balances(self, tokenId, referrer, through);
+        PreviewState memory work;
+        // A pop adds at most two stored children and one queued successor.
+        work.frontier = new PreviewNode[](2 * maxSteps + 1);
+        work.scheduled = self.heap.length;
+        work.cursor = self.accountedThrough;
+        work.rates = self.activeRates;
+        work.referralRate = self.referrers[referrer].rate;
+        if (self.heap.length != 0) _previewStored(self, work, 0);
+        while (
+            result.processedSteps < maxSteps && work.length != 0
+                && work.frontier[0].node.timestamp <= through
+        ) {
+            PreviewNode memory entry = _previewPop(work);
+            _previewIntegrate(work, entry.node.timestamp);
+            if (entry.source != 0) {
+                uint256 left = 2 * (entry.source - 1) + 1;
+                if (left < self.heap.length) _previewStored(self, work, left);
+                if (left + 1 < self.heap.length) _previewStored(self, work, left + 1);
+            }
+            _previewBoundary(self, work, entry, referrer);
+            ++result.processedSteps;
+        }
+        bool complete = work.length == 0 || work.frontier[0].node.timestamp > through;
+        if (complete) _previewIntegrate(work, through);
+        result.earnedDeltaScaled = work.earned;
+        uint256[4] memory scaled = _balanceScaled(self, tokenId, referrer);
+        scaled[0] += work.earned[0];
+        scaled[3] += work.earned[3];
+        scaled[2] += work.referralEarned;
+        if (work.earned[1] != 0 && self.totalShares != 0 && self.members[tokenId].eligible) {
+            scaled[1] += self.members[tokenId].shares
+            * ((work.earned[1] + self.rewardCarry) / self.totalShares);
+        }
+        result.current = _rawBalances(scaled);
+        result.current.status = MembershipTypes.AccountingStatus(
+            work.cursor,
+            work.length == 0 ? 0 : work.frontier[0].node.timestamp,
+            work.scheduled,
+            complete
+        );
         return abi.encode(result);
+    }
+
+    function _previewBoundary(
+        State storage self,
+        PreviewState memory work,
+        PreviewNode memory entry,
+        address referrer
+    ) private view {
+        Lot[] storage queue = self.lots[
+            entry.node.tokenId
+        ][self.funding[entry.node.tokenId].generation];
+        Lot storage lot = queue[entry.lotIndex];
+        if (entry.node.isStart) {
+            _previewStart(work, lot, referrer);
+            _previewPush(
+                work, PreviewNode(Node(entry.node.tokenId, lot.end, false), entry.lotIndex, 0)
+            );
+            return;
+        }
+        uint256 duration = lot.end - lot.start;
+        for (uint256 i; i < PURPOSES; ++i) {
+            uint256 allocated = lot.amounts[i] * SCALE;
+            work.rates[i] -= allocated / duration;
+            work.earned[i] += allocated % duration;
+        }
+        if (lot.referrer == referrer) {
+            work.referralRate -= lot.amounts[2] * SCALE / duration;
+            work.referralEarned += lot.amounts[2] * SCALE % duration;
+        }
+        uint256 next = entry.lotIndex + 1;
+        if (next == queue.length) {
+            --work.scheduled;
+            return;
+        }
+        Lot storage following = queue[next];
+        bool later = following.start > work.cursor;
+        if (!later) _previewStart(work, following, referrer);
+        _previewPush(
+            work,
+            PreviewNode(
+                Node(entry.node.tokenId, later ? following.start : following.end, later), next, 0
+            )
+        );
+    }
+
+    function _previewIntegrate(PreviewState memory work, uint64 through) private pure {
+        uint256 elapsed = through - work.cursor;
+        for (uint256 i; i < PURPOSES; ++i) {
+            work.earned[i] += work.rates[i] * elapsed;
+        }
+        work.referralEarned += work.referralRate * elapsed;
+        work.cursor = through;
+    }
+
+    function _previewStart(PreviewState memory work, Lot storage lot, address referrer)
+        private
+        view
+    {
+        uint256 duration = lot.end - lot.start;
+        for (uint256 i; i < PURPOSES; ++i) {
+            work.rates[i] += lot.amounts[i] * SCALE / duration;
+        }
+        if (lot.referrer == referrer) work.referralRate += lot.amounts[2] * SCALE / duration;
+    }
+
+    function _previewStored(State storage self, PreviewState memory work, uint256 index)
+        private
+        view
+    {
+        Node memory node = self.heap[index];
+        // source zero identifies projected entries; stored sources are one-based.
+        _previewPush(work, PreviewNode(node, self.funding[node.tokenId].head, index + 1));
+    }
+
+    function _previewPush(PreviewState memory work, PreviewNode memory entry) private pure {
+        uint256 index = work.length++;
+        while (index != 0) {
+            uint256 parent = (index - 1) / 2;
+            if (!_less(entry.node, work.frontier[parent].node)) break;
+            work.frontier[index] = work.frontier[parent];
+            index = parent;
+        }
+        work.frontier[index] = entry;
+    }
+
+    function _previewPop(PreviewState memory work) private pure returns (PreviewNode memory first) {
+        first = work.frontier[0];
+        PreviewNode memory last = work.frontier[--work.length];
+        if (work.length == 0) return first;
+        uint256 index;
+        while (2 * index + 1 < work.length) {
+            uint256 child = 2 * index + 1;
+            if (
+                child + 1 < work.length
+                    && _less(work.frontier[child + 1].node, work.frontier[child].node)
+            ) ++child;
+            if (!_less(work.frontier[child].node, last.node)) break;
+            work.frontier[index] = work.frontier[child];
+            index = child;
+        }
+        work.frontier[index] = last;
     }
 
     function encodedReserves(State storage self, uint64 now_) external view returns (bytes memory) {
@@ -323,7 +524,8 @@ library VestingLedger {
         external
         returns (ProcessResult memory result)
     {
-        return _process(self, through, maxSteps);
+        result = _process(self, through, maxSteps);
+        _emitProgress(result);
     }
 
     function _catchUp(State storage self, uint64 through, uint256 maxSteps)
@@ -339,9 +541,18 @@ library VestingLedger {
         if (!progress.complete) {
             revert AccountingBehind(progress.accountedThrough, self.heap[0].timestamp);
         }
+        _emitProgress(progress);
+    }
+
+    // Delegatecall preserves the tier as emitter for both public processing and claims.
+    function _emitProgress(ProcessResult memory progress) private {
         emit IMembershipTier.AccountingProgress(
             progress.accountedThrough, progress.processed, progress.complete, progress.earnedScaled
         );
+    }
+
+    function catchUp(State storage self, uint64 through, uint256 maxSteps) external {
+        _catchUp(self, through, maxSteps);
     }
 
     function _process(State storage self, uint64 through, uint256 maxSteps)

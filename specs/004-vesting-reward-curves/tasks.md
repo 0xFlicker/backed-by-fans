@@ -288,3 +288,11 @@ Earlier completed tasks document the previous implementation, not acceptance of 
 - [X] Add gas regression ceilings, randomized replacement/gap ordering, referral restart, claim event and stateful combined-claim coverage; pass the full regular contract and invariant suites.
 - [X] Complete 10,000 independent accounting histories and full 10,000-member/100,000-payment capacity recovery on the final optimized source.
 - [X] Regenerate/check bindings, verify affected frontend consumers and record final hashes, measurements, deployment gates and scope in `evidence/gas-optimization.md`.
+
+### Follow-up: true accounting previews
+
+- [X] Add bounded STATICCALL-safe previews with settled/current balances, allocation deltas, timestamps and completeness; replace the obsolete settled-only tier endpoint.
+- [X] Prove preview/write equality for randomized funding schedules, referrals, rounding, cancellation and suspension; verify bounded reads on large heaps and actual claim payout equality.
+- [X] Add vault read-only eligibility after hypothetical release, sharing execution policy without executing swaps.
+- [X] Use read-only previews for account/membership earnings and protocol deltas; keep native simulation only at submission and show partial reads explicitly.
+- [X] Complete final generated-binding, frontend, invariant and unchanged deployment/gas checks; verify the newly deployed local graph and browser flows. Evidence: [accounting previews](evidence/accounting-preview.md).

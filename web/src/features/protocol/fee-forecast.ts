@@ -1,8 +1,7 @@
-import type { Address, PublicClient } from "viem";
+import { zeroAddress, type Address, type PublicClient } from "viem";
 import { membershipTierAbi } from "@/contracts";
 
-/** Constant-size settled accounting snapshot. Reserved funds include backlog;
- * no current-time or future payout is inferred from unprocessed schedules. */
+/** Bounded current earnings with an explicit completion flag for large backlogs. */
 export async function readTierFunding(
   client: PublicClient,
   tier: Address,
@@ -13,7 +12,7 @@ export async function readTierFunding(
       ? {}
       : { blockNumber: options.blockNumber },
   );
-  const [reserves, earnedHeld] = await Promise.all([
+  const [reserves, preview] = await Promise.all([
     client.readContract({
       address: tier,
       abi: membershipTierAbi,
@@ -23,17 +22,22 @@ export async function readTierFunding(
     client.readContract({
       address: tier,
       abi: membershipTierAbi,
-      functionName: "protocolFeeEarnedHeld",
+      functionName: "previewAccounting",
+      args: [0n, zeroAddress, 256n],
       blockNumber: block.number,
     }),
   ]);
   return {
     blockNumber: block.number,
     timestamp: block.timestamp,
-    accounting: reserves.status,
-    earnedHeld,
-    reservedScaled: reserves.unearnedScaled[3],
+    accounting: preview.current.status,
+    earnedHeld: preview.current.protocol,
+    settledHeld: preview.settled.protocol,
+    newlyEarned: preview.current.protocol - preview.settled.protocol,
+    reservedScaled: reserves.unearnedScaled[3] - preview.earnedDeltaScaled[3],
     cancellationScaled: reserves.cancellationScaled[3],
-    reserved: reserves.unearnedScaled[3] / (1n << 128n),
+    reserved:
+      (reserves.unearnedScaled[3] - preview.earnedDeltaScaled[3]) /
+      (1n << 128n),
   };
 }

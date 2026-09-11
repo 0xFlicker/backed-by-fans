@@ -269,11 +269,10 @@ test("@anvil creator sync burns an expired NFT while its member can claim and re
     await switchAnvilAccount(page, member);
     await expect(page.getByText("Burned after creator sync")).toBeVisible();
     await page
-      .locator(".claim-row")
-      .filter({ hasText: "Membership rewards" })
-      .getByRole("button", { name: "Claim to this wallet" })
+      .locator(".claim-groups")
+      .getByRole("button", { name: "Claim rewards" })
       .click();
-    await expectReconciled(page, "Claim membership rewards");
+    await expectReconciled(page, "Claim rewards");
 
     await page.getByRole("button", { name: "Rejoin this membership" }).click();
     await expectReconciled(page, "Rejoin this membership");

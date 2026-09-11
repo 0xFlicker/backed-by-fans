@@ -5,17 +5,13 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
-import {
-  BaseError,
-  ContractFunctionRevertedError,
-  parseEventLogs,
-  type Address,
-} from "viem";
+import { parseEventLogs, type Address } from "viem";
 import { membershipFactoryAbi, protocolBurnRouterAbi } from "@/contracts";
 import type { ReadyDeployment } from "@/lib/config";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { decodeTransactionError } from "@/lib/transaction-state";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
+import { readAccountRewards } from "./account-rewards-read";
 import { receiptAdvance } from "@/features/protocol/buyback-reconciliation";
 
 export function AccountRewards({
@@ -43,38 +39,8 @@ export function AccountRewards({
   const write = useWriteContract();
   const cache = useQueryClient();
   async function previewClaims() {
-    try {
-      const simulation = await simulateContract(config, {
-        chainId,
-        account: wallet,
-        address: factoryAddress,
-        abi: membershipFactoryAbi,
-        functionName: "claimEverything",
-        args: [addresses],
-      });
-      return { simulation, blocked: undefined };
-    } catch (error) {
-      const reverted =
-        error instanceof BaseError &&
-        error.walk((cause) => cause instanceof ContractFunctionRevertedError);
-      if (reverted instanceof ContractFunctionRevertedError) {
-        const args = reverted.data?.args;
-        if (reverted.data?.errorName === "ClaimAccountingBehind" && args) {
-          const index = Number(args[0]);
-          const tier = args[1] as Address;
-          if (batch[index]?.tier.toLowerCase() === tier.toLowerCase())
-            return {
-              simulation: undefined,
-              blocked: { tier, name: batch[index].name },
-            };
-        }
-        if (reverted.data?.errorName === "ClaimFailed" && args)
-          throw new Error(
-            `${batch[Number(args[0])]?.name ?? args[1]}: ${decodeTransactionError(error)}`,
-          );
-      }
-      throw error;
-    }
+    if (!client) throw new Error("The network is unavailable.");
+    return readAccountRewards(client, wallet, batch);
   }
   const preview = useQuery({
     queryKey: [
@@ -87,7 +53,7 @@ export function AccountRewards({
     queryFn: previewClaims,
     enabled: Boolean(client) && addresses.length > 0,
     retry: false,
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
   });
   const action = useMutation({
     retry: false,
@@ -125,13 +91,21 @@ export function AccountRewards({
         hash = await write.writeContractAsync(simulation.request);
       } else {
         if (
-          !fresh.simulation.result.some(
+          !fresh.results.some(
             (item) => item.reward + item.referral + item.creator > 0n,
           )
         )
           throw new Error("No rewards are available to claim.");
-        await assertSufficientGas(client, wallet, fresh.simulation.request);
-        hash = await write.writeContractAsync(fresh.simulation.request);
+        const simulation = await simulateContract(config, {
+          chainId,
+          account: wallet,
+          address: factoryAddress,
+          abi: membershipFactoryAbi,
+          functionName: "claimEverything",
+          args: [addresses],
+        });
+        await assertSufficientGas(client, wallet, simulation.request);
+        hash = await write.writeContractAsync(simulation.request);
       }
       let cancelled = false;
       const receipt = await client.waitForTransactionReceipt({
@@ -193,7 +167,7 @@ export function AccountRewards({
     },
   });
   const totals = new Map<Address, bigint>();
-  preview.data?.simulation?.result.forEach((result, index) => {
+  preview.data?.results.forEach((result, index) => {
     const token = batch[index].paymentToken;
     const amount = result.reward + result.referral + result.creator;
     if (amount > 0n) totals.set(token, (totals.get(token) ?? 0n) + amount);
@@ -215,7 +189,7 @@ export function AccountRewards({
     <section aria-label="Rewards" className="account-rewards protocol-section">
       <div className="account-rewards-heading">
         <p className="eyebrow">
-          {totals.size > 0 ? "Ready to collect" : "Earnings"}
+          {totals.size > 0 && !blocked ? "Ready to collect" : "Earnings"}
         </p>
         <h2 className="font-display">Your rewards</h2>
       </div>
@@ -224,14 +198,6 @@ export function AccountRewards({
           "No rewards found yet."
         ) : preview.isPending ? (
           "Checking rewards…"
-        ) : blocked ? (
-          <>
-            Advance{" "}
-            <Link href={`/chains/${chainId}/tiers/${blocked.tier}`}>
-              {blocked.name}
-            </Link>{" "}
-            to claim.
-          </>
         ) : preview.isError ? (
           <span role="alert">{decodeTransactionError(preview.error)}</span>
         ) : totals.size === 0 ? (
@@ -256,6 +222,20 @@ export function AccountRewards({
           ))
         )}
       </div>
+      {blocked && (
+        <p className="small-copy">
+          Advance{" "}
+          <Link href={`/chains/${chainId}/tiers/${blocked.tier}`}>
+            {blocked.name}
+          </Link>{" "}
+          to claim.
+        </p>
+      )}
+      {preview.data && !preview.data.complete && (
+        <p className="small-copy">
+          Partial earnings shown. Advance accounting to update the rest.
+        </p>
+      )}
       <div className="creator-actions">
         <button
           className="button button-dark"

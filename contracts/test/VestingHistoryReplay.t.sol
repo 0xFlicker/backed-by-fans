@@ -276,7 +276,7 @@ contract VestingHistoryReplayTest is Test {
         uint256 liabilities;
         for (uint256 m; m < 3; ++m) {
             MembershipTypes.EarnedBalances memory balances =
-                tier.earnedBalances(m + 1, _referrer(m));
+            tier.previewAccounting(m + 1, _referrer(m), 0).settled;
             result[3 + m] = balances.member * Q + balances.fractionalScaled[1];
             liabilities += result[3 + m];
             if (m < 2) {

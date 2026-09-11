@@ -15,6 +15,8 @@ import {
 } from "@/lib/token-amount";
 import { receiptAdvance, buybackSkipReason } from "./buyback-reconciliation";
 import { prepareAdvance } from "./prepare-burn";
+import { previewAdvance } from "./preview-advance";
+import { readTokenDisplay } from "@/lib/payment-token-read";
 import { simulateAdvance } from "./simulate-advance";
 import { assertSufficientGas } from "./gas-readiness";
 
@@ -46,14 +48,41 @@ export function Burn({
         ? (selectedTier as Address)
         : undefined,
     );
-    const simulation = await simulateAdvance(
-      config,
-      chainId,
-      account.address ?? zeroAddress,
-      requestedMode,
+    const projection = await previewAdvance(
+      client as PublicClient,
       plan,
+      requestedMode,
     );
-    return { plan, simulation };
+    const funds = await Promise.all(
+      projection.funds
+        .filter((item) => item.amount > 0n)
+        .map(async (item) => {
+          const display =
+            item.asset === zeroAddress
+              ? {
+                  symbol: "ETH",
+                  decimals: 18,
+                  uiMultiplier: tokenMultiplierScale,
+                  newUIMultiplier: tokenMultiplierScale,
+                  effectiveAt: 0n,
+                }
+              : await readTokenDisplay(
+                  client as PublicClient,
+                  item.asset,
+                  plan.blockNumber,
+                );
+          const multiplier =
+            display.effectiveAt > 0n && display.effectiveAt <= plan.timestamp
+              ? display.newUIMultiplier
+              : display.uiMultiplier;
+          return {
+            ...item,
+            label: `${formatLocalizedTokenAmount({ raw: item.amount, decimals: display.decimals, multiplier })} ${display.symbol}`,
+            deltaLabel: `${formatLocalizedTokenAmount({ raw: item.delta, decimals: display.decimals, multiplier })} ${display.symbol}`,
+          };
+        }),
+    );
+    return { plan, projection, funds };
   }
   const preview = useQuery({
     queryKey: [
@@ -67,7 +96,7 @@ export function Burn({
     ],
     queryFn: () => checkAdvance(),
     enabled: Boolean(client),
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
     retry: false,
   });
   const action = useMutation({
@@ -77,13 +106,22 @@ export function Burn({
         throw new Error("Connect your wallet on this network.");
       write.reset();
       // Recheck immediately before signing; never submit a stale preview request.
-      const { plan, simulation } = await checkAdvance(
+      const { plan, projection } = await checkAdvance(
         manual ? "accounting" : mode,
       );
-      if (!simulation || (!manual && !simulation.ready)) {
+      if (manual ? !projection.useful : !projection.ready) {
         await preview.refetch();
         throw new Error("Nothing needs advancing right now.");
       }
+      const simulation = await simulateAdvance(
+        config,
+        chainId,
+        account.address,
+        manual ? "accounting" : mode,
+        plan,
+      );
+      if (!simulation || (!manual && !simulation.ready))
+        throw new Error("Nothing needs advancing right now.");
       await assertSufficientGas(
         client as PublicClient,
         account.address,
@@ -186,8 +224,8 @@ export function Burn({
           <>
             {mode !== "buyback" && (
               <div>
-                {preview.data?.simulation?.processedSteps
-                  ? `${preview.data.simulation.processedSteps} checkpoints ready.`
+                {preview.data?.projection?.processedSteps
+                  ? `${preview.data.projection.processedSteps} checkpoints ready.`
                   : preview.data?.plan.accountingCoverageIncomplete ||
                       preview.data?.plan.unavailableTiers
                     ? "No checkpoints ready in the checked memberships."
@@ -196,12 +234,27 @@ export function Burn({
             )}
             {mode !== "accounting" && (
               <div>
-                {preview.data?.simulation?.purchases
-                  ? `${formatLocalizedTokenAmount({ raw: preview.data.simulation.burned, decimals: 18, multiplier: tokenMultiplierScale })} ${symbol || "protocol tokens"} estimated to burn.`
+                {preview.data?.projection?.purchases
+                  ? `${preview.data.projection.purchases} currencies ready for buyback.`
                   : "No buyback ready. Waiting for funds or eligibility."}
               </div>
             )}
-            {!preview.data?.simulation?.ready && (
+            {mode !== "buyback" &&
+              preview.data?.funds.map((item) => (
+                <div key={item.asset} className="protocol-funding-preview">
+                  <strong>{item.label}</strong>{" "}
+                  {mode === "both"
+                    ? "ready to release"
+                    : "earned protocol funding"}
+                  {item.delta > 0n && (
+                    <span className="small-copy">
+                      {" "}
+                      · +{item.deltaLabel} since last settlement
+                    </span>
+                  )}
+                </div>
+              ))}
+            {!preview.data?.projection?.ready && (
               <div>Nothing needs advancing in this batch.</div>
             )}
           </>
@@ -211,7 +264,7 @@ export function Burn({
         type="button"
         className="button button-dark"
         disabled={
-          !preview.data?.simulation?.ready ||
+          !preview.data?.projection?.ready ||
           preview.isError ||
           action.isPending ||
           !account.isConnected ||
@@ -259,7 +312,7 @@ export function Burn({
             disabled={
               action.isPending ||
               preview.isError ||
-              !preview.data?.simulation ||
+              !preview.data?.projection.useful ||
               !account.isConnected ||
               account.chainId !== chainId
             }

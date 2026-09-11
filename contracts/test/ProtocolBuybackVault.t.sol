@@ -67,6 +67,25 @@ contract ProtocolBuybackVaultTest is Test {
         assertEq(_available(BuybackTypes.SourceBucket.Donation), 0);
     }
 
+    function testPreviewReleaseMatchesRealInventoryWithoutWrites() public {
+        vm.record();
+        BuybackTypes.ProcessingState memory projected = vault.previewProcessing(
+            address(paymentToken), BuybackTypes.SourceBucket.Membership, 17
+        );
+        (, bytes32[] memory writes) = vm.accesses(address(vault));
+        assertEq(writes.length, 0);
+        assertEq(_available(BuybackTypes.SourceBucket.Membership), 0);
+        paymentToken.mint(address(tier), 17);
+        tier.release(17);
+        assertEq(
+            abi.encode(projected),
+            abi.encode(
+                vault.processingStatus(address(paymentToken), BuybackTypes.SourceBucket.Membership)
+            )
+        );
+        assertEq(_available(BuybackTypes.SourceBucket.Donation), 0);
+    }
+
     function testAllowsUnsetTokenAndRejectsImpersonatedConstructorFactory() public {
         ProtocolBuybackVault unbound = registry.deployVault(address(0));
         assertEq(unbound.protocolToken(), address(0));

@@ -145,6 +145,17 @@ library MembershipTypes {
         AccountingStatus status;
     }
 
+    /// @notice Read-only projection through asOf, or through current.status.accountedThrough
+    /// when the checkpoint budget is exhausted. Deltas are newly vested allocations,
+    /// in creator/member/referral/protocol order, before member distribution rounding.
+    struct AccountingPreview {
+        uint64 asOf;
+        uint256 processedSteps;
+        uint256[4] earnedDeltaScaled;
+        EarnedBalances settled;
+        EarnedBalances current;
+    }
+
     struct AllocationState {
         uint256 generation;
         uint256 lotCursor;

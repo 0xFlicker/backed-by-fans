@@ -209,7 +209,50 @@ function renderExperience(
   onRefresh: () => Promise<
     ReadState<TierSupporterSnapshot> | undefined
   > = async () => undefined,
+  previewSteps = 0n,
 ) {
+  const balances = {
+    creator: value.creatorProceeds ?? 0n,
+    member: value.credential?.claimableReward ?? 0n,
+    referral: value.claimableReferral ?? 0n,
+    protocol: 0n,
+    fractionalScaled: [0n, 0n, 0n, 0n] as const,
+    status: {
+      accountedThrough: value.capturedTimestamp,
+      nextBoundary: 0n,
+      scheduledMembers: 0n,
+      complete: true,
+    },
+  };
+  const preview = {
+    asOf: value.capturedTimestamp,
+    processedSteps: previewSteps,
+    earnedDeltaScaled: [0n, 0n, 0n, 0n] as const,
+    settled: balances,
+    current: balances,
+  };
+  const original = readContract.getMockImplementation();
+  readContract.mockImplementation((request) =>
+    request.functionName === "previewAccounting"
+      ? Promise.resolve(preview)
+      : original?.(request),
+  );
+  value = {
+    ...value,
+    vesting: {
+      earned: balances,
+      preview,
+      allocation: undefined,
+      reserves: {
+        unearnedScaled: [0n, 0n, 0n, 0n],
+        cancellationScaled: [0n, 0n, 0n, 0n],
+        unassignedMemberScaled: 0n,
+        distributionDustScaled: 0n,
+        indexCarryScaled: 0n,
+        status: balances.status,
+      },
+    },
+  };
   return render(
     <QueryClientProvider
       client={
@@ -425,10 +468,7 @@ describe("supporter membership experience", () => {
         renderExperience(current, 100n, refresh);
         await user.click(
           screen.getByRole("button", {
-            name:
-              kind === "creator"
-                ? "Withdraw to this wallet"
-                : "Claim to this wallet",
+            name: "Claim rewards",
           }),
         );
         expect(
@@ -441,6 +481,21 @@ describe("supporter membership experience", () => {
       });
     }
   }
+
+  it("retains settled claims when a current earnings claim needs catch-up", async () => {
+    renderExperience(
+      { ...snapshot, credential: credential() },
+      100n,
+      async () => undefined,
+      26n,
+    );
+    expect(
+      screen.getByRole("link", { name: "Advance to claim" }),
+    ).toBeVisible();
+    await userEvent.click(screen.getByText("Settled funds", { exact: true }));
+    expect(screen.getByRole("button", { name: "Claim settled" })).toBeEnabled();
+    expect(paymentWrite.send).not.toHaveBeenCalled();
+  });
 
   it("shows failed quote reads as unavailable instead of zero or estimated cash", async () => {
     readContract.mockRejectedValue(new Error("RPC unavailable"));
@@ -513,7 +568,7 @@ describe("supporter membership experience", () => {
         await screen.findByText(/Estimated new reward weight: 0 shares/),
       ).toBeVisible();
       expect(
-        screen.getByRole("button", { name: "Claim to this wallet" }),
+        screen.getByRole("button", { name: "Claim rewards" }),
       ).toBeVisible();
     },
   );
@@ -704,8 +759,8 @@ describe("supporter membership experience", () => {
       ),
     );
     expect(
-      readContract.mock.calls.every(
-        ([call]) => call.functionName === "previewShares",
+      readContract.mock.calls.every(([call]) =>
+        ["previewShares", "previewAccounting"].includes(call.functionName),
       ),
     ).toBe(true);
     expect(
@@ -722,7 +777,7 @@ describe("supporter membership experience", () => {
 
     expect(gift).toHaveClass("gift-action");
     expect(gift?.parentElement).toHaveClass("supporter-columns");
-    expect(screen.getByText("Available to claim")).toBeVisible();
+    expect(screen.getByText("Your earnings")).toBeVisible();
   });
 
   it("shows the onchain description and a valid creator link", () => {

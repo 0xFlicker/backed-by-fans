@@ -7,7 +7,20 @@ const Q = 1n << 128n;
 function fixture(complete = false) {
   const readContract = vi.fn(
     async ({ functionName }: { functionName: string }) => {
-      if (functionName === "protocolFeeEarnedHeld") return 7n;
+      if (functionName === "previewAccounting")
+        return {
+          settled: { protocol: 7n },
+          current: {
+            protocol: 12n,
+            status: {
+              accountedThrough: complete ? 1000n : 900n,
+              complete,
+              nextBoundary: 950n,
+              scheduledMembers: 100000n,
+            },
+          },
+          earnedDeltaScaled: [0n, 0n, 0n, 5n * Q],
+        };
       if (functionName === "reserveState")
         return {
           unearnedScaled: [0n, 0n, 0n, 100n * Q + 9n],
@@ -28,7 +41,7 @@ function fixture(complete = false) {
   };
   return { client: client as unknown as PublicClient, readContract };
 }
-it("reads the same constant-size snapshot regardless of lifetime membership count", async () => {
+it("uses bounded read-only projection without enumerating membership history", async () => {
   const f = fixture();
   const value = await readTierFunding(f.client, tier, { blockNumber: 20n });
   expect(f.readContract).toHaveBeenCalledTimes(2);
@@ -39,12 +52,14 @@ it("reads the same constant-size snapshot regardless of lifetime membership coun
   ).toBe(true);
   expect(value).toMatchObject({
     blockNumber: 20n,
-    earnedHeld: 7n,
-    reserved: 100n,
-    reservedScaled: 100n * Q + 9n,
+    earnedHeld: 12n,
+    settledHeld: 7n,
+    newlyEarned: 5n,
+    reserved: 95n,
+    reservedScaled: 95n * Q + 9n,
   });
 });
-it("retains fractional reserves and incomplete historical accounting without projecting new earnings", async () => {
+it("retains fractional reserves and reports incomplete projections honestly", async () => {
   const value = await readTierFunding(fixture().client, tier);
   expect(value.accounting).toMatchObject({
     complete: false,

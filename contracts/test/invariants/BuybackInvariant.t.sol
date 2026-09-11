@@ -208,7 +208,8 @@ contract BuybackHandler is Test {
         assertEq(token.balanceOf(address(tier)), 1200 - released);
         assertEq(
             tier.reserveState().unearnedScaled[3] + tier.protocolFeeEarnedHeld()
-                * tier.ACCOUNTING_SCALE() + tier.earnedBalances(0, address(0)).fractionalScaled[3],
+                * tier.ACCOUNTING_SCALE()
+                + tier.previewAccounting(0, address(0), 0).settled.fractionalScaled[3],
             (600 - released) * tier.ACCOUNTING_SCALE()
         );
         assertEq(tier.protocolFeeEarnedHeld(), recognized - released);

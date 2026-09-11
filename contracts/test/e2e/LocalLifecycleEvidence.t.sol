@@ -240,13 +240,14 @@ contract LocalLifecycleEvidenceTest is Test {
         paymentToken.approve(address(target), type(uint256).max);
         uint256 id = target.purchase(12, referrer);
         vm.stopPrank();
-        MembershipTypes.EarnedBalances memory cash = target.earnedBalances(id, referrer);
+        MembershipTypes.EarnedBalances memory cash =
+        target.previewAccounting(id, referrer, 0).settled;
         assertEq(cash.creator + cash.member + cash.referral + cash.protocol, 0);
         assertEq(target.totalProtectedLiability(), 120_000_000);
         assertEq(target.sharesOf(id), 120_000_000);
         vm.warp(_START + 30);
         target.processAccounting(25);
-        cash = target.earnedBalances(id, referrer);
+        cash = target.previewAccounting(id, referrer, 0).settled;
         assertEq(cash.creator, 24_000_000);
         assertLe(3_000_000 - cash.member, 1);
         assertEq(cash.referral, 1_500_000);

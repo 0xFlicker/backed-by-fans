@@ -116,11 +116,14 @@ contract AccountingHandler is Test {
         address actor = _actor(actorSeed);
         uint256 id = tier.tokenOf(actor);
         if (id == 0) return;
-        MembershipTypes.EarnedBalances memory before = tier.earnedBalances(id, actor);
+        MembershipTypes.EarnedBalances memory before = tier.previewAccounting(id, actor, 0).settled;
         vm.prank(actor);
         uint256 claimed = tier.claimReward(id);
         assertEq(claimed, before.member);
-        assertEq(tier.earnedBalances(id, actor).fractionalScaled[1], before.fractionalScaled[1]);
+        assertEq(
+            tier.previewAccounting(id, actor, 0).settled.fractionalScaled[1],
+            before.fractionalScaled[1]
+        );
         paid[1] += claimed;
     }
 
@@ -146,7 +149,7 @@ contract AccountingHandler is Test {
         address actor = actorSeed % 5 == 4 ? creator : _actor(actorSeed);
         _settle();
         uint256 id = tier.tokenOf(actor);
-        MembershipTypes.EarnedBalances memory before = tier.earnedBalances(id, actor);
+        MembershipTypes.EarnedBalances memory before = tier.previewAccounting(id, actor, 0).settled;
         MembershipTypes.ClaimResult memory result;
         vm.prank(actor);
         if (batch) {
@@ -160,7 +163,7 @@ contract AccountingHandler is Test {
         assertEq(result.reward, before.member);
         assertEq(result.referral, before.referral);
         assertEq(result.processedSteps, 0);
-        MembershipTypes.EarnedBalances memory after_ = tier.earnedBalances(id, actor);
+        MembershipTypes.EarnedBalances memory after_ = tier.previewAccounting(id, actor, 0).settled;
         assertEq(after_.fractionalScaled[1], before.fractionalScaled[1]);
         assertEq(after_.fractionalScaled[2], before.fractionalScaled[2]);
         paid[0] += result.creator;
@@ -311,7 +314,7 @@ contract AccountingHandler is Test {
         hash = keccak256(
             abi.encode(
                 tier.reserveState(),
-                tier.earnedBalances(0, address(0)),
+                tier.previewAccounting(0, address(0), 0).settled,
                 tier.totalRewardShares(),
                 tier.occupiedSupply(),
                 paymentToken.balanceOf(address(tier))
@@ -321,7 +324,9 @@ contract AccountingHandler is Test {
             uint256 id = tier.tokenOf(_actors[i]);
             hash = keccak256(
                 abi.encode(
-                    hash, tier.earnedBalances(id, _actors[i]), paymentToken.balanceOf(_actors[i])
+                    hash,
+                    tier.previewAccounting(id, _actors[i], 0).settled,
+                    paymentToken.balanceOf(_actors[i])
                 )
             );
             if (id != 0) {
@@ -346,7 +351,8 @@ contract AccountingHandler is Test {
         for (uint256 i; i < 4; ++i) {
             address actor = _actors[i];
             uint256 id = tier.tokenOf(actor);
-            MembershipTypes.EarnedBalances memory balance = tier.earnedBalances(id, actor);
+            MembershipTypes.EarnedBalances memory balance =
+            tier.previewAccounting(id, actor, 0).settled;
             referralCredit += balance.referral * Q + balance.fractionalScaled[2];
             assertEq(
                 balance.referral * Q + balance.fractionalScaled[2],
@@ -379,7 +385,8 @@ contract AccountingHandler is Test {
             reserves.unassignedMemberScaled, 0, "public reward funding always has eligible support"
         );
         assertEq(reserves.status.accountedThrough, _funding.accountedThrough);
-        MembershipTypes.EarnedBalances memory global = tier.earnedBalances(0, address(0));
+        MembershipTypes.EarnedBalances memory global =
+        tier.previewAccounting(0, address(0), 0).settled;
         uint256[4] memory remainingEarned = [
             global.creator * Q + global.fractionalScaled[0],
             memberCredit + reserves.indexCarryScaled + reserves.distributionDustScaled,
@@ -530,7 +537,8 @@ contract AccountingInvariantTest is StdInvariant, Test {
         vm.warp(type(uint64).max - 1);
         bounded.processAccounting(25);
         MembershipTypes.ReserveState memory reserve = bounded.reserveState();
-        MembershipTypes.EarnedBalances memory earned = bounded.earnedBalances(id, address(0xCAFE));
+        MembershipTypes.EarnedBalances memory earned =
+        bounded.previewAccounting(id, address(0xCAFE), 0).settled;
         uint256 heldScaled =
             (earned.creator + earned.member + earned.referral + earned.protocol) * q;
         for (uint256 i; i < 4; ++i) {

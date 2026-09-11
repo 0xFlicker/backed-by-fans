@@ -86,7 +86,8 @@ contract PublicVestingTest is Test {
     function test_120TokenPurchaseClaimsAndReservedRefund() public {
         MembershipTier tier = _tier(false, 10_000);
         uint256 id = _pay(tier, alice, 12, referrer);
-        MembershipTypes.EarnedBalances memory earned = tier.earnedBalances(id, referrer);
+        MembershipTypes.EarnedBalances memory earned =
+        tier.previewAccounting(id, referrer, 0).settled;
         assertEq(earned.creator + earned.member + earned.referral + earned.protocol, 0);
         assertEq(tier.sharesOf(id), 120 * UNIT);
         assertEq(tier.lifetimeGross(), 120 * UNIT);
@@ -94,7 +95,7 @@ contract PublicVestingTest is Test {
         assertEq(tier.totalProtectedLiability(), 120 * UNIT);
         vm.warp(START + 30);
         tier.processAccounting(25);
-        earned = tier.earnedBalances(id, referrer);
+        earned = tier.previewAccounting(id, referrer, 0).settled;
         assertEq(earned.creator, 24 * UNIT);
         assertEq(
             earned.member * Q + earned.fractionalScaled[1] + tier.reserveState().indexCarryScaled,
@@ -141,7 +142,8 @@ contract PublicVestingTest is Test {
         tier.acceptOwnership();
         vm.warp(START + 120);
         tier.processAccounting(25);
-        MembershipTypes.EarnedBalances memory earned = tier.earnedBalances(id, referrer);
+        MembershipTypes.EarnedBalances memory earned =
+        tier.previewAccounting(id, referrer, 0).settled;
         assertEq(earned.creator, 96 * UNIT);
         assertEq(
             earned.member * Q + earned.fractionalScaled[1] + tier.reserveState().indexCarryScaled,
@@ -170,7 +172,8 @@ contract PublicVestingTest is Test {
         assertEq(tier.balanceOf(alice), 0);
         uint256 available = tier.claimableReward(id);
         assertLe(12 * UNIT - available, 1);
-        MembershipTypes.EarnedBalances memory settled = tier.earnedBalances(id, referrer);
+        MembershipTypes.EarnedBalances memory settled =
+        tier.previewAccounting(id, referrer, 0).settled;
         assertEq(
             available * Q + settled.fractionalScaled[1]
                 + tier.reserveState().distributionDustScaled,
@@ -273,7 +276,7 @@ contract PublicVestingTest is Test {
             router.advance(tiers, purchases, START + 10);
         assertEq(steps + releases + buys + burned, 0);
         assertEq(tier.accountingStatus().accountedThrough, START + 1);
-        assertGt(tier.earnedBalances(1, address(0)).fractionalScaled[0], 0);
+        assertGt(tier.previewAccounting(1, address(0), 0).settled.fractionalScaled[0], 0);
         vm.expectRevert(ProtocolBurnRouter.NothingToDo.selector);
         router.advance(tiers, purchases, START + 10);
     }

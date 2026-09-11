@@ -133,14 +133,16 @@ for (const operation of ["purchase", "refund", "sync"] as const) {
       );
       if (operation === "purchase") {
         await switchAnvilAccount(page, member);
-        // Durable settled claims are reachable even before the backlog is cleared.
+        // Durable settled claims remain available separately from current earnings.
+        await page.getByText("Settled funds", { exact: true }).click();
         const claim = page
-          .locator(".claim-row")
-          .filter({ hasText: "Membership rewards" })
-          .getByRole("button", { name: "Claim to this wallet" });
+          .locator("details")
+          .filter({ has: page.getByText("Settled funds", { exact: true }) })
+          .getByRole("button", { name: "Claim settled", exact: true })
+          .first();
         await claim.focus();
         await page.keyboard.press("Enter");
-        await expectReconciled(page, "Claim membership rewards");
+        await expectReconciled(page, "Claim settled rewards");
         await page
           .getByRole("button", { name: "Renew active membership" })
           .click();

@@ -455,11 +455,11 @@ export async function readTierAccounting(
     abi: membershipTierAbi,
     blockNumber: input.blockNumber,
   } as const;
-  const [earned, reserves, allocation] = await Promise.all([
+  const [preview, reserves, allocation] = await Promise.all([
     client.readContract({
       ...common,
-      functionName: "earnedBalances",
-      args: [input.tokenId, input.referrer],
+      functionName: "previewAccounting",
+      args: [input.tokenId, input.referrer, 256n],
     }),
     client.readContract({ ...common, functionName: "reserveState" }),
     input.tokenId === 0n
@@ -470,7 +470,7 @@ export async function readTierAccounting(
           args: [input.tokenId],
         }),
   ]);
-  return { earned, reserves, allocation };
+  return { earned: preview.settled, preview, reserves, allocation };
 }
 
 /** A single explicit page; callers never scan a membership's full history. */

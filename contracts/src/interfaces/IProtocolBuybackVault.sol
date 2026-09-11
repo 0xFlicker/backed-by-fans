@@ -55,6 +55,11 @@ interface IProtocolBuybackVault {
         external
         view
         returns (BuybackTypes.ProcessingState memory);
+    /// @notice Eligibility after a hypothetical earned-fee release. Does not quote a swap.
+    function previewProcessing(address asset, BuybackTypes.SourceBucket bucket, uint256 additional)
+        external
+        view
+        returns (BuybackTypes.ProcessingState memory);
     function process(
         address asset,
         BuybackTypes.SourceBucket bucket,

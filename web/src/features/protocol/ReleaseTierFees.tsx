@@ -14,6 +14,7 @@ import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { decodeTransactionError } from "@/lib/transaction-state";
 import { assertSufficientGas } from "./gas-readiness";
 import { receiptAdvance, buybackSkipReason } from "./buyback-reconciliation";
+import { previewAdvance } from "./preview-advance";
 import { simulateAdvance } from "./simulate-advance";
 
 import { type AdvanceMode } from "./advance-call";
@@ -105,19 +106,16 @@ export function ReleaseTierFees({
       });
       purchases.push({ asset, revision });
     }
-    const simulation = includePreview
-      ? await simulateAdvance(
-          config,
-          chainId,
-          account.address ?? zeroAddress,
-          requestedMode,
-          {
-            router,
-            tiers: [{ tier, maxAccountingSteps: 25n }],
-            purchases,
-            deadline: block.timestamp + 300n,
-          },
-        )
+    const plan = {
+      router,
+      vault,
+      blockNumber: block.number,
+      tiers: [{ tier, maxAccountingSteps: 25n }],
+      purchases,
+      deadline: block.timestamp + 300n,
+    };
+    const projection = includePreview
+      ? await previewAdvance(client, plan, requestedMode)
       : null;
     return {
       status,
@@ -125,7 +123,8 @@ export function ReleaseTierFees({
       router,
       purchases,
       timestamp: block.timestamp,
-      simulation,
+      projection,
+      plan,
     };
   }
   const state = useQuery({
@@ -140,7 +139,7 @@ export function ReleaseTierFees({
     ],
     enabled: Boolean(client),
     queryFn: () => readStatus(),
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
     retry: false,
   });
   const action = useMutation({
@@ -149,11 +148,23 @@ export function ReleaseTierFees({
       if (!client || !account.address || account.chainId !== chainId)
         throw new Error("Connect your wallet on this network.");
       const current = await readStatus(manual ? "accounting" : mode);
-      if (!current.simulation || (!manual && !current.simulation.ready)) {
+      if (
+        !current.projection ||
+        (manual ? !current.projection.useful : !current.projection.ready)
+      ) {
         await state.refetch();
         throw new Error("Nothing needs advancing right now.");
       }
-      const { request } = current.simulation;
+      const simulation = await simulateAdvance(
+        config,
+        chainId,
+        account.address,
+        manual ? "accounting" : mode,
+        current.plan,
+      );
+      if (!simulation || (!manual && !simulation.ready))
+        throw new Error("Nothing needs advancing right now.");
+      const { request } = simulation;
       await assertSufficientGas(client, account.address, request);
       const hash = await write.writeContractAsync(request);
       let cancelled = false;
@@ -218,19 +229,19 @@ export function ReleaseTierFees({
               <>
                 {mode !== "buyback" && (
                   <div>
-                    {state.data.simulation?.processedSteps
-                      ? `${state.data.simulation.processedSteps} checkpoints ready.`
+                    {state.data.projection?.processedSteps
+                      ? `${state.data.projection.processedSteps} checkpoints ready.`
                       : "Accounting is up to date."}
                   </div>
                 )}
                 {mode !== "accounting" && (
                   <div>
-                    {state.data.simulation?.purchases
-                      ? `${state.data.simulation.purchases} buybacks ready.`
+                    {state.data.projection?.purchases
+                      ? `${state.data.projection.purchases} buybacks ready.`
                       : "No buyback ready. Waiting for funds or eligibility."}
                   </div>
                 )}
-                {!state.data.simulation?.ready && (
+                {!state.data.projection?.ready && (
                   <div>Nothing needs advancing.</div>
                 )}
               </>
@@ -252,7 +263,7 @@ export function ReleaseTierFees({
         <button
           type="button"
           className="button button-dark"
-          disabled={blocked || !state.data?.simulation?.ready}
+          disabled={blocked || !state.data?.projection?.ready}
           onClick={() => action.mutate(false)}
         >
           {action.isPending
@@ -282,7 +293,7 @@ export function ReleaseTierFees({
           <button
             type="button"
             className="text-button"
-            disabled={blocked || !state.data?.simulation}
+            disabled={blocked || !state.data?.projection?.useful}
             onClick={() => action.mutate(true)}
           >
             Settle accrued rewards

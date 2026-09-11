@@ -94,3 +94,7 @@ Replace old `FeeAccount`, protocol-only lot handling, redundant zero-price refun
 ## Currency minimums
 
 Factory currency records contain a positive uint112 raw minimum controlled by the existing owner. A tier captures the current value immutably at publication. No per-purchase oracle or retroactive minimum changes exist. Fixed prices are checked per period; positive PWYW is checked per contribution before catch-up or transfer.
+
+### Read-only projections
+
+`AccountingPreview` contains `asOf`, `processedSteps`, `earnedDeltaScaled[4]`, `settled`, and `current`. Both balance snapshots retain whole raw amounts, fractional remainders and accounting status. `current.status.complete` means the read reached `asOf`; it does not mean storage was advanced. Partial results are accurate only through their returned cursor. Allocation deltas precede member reward distribution rounding and are not interchangeable with personal payout deltas. No preview writes storage or transfers tokens.

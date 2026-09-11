@@ -237,10 +237,11 @@ for (const scenario of [
         .locator(".claim-row")
         .filter({ hasText: "Membership rewards" });
       await expect(rewardRow).toContainText(shown(earnedReward));
-      await rewardRow
-        .getByRole("button", { name: "Claim to this wallet" })
+      await page
+        .locator(".claim-groups")
+        .getByRole("button", { name: "Claim rewards" })
         .click();
-      await expectReconciled(page, "Claim membership rewards");
+      await expectReconciled(page, "Claim rewards");
       await expect(
         client.readContract({
           address: scaledToken,

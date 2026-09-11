@@ -191,8 +191,12 @@ contract VestedAllocationsTest is Test {
         assertEq(deferred.allocationState(id).earnedScaled[3], expected);
         assertEq(frequent.releaseProtocolFees(), expected / Q);
         assertEq(deferred.releaseProtocolFees(), expected / Q);
-        assertEq(frequent.earnedBalances(id, address(0)).fractionalScaled[3], expected % Q);
-        assertEq(deferred.earnedBalances(id, address(0)).fractionalScaled[3], expected % Q);
+        assertEq(
+            frequent.previewAccounting(id, address(0), 0).settled.fractionalScaled[3], expected % Q
+        );
+        assertEq(
+            deferred.previewAccounting(id, address(0), 0).settled.fractionalScaled[3], expected % Q
+        );
     }
 
     function test_grantsAndZeroGrossPaidGapsCannotAccelerateLaterFunding() public {
@@ -220,7 +224,7 @@ contract VestedAllocationsTest is Test {
         vm.warp(1050);
         assertEq(tier.refund(id, 0), 0);
         uint256 earned = Q / PERIOD * 50;
-        assertEq(tier.earnedBalances(id, address(0)).fractionalScaled[3], earned);
+        assertEq(tier.previewAccounting(id, address(0), 0).settled.fractionalScaled[3], earned);
         assertEq(tier.reserveState().cancellationScaled[3], Q - earned);
         assertEq(tier.protocolFeeEarnedHeld(), 0);
         vm.warp(2000);
@@ -243,7 +247,8 @@ contract VestedAllocationsTest is Test {
         assertEq(b.refund(1, 85), 85);
         assertEq(b.releaseProtocolFees(), releasedA);
         assertEq(
-            abi.encode(a.earnedBalances(1, address(0))), abi.encode(b.earnedBalances(1, address(0)))
+            abi.encode(a.previewAccounting(1, address(0), 0).settled),
+            abi.encode(b.previewAccounting(1, address(0), 0).settled)
         );
         assertEq(abi.encode(a.reserveState()), abi.encode(b.reserveState()));
         assertEq(asset.balanceOf(address(a)), asset.balanceOf(address(b)));

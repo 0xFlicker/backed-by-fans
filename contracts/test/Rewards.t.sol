@@ -232,7 +232,8 @@ contract RewardsTest is Test {
     }
 
     function _credit(MembershipTier target, uint256 id) private view returns (uint256) {
-        MembershipTypes.EarnedBalances memory balances = target.earnedBalances(id, address(0));
+        MembershipTypes.EarnedBalances memory balances =
+        target.previewAccounting(id, address(0), 0).settled;
         return balances.member * Q + balances.fractionalScaled[1];
     }
 

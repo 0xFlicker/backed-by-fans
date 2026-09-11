@@ -198,7 +198,8 @@ contract ClaimsAndWithdrawalsTest is Test {
         vm.prank(member);
         uint256 id = tier.purchase(1, referrer);
         _vest(1 days);
-        MembershipTypes.EarnedBalances memory before_ = tier.earnedBalances(id, referrer);
+        MembershipTypes.EarnedBalances memory before_ =
+        tier.previewAccounting(id, referrer, 0).settled;
         assertGt(before_.fractionalScaled[0], 0);
         assertGt(before_.fractionalScaled[1], 0);
         assertEq(tier.withdrawCreatorProceeds(), before_.creator);
@@ -207,13 +208,14 @@ contract ClaimsAndWithdrawalsTest is Test {
         vm.prank(referrer);
         assertEq(tier.claimReferral(), before_.referral);
         assertEq(tier.releaseProtocolFees(), before_.protocol);
-        MembershipTypes.EarnedBalances memory after_ = tier.earnedBalances(id, referrer);
+        MembershipTypes.EarnedBalances memory after_ =
+        tier.previewAccounting(id, referrer, 0).settled;
         assertEq(after_.creator + after_.member + after_.referral + after_.protocol, 0);
         for (uint256 i; i < 4; ++i) {
             assertEq(after_.fractionalScaled[i], before_.fractionalScaled[i]);
         }
         _vest(1 days);
-        after_ = tier.earnedBalances(id, referrer);
+        after_ = tier.previewAccounting(id, referrer, 0).settled;
         assertGt(after_.creator, 0);
         assertGt(after_.member, 0);
         assertGt(after_.referral, 0);
@@ -239,7 +241,8 @@ contract ClaimsAndWithdrawalsTest is Test {
         tier.setPaused(true);
         assertFalse(tier.accountingStatus().complete);
         uint256 pending = tier.accountingStatus().scheduledMembers;
-        MembershipTypes.EarnedBalances memory balances = tier.earnedBalances(id, referrer);
+        MembershipTypes.EarnedBalances memory balances =
+        tier.previewAccounting(id, referrer, 0).settled;
         assertGt(balances.member, 0);
         assertEq(tier.withdrawCreatorProceeds(), balances.creator);
         vm.prank(member);
@@ -396,13 +399,13 @@ contract AdversarialPaymentsAndExitsTest is Test {
         tier.processAccounting(25);
         vm.expectRevert();
         tier.releaseProtocolFees();
-        assertEq(tier.earnedBalances(id, referrer).protocol, 100_000);
+        assertEq(tier.previewAccounting(id, referrer, 0).settled.protocol, 100_000);
         assertEq(paymentToken.balanceOf(address(tier)), 10_000_000);
         assertEq(paymentToken.balanceOf(tier.buybackVault()), 0);
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.TaxedTransfer);
         vm.expectRevert(MembershipTier.InexactTokenTransfer.selector);
         tier.releaseProtocolFees();
-        assertEq(tier.earnedBalances(id, referrer).protocol, 100_000);
+        assertEq(tier.previewAccounting(id, referrer, 0).settled.protocol, 100_000);
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Normal);
         assertEq(tier.releaseProtocolFees(), 100_000);
         assertEq(paymentToken.balanceOf(tier.buybackVault()), 100_000);
@@ -490,7 +493,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
         tier.claimReferral();
         assertEq(tier.claimableReferral(referrer), 100_000);
-        assertEq(tier.earnedBalances(tokenId, referrer).referral, 100_000);
+        assertEq(tier.previewAccounting(tokenId, referrer, 0).settled.referral, 100_000);
         assertEq(paymentToken.balanceOf(address(tier)), tierBalance);
     }
 

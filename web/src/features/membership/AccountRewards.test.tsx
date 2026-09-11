@@ -2,13 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import {
-  ContractFunctionRevertedError,
-  encodeErrorResult,
-  encodeEventTopics,
-  encodeAbiParameters,
-  getAbiItem,
-} from "viem";
+import { encodeEventTopics, encodeAbiParameters, getAbiItem } from "viem";
 import { membershipFactoryAbi, protocolBurnRouterAbi } from "@/contracts";
 import { AccountRewards } from "./AccountRewards";
 import type { ReadyDeployment } from "@/lib/config";
@@ -21,7 +15,9 @@ const m = vi.hoisted(() => ({
   write: vi.fn(),
   receipt: vi.fn(),
   read: vi.fn(),
+  preview: vi.fn(),
 }));
+vi.mock("./account-rewards-read", () => ({ readAccountRewards: m.preview }));
 vi.mock("@wagmi/core", () => ({ simulateContract: m.simulate }));
 vi.mock("wagmi", () => ({
   useConfig: () => ({}),
@@ -79,6 +75,20 @@ beforeEach(() => {
     request,
     result: [{ processedSteps: 0n, reward: 2n, referral: 3n, creator: 5n }],
   }));
+  m.preview.mockResolvedValue({
+    results: [
+      {
+        processedSteps: 0n,
+        reward: 2n,
+        referral: 3n,
+        creator: 5n,
+        complete: true,
+        through: 100n,
+      },
+    ],
+    blocked: undefined,
+    complete: true,
+  });
   m.write.mockResolvedValue(`0x${"ab".repeat(32)}`);
   m.read.mockResolvedValue(factory);
   m.receipt.mockResolvedValue({
@@ -100,17 +110,19 @@ it("previews all three categories then sends the fresh wagmi request", async () 
   mount();
   expect(await screen.findByText("10 WETH")).toBeVisible();
   expect(m.write).not.toHaveBeenCalled();
+  expect(m.simulate).not.toHaveBeenCalled();
   await userEvent.click(
     screen.getByRole("button", { name: "Claim everything" }),
   );
   expect(await screen.findByText("Rewards claimed.")).toBeVisible();
   expect(m.write.mock.calls[0][0]).toBe(
-    (await m.simulate.mock.results[1].value).request,
+    (await m.simulate.mock.results[0].value).request,
   );
 });
 it("does not spend gas on zero claims", async () => {
-  m.simulate.mockResolvedValue({
-    result: [{ processedSteps: 0n, reward: 0n, referral: 0n, creator: 0n }],
+  m.preview.mockResolvedValue({
+    results: [{ processedSteps: 0n, reward: 0n, referral: 0n, creator: 0n }],
+    complete: true,
   });
   mount();
   expect(await screen.findByText("All claimed.")).toBeVisible();
@@ -119,21 +131,11 @@ it("does not spend gas on zero claims", async () => {
   ).toBeDisabled();
   expect(m.write).not.toHaveBeenCalled();
 });
-function behind() {
-  return new ContractFunctionRevertedError({
-    abi: membershipFactoryAbi,
-    functionName: "claimEverything",
-    data: encodeErrorResult({
-      abi: membershipFactoryAbi,
-      errorName: "ClaimAccountingBehind",
-      args: [0n, tier, 900n, 950n],
-    }),
-  });
-}
 it("names a blocked tier and advances only that tier", async () => {
-  m.simulate.mockImplementation(async (_config, request) => {
-    if (request.functionName === "claimEverything") throw behind();
-    return { request, result: 25n };
+  m.preview.mockResolvedValue({
+    results: [{ reward: 2n, referral: 3n, creator: 5n }],
+    blocked: { tier, name: "WETH Fans" },
+    complete: true,
   });
   const event = getAbiItem({
     abi: protocolBurnRouterAbi,
@@ -188,7 +190,11 @@ it("names a blocked tier and advances only that tier", async () => {
 it("does not silently switch a claim into an advance", async () => {
   mount();
   await screen.findByText("10 WETH");
-  m.simulate.mockRejectedValue(behind());
+  m.preview.mockResolvedValue({
+    results: [],
+    blocked: { tier, name: "WETH Fans" },
+    complete: false,
+  });
   await userEvent.click(
     screen.getByRole("button", { name: "Claim everything" }),
   );
@@ -200,11 +206,9 @@ it("does not silently switch a claim into an advance", async () => {
 it("keeps batches at eight memberships", async () => {
   mount(9);
   await screen.findByText("10 WETH");
-  expect(m.simulate.mock.calls[0][1].args[0]).toHaveLength(8);
+  expect(m.preview.mock.calls[0][2]).toHaveLength(8);
   await userEvent.click(screen.getByRole("button", { name: "Next" }));
-  await waitFor(() =>
-    expect(m.simulate.mock.calls.at(-1)![1].args[0]).toHaveLength(1),
-  );
+  await waitFor(() => expect(m.preview.mock.calls.at(-1)![2]).toHaveLength(1));
 });
 it("rejects unconfirmed claims", async () => {
   m.receipt.mockResolvedValue({ status: "success", logs: [] });

@@ -6,13 +6,7 @@ import {
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import {
-  ContractFunctionRevertedError,
-  encodeErrorResult,
-  encodeAbiParameters,
-  encodeEventTopics,
-  getAbiItem,
-} from "viem";
+import { encodeAbiParameters, encodeEventTopics, getAbiItem } from "viem";
 import { protocolBurnRouterAbi } from "@/contracts";
 import { Burn } from "./Burn";
 
@@ -23,6 +17,7 @@ const m = vi.hoisted(() => ({
     chainId: 31337,
   },
   prepare: vi.fn(),
+  preview: vi.fn(),
   simulate: vi.fn(),
   write: vi.fn(),
   receipt: vi.fn(),
@@ -38,6 +33,7 @@ vi.mock("@wagmi/core", () => ({ simulateContract: m.simulate }));
 vi.mock("@/lib/use-hydrated-account", () => ({
   useHydratedAccount: () => m.account,
 }));
+vi.mock("./preview-advance", () => ({ previewAdvance: m.preview }));
 vi.mock("./prepare-burn", () => ({ prepareAdvance: m.prepare }));
 vi.mock("./gas-readiness", () => ({ assertSufficientGas: m.gas }));
 const router = "0x2222222222222222222222222222222222222222";
@@ -57,7 +53,7 @@ function mount(
   );
 }
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   m.account.isConnected = true;
   m.prepare.mockResolvedValue({
     router,
@@ -66,6 +62,14 @@ beforeEach(() => {
     deadline: 1000n,
     accountingCoverageIncomplete: false,
     unavailableTiers: 0,
+  });
+  m.preview.mockResolvedValue({
+    processedSteps: 10n,
+    purchases: 2n,
+    ready: true,
+    useful: true,
+    funds: [],
+    complete: true,
   });
   m.simulate.mockResolvedValue({
     request: { address: router, functionName: "advance" },
@@ -99,24 +103,23 @@ beforeEach(() => {
 it("previews before signing and submits a fresh simulation request", async () => {
   mount();
   await waitFor(() => expect(m.prepare).toHaveBeenCalled());
+  expect(m.simulate).not.toHaveBeenCalled();
   await clickReady();
   expect(await screen.findByText(/123 protocol tokens burned/)).toBeVisible();
   expect(m.write).toHaveBeenCalledTimes(1);
   expect(m.write.mock.calls[0][0]).toBe(
-    (await m.simulate.mock.results[1].value).request,
+    (await m.simulate.mock.results[0].value).request,
   );
 });
 it("does not request a wallet transaction when nothing is ready", async () => {
-  m.simulate.mockRejectedValue(
-    new ContractFunctionRevertedError({
-      abi: protocolBurnRouterAbi,
-      functionName: "advance",
-      data: encodeErrorResult({
-        abi: protocolBurnRouterAbi,
-        errorName: "NothingToDo",
-      }),
-    }),
-  );
+  m.preview.mockResolvedValue({
+    processedSteps: 0n,
+    purchases: 0n,
+    ready: false,
+    useful: false,
+    funds: [],
+    complete: true,
+  });
   mount();
   expect(
     await screen.findByText("Nothing needs advancing in this batch."),
@@ -285,6 +288,14 @@ it("keeps continuous accrual out of the main action but allows explicit settleme
     request: { address: router, functionName: "advance" },
     result: [0n, 1n, 0n, 0n],
   });
+  m.preview.mockResolvedValue({
+    processedSteps: 0n,
+    purchases: 0n,
+    ready: false,
+    useful: true,
+    funds: [],
+    complete: true,
+  });
   mount();
   expect(await screen.findByText("Accounting is up to date.")).toBeVisible();
   expect(
@@ -300,7 +311,7 @@ it("keeps continuous accrual out of the main action but allows explicit settleme
     screen.getByRole("button", { name: "Settle accrued rewards" }),
   );
   await waitFor(() => expect(m.write).toHaveBeenCalledOnce());
-  expect(m.simulate.mock.calls[1][1].functionName).toBe("advanceAccounting");
+  expect(m.simulate.mock.calls[0][1].functionName).toBe("advanceAccounting");
 });
 it("does not submit if ready work disappears after the preview", async () => {
   mount();
@@ -309,7 +320,14 @@ it("does not submit if ready work disappears after the preview", async () => {
       screen.getByRole("button", { name: "Advance and burn" }),
     ).toBeEnabled(),
   );
-  m.simulate.mockResolvedValue({ request: {}, result: [0n, 0n, 0n, 0n] });
+  m.preview.mockResolvedValue({
+    processedSteps: 0n,
+    purchases: 0n,
+    ready: false,
+    useful: false,
+    funds: [],
+    complete: true,
+  });
   await clickReady();
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Nothing needs advancing right now.",

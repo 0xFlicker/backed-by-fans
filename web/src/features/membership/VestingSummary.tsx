@@ -47,7 +47,7 @@ export function VestingSummary({
           ? "Accounting is up to date at this read."
           : reserves.status.scheduledMembers === 0n
             ? "No funding checkpoints remain. Already-settled claims remain available."
-            : "Advance accounting to make new earnings available."}
+            : "Claiming rewards settles new earnings automatically."}
       </p>
     </section>
   );

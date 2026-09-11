@@ -133,7 +133,12 @@ export type TierSupporterSnapshot = TierSnapshot & {
     earned: ContractFunctionReturnType<
       typeof membershipTierAbi,
       "view",
-      "earnedBalances"
+      "previewAccounting"
+    >["settled"];
+    preview: ContractFunctionReturnType<
+      typeof membershipTierAbi,
+      "view",
+      "previewAccounting"
     >;
     reserves: ContractFunctionReturnType<
       typeof membershipTierAbi,

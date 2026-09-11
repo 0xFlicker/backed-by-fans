@@ -131,7 +131,16 @@ const vesting = {
 
 describe("supporter direct reads", () => {
   beforeEach(() => {
-    vi.mocked(readTierAccounting).mockResolvedValue(vesting);
+    vi.mocked(readTierAccounting).mockResolvedValue({
+      ...vesting,
+      preview: {
+        asOf: 1000n,
+        processedSteps: 0n,
+        earnedDeltaScaled: [0n, 0n, 0n, 0n],
+        settled: vesting.earned,
+        current: vesting.earned,
+      },
+    });
     vi.mocked(verifyMulticall3).mockResolvedValue("missing");
     vi.mocked(readTierSnapshotState).mockResolvedValue({
       status: "valid",

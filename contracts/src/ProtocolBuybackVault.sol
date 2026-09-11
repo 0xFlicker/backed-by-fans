@@ -154,8 +154,27 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         override
         returns (BuybackTypes.ProcessingState memory state)
     {
+        return _processingStatus(asset, bucket, 0);
+    }
+
+    function previewProcessing(address asset, BuybackTypes.SourceBucket bucket, uint256 additional)
+        external
+        view
+        override
+        returns (BuybackTypes.ProcessingState memory)
+    {
+        return _processingStatus(asset, bucket, additional);
+    }
+
+    // Eligibility uses the same clock and policy for preview and execution.
+    // forge-lint: disable-next-item(block-timestamp)
+    function _processingStatus(address asset, BuybackTypes.SourceBucket bucket, uint256 additional)
+        private
+        view
+        returns (BuybackTypes.ProcessingState memory state)
+    {
         asset = canonicalAsset(asset);
-        state.available = _inventory[asset][bucket].available;
+        state.available = _inventory[asset][bucket].available + additional;
         state.revision = asset == protocolToken ? 0 : _revision[asset];
         if (protocolToken == address(0)) {
             state.status = BuybackTypes.Status.TokenNotLaunched;

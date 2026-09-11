@@ -108,10 +108,11 @@ test.describe("configured Anvil claims and refunds", () => {
         .locator(".claim-row")
         .filter({ hasText: "Membership rewards" });
       await expect(rewardRow).toContainText(usdgDisplay(reward));
-      await rewardRow
-        .getByRole("button", { name: "Claim to this wallet" })
+      await page
+        .locator(".claim-groups")
+        .getByRole("button", { name: "Claim rewards" })
         .click();
-      await expectReconciled(page, "Claim membership rewards");
+      await expectReconciled(page, "Claim rewards");
       await expect(rewardRow).toHaveCount(0);
 
       await switchAnvilAccount(page, referrer);
@@ -119,12 +120,12 @@ test.describe("configured Anvil claims and refunds", () => {
         .locator(".claim-row")
         .filter({ hasText: "Referral proceeds" });
       await expect(referralRow).toContainText("0.1 USDG");
-      const referralClaim = referralRow.getByRole("button", {
-        name: "Claim to this wallet",
-      });
+      const referralClaim = page
+        .locator(".claim-groups")
+        .getByRole("button", { name: "Claim rewards" });
       await expect(referralClaim).toBeEnabled();
       await referralClaim.click();
-      await expectReconciled(page, "Claim referral proceeds");
+      await expectReconciled(page, "Claim rewards");
       await expect(referralRow).toHaveCount(0);
 
       const results = await new AxeBuilder({ page }).analyze();
@@ -156,8 +157,7 @@ test.describe("configured Anvil claims and refunds", () => {
       // exercises issuer-restricted token delivery.
       const claimData = encodeFunctionData({
         abi: membershipTierAbi,
-        functionName: "claimReward",
-        args: [1n],
+        functionName: "claimAll",
       });
       await page.route(`${requiredAnvilRpc()}/`, async (route) => {
         const payload = route.request().postDataJSON();
@@ -202,13 +202,14 @@ test.describe("configured Anvil claims and refunds", () => {
         .locator(".claim-row")
         .filter({ hasText: "Membership rewards" });
       await expect(rewardRow).toContainText(usdgDisplay(reward));
-      await rewardRow
-        .getByRole("button", { name: "Claim to this wallet" })
+      await page
+        .locator(".claim-groups")
+        .getByRole("button", { name: "Claim rewards" })
         .click();
       await expect(
         page
           .locator(".membership-transaction")
-          .filter({ hasText: "Claim membership rewards" }),
+          .filter({ hasText: "Claim rewards" }),
       ).toBeVisible();
       await expect(
         page.locator(".membership-transaction.transaction-retry"),
@@ -233,10 +234,11 @@ test.describe("configured Anvil claims and refunds", () => {
         functionName: "balanceOf",
         args: [member],
       });
-      await rewardRow
-        .getByRole("button", { name: "Claim to this wallet" })
+      await page
+        .locator(".claim-groups")
+        .getByRole("button", { name: "Claim rewards" })
         .click();
-      await expectReconciled(page, "Claim membership rewards");
+      await expectReconciled(page, "Claim rewards");
       expect(
         (await client.readContract({
           address: usdg,
@@ -545,14 +547,14 @@ for (const variablePrice of [false, true]) {
       const earned = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "earnedBalances",
-        args: [1n, creator],
+        functionName: "previewAccounting",
+        args: [1n, creator, 0n],
       });
       for (const value of [
-        earned.creator,
-        earned.member,
-        earned.referral,
-        earned.protocol,
+        earned.settled.creator,
+        earned.settled.member,
+        earned.settled.referral,
+        earned.settled.protocol,
       ])
         expect(value).toBeGreaterThan(0n);
       const claims = [];
@@ -939,18 +941,9 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
     const selectors = [
       encodeFunctionData({
         abi: membershipTierAbi,
-        functionName: "claimReward",
-        args: [1n],
-      }),
-      encodeFunctionData({
-        abi: membershipTierAbi,
-        functionName: "claimReferral",
-      }),
-      encodeFunctionData({
-        abi: membershipTierAbi,
-        functionName: "withdrawCreatorProceeds",
-      }),
-    ].map((data) => data.slice(0, 10));
+        functionName: "claimAll",
+      }).slice(0, 10),
+    ];
     await page.route(`${requiredAnvilRpc()}/`, async (route) => {
       const request = route.request().postDataJSON();
       if (
@@ -994,8 +987,8 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
         after: await client.readContract({
           address: tier,
           abi: membershipTierAbi,
-          functionName: "earnedBalances",
-          args: [1n, creator],
+          functionName: "previewAccounting",
+          args: [1n, creator, 0n],
         }),
       });
       await route.fulfill({ response: upstream, json: response });
@@ -1005,18 +998,22 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
       name: "Vesting and accounting",
     });
     await switchAnvilAccount(page, member);
+    await page.getByText("Rewards & accounting", { exact: true }).click();
     await expect(memberPool).toContainText("Reserved for all members");
-    await expect(memberPool).toContainText("not a personal payout estimate");
+    await expect(memberPool).toContainText("This pool is shared");
     for (const [label, action] of [
-      ["Membership rewards", "Claim membership rewards"],
-      ["Creator proceeds", "Withdraw creator proceeds"],
-      ["Referral proceeds", "Claim referral proceeds"],
+      ["Membership rewards", "Claim rewards"],
+      ["Creator proceeds", "Claim rewards"],
+      ["Referral proceeds", "Claim rewards"],
     ]) {
       if (label === "Referral proceeds")
         await switchAnvilAccount(page, creator);
       const row = page.locator(".claim-row").filter({ hasText: label });
       await expect(row).toBeVisible();
-      await row.getByRole("button").click();
+      await page
+        .locator(".claim-groups")
+        .getByRole("button", { name: "Claim rewards" })
+        .click();
       await expectReconciled(page, action);
       await expect(
         page
@@ -1027,15 +1024,15 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
       const earned = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "earnedBalances",
-        args: [1n, creator],
+        functionName: "previewAccounting",
+        args: [1n, creator, 0n],
       });
       expect(
         label === "Membership rewards"
-          ? earned.member
+          ? earned.settled.member
           : label === "Creator proceeds"
-            ? earned.creator
-            : earned.referral,
+            ? earned.settled.creator
+            : earned.settled.referral,
       ).toBeGreaterThan(0n);
     }
     expect(evidence).toHaveLength(3);

@@ -312,10 +312,11 @@ test("@anvil vesting-lifecycle distinguishes free access, suspended weight and d
     const memberClaim = page
       .locator(".claim-row")
       .filter({ hasText: "Membership rewards" });
-    await memberClaim
-      .getByRole("button", { name: "Claim to this wallet" })
+    await page
+      .locator(".claim-groups")
+      .getByRole("button", { name: "Claim rewards" })
       .click();
-    await expectReconciled(page, "Claim membership rewards");
+    await expectReconciled(page, "Claim rewards");
     expect((await read()).claim).toBe(0n);
     expect((await read()).shares).toBe(restored.shares);
     const path = testInfo.outputPath("free-access-eligibility-claims.json");

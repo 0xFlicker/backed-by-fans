@@ -447,7 +447,8 @@ export function MembershipExperience({
       | "gift"
       | "claimReward"
       | "claimReferral"
-      | "withdrawCreatorProceeds",
+      | "withdrawCreatorProceeds"
+      | "claimAll",
     args: readonly unknown[] = [],
   ) {
     return async (): Promise<SendWrite> => {
@@ -622,6 +623,38 @@ export function MembershipExperience({
     return next;
   }
 
+  async function reconcileClaims(receipt: SuccessfulWriteReceipt) {
+    const recipient = snapshot.wallet!;
+    const parts = [
+      snapshot.credential
+        ? receiptRewardClaim(receipt, {
+            tier: snapshot.address,
+            tokenId: snapshot.credential.tokenId,
+            owner: recipient,
+          })
+        : undefined,
+      receiptReferralClaim(receipt, {
+        tier: snapshot.address,
+        referrer: recipient,
+      }),
+      isSameAddress(recipient, snapshot.creator)
+        ? receiptCreatorWithdrawal(receipt, {
+            tier: snapshot.address,
+            owner: recipient,
+          })
+        : undefined,
+    ];
+    const amount = parts.reduce(
+      (total, part) => total + (part?.amount ?? 0n),
+      0n,
+    );
+    const reconciled = await reconcilePayout(
+      amount > 0n ? { amount, recipient } : undefined,
+    );
+    await earnings.refetch();
+    return reconciled;
+  }
+
   async function buyForSelf() {
     if (
       periodValue === undefined ||
@@ -764,9 +797,40 @@ export function MembershipExperience({
 
   const network = getSupportedChain(expectedChainId);
   const explorerUrl = network.blockExplorers?.default.url;
-  const rewardClaim = snapshot.credential?.claimableReward ?? 0n;
-  const referralClaim = snapshot.claimableReferral ?? 0n;
-  const creatorClaim = snapshot.creatorProceeds ?? 0n;
+  const earnings = useQuery({
+    queryKey: [
+      "membership-earnings",
+      expectedChainId,
+      snapshot.address,
+      snapshot.wallet,
+      snapshot.credential?.tokenId.toString(),
+    ],
+    queryFn: () =>
+      client.readContract({
+        address: snapshot.address,
+        abi: membershipTierAbi,
+        functionName: "previewAccounting",
+        args: [
+          snapshot.credential?.tokenId ?? 0n,
+          snapshot.wallet ?? zeroAddress,
+          256n,
+        ],
+      }),
+    initialData: snapshot.vesting?.preview,
+    enabled: Boolean(snapshot.wallet),
+    refetchInterval: 15_000,
+    retry: false,
+  });
+  const rewardClaim = earnings.data?.current.member ?? 0n;
+  const referralClaim = earnings.data?.current.referral ?? 0n;
+  const creatorClaim =
+    snapshot.wallet && isSameAddress(snapshot.wallet, snapshot.creator)
+      ? (earnings.data?.current.creator ?? 0n)
+      : 0n;
+  const claimsBehind =
+    earnings.data &&
+    (!earnings.data.current.status.complete ||
+      earnings.data.processedSteps > 25n);
   const hasClaims = rewardClaim > 0n || referralClaim > 0n || creatorClaim > 0n;
   const fundingShortfall =
     snapshot.walletPaymentTokenBalance !== undefined &&
@@ -1239,106 +1303,128 @@ export function MembershipExperience({
           </section>
         </div>
 
-        {hasClaims && (
+        {(hasClaims || earnings.isError) && (
           <aside className="supporter-secondary">
-            {hasClaims && (
-              <section className="claim-groups" aria-labelledby="claims-title">
-                <h2 id="claims-title">Available to claim</h2>
-                {rewardClaim > 0n && snapshot.credential && (
-                  <div className="claim-row">
-                    <div>
-                      <strong>Membership rewards</strong>
-                      <span>{paymentLabel(rewardClaim)}</span>
-                    </div>
-                    <button
-                      className="button button-outline"
-                      disabled={!writesVerified || rewardClaim === 0n}
-                      onClick={() =>
-                        void perform(
-                          "Claim membership rewards",
-                          tierWrite("claimReward", [
-                            snapshot.credential!.tokenId,
-                          ]),
-                          (receipt) =>
-                            reconcilePayout(
-                              receiptRewardClaim(receipt, {
-                                tier: snapshot.address,
-                                tokenId: snapshot.credential!.tokenId,
-                                owner: snapshot.credential!.owner,
-                              }),
-                            ),
-                        )
-                      }
-                      type="button"
-                    >
-                      Claim to this wallet
-                    </button>
-                  </div>
-                )}
-                {referralClaim > 0n && (
-                  <div className="claim-row">
-                    <div>
-                      <strong>Referral proceeds</strong>
-                      <span>{paymentLabel(referralClaim)}</span>
-                    </div>
-                    <button
-                      className="button button-outline"
-                      disabled={!writesVerified || referralClaim === 0n}
-                      onClick={() =>
-                        void perform(
-                          "Claim referral proceeds",
-                          tierWrite("claimReferral"),
-                          (receipt) =>
-                            reconcilePayout(
-                              snapshot.wallet
-                                ? receiptReferralClaim(receipt, {
-                                    tier: snapshot.address,
-                                    referrer: snapshot.wallet,
-                                  })
-                                : undefined,
-                            ),
-                        )
-                      }
-                      type="button"
-                    >
-                      Claim to this wallet
-                    </button>
-                  </div>
-                )}
-                {creatorClaim > 0n &&
-                  snapshot.creatorProceeds !== undefined && (
-                    <div className="claim-row">
-                      <div>
-                        <strong>Creator proceeds</strong>
-                        <span>{paymentLabel(creatorClaim)}</span>
-                      </div>
-                      <button
-                        className="button button-outline"
-                        disabled={
-                          !writesVerified || snapshot.creatorProceeds === 0n
-                        }
-                        onClick={() =>
-                          void perform(
-                            "Withdraw creator proceeds",
-                            tierWrite("withdrawCreatorProceeds"),
-                            (receipt) =>
-                              reconcilePayout(
-                                receiptCreatorWithdrawal(receipt, {
-                                  tier: snapshot.address,
-                                  owner: snapshot.creator,
-                                }),
-                              ),
-                          )
-                        }
-                        type="button"
-                      >
-                        Withdraw to this wallet
-                      </button>
-                    </div>
+            <section className="claim-groups" aria-labelledby="claims-title">
+              <h2 id="claims-title">Your earnings</h2>
+              {earnings.isError ? (
+                <p role="alert">
+                  Earnings unavailable.{" "}
+                  <button
+                    className="text-button"
+                    onClick={() => void earnings.refetch()}
+                  >
+                    Refresh
+                  </button>
+                </p>
+              ) : (
+                <>
+                  {[
+                    ["Membership rewards", rewardClaim],
+                    ["Referral proceeds", referralClaim],
+                    ["Creator proceeds", creatorClaim],
+                  ].map(
+                    ([label, raw]) =>
+                      (raw as bigint) > 0n && (
+                        <div className="claim-row" key={label as string}>
+                          <strong>{label as string}</strong>
+                          <span>{paymentLabel(raw as bigint)}</span>
+                        </div>
+                      ),
                   )}
-                <p className="small-copy">Paid to your connected wallet.</p>
-              </section>
-            )}
+                  {earnings.data && !earnings.data.current.status.complete && (
+                    <p className="small-copy">
+                      Partial earnings shown. Advance accounting to update the
+                      rest.
+                    </p>
+                  )}
+                  {claimsBehind ? (
+                    <a
+                      className="button button-outline"
+                      href={`#tier-accounting-${snapshot.address.toLowerCase()}`}
+                      onClick={() => {
+                        const section =
+                          document.querySelector<HTMLDetailsElement>(
+                            ".membership-accounting",
+                          );
+                        if (section) section.open = true;
+                      }}
+                    >
+                      Advance to claim
+                    </a>
+                  ) : (
+                    <button
+                      className="button button-outline"
+                      type="button"
+                      disabled={!writesVerified}
+                      onClick={() =>
+                        void perform(
+                          "Claim rewards",
+                          tierWrite("claimAll"),
+                          reconcileClaims,
+                        )
+                      }
+                    >
+                      Claim rewards
+                    </button>
+                  )}
+                  {claimsBehind && earnings.data && (
+                    <details className="technical-details">
+                      <summary>Settled funds</summary>
+                      {(
+                        [
+                          [
+                            "Membership rewards",
+                            earnings.data.settled.member,
+                            "claimReward",
+                            [snapshot.credential?.tokenId ?? 0n],
+                          ],
+                          [
+                            "Referral proceeds",
+                            earnings.data.settled.referral,
+                            "claimReferral",
+                            [],
+                          ],
+                          [
+                            "Creator proceeds",
+                            snapshot.wallet &&
+                            isSameAddress(snapshot.wallet, snapshot.creator)
+                              ? earnings.data.settled.creator
+                              : 0n,
+                            "withdrawCreatorProceeds",
+                            [],
+                          ],
+                        ] as const
+                      ).map(
+                        ([label, amount, method, args]) =>
+                          amount > 0n && (
+                            <div className="claim-row" key={method}>
+                              <div>
+                                <strong>{label}</strong>
+                                <span>{paymentLabel(amount)}</span>
+                              </div>
+                              <button
+                                className="text-button"
+                                type="button"
+                                disabled={!writesVerified}
+                                onClick={() =>
+                                  void perform(
+                                    "Claim settled rewards",
+                                    tierWrite(method, args),
+                                    reconcileClaims,
+                                  )
+                                }
+                              >
+                                Claim settled
+                              </button>
+                            </div>
+                          ),
+                      )}
+                    </details>
+                  )}
+                </>
+              )}
+            </section>
           </aside>
         )}
 

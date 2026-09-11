@@ -217,14 +217,11 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         public
         view
         override
-        returns (MembershipTypes.AccountingStatus memory status)
+        returns (MembershipTypes.AccountingStatus memory)
     {
-        status.accountedThrough = _vesting.accountedThrough;
-        status.scheduledMembers = _vesting.heap.length;
-        status.nextBoundary = status.scheduledMembers == 0 ? 0 : _vesting.heap[0].timestamp;
-        uint64 now_ = _currentTimestamp();
-        status.complete = status.accountedThrough == now_
-            && (status.nextBoundary == 0 || status.nextBoundary > now_);
+        bytes memory encoded = VestingLedger.encodedStatus(_vesting, _currentTimestamp());
+        // Forward the compiler-encoded status from the shared ledger.
+        assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
     }
 
     function processAccounting(uint256 maxSteps)
@@ -246,28 +243,24 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         private
         returns (VestingLedger.ProcessResult memory result)
     {
-        result = VestingLedger.process(_vesting, _currentTimestamp(), maxSteps);
-        emit AccountingProgress(
-            result.accountedThrough, result.processed, result.complete, result.earnedScaled
-        );
+        return VestingLedger.process(_vesting, _currentTimestamp(), maxSteps);
     }
 
     function _catchUp() private {
-        VestingLedger.ProcessResult memory result = _processAccounting(MAX_ACCOUNTING_STEPS);
-        if (!result.complete) {
-            revert AccountingBehind(result.accountedThrough, _vesting.heap[0].timestamp);
-        }
+        VestingLedger.catchUp(_vesting, _currentTimestamp(), MAX_ACCOUNTING_STEPS);
     }
 
-    function earnedBalances(uint256 tokenId, address referrer)
+    function previewAccounting(uint256 tokenId, address referrer, uint256 maxSteps)
         external
         view
         override
-        returns (MembershipTypes.EarnedBalances memory)
+        returns (MembershipTypes.AccountingPreview memory)
     {
         if (tokenId != 0) _requireKnownToken(tokenId);
-        bytes memory encoded =
-            VestingLedger.encodedBalances(_vesting, tokenId, referrer, _currentTimestamp());
+        bytes memory encoded = VestingLedger.encodedPreview(
+            _vesting, tokenId, referrer, _currentTimestamp(), maxSteps
+        );
+        // Forward compiler-encoded library output without a second tuple codec.
         assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
     }
 

@@ -114,11 +114,10 @@ test("@anvil vested-account discovers a burned membership's durable earned claim
       new RegExp(`/chains/31337/tiers/${tier}`, "i"),
     );
     await page
-      .locator(".claim-row")
-      .filter({ hasText: "Membership rewards" })
-      .getByRole("button", { name: "Claim to this wallet" })
+      .locator(".claim-groups")
+      .getByRole("button", { name: "Claim rewards" })
       .click();
-    await expectReconciled(page, "Claim membership rewards");
+    await expectReconciled(page, "Claim rewards");
     expect(
       await client.readContract({
         address: tier,

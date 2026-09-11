@@ -171,6 +171,9 @@ export async function prepareAdvance(
   );
   return {
     router,
+    vault,
+    blockNumber,
+    timestamp: block.timestamp,
     tiers: advanceTiers,
     unavailableTiers,
     purchases: purchases.map(({ asset, revision }) => ({ asset, revision })),

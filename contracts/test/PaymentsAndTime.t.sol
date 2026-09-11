@@ -413,7 +413,7 @@ contract PaymentsAndTimeTest is Test {
             abi.encode(
                 target.allocationState(1),
                 target.reserveState(),
-                target.earnedBalances(1, address(0)),
+                target.previewAccounting(1, address(0), 0).settled,
                 target.sharesOf(1),
                 target.lifetimeGross(),
                 target.expiresAt(1)
@@ -429,7 +429,7 @@ contract PaymentsAndTimeTest is Test {
                     abi.encode(
                         target.allocationState(1),
                         target.reserveState(),
-                        target.earnedBalances(1, address(0)),
+                        target.previewAccounting(1, address(0), 0).settled,
                         target.sharesOf(1),
                         target.lifetimeGross(),
                         target.expiresAt(1)
@@ -531,7 +531,8 @@ contract PaymentsAndTimeTest is Test {
         assertEq(lots[0].start, _START);
         assertEq(lots[0].end, _START + 120);
         assertEq(vested.expiresAt(tokenId), _START + 170);
-        MembershipTypes.EarnedBalances memory balances = vested.earnedBalances(tokenId, referrer);
+        MembershipTypes.EarnedBalances memory balances =
+        vested.previewAccounting(tokenId, referrer, 0).settled;
         assertEq(balances.creator + balances.member + balances.referral + balances.protocol, 0);
 
         vm.warp(_START + 30);

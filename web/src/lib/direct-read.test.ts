@@ -365,10 +365,10 @@ describe("direct reads", () => {
     const readContract = vi.fn(({ functionName }: { functionName: string }) =>
       Promise.resolve(
         {
-          earnedBalances: earned,
+          previewAccounting: { settled: earned, current: earned },
           reserveState: reserves,
           allocationState: allocation,
-        }[functionName as "earnedBalances"],
+        }[functionName as "previewAccounting"],
       ),
     );
     const input = {
@@ -382,7 +382,12 @@ describe("direct reads", () => {
         client({ readContract } as Partial<PublicClient>),
         input,
       ),
-    ).toEqual({ earned, reserves, allocation });
+    ).toEqual({
+      earned,
+      preview: { settled: earned, current: earned },
+      reserves,
+      allocation,
+    });
     expect(readContract).toHaveBeenCalledTimes(3);
     for (const [request] of readContract.mock.calls)
       expect(request).toMatchObject({ blockNumber: 12n });

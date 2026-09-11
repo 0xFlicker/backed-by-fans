@@ -44,10 +44,16 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         second.purchase(1, address(this));
         vm.stopPrank();
         vm.warp(1200);
+        MembershipTypes.AccountingPreview memory preview =
+            second.previewAccounting(second.tokenOf(address(this)), address(this), 256);
         uint256 beforeBalance = token.balanceOf(address(this));
         vm.recordLogs();
         MembershipTypes.ClaimResult memory result = second.claimAll();
         Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(result.reward, preview.current.member);
+        assertEq(result.referral, preview.current.referral);
+        assertEq(result.creator, preview.current.creator);
+        assertEq(result.processedSteps, preview.processedSteps);
         uint256 payoutEvents;
         uint256 progressEvents;
         for (uint256 i; i < logs.length; ++i) {

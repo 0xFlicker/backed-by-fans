@@ -154,10 +154,13 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
             uint256 earnedScaledDelta
         );
     function accountingStatus() external view returns (MembershipTypes.AccountingStatus memory);
-    function earnedBalances(uint256 tokenId, address referrer)
+    /// @notice Project balances without writes, transfers or transaction simulation.
+    /// @dev Reads at most 256 checkpoints. Zero reads only continuous time if no
+    /// checkpoint is due. Inspect current.status.complete before treating it as current.
+    function previewAccounting(uint256 tokenId, address referrer, uint256 maxSteps)
         external
         view
-        returns (MembershipTypes.EarnedBalances memory);
+        returns (MembershipTypes.AccountingPreview memory);
     function allocationState(uint256 tokenId)
         external
         view

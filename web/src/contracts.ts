@@ -3457,7 +3457,7 @@ export const membershipTierAbi = [
     name: "accountingStatus",
     outputs: [
       {
-        name: "status",
+        name: "",
         internalType: "struct MembershipTypes.AccountingStatus",
         type: "tuple",
         components: [
@@ -3733,52 +3733,6 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
-    inputs: [
-      { name: "tokenId", internalType: "uint256", type: "uint256" },
-      { name: "referrer", internalType: "address", type: "address" },
-    ],
-    name: "earnedBalances",
-    outputs: [
-      {
-        name: "",
-        internalType: "struct MembershipTypes.EarnedBalances",
-        type: "tuple",
-        components: [
-          { name: "creator", internalType: "uint256", type: "uint256" },
-          { name: "member", internalType: "uint256", type: "uint256" },
-          { name: "referral", internalType: "uint256", type: "uint256" },
-          { name: "protocol", internalType: "uint256", type: "uint256" },
-          {
-            name: "fractionalScaled",
-            internalType: "uint256[4]",
-            type: "uint256[4]",
-          },
-          {
-            name: "status",
-            internalType: "struct MembershipTypes.AccountingStatus",
-            type: "tuple",
-            components: [
-              {
-                name: "accountedThrough",
-                internalType: "uint64",
-                type: "uint64",
-              },
-              { name: "nextBoundary", internalType: "uint64", type: "uint64" },
-              {
-                name: "scheduledMembers",
-                internalType: "uint256",
-                type: "uint256",
-              },
-              { name: "complete", internalType: "bool", type: "bool" },
-            ],
-          },
-        ],
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
     name: "expiresAt",
     outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
@@ -3982,6 +3936,110 @@ export const membershipTierAbi = [
     inputs: [],
     name: "periodDuration",
     outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "referrer", internalType: "address", type: "address" },
+      { name: "maxSteps", internalType: "uint256", type: "uint256" },
+    ],
+    name: "previewAccounting",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.AccountingPreview",
+        type: "tuple",
+        components: [
+          { name: "asOf", internalType: "uint64", type: "uint64" },
+          { name: "processedSteps", internalType: "uint256", type: "uint256" },
+          {
+            name: "earnedDeltaScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "settled",
+            internalType: "struct MembershipTypes.EarnedBalances",
+            type: "tuple",
+            components: [
+              { name: "creator", internalType: "uint256", type: "uint256" },
+              { name: "member", internalType: "uint256", type: "uint256" },
+              { name: "referral", internalType: "uint256", type: "uint256" },
+              { name: "protocol", internalType: "uint256", type: "uint256" },
+              {
+                name: "fractionalScaled",
+                internalType: "uint256[4]",
+                type: "uint256[4]",
+              },
+              {
+                name: "status",
+                internalType: "struct MembershipTypes.AccountingStatus",
+                type: "tuple",
+                components: [
+                  {
+                    name: "accountedThrough",
+                    internalType: "uint64",
+                    type: "uint64",
+                  },
+                  {
+                    name: "nextBoundary",
+                    internalType: "uint64",
+                    type: "uint64",
+                  },
+                  {
+                    name: "scheduledMembers",
+                    internalType: "uint256",
+                    type: "uint256",
+                  },
+                  { name: "complete", internalType: "bool", type: "bool" },
+                ],
+              },
+            ],
+          },
+          {
+            name: "current",
+            internalType: "struct MembershipTypes.EarnedBalances",
+            type: "tuple",
+            components: [
+              { name: "creator", internalType: "uint256", type: "uint256" },
+              { name: "member", internalType: "uint256", type: "uint256" },
+              { name: "referral", internalType: "uint256", type: "uint256" },
+              { name: "protocol", internalType: "uint256", type: "uint256" },
+              {
+                name: "fractionalScaled",
+                internalType: "uint256[4]",
+                type: "uint256[4]",
+              },
+              {
+                name: "status",
+                internalType: "struct MembershipTypes.AccountingStatus",
+                type: "tuple",
+                components: [
+                  {
+                    name: "accountedThrough",
+                    internalType: "uint64",
+                    type: "uint64",
+                  },
+                  {
+                    name: "nextBoundary",
+                    internalType: "uint64",
+                    type: "uint64",
+                  },
+                  {
+                    name: "scheduledMembers",
+                    internalType: "uint256",
+                    type: "uint256",
+                  },
+                  { name: "complete", internalType: "bool", type: "bool" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
     stateMutability: "view",
   },
   {
@@ -6846,6 +6904,39 @@ export const protocolBuybackVaultAbi = [
           { name: "minInput", internalType: "uint128", type: "uint128" },
           { name: "maxInput", internalType: "uint128", type: "uint128" },
           { name: "minInterval", internalType: "uint64", type: "uint64" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      {
+        name: "bucket",
+        internalType: "enum BuybackTypes.SourceBucket",
+        type: "uint8",
+      },
+      { name: "additional", internalType: "uint256", type: "uint256" },
+    ],
+    name: "previewProcessing",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct BuybackTypes.ProcessingState",
+        type: "tuple",
+        components: [
+          {
+            name: "status",
+            internalType: "enum BuybackTypes.Status",
+            type: "uint8",
+          },
+          { name: "revision", internalType: "uint64", type: "uint64" },
+          { name: "available", internalType: "uint256", type: "uint256" },
+          { name: "maxInput", internalType: "uint256", type: "uint256" },
+          { name: "minInput", internalType: "uint256", type: "uint256" },
+          { name: "nextEligibleAt", internalType: "uint256", type: "uint256" },
         ],
       },
     ],
@@ -10823,15 +10914,6 @@ export const useReadMembershipTierEarlySupportGross =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"earnedBalances"`
- */
-export const useReadMembershipTierEarnedBalances =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "earnedBalances",
-  });
-
-/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"expiresAt"`
  */
 export const useReadMembershipTierExpiresAt =
@@ -11028,6 +11110,15 @@ export const useReadMembershipTierPeriodDuration =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "periodDuration",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"previewAccounting"`
+ */
+export const useReadMembershipTierPreviewAccounting =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "previewAccounting",
   });
 
 /**
@@ -12658,6 +12749,15 @@ export const useReadProtocolBuybackVaultLimits =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
     functionName: "limits",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"previewProcessing"`
+ */
+export const useReadProtocolBuybackVaultPreviewProcessing =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "previewProcessing",
   });
 
 /**
