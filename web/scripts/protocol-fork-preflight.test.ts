@@ -7,33 +7,6 @@ import {
 
 import { originPin } from "../../scripts/protocol-fork/origin";
 
-// Unit tests exercise preflight decisions using generated ABI fixtures. The
-// real preflight still reads freshly compiled Foundry artifacts from disk.
-vi.mock("node:fs/promises", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:fs/promises")>();
-  const generated = await import("../src/contracts");
-  const artifacts: Record<string, unknown> = {
-    "IPons.sol/IPonsLaunchFactory.json": generated.iPonsLaunchFactoryAbi,
-    "IPons.sol/IPonsMemeHook.json": generated.iPonsMemeHookAbi,
-    "IPons.sol/IPonsBuybackVault.json": generated.iPonsBuybackVaultAbi,
-    "IERC8056.sol/IScaledUIAmount.json": generated.iScaledUiAmountAbi,
-    "IV4Quoter.sol/IV4Quoter.json": generated.iv4QuoterAbi,
-  };
-  return {
-    ...actual,
-    readFile: vi.fn(async (...args: Parameters<typeof actual.readFile>) => {
-      const path = String(args[0]);
-      const marker = "/contracts/out/";
-      if (!path.includes(marker)) return actual.readFile(...args);
-      const artifact = path.slice(path.indexOf(marker) + marker.length);
-      if (!(artifact in artifacts)) {
-        throw new Error(`Missing unit-test artifact fixture: ${artifact}`);
-      }
-      return JSON.stringify({ abi: artifacts[artifact] });
-    }),
-  };
-});
-
 const blockHash = originPin.blockHash as `0x${string}`;
 const origin = { blockNumber: BigInt(originPin.blockNumber), blockHash };
 const factory = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e" as const;
