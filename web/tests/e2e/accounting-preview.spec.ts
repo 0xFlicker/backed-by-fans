@@ -109,6 +109,10 @@ test("live previews refresh without a transaction and a membership claim pays pr
       fullPage: true,
     });
     await page.goto("/chains/31337/protocol");
+    await page
+      .locator(".protocol-burn")
+      .getByText("Accounting details", { exact: true })
+      .click();
     await expect(
       page.locator(".protocol-funding-preview").first(),
     ).toBeVisible();

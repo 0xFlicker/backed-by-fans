@@ -22,6 +22,7 @@ import {
   type PublicBuybacks,
 } from "./protocol-read";
 import { readTierFunding } from "./fee-forecast";
+import { previewFunding } from "./preview-funding";
 import { readAcceptedPaymentToken } from "@/lib/payment-token-read";
 import { formatLocalizedTokenAmount } from "@/lib/token-amount";
 
@@ -76,8 +77,23 @@ export function ProtocolActivity({
     queryFn: () => readPublicBuybacks(client!, deployment, { assetOffset }),
     initialData: assetOffset === 0 ? initialState : undefined,
     staleTime: 0,
+    refetchInterval: 15_000,
   });
   const state = query.data;
+  const funding = useQuery({
+    queryKey: [
+      "protocol",
+      chainId,
+      "funding-totals",
+      state?.status === "valid" ? state.capturedBlock.toString() : null,
+    ],
+    enabled: Boolean(client && state?.status === "valid"),
+    queryFn: () => {
+      if (!client || state?.status !== "valid")
+        throw new Error("Protocol snapshot unavailable");
+      return previewFunding(client, state.data, state.capturedBlock);
+    },
+  });
   const protocolAsset =
     state?.status === "valid" && state.data.protocolToken !== zeroAddress
       ? state.data.assets.find(
@@ -158,8 +174,8 @@ export function ProtocolActivity({
             aria-labelledby="inventory-title"
             className="protocol-section"
           >
-            <h2 id="inventory-title">Released fees & burns</h2>
-            <p>Available funds, spending and protocol tokens burned.</p>
+            <h2 id="inventory-title">Fees & burns</h2>
+            <p>Available includes earned fees through the latest snapshot.</p>
             {state.data.assets.map((item) =>
               item.status !== "valid" ? (
                 <p className="inline-status" key={item.asset}>
@@ -180,15 +196,26 @@ export function ProtocolActivity({
                     <div>
                       <dt>Available</dt>
                       <dd>
-                        <Amount
-                          raw={
-                            item.data.membership.available +
-                            item.data.donation.available
-                          }
-                          decimals={item.data.metadata?.decimals ?? 0}
-                          multiplier={item.data.metadata?.uiMultiplier}
-                          symbol={item.data.metadata?.symbol}
-                        />
+                        {funding.isError ? (
+                          "Unavailable"
+                        ) : !funding.data ? (
+                          "…"
+                        ) : funding.data.get(item.asset.toLowerCase())
+                            ?.complete === false ? (
+                          "Preview incomplete"
+                        ) : (
+                          <Amount
+                            raw={
+                              item.data.membership.available +
+                              item.data.donation.available +
+                              (funding.data.get(item.asset.toLowerCase())
+                                ?.amount ?? 0n)
+                            }
+                            decimals={item.data.metadata?.decimals ?? 0}
+                            multiplier={item.data.metadata?.uiMultiplier}
+                            symbol={item.data.metadata?.symbol}
+                          />
+                        )}
                       </dd>
                     </div>
                     <div>

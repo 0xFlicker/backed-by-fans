@@ -123,7 +123,7 @@ it("does not request a wallet transaction when nothing is ready", async () => {
   mount();
   expect(
     await screen.findByText("Nothing needs advancing in this batch."),
-  ).toBeVisible();
+  ).not.toBeVisible();
   expect(
     screen.getByRole("button", { name: "Advance and burn" }),
   ).toBeDisabled();
@@ -297,7 +297,9 @@ it("keeps continuous accrual out of the main action but allows explicit settleme
     complete: true,
   });
   mount();
-  expect(await screen.findByText("Accounting is up to date.")).toBeVisible();
+  expect(
+    await screen.findByText("Accounting is up to date."),
+  ).not.toBeVisible();
   expect(
     screen.getByRole("button", { name: "Advance and burn" }),
   ).toBeDisabled();

@@ -211,55 +211,6 @@ export function Burn({
           </p>
         </details>
       )}
-      <div
-        className="small-copy"
-        aria-live="polite"
-        style={{ minHeight: "5rem" }}
-      >
-        {preview.isPending ? (
-          "Checking…"
-        ) : preview.isError ? (
-          <span role="alert">{decodeTransactionError(preview.error)}</span>
-        ) : (
-          <>
-            {mode !== "buyback" && (
-              <div>
-                {preview.data?.projection?.processedSteps
-                  ? `${preview.data.projection.processedSteps} checkpoints ready.`
-                  : preview.data?.plan.accountingCoverageIncomplete ||
-                      preview.data?.plan.unavailableTiers
-                    ? "No checkpoints ready in the checked memberships."
-                    : "Accounting is up to date."}
-              </div>
-            )}
-            {mode !== "accounting" && (
-              <div>
-                {preview.data?.projection?.purchases
-                  ? `${preview.data.projection.purchases} currencies ready for buyback.`
-                  : "No buyback ready. Waiting for funds or eligibility."}
-              </div>
-            )}
-            {mode !== "buyback" &&
-              preview.data?.funds.map((item) => (
-                <div key={item.asset} className="protocol-funding-preview">
-                  <strong>{item.label}</strong>{" "}
-                  {mode === "both"
-                    ? "ready to release"
-                    : "earned protocol funding"}
-                  {item.delta > 0n && (
-                    <span className="small-copy">
-                      {" "}
-                      · +{item.deltaLabel} since last settlement
-                    </span>
-                  )}
-                </div>
-              ))}
-            {!preview.data?.projection?.ready && (
-              <div>Nothing needs advancing in this batch.</div>
-            )}
-          </>
-        )}
-      </div>
       <button
         type="button"
         className="button button-dark"
@@ -293,6 +244,55 @@ export function Burn({
       </p>
       <details>
         <summary>Accounting details</summary>
+        <div
+          className="small-copy"
+          aria-live="polite"
+          style={{ minHeight: "5rem" }}
+        >
+          {preview.isPending ? (
+            "Checking…"
+          ) : preview.isError ? (
+            <span role="alert">{decodeTransactionError(preview.error)}</span>
+          ) : (
+            <>
+              {mode !== "buyback" && (
+                <div>
+                  {preview.data?.projection?.processedSteps
+                    ? `${preview.data.projection.processedSteps} checkpoints ready.`
+                    : preview.data?.plan.accountingCoverageIncomplete ||
+                        preview.data?.plan.unavailableTiers
+                      ? "No checkpoints ready in the checked memberships."
+                      : "Accounting is up to date."}
+                </div>
+              )}
+              {mode !== "accounting" && (
+                <div>
+                  {preview.data?.projection?.purchases
+                    ? `${preview.data.projection.purchases} currencies ready for buyback.`
+                    : "No buyback ready. Waiting for funds or eligibility."}
+                </div>
+              )}
+              {mode !== "buyback" &&
+                preview.data?.funds.map((item) => (
+                  <div key={item.asset} className="protocol-funding-preview">
+                    <strong>{item.label}</strong>{" "}
+                    {mode === "both"
+                      ? "ready to release"
+                      : "earned protocol funding"}
+                    {item.delta > 0n && (
+                      <span className="small-copy">
+                        {" "}
+                        · +{item.deltaLabel} since last settlement
+                      </span>
+                    )}
+                  </div>
+                ))}
+              {!preview.data?.projection?.ready && (
+                <div>Nothing needs advancing in this batch.</div>
+              )}
+            </>
+          )}
+        </div>
         <p className="small-copy">
           Rewards accrue between checkpoints. Settle them here to make newly
           earned funds available.
