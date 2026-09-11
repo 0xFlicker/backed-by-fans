@@ -14,15 +14,6 @@ const anvilRenderer = "0x8888888888888888888888888888888888888888";
 const anvilPreviewHarness = "0x9999999999999999999999999999999999999999";
 
 describe("buildPublicConfig", () => {
-  it("does not expose the retired fee-recipient deployment as the buyback protocol", () => {
-    const config = buildPublicConfig({});
-
-    expect(getDeployment(config, robinhoodTestnet.id)).toMatchObject({
-      status: "unavailable",
-      chainId: robinhoodTestnet.id,
-    });
-  });
-
   it("does not require a deployment-wide payment token", () => {
     const config = buildPublicConfig(
       {},

@@ -6,6 +6,7 @@ import {
 } from "../../scripts/protocol-fork/preflight";
 
 import { originPin } from "../../scripts/protocol-fork/origin";
+
 const blockHash = originPin.blockHash as `0x${string}`;
 const origin = { blockNumber: BigInt(originPin.blockNumber), blockHash };
 const factory = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e" as const;
