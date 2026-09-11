@@ -4,6 +4,11 @@ import { robinhood, robinhoodTestnet } from "viem/chains";
 
 import { localAnvil } from "@/lib/chains";
 import { buildPublicConfig, getDeployment } from "@/lib/config";
+import {
+  membershipFactoryAddress,
+  onchainMetadataRendererAddress,
+  rendererPreviewHarnessAddress,
+} from "@/contracts";
 
 const testnetFactory = "0x1111111111111111111111111111111111111111";
 const mainnetFactory = "0x2222222222222222222222222222222222222222";
@@ -14,12 +19,19 @@ const anvilRenderer = "0x8888888888888888888888888888888888888888";
 const anvilPreviewHarness = "0x9999999999999999999999999999999999999999";
 
 describe("buildPublicConfig", () => {
-  it("does not expose the retired fee-recipient deployment as the buyback protocol", () => {
+  it("uses the current generated testnet deployment without environment overrides", () => {
     const config = buildPublicConfig({});
 
     expect(getDeployment(config, robinhoodTestnet.id)).toMatchObject({
-      status: "unavailable",
+      status: "ready",
       chainId: robinhoodTestnet.id,
+      factoryAddress: getAddress(membershipFactoryAddress[robinhoodTestnet.id]),
+      rendererAddress: getAddress(
+        onchainMetadataRendererAddress[robinhoodTestnet.id],
+      ),
+      previewHarnessAddress: getAddress(
+        rendererPreviewHarnessAddress[robinhoodTestnet.id],
+      ),
     });
   });
 
