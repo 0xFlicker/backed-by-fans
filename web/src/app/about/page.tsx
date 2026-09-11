@@ -3,11 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { BackingStackMark } from "@/components/BackingStackMark";
+import { ProtocolFlow } from "@/components/ProtocolFlow";
+import styles from "./about.module.css";
 
 export const metadata: Metadata = {
   title: "About",
   description:
-    "How Backed By Fans turns direct creator support into pay-as-you-go membership NFTs on Robinhood Chain.",
+    "Creator-owned memberships with fixed terms. See how payments accrue over time to creators, fans, referrers, and the protocol.",
   alternates: {
     canonical: "/about",
   },
@@ -15,15 +17,18 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <>
+    <div className={styles.page}>
       <section className="hero about-hero">
         <div className="hero-copy settle-in">
           <p className="eyebrow">Creator-owned memberships</p>
           <h1 className="font-display">Keep it direct.</h1>
           <p className="hero-lede">
-            Membership NFTs for creators and the people who keep their work
-            moving.
+            Your support becomes time, creator income, and rewards for the
+            people who keep the work moving.
           </p>
+          <a className={styles.flowLink} href="#payment-flow">
+            See how support flows <span aria-hidden="true">↗</span>
+          </a>
         </div>
 
         <div className="hero-art settle-media">
@@ -41,6 +46,42 @@ export default function AboutPage() {
           <div className="hero-mark" aria-hidden="true">
             <BackingStackMark />
           </div>
+        </div>
+      </section>
+
+      <section
+        className={styles.protocol}
+        id="payment-flow"
+        aria-labelledby="payment-flow-title"
+      >
+        <header className={styles.sectionHeading}>
+          <h2 className="font-display" id="payment-flow-title">
+            A payment starts.
+            <br />
+            The support keeps flowing.
+          </h2>
+          <p>
+            Fans fund membership time. As that time is used, the tier earns out
+            the payment to the creator, eligible fans, a referrer, and the
+            protocol.
+          </p>
+        </header>
+        <ProtocolFlow />
+        <div className={styles.accrualNotes}>
+          <article>
+            <h3>Allocated when you pay</h3>
+            <p>
+              The tier’s fixed split determines where the payment belongs. Each
+              portion starts unearned.
+            </p>
+          </article>
+          <article>
+            <h3>Earned with time</h3>
+            <p>
+              All four allocations accrue over the paid period. Earned balances
+              can then be claimed or collected.
+            </p>
+          </article>
         </div>
       </section>
 
@@ -68,7 +109,7 @@ export default function AboutPage() {
             </div>
             <div>
               <dt>Early has value</dt>
-              <dd>Join early to earn more rewards</dd>
+              <dd>Early support can carry more reward shares</dd>
             </div>
             <div>
               <dt>Built to compose</dt>
@@ -134,15 +175,17 @@ export default function AboutPage() {
           <article>
             <h3>Early support counts</h3>
             <p>
-              Membership rewards recognize the people who show up and keep
-              supporting the work.
+              Reward shares determine how eligible memberships divide the
+              rewards accruing over time. Early-support terms can give earlier
+              payments more weight.
             </p>
           </article>
           <article>
             <h3>Referrals can share value</h3>
             <p>
-              Creators can reward people who bring new active members into the
-              community.
+              A recorded referrer earns their allocation over the referred
+              membership’s paid time. Without a referrer, that portion stays
+              with the creator.
             </p>
           </article>
         </div>
@@ -218,6 +261,6 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

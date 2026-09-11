@@ -1252,16 +1252,17 @@ export function RendererLab({
             >
               Choose renderer package
             </label>
-            <input
-              accept=".json,.renderer.json,application/json"
-              aria-label="Renderer package"
-              className={styles.hiddenInput}
-              id={packageInputId}
-              onChange={onPackageChange}
-              ref={packageInputRef}
-              type="file"
-            />
           </div>
+
+          <input
+            accept=".json,.renderer.json,application/json"
+            aria-label="Renderer package"
+            className={styles.hiddenInput}
+            id={packageInputId}
+            onChange={onPackageChange}
+            ref={packageInputRef}
+            type="file"
+          />
 
           <p className={styles.privacyLine}>
             Browser memory only <span aria-hidden="true">·</span> No account

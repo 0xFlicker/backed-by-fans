@@ -1,7 +1,7 @@
 .prompt {
   background: var(--paper);
-  border: 2px solid var(--backstage);
-  box-shadow: 0.8rem 0.8rem 0 var(--applause);
+  border: 2px solid var(--strong-line);
+  box-shadow: 0.8rem 0.8rem 0 var(--skill-offset, var(--applause));
   padding: clamp(1.35rem, 3vw, 2.25rem);
 }
 
@@ -36,9 +36,9 @@
 
 .prompt textarea {
   background: var(--house-light);
-  border: 1px solid var(--backstage);
+  border: 1px solid var(--strong-line);
   border-radius: var(--radius-small);
-  color: var(--backstage);
+  color: var(--ink);
   font:
     0.88rem/1.65 var(--font-geist-mono),
     monospace;
