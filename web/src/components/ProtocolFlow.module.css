@@ -138,13 +138,26 @@
   color: var(--muted-ink);
 }
 .stream {
+  display: none;
   position: absolute;
-  left: calc(50% - 1.5px);
-  /* The SVG's rounded branches finish 36px above the cards. */
-  top: -34px;
-  width: 3px;
-  height: 30px;
   overflow: hidden;
+}
+.branchStreams path {
+  stroke: var(--applause);
+  stroke-width: 3px;
+  stroke-dasharray: 6 14;
+  stroke-linecap: butt;
+  vector-effect: non-scaling-stroke;
+  animation: flow-along 1.8s linear infinite;
+  animation-play-state: paused;
+}
+.flow[data-running="true"] .branchStreams path {
+  animation-play-state: running;
+}
+@keyframes flow-along {
+  to {
+    stroke-dashoffset: -40;
+  }
 }
 .stream i {
   --ink: var(--accent-ink);
@@ -156,7 +169,7 @@
   border-radius: 3px;
   background: var(--applause);
   opacity: 0;
-  animation: flow-stream 1.8s linear infinite;
+  animation: flow-across 1.8s linear infinite;
   animation-play-state: paused;
 }
 .stream i:nth-child(2) {
@@ -167,20 +180,6 @@
 }
 .flow[data-running="true"] .stream i {
   animation-play-state: running;
-}
-@keyframes flow-stream {
-  0% {
-    transform: translateY(-12px);
-    opacity: 0;
-  }
-  20%,
-  80% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(30px);
-    opacity: 0;
-  }
 }
 .buyback {
   margin-left: 75%;
@@ -333,6 +332,7 @@
     grid-column: 1;
   }
   .stream {
+    display: block;
     left: 4px;
     top: 50%;
     margin-top: 0;
@@ -371,6 +371,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .branchStreams {
+    display: none;
+  }
   .stream i {
     animation: none;
     opacity: 0;

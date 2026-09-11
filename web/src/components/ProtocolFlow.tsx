@@ -134,6 +134,13 @@ export function ProtocolFlow() {
       <div className={styles.branches} aria-hidden="true">
         <svg viewBox="0 0 1000 80" preserveAspectRatio="none">
           <path d="M500 0 V25 M125 80 V35 Q125 25 135 25 H865 Q875 25 875 35 V80 M375 25 V80 M625 25 V80" />
+          <g className={styles.branchStreams}>
+            <path d="M500 0 V25" />
+            <path d="M500 25 H135 Q125 25 125 35 V80" />
+            <path d="M375 25 V80" />
+            <path d="M500 25 H865 Q875 25 875 35 V80" />
+            <path d="M625 25 V80" />
+          </g>
         </svg>
       </div>
       <div className={styles.destinations}>
@@ -216,8 +223,9 @@ export function ProtocolFlow() {
         <p>{destinations[selected].detail}</p>
       </div>
       <p className={styles.note}>
-        Actual splits and membership periods depend on the tier. Earned amounts become claimable;
-        the animation does not represent continuous wallet transfers.
+        Actual splits and membership periods depend on the tier. Earned amounts
+        become claimable; the animation does not represent continuous wallet
+        transfers.
       </p>
     </div>
   );
