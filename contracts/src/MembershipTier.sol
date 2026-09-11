@@ -7,7 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -26,7 +26,9 @@ import {TextValidation} from "./renderer/TextValidation.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 
 /// @notice One immutable-economic creator membership tier with persistent credentials.
-contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTier {
+/// @dev Uses the existing Cancun target's transient guard: the lock is reset
+/// after each call, with no persistent storage write or weaker callback protection.
+contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMembershipTier {
     using SafeCast for uint256;
     using SafeERC20 for IERC20;
 
@@ -611,30 +613,14 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         private
         returns (MembershipTypes.ClaimResult memory result)
     {
-        // A depleted batch budget may still integrate continuous time, but cannot pop a checkpoint.
-        if (
-            maxSteps == 0 && _vesting.heap.length != 0
-                && _vesting.heap[0].timestamp <= _currentTimestamp()
-        ) {
-            revert AccountingBehind(_vesting.accountedThrough, _vesting.heap[0].timestamp);
-        }
-        VestingLedger.ProcessResult memory progress =
-            _processAccounting(maxSteps == 0 ? 1 : maxSteps);
-        if (!progress.complete) {
-            revert AccountingBehind(progress.accountedThrough, _vesting.heap[0].timestamp);
-        }
-        result.processedSteps = progress.processed;
-        uint256 tokenId = tokenOf[beneficiary];
-        if (tokenId != 0) {
-            result.reward = VestingLedger.takeMember(_vesting, tokenId);
-            if (result.reward != 0) emit RewardClaimed(tokenId, beneficiary, result.reward);
-        }
-        result.referral = VestingLedger.takeReferrer(_vesting, beneficiary);
-        if (result.referral != 0) emit ReferralClaimed(beneficiary, result.referral);
-        if (beneficiary == owner()) {
-            result.creator = VestingLedger.takeEarned(_vesting, 0, type(uint256).max);
-            if (result.creator != 0) emit CreatorProceedsWithdrawn(beneficiary, result.creator);
-        }
+        result = VestingLedger.claimAll(
+            _vesting,
+            _currentTimestamp(),
+            maxSteps,
+            tokenOf[beneficiary],
+            beneficiary,
+            beneficiary == owner()
+        );
         uint256 amount = result.reward + result.referral + result.creator;
         if (amount != 0) _pushExact(beneficiary, amount);
     }
@@ -897,16 +883,20 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuard, IMembershipTie
         uint256 gross
     ) internal {
         uint256[4] memory allocations;
-        // Gross is bounded to uint112 before pulling tokens; each BPS factor is
-        // at most 10,000, so these products fit within 126 bits.
-        allocations[3] = gross * protocolFeeBps / _BPS_DENOMINATOR;
-        allocations[1] = gross * rewardBps / _BPS_DENOMINATOR;
         address referrer;
         if (_referralStates[tokenId].status == MembershipTypes.ReferralStatus.LockedAddress) {
             referrer = _referralStates[tokenId].referrer;
-            allocations[2] = gross * referralBps / _BPS_DENOMINATOR;
         }
-        allocations[0] = gross - allocations[1] - allocations[2] - allocations[3];
+        // Gross is validated <= uint112.max before transfer. Constructor-validated
+        // immutable BPS values sum to <= 10,000: products fit within 126 bits and
+        // the sum of the three floored allocations cannot exceed gross. Both the
+        // products and creator remainder are therefore safe without overflow checks.
+        unchecked {
+            allocations[3] = gross * protocolFeeBps / _BPS_DENOMINATOR;
+            allocations[1] = gross * rewardBps / _BPS_DENOMINATOR;
+            if (referrer != address(0)) allocations[2] = gross * referralBps / _BPS_DENOMINATOR;
+            allocations[0] = gross - allocations[1] - allocations[2] - allocations[3];
+        }
         bool wasEligible = rewardEligible(tokenId);
         (uint256 issued, uint256 shares) =
             VestingLedger.issueShares(_vesting, tokenId, gross, startingBoostBps, earlySupportGross);

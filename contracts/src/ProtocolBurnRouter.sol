@@ -6,11 +6,13 @@ import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
 import {IProtocolBuybackVault} from "./interfaces/IProtocolBuybackVault.sol";
 import {BuybackTypes} from "./types/BuybackTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
 /// @notice Permissionless bounded accounting, earned-fund release and buybacks.
 /// @dev No funds, approvals, administrator, arbitrary user calldata or worker entitlements.
-contract ProtocolBurnRouter is ReentrancyGuard {
+/// @dev Uses the existing Cancun target's transient guard: the lock is reset
+/// after each call, with no persistent storage write or weaker callback protection.
+contract ProtocolBurnRouter is ReentrancyGuardTransient {
     struct AdvanceTier {
         address tier;
         uint256 maxAccountingSteps;

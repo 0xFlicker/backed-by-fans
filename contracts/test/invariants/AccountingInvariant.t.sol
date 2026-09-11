@@ -142,6 +142,33 @@ contract AccountingHandler is Test {
         paid[0] += withdrawn;
     }
 
+    function claimAll(uint256 actorSeed, bool batch) external {
+        address actor = actorSeed % 5 == 4 ? creator : _actor(actorSeed);
+        _settle();
+        uint256 id = tier.tokenOf(actor);
+        MembershipTypes.EarnedBalances memory before = tier.earnedBalances(id, actor);
+        MembershipTypes.ClaimResult memory result;
+        vm.prank(actor);
+        if (batch) {
+            address[] memory targets = new address[](1);
+            targets[0] = address(tier);
+            result = factory.claimEverything(targets)[0];
+        } else {
+            result = tier.claimAll();
+        }
+        assertEq(result.creator, actor == creator ? before.creator : 0);
+        assertEq(result.reward, before.member);
+        assertEq(result.referral, before.referral);
+        assertEq(result.processedSteps, 0);
+        MembershipTypes.EarnedBalances memory after_ = tier.earnedBalances(id, actor);
+        assertEq(after_.fractionalScaled[1], before.fractionalScaled[1]);
+        assertEq(after_.fractionalScaled[2], before.fractionalScaled[2]);
+        paid[0] += result.creator;
+        paid[1] += result.reward;
+        paid[2] += result.referral;
+        _referralPaid[actor] += result.referral;
+    }
+
     function release() external {
         uint256 expected = _funding.earnedScaled[3] / Q - paid[3];
         assertEq(tier.releaseProtocolFees(), expected);
@@ -434,7 +461,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
         _handler =
             new AccountingHandler(_paymentToken, _factory, _tier, creator, feeRecipient, actors);
 
-        bytes4[] memory selectors = new bytes4[](15);
+        bytes4[] memory selectors = new bytes4[](16);
         selectors[0] = AccountingHandler.purchase.selector;
         selectors[1] = AccountingHandler.gift.selector;
         selectors[2] = AccountingHandler.claimReward.selector;
@@ -450,6 +477,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
         selectors[12] = AccountingHandler.advance.selector;
         selectors[13] = AccountingHandler.release.selector;
         selectors[14] = AccountingHandler.tickActiveRates.selector;
+        selectors[15] = AccountingHandler.claimAll.selector;
         targetContract(address(_handler));
         targetSelector(FuzzSelector({addr: address(_handler), selectors: selectors}));
     }

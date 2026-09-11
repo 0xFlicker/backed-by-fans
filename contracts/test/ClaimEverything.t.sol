@@ -8,6 +8,7 @@ import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {ProtocolBurnRouterTest} from "./ProtocolBurnRouter.t.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {AdversarialERC20} from "./mocks/AdversarialERC20.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract ClaimEverythingTest is ProtocolBurnRouterTest {
     function test_claimEverythingSettlesAndPaysCurrentCreatorAcrossTiers() public {
@@ -44,7 +45,38 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         vm.stopPrank();
         vm.warp(1200);
         uint256 beforeBalance = token.balanceOf(address(this));
+        vm.recordLogs();
         MembershipTypes.ClaimResult memory result = second.claimAll();
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 payoutEvents;
+        uint256 progressEvents;
+        for (uint256 i; i < logs.length; ++i) {
+            bytes32 topic = logs[i].topics[0];
+            if (topic == keccak256("AccountingProgress(uint64,uint256,bool,uint256)")) {
+                assertEq(logs[i].emitter, address(second));
+                ++progressEvents;
+            }
+            if (
+                topic == keccak256("RewardClaimed(uint256,address,uint256)")
+                    || topic == keccak256("ReferralClaimed(address,uint256)")
+                    || topic == keccak256("CreatorProceedsWithdrawn(address,uint256)")
+            ) {
+                assertEq(logs[i].emitter, address(second));
+                uint256 expected = topic == keccak256("RewardClaimed(uint256,address,uint256)")
+                    ? result.reward
+                    : topic == keccak256("ReferralClaimed(address,uint256)")
+                        ? result.referral
+                        : result.creator;
+                assertEq(abi.decode(logs[i].data, (uint256)), expected);
+                assertEq(
+                    logs[i].topics[logs[i].topics.length - 1],
+                    bytes32(uint256(uint160(address(this))))
+                );
+                ++payoutEvents;
+            }
+        }
+        assertEq(progressEvents, 1);
+        assertEq(payoutEvents, 3);
         assertGt(result.reward, 0);
         assertGt(result.referral, 0);
         assertGt(result.creator, 0);

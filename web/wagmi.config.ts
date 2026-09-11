@@ -33,9 +33,10 @@ export default defineConfig({
       // promote a new run-latest after current runtime/dependency verification.
       // Independent, still-valid renderer registry broadcasts remain discoverable.
       includeBroadcasts: true,
-      // The explicit include list below is the complete application surface;
-      // retain IERC165 for authenticated payment-token capability reads.
-      exclude: [],
+      // Use the consumer build, excluding the separately preserved ledger build
+      // and OpenZeppelin's import-only IERC165 alias (which has no ABI). The
+      // canonical introspection interface remains included for capability reads.
+      exclude: ["vesting-leaf/**", "interfaces/IERC165.sol/**"],
       include: [
         "MembershipTier.sol/**",
         "OnchainMediaStoreFactory.sol/**",

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {IMembershipTier} from "../interfaces/IMembershipTier.sol";
 import {MembershipTypes} from "../types/MembershipTypes.sol";
 import {RewardCurve} from "./RewardCurve.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -20,11 +21,13 @@ library VestingLedger {
     struct Lot {
         uint64 start;
         uint64 end;
+        // Every raw amount and cumulative prefix is bounded by the same uint112
+        // lifetime gross cap enforced by append. Packing does not lower capacity.
+        uint112 gross;
         address referrer;
-        uint256 gross;
-        uint256[4] amounts;
-        uint256 grossPrefix;
-        uint256[4] allocationPrefix;
+        uint112[4] amounts;
+        uint112 grossPrefix;
+        uint112[4] allocationPrefix;
     }
 
     struct FundingAccount {
@@ -35,8 +38,6 @@ library VestingLedger {
 
     struct Node {
         uint256 tokenId;
-        uint256 generation;
-        uint256 lotIndex;
         uint64 timestamp;
         bool isStart;
     }
@@ -91,6 +92,7 @@ library VestingLedger {
     error InvalidAccountingSteps();
     error InvalidAllocationPageSize();
     error AccountingInvariant();
+    error AccountingBehind(uint64 accountedThrough, uint64 nextBoundary);
 
     event FundingLotScheduled(
         uint256 indexed tokenId,
@@ -190,7 +192,7 @@ library VestingLedger {
                 lot.start,
                 lot.end,
                 lot.gross,
-                lot.amounts,
+                [uint256(lot.amounts[0]), lot.amounts[1], lot.amounts[2], lot.amounts[3]],
                 lot.referrer,
                 generation != self.funding[tokenId].generation
             );
@@ -304,16 +306,16 @@ library VestingLedger {
         lot.start = start;
         lot.end = (uint256(start) + duration).toUint64();
         lot.referrer = referrer;
-        lot.gross = gross;
-        lot.amounts = amounts;
-        lot.grossPrefix = gross + (index == 0 ? 0 : queue[index - 1].grossPrefix);
+        lot.gross = gross.toUint112();
+        lot.grossPrefix = (gross + (index == 0 ? 0 : queue[index - 1].grossPrefix)).toUint112();
         for (uint256 i; i < PURPOSES; ++i) {
+            lot.amounts[i] = amounts[i].toUint112();
             lot.allocationPrefix[i] =
-                amounts[i] + (index == 0 ? 0 : queue[index - 1].allocationPrefix[i]);
+                (amounts[i] + (index == 0 ? 0 : queue[index - 1].allocationPrefix[i])).toUint112();
             self.unearnedScaled[i] += amounts[i] * SCALE;
         }
         self.totalGross += gross;
-        if (account.head == index) _scheduleHead(self, tokenId);
+        if (account.head == index) _scheduleHead(self, tokenId, false);
         _emitScheduled(tokenId, account.generation, index, lot);
     }
 
@@ -321,36 +323,70 @@ library VestingLedger {
         external
         returns (ProcessResult memory result)
     {
+        return _process(self, through, maxSteps);
+    }
+
+    function _catchUp(State storage self, uint64 through, uint256 maxSteps)
+        private
+        returns (ProcessResult memory progress)
+    {
+        // A depleted shared claim budget may integrate continuous time but cannot
+        // pop another checkpoint. Public tier entry points enforce the maximum.
+        if (maxSteps == 0 && self.heap.length != 0 && self.heap[0].timestamp <= through) {
+            revert AccountingBehind(self.accountedThrough, self.heap[0].timestamp);
+        }
+        progress = _process(self, through, maxSteps == 0 ? 1 : maxSteps);
+        if (!progress.complete) {
+            revert AccountingBehind(progress.accountedThrough, self.heap[0].timestamp);
+        }
+        emit IMembershipTier.AccountingProgress(
+            progress.accountedThrough, progress.processed, progress.complete, progress.earnedScaled
+        );
+    }
+
+    function _process(State storage self, uint64 through, uint256 maxSteps)
+        private
+        returns (ProcessResult memory result)
+    {
         if (maxSteps == 0 || maxSteps > MAX_STEPS) revert InvalidAccountingSteps();
         if (!self.initialized || through < self.accountedThrough) revert AccountingInvariant();
+        uint256[4] memory earned;
         while (
             result.processed < maxSteps && self.heap.length != 0
                 && self.heap[0].timestamp <= through
         ) {
             Node memory node = self.heap[0];
-            result.earnedScaled += _integrate(self, node.timestamp);
-            _removeNode(self, 0);
+            _integrate(self, node.timestamp, earned);
             FundingAccount storage account = self.funding[node.tokenId];
+            // There is exactly one live node per member. Cancellation removes it
+            // before changing generation; only processing advances the live head.
+            // Read that identity once instead of mirroring two storage words in
+            // every heap entry and rewriting them on each sift.
+            uint256 generation = account.generation;
+            uint256 lotIndex = account.head;
+            Lot storage lot = self.lots[node.tokenId][generation][lotIndex];
             if (
-                account.generation != node.generation || account.head != node.lotIndex
-                    || account.active == node.isStart
+                account.active == node.isStart
+                    || node.timestamp != (node.isStart ? lot.start : lot.end)
             ) revert AccountingInvariant();
             if (node.isStart) {
-                _scheduleHead(self, node.tokenId);
+                _scheduleHead(self, node.tokenId, true);
             } else {
-                Lot storage lot = self.lots[node.tokenId][node.generation][node.lotIndex];
-                result.earnedScaled += _finish(self, lot);
+                _finish(self, lot, earned);
                 account.active = false;
                 ++account.head;
-                emit FundingLotCompleted(
-                    node.tokenId, node.generation, node.lotIndex, node.timestamp
-                );
-                _scheduleHead(self, node.tokenId);
+                emit FundingLotCompleted(node.tokenId, generation, lotIndex, node.timestamp);
+                _scheduleHead(self, node.tokenId, true);
             }
             ++result.processed;
         }
         result.complete = self.heap.length == 0 || self.heap[0].timestamp > through;
-        if (result.complete) result.earnedScaled += _integrate(self, through);
+        if (result.complete) _integrate(self, through, earned);
+        // No external calls or eligibility changes occur inside processing. The
+        // reward denominator is fixed, so distributing the sum with the carried
+        // remainder is exactly equivalent to distributing each interval/tail in
+        // order. Commit global liabilities once; referral clocks remain per-boundary.
+        result.earnedScaled = _credit(self, earned);
         result.accountedThrough = self.accountedThrough;
     }
 
@@ -406,6 +442,10 @@ library VestingLedger {
     }
 
     function takeMember(State storage self, uint256 tokenId) external returns (uint256 amount) {
+        return _takeMember(self, tokenId);
+    }
+
+    function _takeMember(State storage self, uint256 tokenId) private returns (uint256 amount) {
         MemberAccount storage member = self.members[tokenId];
         _settleMember(self, member);
         amount = member.creditScaled / SCALE;
@@ -414,8 +454,15 @@ library VestingLedger {
     }
 
     function takeReferrer(State storage self, address referrer) external returns (uint256 amount) {
-        _settleReferrer(self, referrer);
+        return _takeReferrer(self, referrer);
+    }
+
+    function _takeReferrer(State storage self, address referrer) private returns (uint256 amount) {
         ReferrerAccount storage account = self.referrers[referrer];
+        // With no active stream, credit is already final. Avoid creating a timestamp
+        // slot for every non-referrer who calls claimAll. Starting a stream still
+        // settles its timestamp in _scheduleHead before increasing the rate.
+        if (account.rate != 0) _settleReferrer(self, referrer);
         amount = account.creditScaled / SCALE;
         account.creditScaled -= amount * SCALE;
         _debit(self, 2, amount);
@@ -429,6 +476,36 @@ library VestingLedger {
         if (purpose != 0 && purpose != 3) revert InvalidPurpose();
         amount = Math.min(self.earnedScaled[purpose] / SCALE, maximum);
         _debit(self, purpose, amount);
+    }
+
+    /// @notice Settle and collect the tier-authorized categories in one linked call.
+    /// The tier supplies identity/ownership and transfers the total. Delegatecall
+    /// keeps the original tier as event emitter and gives this library no custody.
+    function claimAll(
+        State storage self,
+        uint64 through,
+        uint256 maxSteps,
+        uint256 tokenId,
+        address beneficiary,
+        bool creator
+    ) external returns (MembershipTypes.ClaimResult memory result) {
+        ProcessResult memory progress = _catchUp(self, through, maxSteps);
+        result.processedSteps = progress.processed;
+        if (tokenId != 0) result.reward = _takeMember(self, tokenId);
+        result.referral = _takeReferrer(self, beneficiary);
+        if (creator) {
+            result.creator = self.earnedScaled[0] / SCALE;
+            _debit(self, 0, result.creator);
+        }
+        if (result.reward != 0) {
+            emit IMembershipTier.RewardClaimed(tokenId, beneficiary, result.reward);
+        }
+        if (result.referral != 0) {
+            emit IMembershipTier.ReferralClaimed(beneficiary, result.referral);
+        }
+        if (result.creator != 0) {
+            emit IMembershipTier.CreatorProceedsWithdrawn(beneficiary, result.creator);
+        }
     }
 
     function previewCancellation(State storage self, uint256 tokenId)
@@ -474,7 +551,10 @@ library VestingLedger {
         Lot storage head = queue[account.head];
         gross = last.grossPrefix - (account.head == 0 ? 0 : queue[account.head - 1].grossPrefix);
         if (account.active) {
-            gross = gross - head.gross + head.gross * (head.end - through) / (head.end - head.start);
+            // Widen packed raw storage before multiplying by uint64 time. The
+            // intermediate can use 176 bits even though the refund fits uint112.
+            gross = gross - head.gross + uint256(head.gross) * (head.end - through)
+                / (head.end - head.start);
         }
         uint256 needed = gross * SCALE;
         for (uint256 i; i < PURPOSES; ++i) {
@@ -498,6 +578,7 @@ library VestingLedger {
     }
 
     function _debit(State storage self, uint256 purpose, uint256 raw) private {
+        if (raw == 0) return;
         self.earnedScaled[purpose] -= raw * SCALE;
         self.paidRaw[purpose] += raw;
     }
@@ -532,28 +613,32 @@ library VestingLedger {
         returns (uint256 earned)
     {
         for (uint256 i; i < PURPOSES; ++i) {
+            if (amounts[i] == 0) continue;
             self.unearnedScaled[i] -= amounts[i];
             if (i != 1) self.earnedScaled[i] += amounts[i];
             earned += amounts[i];
         }
-        _distribute(self, amounts[1]);
+        // Carry is always smaller than totalShares; weight changes clear it.
+        // A zero allocation therefore cannot distribute any new liability.
+        if (amounts[1] != 0) _distribute(self, amounts[1]);
     }
 
-    function _integrate(State storage self, uint64 through) private returns (uint256) {
+    function _integrate(State storage self, uint64 through, uint256[4] memory amounts) private {
         uint256 elapsed = through - self.accountedThrough;
-        if (elapsed == 0) return 0;
-        uint256[4] memory amounts;
+        if (elapsed == 0) return;
         for (uint256 i; i < PURPOSES; ++i) {
-            amounts[i] = self.activeRates[i] * elapsed;
+            amounts[i] += self.activeRates[i] * elapsed;
         }
         self.accountedThrough = through;
-        return _credit(self, amounts);
     }
 
-    function _scheduleHead(State storage self, uint256 tokenId) private {
+    function _scheduleHead(State storage self, uint256 tokenId, bool replaceRoot) private {
         FundingAccount storage account = self.funding[tokenId];
         Lot[] storage queue = self.lots[tokenId][account.generation];
-        if (account.head == queue.length) return;
+        if (account.head == queue.length) {
+            if (replaceRoot) _removeNode(self, 0);
+            return;
+        }
         Lot storage lot = queue[account.head];
         if (lot.start < self.accountedThrough) revert AccountingInvariant();
         bool startsLater = lot.start > self.accountedThrough;
@@ -568,28 +653,33 @@ library VestingLedger {
                 self.referrers[lot.referrer].rate += lot.amounts[2] * SCALE / duration;
             }
         }
-        _pushNode(
-            self,
-            Node(
-                tokenId,
-                account.generation,
-                account.head,
-                startsLater ? lot.start : lot.end,
-                startsLater
-            )
-        );
+        Node memory next = Node(tokenId, startsLater ? lot.start : lot.end, startsLater);
+        if (replaceRoot) {
+            // Processing consumes the root. The same member's next boundary is
+            // strictly later (positive duration, ordered lots), so it only sifts
+            // down. Keep its live position instead of removing and reinserting it.
+            _down(self, 0, next);
+        } else {
+            _pushNode(self, next);
+        }
     }
 
-    function _finish(State storage self, Lot storage lot) private returns (uint256) {
-        _removeRates(self, lot);
+    function _finish(State storage self, Lot storage lot, uint256[4] memory amounts) private {
         uint256 duration = lot.end - lot.start;
         uint256[4] memory tails;
         for (uint256 i; i < PURPOSES; ++i) {
             uint256 allocated = lot.amounts[i] * SCALE;
-            tails[i] = allocated - allocated / duration * duration;
+            uint256 rate = allocated / duration;
+            self.activeRates[i] -= rate;
+            tails[i] = allocated % duration;
+            amounts[i] += tails[i];
         }
-        if (lot.amounts[2] != 0) self.referrers[lot.referrer].creditScaled += tails[2];
-        return _credit(self, tails);
+        if (lot.amounts[2] != 0) {
+            _settleReferrer(self, lot.referrer);
+            ReferrerAccount storage referral = self.referrers[lot.referrer];
+            referral.rate -= lot.amounts[2] * SCALE / duration;
+            referral.creditScaled += tails[2];
+        }
     }
 
     function _removeRates(State storage self, Lot storage lot) private {
@@ -625,8 +715,7 @@ library VestingLedger {
         self.heapPosition[node.tokenId] = index + 1;
     }
 
-    function _up(State storage self, uint256 index) private {
-        Node memory node = self.heap[index];
+    function _up(State storage self, uint256 index, Node memory node) private {
         while (index != 0) {
             uint256 parent = (index - 1) / 2;
             Node memory parentNode = self.heap[parent];
@@ -637,8 +726,7 @@ library VestingLedger {
         _place(self, index, node);
     }
 
-    function _down(State storage self, uint256 index) private {
-        Node memory node = self.heap[index];
+    function _down(State storage self, uint256 index, Node memory node) private {
         uint256 length = self.heap.length;
         while (2 * index + 1 < length) {
             uint256 child = 2 * index + 1;
@@ -659,9 +747,10 @@ library VestingLedger {
 
     function _pushNode(State storage self, Node memory node) private {
         if (self.heapPosition[node.tokenId] != 0) revert AccountingInvariant();
-        self.heap.push(node);
-        self.heapPosition[node.tokenId] = self.heap.length;
-        _up(self, self.heap.length - 1);
+        // Sift into a hole: write the incoming node and its position only once,
+        // at their final index, rather than storing them before every sift.
+        self.heap.push();
+        _up(self, self.heap.length - 1, node);
     }
 
     function _removeNode(State storage self, uint256 index) private {
@@ -671,14 +760,13 @@ library VestingLedger {
             self.heap.pop();
             return;
         }
-        self.heap[index] = self.heap[last];
+        Node memory node = self.heap[last];
         self.heap.pop();
-        self.heapPosition[self.heap[index].tokenId] = index + 1;
-        if (index != 0 && _less(self.heap[index], self.heap[(index - 1) / 2])) {
-            _up(self, index);
+        if (index != 0 && _less(node, self.heap[(index - 1) / 2])) {
+            _up(self, index, node);
             return;
         }
-        _down(self, index);
+        _down(self, index, node);
     }
 
     function _emitScheduled(uint256 tokenId, uint256 generation, uint256 index, Lot storage lot)

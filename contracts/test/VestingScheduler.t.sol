@@ -223,6 +223,84 @@ contract VestingSchedulerTest is Test {
         assertEq(scheduler.reserved(), 0);
     }
 
+    function test_zeroReferralClaimBeforeAndBetweenStreamsDoesNotBackdateNewEarnings() public {
+        address referrer = address(123);
+        scheduler.process(START + 10, 1);
+        assertEq(scheduler.claimReferral(referrer), 0);
+        scheduler.fundAllocations(1, [uint256(0), 0, 100, 0], START + 10, 10, referrer);
+        scheduler.process(START + 15, 1);
+        assertEq(scheduler.claimReferral(referrer), 50);
+        scheduler.process(START + 20, 1);
+        assertEq(scheduler.claimReferral(referrer), 50);
+        scheduler.process(START + 30, 1);
+        assertEq(scheduler.claimReferral(referrer), 0);
+        scheduler.fundAllocations(1, [uint256(0), 0, 100, 0], START + 30, 10, referrer);
+        scheduler.process(START + 35, 1);
+        assertEq(scheduler.claimReferral(referrer), 50);
+        scheduler.process(START + 40, 1);
+        assertEq(scheduler.claimReferral(referrer), 50);
+        assertEq(scheduler.liabilityScaled(), 0);
+    }
+
+    function test_cancelAfterRootReplacementCannotReviveOldGeneration() public {
+        scheduler.fund(1, 100, START, 10);
+        scheduler.fund(1, 200, START + 10, 20);
+        scheduler.fund(2, 300, START, 20);
+        scheduler.process(START + 11, 1);
+        assertEq(scheduler.cancel(1), 190);
+        assertEq(scheduler.position(1), 0);
+        assertEq(scheduler.generation(1), 1);
+        scheduler.fund(1, 90, START + 15, 10);
+        scheduler.process(START + 100, 25);
+        assertEq(scheduler.count(), 0);
+        assertEq(scheduler.earned() / Q, 100 + 10 + 300 + 90);
+        assertEq(scheduler.reserved(), 0);
+    }
+
+    function testFuzz_replacementOrderingAcrossAdjacentLotsAndGaps(uint256 seed, uint8 size)
+        public
+    {
+        uint256 count = bound(size, 1, 16);
+        uint64[] memory first = new uint64[](count);
+        uint64[] memory second = new uint64[](count);
+        uint8[] memory step = new uint8[](count);
+        for (uint256 i; i < count; ++i) {
+            // Each bounded duration is 1..10, so narrowing cannot discard bits.
+            first[i] = uint64(1 + uint256(keccak256(abi.encode(seed, i))) % 10);
+            second[i] = uint64(1 + uint256(keccak256(abi.encode(i, seed))) % 10);
+            scheduler.fund(i + 1, 100, START, first[i]);
+            scheduler.fund(i + 1, 200, START + first[i], second[i]);
+            scheduler.fund(i + 1, 300, START + first[i] + second[i] + 5, 10);
+        }
+        for (uint256 processed; processed < count * 4; ++processed) {
+            uint256 expected;
+            uint64 earliest = type(uint64).max;
+            for (uint256 i; i < count; ++i) {
+                if (step[i] == 4) continue;
+                uint64 time = START + first[i];
+                if (step[i] >= 1) time += second[i];
+                if (step[i] >= 2) time += 5;
+                if (step[i] == 3) time += 10;
+                if (time < earliest) {
+                    earliest = time;
+                    expected = i;
+                }
+            }
+            VestingLedger.Node memory next = scheduler.node(0);
+            assertEq(next.tokenId, expected + 1);
+            assertEq(next.timestamp, earliest);
+            assertEq(next.isStart, step[expected] == 2);
+            ++step[expected];
+            assertEq(scheduler.process(START + 100, 1).processed, 1);
+            for (uint256 i; i < scheduler.count(); ++i) {
+                assertEq(scheduler.position(scheduler.node(i).tokenId), i + 1);
+            }
+        }
+        assertEq(scheduler.count(), 0);
+        assertEq(scheduler.earned(), count * 600 * Q);
+        assertEq(scheduler.reserved(), 0);
+    }
+
     function test_invalidBudgetAndChronologyFailBeforeProgress() public {
         scheduler.fund(1, 10, START, 10);
         vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);

@@ -4,7 +4,7 @@ pragma solidity =0.8.36;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
 import {MembershipTierDeployer} from "./MembershipTierDeployer.sol";
 import {ProtocolBurnRouter} from "./ProtocolBurnRouter.sol";
@@ -19,7 +19,9 @@ import {VestingLedger} from "./libraries/VestingLedger.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 
 /// @notice Permissionless official-tier registry with a permanent vault and one-time token binding.
-contract MembershipFactory is Ownable2Step, ReentrancyGuard, IMembershipFactory {
+/// @dev Uses the existing Cancun target's transient guard: the lock is reset
+/// after each call, with no persistent storage write or weaker callback protection.
+contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershipFactory {
     uint256 public constant override maxPageSize = 100;
     bytes32 public constant override rendererSchema =
         0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4;

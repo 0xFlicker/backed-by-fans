@@ -875,6 +875,7 @@ contract FactoryAndFeesTest is Test {
         uint256 gasBefore = gasleft();
         address tier = _createTier(factory, creator, _defaultConfig(creator));
         uint256 deployGas = gasBefore - gasleft();
+        emit log_named_uint("creator tier deployment gas", deployGas);
         MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
 
         assertLt(address(factory).code.length, _STANDARD_RUNTIME_LIMIT);

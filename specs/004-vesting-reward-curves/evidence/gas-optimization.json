@@ -1,0 +1,358 @@
+{
+  "baselineCommit": "5e01826b43bb9a528466f5f0eb4d971c35d66dd6",
+  "compiler": {
+    "solc": "0.8.36",
+    "evm": "cancun",
+    "optimizerRuns": 200,
+    "viaIR": false,
+    "forge": "1.7.1"
+  },
+  "metric": "Cold gross execution gas; operation only, excludes setup, intrinsic gas and refunds. Synthetic external payment token and Pons identity; combined benchmark uses direct burn, not a DEX swap.",
+  "measurements": {
+    "advance_and_direct_burn": {
+      "before": 688554,
+      "after": 644747,
+      "saved": 43807,
+      "savedPercent": 6.36
+    },
+    "checkpoint_1_of_128": {
+      "before": 497288,
+      "after": 424062,
+      "saved": 73226,
+      "savedPercent": 14.73
+    },
+    "checkpoint_10_of_128": {
+      "before": 2205894,
+      "after": 1717451,
+      "saved": 488443,
+      "savedPercent": 22.14
+    },
+    "checkpoint_25_of_128": {
+      "before": 4284293,
+      "after": 3360615,
+      "saved": 923678,
+      "savedPercent": 21.56
+    },
+    "checkpoint_25_continuing": {
+      "before": 6580501,
+      "after": 3840812,
+      "saved": 2739689,
+      "savedPercent": 41.63
+    },
+    "checkpoint_25_staggered": {
+      "before": 4627772,
+      "after": 3587543,
+      "saved": 1040229,
+      "savedPercent": 22.48
+    },
+    "claim_1_continuous": {
+      "before": 389248,
+      "after": 378428,
+      "saved": 10820,
+      "savedPercent": 2.78
+    },
+    "claim_3_continuous": {
+      "before": 1127490,
+      "after": 1104440,
+      "saved": 23050,
+      "savedPercent": 2.04
+    },
+    "claim_3_with_ends": {
+      "before": 1667043,
+      "after": 1543148,
+      "saved": 123895,
+      "savedPercent": 7.43
+    },
+    "claim_8_continuous": {
+      "before": 2982220,
+      "after": 2928595,
+      "saved": 53625,
+      "savedPercent": 1.8
+    },
+    "claim_member_only": {
+      "before": 341829,
+      "after": 310609,
+      "saved": 31220,
+      "savedPercent": 9.13
+    },
+    "join": {
+      "before": 932101,
+      "after": 809555,
+      "saved": 122546,
+      "savedPercent": 13.15
+    },
+    "renewal": {
+      "before": 586469,
+      "after": 510520,
+      "saved": 75949,
+      "savedPercent": 12.95
+    }
+  },
+  "productionSourceSha256": {
+    "contracts/src/libraries/VestingLedger.sol": "2314329b58ee3266eab9698c231109b51a8618141037b1c64df1fcf4ed15adfb",
+    "contracts/src/MembershipTier.sol": "a11fe9da14c6de735182d9621b894bc7aefca0e6df7422d61d0edd2f92495649",
+    "contracts/src/MembershipFactory.sol": "3ba2c9478e981f6f696d3f91ac58543753deee1c2557e84f8cc39fb68a255772",
+    "contracts/src/ProtocolBurnRouter.sol": "03868077e87216d8b5ac61fb7c5701dc508ef0c048959c81402dfb4ac79a56be"
+  },
+  "linkedLedger": {
+    "address": "0xcd2b87cf10294FF59a23Cb7deFf5c790d31e606A",
+    "initCodeHash": "0x53ffa2a48404164055510a3f318939755f8cb49e58e7739a2125fc3e26f3fcdb",
+    "runtimeCodeHash": "0x9ef32c64ad9796aae66ffc8eb0671b02078108ad7db7f9e2623d50ba8e7fd9ec"
+  },
+  "deployment": {
+    "factoryCreate2PayloadBytes": [
+      57923,
+      58115
+    ],
+    "storeCreate2PayloadBytes": [
+      21051,
+      21051
+    ],
+    "tierCreationBytes": 41221,
+    "tierRuntimeBytes": 34701,
+    "ledgerCreationBytes": 17081,
+    "ledgerRuntimeBytes": 17029,
+    "creatorTierDeploymentGas": 7493167
+  },
+  "fullCapacity": {
+    "members": 10000,
+    "payments": 100000,
+    "recoveryTransactions": 4000,
+    "totalGasIncludingIntrinsic": 17257743571,
+    "peakCombinedGasIncludingIntrinsic": 7784283,
+    "cancellationQueuePayments": 10000,
+    "cancellationExecutionGas": 376559
+  },
+  "netGasModel": {
+    "method": "Forge lastCallGas callee execution + 21000 + calldata byte cost (4/16), less the recorded refund capped at one fifth of gross gas. Excludes L2 data fees. Model, not mined transaction receipts.",
+    "measurements": {
+      "advance_and_direct_burn": {
+        "before": {
+          "callee": 684985,
+          "refund": 160100,
+          "intrinsic": 22780,
+          "charged": 566212
+        },
+        "after": {
+          "callee": 641178,
+          "refund": 151700,
+          "intrinsic": 22780,
+          "charged": 531167
+        },
+        "savedPercent": 6.19
+      },
+      "checkpoint_1_of_128": {
+        "before": {
+          "callee": 494034,
+          "refund": 19200,
+          "intrinsic": 21356,
+          "charged": 496190
+        },
+        "after": {
+          "callee": 420808,
+          "refund": 19200,
+          "intrinsic": 21356,
+          "charged": 422964
+        },
+        "savedPercent": 14.76
+      },
+      "checkpoint_10_of_128": {
+        "before": {
+          "callee": 2202640,
+          "refund": 192000,
+          "intrinsic": 21356,
+          "charged": 2031996
+        },
+        "after": {
+          "callee": 1714197,
+          "refund": 192000,
+          "intrinsic": 21356,
+          "charged": 1543553
+        },
+        "savedPercent": 24.04
+      },
+      "checkpoint_25_of_128": {
+        "before": {
+          "callee": 4281039,
+          "refund": 480000,
+          "intrinsic": 21356,
+          "charged": 3822395
+        },
+        "after": {
+          "callee": 3357361,
+          "refund": 480000,
+          "intrinsic": 21356,
+          "charged": 2898717
+        },
+        "savedPercent": 24.16
+      },
+      "checkpoint_25_continuing": {
+        "before": {
+          "callee": 6577247,
+          "refund": 1518000,
+          "intrinsic": 21356,
+          "charged": 5278883
+        },
+        "after": {
+          "callee": 3837558,
+          "refund": 420000,
+          "intrinsic": 21356,
+          "charged": 3438914
+        },
+        "savedPercent": 34.86
+      },
+      "checkpoint_25_staggered": {
+        "before": {
+          "callee": 4624518,
+          "refund": 480000,
+          "intrinsic": 21356,
+          "charged": 4165874
+        },
+        "after": {
+          "callee": 3584289,
+          "refund": 480000,
+          "intrinsic": 21356,
+          "charged": 3125645
+        },
+        "savedPercent": 24.97
+      },
+      "claim_1_continuous": {
+        "before": {
+          "callee": 385241,
+          "refund": 65300,
+          "intrinsic": 21712,
+          "charged": 341653
+        },
+        "after": {
+          "callee": 374421,
+          "refund": 59700,
+          "intrinsic": 21712,
+          "charged": 336433
+        },
+        "savedPercent": 1.53
+      },
+      "claim_3_continuous": {
+        "before": {
+          "callee": 1122512,
+          "refund": 190300,
+          "intrinsic": 22448,
+          "charged": 954660
+        },
+        "after": {
+          "callee": 1099462,
+          "refund": 179100,
+          "intrinsic": 22448,
+          "charged": 942810
+        },
+        "savedPercent": 1.24
+      },
+      "claim_3_with_ends": {
+        "before": {
+          "callee": 1662065,
+          "refund": 449500,
+          "intrinsic": 22448,
+          "charged": 1347611
+        },
+        "after": {
+          "callee": 1538170,
+          "refund": 438300,
+          "intrinsic": 22448,
+          "charged": 1248495
+        },
+        "savedPercent": 7.35
+      },
+      "claim_8_continuous": {
+        "before": {
+          "callee": 2974810,
+          "refund": 502800,
+          "intrinsic": 24288,
+          "charged": 2496298
+        },
+        "after": {
+          "callee": 2921185,
+          "refund": 477600,
+          "intrinsic": 24288,
+          "charged": 2467873
+        },
+        "savedPercent": 1.14
+      },
+      "claim_member_only": {
+        "before": {
+          "callee": 338679,
+          "refund": 2800,
+          "intrinsic": 21064,
+          "charged": 356943
+        },
+        "after": {
+          "callee": 307459,
+          "refund": 0,
+          "intrinsic": 21064,
+          "charged": 328523
+        },
+        "savedPercent": 7.96
+      },
+      "join": {
+        "before": {
+          "callee": 929126,
+          "refund": 37900,
+          "intrinsic": 21572,
+          "charged": 912798
+        },
+        "after": {
+          "callee": 806580,
+          "refund": 35100,
+          "intrinsic": 21572,
+          "charged": 793052
+        },
+        "savedPercent": 13.12
+      },
+      "renewal": {
+        "before": {
+          "callee": 583494,
+          "refund": 28300,
+          "intrinsic": 21332,
+          "charged": 576526
+        },
+        "after": {
+          "callee": 507545,
+          "refund": 25500,
+          "intrinsic": 21332,
+          "charged": 503377
+        },
+        "savedPercent": 12.69
+      }
+    }
+  },
+  "benchmarkSourceSha256": "f0668dbd9b2a6d3456550406df08ef7b484bac9763d9cead8dc90d7f74a2aed3",
+  "validation": {
+    "regular": {
+      "tests": 453,
+      "suites": 44
+    },
+    "stateful": {
+      "tests": 8,
+      "suites": 5,
+      "runs": 256,
+      "depth": 500,
+      "handlerReverts": 0
+    },
+    "fullCapacityTests": 2,
+    "webTests": 667,
+    "webTypecheck": true,
+    "generatedAbiUnchanged": true,
+    "slither": {
+      "version": "0.11.6",
+      "high": 0,
+      "medium": 32,
+      "low": 48,
+      "informational": 38
+    },
+    "independentHistories": {
+      "histories": 10000,
+      "actionsPerHistory": 100,
+      "schedules": 3,
+      "summary": "gas-optimization-histories.json",
+      "summarySha256": "22b83ba0bac089f4f1eeb3dfd9050cdd6e20ad177b6cfd581fdd5db09a96d08f"
+    }
+  }
+}

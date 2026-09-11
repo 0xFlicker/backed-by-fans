@@ -279,3 +279,12 @@ Earlier completed tasks document the previous implementation, not acceptance of 
 - [X] Test ownership, all categories, multiple currencies, shared budget, rollback, transfer failures and reentrancy; verify unchanged graph limits.
 - [X] Complete frontend regression and generated-binding checks and record evidence in `evidence/account-claims.md`.
 - [ ] Rehearse account claims against newly deployed local contracts; preserve the current fork until a fresh deployment is selected.
+
+### Follow-up: gas optimization
+
+- [X] Capture cold execution and refund-adjusted baselines for one/three/eight-tier claims, 1/10/25 checkpoints, queued renewals, staggered boundaries, joining/renewing and combined advancement/direct burn.
+- [X] Pack existing bounded ledger values, simplify indexed heap updates, batch global accounting writes and combine ledger claim work without changing economics or public behavior.
+- [X] Use the existing OpenZeppelin transient guards and document the proof for unchecked allocation arithmetic; retain all numeric and deployment/gas limits.
+- [X] Add gas regression ceilings, randomized replacement/gap ordering, referral restart, claim event and stateful combined-claim coverage; pass the full regular contract and invariant suites.
+- [X] Complete 10,000 independent accounting histories and full 10,000-member/100,000-payment capacity recovery on the final optimized source.
+- [X] Regenerate/check bindings, verify affected frontend consumers and record final hashes, measurements, deployment gates and scope in `evidence/gas-optimization.md`.
