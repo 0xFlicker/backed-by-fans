@@ -1,4 +1,11 @@
-import { BaseError, ContractFunctionRevertedError, type Hash } from "viem";
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  decodeErrorResult,
+  type Abi,
+  type Hash,
+} from "viem";
+import { membershipTierAbi } from "@/contracts";
 
 export type TransactionPhase =
   | "idle"
@@ -162,6 +169,28 @@ export function decodeTransactionError(error: unknown): string {
       (cause) => cause instanceof ContractFunctionRevertedError,
     );
     if (reverted instanceof ContractFunctionRevertedError) {
+      if (reverted.data?.errorName === "ClaimAccountingBehind")
+        return "Membership accounting needs to catch up. Review the refreshed action to continue.";
+      if (reverted.data?.errorName === "ClaimFailed") {
+        const reason = reverted.data.args?.[2];
+        if (typeof reason === "string" && reason.startsWith("0x")) {
+          try {
+            const underlying = decodeErrorResult({
+              abi: membershipTierAbi as Abi,
+              data: reason as `0x${string}`,
+            });
+            const detail =
+              underlying.errorName === "Error"
+                ? String(underlying.args?.[0])
+                : underlying.errorName.replace(/([a-z])([A-Z])/g, "$1 $2");
+            return `${detail}. No funds were claimed.`;
+          } catch {
+            // Unknown external token errors are not necessarily in the tier ABI.
+            return "The payment could not be completed. No funds were claimed.";
+          }
+        }
+        return "The payment could not be completed. No funds were claimed.";
+      }
       if (reverted.data?.errorName === "MinimumPaymentChanged")
         return "The currency minimum changed. Refresh and review the membership terms before publishing.";
       if (reverted.data?.errorName === "PaymentBelowMinimum")

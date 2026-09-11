@@ -10,8 +10,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import { encodeEventTopics, encodeAbiParameters, getAbiItem } from "viem";
-import { membershipFactoryAbi, protocolBurnRouterAbi } from "@/contracts";
+import {
+  encodeEventTopics,
+  encodeAbiParameters,
+  getAbiItem,
+  BaseError,
+  ContractFunctionRevertedError,
+  encodeErrorResult,
+} from "viem";
+import {
+  membershipTierAbi,
+  membershipFactoryAbi,
+  protocolBurnRouterAbi,
+} from "@/contracts";
 import { AccountRewards } from "./AccountRewards";
 import type { ReadyDeployment } from "@/lib/config";
 const wallet = "0x1111111111111111111111111111111111111111";
@@ -59,7 +70,7 @@ function mount(count = 1) {
         ? tier
         : (`0x${(100 + index).toString(16).padStart(40, "0")}` as `0x${string}`),
     name: "WETH Fans",
-    paymentToken: token as typeof token,
+    paymentToken: (index === 1 ? factory : token) as `0x${string}`,
   }));
   render(
     <QueryClientProvider
@@ -72,7 +83,9 @@ function mount(count = 1) {
         wallet={wallet}
         tiers={tiers}
         complete
-        formatAmount={(amount) => `${amount} WETH`}
+        formatAmount={(amount, asset) =>
+          `${amount} ${asset === factory ? "USDG" : "WETH"}`
+        }
       />
     </QueryClientProvider>,
   );
@@ -112,6 +125,15 @@ beforeEach(() => {
     status: "success",
     logs: [
       {
+        address: tier,
+        topics: encodeEventTopics({
+          abi: membershipTierAbi,
+          eventName: "CreatorProceedsWithdrawn",
+          args: { owner: wallet },
+        }),
+        data: encodeAbiParameters([{ type: "uint256" }], [12n]),
+      },
+      {
         address: factory,
         topics: encodeEventTopics({
           abi: membershipFactoryAbi,
@@ -131,7 +153,7 @@ it("previews all three categories then sends the fresh wagmi request", async () 
   await userEvent.click(
     screen.getByRole("button", { name: "Claim everything" }),
   );
-  expect(await screen.findByText("Rewards claimed.")).toBeVisible();
+  expect(await screen.findByText("Paid 12 WETH.")).toBeVisible();
   expect(m.write.mock.calls[0][0]).toBe(
     (await m.simulate.mock.results[0].value).request,
   );
@@ -248,4 +270,137 @@ it("rejects unconfirmed claims", async () => {
     "does not confirm",
   );
   expect(screen.queryByText("Rewards claimed.")).not.toBeInTheDocument();
+});
+
+it("refreshes a submission-time accounting failure into the named advance action", async () => {
+  mount();
+  await screen.findByText("10 WETH");
+  m.simulate.mockImplementationOnce(async () => {
+    m.preview.mockResolvedValue({
+      results: [
+        { reward: 2n, referral: 3n, creator: 5n, streams: [testStream(10n)] },
+      ],
+      blocked: { tier, name: "WETH Fans" },
+      complete: false,
+    });
+    throw new BaseError("Simulation failed", {
+      cause: new ContractFunctionRevertedError({
+        abi: membershipFactoryAbi,
+        functionName: "claimEverything",
+        data: encodeErrorResult({
+          abi: membershipFactoryAbi,
+          errorName: "ClaimAccountingBehind",
+          args: [0n, tier, 100n, 101n],
+        }),
+      }),
+    });
+  });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Claim everything" }),
+  );
+  expect(
+    await screen.findByRole("button", { name: "Advance accounting" }),
+  ).toBeEnabled();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "WETH Fans needs an accounting update",
+  );
+  expect(m.write).not.toHaveBeenCalled();
+});
+it("keeps routinely refreshed balances outside live regions", async () => {
+  mount();
+  const amount = await screen.findByText("10 WETH");
+  expect(amount.closest("[aria-live], [role=status], [role=alert]")).toBeNull();
+});
+
+it("names a failed membership and retains the token's revert reason", async () => {
+  mount();
+  await screen.findByText("10 WETH");
+  const reason = encodeErrorResult({
+    abi: [
+      {
+        type: "error",
+        name: "Error",
+        inputs: [{ type: "string", name: "message" }],
+      },
+    ],
+    errorName: "Error",
+    args: ["Transfers paused"],
+  });
+  m.simulate.mockRejectedValueOnce(
+    new BaseError("Simulation failed", {
+      cause: new ContractFunctionRevertedError({
+        abi: membershipFactoryAbi,
+        functionName: "claimEverything",
+        data: encodeErrorResult({
+          abi: membershipFactoryAbi,
+          errorName: "ClaimFailed",
+          args: [0n, tier, reason],
+        }),
+      }),
+    }),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Claim everything" }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "WETH Fans: Transfers paused. No funds were claimed.",
+  );
+  expect(m.write).not.toHaveBeenCalled();
+});
+it("rejects a receipt paying another beneficiary", async () => {
+  const receipt = await m.receipt();
+  receipt.logs[0].topics = encodeEventTopics({
+    abi: membershipTierAbi,
+    eventName: "CreatorProceedsWithdrawn",
+    args: { owner: factory },
+  });
+  m.receipt.mockResolvedValue(receipt);
+  mount();
+  await screen.findByText("10 WETH");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Claim everything" }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "different wallet",
+  );
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+it("groups receipt payouts across categories and currencies, not preview amounts", async () => {
+  const secondTier =
+    `0x${(101).toString(16).padStart(40, "0")}` as `0x${string}`;
+  const preview = await m.preview();
+  m.preview.mockResolvedValue({
+    ...preview,
+    results: [...preview.results, ...preview.results],
+  });
+  const receipt = await m.receipt();
+  receipt.logs[1].data = encodeAbiParameters([{ type: "uint256" }], [2n]);
+  receipt.logs.push({
+    address: tier,
+    topics: encodeEventTopics({
+      abi: membershipTierAbi,
+      eventName: "RewardClaimed",
+      args: { tokenId: 1n, owner: wallet },
+    }),
+    data: encodeAbiParameters([{ type: "uint256" }], [3n]),
+  });
+  receipt.logs.push({
+    address: secondTier,
+    topics: encodeEventTopics({
+      abi: membershipTierAbi,
+      eventName: "ReferralClaimed",
+      args: { referrer: wallet },
+    }),
+    data: encodeAbiParameters([{ type: "uint256" }], [5n]),
+  });
+  m.receipt.mockResolvedValue(receipt);
+  mount(2);
+  await screen.findByText("10 USDG");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Claim everything" }),
+  );
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Paid 15 WETH, 5 USDG.",
+  );
 });

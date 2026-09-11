@@ -6,8 +6,17 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
-import { parseEventLogs, type Address } from "viem";
-import { membershipFactoryAbi, protocolBurnRouterAbi } from "@/contracts";
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  parseEventLogs,
+  type Address,
+} from "viem";
+import {
+  membershipTierAbi,
+  membershipFactoryAbi,
+  protocolBurnRouterAbi,
+} from "@/contracts";
 import type { ReadyDeployment } from "@/lib/config";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { decodeTransactionError } from "@/lib/transaction-state";
@@ -58,6 +67,9 @@ export function AccountRewards({
   });
   const action = useMutation({
     retry: false,
+    onError: () => {
+      void preview.refetch();
+    },
     mutationFn: async (advanceTier: Address | undefined) => {
       if (
         !client ||
@@ -108,6 +120,7 @@ export function AccountRewards({
         await assertSufficientGas(client, wallet, simulation.request);
         hash = await write.writeContractAsync(simulation.request);
       }
+      const paid = new Map<Address, bigint>();
       let cancelled = false;
       const receipt = await client.waitForTransactionReceipt({
         hash,
@@ -147,6 +160,35 @@ export function AccountRewards({
         )
           throw new Error("The receipt does not confirm these claims.");
       }
+      if (!router) {
+        for (const event of parseEventLogs({
+          abi: membershipTierAbi,
+          eventName: [
+            "RewardClaimed",
+            "ReferralClaimed",
+            "CreatorProceedsWithdrawn",
+          ],
+          logs: receipt.logs,
+          strict: true,
+        })) {
+          const target = batch.find(
+            (item) => item.tier.toLowerCase() === event.address.toLowerCase(),
+          );
+          if (!target) continue;
+          const recipient =
+            event.eventName === "ReferralClaimed"
+              ? event.args.referrer
+              : event.args.owner;
+          if (recipient.toLowerCase() !== wallet.toLowerCase())
+            throw new Error(
+              "The receipt contains a payout to a different wallet.",
+            );
+          paid.set(
+            target.paymentToken,
+            (paid.get(target.paymentToken) ?? 0n) + event.args.amount,
+          );
+        }
+      }
       const refresh = await Promise.allSettled([
         cache.invalidateQueries(
           { queryKey: ["account-rewards", chainId, factoryAddress, wallet] },
@@ -162,6 +204,7 @@ export function AccountRewards({
         ),
       ]);
       return {
+        paid: [...paid],
         advanced: Boolean(router),
         refreshFailed: refresh.some((result) => result.status === "rejected"),
       };
@@ -189,6 +232,25 @@ export function AccountRewards({
     refetchInterval: 30_000,
     retry: false,
   });
+  const reverted =
+    action.error instanceof BaseError
+      ? action.error.walk(
+          (cause) => cause instanceof ContractFunctionRevertedError,
+        )
+      : undefined;
+  const failure =
+    reverted instanceof ContractFunctionRevertedError
+      ? reverted.data
+      : undefined;
+  const failedTier =
+    failure?.errorName === "ClaimAccountingBehind" ||
+    failure?.errorName === "ClaimFailed"
+      ? batch.find(
+          (item, index) =>
+            BigInt(index) === failure.args?.[0] &&
+            item.tier.toLowerCase() === String(failure.args?.[1]).toLowerCase(),
+        )
+      : undefined;
   const blocked = preview.data?.blocked;
   // Keep polling while hidden so newly earned rewards can appear automatically.
   // Preserve batch navigation: an empty batch does not mean later batches are empty.
@@ -201,7 +263,7 @@ export function AccountRewards({
         </p>
         <h2 className="font-display">Your rewards</h2>
       </div>
-      <div aria-live="polite" className="account-reward-balances">
+      <div className="account-reward-balances">
         {addresses.length === 0 ? (
           "No rewards found yet."
         ) : preview.isPending ? (
@@ -325,11 +387,28 @@ export function AccountRewards({
         </p>
       )}
       {action.error && (
-        <p role="alert">{decodeTransactionError(action.error)}</p>
+        <p role="alert">
+          {failedTier ? (
+            <>
+              <Link href={`/chains/${chainId}/tiers/${failedTier.tier}`}>
+                {failedTier.name}
+              </Link>
+              {failure?.errorName === "ClaimAccountingBehind"
+                ? " needs an accounting update. Review the refreshed action to continue."
+                : `: ${decodeTransactionError(action.error)}`}
+            </>
+          ) : (
+            decodeTransactionError(action.error)
+          )}
+        </p>
       )}
       {action.data && (
         <p role="status">
-          {action.data.advanced ? "Accounting advanced." : "Rewards claimed."}
+          {action.data.advanced
+            ? "Accounting advanced."
+            : action.data.paid.length
+              ? `Paid ${action.data.paid.map(([token, amount]) => formatAmount(amount, token)).join(", ")}.`
+              : "No rewards were paid."}
           {action.data.refreshFailed && " Refresh to update the balances."}
         </p>
       )}
