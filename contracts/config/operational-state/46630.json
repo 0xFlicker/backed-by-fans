@@ -47,20 +47,36 @@
       }
     ],
     "mediaStoreFactory": {
-      "address": "0x94d79131c69bD41Da715D9C9DEaA851588b7174c",
-      "runtimeCodehash": "0x0f53878388acb03ed0f6c8d2bafe95a86b00da0ab1d76c814fb28465bce437c2"
+      "address": "0xb47C69e087B8E714B85dA3ea4264c3883Bbb476F",
+      "runtimeCodehash": "0xaf442096520184d5269bedb6e563a9bbc8468f9657a777d7e428ab5997d51ddf"
     },
     "renderer": {
-      "address": "0xc21aDdA35ED9565E808fdd2a254c51831D90330a",
-      "runtimeCodehash": "0x14f38b172dddb15b192e4524ff439c62f357145589126d7d4f4ac64cceb5be3c"
+      "address": "0xb8c18cbF055fD317c2b2F171179Bd1b78445c35C",
+      "runtimeCodehash": "0x39a439a272d68ed8ec963794825a81786ecf6e09421a9e67f2190e0aa4ff2483"
     },
     "previewHarness": {
-      "address": "0x369d13442eEb924105879Eb0EF0b39b619A1DF70",
-      "runtimeCodehash": "0x6d9e38ad442109ee3ab6b1179ae15a1cde2772b245a4a69c5d3269801fa4f209"
+      "address": "0xD5E799A531A5E90773173186Bc756e92F56E5833",
+      "runtimeCodehash": "0xe08b70bd61caa0367c6ee7f9baa4e474e094294ba061c8826fb27662aab576a9"
     },
     "membershipFactory": {
-      "address": "0x72681c494302092cE571ae10A27fC59a1E4AF206",
-      "runtimeCodehash": "0x3708f47cfb48fad12718a71d778d98f3a671c4161bbd67099fcf44505d948188"
+      "address": "0x8a21010752693377509C533f4E1e81DF551E673a",
+      "runtimeCodehash": "0xc429d02eff7ee04de446e4c1ddc16ac02ce7424feffc7f0114bebf14a8526c26"
+    },
+    "vestingLedger": {
+      "address": "0xCA48e24C30800eFfD34644c2c4113bD93aD3dD4F",
+      "runtimeCodehash": "0xa4c22c5d3f760e3a876c5ef48fdf7b095fafa4bfd6948fd981c9d95c60d82f1a"
+    },
+    "tierCodeStoreA": {
+      "address": "0xaafb0e29b185F6A4A6757c19cA18b89c22DBE131",
+      "runtimeCodehash": "0x527c0e3a30c4edb2a1c432f6c8052949fe3f1b094ef9cdf9dcee56fa13b03758"
+    },
+    "tierCodeStoreB": {
+      "address": "0xb3F9517128f015bDb733816831d2cF3F188fcBf3",
+      "runtimeCodehash": "0xa0d166bef17e195c0493f813dce442d494535a7704d6dafa1e9ca7c8755b4e69"
+    },
+    "tierCreationCode": {
+      "length": 41193,
+      "hash": "0x1b79a595af729fe34ecb9fec0414f51f265af1a32c93478da0c187fa6337a341"
     }
   },
   "safe": {
