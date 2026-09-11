@@ -351,7 +351,6 @@ describe("creator tier configuration", () => {
 
     expect(result.warnings).toEqual([
       expect.stringMatching(/free membership/i),
-      expect.stringMatching(/gifts can hold capacity/i),
       expect.stringMatching(/unlimited prepayment/i),
     ]);
   });

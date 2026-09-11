@@ -333,7 +333,6 @@ export function CreateTierWizard() {
   >({});
   const [step, setStep] = useState<StepId>("metadata");
   const [economicsAcknowledged, setEconomicsAcknowledged] = useState(false);
-  const [giftingAcknowledged, setGiftingAcknowledged] = useState(false);
   const [createdTier, setCreatedTier] = useState<{
     address: Address;
     scope: CreatorProtocolScope;
@@ -702,7 +701,7 @@ export function CreateTierWizard() {
     expectedChainId: active.clientChainId,
   });
   const formValid = Boolean(result.config);
-  const acknowledged = economicsAcknowledged && giftingAcknowledged;
+  const acknowledged = economicsAcknowledged;
 
   useEffect(
     () => () => {
@@ -2549,9 +2548,6 @@ export function CreateTierWizard() {
                 A gift can create a membership and reward shares for someone who
                 did not ask for it.
               </li>
-              <li>
-                A failed refund can hold a place until the membership expires.
-              </li>
             </ul>
             <label className="acknowledgement">
               <input
@@ -2567,19 +2563,9 @@ export function CreateTierWizard() {
                 window are permanent.
               </span>
             </label>
-            <label className="acknowledgement">
-              <input
-                checked={giftingAcknowledged}
-                onChange={(event) =>
-                  setGiftingAcknowledged(event.target.checked)
-                }
-                type="checkbox"
-              />
-              <span>
-                I understand gifts can hold capacity and may not be immediately
-                refundable.
-              </span>
-            </label>
+            <p className="small-copy">
+              Gifted memberships count toward your capacity.
+            </p>
           </div>
         )}
 
@@ -2877,7 +2863,7 @@ export function CreateTierWizard() {
             )}
             {!acknowledged && (
               <p className="inline-status" role="status">
-                Review both acknowledgements.
+                Review the permanent terms.
               </p>
             )}
             {!guard.enabled && (

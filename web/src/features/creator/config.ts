@@ -304,9 +304,6 @@ export function evaluateCreatorForm(
   if (pricePerPeriod === 0n && supplyCap && supplyCap > 0n) {
     warnings.push("A free membership can fill every available place.");
   }
-  if (supplyCap && supplyCap > 0n) {
-    warnings.push("Gifts can hold capacity until the membership expires.");
-  }
   if (maxPrepaidPeriods === 0n) {
     warnings.push(
       "Unlimited prepayment lets a gift hold membership time indefinitely.",

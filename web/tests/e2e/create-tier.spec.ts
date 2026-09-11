@@ -73,7 +73,6 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
       await expectOriginalRenderer(page);
       await page.getByRole("button", { name: /^risks$/i }).click();
       await page.getByRole("checkbox").nth(0).check();
-      await page.getByRole("checkbox").nth(1).check();
       await page.getByRole("button", { name: /^review$/i }).click();
 
       const deploy = page.getByRole("button", {
@@ -544,11 +543,10 @@ test("walks through defaults, arbitrary splits, risks, and immutable review", as
 
   await page.getByRole("button", { name: /^risks$/i }).click();
   await expect(
-    page.getByText(/gifts can hold capacity/i).first(),
+    page.getByText(/gifted memberships count toward your capacity/i).first(),
   ).toBeVisible();
   const acknowledgements = page.getByRole("checkbox");
   await acknowledgements.nth(0).check();
-  await acknowledgements.nth(1).check();
 
   await page.getByRole("button", { name: /^review$/i }).click();
   await expect(
@@ -687,7 +685,6 @@ test("@anvil reward-curves publishes all presets and confirms execution-time wei
       }
       await page.getByRole("button", { name: /^risks$/i }).click();
       await page.getByRole("checkbox").nth(0).check();
-      await page.getByRole("checkbox").nth(1).check();
       await page.getByRole("button", { name: /^review$/i }).click();
       const publish = page.getByRole("button", {
         name: "Publish this membership",

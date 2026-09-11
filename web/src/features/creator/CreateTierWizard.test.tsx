@@ -609,7 +609,6 @@ describe("creator setup component", () => {
     await user.click(screen.getByRole("button", { name: /^risks$/i }));
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
-    await user.click(acknowledgements[1]);
     await user.click(screen.getByRole("button", { name: /^review$/i }));
 
     const publish = screen.getByRole("button", {
@@ -739,7 +738,6 @@ describe("creator setup component", () => {
     await user.click(screen.getByRole("button", { name: /^risks$/i }));
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
-    await user.click(acknowledgements[1]);
     await user.click(screen.getByRole("button", { name: /^review$/i }));
 
     const publish = screen.getByRole("button", {
@@ -843,22 +841,24 @@ describe("creator setup component", () => {
     ).toBeVisible();
   });
 
-  it("requires both material acknowledgements before deployment", async () => {
+  it("requires permanent-terms acknowledgement before deployment", async () => {
     const user = userEvent.setup();
     walletAddress = getAddress("0x1111111111111111111111111111111111111111");
     renderWizard();
 
     await user.click(screen.getByRole("button", { name: /^risks$/i }));
     const acknowledgements = screen.getAllByRole("checkbox");
-    expect(acknowledgements).toHaveLength(2);
-    await user.click(acknowledgements[0]);
+    expect(acknowledgements).toHaveLength(1);
+    expect(
+      screen.getByText("Gifted memberships count toward your capacity."),
+    ).toBeVisible();
     await user.click(screen.getByRole("button", { name: /^review$/i }));
 
     const queue = screen.getByRole("region", { name: /publish queue/i });
     expect(queue).toBeVisible();
     expect(within(queue).getByText("Create membership")).toBeVisible();
     expect(within(queue).queryByText("Store image")).not.toBeInTheDocument();
-    expect(screen.getByText(/review both acknowledgements/i)).toBeVisible();
+    expect(screen.getByText(/review the permanent terms\./i)).toBeVisible();
     expect(
       screen.getByRole("button", { name: /publish this membership/i }),
     ).toBeDisabled();
