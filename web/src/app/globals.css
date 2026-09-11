@@ -3936,3 +3936,46 @@ dd {
     padding-bottom: 1.5rem;
   }
 }
+
+.reward-purchase-curve {
+  width: 100%;
+  max-width: 38rem;
+}
+.reward-purchase-curve > p {
+  min-height: 3.5em;
+}
+.reward-purchase-curve svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 448 / 190;
+}
+.reward-purchase-curve text {
+  fill: var(--muted-ink);
+  font-size: 11px;
+}
+.reward-purchase-span {
+  fill: var(--fan-blue);
+  fill-opacity: 0.12;
+}
+.reward-purchase-marker {
+  stroke: var(--backstage);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.reward-purchase-point {
+  fill: var(--backstage);
+}
+@media (forced-colors: active) {
+  .reward-purchase-span {
+    fill: Highlight;
+  }
+  .reward-purchase-marker {
+    stroke: CanvasText;
+  }
+  .reward-purchase-point {
+    fill: CanvasText;
+  }
+  .reward-purchase-curve text {
+    fill: CanvasText;
+  }
+}

@@ -21,6 +21,16 @@ const deployment: ReadyDeployment = {
   ),
 };
 
+vi.mock("./account-rewards-read", () => ({
+  readAccountRewards: vi.fn(async () => ({
+    results: [
+      { reward: 50_000n, referral: 0n, creator: 22_600n, complete: true },
+    ],
+    complete: true,
+    blockNumber: 101n,
+  })),
+}));
+
 vi.mock("./AccountRewards", () => ({ AccountRewards: () => null }));
 
 vi.mock("wagmi", () => ({
@@ -90,7 +100,7 @@ const paymentTokens: AcceptedPaymentTokenReadState = {
 };
 
 describe("account discovery", () => {
-  it("renders a matching server snapshot without a client loading state", () => {
+  it("renders a matching server snapshot without a client loading state", async () => {
     render(
       <QueryClientProvider
         client={
@@ -112,7 +122,7 @@ describe("account discovery", () => {
 
     expect(screen.getByText("Genesis Fans")).toBeVisible();
     expect(screen.getByText("Membership active")).toBeVisible();
-    expect(screen.getByText("0.05 AMD")).toBeVisible();
+    expect(await screen.findByText("0.05 AMD")).toBeVisible();
     expect(
       screen.getByRole("img", { name: "Genesis Fans collection artwork" }),
     ).toHaveAttribute(
@@ -130,4 +140,38 @@ describe("account discovery", () => {
       screen.queryByText("Looking for memberships connected to this wallet."),
     ).not.toBeInTheDocument();
   });
+});
+
+it("shows previewed creator earnings when cached settled proceeds are zero", async () => {
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+        })
+      }
+    >
+      <AccountDiscovery
+        initialDiscovery={{
+          chainId: 46_630,
+          wallet,
+          page: {
+            ...page,
+            results: [
+              {
+                ...page.results[0],
+                creatorOwned: true,
+                tokenId: 0n,
+                active: false,
+                creatorProceeds: 0n,
+              },
+            ],
+          },
+          paymentTokens,
+        }}
+      />
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("0.0226 AMD")).toBeVisible();
+  expect(screen.getByText("Creator earnings")).toBeVisible();
 });

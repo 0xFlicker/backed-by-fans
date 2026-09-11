@@ -36,7 +36,11 @@ describe("supporter membership state", () => {
         gross: 100n,
         blockNumber: 321n,
       }),
-    ).resolves.toBe(125n);
+    ).resolves.toEqual({
+      grossBefore: 400n,
+      grossAfter: 500n,
+      sharesAdded: 125n,
+    });
     expect(readContract).toHaveBeenCalledWith({
       address: recipient,
       abi: membershipTierAbi,

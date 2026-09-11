@@ -1,5 +1,7 @@
 "use client";
 
+import { RewardPurchaseCurve } from "./RewardPurchaseCurve";
+
 import Link from "next/link";
 import type { Route } from "next";
 import { useLayoutEffect, useReducer, useRef, useState } from "react";
@@ -1117,16 +1119,27 @@ export function MembershipExperience({
                   : !primaryInputValid
                     ? "Enter a valid payment to preview reward weight."
                     : rewardQuote.data !== undefined
-                      ? `Estimated new reward weight: ${weightLabel(rewardQuote.data)} shares (${averageRewardBoost(rewardQuote.data, selfPreview.gross)} average).`
+                      ? `Estimated new reward weight: ${weightLabel(rewardQuote.data.sharesAdded)} shares (${averageRewardBoost(rewardQuote.data.sharesAdded, selfPreview.gross)} average). This weight is permanent.`
                       : rewardQuote.isError
                         ? "Reward weight preview is unavailable. The contract will check this payment before confirmation."
                         : "Checking reward weight…"}
               </p>
-              <p className="small-copy">
-                Reward weight is permanent. Rewards earn as paid time is used.
-                Your final weight is set at purchase. Free access adds no weight
-                and does not restore suspended reward eligibility.
-              </p>
+              <RewardPurchaseCurve
+                terms={snapshot}
+                quote={
+                  primaryInputValid &&
+                  !primaryInputEmpty &&
+                  !rewardQuote.isError
+                    ? rewardQuote.data
+                    : undefined
+                }
+              />
+              {snapshot.pricePerPeriod === 0n && (
+                <p className="small-copy">
+                  Free access adds no reward weight and does not restore
+                  eligibility.
+                </p>
+              )}
               {snapshot.credential?.rewardEligible &&
                 snapshot.pricePerPeriod === 0n &&
                 selfPreview.gross === 0n && (
@@ -1135,7 +1148,8 @@ export function MembershipExperience({
                     suspension. It adds no new weight or reward funding.
                   </p>
                 )}
-              {snapshot.credential &&
+              {snapshot.pricePerPeriod === 0n &&
+                snapshot.credential &&
                 !snapshot.credential.rewardEligible &&
                 snapshot.credential.shares > 0n &&
                 selfPreview.gross > 0n && (
@@ -1509,7 +1523,7 @@ export function MembershipExperience({
               {giftPreview && (
                 <p className="small-copy" aria-live="polite">
                   {giftRewardQuote.data !== undefined
-                    ? `Estimated new reward weight for the recipient: ${weightLabel(giftRewardQuote.data)} shares (${averageRewardBoost(giftRewardQuote.data, giftPreview.gross)} average). Other purchases may change this before inclusion.`
+                    ? `Estimated new reward weight for the recipient: ${weightLabel(giftRewardQuote.data.sharesAdded)} shares (${averageRewardBoost(giftRewardQuote.data.sharesAdded, giftPreview.gross)} average). This weight is permanent.`
                     : giftRewardQuote.isError
                       ? "Recipient reward weight preview is unavailable."
                       : "Checking recipient reward weight…"}

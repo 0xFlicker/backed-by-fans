@@ -369,7 +369,14 @@ describe("supporter membership experience", () => {
     await userEvent
       .setup()
       .click(screen.getByText("Reward details", { exact: true }));
-    expect(await screen.findByText(/15 shares \(1.5× average\)/)).toBeVisible();
+    expect(
+      await screen.findByText(
+        /15 shares \(1.5× average\). This weight is permanent/,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/Free access adds no reward weight/),
+    ).not.toBeInTheDocument();
     expect(readContract).toHaveBeenCalledWith(
       expect.objectContaining({
         functionName: "previewShares",
@@ -566,6 +573,11 @@ describe("supporter membership experience", () => {
         ).toBeVisible();
       expect(
         await screen.findByText(/Estimated new reward weight: 0 shares/),
+      ).toBeVisible();
+      expect(
+        screen.getByText(
+          "Free access adds no reward weight and does not restore eligibility.",
+        ),
       ).toBeVisible();
       expect(
         screen.getByRole("button", { name: "Claim rewards" }),

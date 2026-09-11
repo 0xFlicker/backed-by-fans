@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AccountRewards } from "./AccountRewards";
+import { readAccountRewards } from "./account-rewards-read";
 import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react";
@@ -205,6 +206,20 @@ function HydratedDiscovery({
     }
   }, [cacheKey, currentCache, discovery.data]);
 
+  const earnings = useQuery({
+    queryKey: [
+      "account-rewards",
+      deployment.chainId,
+      deployment.factoryAddress,
+      wallet,
+      ...currentCache.results.map((tier) => tier.tier),
+    ],
+    queryFn: () => readAccountRewards(client, wallet, currentCache.results),
+    enabled: currentCache.results.length > 0,
+    retry: false,
+    refetchInterval: 15_000,
+  });
+
   function keepCurrentPage() {
     setSavedCache(currentCache);
   }
@@ -293,10 +308,13 @@ function HydratedDiscovery({
           ) : (
             <ul className="account-tier-list">
               {currentCache.results.map((tier, index) => {
-                const hasClaim =
-                  BigInt(tier.claimableReward) > 0n ||
-                  BigInt(tier.claimableReferral) > 0n ||
-                  BigInt(tier.creatorProceeds) > 0n;
+                const current = earnings.isError
+                  ? undefined
+                  : earnings.data?.results[index];
+                const reward = current?.reward ?? 0n;
+                const referral = current?.referral ?? 0n;
+                const creator = current?.creator ?? 0n;
+                const hasClaim = reward > 0n || referral > 0n || creator > 0n;
                 const viewHref =
                   `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route;
 
@@ -331,42 +349,38 @@ function HydratedDiscovery({
                           </span>
                         </div>
 
+                        {earnings.isError && (
+                          <p className="small-copy">Earnings unavailable.</p>
+                        )}
+                        {current && !current.complete && (
+                          <p className="small-copy">
+                            Earnings preview is partial.
+                          </p>
+                        )}
                         {hasClaim && (
                           <dl className="account-card-balances">
-                            {BigInt(tier.claimableReward) > 0n && (
+                            {reward > 0n && (
                               <div>
                                 <dt>Rewards ready</dt>
-                                <dd>
-                                  {claimLabel(
-                                    BigInt(tier.claimableReward),
-                                    tier.paymentToken,
-                                  )}
-                                </dd>
+                                <dd>{claimLabel(reward, tier.paymentToken)}</dd>
                               </div>
                             )}
-                            {BigInt(tier.claimableReferral) > 0n && (
+                            {referral > 0n && (
                               <div>
                                 <dt>Referral earnings</dt>
                                 <dd>
-                                  {claimLabel(
-                                    BigInt(tier.claimableReferral),
-                                    tier.paymentToken,
-                                  )}
+                                  {claimLabel(referral, tier.paymentToken)}
                                 </dd>
                               </div>
                             )}
-                            {tier.creatorOwned &&
-                              BigInt(tier.creatorProceeds) > 0n && (
-                                <div>
-                                  <dt>Creator earnings</dt>
-                                  <dd>
-                                    {claimLabel(
-                                      BigInt(tier.creatorProceeds),
-                                      tier.paymentToken,
-                                    )}
-                                  </dd>
-                                </div>
-                              )}
+                            {tier.creatorOwned && creator > 0n && (
+                              <div>
+                                <dt>Creator earnings</dt>
+                                <dd>
+                                  {claimLabel(creator, tier.paymentToken)}
+                                </dd>
+                              </div>
+                            )}
                           </dl>
                         )}
 

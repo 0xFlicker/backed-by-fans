@@ -36,7 +36,7 @@ export async function readRewardQuote(
     args: [input.gross],
     blockNumber: input.blockNumber,
   });
-  return quote.sharesAdded;
+  return quote;
 }
 
 /** Canonical weight may have grown again since this successful payment. */
