@@ -14,11 +14,14 @@ function fixture(steps = [12n, 13n], complete = true) {
     if (functionName === "previewAccounting") {
       expect(args).toEqual([7n, wallet, 256n]);
       return {
+        asOf: 100n,
+        ratesScaled: [0n, 0n, 0n, 0n],
         current: {
+          fractionalScaled: [0n, 0n, 0n, 0n],
           member: 2n,
           referral: 3n,
           creator: 5n,
-          status: { complete, accountedThrough: 100n },
+          status: { nextBoundary: 0n, complete, accountedThrough: 100n },
         },
         processedSteps: steps[address === tiers[0].tier ? 0 : 1],
       };

@@ -296,3 +296,11 @@ Earlier completed tasks document the previous implementation, not acceptance of 
 - [X] Add vault read-only eligibility after hypothetical release, sharing execution policy without executing swaps.
 - [X] Use read-only previews for account/membership earnings and protocol deltas; keep native simulation only at submission and show partial reads explicitly.
 - [X] Complete final generated-binding, frontend, invariant and unchanged deployment/gas checks; verify the newly deployed local graph and browser flows. Evidence: [accounting previews](evidence/accounting-preview.md).
+
+
+### Follow-up: streaming earnings
+
+- [X] Expose projected category rates without storage or economics changes; test subsequent-preview parity and unchanged deployment gates.
+- [X] Implement a shared presentation clock, bounded bigint estimates, digit rolling, reduced motion and authoritative accessible values.
+- [X] Connect account totals/cards, membership earnings and protocol funding; keep historical and transaction amounts authoritative.
+- [X] Finish isolated-fork visual verification, final checks and evidence. See [streaming earnings](evidence/streaming-earnings.md).

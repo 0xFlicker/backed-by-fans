@@ -11,6 +11,7 @@ function fixture(complete = false) {
         return {
           settled: { protocol: 7n },
           current: {
+            fractionalScaled: [0n, 0n, 0n, 0n],
             protocol: 12n,
             status: {
               accountedThrough: complete ? 1000n : 900n,
@@ -19,6 +20,8 @@ function fixture(complete = false) {
               scheduledMembers: 100000n,
             },
           },
+          asOf: 100n,
+          ratesScaled: [0n, 0n, 0n, 0n] as const,
           earnedDeltaScaled: [0n, 0n, 0n, 5n * Q],
         };
       if (functionName === "reserveState")

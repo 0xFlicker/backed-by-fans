@@ -1,3 +1,4 @@
+import { earningsStream } from "@/lib/streaming-amount";
 import { zeroAddress, type Address, type PublicClient } from "viem";
 import { membershipTierAbi } from "@/contracts";
 
@@ -28,6 +29,7 @@ export async function readTierFunding(
     }),
   ]);
   return {
+    stream: earningsStream(preview, 3),
     blockNumber: block.number,
     timestamp: block.timestamp,
     accounting: preview.current.status,

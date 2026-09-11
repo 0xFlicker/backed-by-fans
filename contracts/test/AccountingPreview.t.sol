@@ -98,6 +98,29 @@ contract AccountingPreviewTest is Test {
         _compare(1, REF, START + 120, 25);
     }
 
+    function test_ratesMatchLaterPreviewAndStopAtBoundary() public {
+        h.weight(1, 17, true);
+        h.weight(2, 13, true);
+        h.fundAllocations(1, [uint256(120), 60, 30, 90], START, 120, REF);
+        MembershipTypes.AccountingPreview memory a = h.preview(1, REF, START + 10, 25);
+        MembershipTypes.AccountingPreview memory b = h.preview(1, REF, START + 20, 25);
+        uint256[4] memory av =
+            [a.current.creator, a.current.member, a.current.referral, a.current.protocol];
+        uint256[4] memory bv =
+            [b.current.creator, b.current.member, b.current.referral, b.current.protocol];
+        for (uint256 i; i < 4; ++i) {
+            uint256 estimated =
+                av[i] * (1 << 128) + a.current.fractionalScaled[i] + a.ratesScaled[i] * 10;
+            uint256 actual = bv[i] * (1 << 128) + b.current.fractionalScaled[i];
+            assertApproxEqAbs(estimated, actual, 100, "scaled velocity rounding");
+        }
+        assertEq(a.current.status.nextBoundary, START + 120);
+        assertEq(h.preview(1, REF, START + 120, 25).ratesScaled[0], 0);
+        assertEq(h.preview(0, REF, START + 10, 25).ratesScaled[1], 0);
+        assertEq(h.preview(1, address(0), START + 10, 25).ratesScaled[2], 0);
+        assertEq(h.preview(1, REF, START + 120, 0).ratesScaled[0], 0);
+    }
+
     function test_zeroBudgetAndEmptyHeap() public {
         _compare(0, REF, START + 50, 0);
     }

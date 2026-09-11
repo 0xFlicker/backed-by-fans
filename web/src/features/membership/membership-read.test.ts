@@ -136,6 +136,7 @@ describe("supporter direct reads", () => {
       preview: {
         asOf: 1000n,
         processedSteps: 0n,
+        ratesScaled: [0n, 0n, 0n, 0n] as const,
         earnedDeltaScaled: [0n, 0n, 0n, 0n],
         settled: vesting.earned,
         current: vesting.earned,

@@ -1,4 +1,5 @@
 import { type Address, type PublicClient } from "viem";
+import { earningsStream } from "@/lib/streaming-amount";
 import { membershipTierAbi } from "@/contracts";
 
 /** One block for every identity and projection; no transaction simulation. */
@@ -28,7 +29,16 @@ export async function readAccountRewards(
         functionName: "previewAccounting",
         args: [tokenId, wallet, 256n],
       });
+      const creatorOwned = owner.toLowerCase() === wallet.toLowerCase();
       return {
+        streams: [
+          earningsStream(preview, 1),
+          earningsStream(preview, 2),
+          ...(creatorOwned ? [earningsStream(preview, 0)] : []),
+        ],
+        rewardStream: earningsStream(preview, 1),
+        referralStream: earningsStream(preview, 2),
+        creatorStream: creatorOwned ? earningsStream(preview, 0) : undefined,
         reward: preview.current.member,
         referral: preview.current.referral,
         creator:

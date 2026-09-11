@@ -1,4 +1,5 @@
 "use client";
+import { StreamingAmount } from "@/components/StreamingAmount";
 
 import Link from "next/link";
 import { AccountRewards } from "./AccountRewards";
@@ -362,14 +363,44 @@ function HydratedDiscovery({
                             {reward > 0n && (
                               <div>
                                 <dt>Rewards ready</dt>
-                                <dd>{claimLabel(reward, tier.paymentToken)}</dd>
+                                <dd>
+                                  {
+                                    <StreamingAmount
+                                      identity={`${deployment.chainId}:${wallet}:${tier.tier}:rewardStream`}
+                                      streams={
+                                        current?.rewardStream
+                                          ? [current.rewardStream]
+                                          : []
+                                      }
+                                      format={(raw) =>
+                                        claimLabel(raw, tier.paymentToken)
+                                      }
+                                      refresh={() => earnings.refetch()}
+                                      active={!earnings.isError}
+                                    />
+                                  }
+                                </dd>
                               </div>
                             )}
                             {referral > 0n && (
                               <div>
                                 <dt>Referral earnings</dt>
                                 <dd>
-                                  {claimLabel(referral, tier.paymentToken)}
+                                  {
+                                    <StreamingAmount
+                                      identity={`${deployment.chainId}:${wallet}:${tier.tier}:referralStream`}
+                                      streams={
+                                        current?.referralStream
+                                          ? [current.referralStream]
+                                          : []
+                                      }
+                                      format={(raw) =>
+                                        claimLabel(raw, tier.paymentToken)
+                                      }
+                                      refresh={() => earnings.refetch()}
+                                      active={!earnings.isError}
+                                    />
+                                  }
                                 </dd>
                               </div>
                             )}
@@ -377,7 +408,21 @@ function HydratedDiscovery({
                               <div>
                                 <dt>Creator earnings</dt>
                                 <dd>
-                                  {claimLabel(creator, tier.paymentToken)}
+                                  {
+                                    <StreamingAmount
+                                      identity={`${deployment.chainId}:${wallet}:${tier.tier}:creatorStream`}
+                                      streams={
+                                        current?.creatorStream
+                                          ? [current.creatorStream]
+                                          : []
+                                      }
+                                      format={(raw) =>
+                                        claimLabel(raw, tier.paymentToken)
+                                      }
+                                      refresh={() => earnings.refetch()}
+                                      active={!earnings.isError}
+                                    />
+                                  }
                                 </dd>
                               </div>
                             )}

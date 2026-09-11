@@ -15,9 +15,15 @@ function fixture(steps = 2n) {
     if (functionName === "previewAccounting")
       return {
         processedSteps: steps,
+        asOf: 100n,
+        ratesScaled: [0n, 0n, 0n, 0n] as const,
         earnedDeltaScaled: [5n, 0n, 0n, 7n],
-        settled: { protocol: 3n },
-        current: { protocol: 10n, status: { complete: true } },
+        settled: { protocol: 3n, fractionalScaled: [0n, 0n, 0n, 0n] },
+        current: {
+          fractionalScaled: [0n, 0n, 0n, 0n],
+          protocol: 10n,
+          status: { nextBoundary: 0n, complete: true },
+        },
       };
     if (functionName === "paymentToken" || functionName === "canonicalAsset")
       return asset;

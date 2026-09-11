@@ -1,4 +1,5 @@
 "use client";
+import { StreamingAmount } from "@/components/StreamingAmount";
 import { readRewardUsdPrices, formatRewardUsd } from "@/lib/reward-usd";
 import { useState } from "react";
 import Link from "next/link";
@@ -172,6 +173,10 @@ export function AccountRewards({
     const amount = result.reward + result.referral + result.creator;
     if (amount > 0n) totals.set(token, (totals.get(token) ?? 0n) + amount);
   });
+  const streamsFor = (token: Address) =>
+    preview.data?.results.flatMap((item, index) =>
+      batch[index].paymentToken === token ? item.streams : [],
+    ) ?? [];
   const tokens = [...totals.keys()];
   const usd = useQuery({
     queryKey: ["account-reward-usd", chainId, factoryAddress, ...tokens],
@@ -185,6 +190,9 @@ export function AccountRewards({
     retry: false,
   });
   const blocked = preview.data?.blocked;
+  // Keep polling while hidden so newly earned rewards can appear automatically.
+  // Preserve batch navigation: an empty batch does not mean later batches are empty.
+  if (!blocked && totals.size === 0 && pages === 1 && !action.data) return null;
   return (
     <section aria-label="Rewards" className="account-rewards protocol-section">
       <div className="account-rewards-heading">
@@ -199,23 +207,41 @@ export function AccountRewards({
         ) : preview.isPending ? (
           "Checking rewards…"
         ) : preview.isError ? (
-          <span role="alert">{decodeTransactionError(preview.error)}</span>
+          <span role="alert">Unable to refresh rewards.</span>
         ) : totals.size === 0 ? (
           "All claimed."
         ) : (
-          [...totals].map(([token, amount]) => (
+          [...totals].map(([token]) => (
             <div className="account-reward-balance" key={token}>
               <p className="account-reward-amount">
-                {formatAmount(amount, token)}
+                {
+                  <StreamingAmount
+                    identity={`${chainId}:${wallet}:${token}`}
+                    streams={streamsFor(token)}
+                    format={(raw) => formatAmount(raw, token)}
+                    refresh={() => preview.refetch()}
+                    active={!preview.isError}
+                  />
+                }
               </p>
               <p className="account-reward-usd">
                 {(() => {
                   const quote = usd.data?.find((item) => item.token === token);
-                  return quote
-                    ? `≈ ${formatRewardUsd(amount, quote.price, navigator.language)}`
-                    : usd.isError
-                      ? "USD estimate unavailable"
-                      : " ";
+                  return quote ? (
+                    <StreamingAmount
+                      identity={`${chainId}:${wallet}:${token}:usd`}
+                      streams={streamsFor(token)}
+                      format={(raw) =>
+                        `≈ ${formatRewardUsd(raw, quote.price, navigator.language)}`
+                      }
+                      refresh={() => preview.refetch()}
+                      active={!preview.isError}
+                    />
+                  ) : usd.isError ? (
+                    "USD estimate unavailable"
+                  ) : (
+                    " "
+                  );
                 })()}
               </p>
             </div>

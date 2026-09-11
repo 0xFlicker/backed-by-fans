@@ -24,7 +24,28 @@ const deployment: ReadyDeployment = {
 vi.mock("./account-rewards-read", () => ({
   readAccountRewards: vi.fn(async () => ({
     results: [
-      { reward: 50_000n, referral: 0n, creator: 22_600n, complete: true },
+      {
+        rewardStream: {
+          raw: 50_000n,
+          fractional: 0n,
+          rate: 0n,
+          asOf: 100n,
+          nextBoundary: 0n,
+          complete: true,
+        },
+        creatorStream: {
+          raw: 22_600n,
+          fractional: 0n,
+          rate: 0n,
+          asOf: 100n,
+          nextBoundary: 0n,
+          complete: true,
+        },
+        reward: 50_000n,
+        referral: 0n,
+        creator: 22_600n,
+        complete: true,
+      },
     ],
     complete: true,
     blockNumber: 101n,

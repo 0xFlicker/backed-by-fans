@@ -1,3 +1,11 @@
+const testStream = (raw: bigint) => ({
+  raw,
+  fractional: 0n,
+  rate: 0n,
+  asOf: 100n,
+  nextBoundary: 0n,
+  complete: true,
+});
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -73,12 +81,21 @@ beforeEach(() => {
   vi.resetAllMocks();
   m.simulate.mockImplementation(async (_config, request) => ({
     request,
-    result: [{ processedSteps: 0n, reward: 2n, referral: 3n, creator: 5n }],
+    result: [
+      {
+        processedSteps: 0n,
+        streams: [testStream(10n)],
+        reward: 2n,
+        referral: 3n,
+        creator: 5n,
+      },
+    ],
   }));
   m.preview.mockResolvedValue({
     results: [
       {
         processedSteps: 0n,
+        streams: [testStream(10n)],
         reward: 2n,
         referral: 3n,
         creator: 5n,
@@ -121,19 +138,29 @@ it("previews all three categories then sends the fresh wagmi request", async () 
 });
 it("does not spend gas on zero claims", async () => {
   m.preview.mockResolvedValue({
-    results: [{ processedSteps: 0n, reward: 0n, referral: 0n, creator: 0n }],
+    results: [
+      {
+        processedSteps: 0n,
+        streams: [],
+        reward: 0n,
+        referral: 0n,
+        creator: 0n,
+      },
+    ],
     complete: true,
   });
   mount();
-  expect(await screen.findByText("All claimed.")).toBeVisible();
+  await waitFor(() => expect(m.preview).toHaveBeenCalled());
   expect(
-    screen.getByRole("button", { name: "Claim everything" }),
-  ).toBeDisabled();
+    screen.queryByRole("region", { name: "Rewards" }),
+  ).not.toBeInTheDocument();
   expect(m.write).not.toHaveBeenCalled();
 });
 it("names a blocked tier and advances only that tier", async () => {
   m.preview.mockResolvedValue({
-    results: [{ reward: 2n, referral: 3n, creator: 5n }],
+    results: [
+      { streams: [testStream(10n)], reward: 2n, referral: 3n, creator: 5n },
+    ],
     blocked: { tier, name: "WETH Fans" },
     complete: true,
   });

@@ -4037,6 +4037,11 @@ export const membershipTierAbi = [
               },
             ],
           },
+          {
+            name: "ratesScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
         ],
       },
     ],

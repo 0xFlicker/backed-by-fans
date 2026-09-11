@@ -23,9 +23,13 @@ function fixture(incomplete = false) {
       case "previewAccounting":
         expect(request.args).toEqual([0n, zeroAddress, 256n]);
         return {
+          asOf: 100n,
+          ratesScaled: [0n, 0n, 0n, 0n],
           current: {
+            fractionalScaled: [0n, 0n, 0n, 0n],
             protocol: 3n,
             status: {
+              nextBoundary: 0n,
               complete: !(incomplete && request.address === tiers[100]),
             },
           },
@@ -43,7 +47,10 @@ it("sums all pages and canonicalizes payment assets at the same block", async ()
     { factory, vault, tierCount: 101n },
     50n,
   );
-  expect(totals.get(zeroAddress)).toEqual({ amount: 303n, complete: true });
+  expect(totals.get(zeroAddress)).toMatchObject({
+    amount: 303n,
+    complete: true,
+  });
   expect(
     readContract.mock.calls.filter(([r]) => r.functionName === "tiers"),
   ).toHaveLength(2);

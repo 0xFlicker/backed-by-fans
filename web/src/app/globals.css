@@ -2945,7 +2945,7 @@ dd {
 .claim-row {
   align-items: center;
   border-top: 1px solid var(--line);
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   padding-top: 1rem;
 }
 
@@ -3977,5 +3977,51 @@ dd {
   }
   .reward-purchase-curve text {
     fill: CanvasText;
+  }
+}
+
+.streaming-amount {
+  display: inline-block;
+  text-align: left;
+  justify-self: start;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.streaming-digit {
+  display: inline-block;
+  position: relative;
+  width: 1ch;
+  clip-path: inset(0 -1px);
+  vertical-align: baseline;
+  text-align: left;
+}
+.streaming-digit > span {
+  display: inline-block;
+  position: relative;
+}
+.streaming-digit-roll {
+  /* Finish before the next 100ms display tick so rapid digits never restart mid-roll. */
+  animation: streaming-digit-enter 90ms linear;
+}
+.streaming-digit-roll::before {
+  content: attr(data-previous);
+  position: absolute;
+  right: 0;
+  top: -100%;
+}
+@keyframes streaming-digit-enter {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .streaming-digit-roll {
+    animation: none;
+  }
+  .streaming-digit-roll::before {
+    content: none;
   }
 }

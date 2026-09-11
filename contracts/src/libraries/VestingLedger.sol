@@ -318,6 +318,17 @@ library VestingLedger {
             * ((work.earned[1] + self.rewardCarry) / self.totalShares);
         }
         result.current = _rawBalances(scaled);
+        if (complete) {
+            result.ratesScaled[0] = work.rates[0];
+            result.ratesScaled[2] = work.referralRate;
+            result.ratesScaled[3] = work.rates[3];
+            if (self.totalShares != 0 && self.members[tokenId].eligible) {
+                // Full-precision multiplication avoids overflow. Flooring loses less than
+                // one accounting-scale unit per second; this rate is presentation only.
+                result.ratesScaled[1] =
+                    Math.mulDiv(work.rates[1], self.members[tokenId].shares, self.totalShares);
+            }
+        }
         result.current.status = MembershipTypes.AccountingStatus(
             work.cursor,
             work.length == 0 ? 0 : work.frontier[0].node.timestamp,

@@ -130,3 +130,8 @@ Document C=2^112−1 in canonical raw units and its token-decimal conversion. It
 If a positive payment cannot fit under C, it is rejected before collection; a fixed-price payment also needs enough remaining capacity for its complete purchased periods. Existing earning, claims, refunds, accounting and otherwise-valid free/granted access continue under their normal rules. Refunds do not reduce the lifetime cursor. Suspended weight still requires a valid positive payment to reactivate, so it cannot reactivate through a rejected payment or through free access. These are documented consequences of existing rules, not an additional product mode. Arithmetic and boundary coverage remain required during implementation.
 
 Publication config includes reviewed `uint112 minimumPayment`; a registry mismatch reverts `MinimumPaymentChanged(expected, actual)` before creation. This value is required, not a compatibility fallback.
+
+
+### Streaming preview rates
+
+`AccountingPreview.ratesScaled` returns current per-second rates in `2^128` accounting-scale units, ordered creator/member/referral/protocol. Rates are derived after the bounded read projection, not from the stored cursor. An incomplete projection returns zero rates. Member rates include current eligibility and weight share; referral rates apply only to the requested address. They are display estimates, not compounding or claim promises. The existing `asOf`, `current.status.nextBoundary` and completeness bound their use. No storage or transaction semantics change.

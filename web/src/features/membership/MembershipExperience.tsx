@@ -1,4 +1,6 @@
 "use client";
+import { StreamingAmount } from "@/components/StreamingAmount";
+import { earningsStream } from "@/lib/streaming-amount";
 
 import { RewardPurchaseCurve } from "./RewardPurchaseCurve";
 
@@ -1342,7 +1344,26 @@ export function MembershipExperience({
                       (raw as bigint) > 0n && (
                         <div className="claim-row" key={label as string}>
                           <strong>{label as string}</strong>
-                          <span>{paymentLabel(raw as bigint)}</span>
+                          <StreamingAmount
+                            identity={`${expectedChainId}:${account.address}:${snapshot.address}:${label}`}
+                            streams={
+                              earnings.data
+                                ? [
+                                    earningsStream(
+                                      earnings.data,
+                                      label === "Membership rewards"
+                                        ? 1
+                                        : label === "Referral proceeds"
+                                          ? 2
+                                          : 0,
+                                    ),
+                                  ]
+                                : []
+                            }
+                            format={paymentLabel}
+                            refresh={() => earnings.refetch()}
+                            active={!earnings.isError}
+                          />
                         </div>
                       ),
                   )}

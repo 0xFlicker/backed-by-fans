@@ -1,3 +1,4 @@
+import { earningsStream, type EarningsStream } from "@/lib/streaming-amount";
 import { zeroAddress, type Address, type PublicClient } from "viem";
 import {
   membershipFactoryAbi,
@@ -11,7 +12,10 @@ export async function previewFunding(
   snapshot: { factory: Address; vault: Address; tierCount: bigint },
   blockNumber: bigint,
 ) {
-  const totals = new Map<string, { amount: bigint; complete: boolean }>();
+  const totals = new Map<
+    string,
+    { amount: bigint; complete: boolean; streams: EarningsStream[] }
+  >();
   for (let offset = 0n; offset < snapshot.tierCount; offset += 100n) {
     const tiers = await client.readContract({
       address: snapshot.factory,
@@ -55,8 +59,13 @@ export async function previewFunding(
       );
       for (const { asset, preview } of values) {
         const key = asset.toLowerCase();
-        const previous = totals.get(key) ?? { amount: 0n, complete: true };
+        const previous = totals.get(key) ?? {
+          amount: 0n,
+          complete: true,
+          streams: [],
+        };
         totals.set(key, {
+          streams: [...previous.streams, earningsStream(preview, 3)],
           amount: previous.amount + preview.current.protocol,
           complete: previous.complete && preview.current.status.complete,
         });

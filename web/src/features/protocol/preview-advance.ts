@@ -1,3 +1,4 @@
+import { earningsStream, type EarningsStream } from "@/lib/streaming-amount";
 import { zeroAddress, type Address, type PublicClient } from "viem";
 import { membershipTierAbi, protocolBuybackVaultAbi } from "@/contracts";
 import type { AdvanceMode } from "./advance-call";
@@ -16,7 +17,10 @@ export async function previewAdvance(
   plan: PreviewPlan,
   mode: AdvanceMode,
 ) {
-  const releases = new Map<Address, { amount: bigint; delta: bigint }>();
+  const releases = new Map<
+    Address,
+    { amount: bigint; delta: bigint; streams: EarningsStream[] }
+  >();
   let processedSteps = 0n;
   let earnedScaled = 0n;
   let complete = true;
@@ -57,8 +61,19 @@ export async function previewAdvance(
         );
         complete &&= preview.current.status.complete;
       }
-      const previous = releases.get(asset) ?? { amount: 0n, delta: 0n };
+      const previous = releases.get(asset) ?? {
+        amount: 0n,
+        delta: 0n,
+        streams: [],
+      };
+      const stream = earningsStream(preview, 3);
+      if (maxAccountingSteps === 0n) {
+        stream.raw = preview.settled.protocol;
+        stream.rate = 0n;
+        stream.fractional = preview.settled.fractionalScaled[3];
+      }
       releases.set(asset, {
+        streams: [...previous.streams, stream],
         amount: previous.amount + projected.protocol,
         delta: previous.delta + projected.protocol - preview.settled.protocol,
       });

@@ -1,4 +1,5 @@
 "use client";
+import { StreamingAmount } from "@/components/StreamingAmount";
 
 import { useState } from "react";
 import { type AdvanceMode } from "./advance-call";
@@ -77,6 +78,8 @@ export function Burn({
               : display.uiMultiplier;
           return {
             ...item,
+            display,
+            multiplier,
             label: `${formatLocalizedTokenAmount({ raw: item.amount, decimals: display.decimals, multiplier })} ${display.symbol}`,
             deltaLabel: `${formatLocalizedTokenAmount({ raw: item.delta, decimals: display.decimals, multiplier })} ${display.symbol}`,
           };
@@ -275,14 +278,35 @@ export function Burn({
               {mode !== "buyback" &&
                 preview.data?.funds.map((item) => (
                   <div key={item.asset} className="protocol-funding-preview">
-                    <strong>{item.label}</strong>{" "}
+                    <strong>
+                      <StreamingAmount
+                        identity={`${chainId}:${factory}:${item.asset}:${mode}`}
+                        streams={item.streams}
+                        format={(raw) =>
+                          `${formatLocalizedTokenAmount({ raw, decimals: item.display.decimals, multiplier: item.multiplier })} ${item.display.symbol}`
+                        }
+                        refresh={() => preview.refetch()}
+                        active={!preview.isError}
+                      />
+                    </strong>{" "}
                     {mode === "both"
                       ? "ready to release"
                       : "earned protocol funding"}
                     {item.delta > 0n && (
                       <span className="small-copy">
                         {" "}
-                        · +{item.deltaLabel} since last settlement
+                        · +
+                        <StreamingAmount
+                          identity={`${chainId}:${factory}:${item.asset}:${mode}:delta`}
+                          streams={item.streams}
+                          base={item.delta - item.amount}
+                          format={(raw) =>
+                            `${formatLocalizedTokenAmount({ raw, decimals: item.display.decimals, multiplier: item.multiplier })} ${item.display.symbol}`
+                          }
+                          refresh={() => preview.refetch()}
+                          active={!preview.isError}
+                        />{" "}
+                        since last settlement
                       </span>
                     )}
                   </div>

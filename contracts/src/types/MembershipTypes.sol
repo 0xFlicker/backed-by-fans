@@ -154,6 +154,8 @@ library MembershipTypes {
         uint256[4] earnedDeltaScaled;
         EarnedBalances settled;
         EarnedBalances current;
+        /// @notice Per-second ACCOUNTING_SCALE rates: creator/member/referral/protocol.
+        uint256[4] ratesScaled;
     }
 
     struct AllocationState {

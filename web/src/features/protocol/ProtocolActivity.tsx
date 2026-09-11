@@ -1,4 +1,5 @@
 "use client";
+import { StreamingAmount } from "@/components/StreamingAmount";
 
 import { useState } from "react";
 import {
@@ -26,7 +27,9 @@ import { previewFunding } from "./preview-funding";
 import { readAcceptedPaymentToken } from "@/lib/payment-token-read";
 import { formatLocalizedTokenAmount } from "@/lib/token-amount";
 
-type State = Awaited<ReturnType<typeof readPublicBuybacks>>;
+type State = Awaited<ReturnType<typeof readPublicBuybacks>> & {
+  funding?: Awaited<ReturnType<typeof previewFunding>>;
+};
 function Amount({
   raw,
   decimals = 18,
@@ -74,26 +77,27 @@ export function ProtocolActivity({
   const query = useQuery({
     queryKey: ["protocol", chainId, "snapshot", assetOffset],
     enabled: Boolean(client),
-    queryFn: () => readPublicBuybacks(client!, deployment, { assetOffset }),
+    queryFn: async (): Promise<State> => {
+      const snapshot = await readPublicBuybacks(client!, deployment, {
+        assetOffset,
+      });
+      return snapshot.status === "valid"
+        ? {
+            ...snapshot,
+            funding: await previewFunding(
+              client!,
+              snapshot.data,
+              snapshot.capturedBlock,
+            ),
+          }
+        : snapshot;
+    },
     initialData: assetOffset === 0 ? initialState : undefined,
     staleTime: 0,
     refetchInterval: 15_000,
   });
   const state = query.data;
-  const funding = useQuery({
-    queryKey: [
-      "protocol",
-      chainId,
-      "funding-totals",
-      state?.status === "valid" ? state.capturedBlock.toString() : null,
-    ],
-    enabled: Boolean(client && state?.status === "valid"),
-    queryFn: () => {
-      if (!client || state?.status !== "valid")
-        throw new Error("Protocol snapshot unavailable");
-      return previewFunding(client, state.data, state.capturedBlock);
-    },
-  });
+  const funding = { data: state?.funding, isError: query.isError };
   const protocolAsset =
     state?.status === "valid" && state.data.protocolToken !== zeroAddress
       ? state.data.assets.find(
@@ -204,16 +208,21 @@ export function ProtocolActivity({
                             ?.complete === false ? (
                           "Preview incomplete"
                         ) : (
-                          <Amount
-                            raw={
+                          <StreamingAmount
+                            identity={`${chainId}:${state.data.factory}:${item.asset}`}
+                            base={
                               item.data.membership.available +
-                              item.data.donation.available +
-                              (funding.data.get(item.asset.toLowerCase())
-                                ?.amount ?? 0n)
+                              item.data.donation.available
                             }
-                            decimals={item.data.metadata?.decimals ?? 0}
-                            multiplier={item.data.metadata?.uiMultiplier}
-                            symbol={item.data.metadata?.symbol}
+                            streams={
+                              funding.data.get(item.asset.toLowerCase())
+                                ?.streams ?? []
+                            }
+                            format={(raw) =>
+                              `${formatLocalizedTokenAmount({ raw, decimals: item.data.metadata?.decimals ?? 0, multiplier: item.data.metadata?.uiMultiplier ?? 10n ** 18n })} ${item.data.metadata?.symbol ?? ""}`
+                            }
+                            refresh={() => refresh()}
+                            active={!funding.isError && !query.isError}
                           />
                         )}
                       </dd>
@@ -695,7 +704,21 @@ function TierForecast({
       <dl className="protocol-ledger">
         <div>
           <dt>Earned and ready to release</dt>
-          <dd>{display(current.earnedHeld)}</dd>
+          <dd>
+            {token.data ? (
+              <StreamingAmount
+                identity={`${snapshot.chainId}:${tier}:protocol`}
+                streams={[current.stream]}
+                format={(raw) =>
+                  `${formatLocalizedTokenAmount({ raw, decimals: token.data!.decimals, multiplier: token.data!.uiMultiplier })} ${token.data!.symbol}`
+                }
+                refresh={() => funding.refetch()}
+                active={!funding.isError}
+              />
+            ) : (
+              display(current.earnedHeld)
+            )}
+          </dd>
         </div>
         <div>
           <dt>Reserved protocol funding</dt>

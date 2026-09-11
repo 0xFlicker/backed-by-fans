@@ -227,6 +227,7 @@ function renderExperience(
   const preview = {
     asOf: value.capturedTimestamp,
     processedSteps: previewSteps,
+    ratesScaled: [0n, 0n, 0n, 0n] as const,
     earnedDeltaScaled: [0n, 0n, 0n, 0n] as const,
     settled: balances,
     current: balances,
