@@ -1,4 +1,5 @@
 .page {
+  --skill-offset: var(--applause);
   margin: 0 auto;
   max-width: var(--page-width);
   padding: 0 var(--page-gutter) clamp(6rem, 10vw, 10rem);
@@ -26,7 +27,7 @@
 }
 
 .lede {
-  color: var(--backstage);
+  color: var(--ink);
   font-size: clamp(1rem, 1.4vw, 1.18rem);
   line-height: 1.65;
   margin: 1.7rem 0 2rem;
@@ -40,7 +41,7 @@
 
 .artSection {
   align-items: center;
-  border-top: 2px solid var(--backstage);
+  border-top: 2px solid var(--strong-line);
   display: grid;
   gap: clamp(2.5rem, 7vw, 7rem);
   grid-template-columns: minmax(17rem, 0.62fr) minmax(0, 1.38fr);
@@ -74,7 +75,7 @@
 .artWindow {
   aspect-ratio: 16 / 11;
   background: var(--backstage);
-  box-shadow: 1rem 1rem 0 var(--applause);
+  box-shadow: 1rem 1rem 0 var(--skill-offset);
   overflow: hidden;
 }
 
@@ -130,7 +131,7 @@
 
 .resources {
   align-items: start;
-  border-top: 2px solid var(--backstage);
+  border-top: 2px solid var(--strong-line);
   display: grid;
   gap: clamp(3rem, 8vw, 8rem);
   grid-template-columns: minmax(18rem, 0.8fr) minmax(0, 1.2fr);
@@ -220,7 +221,7 @@
 
   .artWindow {
     aspect-ratio: 4 / 5;
-    box-shadow: 0.6rem 0.6rem 0 var(--applause);
+    box-shadow: 0.6rem 0.6rem 0 var(--skill-offset);
   }
 
   .workflowList article {
@@ -238,5 +239,11 @@
   .artWindow:hover .artImage,
   .resourceLinks a:hover {
     transform: none;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .page {
+    --skill-offset: color-mix(in srgb, var(--applause) 28%, var(--house-light));
   }
 }

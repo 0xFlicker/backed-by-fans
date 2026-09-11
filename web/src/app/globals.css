@@ -4,7 +4,7 @@
   --backstage: #11131a;
   --house-light: #f7f2e8;
   --applause: #ff6a4d;
-  --fan-blue: #625bff;
+  --fan-blue: #574fe6;
   --encore: #d9f99d;
   --quiet: #707386;
   --muted-ink: #4d4f5d;
@@ -16,6 +16,31 @@
   --radius-large: 1.75rem;
   --page-gutter: clamp(1rem, 4vw, 4rem);
   --page-width: 90rem;
+  --ink: #11131a;
+  --strong-line: #11131a;
+  --accent-ink: #11131a;
+  --accent-muted: #4d4f5d;
+  --danger-ink: #8a2514;
+  --inset-surface: #e8e2d7;
+  --selection-surface: #e0edc9;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --house-light: #18191d;
+    --paper: #202126;
+    --ink: #f7f2e8;
+    --muted-ink: #bbb8b0;
+    --quiet: #a3a4b0;
+    --line: #505055;
+    --strong-line: #77777e;
+    --fan-blue: #ada8ff;
+    --danger-ink: #ff9b86;
+    --inset-surface: #292a30;
+    --selection-surface: #323c29;
+    color-scheme: dark;
+  }
 }
 
 @theme inline {
@@ -34,13 +59,13 @@
 
 html {
   background: var(--house-light);
-  color: var(--backstage);
+  color: var(--ink);
   scroll-behavior: smooth;
 }
 
 body {
   background: var(--house-light);
-  color: var(--backstage);
+  color: var(--ink);
   font-family: var(--font-geist-sans), sans-serif;
   margin: 0;
   min-height: 100vh;
@@ -85,8 +110,10 @@ button:disabled {
 }
 
 ::selection {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
   background: var(--encore);
-  color: var(--backstage);
+  color: var(--ink);
 }
 
 .font-display {
@@ -99,6 +126,9 @@ button:disabled {
 }
 
 .skip-link {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
   font-weight: 700;
   left: var(--page-gutter);
@@ -116,7 +146,7 @@ button:disabled {
 
 .site-header {
   align-items: center;
-  border-bottom: 1px solid rgba(17, 19, 26, 0.22);
+  border-bottom: 1px solid var(--line);
   display: grid;
   gap: 1.5rem;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -165,7 +195,7 @@ body[data-renderer-lab="active"] .site-header > .wallet-control {
   background: var(--house-light);
   border: 1px solid var(--line);
   border-radius: 999px;
-  color: var(--backstage);
+  color: var(--ink);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 650;
@@ -174,10 +204,12 @@ body[data-renderer-lab="active"] .site-header > .wallet-control {
 }
 
 .testnet-badge {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
   background: var(--encore);
-  border: 1px solid var(--backstage);
+  border: 1px solid var(--strong-line);
   border-radius: 999px;
-  color: var(--backstage);
+  color: var(--ink);
   font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -294,7 +326,7 @@ main {
 
 .button {
   align-items: center;
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius-small);
   cursor: pointer;
   display: inline-flex;
@@ -328,8 +360,10 @@ main {
 
 .button-applause,
 .button-warning {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
   background: var(--applause);
-  color: var(--backstage);
+  color: var(--ink);
 }
 
 .button-dark {
@@ -370,8 +404,11 @@ main {
 }
 
 .hero-mark {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   bottom: 1.5rem;
   display: grid;
   height: clamp(4.5rem, 9vw, 7rem);
@@ -453,7 +490,7 @@ main {
 }
 
 .principles dt {
-  color: var(--backstage);
+  color: var(--ink);
   font-size: 0.88rem;
   font-weight: 760;
   letter-spacing: -0.015em;
@@ -470,7 +507,7 @@ main {
 .text-button {
   background: none;
   border: 0;
-  color: var(--backstage);
+  color: var(--ink);
   cursor: pointer;
   font-weight: 720;
   min-height: 2.75rem;
@@ -534,7 +571,7 @@ main {
 
 .catalog-card {
   background: var(--paper);
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius);
   display: block;
   overflow: hidden;
@@ -557,7 +594,7 @@ main {
 .catalog-card-artwork {
   aspect-ratio: 1;
   background: var(--backstage);
-  border-bottom: 2px solid var(--backstage);
+  border-bottom: 2px solid var(--strong-line);
   overflow: hidden;
   position: relative;
 }
@@ -574,7 +611,7 @@ main {
 
 .catalog-card-artwork-fallback {
   align-items: flex-end;
-  color: var(--paper);
+  color: #f7f2e8;
   display: flex;
   font-family: var(--font-geist-mono), monospace;
   font-size: 0.78rem;
@@ -754,7 +791,7 @@ main {
 }
 
 .about-chain-record > div {
-  border-top: 2px solid var(--backstage);
+  border-top: 2px solid var(--strong-line);
   padding-top: 1rem;
 }
 
@@ -872,7 +909,7 @@ main {
 }
 
 .about-creator-columns article {
-  border-top: 2px solid var(--backstage);
+  border-top: 2px solid var(--strong-line);
   padding-top: 1rem;
 }
 
@@ -1097,7 +1134,7 @@ dd {
 
 .read-state {
   background: var(--paper);
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius);
   padding: 1.2rem;
 }
@@ -1158,7 +1195,7 @@ dd {
 
 .transaction-flow {
   background: var(--paper);
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius-large);
   padding: clamp(1.25rem, 3vw, 2rem);
 }
@@ -1176,6 +1213,9 @@ dd {
 }
 
 .transaction-phase-label {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
   border-radius: 999px;
   font-size: 0.74rem;
@@ -1211,18 +1251,24 @@ dd {
 }
 
 .transaction-steps .is-current {
-  color: var(--backstage);
+  color: var(--ink);
   font-weight: 720;
 }
 
 .transaction-steps .is-current > span {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--applause);
-  border-color: var(--backstage);
+  border-color: var(--strong-line);
 }
 
 .transaction-steps .is-complete > span {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
-  border-color: var(--backstage);
+  border-color: var(--strong-line);
 }
 
 .transaction-message {
@@ -1282,7 +1328,7 @@ dd {
 }
 
 .creator-steps ol {
-  border-top: 2px solid var(--backstage);
+  border-top: 2px solid var(--strong-line);
   list-style: none;
   margin: 1rem 0;
   padding: 0;
@@ -1319,12 +1365,15 @@ dd {
 }
 
 .creator-steps .is-current button {
-  color: var(--backstage);
+  color: var(--ink);
 }
 
 .creator-steps .is-current button span {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--applause);
-  border-color: var(--backstage);
+  border-color: var(--strong-line);
 }
 
 .creator-stage {
@@ -1360,7 +1409,7 @@ dd {
 
 .studio-commit-panel,
 .studio-stored-panel {
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius-large);
   padding: clamp(1.25rem, 4vw, 2.5rem);
 }
@@ -1429,6 +1478,9 @@ dd {
 }
 
 .studio-stored-panel {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
 }
 
@@ -1438,7 +1490,7 @@ dd {
 
 .creator-step-panel {
   background: var(--paper);
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius-large);
   padding: clamp(1.25rem, 4vw, 3.25rem);
 }
@@ -1508,8 +1560,11 @@ dd {
 }
 
 .reward-curve-presets label:has(input:checked) {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
-  border-color: var(--backstage);
+  border-color: var(--strong-line);
 }
 
 .reward-curve-presets input {
@@ -1607,9 +1662,9 @@ dd {
 .creator-field input,
 .creator-field textarea {
   background: var(--house-light);
-  border: 1.5px solid var(--backstage);
+  border: 1.5px solid var(--strong-line);
   border-radius: var(--radius-small);
-  color: var(--backstage);
+  color: var(--ink);
   font: inherit;
   min-height: 3.15rem;
   padding: 0.8rem 0.9rem;
@@ -1636,7 +1691,7 @@ dd {
 
 .field-error,
 .creator-field small {
-  color: #8a2514;
+  color: var(--danger-ink);
   font-weight: 680;
 }
 
@@ -1655,7 +1710,7 @@ dd {
 .payment-token-option {
   align-items: center;
   background: var(--house-light);
-  border: 1.5px solid var(--backstage);
+  border: 1.5px solid var(--strong-line);
   border-radius: var(--radius-small);
   cursor: pointer;
   display: grid;
@@ -1666,7 +1721,7 @@ dd {
 }
 
 .payment-token-option[data-selected="true"] {
-  box-shadow: inset 0 -5px 0 var(--acid);
+  box-shadow: inset 0 -5px 0 var(--applause);
 }
 
 .payment-token-option > span:not(.payment-token-balance) {
@@ -1784,7 +1839,7 @@ dd {
 }
 
 .terms-review section {
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius);
   padding: 1.25rem;
 }
@@ -1795,6 +1850,9 @@ dd {
 }
 
 .terms-review section:last-child {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
 }
 
@@ -1810,8 +1868,9 @@ dd {
 }
 
 .final-art-review {
+  --muted-ink: #c8cad4;
   background: var(--backstage);
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius-large);
   color: white;
   display: grid;
@@ -1901,7 +1960,7 @@ dd {
 }
 
 .publication-queue {
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   margin: 2rem 0 1rem;
   padding: clamp(1rem, 3vw, 1.5rem);
 }
@@ -1932,7 +1991,7 @@ dd {
 
 .publication-queue li > span {
   align-items: center;
-  border: 1.5px solid var(--backstage);
+  border: 1.5px solid var(--strong-line);
   border-radius: 50%;
   display: flex;
   font-family: var(--font-geist-mono), monospace;
@@ -1942,6 +2001,9 @@ dd {
 }
 
 .publication-queue li[data-status="Complete"] > span {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
 }
 
@@ -1985,8 +2047,11 @@ dd {
 }
 
 .creator-success {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
-  border: 3px solid var(--backstage);
+  border: 3px solid var(--strong-line);
   border-radius: var(--radius-large);
   box-shadow: var(--shadow);
   padding: clamp(1.5rem, 5vw, 4rem);
@@ -2041,7 +2106,7 @@ dd {
 }
 
 .artwork-management-header p:not(.eyebrow) {
-  color: var(--muted);
+  color: var(--muted-ink);
   max-width: 50rem;
 }
 
@@ -2062,7 +2127,7 @@ dd {
 }
 
 .renderer-management-summary span {
-  color: var(--muted);
+  color: var(--muted-ink);
   font-size: 0.78rem;
   font-weight: 750;
   letter-spacing: 0.06em;
@@ -2128,6 +2193,7 @@ dd {
 }
 
 .management-locked {
+  --muted-ink: #c8cad4;
   background: var(--backstage);
   border-radius: var(--radius-large);
   color: white;
@@ -2156,7 +2222,7 @@ dd {
 
 .control-group {
   background: var(--paper);
-  border: 1.5px solid var(--backstage);
+  border: 1.5px solid var(--strong-line);
   border-radius: var(--radius-large);
   padding: clamp(1.25rem, 3vw, 2rem);
 }
@@ -2174,6 +2240,9 @@ dd {
 }
 
 .refund-preview {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
   border-radius: var(--radius);
   display: grid;
@@ -2196,6 +2265,9 @@ dd {
 }
 
 .protocol-facts > div {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
   padding: 1.25rem;
 }
@@ -2248,7 +2320,7 @@ dd {
   margin-top: 1rem;
 }
 .protocol-section {
-  border-top: 2px solid var(--backstage);
+  border-top: 2px solid var(--strong-line);
   padding: 2.5rem 0;
 }
 .protocol-section > h2 {
@@ -2309,6 +2381,9 @@ dd {
   font-size: 0.85rem;
 }
 .protocol-table tbody tr:nth-last-child(2) {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--encore);
 }
 .protocol-actions {
@@ -2359,7 +2434,7 @@ dd {
 }
 .protocol-tier-picker select {
   background: var(--paper);
-  border: 1px solid var(--backstage);
+  border: 1px solid var(--strong-line);
   border-radius: var(--radius-small);
   padding: 0.9rem;
   width: 100%;
@@ -2388,7 +2463,7 @@ dd {
 .protocol-forecast-horizons {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 2px solid var(--backstage);
+  border-top: 2px solid var(--strong-line);
   margin: 2rem 0;
   gap: 1.5rem;
   padding-top: 1rem;
@@ -2443,7 +2518,7 @@ dd {
 
 .global-error-shell {
   background: var(--house-light);
-  color: var(--backstage);
+  color: var(--ink);
   font-family: sans-serif;
   min-height: 100vh;
   padding: 15vh 8vw;
@@ -2455,8 +2530,11 @@ dd {
 }
 
 .global-error-shell button {
+  --ink: var(--accent-ink);
+  --muted-ink: var(--accent-muted);
+  color: var(--ink);
   background: var(--applause);
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   min-height: 3rem;
   padding: 0.75rem 1rem;
 }
@@ -2556,7 +2634,7 @@ dd {
     linear-gradient(145deg, rgba(98, 91, 255, 0.3), transparent 47%),
     linear-gradient(315deg, rgba(255, 106, 77, 0.28), transparent 52%),
     var(--backstage);
-  color: var(--house-light);
+  color: #f7f2e8;
   display: grid;
   gap: 0.55rem;
   padding: clamp(1.25rem, 4vw, 3rem);
@@ -2568,7 +2646,7 @@ dd {
 }
 
 .membership-hero-copy {
-  border-top: 2px solid var(--backstage);
+  border-top: 2px solid var(--strong-line);
   display: grid;
   gap: clamp(1.1rem, 2vw, 1.8rem);
   grid-template-rows: auto auto auto auto 1fr auto;
@@ -2639,7 +2717,7 @@ dd {
 .share-dialog {
   background: transparent;
   border: 0;
-  color: var(--backstage);
+  color: var(--ink);
   inset: 0;
   margin: auto;
   max-height: calc(100dvh - 2rem);
@@ -2656,7 +2734,7 @@ dd {
 
 .share-dialog-panel {
   background: var(--paper);
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius-large);
   box-shadow: 0 1rem 0 rgba(17, 19, 26, 0.24);
   display: grid;
@@ -2702,7 +2780,7 @@ dd {
 .share-dialog-copy-button:hover,
 .share-dialog-copy-button:focus-visible {
   background: color-mix(in srgb, var(--encore) 20%, transparent);
-  border-color: var(--backstage);
+  border-color: var(--strong-line);
 }
 
 .share-dialog-copy {
@@ -2860,7 +2938,7 @@ dd {
 .claim-groups,
 .maintenance-action,
 .account-results {
-  border-top: 2px solid var(--backstage);
+  border-top: 2px solid var(--strong-line);
   padding-top: clamp(1.5rem, 3vw, 2.25rem);
 }
 
@@ -2928,7 +3006,7 @@ dd {
 .copyable-address-button:focus-visible {
   background: color-mix(in srgb, var(--encore) 20%, transparent);
   border-color: var(--line);
-  color: var(--backstage);
+  color: var(--ink);
 }
 
 .copyable-address-explorer {
@@ -3032,9 +3110,9 @@ dd {
 .account-refresh {
   align-items: center;
   background: transparent;
-  border: 1px solid var(--backstage);
+  border: 1px solid var(--strong-line);
   border-radius: var(--radius-small);
-  color: var(--backstage);
+  color: var(--ink);
   cursor: pointer;
   display: inline-flex;
   gap: 0.55rem;
@@ -3069,7 +3147,7 @@ dd {
 
 .account-membership-card {
   background: var(--paper);
-  border: 2px solid var(--backstage);
+  border: 2px solid var(--strong-line);
   border-radius: var(--radius);
   display: grid;
   height: 100%;
@@ -3084,7 +3162,7 @@ dd {
 .account-card-artwork {
   aspect-ratio: 1;
   background: var(--backstage);
-  border-bottom: 2px solid var(--backstage);
+  border-bottom: 2px solid var(--strong-line);
   display: block;
   overflow: hidden;
   position: relative;
@@ -3102,7 +3180,7 @@ dd {
 
 .account-card-artwork-fallback {
   align-items: flex-end;
-  color: var(--paper);
+  color: #f7f2e8;
   display: flex;
   font-family: var(--font-geist-mono), monospace;
   font-size: 0.78rem;
@@ -3136,7 +3214,7 @@ dd {
 }
 
 .account-card-balances {
-  background: color-mix(in srgb, var(--encore) 38%, var(--paper));
+  background: var(--selection-surface);
   border-radius: var(--radius-small);
   display: grid;
   gap: 0.85rem;
@@ -3506,6 +3584,10 @@ dd {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .reveal {
+    animation: none;
+  }
+
   *,
   *::before,
   *::after {
@@ -3625,7 +3707,7 @@ dd {
 }
 .technical-details[open] > summary,
 .contract-facts[open] > summary {
-  color: var(--backstage);
+  color: var(--ink);
   margin-bottom: 1.25rem;
 }
 .technical-details > p {
@@ -3654,7 +3736,7 @@ dd {
 }
 .protocol-page .technical-details.protocol-section > summary {
   font-size: 1.15rem;
-  color: var(--backstage);
+  color: var(--ink);
 }
 .membership-hero-copy h1 {
   font-size: clamp(2.75rem, 5vw, 4.75rem);
@@ -3958,12 +4040,12 @@ dd {
   fill-opacity: 0.12;
 }
 .reward-purchase-marker {
-  stroke: var(--backstage);
+  stroke: var(--ink);
   stroke-width: 1;
   stroke-dasharray: 3 3;
 }
 .reward-purchase-point {
-  fill: var(--backstage);
+  fill: var(--ink);
 }
 @media (forced-colors: active) {
   .reward-purchase-span {
@@ -4024,4 +4106,9 @@ dd {
   .streaming-digit-roll::before {
     content: none;
   }
+}
+
+.protocol-page .button {
+  max-width: 100%;
+  white-space: normal;
 }

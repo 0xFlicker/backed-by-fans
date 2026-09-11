@@ -3,7 +3,8 @@ import { renderToString } from "react-dom/server";
 import type { ReactNode } from "react";
 import { useChainId, type State } from "wagmi";
 vi.mock("@rainbow-me/rainbowkit", () => ({
-  lightTheme: () => ({}),
+  lightTheme: () => ({ colors: {} }),
+  darkTheme: () => ({ colors: {} }),
   RainbowKitProvider: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock("@/lib/wallet-config", async () => {
