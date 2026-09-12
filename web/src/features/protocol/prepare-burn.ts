@@ -124,18 +124,18 @@ export async function prepareAdvance(
   const ready = discovery.flatMap((item) =>
     item.status === "fulfilled" &&
     (item.value.held > 0n ||
-      (!item.value.status.complete && item.value.status.scheduledMembers > 0n))
+      (!item.value.status.complete && item.value.status.nextBoundary > 0n))
       ? [item.value]
       : [],
   );
   const accountingCount = ready.filter(
-    (item) => !item.status.complete && item.status.scheduledMembers > 0n,
+    (item) => !item.status.complete && item.status.nextBoundary > 0n,
   ).length;
   let remaining = 25n;
   let remainingTiers = accountingCount;
   const advanceTiers = ready.map((item) => {
     const maxAccountingSteps =
-      !item.status.complete && item.status.scheduledMembers > 0n
+      !item.status.complete && item.status.nextBoundary > 0n
         ? remaining / BigInt(remainingTiers--)
         : 0n;
     remaining -= maxAccountingSteps;

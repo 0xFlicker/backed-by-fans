@@ -271,8 +271,8 @@ export function RewardCurveControls({
       )}
       <p className="small-copy">
         Boost and window are permanent when published. A zero contribution adds
-        access only: no new weight, no funded rewards, and no reactivation of
-        suspended weight.
+        access only, with no new weight or funded rewards. Expired memberships
+        retire permanently; returning creates a new position.
       </p>
     </section>
   );

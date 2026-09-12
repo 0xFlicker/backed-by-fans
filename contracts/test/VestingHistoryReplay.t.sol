@@ -12,19 +12,20 @@ import {MockUSDG} from "./mocks/MockUSDG.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Test} from "forge-std/Test.sol";
 
-/// @dev Public API differential replay. Python authors intervals/cohorts and exact
-/// expected balances; neither side reads or reproduces the production heap.
+/// @dev Differential replay of independently authored intervals, token cohorts
+/// and owner credits. Neither the generator nor this reader reproduces the heap.
 contract VestingHistoryReplayTest is Test {
     using SafeCast for uint256;
     uint256 private constant Q = 1 << 128;
-    uint256 private constant VECTOR_LENGTH = 41;
+    uint256 private constant ROW_LENGTH = 5;
+    uint256 private constant GLOBAL_LENGTH = 40;
+    uint256 private constant POSITION_LENGTH = 10;
     MockUSDG private token;
     MembershipFactory private factory;
     OnchainMetadataRenderer private renderer;
     MembershipTier private tier;
     uint256[4] private claimed;
-    uint256[3] private memberClaimed;
-    uint256[2] private referrerClaimed;
+    mapping(uint256 => uint256) private positionClaimed;
     uint256 private refunded;
     uint256 private ownerIndex;
 
@@ -48,7 +49,7 @@ contract VestingHistoryReplayTest is Test {
     }
 
     function _referrer(uint256 i) private pure returns (address) {
-        return address(SafeCast.toUint160(0x200 + i % 2));
+        return address(SafeCast.toUint160(0x200 + i));
     }
 
     function _owner(uint256 i) private pure returns (address) {
@@ -56,14 +57,13 @@ contract VestingHistoryReplayTest is Test {
     }
 
     function test_replayIndependentHistories() public {
-        // The ordinary suite uses a committed deterministic history. The corpus
-        // runner supplies its entire batch explicitly; a prior large run must
-        // not silently change the ordinary suite's workload or gas allowance.
         string memory path =
             vm.envOr("BBF_VESTING_HISTORY_INPUT", string("test/fixtures/vesting-history.bin"));
         uint256[] memory data = abi.decode(vm.readFileBinary(path), (uint256[]));
-        uint256 cursor = 1;
-        for (uint256 history; history < data[0]; ++history) {
+        assertEq(data[0], 2, "token-position history schema");
+        uint256 schedules = vm.envOr("BBF_VESTING_HISTORY_ALL_BUDGETS", false) ? 27 : 3;
+        uint256 cursor = 2;
+        for (uint256 history; history < data[1]; ++history) {
             uint256 baseline = vm.snapshotState();
             uint256 seed = data[cursor++];
             uint256 count = data[cursor++];
@@ -82,8 +82,6 @@ contract VestingHistoryReplayTest is Test {
             vm.prank(_owner(0));
             tier = MembershipTier(factory.createTier(config));
             for (uint256 m; m < 3; ++m) {
-                vm.prank(_owner(0));
-                tier.grantTime(_member(m), 1);
                 token.mint(_member(m), 1e18);
                 vm.prank(_member(m));
                 token.approve(address(tier), type(uint256).max);
@@ -91,233 +89,237 @@ contract VestingHistoryReplayTest is Test {
             token.mint(address(this), 1e18);
             token.approve(address(tier), type(uint256).max);
             uint256 initial = vm.snapshotState();
-            bytes32[] memory sparse = new bytes32[](count);
-            for (uint256 frequency; frequency < 3; ++frequency) {
+            for (uint256 schedule; schedule < schedules; ++schedule) {
                 for (uint256 action; action < count; ++action) {
-                    _action(data, cursor + action * 4, frequency, seed);
-                    uint256[] memory actual = _state();
-                    bytes32 normalized = keccak256(abi.encode(_normalizeClaims(actual)));
-                    if (frequency == 0) {
-                        sparse[action] = normalized;
-                    } else {
-                        assertEq(
-                            normalized,
-                            sparse[action],
-                            string.concat("frequency at action ", vm.toString(action))
-                        );
+                    uint256[5] memory row;
+                    for (uint256 field; field < ROW_LENGTH; ++field) {
+                        row[field] = data[cursor + action * ROW_LENGTH + field];
                     }
+                    // Release temporary oracle-read memory after every action;
+                    // adding schedules must not cause quadratic memory growth.
+                    this.replayAction(row, schedule, seed);
                 }
                 uint256[] memory finalState = _state();
-                uint256[] memory expected = new uint256[](VECTOR_LENGTH);
-                for (uint256 field; field < VECTOR_LENGTH; ++field) {
-                    expected[field] = data[cursor + count * 4 + field];
-                }
-                if (frequency != 0) {
-                    finalState = _normalizeClaims(finalState);
-                    expected = _normalizeClaims(expected);
-                }
-                for (uint256 field; field < VECTOR_LENGTH; ++field) {
+                uint256 expectedLength = data[cursor + count * ROW_LENGTH];
+                assertEq(finalState.length, expectedLength);
+                for (uint256 field; field < expectedLength; ++field) {
                     assertEq(
                         finalState[field],
-                        expected[field],
+                        data[cursor + count * ROW_LENGTH + 1 + field],
                         string.concat("oracle field ", vm.toString(field))
                     );
                 }
-                if (frequency < 2) assertTrue(vm.revertToState(initial));
+                if (schedule + 1 < schedules) assertTrue(vm.revertToState(initial));
             }
-            cursor += count * 4 + VECTOR_LENGTH;
+            cursor += count * ROW_LENGTH + 1 + data[cursor + count * ROW_LENGTH];
             assertTrue(vm.revertToState(baseline));
         }
         assertEq(cursor, data.length, "history payload consumed");
     }
 
     function _process(uint256 budget) private {
-        bool complete;
         for (uint256 i; i < 1000; ++i) {
-            (,, complete,) = tier.processAccounting(budget);
-            if (complete) return;
+            MembershipTypes.MaintenanceResult memory progress = tier.processAccounting(budget);
+            assertLe(progress.processedSteps, budget);
+            if (progress.complete) return;
+            assertGt(progress.processedSteps, 0, "incomplete calls must commit progress");
         }
         fail("bounded history failed to finish accounting");
     }
 
-    function _action(uint256[] memory data, uint256 cursor, uint256 frequency, uint256 seed)
-        private
-    {
-        uint256 timestamp = data[cursor];
-        uint256 op = data[cursor + 1];
-        uint256 member = data[cursor + 2];
-        uint256 arg = data[cursor + 3];
-        if (frequency != 0) {
+    function _budget(uint256 schedule, uint256 clock) private pure returns (uint256) {
+        if (schedule == 0) return 25;
+        if (schedule == 1) return 1;
+        if (schedule == 2) return 1 + clock % 25;
+        return schedule - 1;
+    }
+
+    function replayAction(uint256[5] calldata row, uint256 schedule, uint256 seed) external {
+        require(msg.sender == address(this), "history driver only");
+        _action(row, schedule, seed);
+        uint256[] memory actual = _state();
+        bytes32 expected = bytes32(row[4]);
+        if (sha256(abi.encodePacked(actual)) != expected) {
+            emit log_named_uint("schedule", schedule);
+            emit log_named_uint("timestamp", row[0]);
+            emit log_named_array("actual state", actual);
+        }
+        assertEq(sha256(abi.encodePacked(actual)), expected, "independent action-state oracle");
+    }
+
+    function _action(uint256[5] calldata data, uint256 schedule, uint256 seed) private {
+        uint256 timestamp = data[0];
+        uint256 op = data[1];
+        uint256 target = data[2];
+        uint256 arg = data[3];
+        if (schedule == 1 || schedule == 2) {
             for (
                 uint256 intermediate = block.timestamp + 1;
                 intermediate < timestamp;
                 ++intermediate
             ) {
-                if (frequency == 2 && (seed + intermediate) % 3 != 0) continue;
+                if (schedule == 2 && (seed + intermediate) % 3 != 0) continue;
                 vm.warp(intermediate);
-                _process(frequency == 1 ? 1 : 1 + (seed + intermediate) % 7);
-                _scheduledClaims(frequency, seed + intermediate);
+                _process(_budget(schedule, seed + intermediate));
             }
         }
         vm.warp(timestamp);
-        _process(frequency == 0 ? 25 : frequency == 1 ? 1 : 1 + (seed + timestamp) % 7);
-        uint256 id = member + 1;
-        if (op == 0) {
+        // Transfer itself must not catch up. Other due positions are retired
+        // afterward, yielding the same independent canonical state at this time.
+        if (op == 8) {
+            address previous = tier.ownerOf(target);
+            bytes32 accounting = keccak256(
+                abi.encode(
+                    tier.accountingStatus(), tier.reserveState(), tier.allocationState(target)
+                )
+            );
+            vm.prank(previous);
+            tier.transferFrom(previous, _member(arg), target);
+            assertEq(
+                keccak256(
+                    abi.encode(
+                        tier.accountingStatus(), tier.reserveState(), tier.allocationState(target)
+                    )
+                ),
+                accounting
+            );
+            _process(_budget(schedule, seed + timestamp));
+            return;
+        }
+        _process(_budget(schedule, seed + timestamp));
+        if (op == 0 || op == 2) {
             bool voluntary = tier.pricePerPeriod() == 0;
-            vm.prank(_member(member));
-            if (voluntary) tier.contribute(arg, _referrer(member));
-            else tier.purchase(arg.toUint64(), _referrer(member));
-        } else if (op == 1) {
-            vm.prank(_member(member));
-            tier.contribute(0, address(0));
-        } else if (op == 2) {
-            vm.prank(_owner(ownerIndex));
-            tier.grantTime(_member(member), arg.toUint64());
-        } else if (op == 3) {
-            vm.prank(_owner(ownerIndex));
-            tier.revokeGrantTime(id);
+            vm.prank(_member(target));
+            if (voluntary) {
+                tier.createContributionMembership(op == 2 ? 0 : arg, _referrer(target % 2));
+            } else {
+                tier.createMembership(arg.toUint64(), _referrer(target % 2));
+            }
+        } else if (op == 1 || op == 3) {
+            address beneficiary = tier.ownerOf(target);
+            (, address locked) = tier.referralOf(target);
+            address choice =
+                locked == address(0) ? _referrer((uint160(beneficiary) - 0x100) % 2) : locked;
+            bool voluntary = tier.pricePerPeriod() == 0;
+            vm.prank(beneficiary);
+            if (voluntary) tier.renewContributionMembership(target, op == 3 ? 0 : arg, choice);
+            else tier.renewMembership(target, arg.toUint64(), choice);
         } else if (op == 4) {
             vm.prank(_owner(ownerIndex));
-            refunded += tier.refund(id, type(uint256).max);
-        } else if (op == 5) {
-            uint256[] memory ids = new uint256[](1);
-            ids[0] = id;
+            tier.grantMembership(_member(target), arg.toUint64());
+        } else if (op == 5 || op == 6 || op == 7) {
+            address beneficiary = tier.ownerOf(target);
             vm.prank(_owner(ownerIndex));
-            assertEq(tier.synchronizeExpiredMemberships(ids), 1);
-        } else if (op == 6) {
-            _claimMember(member);
-        } else if (op == 7) {
-            _claimReferrer(member % 2);
-        } else if (op == 8) {
+            if (op == 5) tier.addGrantTime(target, beneficiary, arg.toUint64());
+            else if (op == 6) tier.revokeGrantTime(target, beneficiary);
+            else refunded += tier.refund(target, beneficiary, type(uint256).max);
+        } else if (op == 9) {
+            address beneficiary = tier.ownerOf(target);
+            vm.prank(beneficiary);
+            uint256 amount = tier.claimReward(target);
+            positionClaimed[target] += amount;
+            claimed[1] += amount;
+        } else if (op == 10) {
+            vm.prank(_member(target));
+            claimed[1] += tier.claimRetiredRewards();
+        } else if (op == 11) {
+            vm.prank(_referrer(target));
+            claimed[2] += tier.claimReferral();
+        } else if (op == 12) {
             vm.prank(_owner(ownerIndex));
             claimed[0] += tier.withdrawCreatorProceeds();
-        } else if (op == 9) {
+        } else if (op == 13) {
             claimed[3] += tier.releaseProtocolFees();
-        } else if (op == 10) {
+        } else if (op == 14) {
             vm.prank(_owner(ownerIndex));
             tier.transferOwnership(_owner(1 - ownerIndex));
             ownerIndex = 1 - ownerIndex;
             vm.prank(_owner(ownerIndex));
             tier.acceptOwnership();
-        } else if (op == 11) {
-            (MembershipTypes.ReferralStatus status, address referrer) = tier.referralOf(id);
-            tier.gift(_member(member), arg.toUint64(), status, referrer);
-        } else if (op == 12) {
+        } else if (op == 15) {
+            tier.giftMembership(_member(target), arg.toUint64());
+        } else if (op == 16) {
+            address beneficiary = tier.ownerOf(target);
+            (MembershipTypes.ReferralStatus status, address referrer) = tier.referralOf(target);
+            tier.giftRenewal(target, beneficiary, arg.toUint64(), status, referrer);
+        } else if (op == 17) {
             vm.prank(_owner(ownerIndex));
             tier.setPaused(true);
-            // Settled claims are legal during pause, including zero payouts.
+            assertTrue(tier.processExpirations(_budget(schedule, seed + timestamp)).complete);
             vm.prank(_owner(ownerIndex));
             claimed[0] += tier.withdrawCreatorProceeds();
             vm.prank(_owner(ownerIndex));
             tier.setPaused(false);
-        } else {
-            fail("unknown authored action");
+        } else if (op != 18) {
+            fail("unknown authored lifecycle action");
         }
-        if (frequency != 0) _scheduledClaims(frequency, seed + timestamp);
-    }
-
-    function _claimMember(uint256 member) private {
-        vm.prank(_member(member));
-        uint256 amount = tier.claimReward(member + 1);
-        claimed[1] += amount;
-        memberClaimed[member] += amount;
-    }
-
-    function _claimReferrer(uint256 referrer) private {
-        vm.prank(_referrer(referrer));
-        uint256 amount = tier.claimReferral();
-        claimed[2] += amount;
-        referrerClaimed[referrer] += amount;
-    }
-
-    function _scheduledClaims(uint256 frequency, uint256 clock) private {
-        if (frequency == 1) {
-            for (uint256 m; m < 3; ++m) {
-                _claimMember(m);
-            }
-            for (uint256 r; r < 2; ++r) {
-                _claimReferrer(r);
-            }
-        } else {
-            _claimMember(clock % 3);
-            if (clock % 2 == 0) _claimReferrer((clock / 2) % 2);
-        }
-        if (frequency == 1 || clock % 5 == 0) {
-            vm.prank(_owner(ownerIndex));
-            claimed[0] += tier.withdrawCreatorProceeds();
-            claimed[3] += tier.releaseProtocolFees();
-        }
-    }
-
-    /// @dev Compare earned entitlement as payouts plus outstanding scaled credit.
-    /// Creator ownership still controls each real claim; claim timing can change
-    /// which owner receives it, so only aggregate creator entitlement is invariant.
-    function _normalizeClaims(uint256[] memory state) private pure returns (uint256[] memory) {
-        state[1] += state[30] * Q;
-        state[2] += state[33] * Q;
-        for (uint256 m; m < 3; ++m) {
-            state[3 + m] += state[36 + m] * Q;
-            state[36 + m] = 0;
-        }
-        for (uint256 r; r < 2; ++r) {
-            state[6 + r] += state[39 + r] * Q;
-            state[39 + r] = 0;
-        }
-        for (uint256 p; p < 4; ++p) {
-            state[34] += state[30 + p];
-            state[30 + p] = 0;
-        }
-        return state;
     }
 
     function _state() private view returns (uint256[] memory result) {
-        result = new uint256[](VECTOR_LENGTH);
+        uint256 minted = tier.totalMinted();
+        result = new uint256[](GLOBAL_LENGTH + POSITION_LENGTH * minted);
+        MembershipTypes.EarnedBalances memory balances =
+        tier.previewAccounting(0, address(0), address(0), 0).settled;
         result[0] = tier.lifetimeGross();
-        uint256 liabilities;
-        for (uint256 m; m < 3; ++m) {
-            MembershipTypes.EarnedBalances memory balances =
-            tier.previewAccounting(m + 1, _referrer(m), 0).settled;
-            result[3 + m] = balances.member * Q + balances.fractionalScaled[1];
-            liabilities += result[3 + m];
-            if (m < 2) {
-                result[6 + m] = balances.referral * Q + balances.fractionalScaled[2];
-                liabilities += result[6 + m];
-            }
-            if (m == 0) {
-                result[1] = balances.creator * Q + balances.fractionalScaled[0];
-                result[2] = balances.protocol * Q + balances.fractionalScaled[3];
-                liabilities += result[1] + result[2];
-            }
-            result[19 + m] = tier.sharesOf(m + 1);
-            if (tier.rewardEligible(m + 1)) result[22] |= uint256(1) << m;
-            (result[23 + m], result[26 + m],) = tier.timeBalances(m + 1);
-        }
+        result[1] = balances.creator * Q + balances.fractionalScaled[0];
+        result[2] = balances.protocol * Q + balances.fractionalScaled[3];
+        uint256 liabilities = result[1] + result[2];
         MembershipTypes.ReserveState memory reserves = tier.reserveState();
         for (uint256 p; p < 4; ++p) {
-            result[8 + p] = reserves.unearnedScaled[p];
-            result[12 + p] = reserves.cancellationScaled[p];
-            result[30 + p] = claimed[p];
-            liabilities += result[8 + p] + result[12 + p];
+            result[3 + p] = reserves.unearnedScaled[p];
+            result[7 + p] = reserves.cancellationScaled[p];
+            result[20 + p] = claimed[p];
+            liabilities += result[3 + p] + result[7 + p];
         }
-        result[16] = reserves.distributionDustScaled;
-        result[17] = reserves.indexCarryScaled;
-        result[18] = reserves.unassignedMemberScaled;
-        liabilities += result[16] + result[17] + result[18];
-        result[29] = refunded;
-        result[34] = token.balanceOf(address(tier));
-        result[35] = ownerIndex;
+        result[11] = reserves.distributionDustScaled;
+        result[12] = reserves.indexCarryScaled;
+        result[13] = reserves.unassignedMemberScaled;
+        liabilities += result[11] + result[12] + result[13];
+        result[14] = refunded;
+        result[15] = token.balanceOf(address(tier));
+        result[16] = ownerIndex;
+        result[17] = minted;
+        result[18] = tier.totalRewardShares();
+        result[19] = tier.occupiedSupply();
         for (uint256 m; m < 3; ++m) {
-            result[36 + m] = memberClaimed[m];
+            (uint256 raw, uint256 fractional) = tier.claimableRetiredReward(_member(m));
+            result[24 + m] = raw * Q + fractional;
+            liabilities += result[24 + m];
+            result[27 + m] = token.balanceOf(_member(m));
+            result[37 + m] = tier.balanceOf(_member(m));
+            if (m < 2) {
+                MembershipTypes.EarnedBalances memory referral =
+                tier.previewAccounting(0, address(0), _referrer(m), 0).settled;
+                result[30 + m] = referral.referral * Q + referral.fractionalScaled[2];
+                liabilities += result[30 + m];
+                result[32 + m] = token.balanceOf(_referrer(m));
+                result[34 + m] = token.balanceOf(_owner(m));
+            }
         }
-        for (uint256 r; r < 2; ++r) {
-            result[39 + r] = referrerClaimed[r];
+        result[36] = token.balanceOf(address(this));
+        uint256 shareSum;
+        for (uint256 id = 1; id <= minted; ++id) {
+            uint256 offset = GLOBAL_LENGTH + (id - 1) * POSITION_LENGTH;
+            if (tier.isOccupied(id)) {
+                result[offset] = uint160(tier.ownerOf(id)) - 0x100 + 1;
+            }
+            (result[offset + 1], result[offset + 2],) = tier.timeBalances(id);
+            result[offset + 3] = tier.sharesOf(id);
+            shareSum += result[offset + 3];
+            MembershipTypes.EarnedBalances memory member =
+            tier.previewAccounting(id, address(0), address(0), 0).settled;
+            result[offset + 4] = member.member * Q + member.fractionalScaled[1];
+            liabilities += result[offset + 4];
+            result[offset + 5] = positionClaimed[id];
+            (MembershipTypes.ReferralStatus status, address referrer) = tier.referralOf(id);
+            result[offset + 6] = uint256(status);
+            result[offset + 7] = referrer == address(0) ? 0 : uint160(referrer) - 0x200 + 1;
+            MembershipTypes.AllocationState memory allocation = tier.allocationState(id);
+            result[offset + 8] = allocation.generation;
+            result[offset + 9] = allocation.lotCount;
         }
-        assertEq(result[34] * Q, liabilities, "exact scaled cash conservation");
-        assertEq(
-            tier.totalRewardShares(),
-            (result[22] & 1 != 0 ? result[19] : 0) + (result[22] & 2 != 0 ? result[20] : 0)
-                + (result[22] & 4 != 0 ? result[21] : 0),
-            "eligible sum"
-        );
+        assertEq(result[15] * Q, liabilities, "exact scaled cash conservation");
+        assertEq(result[18], shareSum, "settled live weight sum");
+        assertTrue(tier.accountingStatus().complete);
     }
 }

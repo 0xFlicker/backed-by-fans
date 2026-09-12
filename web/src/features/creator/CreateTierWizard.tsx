@@ -2579,10 +2579,11 @@ export function CreateTierWizard() {
               />
             )}
             <p>
-              All four allocations vest as paid time is consumed. Historical
-              reward weight stays permanent; eligibility continues until the
-              creator syncs an expired membership. A positive payment restores
-              suspended weight.
+              All four allocations vest as paid time is consumed. Reward weight
+              stays with each live membership until retirement at its
+              expiration. Returning creates a new position under the current
+              reward curve; already-earned rewards remain claimable by the
+              former holder.
             </p>
             <div className="terms-review">
               <section>

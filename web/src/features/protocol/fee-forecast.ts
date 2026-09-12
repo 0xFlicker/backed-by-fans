@@ -24,7 +24,7 @@ export async function readTierFunding(
       address: tier,
       abi: membershipTierAbi,
       functionName: "previewAccounting",
-      args: [0n, zeroAddress, 256n],
+      args: [0n, zeroAddress, zeroAddress, 256n],
       blockNumber: block.number,
     }),
   ]);

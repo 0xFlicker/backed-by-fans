@@ -5,6 +5,7 @@ import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
 import {IProtocolBuybackVault} from "./interfaces/IProtocolBuybackVault.sol";
 import {BuybackTypes} from "./types/BuybackTypes.sol";
+import {MembershipTypes} from "./types/MembershipTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
@@ -168,14 +169,19 @@ contract ProtocolBurnRouter is ReentrancyGuardTransient {
     }
 
     function _advanceTier(AdvanceTier calldata item) private returns (uint256 steps, bool earned) {
-        uint64 cursor;
-        bool complete;
-        uint256 delta;
-        (steps, cursor, complete, delta) =
+        MembershipTypes.MaintenanceResult memory result =
             IMembershipTier(item.tier).processAccounting(item.maxAccountingSteps);
+        steps = result.processedSteps;
         if (steps > item.maxAccountingSteps) revert InvalidAccountingResult();
-        emit AccountingAdvanced(msg.sender, item.tier, steps, cursor, complete, delta);
-        earned = delta != 0;
+        emit AccountingAdvanced(
+            msg.sender,
+            item.tier,
+            steps,
+            result.accountedThrough,
+            result.complete,
+            result.earnedScaledDelta
+        );
+        earned = result.earnedScaledDelta != 0;
     }
 
     function _releaseTier(address tier) private returns (bool) {

@@ -203,7 +203,7 @@ contract CustomRendererAddressTest is Test {
         MembershipTier tier = _createTier();
         address member = makeAddr("member");
         vm.prank(creator);
-        uint256 tokenId = tier.grantTime(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1);
         TaggedRenderer replacement = new TaggedRenderer("replacement", false);
         MembershipTypes.ArtConfig memory art = tier.artConfig();
         MembershipTypes.MediaConfig memory media = tier.mediaConfig();
@@ -269,7 +269,7 @@ contract CustomRendererAddressTest is Test {
         MembershipTier tier = _createTier();
         address member = makeAddr("member");
         vm.prank(creator);
-        uint256 tokenId = tier.grantTime(member, 2);
+        uint256 tokenId = tier.grantMembership(member, 2);
         bytes32 beforeState = _stateHash(tier, tokenId);
         TaggedRenderer replacement = new TaggedRenderer("replacement", false);
         MembershipTypes.ArtConfig memory nextArt = tier.artConfig();

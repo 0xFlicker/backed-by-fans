@@ -1,3 +1,4 @@
+import { hasLiveOwnedPosition } from "./helpers/membership-positions";
 import { expect, test } from "@playwright/test";
 import { erc20Abi, zeroAddress } from "viem";
 import {
@@ -63,16 +64,9 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
     await page.goto(`/chains/31337/tiers/${tier}`);
     await connectAnvilWallet(page, member);
     await page.getByLabel("Periods", { exact: true }).fill("12");
-    await page.getByRole("button", { name: "Join this membership" }).click();
-    await expectReconciled(page, "Join this membership");
-    expect(
-      await f.client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "isActive",
-        args: [member],
-      }),
-    ).toBe(true);
+    await page.getByRole("button", { name: "New membership" }).click();
+    await expectReconciled(page, "New membership");
+    expect(await hasLiveOwnedPosition(f.client, tier, member)).toBe(true);
     await f.testClient.increaseTime({ seconds: 300 });
     await f.testClient.mine({ blocks: 1 });
     await f.write(member, tier, membershipTierAbi, "processAccounting", [25n]);

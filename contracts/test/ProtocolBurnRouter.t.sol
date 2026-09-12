@@ -25,6 +25,13 @@ import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract ProtocolBurnRouterTest is Test {
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        return 0x150b7a02;
+    }
     MembershipFactory factory;
     ProtocolBuybackVault vault;
     ProtocolBurnRouter router;
@@ -58,7 +65,7 @@ contract ProtocolBurnRouterTest is Test {
         tier = MembershipTier(factory.createTier(config));
         token.mint(address(this), 5000);
         token.approve(address(tier), 4000);
-        tier.purchase(4, address(0));
+        tier.createMembership(4, address(0));
         vm.warp(1100);
         vault.setBuybacksPaused(false);
     }
@@ -290,7 +297,7 @@ contract ProtocolBurnRouterTest is Test {
             token.mint(member, 1000);
             vm.startPrank(member);
             token.approve(address(tier), 1000);
-            tier.purchase(1, address(0));
+            tier.createMembership(1, address(0));
             vm.stopPrank();
         }
         vm.warp(1200);
@@ -308,7 +315,7 @@ contract ProtocolBurnRouterTest is Test {
             vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived;
         items[0].maxAccountingSteps = 25;
         (steps, released,,) = router.advance(items, none, 1200);
-        assertEq(steps, 1, "actual work, not the caller's maximum");
+        assertEq(steps, 4, "one funding boundary and three retirements remain");
         assertEq(released, 0, "the same interval cannot earn twice");
         assertTrue(tier.accountingStatus().complete);
         assertEq(
@@ -357,14 +364,14 @@ contract ProtocolBurnRouterTest is Test {
         config.protocolFeeBps = 1000;
         MembershipTier other = MembershipTier(factory.createTier(config));
         token.approve(address(other), 1000);
-        other.purchase(1, address(0));
+        other.createMembership(1, address(0));
         vm.warp(1200);
         ProtocolBurnRouter.AdvanceTier[] memory items = new ProtocolBurnRouter.AdvanceTier[](2);
         items[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 12);
         items[1] = ProtocolBurnRouter.AdvanceTier(address(other), 13);
         (uint256 steps, uint256 released,,) =
             router.advance(items, new ProtocolBurnRouter.Purchase[](0), 1200);
-        assertEq(steps, 1);
+        assertEq(steps, 2, "funding end and expiration both consume work");
         assertEq(released, 2, "return value counts tiers, never sums arbitrary currencies");
         assertTrue(tier.accountingStatus().complete);
         assertTrue(other.accountingStatus().complete);

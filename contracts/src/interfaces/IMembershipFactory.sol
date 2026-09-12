@@ -49,7 +49,7 @@ interface IMembershipFactory {
     event PaymentTokenDisabled(address indexed token);
 
     /// @notice Settle and claim the caller's funds from up to eight registered tiers, with 25 shared checkpoints.
-    function claimEverything(address[] calldata tiers)
+    function claimEverything(MembershipTypes.TierClaimRequest[] calldata requests)
         external
         returns (MembershipTypes.ClaimResult[] memory);
 

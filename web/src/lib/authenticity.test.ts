@@ -124,6 +124,24 @@ function verifiedResult(
 }
 
 describe("tier authenticity and write guard", () => {
+  it("rejects an old registered tier without the current position interface", async () => {
+    const client = authenticityClient(true);
+    const original = vi.mocked(client.readContract).getMockImplementation()!;
+    vi.mocked(client.readContract).mockImplementation(async (request) => {
+      if (
+        request.functionName === "supportsInterface" &&
+        request.args?.[0] === "0x584eb4c9"
+      )
+        return false as never;
+      return original(request);
+    });
+    await expect(
+      verifyTierAuthenticity(client, { deployment, tier }),
+    ).resolves.toMatchObject({
+      status: "interface-mismatch",
+      failedChecks: expect.arrayContaining(["membershipPositions interface"]),
+    });
+  });
   beforeEach(() => {
     vi.mocked(readProtocolDependencies).mockResolvedValue({
       status: "valid",

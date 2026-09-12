@@ -23,6 +23,14 @@ contract DeferredProtocolTokenTest is Test {
     MembershipTier tier;
     MockUSDG asset;
 
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        return 0x150b7a02;
+    }
+
     function setUp() public {
         new LinkedVestingFixture().install();
         vm.warp(1000);
@@ -50,7 +58,7 @@ contract DeferredProtocolTokenTest is Test {
         tier = MembershipTier(factory.createTier(config));
         asset.mint(address(this), 5000);
         asset.approve(address(tier), 4000);
-        tier.purchase(4, address(0));
+        tier.createMembership(4, address(0));
         vm.warp(1100);
     }
 
@@ -73,7 +81,7 @@ contract DeferredProtocolTokenTest is Test {
         _collect();
         assertEq(asset.balanceOf(address(vault)), 250);
         assertEq(tier.reserveState().unearnedScaled[3] / tier.ACCOUNTING_SCALE(), 750);
-        uint256 gross = tier.refund(1, 3000);
+        uint256 gross = tier.refund(1, tier.ownerOf(1), 3000);
         assertEq(gross, 3000);
         assertEq(tier.reserveState().unearnedScaled[3], 0);
         assertEq(tier.protocolFeeEarnedHeld(), 0);

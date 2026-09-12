@@ -209,7 +209,7 @@ contract BuybackHandler is Test {
         assertEq(
             tier.reserveState().unearnedScaled[3] + tier.protocolFeeEarnedHeld()
                 * tier.ACCOUNTING_SCALE()
-                + tier.previewAccounting(0, address(0), 0).settled.fractionalScaled[3],
+                + tier.previewAccounting(0, address(0), address(0), 0).settled.fractionalScaled[3],
             (600 - released) * tier.ACCOUNTING_SCALE()
         );
         assertEq(tier.protocolFeeEarnedHeld(), recognized - released);
@@ -279,7 +279,7 @@ contract BuybackInvariantTest is StdInvariant, Test {
         token.mint(address(0xDEAD), 1200);
         vm.startPrank(address(0xDEAD));
         token.approve(address(tier), 1200);
-        uint256 id = tier.purchase(12, address(0xCAFE));
+        uint256 id = tier.createMembership(12, address(0xCAFE));
         vm.stopPrank();
         _handler = new BuybackHandler(vault, tier, token, curve, payment, id);
         bytes4[] memory selectors = new bytes4[](5);

@@ -45,28 +45,35 @@ contract PaymentsAndTimeTest is Test {
         paymentToken.approve(address(tier), type(uint256).max);
     }
 
-    function test_paidTimeExtendsActiveExpirationAndRestartsExpiredTimeFromNow() public {
+    function test_liveRenewalExtendsExpirationAndExpiredReturnCreatesFreshIdentity() public {
         uint256 tokenId = _purchase(1);
         uint64 firstExpiration = tier.expiresAt(tokenId);
 
         vm.warp(_START + 10 days);
-        _purchase(2);
+        _renew(tokenId, 2);
         assertEq(tier.expiresAt(tokenId), firstExpiration + 2 * _PERIOD);
 
         vm.warp(tier.expiresAt(tokenId));
-        assertFalse(tier.isActive(member));
-        _purchase(1);
-
-        assertEq(tier.expiresAt(tokenId), block.timestamp + _PERIOD);
-        assertTrue(tier.isActive(member));
+        assertFalse(
+            (tier.tokensOfOwner(member, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+        );
+        uint256 returnedId = _purchase(1);
+        assertGt(returnedId, tokenId);
+        assertEq(tier.sharesOf(tokenId), 0);
+        assertEq(tier.expiresAt(returnedId), block.timestamp + _PERIOD);
+        assertTrue(
+            (tier.tokensOfOwner(member, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+        );
     }
 
     function test_paidTimeInsertedAheadOfGrantTimeIsConsumedFirst() public {
-        uint256 tokenId = tier.grantTime(member, 2);
+        uint256 tokenId = tier.grantMembership(member, 2);
         uint64 originalExpiration = tier.expiresAt(tokenId);
         vm.warp(_START + 15 days);
 
-        _purchase(1);
+        _renew(tokenId, 1);
 
         (uint64 paidSeconds, uint64 grantSeconds, uint64 checkpoint) = tier.timeBalances(tokenId);
         assertEq(paidSeconds, _PERIOD);
@@ -86,13 +93,31 @@ contract PaymentsAndTimeTest is Test {
         uint64 expiration = tier.expiresAt(tokenId);
 
         vm.warp(expiration - 1);
-        assertTrue(tier.isActive(member));
-        assertEq(tier.activeBalanceOf(member), 1);
+        assertTrue(
+            (tier.tokensOfOwner(member, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+        );
+        assertEq(
+            ((tier.tokensOfOwner(member, 0, 1).balance != 0
+                        && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+                    ? 1
+                    : 0),
+            1
+        );
 
         vm.warp(expiration);
-        assertFalse(tier.isActive(member));
+        assertFalse(
+            (tier.tokensOfOwner(member, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+        );
         assertFalse(tier.isActiveToken(tokenId));
-        assertEq(tier.activeBalanceOf(member), 0);
+        assertEq(
+            ((tier.tokensOfOwner(member, 0, 1).balance != 0
+                        && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+                    ? 1
+                    : 0),
+            0
+        );
         assertEq(tier.expiresAt(tokenId), expiration);
 
         (uint64 paidSeconds, uint64 grantSeconds, uint64 effectiveCheckpoint) =
@@ -104,7 +129,7 @@ contract PaymentsAndTimeTest is Test {
 
     function test_timeBalanceViewReturnsEffectiveCheckpointWithoutWriting() public {
         uint256 tokenId = _purchase(2);
-        tier.grantTime(member, 1);
+        tier.addGrantTime(tokenId, member, 1);
         vm.warp(_START + 15 days);
 
         (uint64 paidSeconds, uint64 grantSeconds, uint64 effectiveCheckpoint) =
@@ -124,9 +149,9 @@ contract PaymentsAndTimeTest is Test {
         assertEq(tier.expiresAt(tokenId), expiration);
 
         vm.expectRevert(MembershipTier.PrepaymentLimitExceeded.selector);
-        _purchase(1);
+        _renew(tokenId, 1);
 
-        tier.grantTime(member, 1);
+        tier.addGrantTime(tokenId, member, 1);
         assertEq(tier.expiresAt(tokenId), expiration + _PERIOD);
     }
 
@@ -143,7 +168,7 @@ contract PaymentsAndTimeTest is Test {
         vm.expectRevert(MembershipTier.InvalidPeriods.selector);
         _purchase(0);
 
-        uint256 tokenId = tier.grantTime(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1);
         vm.prank(member);
         vm.expectRevert(MembershipTier.InvalidPaidDuration.selector);
         tier.renewSubscription(tokenId, 0);
@@ -163,7 +188,12 @@ contract PaymentsAndTimeTest is Test {
 
         assertEq(tier.totalMinted(), 0);
         assertEq(tier.occupiedSupply(), 0);
-        assertEq(tier.tokenOf(member), 0);
+        assertEq(
+            (tier.tokensOfOwner(member, 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(member, 0, 1).tokenIds[0]),
+            0
+        );
     }
 
     function test_fixedPricePurchasePullsExactGrossAndAllocatesUnreferredSplit() public {
@@ -220,8 +250,8 @@ contract PaymentsAndTimeTest is Test {
         vm.startPrank(member);
         paymentToken.approve(address(firstTier), type(uint256).max);
         secondToken.approve(address(secondTier), type(uint256).max);
-        firstTier.purchase(1, address(0));
-        secondTier.purchase(1, address(0));
+        firstTier.createMembership(1, address(0));
+        secondTier.createMembership(1, address(0));
         vm.stopPrank();
 
         assertEq(address(firstTier.paymentToken()), address(paymentToken));
@@ -252,13 +282,13 @@ contract PaymentsAndTimeTest is Test {
         paymentToken.approve(address(zeroTier), type(uint256).max);
 
         vm.prank(member);
-        uint256 tokenId = zeroTier.contribute(0, makeAddr("ignored"));
+        uint256 tokenId = zeroTier.createContributionMembership(0, makeAddr("ignored"));
         (MembershipTypes.ReferralStatus status,) = zeroTier.referralOf(tokenId);
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.Unset));
         assertEq(zeroTier.sharesOf(tokenId), 0);
 
         vm.prank(member);
-        zeroTier.contribute(4_000_000, address(0));
+        zeroTier.renewContributionMembership(tokenId, 4_000_000, address(0));
 
         assertEq(zeroTier.expiresAt(tokenId), _START + 2 * _PERIOD);
         assertEq(zeroTier.sharesOf(tokenId), 4_000_000);
@@ -281,11 +311,11 @@ contract PaymentsAndTimeTest is Test {
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.IncorrectPricingMode.selector);
-        zeroTier.purchase(1, address(0));
+        zeroTier.createMembership(1, address(0));
 
         vm.prank(makeAddr("thirdParty"));
         vm.expectRevert(MembershipTier.IncorrectPricingMode.selector);
-        zeroTier.gift(member, 1, MembershipTypes.ReferralStatus.LockedNone, address(0));
+        zeroTier.giftMembership(member, 1);
     }
 
     function test_pauseBlocksCanonicalPurchasesGiftsAndStandardRenewal() public {
@@ -294,12 +324,12 @@ contract PaymentsAndTimeTest is Test {
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.purchase(1, address(0));
+        tier.createMembership(1, address(0));
 
         address payer = makeAddr("payer");
         vm.prank(payer);
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.gift(member, 1, MembershipTypes.ReferralStatus.LockedNone, address(0));
+        tier.giftMembership(member, 1);
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);
@@ -313,7 +343,7 @@ contract PaymentsAndTimeTest is Test {
         zeroTier.setPaused(true);
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        zeroTier.contribute(0, address(0));
+        zeroTier.createContributionMembership(0, address(0));
     }
 
     function test_priceAndLifetimeCapacityBoundsFailBeforeCustodyOrTime() public {
@@ -327,7 +357,7 @@ contract PaymentsAndTimeTest is Test {
 
         vm.prank(member);
         vm.expectRevert(RewardCurve.CurveCapacityExceeded.selector);
-        expensiveTier.purchase(2, address(0));
+        expensiveTier.createMembership(2, address(0));
 
         assertEq(expensiveTier.totalMinted(), 0);
         assertEq(paymentToken.balanceOf(address(expensiveTier)), 0);
@@ -358,7 +388,7 @@ contract PaymentsAndTimeTest is Test {
         fuzzToken.approve(address(fuzzTier), gross);
 
         vm.prank(member);
-        uint256 tokenId = fuzzTier.contribute(gross, chosenReferrer);
+        uint256 tokenId = fuzzTier.createContributionMembership(gross, chosenReferrer);
 
         uint256 protocolAmount = Math.mulDiv(gross, 100, 10_000);
         uint256 rewardAmount = Math.mulDiv(gross, rewardRate, 10_000);
@@ -391,9 +421,14 @@ contract PaymentsAndTimeTest is Test {
         assertEq(fuzzTier.protocolFeeEarnedHeld(), protocolAmount);
     }
 
+    function _renew(uint256 id, uint64 periods) private {
+        vm.prank(member);
+        tier.renewMembership(id, periods, address(0));
+    }
+
     function _purchase(uint64 periods) private returns (uint256 tokenId) {
         vm.prank(member);
-        tokenId = tier.purchase(periods, address(0));
+        tokenId = tier.createMembership(periods, address(0));
     }
 
     function test_badPaymentRollsBackCatchUpFundingSharesAndCustody() public {
@@ -406,14 +441,14 @@ contract PaymentsAndTimeTest is Test {
         token.mint(member, 100_000_000);
         vm.startPrank(member);
         token.approve(address(target), type(uint256).max);
-        target.purchase(1, address(0));
+        target.createMembership(1, address(0));
         vm.stopPrank();
         vm.warp(_START + _PERIOD / 2);
         bytes32 beforeState = keccak256(
             abi.encode(
                 target.allocationState(1),
                 target.reserveState(),
-                target.previewAccounting(1, address(0), 0).settled,
+                target.previewAccounting(1, address(0), address(0), 0).settled,
                 target.sharesOf(1),
                 target.lifetimeGross(),
                 target.expiresAt(1)
@@ -423,13 +458,13 @@ contract PaymentsAndTimeTest is Test {
             token.setTransferFromBehavior(AdversarialERC20.Behavior(behavior));
             vm.prank(member);
             vm.expectRevert();
-            target.purchase(1, address(0));
+            target.createMembership(1, address(0));
             assertEq(
                 keccak256(
                     abi.encode(
                         target.allocationState(1),
                         target.reserveState(),
-                        target.previewAccounting(1, address(0), 0).settled,
+                        target.previewAccounting(1, address(0), address(0), 0).settled,
                         target.sharesOf(1),
                         target.lifetimeGross(),
                         target.expiresAt(1)
@@ -455,8 +490,8 @@ contract PaymentsAndTimeTest is Test {
         paymentToken.approve(address(target), type(uint256).max);
         vm.recordLogs();
         vm.startPrank(member);
-        target.contribute(0, address(0));
-        target.contribute(100, address(0));
+        target.createContributionMembership(0, address(0));
+        target.renewContributionMembership(1, 100, address(0));
         vm.stopPrank();
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 processed;
@@ -521,10 +556,10 @@ contract PaymentsAndTimeTest is Test {
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
         address referrer = makeAddr("original referrer");
-        uint256 tokenId = vested.grantTime(member, 5);
+        uint256 tokenId = vested.grantMembership(member, 5);
         vm.startPrank(member);
         paymentToken.approve(address(vested), type(uint256).max);
-        vested.purchase(12, referrer);
+        vested.renewMembership(tokenId, 12, referrer);
         vm.stopPrank();
         MembershipTypes.AllocationLot[] memory lots = vested.allocationLots(tokenId, 0, 0, 100);
         assertEq(lots.length, 1);
@@ -532,7 +567,7 @@ contract PaymentsAndTimeTest is Test {
         assertEq(lots[0].end, _START + 120);
         assertEq(vested.expiresAt(tokenId), _START + 170);
         MembershipTypes.EarnedBalances memory balances =
-        vested.previewAccounting(tokenId, referrer, 0).settled;
+        vested.previewAccounting(tokenId, address(0), referrer, 0).settled;
         assertEq(balances.creator + balances.member + balances.referral + balances.protocol, 0);
 
         vm.warp(_START + 30);
@@ -544,7 +579,7 @@ contract PaymentsAndTimeTest is Test {
             assertEq(allocation.unearnedScaled[purpose], firstPartial[purpose] * 3 * Q);
         }
         vm.prank(member);
-        vested.purchase(3, referrer);
+        vested.renewMembership(tokenId, 3, referrer);
         lots = vested.allocationLots(tokenId, 0, 0, 100);
         assertEq(lots.length, 2);
         assertEq(lots[1].start, _START + 120);

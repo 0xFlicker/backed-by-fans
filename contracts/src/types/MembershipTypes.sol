@@ -3,9 +3,69 @@ pragma solidity =0.8.36;
 
 /// @notice Shared constructor and rendering value types for the membership protocol.
 library MembershipTypes {
+    enum BoundaryKind {
+        None,
+        Funding,
+        Expiration
+    }
+
+    enum MembershipLifecycle {
+        Live,
+        ExpiredPending,
+        Retired
+    }
+
+    struct ExpirationNode {
+        uint64 timestamp;
+        uint256 tokenId;
+    }
+
+    struct MaintenanceResult {
+        uint256 processedSteps;
+        uint256 retiredCount;
+        uint64 accountedThrough;
+        bool complete;
+        uint256 earnedScaledDelta;
+    }
+
+    struct PositionPage {
+        uint256[] tokenIds;
+        uint256 nextOffset;
+        uint256 balance;
+        bool complete;
+    }
+
+    struct RetiredCredit {
+        uint256 raw;
+        uint256 fractionalScaled;
+    }
+
+    struct TierClaimRequest {
+        address tier;
+        uint256[] tokenIds;
+    }
+
+    struct PositionClaimPreview {
+        uint256 tokenId;
+        MembershipLifecycle lifecycle;
+        uint256 creditScaled;
+    }
+
+    struct ClaimPreview {
+        uint64 asOf;
+        uint64 accountedThrough;
+        uint256 processedSteps;
+        bool complete;
+        PositionClaimPreview[] positions;
+        uint256 retiredCreditScaled;
+        uint256 referralCreditScaled;
+        uint256 creatorCreditScaled;
+    }
+
     struct ClaimResult {
         uint256 processedSteps;
-        uint256 reward;
+        uint256 liveReward;
+        uint256 retiredReward;
         uint256 referral;
         uint256 creator;
     }
@@ -132,11 +192,15 @@ library MembershipTypes {
         uint64 accountedThrough;
         uint64 nextBoundary;
         uint256 scheduledMembers;
+        uint256 scheduledExpirations;
+        BoundaryKind nextKind;
         bool complete;
     }
 
     /// @notice Settled raw balances; fractional values use ACCOUNTING_SCALE.
     struct EarnedBalances {
+        uint256 retired;
+        uint256 retiredFractionalScaled;
         uint256 creator;
         uint256 member;
         uint256 referral;
@@ -149,6 +213,7 @@ library MembershipTypes {
     /// when the checkpoint budget is exhausted. Deltas are newly vested allocations,
     /// in creator/member/referral/protocol order, before member distribution rounding.
     struct AccountingPreview {
+        MembershipLifecycle lifecycle;
         uint64 asOf;
         uint256 processedSteps;
         uint256[4] earnedDeltaScaled;

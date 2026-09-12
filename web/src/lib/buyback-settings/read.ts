@@ -77,7 +77,7 @@ export async function readCalculator(
       amounts.earned += earnedHeld;
       amounts.reservedScaled += reserves.unearnedScaled[3];
       amounts.checkpointsDue ||=
-        reserves.status.scheduledMembers > 0n &&
+        reserves.status.nextBoundary > 0n &&
         reserves.status.nextBoundary <= state.data.timestamp;
       fees.set(canonical.toLowerCase(), amounts);
     }

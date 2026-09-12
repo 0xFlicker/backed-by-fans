@@ -1660,6 +1660,7 @@ dd {
 }
 
 .creator-field input,
+.creator-field select,
 .creator-field textarea {
   background: var(--house-light);
   border: 1.5px solid var(--strong-line);
@@ -1669,6 +1670,7 @@ dd {
   min-height: 3.15rem;
   padding: 0.8rem 0.9rem;
   width: 100%;
+  min-width: 0;
 }
 
 .creator-field textarea {
@@ -2218,6 +2220,11 @@ dd {
 .protocol-controls {
   display: grid;
   gap: 1rem;
+}
+
+.management-controls {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .control-group {
@@ -3194,6 +3201,27 @@ dd {
   gap: 1.25rem;
   min-height: 16rem;
   padding: 1.35rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.membership-transfer,
+.account-rewards fieldset {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.membership-transfer button,
+.account-rewards button {
+  white-space: normal;
+  max-width: 100%;
+}
+
+.membership-transfer :focus-visible,
+.account-rewards :focus-visible,
+[aria-label="Membership selection"] :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
 }
 
 .account-card-identity {
@@ -4111,4 +4139,10 @@ dd {
 .protocol-page .button {
   max-width: 100%;
   white-space: normal;
+}
+
+.account-rewards .creator-field input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+  margin-inline-end: 0.5rem;
 }

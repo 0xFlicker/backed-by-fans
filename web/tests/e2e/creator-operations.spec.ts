@@ -1,3 +1,4 @@
+import { expectSingleOwnedPosition } from "./helpers/membership-positions";
 import { expect, test } from "@playwright/test";
 import { zeroAddress } from "viem";
 
@@ -53,7 +54,7 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
         account: member,
         address: configuredTier,
         abi: membershipTierAbi,
-        functionName: "purchase",
+        functionName: "createMembership",
         args: [1n, zeroAddress],
       }),
     );
@@ -90,12 +91,11 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
 
     await page.getByRole("button", { name: "Grant time", exact: true }).click();
     await expectReconciled(page, "Grant complimentary time");
-    const grantedToken = await client.readContract({
-      address: configuredTier,
-      abi: membershipTierAbi,
-      functionName: "tokenOf",
-      args: [recipient],
-    });
+    const grantedToken = await expectSingleOwnedPosition(
+      client,
+      configuredTier,
+      recipient,
+    );
     await page
       .getByLabel("Membership token to revoke")
       .fill(grantedToken.toString());
@@ -103,11 +103,11 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
     await expectReconciled(page, "Revoke remaining grant time");
 
     const advance = page.getByRole("region", {
-      name: "Advance membership accounting",
+      name: "Membership maintenance",
     });
-    await advance.getByRole("button", { name: "Advance accounting" }).click();
+    await advance.getByRole("button", { name: "Advance maintenance" }).click();
     await expect(advance.getByRole("status")).toContainText(
-      "checkpoints completed",
+      "boundaries processed",
       { timeout: 45_000 },
     );
     await page
@@ -169,10 +169,10 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
   }
 });
 
-test("@anvil creator sync burns an expired NFT while its member can claim and rejoin", async ({
+test("@anvil paused maintenance retires an NFT and its member claims before returning fresh", async ({
   page,
 }, testInfo) => {
-  test.setTimeout(120_000);
+  test.setTimeout(150_000);
   test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
   test.skip(testInfo.project.name !== "desktop", "One mutation is sufficient.");
   const snapshot = await snapshotAnvil();
@@ -181,7 +181,6 @@ test("@anvil creator sync burns an expired NFT while its member can claim and re
   const configuredTier = requiredAnvilAddress("tier");
   const usdg = requiredAnvilAddress("paymentToken");
   const client = anvilPublicClient();
-
   try {
     expectSuccessfulReceipt(
       await sendContract({
@@ -189,7 +188,7 @@ test("@anvil creator sync burns an expired NFT while its member can claim and re
         address: usdg,
         abi: usdgAbi,
         functionName: "approve",
-        args: [configuredTier, 10_000_000n],
+        args: [configuredTier, 20_000_000n],
       }),
     );
     expectSuccessfulReceipt(
@@ -197,93 +196,113 @@ test("@anvil creator sync burns an expired NFT while its member can claim and re
         account: member,
         address: configuredTier,
         abi: membershipTierAbi,
-        functionName: "purchase",
+        functionName: "createMembership",
         args: [1n, zeroAddress],
       }),
     );
-    const tokenId = await client.readContract({
-      address: configuredTier,
-      abi: membershipTierAbi,
-      functionName: "tokenOf",
-      args: [member],
-    });
+    const id = await expectSingleOwnedPosition(client, configuredTier, member);
     const expires = await client.readContract({
       address: configuredTier,
       abi: membershipTierAbi,
       functionName: "expiresAt",
-      args: [tokenId],
+      args: [id],
     });
-    await rpcRequest("evm_setNextBlockTimestamp", [Number(expires)]);
-    await rpcRequest("evm_mine");
     expectSuccessfulReceipt(
       await sendContract({
-        account: member,
+        account: creator,
         address: configuredTier,
         abi: membershipTierAbi,
-        functionName: "processAccounting",
-        args: [25n],
+        functionName: "setPaused",
+        args: [true],
       }),
     );
-    const accrued = await client.readContract({
-      address: configuredTier,
-      abi: membershipTierAbi,
-      functionName: "claimableReward",
-      args: [tokenId],
-    });
-    expect(accrued).toBeGreaterThan(0n);
-    await rpcRequest("evm_increaseTime", [2_592_001]);
+    await rpcRequest("evm_setNextBlockTimestamp", [Number(expires)]);
     await rpcRequest("evm_mine");
-
     await installAnvilWallet(page, creator);
     await page.goto(`/chains/31337/tiers/${configuredTier}/manage`);
     await connectAnvilWallet(page, creator);
-    await page
-      .getByRole("button", { name: "Scan for expired memberships" })
+    const maintenance = page.getByRole("region", {
+      name: "Membership maintenance",
+    });
+    await maintenance
+      .getByRole("button", { name: "Advance maintenance" })
       .click();
-    await expect(page.getByText(/found 1 expired/i)).toBeVisible();
-    await page
-      .getByRole("button", { name: "Sync next 1 expired membership" })
-      .click();
-    await expectReconciled(page, "Sync 1 expired membership");
-    await expect(
-      client.readContract({
+    await expect(maintenance.getByRole("status")).toContainText(
+      "1 memberships retired",
+      { timeout: 45_000 },
+    );
+    expect(
+      await client.readContract({
         address: configuredTier,
         abi: membershipTierAbi,
         functionName: "balanceOf",
         args: [member],
       }),
-    ).resolves.toBe(0n);
-    await expect(
-      client.readContract({
+    ).toBe(0n);
+    expect(
+      await client.readContract({
         address: configuredTier,
         abi: membershipTierAbi,
-        functionName: "claimableReward",
-        args: [tokenId],
+        functionName: "sharesOf",
+        args: [id],
       }),
-    ).resolves.toBe(accrued);
-
+    ).toBe(0n);
+    const [earned] = await client.readContract({
+      address: configuredTier,
+      abi: membershipTierAbi,
+      functionName: "claimableRetiredReward",
+      args: [member],
+    });
+    expect(earned).toBeGreaterThan(0n);
     await page.goto(`/chains/31337/tiers/${configuredTier}`);
-    // Full navigation recreates the test provider. Wait for wagmi to reconnect
-    // before emitting a new account event to its subscription.
     await connectAnvilWallet(page, creator);
     await switchAnvilAccount(page, member);
-    await expect(page.getByText("Burned after creator sync")).toBeVisible();
+    await page.getByText("Rewards & accounting", { exact: true }).click();
     await page
-      .locator(".claim-groups")
-      .getByRole("button", { name: "Claim rewards" })
+      .getByRole("region", { name: "Ended membership rewards" })
+      .getByRole("button", { name: "Claim ended membership rewards" })
       .click();
-    await expectReconciled(page, "Claim rewards");
-
-    await page.getByRole("button", { name: "Rejoin this membership" }).click();
-    await expectReconciled(page, "Rejoin this membership");
+    await expectReconciled(page, "Claim ended membership rewards");
+    expect(
+      (
+        await client.readContract({
+          address: configuredTier,
+          abi: membershipTierAbi,
+          functionName: "claimableRetiredReward",
+          args: [member],
+        })
+      )[0],
+    ).toBe(0n);
+    expectSuccessfulReceipt(
+      await sendContract({
+        account: creator,
+        address: configuredTier,
+        abi: membershipTierAbi,
+        functionName: "setPaused",
+        args: [false],
+      }),
+    );
+    await page.reload();
+    await connectAnvilWallet(page, creator);
+    await switchAnvilAccount(page, member);
+    await page
+      .getByRole("button", { name: "New membership", exact: true })
+      .click();
+    await expectReconciled(page, "New membership");
+    const fresh = await expectSingleOwnedPosition(
+      client,
+      configuredTier,
+      member,
+    );
+    expect(fresh).toBeGreaterThan(id);
     await expect(
       client.readContract({
         address: configuredTier,
         abi: membershipTierAbi,
         functionName: "ownerOf",
-        args: [tokenId],
+        args: [id],
       }),
-    ).resolves.toBe(member);
+    ).rejects.toThrow();
   } finally {
     await revertAnvil(snapshot);
   }
@@ -298,6 +317,10 @@ test("validates management routes before any direct read", async ({ page }) => {
 test("fails registered-tier management closed without deployment config", async ({
   page,
 }) => {
+  test.skip(
+    anvilEnabled,
+    "This scenario requires an unconfigured application.",
+  );
   await page.goto(`/chains/31337/tiers/${tier}/manage`);
   await expect(page.getByText("Onchain state unavailable")).toBeVisible();
   await expect(page.getByText(/not deployed/i)).toBeVisible();

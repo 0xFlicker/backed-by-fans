@@ -11,6 +11,7 @@ import { readServerTierSupporterState } from "@/lib/server-tier-state";
 
 type TierPageProps = {
   params: Promise<{ chainId: string; tierAddress: string }>;
+  searchParams?: Promise<{ tokenId?: string }>;
 };
 
 const readTierPageState = cache(readServerTierSupporterState);
@@ -64,8 +65,18 @@ export async function generateMetadata({
   };
 }
 
-export default async function TierPage({ params }: TierPageProps) {
+export default async function TierPage({
+  params,
+  searchParams,
+}: TierPageProps) {
   const route = await params;
+  const requested = (await searchParams)?.tokenId;
+  const initialTokenId =
+    requested &&
+    /^[1-9][0-9]{0,77}$/.test(requested) &&
+    BigInt(requested) < 1n << 256n
+      ? BigInt(requested)
+      : 0n;
   const chainId = parseSupportedChainId(route.chainId);
   const address = validateTierRouteParam(route.tierAddress);
   const initialState =
@@ -87,6 +98,7 @@ export default async function TierPage({ params }: TierPageProps) {
           <TierReadPanel
             chainId={chainId}
             initialState={initialState}
+            initialTokenId={initialTokenId}
             tierAddress={address}
           />
         </ChainRouteBoundary>

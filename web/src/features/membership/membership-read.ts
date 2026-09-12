@@ -5,13 +5,11 @@ import {
   type Address,
   type PublicClient,
 } from "viem";
-
 import { membershipTierAbi } from "@/contracts";
 import type {
   ReferralStatus,
   SupporterCredential,
   TierSupporterSnapshot,
-  RefundQuote,
 } from "@/contracts/types";
 import { isSameAddress } from "@/lib/address";
 import type { ReadyDeployment } from "@/lib/config";
@@ -24,95 +22,120 @@ import {
 import { classifyReadError, type ReadState } from "@/lib/read-state";
 
 function referralStatus(value: number): ReferralStatus {
-  if (value === 1) return "locked-none";
-  if (value === 2) return "locked-address";
-  return "unset";
+  return value === 1 ? "locked-none" : value === 2 ? "locked-address" : "unset";
 }
 
-type MulticallResult =
-  { status: "success"; result: unknown } | { status: "failure" };
-
-async function readMulticallValues(
+async function readValues(
   client: PublicClient,
   contracts: Record<string, unknown>[],
   blockNumber: bigint,
+  batched: boolean,
 ) {
+  if (!batched)
+    return Promise.all(
+      contracts.map((contract) =>
+        client.readContract({ ...contract, blockNumber } as never),
+      ),
+    );
   const results = (await client.multicall({
     contracts: contracts as never,
     allowFailure: true,
     blockNumber,
     multicallAddress: multicall3Address,
-  })) as MulticallResult[];
-  if (results.length !== contracts.length) {
-    throw new Error("The batched membership read was incomplete.");
-  }
-  if (results.some((result) => result.status !== "success")) {
-    throw new Error("A required batched membership read failed.");
+  })) as Array<
+    { status: "success"; result: unknown } | { status: "failure"; error: Error }
+  >;
+  if (
+    results.length !== contracts.length ||
+    results.some((result) => result.status !== "success")
+  ) {
+    throw new Error(
+      "A required membership read failed or returned an incomplete batch.",
+    );
   }
   return results.map((result) =>
     result.status === "success" ? result.result : undefined,
   );
 }
 
-async function readCredentialMulticallValues(
+/** Reads one explicit position at one block. A wallet's NFT count is never ownership proof. */
+export async function readMembershipPosition(
   client: PublicClient,
-  contracts: Record<string, unknown>[],
-  blockNumber: bigint,
-) {
-  const results = (await client.multicall({
-    contracts: contracts as never,
-    allowFailure: true,
-    blockNumber,
-    multicallAddress: multicall3Address,
-  })) as MulticallResult[];
-  if (results.length !== contracts.length) {
-    throw new Error("The batched membership detail read was incomplete.");
-  }
-  for (let index = 0; index < 8; index += 1) {
-    if (results[index]?.status !== "success") {
-      throw new Error("A permanent membership record read failed.");
-    }
-  }
-  const minted =
-    results[0]?.status === "success" && (results[0].result as bigint) !== 0n;
-  if (minted && results[8]?.status !== "success") {
-    throw new Error("The live membership refund read failed.");
-  }
-  if (contracts.length > 9 && results[9]?.status !== "success") {
-    throw new Error("The creator proceeds read failed.");
-  }
-
-  const values = results.map((result) =>
-    result.status === "success" ? result.result : undefined,
+  input: {
+    tier: Address;
+    tokenId: bigint;
+    owner: Address;
+    blockNumber: bigint;
+    batched?: boolean;
+  },
+): Promise<SupporterCredential> {
+  const common = {
+    address: input.tier,
+    abi: membershipTierAbi,
+    args: [input.tokenId],
+  };
+  const values = await readValues(
+    client,
+    [
+      { ...common, functionName: "ownerOf" },
+      { ...common, functionName: "isActiveToken" },
+      { ...common, functionName: "isOccupied" },
+      { ...common, functionName: "timeBalances" },
+      { ...common, functionName: "referralOf" },
+      { ...common, functionName: "sharesOf" },
+      { ...common, functionName: "claimableReward" },
+      { ...common, functionName: "rewardEligible" },
+    ],
+    input.blockNumber,
+    input.batched ?? false,
   );
-  if (!minted) values[8] = undefined;
-  return values;
+  const [owner, active, occupied, time, referral, shares, reward, eligible] =
+    values;
+  if (!isSameAddress(owner as Address, input.owner)) {
+    throw new Error("This membership's owner changed. Refresh your selection.");
+  }
+  const [paidSeconds, grantSeconds, checkpoint] = time as readonly bigint[];
+  const [status, referrer] = referral as readonly [number, Address];
+  return {
+    tokenId: input.tokenId,
+    owner: owner as Address,
+    minted: true,
+    active: active as boolean,
+    occupied: occupied as boolean,
+    expiration: checkpoint + paidSeconds + grantSeconds,
+    paidSeconds,
+    grantSeconds,
+    shares: shares as bigint,
+    rewardEligible: eligible as boolean,
+    claimableReward: reward as bigint,
+    referralStatus: referralStatus(status),
+    referrer,
+  };
 }
 
-export type GiftRecipientState = {
-  tokenId: bigint;
-  expiration: bigint;
-  active: boolean;
-  occupied: boolean;
-  paidSeconds: bigint;
-  referralStatus: ReferralStatus;
-  referrer: Address;
-};
+export type GiftRecipientState = Pick<
+  SupporterCredential,
+  | "tokenId"
+  | "expiration"
+  | "active"
+  | "occupied"
+  | "paidSeconds"
+  | "referralStatus"
+  | "referrer"
+>;
 
 export async function readGiftRecipientState(
   client: PublicClient,
-  input: { tier: Address; recipient: Address; blockNumber: bigint },
+  input: {
+    tier: Address;
+    recipient: Address;
+    tokenId?: bigint;
+    blockNumber: bigint;
+  },
 ): Promise<GiftRecipientState> {
-  const tokenId = await client.readContract({
-    address: input.tier,
-    abi: membershipTierAbi,
-    functionName: "tokenOf",
-    args: [input.recipient],
-    blockNumber: input.blockNumber,
-  });
-  if (tokenId === 0n) {
+  if (!input.tokenId)
     return {
-      tokenId,
+      tokenId: 0n,
       expiration: 0n,
       active: false,
       occupied: false,
@@ -120,242 +143,12 @@ export async function readGiftRecipientState(
       referralStatus: "unset",
       referrer: zeroAddress,
     };
-  }
-  const [active, occupied, time, referral] = await Promise.all([
-    client.readContract({
-      address: input.tier,
-      abi: membershipTierAbi,
-      functionName: "isActiveToken",
-      args: [tokenId],
-      blockNumber: input.blockNumber,
-    }),
-    client.readContract({
-      address: input.tier,
-      abi: membershipTierAbi,
-      functionName: "isOccupied",
-      args: [tokenId],
-      blockNumber: input.blockNumber,
-    }),
-    client.readContract({
-      address: input.tier,
-      abi: membershipTierAbi,
-      functionName: "timeBalances",
-      args: [tokenId],
-      blockNumber: input.blockNumber,
-    }),
-    client.readContract({
-      address: input.tier,
-      abi: membershipTierAbi,
-      functionName: "referralOf",
-      args: [tokenId],
-      blockNumber: input.blockNumber,
-    }),
-  ]);
-  return {
-    tokenId,
-    expiration: time[2] + time[0] + time[1],
-    active,
-    occupied,
-    paidSeconds: time[0],
-    referralStatus: referralStatus(referral[0]),
-    referrer: referral[1],
-  };
-}
-
-async function readCredential(
-  client: PublicClient,
-  tier: Address,
-  tokenId: bigint,
-  wallet: Address,
-  blockNumber: bigint,
-): Promise<SupporterCredential> {
-  const [
-    balance,
-    active,
-    occupied,
-    time,
-    referral,
-    shares,
-    reward,
-    rewardEligible,
-  ] = await Promise.all([
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "balanceOf",
-      args: [wallet],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "isActiveToken",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "isOccupied",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "timeBalances",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "referralOf",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "sharesOf",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "claimableReward",
-      args: [tokenId],
-      blockNumber,
-    }),
-    client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "rewardEligible",
-      args: [tokenId],
-      blockNumber,
-    }),
-  ]);
-  const refund =
-    balance !== 0n
-      ? await client.readContract({
-          address: tier,
-          abi: membershipTierAbi,
-          functionName: "previewRefund",
-          args: [tokenId],
-          blockNumber,
-        })
-      : undefined;
-  return credentialFromValues(tokenId, wallet, [
-    balance,
-    active,
-    occupied,
-    time,
-    referral,
-    shares,
-    reward,
-    rewardEligible,
-    refund,
-  ]);
-}
-
-function credentialFromValues(
-  tokenId: bigint,
-  wallet: Address,
-  values: unknown[],
-) {
-  const [
-    balance,
-    active,
-    occupied,
-    time,
-    referral,
-    shares,
-    reward,
-    rewardEligible,
-    refund,
-  ] = values;
-  const timeValues = time as readonly bigint[];
-  return {
-    tokenId,
-    owner: wallet,
-    minted: (balance as bigint) !== 0n,
-    active: active as boolean,
-    occupied: occupied as boolean,
-    expiration: timeValues[2] + timeValues[0] + timeValues[1],
-    paidSeconds: timeValues[0],
-    grantSeconds: timeValues[1],
-    shares: shares as bigint,
-    rewardEligible: rewardEligible as boolean,
-    claimableReward: reward as bigint,
-    refundableGross: (refund as RefundQuote | undefined)?.grossRefund ?? 0n,
-    refund: refund as RefundQuote | undefined,
-    referralStatus: referralStatus((referral as readonly [number, Address])[0]),
-    referrer: (referral as readonly [number, Address])[1],
-  } satisfies SupporterCredential;
-}
-
-function credentialContracts(
-  tier: Address,
-  tokenId: bigint,
-  wallet: Address,
-): Record<string, unknown>[] {
-  return [
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "balanceOf",
-      args: [wallet],
-    },
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "isActiveToken",
-      args: [tokenId],
-    },
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "isOccupied",
-      args: [tokenId],
-    },
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "timeBalances",
-      args: [tokenId],
-    },
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "referralOf",
-      args: [tokenId],
-    },
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "sharesOf",
-      args: [tokenId],
-    },
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "claimableReward",
-      args: [tokenId],
-    },
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "rewardEligible",
-      args: [tokenId],
-    },
-    {
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "previewRefund",
-      args: [tokenId],
-    },
-  ];
+  return readMembershipPosition(client, {
+    tier: input.tier,
+    tokenId: input.tokenId,
+    owner: input.recipient,
+    blockNumber: input.blockNumber,
+  });
 }
 
 export async function readTierSupporterState(
@@ -364,175 +157,118 @@ export async function readTierSupporterState(
     tier: Address;
     deployment: ReadyDeployment;
     wallet?: Address;
+    tokenId?: bigint;
+    ownerOffset?: bigint;
   },
 ): Promise<ReadState<TierSupporterSnapshot>> {
   const tier = await readTierSnapshotState(client, input);
   if (tier.status !== "valid" && tier.status !== "stale") return tier;
-
   try {
     const blockNumber = tier.capturedBlock;
     const blockPromise = client.getBlock({ blockNumber });
-    if (!input.wallet) {
-      const block = await blockPromise;
+    if (!input.wallet)
       return {
         ...tier,
-        data: { ...tier.data, capturedTimestamp: block.timestamp },
+        data: {
+          ...tier.data,
+          capturedTimestamp: (await blockPromise).timestamp,
+        },
       };
-    }
-
     const wallet = input.wallet;
-    const multicallStatus = await verifyMulticall3(client, blockNumber);
-    let tokenId: bigint;
-    let paymentTokenBalance: bigint;
-    let ethBalance: bigint;
-    let allowance: bigint;
-    let referralClaim: bigint;
-    let credential: SupporterCredential | undefined;
-    let creatorProceeds: bigint | undefined;
-
-    if (multicallStatus === "verified") {
-      const values = await readMulticallValues(
-        client,
-        [
-          {
-            address: input.tier,
-            abi: membershipTierAbi,
-            functionName: "tokenOf",
-            args: [wallet],
-          },
-          {
-            address: tier.data.paymentToken,
-            abi: erc20Abi,
-            functionName: "balanceOf",
-            args: [wallet],
-          },
-          {
-            address: multicall3Address,
-            abi: multicall3Abi,
-            functionName: "getEthBalance",
-            args: [wallet],
-          },
-          {
-            address: tier.data.paymentToken,
-            abi: erc20Abi,
-            functionName: "allowance",
-            args: [wallet, input.tier],
-          },
-          {
-            address: input.tier,
-            abi: membershipTierAbi,
-            functionName: "claimableReferral",
-            args: [wallet],
-          },
-        ],
-        blockNumber,
-      );
-      [tokenId, paymentTokenBalance, ethBalance, allowance, referralClaim] =
-        values as [bigint, bigint, bigint, bigint, bigint];
-
-      const detailContracts =
-        tokenId === 0n ? [] : credentialContracts(input.tier, tokenId, wallet);
-      const creatorIndex = detailContracts.length;
-      if (isSameAddress(wallet, tier.data.creator)) {
-        detailContracts.push({
-          address: input.tier,
-          abi: membershipTierAbi,
-          functionName: "creatorProceeds",
-        });
-      }
-      if (detailContracts.length > 0) {
-        const detailValues =
-          tokenId === 0n
-            ? await readMulticallValues(client, detailContracts, blockNumber)
-            : await readCredentialMulticallValues(
-                client,
-                detailContracts,
-                blockNumber,
-              );
-        if (tokenId !== 0n) {
-          const credentialValues = detailValues.slice(0, 9);
-          credential = credentialFromValues(tokenId, wallet, credentialValues);
-        }
-        creatorProceeds = isSameAddress(wallet, tier.data.creator)
-          ? (detailValues[creatorIndex] as bigint)
-          : undefined;
-      }
-    } else {
-      [tokenId, paymentTokenBalance, ethBalance, allowance, referralClaim] =
-        await Promise.all([
-          client.readContract({
-            address: input.tier,
-            abi: membershipTierAbi,
-            functionName: "tokenOf",
-            args: [wallet],
+    const tokenId = input.tokenId ?? 0n;
+    const ownerOffset = input.ownerOffset ?? 0n;
+    const batched =
+      (await verifyMulticall3(client, blockNumber)) === "verified";
+    const common = { address: input.tier, abi: membershipTierAbi };
+    const walletContracts = [
+      {
+        ...common,
+        functionName: "tokensOfOwner",
+        args: [wallet, ownerOffset, 100n],
+      },
+      {
+        address: tier.data.paymentToken,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [wallet],
+      },
+      {
+        address: tier.data.paymentToken,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [wallet, input.tier],
+      },
+      { ...common, functionName: "claimableReferral", args: [wallet] },
+    ];
+    if (batched)
+      walletContracts.push({
+        address: multicall3Address,
+        abi: multicall3Abi,
+        functionName: "getEthBalance",
+        args: [wallet],
+      } as never);
+    const [
+      walletValues,
+      credential,
+      creatorProceeds,
+      ethBalance,
+      block,
+      vesting,
+      totalEligibleRewardShares,
+    ] = await Promise.all([
+      readValues(client, walletContracts, blockNumber, batched),
+      tokenId === 0n
+        ? undefined
+        : readMembershipPosition(client, {
+            tier: input.tier,
+            tokenId,
+            owner: wallet,
             blockNumber,
+            batched,
           }),
-          client.readContract({
-            address: tier.data.paymentToken,
-            abi: erc20Abi,
-            functionName: "balanceOf",
-            args: [wallet],
+      isSameAddress(wallet, tier.data.creator)
+        ? client.readContract({
+            ...common,
+            functionName: "creatorProceeds",
             blockNumber,
-          }),
-          client.getBalance({ address: wallet, blockNumber }),
-          client.readContract({
-            address: tier.data.paymentToken,
-            abi: erc20Abi,
-            functionName: "allowance",
-            args: [wallet, input.tier],
-            blockNumber,
-          }),
-          client.readContract({
-            address: input.tier,
-            abi: membershipTierAbi,
-            functionName: "claimableReferral",
-            args: [wallet],
-            blockNumber,
-          }),
-        ]);
-      [credential, creatorProceeds] = await Promise.all([
-        tokenId === 0n
-          ? undefined
-          : readCredential(client, input.tier, tokenId, wallet, blockNumber),
-        isSameAddress(wallet, tier.data.creator)
-          ? client.readContract({
-              address: input.tier,
-              abi: membershipTierAbi,
-              functionName: "creatorProceeds",
-              blockNumber,
-            })
-          : undefined,
-      ]);
-    }
-    const [block, vesting, totalEligibleRewardShares] = await Promise.all([
+          })
+        : undefined,
+      batched ? undefined : client.getBalance({ address: wallet, blockNumber }),
       blockPromise,
       readTierAccounting(client, {
         tier: input.tier,
         tokenId,
+        beneficiary: wallet,
         referrer: wallet,
         blockNumber,
-      }),
+      }).then(
+        (data) => ({ data, error: undefined }),
+        (error) => ({ data: undefined, error: classifyReadError(error).label }),
+      ),
       client.readContract({
-        address: input.tier,
-        abi: membershipTierAbi,
+        ...common,
         functionName: "totalRewardShares",
         blockNumber,
       }),
     ]);
-
+    const [ownerPage, paymentBalance, allowance, referralClaim, batchedEth] =
+      walletValues;
     return {
       ...tier,
       data: {
         ...tier.data,
         capturedTimestamp: block.timestamp,
         wallet,
-        walletPaymentTokenBalance: paymentTokenBalance,
-        walletEthBalance: ethBalance,
-        allowance,
-        claimableReferral: referralClaim,
-        creatorProceeds,
+        ownerOffset,
+        ownerPage: ownerPage as TierSupporterSnapshot["ownerPage"],
         credential,
-        vesting,
+        walletPaymentTokenBalance: paymentBalance as bigint,
+        walletEthBalance: batched ? (batchedEth as bigint) : ethBalance,
+        allowance: allowance as bigint,
+        claimableReferral: referralClaim as bigint,
+        creatorProceeds,
+        vesting: vesting.data,
+        vestingError: vesting.error,
         totalEligibleRewardShares,
       },
     };

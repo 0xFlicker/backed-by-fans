@@ -154,6 +154,8 @@ const snapshot: TierSupporterSnapshot = {
     accountedThrough: 1000n,
     nextBoundary: 0n,
     scheduledMembers: 0n,
+    scheduledExpirations: 0n,
+    nextKind: 0,
     complete: true,
   },
   supplyCap: 100n,
@@ -210,8 +212,11 @@ function renderExperience(
     ReadState<TierSupporterSnapshot> | undefined
   > = async () => undefined,
   previewSteps = 0n,
+  unavailableProjection = false,
 ) {
   const balances = {
+    retired: 0n,
+    retiredFractionalScaled: 0n,
     creator: value.creatorProceeds ?? 0n,
     member: value.credential?.claimableReward ?? 0n,
     referral: value.claimableReferral ?? 0n,
@@ -221,10 +226,13 @@ function renderExperience(
       accountedThrough: value.capturedTimestamp,
       nextBoundary: 0n,
       scheduledMembers: 0n,
+      scheduledExpirations: 0n,
+      nextKind: 0,
       complete: true,
     },
   };
   const preview = {
+    lifecycle: 0,
     asOf: value.capturedTimestamp,
     processedSteps: previewSteps,
     ratesScaled: [0n, 0n, 0n, 0n] as const,
@@ -235,24 +243,31 @@ function renderExperience(
   const original = readContract.getMockImplementation();
   readContract.mockImplementation((request) =>
     request.functionName === "previewAccounting"
-      ? Promise.resolve(preview)
+      ? unavailableProjection
+        ? Promise.reject(new Error("Projection RPC unavailable"))
+        : Promise.resolve(preview)
       : original?.(request),
   );
   value = {
     ...value,
-    vesting: {
-      earned: balances,
-      preview,
-      allocation: undefined,
-      reserves: {
-        unearnedScaled: [0n, 0n, 0n, 0n],
-        cancellationScaled: [0n, 0n, 0n, 0n],
-        unassignedMemberScaled: 0n,
-        distributionDustScaled: 0n,
-        indexCarryScaled: 0n,
-        status: balances.status,
-      },
-    },
+    vestingError: unavailableProjection
+      ? "Projection RPC unavailable"
+      : undefined,
+    vesting: unavailableProjection
+      ? undefined
+      : {
+          earned: balances,
+          preview,
+          allocation: undefined,
+          reserves: {
+            unearnedScaled: [0n, 0n, 0n, 0n],
+            cancellationScaled: [0n, 0n, 0n, 0n],
+            unassignedMemberScaled: 0n,
+            distributionDustScaled: 0n,
+            indexCarryScaled: 0n,
+            status: balances.status,
+          },
+        },
   };
   return render(
     <QueryClientProvider
@@ -265,6 +280,7 @@ function renderExperience(
         expectedChainId={46630}
         fresh
         onRefresh={onRefresh}
+        onSelectPosition={() => {}}
         snapshot={value}
       />
     </QueryClientProvider>,
@@ -301,15 +317,83 @@ describe("supporter membership experience", () => {
     );
   });
 
+  it("keeps live transfer, maintenance and settled retired claims usable if projections fail", async () => {
+    const original = readContract.getMockImplementation();
+    readContract.mockImplementation((request) =>
+      request.functionName === "claimableRetiredReward"
+        ? Promise.resolve([100n, 1n])
+        : request.functionName === "getApproved"
+          ? Promise.resolve(zeroAddress)
+          : original?.(request),
+    );
+    renderExperience(
+      { ...snapshot, paused: true, credential: credential() },
+      100n,
+      async () => undefined,
+      0n,
+      true,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Rewards & accounting", { exact: true }));
+    expect(
+      await screen.findByText(/Reward projection unavailable/),
+    ).toBeVisible();
+    expect(
+      await screen.findByRole("button", {
+        name: "Claim ended membership rewards",
+      }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("region", { name: "Membership maintenance" }),
+    ).toBeVisible();
+    const transfer = screen.getByRole("region", {
+      name: "Transfer membership #1",
+    });
+    await user.type(
+      within(transfer).getByLabelText("Transfer recipient wallet"),
+      "0x9999999999999999999999999999999999999999",
+    );
+    await user.click(within(transfer).getByRole("checkbox"));
+    expect(
+      within(transfer).getByRole("button", { name: "Transfer membership #1" }),
+    ).toBeEnabled();
+  });
+
   it("shows the captured-block quote and confirms actual issuance despite a changed curve and shortened access", async () => {
     const user = userEvent.setup();
-    readContract.mockResolvedValue({
+    const quoted = {
       grossBefore: 0n,
       grossAfter: 10_000_000n,
       sharesAdded: 15_000_000n,
+    };
+    const held = credential({
+      shares: 24_000_000n,
+      expiration: snapshot.capturedTimestamp + 60n,
+    });
+    readContract.mockImplementation(async ({ functionName }) => {
+      const results: Record<string, unknown> = {
+        previewShares: quoted,
+        ownerOf: wallet,
+        isActiveToken: held.active,
+        isOccupied: held.occupied,
+        timeBalances: [
+          held.paidSeconds,
+          held.grantSeconds,
+          held.expiration - held.paidSeconds - held.grantSeconds,
+        ],
+        referralOf: [1, zeroAddress],
+        sharesOf: held.shares,
+        claimableReward: held.claimableReward,
+        rewardEligible: held.rewardEligible,
+        previewRefund: { grossRefund: held.refundableGross },
+      };
+      if (!(functionName in results))
+        throw new Error(`Unexpected read ${functionName}`);
+      return results[functionName];
     });
     paymentWrite.receipt.mockResolvedValue({
       status: "success",
+      blockNumber: 330n,
       transactionHash: `0x${"12".repeat(32)}`,
       logs: [
         {
@@ -372,7 +456,7 @@ describe("supporter membership experience", () => {
       .click(screen.getByText("Reward details", { exact: true }));
     expect(
       await screen.findByText(
-        /15 shares \(1.5× average\). This weight is permanent/,
+        /15 shares \(1.5× average\). This weight stays with the live position/,
       ),
     ).toBeVisible();
     expect(
@@ -386,13 +470,10 @@ describe("supporter membership experience", () => {
       }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Renew active membership" }),
+      screen.getByRole("button", { name: "Renew membership #1" }),
     );
     expect(
       await screen.findByText(/Actual new reward weight: 11 shares/),
-    ).toBeVisible();
-    expect(
-      screen.getByText(/Historical reward weight restored: 10 shares/),
     ).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Periods" })).toHaveValue("");
     expect(screen.getByRole("textbox", { name: "Periods" })).toHaveAttribute(
@@ -400,7 +481,7 @@ describe("supporter membership experience", () => {
       "false",
     );
     expect(
-      screen.getByRole("button", { name: "Renew active membership" }),
+      screen.getByRole("button", { name: "Renew membership #1" }),
     ).toBeDisabled();
     expect(
       screen.queryByRole("button", { name: /^Wrap / }),
@@ -564,21 +645,17 @@ describe("supporter membership experience", () => {
         .click(screen.getByText("About your reward share", { exact: true }));
       if (rewardEligible)
         expect(
-          screen.getByText(/Free renewal keeps your existing weight eligible/),
+          screen.getByText(/Free renewal keeps this live position’s weight/),
         ).toBeVisible();
       else
         expect(
-          within(status).getByText(
-            /A paid renewal restores your historical reward weight/,
-          ),
+          within(status).getByText(/Retirement permanently removes/),
         ).toBeVisible();
       expect(
         await screen.findByText(/Estimated new reward weight: 0 shares/),
       ).toBeVisible();
       expect(
-        screen.getByText(
-          "Free access adds no reward weight and does not restore eligibility.",
-        ),
+        screen.getByText("Free membership time adds no reward weight."),
       ).toBeVisible();
       expect(
         screen.getByRole("button", { name: "Claim rewards" }),
@@ -588,9 +665,7 @@ describe("supporter membership experience", () => {
 
   it("presents join, active renewal, held-expiry, and synchronized history distinctly", () => {
     const view = renderExperience(snapshot);
-    expect(screen.getAllByText("Join this membership").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.getAllByText("New membership").length).toBeGreaterThan(0);
 
     view.rerender(
       <QueryClientProvider client={new QueryClient()}>
@@ -598,6 +673,7 @@ describe("supporter membership experience", () => {
           capturedBlock={100n}
           expectedChainId={46630}
           fresh
+          onSelectPosition={() => {}}
           onRefresh={async () => undefined}
           snapshot={{ ...snapshot, credential: credential() }}
         />
@@ -612,11 +688,11 @@ describe("supporter membership experience", () => {
       }),
     ).toBeVisible();
     expect(
-      within(activeStatus).queryByText("Renew active membership"),
+      within(activeStatus).queryByText("Renew membership #1"),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "Membership action" }),
-    ).toHaveTextContent("Renew active membership");
+    ).toHaveTextContent("Renew membership #1");
 
     view.rerender(
       <QueryClientProvider client={new QueryClient()}>
@@ -624,6 +700,7 @@ describe("supporter membership experience", () => {
           capturedBlock={100n}
           expectedChainId={46630}
           fresh
+          onSelectPosition={() => {}}
           onRefresh={async () => undefined}
           snapshot={{
             ...snapshot,
@@ -632,9 +709,7 @@ describe("supporter membership experience", () => {
         />
       </QueryClientProvider>,
     );
-    expect(screen.getAllByText("Renew your membership").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.getAllByText("Membership ended").length).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: "Synchronize this place" }),
     ).not.toBeInTheDocument();
@@ -645,6 +720,7 @@ describe("supporter membership experience", () => {
           capturedBlock={100n}
           expectedChainId={46630}
           fresh
+          onSelectPosition={() => {}}
           onRefresh={async () => undefined}
           snapshot={{
             ...snapshot,
@@ -659,16 +735,14 @@ describe("supporter membership experience", () => {
         />
       </QueryClientProvider>,
     );
-    expect(
-      screen.getAllByText("Rejoin this membership").length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Membership ended").length).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: "Synchronize this place" }),
     ).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByText("About your reward share", { exact: true }),
     );
-    expect(screen.getByText("Burned after creator sync")).toBeVisible();
+    expect(screen.getByText("Retired")).toBeVisible();
   });
 
   it("separates a zero contribution from positive economics and omits gifting", () => {
@@ -696,7 +770,7 @@ describe("supporter membership experience", () => {
     });
     await user.clear(input);
     expect(
-      screen.getByRole("button", { name: "Add one membership period" }),
+      screen.getByRole("button", { name: "New membership" }),
     ).toBeDisabled();
     expect(
       within(screen.getByLabelText("Membership payment preview")).getByText(
@@ -705,7 +779,7 @@ describe("supporter membership experience", () => {
     ).toBeVisible();
     await user.type(input, "0");
     expect(
-      screen.getByRole("button", { name: "Add one membership period" }),
+      screen.getByRole("button", { name: "New membership" }),
     ).toBeEnabled();
   });
 
@@ -724,7 +798,7 @@ describe("supporter membership experience", () => {
       screen.queryByText("Enter 1 or more whole periods."),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Renew active membership" }),
+      screen.getByRole("button", { name: "Renew membership #1" }),
     ).toBeDisabled();
   });
 
@@ -772,8 +846,9 @@ describe("supporter membership experience", () => {
       ),
     );
     expect(
-      readContract.mock.calls.every(([call]) =>
-        ["previewShares", "previewAccounting"].includes(call.functionName),
+      readContract.mock.calls.every(
+        ([call]) =>
+          !["tokenURI", "previewTokenURI"].includes(call.functionName),
       ),
     ).toBe(true);
     expect(
@@ -847,6 +922,7 @@ describe("supporter membership experience", () => {
           capturedBlock={101n}
           expectedChainId={46630}
           fresh
+          onSelectPosition={() => {}}
           onRefresh={async () => undefined}
           snapshot={{ ...snapshot, art: { ...snapshot.art, palette: 1 } }}
         />
@@ -885,6 +961,7 @@ describe("supporter membership experience", () => {
           capturedBlock={100n}
           expectedChainId={46630}
           fresh
+          onSelectPosition={() => {}}
           onRefresh={async () => undefined}
           snapshot={snapshot}
         />

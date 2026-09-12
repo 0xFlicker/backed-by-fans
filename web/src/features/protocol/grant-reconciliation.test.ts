@@ -2,6 +2,7 @@ import {
   encodeAbiParameters,
   encodeEventTopics,
   getAddress,
+  zeroAddress,
   type Log,
   type PublicClient,
 } from "viem";
@@ -56,12 +57,74 @@ function receipt(log: Log) {
 
 function client() {
   return {
-    readContract: vi.fn().mockResolvedValue(7n),
+    readContract: vi
+      .fn()
+      .mockImplementation(async ({ functionName }) =>
+        functionName === "ownerOf" ? recipient : [90n, 80n, 1010n],
+      ),
     getBlock: vi.fn().mockResolvedValue({ timestamp: 1_010n }),
   } as unknown as PublicClient;
 }
 
 describe("tier grant reconciliation", () => {
+  it("discovers a new identity only from its mint receipt and pins postconditions", async () => {
+    const rpc = client();
+    vi.mocked(rpc.readContract).mockImplementation(async ({ functionName }) =>
+      functionName === "ownerOf" ? recipient : ([0n, 30n, 1010n] as never),
+    );
+    const supplied = receipt(
+      timeUpdateLog({ paidSeconds: 0n, grantSeconds: 30n, expiration: 1040n }),
+    );
+    supplied.logs.push({
+      address: tier,
+      data: "0x",
+      topics: encodeEventTopics({
+        abi: membershipTierAbi,
+        eventName: "Transfer",
+        args: { from: zeroAddress, to: recipient, tokenId: 7n },
+      }),
+    } as unknown as SuccessfulWriteReceipt["logs"][number]);
+    await expect(
+      reconcileTierGrant(
+        rpc,
+        {
+          ...baseline,
+          tokenId: 0n,
+          baselinePaidSeconds: 0n,
+          baselineGrantSeconds: 0n,
+        },
+        supplied,
+      ),
+    ).resolves.toMatchObject({ tokenId: 7n });
+    expect(rpc.readContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionName: "ownerOf",
+        args: [7n],
+        blockNumber: 101n,
+      }),
+    );
+    expect(rpc.readContract).not.toHaveBeenCalledWith(
+      expect.objectContaining({ functionName: "tokenOf" }),
+    );
+  });
+
+  it("rejects a receipt for a different current beneficiary", async () => {
+    const rpc = client();
+    vi.mocked(rpc.readContract).mockResolvedValue(zeroAddress as never);
+    await expect(
+      reconcileTierGrant(
+        rpc,
+        baseline,
+        receipt(
+          timeUpdateLog({
+            paidSeconds: 90n,
+            grantSeconds: 80n,
+            expiration: 1180n,
+          }),
+        ),
+      ),
+    ).resolves.toBeUndefined();
+  });
   it("proves the exact decayed grant transition from the supplied receipt", async () => {
     await expect(
       reconcileTierGrant(

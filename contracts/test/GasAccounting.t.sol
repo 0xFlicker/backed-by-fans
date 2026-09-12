@@ -19,7 +19,16 @@ import {Vm} from "forge-std/Vm.sol";
 
 /// @dev Measure only the operation, with cold contract/storage access. These are gross
 /// execution gas measurements, excluding deployment, setup, intrinsic gas and refunds.
+// Bounds include permanent expiration processing, ERC-721 enumeration and explicit
+// position claims. See feature 005 evidence/gas.md for measured old/new deltas.
 contract GasAccountingTest is Test {
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        return 0x150b7a02;
+    }
     MembershipFactory private factory;
     MockUSDG private token;
     OnchainMetadataRenderer private renderer;
@@ -92,23 +101,26 @@ contract GasAccountingTest is Test {
         result = MembershipTier(factory.createTier(config));
         token.mint(address(this), 10_000);
         token.approve(address(result), 10_000);
-        result.purchase(1, address(0));
+        result.createMembership(1, address(0));
         address buyer = makeAddr("referred buyer");
         token.mint(buyer, 1000);
         vm.startPrank(buyer);
         token.approve(address(result), 1000);
-        result.purchase(1, address(this));
+        result.createMembership(1, address(this));
         vm.stopPrank();
     }
 
     function _claim(uint256 count, bool settle, string memory name) private {
-        address[] memory tiers = new address[](count);
+        MembershipTypes.TierClaimRequest[] memory tiers =
+            new MembershipTypes.TierClaimRequest[](count);
         for (uint256 i; i < count; ++i) {
-            tiers[i] = benchmarkTiers[i];
+            uint256[] memory ids = new uint256[](1);
+            ids[0] = 1;
+            tiers[i] = MembershipTypes.TierClaimRequest(benchmarkTiers[i], ids);
         }
         vm.warp(settle ? 1100 : 1050);
         for (uint256 i; i < count; ++i) {
-            vm.cool(tiers[i]);
+            vm.cool(tiers[i].tier);
         }
         vm.cool(address(factory));
         vm.cool(address(token));
@@ -118,12 +130,12 @@ contract GasAccountingTest is Test {
         uint256 used = beforeGas - gasleft();
         _recordGas(name, used, abi.encodeCall(factory.claimEverything, (tiers)));
         assertLe(
-            used, settle ? 1_600_000 : count == 1 ? 400_000 : count == 3 ? 1_160_000 : 3_050_000
+            used, settle ? 2_700_000 : count == 1 ? 400_000 : count == 3 ? 1_160_000 : 3_400_000
         );
         for (uint256 i; i < count; ++i) {
-            assertEq(results[i].processedSteps, settle ? 2 : 0);
+            assertEq(results[i].processedSteps, settle ? 4 : 0);
             assertGt(results[i].creator, 0);
-            assertGt(results[i].reward, 0);
+            assertGt((results[i].liveReward + results[i].retiredReward), 0);
             assertGt(results[i].referral, 0);
         }
     }
@@ -151,12 +163,14 @@ contract GasAccountingTest is Test {
         vm.cool(address(token));
         vm.cool(ledger);
         vm.prank(makeAddr("referred buyer"));
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = 2;
         uint256 beforeGas = gasleft();
-        MembershipTypes.ClaimResult memory result = tier.claimAll();
+        MembershipTypes.ClaimResult memory result = tier.claimRewards(ids, 25);
         uint256 used = beforeGas - gasleft();
-        _recordGas("claim_member_only", used, abi.encodeCall(tier.claimAll, ()));
-        assertLe(used, 325_000);
-        assertGt(result.reward, 0);
+        _recordGas("claim_member_only", used, abi.encodeCall(tier.claimRewards, (ids, 25)));
+        assertLe(used, 360_000);
+        assertGt((result.liveReward + result.retiredReward), 0);
         assertEq(result.creator + result.referral, 0);
     }
 
@@ -170,13 +184,28 @@ contract GasAccountingTest is Test {
         vm.cool(ledger);
         vm.prank(buyer);
         uint256 beforeGas = gasleft();
-        uint256 tokenId = tier.purchase(1, referrer);
+        uint256 tokenId;
+        if (renewal) {
+            tier.renewMembership(1, 1, referrer);
+            tokenId = 1;
+        } else {
+            tokenId = tier.createMembership(1, referrer);
+        }
         uint256 used = beforeGas - gasleft();
-        _recordGas(renewal ? "renewal" : "join", used, abi.encodeCall(tier.purchase, (1, referrer)));
-        assertLe(used, renewal ? 540_000 : 850_000);
+        _recordGas(
+            renewal ? "renewal" : "join",
+            used,
+            renewal
+                ? abi.encodeCall(tier.renewMembership, (1, 1, referrer))
+                : abi.encodeCall(tier.createMembership, (1, referrer))
+        );
+        assertLe(used, renewal ? 600_000 : 1_050_000);
         assertEq(tokenId, renewal ? 1 : 3);
         assertEq(tier.sharesOf(tokenId), renewal ? 2000 : 1000);
-        assertTrue(tier.isActive(buyer));
+        assertTrue(
+            (tier.tokensOfOwner(buyer, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(buyer, 0, 1).tokenIds[0]))
+        );
     }
 
     function test_gas_join() public {
@@ -270,7 +299,7 @@ contract GasAccountingTest is Test {
             used,
             abi.encodeCall(router.advance, (tiers, purchases, 1200))
         );
-        assertLe(used, 670_000);
+        assertLe(used, 1_100_000);
         assertEq(released, 1);
         assertEq(bought, 1);
         assertEq(burned, 200);

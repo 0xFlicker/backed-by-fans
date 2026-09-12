@@ -34,7 +34,7 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
         MembershipTier tier = MembershipTier(bbf.createTier(config));
         vm.startPrank(trader);
         assertTrue(IERC20(USDG).approve(address(tier), acquired));
-        tier.purchase(2, address(0));
+        tier.createMembership(2, address(0));
         vm.stopPrank();
         vm.prank(developer);
         assertTrue(token.transfer(address(vault), 123));

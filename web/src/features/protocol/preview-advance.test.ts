@@ -46,7 +46,7 @@ it("previews release deltas and eligibility after release, without crediting don
     expect.arrayContaining([
       expect.objectContaining({
         functionName: "previewAccounting",
-        args: [0n, zeroAddress, 25n],
+        args: [0n, zeroAddress, zeroAddress, 25n],
         blockNumber: 100n,
       }),
       expect.objectContaining({

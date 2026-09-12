@@ -248,10 +248,13 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       membershipTier,
       4_920_000_000_000_000n,
     ]);
-    await f.write(trader, membershipTier, membershipTierAbi, "purchase", [
-      12n,
-      zeroAddress,
-    ]);
+    await f.write(
+      trader,
+      membershipTier,
+      membershipTierAbi,
+      "createMembership",
+      [12n, zeroAddress],
+    );
     await f.testClient.increaseTime({ seconds: 300 });
     await f.testClient.mine({ blocks: 1 });
     await f.write(

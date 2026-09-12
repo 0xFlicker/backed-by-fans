@@ -251,6 +251,304 @@ library MembershipModel {
         state.occupied = true;
     }
 
+    /// @dev Independent lifecycle oracle: scan issued positions and absolute funding
+    /// intervals, and eagerly credit every eligible position. There is no heap,
+    /// reward index, lazy settlement, production ledger or ERC-721 implementation.
+    /// The older single-membership helpers above remain for existing test consumers.
+    struct Position {
+        Lifecycle time;
+        address owner;
+        uint256 shares;
+        uint256 creditScaled;
+        bool eligible;
+        bool referralLocked;
+        address referrer;
+        uint64 retiredAt;
+    }
+
+    struct PositionBook {
+        mapping(uint256 => Position) positions;
+        mapping(address => uint256) retiredCreditScaled;
+        FundingBook funding;
+        uint256 totalMinted;
+        uint256 occupied;
+        uint256 totalShares;
+        uint256 lifetimeGross;
+        uint256 retiredLiabilityScaled;
+        uint256 paidMemberRaw;
+        uint256 rewardCarry;
+        uint256 distributionDust;
+        uint256 unassigned;
+        uint32 boostBps;
+        uint112 horizon;
+        uint16 protocolBps;
+        uint16 rewardBps;
+        uint16 referralBps;
+    }
+
+    struct PositionIncrease {
+        uint64 paidSeconds;
+        uint64 grantSeconds;
+        uint256 gross;
+        bool lockReferral;
+        address referrer;
+    }
+
+    error PositionNotLive();
+    error PositionOwnerMismatch();
+    error InvalidPositionIncrease();
+    error ModelTimeReversed();
+
+    function createPosition(
+        PositionBook storage book,
+        address owner,
+        uint64 timestamp,
+        PositionIncrease memory increase
+    ) internal returns (uint256 id) {
+        if (owner == address(0)) revert PositionOwnerMismatch();
+        advancePositions(book, timestamp);
+        id = ++book.totalMinted;
+        book.positions[id].owner = owner;
+        ++book.occupied;
+        _increasePosition(book, id, timestamp, increase);
+    }
+
+    function increasePosition(
+        PositionBook storage book,
+        uint256 id,
+        uint64 timestamp,
+        PositionIncrease memory increase
+    ) internal {
+        _requireLivePosition(book, id, timestamp);
+        advancePositions(book, timestamp);
+        _increasePosition(book, id, timestamp, increase);
+    }
+
+    function _increasePosition(
+        PositionBook storage book,
+        uint256 id,
+        uint64 timestamp,
+        PositionIncrease memory increase
+    ) private {
+        if (
+            uint256(increase.paidSeconds) + increase.grantSeconds == 0
+                || (increase.gross != 0 && increase.paidSeconds == 0)
+        ) revert InvalidPositionIncrease();
+        Position storage position = book.positions[id];
+        if (increase.lockReferral) {
+            if (position.referralLocked && position.referrer != increase.referrer) {
+                revert InvalidPositionIncrease();
+            }
+            position.referralLocked = true;
+            position.referrer = increase.referrer;
+        }
+        _prepareIncrease(position.time, timestamp);
+        uint64 fundingStart = position.time.checkpoint + position.time.paidSeconds;
+        position.time.paidSeconds += increase.paidSeconds;
+        position.time.grantSeconds += increase.grantSeconds;
+        // Check the same uint64 absolute-time domain as the external lifecycle.
+        (uint256(position.time.checkpoint) + position.time.paidSeconds + position.time.grantSeconds)
+        .toUint64();
+        if (increase.gross == 0) return;
+        uint256 issued =
+            positionShares(book.lifetimeGross, increase.gross, book.boostBps, book.horizon);
+        _changeDenominator(book);
+        position.shares += issued;
+        position.eligible = true;
+        book.totalShares += issued;
+        book.lifetimeGross += increase.gross;
+        fund(
+            book.funding,
+            id,
+            increase.gross,
+            fundingStart,
+            increase.paidSeconds,
+            book.protocolBps,
+            book.rewardBps,
+            book.referralBps,
+            position.referrer
+        );
+    }
+
+    /// @dev Integrate the linear marginal boost over the gross interval using its
+    /// cumulative trapezoid area. Never call the production curve implementation.
+    function positionShares(uint256 cursor, uint256 gross, uint32 boostBps, uint112 horizon)
+        internal
+        pure
+        returns (uint256)
+    {
+        if (gross > type(uint112).max - cursor) revert InvalidPositionIncrease();
+        return _positionCumulative(cursor + gross, boostBps, horizon)
+            - _positionCumulative(cursor, boostBps, horizon);
+    }
+
+    function _positionCumulative(uint256 gross, uint32 boostBps, uint112 horizon)
+        private
+        pure
+        returns (uint256)
+    {
+        if (boostBps == 10_000) return gross;
+        uint256 width = Math.min(gross, horizon);
+        uint256 twiceArea = width * (uint256(horizon) + (uint256(horizon) - width));
+        return gross + twiceArea * (boostBps - 10_000) / (20_000 * uint256(horizon));
+    }
+
+    /// @dev Caller models ERC-721 authorization separately; this models the
+    /// authorized from/to movement only, with no accounting work or normalization.
+    function transferPosition(
+        PositionBook storage book,
+        uint256 id,
+        address from,
+        address to,
+        uint64 timestamp
+    ) internal {
+        _requireLivePosition(book, id, timestamp);
+        if (book.positions[id].owner != from || to == address(0)) {
+            revert PositionOwnerMismatch();
+        }
+        book.positions[id].owner = to;
+    }
+
+    /// @dev Unbounded reference operation, deliberately unlike production batches.
+    /// Fixed denominators between expiration boundaries allow recognition of all
+    /// funding intervals (including their END tails) before retirement at a boundary.
+    function advancePositions(PositionBook storage book, uint64 through) internal {
+        if (through < book.funding.accountedThrough) revert ModelTimeReversed();
+        while (true) {
+            uint64 next = through;
+            bool retiring;
+            for (uint256 id = 1; id <= book.totalMinted; ++id) {
+                Position storage position = book.positions[id];
+                if (position.owner == address(0)) continue;
+                uint64 end = expiration(position.time);
+                if (end <= next) {
+                    next = end;
+                    retiring = true;
+                }
+            }
+            uint256 earnedBefore = book.funding.earnedScaled[1];
+            recognize(book.funding, next);
+            _distributePositions(book, book.funding.earnedScaled[1] - earnedBefore);
+            if (!retiring) return;
+            // Ascending IDs also define deterministic simultaneous retirement.
+            for (uint256 id = 1; id <= book.totalMinted; ++id) {
+                Position storage position = book.positions[id];
+                if (position.owner != address(0) && expiration(position.time) == next) {
+                    _retirePosition(book, id, next);
+                }
+            }
+        }
+    }
+
+    function _distributePositions(PositionBook storage book, uint256 amount) private {
+        if (book.totalShares == 0) {
+            book.unassigned += amount;
+            return;
+        }
+        uint256 available = amount + book.rewardCarry;
+        uint256 perShare = available / book.totalShares;
+        book.rewardCarry = available % book.totalShares;
+        for (uint256 id = 1; id <= book.totalMinted; ++id) {
+            Position storage position = book.positions[id];
+            // Historical eligibility survives wall-clock expiry until retirement.
+            if (position.eligible) position.creditScaled += perShare * position.shares;
+        }
+    }
+
+    function revokePositionGrant(PositionBook storage book, uint256 id, uint64 timestamp) internal {
+        _requireLivePosition(book, id, timestamp);
+        advancePositions(book, timestamp);
+        revokeGrantTime(book.positions[id].time, timestamp);
+        if (!active(book.positions[id].time, timestamp)) _retirePosition(book, id, timestamp);
+    }
+
+    function refundPosition(PositionBook storage book, uint256 id, uint64 timestamp)
+        internal
+        returns (uint256 gross)
+    {
+        _requireLivePosition(book, id, timestamp);
+        advancePositions(book, timestamp);
+        gross = cancel(book.funding, id);
+        _retirePosition(book, id, timestamp);
+    }
+
+    function _retirePosition(PositionBook storage book, uint256 id, uint64 timestamp) private {
+        Position storage position = book.positions[id];
+        assert(position.owner != address(0));
+        book.retiredCreditScaled[position.owner] += position.creditScaled;
+        book.retiredLiabilityScaled += position.creditScaled;
+        if (position.eligible && position.shares != 0) {
+            _changeDenominator(book);
+            book.totalShares -= position.shares;
+        }
+        delete book.positions[id];
+        book.positions[id].retiredAt = timestamp;
+        --book.occupied;
+    }
+
+    function _changeDenominator(PositionBook storage book) private {
+        book.distributionDust += book.rewardCarry;
+        book.rewardCarry = 0;
+    }
+
+    function _requireLivePosition(PositionBook storage book, uint256 id, uint64 timestamp)
+        private
+        view
+    {
+        if (book.positions[id].owner == address(0) || !active(book.positions[id].time, timestamp)) {
+            revert PositionNotLive();
+        }
+    }
+
+    function claimPositionCredit(
+        PositionBook storage book,
+        uint256 id,
+        address owner,
+        uint64 timestamp
+    ) internal returns (uint256 amount) {
+        if (book.positions[id].owner != owner || owner == address(0)) {
+            revert PositionOwnerMismatch();
+        }
+        advancePositions(book, timestamp);
+        if (book.positions[id].owner == address(0)) return claimRetiredPositionCredit(book, owner);
+        amount = book.positions[id].creditScaled / ACCOUNTING_SCALE;
+        book.positions[id].creditScaled -= amount * ACCOUNTING_SCALE;
+        book.paidMemberRaw += amount;
+    }
+
+    function claimRetiredPositionCredit(PositionBook storage book, address owner)
+        internal
+        returns (uint256 amount)
+    {
+        amount = book.retiredCreditScaled[owner] / ACCOUNTING_SCALE;
+        book.retiredCreditScaled[owner] -= amount * ACCOUNTING_SCALE;
+        book.retiredLiabilityScaled -= amount * ACCOUNTING_SCALE;
+        book.paidMemberRaw += amount;
+    }
+
+    function memberLiabilityScaled(PositionBook storage book) internal view returns (uint256 sum) {
+        sum = book.retiredLiabilityScaled;
+        for (uint256 id = 1; id <= book.totalMinted; ++id) {
+            sum += book.positions[id].creditScaled;
+        }
+    }
+
+    function accountedRewardScaled(PositionBook storage book) internal view returns (uint256) {
+        return memberLiabilityScaled(book) + book.paidMemberRaw * ACCOUNTING_SCALE
+            + book.rewardCarry + book.distributionDust + book.unassigned;
+    }
+
+    /// @dev All original cash remains in earned/payout, unearned, cancellation or
+    /// refund buckets. Member earnings include credit, carry, dust and unassigned.
+    function accountedCashScaled(PositionBook storage book) internal view returns (uint256 sum) {
+        sum = accountedRewardScaled(book);
+        for (uint256 p; p < 4; ++p) {
+            sum += book.funding.unearnedScaled[p] + book.funding.cancellationScaled[p]
+            + book.funding.refundedScaled[p];
+            if (p != 1) sum += book.funding.earnedScaled[p];
+        }
+    }
+
     function variableRefund(
         uint256[] memory grossLots,
         uint64 periodDuration,

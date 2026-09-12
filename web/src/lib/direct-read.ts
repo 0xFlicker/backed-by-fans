@@ -447,6 +447,7 @@ export async function readTierAccounting(
     tier: Address;
     tokenId: bigint;
     referrer: Address;
+    beneficiary: Address;
     blockNumber: bigint;
   },
 ) {
@@ -459,7 +460,7 @@ export async function readTierAccounting(
     client.readContract({
       ...common,
       functionName: "previewAccounting",
-      args: [input.tokenId, input.referrer, 256n],
+      args: [input.tokenId, input.beneficiary, input.referrer, 256n],
     }),
     client.readContract({ ...common, functionName: "reserveState" }),
     input.tokenId === 0n

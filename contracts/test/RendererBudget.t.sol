@@ -84,7 +84,7 @@ contract RendererBudgetTest is Test {
             address(this), address(renderer), address(paymentToken)
         );
         MembershipTier tier = MembershipTier(factory.createTier(config));
-        uint256 tokenId = tier.grantTime(makeAddr("no-media-member"), 1);
+        uint256 tokenId = tier.grantMembership(makeAddr("no-media-member"), 1);
 
         uint256 gasBefore = gasleft();
         string memory tokenURI = tier.tokenURI(tokenId);
@@ -176,7 +176,7 @@ contract RendererBudgetTest is Test {
             IERC20(address(paymentToken)),
             config
         );
-        tokenId = tier.grantTime(
+        tokenId = tier.grantMembership(
             makeAddr(
                 string.concat(
                     "member-", vm.toString(mediaLength), "-", vm.toString(uint256(engine))

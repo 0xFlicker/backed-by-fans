@@ -140,7 +140,7 @@ test("@protocol-fork independently funded callers replace one-shot collection an
       member,
       tier,
       membershipTierAbi,
-      "purchase",
+      "createMembership",
       [12n, "0x0000000000000000000000000000000000000000"],
     );
     const start = (

@@ -1,10 +1,4 @@
-import {
-  getAddress,
-  isAddress,
-  parseEventLogs,
-  type Address,
-  type PublicClient,
-} from "viem";
+import { getAddress, isAddress, type Address, type PublicClient } from "viem";
 
 import { membershipTierAbi } from "@/contracts";
 import {
@@ -19,6 +13,52 @@ import {
 } from "@/features/creator/config";
 import { isSameAddress } from "@/lib/address";
 import { displayedToRaw } from "@/lib/token-amount";
+
+export type MembershipIntent =
+  { kind: "new" } | { kind: "renew"; tokenId: bigint; expiration: bigint };
+
+export function positionKey(chainId: number, tier: Address, tokenId: bigint) {
+  return `${chainId}:${tier.toLowerCase()}:${tokenId}`;
+}
+
+export function membershipPaymentCall(input: {
+  intent: MembershipIntent;
+  now: bigint;
+  periods: bigint;
+  gross: bigint;
+  pricePerPeriod: bigint;
+  referralChoice: Address;
+}) {
+  const { intent, referralChoice } = input;
+  if (
+    intent.kind === "renew" &&
+    (intent.tokenId === 0n || intent.expiration <= input.now)
+  ) {
+    throw new Error(
+      "This membership has ended. Choose New membership to return.",
+    );
+  }
+  if (input.pricePerPeriod === 0n) {
+    return intent.kind === "new"
+      ? {
+          functionName: "createContributionMembership" as const,
+          args: [input.gross, referralChoice] as const,
+        }
+      : {
+          functionName: "renewContributionMembership" as const,
+          args: [intent.tokenId, input.gross, referralChoice] as const,
+        };
+  }
+  return intent.kind === "new"
+    ? {
+        functionName: "createMembership" as const,
+        args: [input.periods, referralChoice] as const,
+      }
+    : {
+        functionName: "renewMembership" as const,
+        args: [intent.tokenId, input.periods, referralChoice] as const,
+      };
+}
 
 /** A quote at the snapshot block reserves neither curve position nor shares. */
 export async function readRewardQuote(
@@ -65,37 +105,8 @@ export function averageRewardBoost(shares: bigint, gross: bigint) {
   return `${Number((shares * 10000n) / gross) / 10000}×`;
 }
 
-/** Restoration is historical weight in this receipt, separate from its new issuance. */
-export function receiptRestoredRewardWeight(
-  receipt: SuccessfulReceiptLogs,
-  tier: Address,
-  tokenId: bigint,
-) {
-  const issued = receiptIssuedShares(receipt, tier, tokenId);
-  if (!issued) return 0n;
-  const activation = parseEventLogs({
-    abi: membershipTierAbi,
-    eventName: "RewardEligibilityUpdated",
-    logs: receipt.logs,
-    strict: true,
-  }).find(
-    (event) =>
-      isSameAddress(event.address, tier) &&
-      event.args.tokenId === tokenId &&
-      event.args.eligible &&
-      event.args.eligibleShares === issued.tokenShares,
-  );
-  return activation && issued.tokenShares >= issued.amount
-    ? issued.tokenShares - issued.amount
-    : 0n;
-}
-
 export type MembershipActionState =
-  | "unready"
-  | "joinable"
-  | "active"
-  | "expired-occupied"
-  | "historical-synchronized";
+  "unready" | "joinable" | "active" | "expired-pending" | "retired";
 
 export function classifyMembershipState(input: {
   walletReady: boolean;
@@ -106,7 +117,7 @@ export function classifyMembershipState(input: {
   if (!input.walletReady) return "unready";
   if (input.tokenId === 0n) return "joinable";
   if (input.active) return "active";
-  return input.occupied ? "expired-occupied" : "historical-synchronized";
+  return input.occupied ? "expired-pending" : "retired";
 }
 
 export type PaymentPreview = {

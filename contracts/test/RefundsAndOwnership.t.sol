@@ -5,6 +5,7 @@ import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Test} from "forge-std/Test.sol";
 
@@ -15,6 +16,11 @@ import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {AdversarialERC20} from "./mocks/AdversarialERC20.sol";
 import {MockUSDG} from "./mocks/MockUSDG.sol";
 import {MembershipModel} from "./models/MembershipModel.sol";
+
+function retiredCreditScaled(MembershipTier tier, address beneficiary) view returns (uint256) {
+    (uint256 raw, uint256 fractional) = tier.claimableRetiredReward(beneficiary);
+    return raw * (1 << 128) + fractional;
+}
 
 contract FixedPriceRefundsAndOwnershipTest is Test {
     MembershipTier private tier;
@@ -67,13 +73,15 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         }
         assertEq(sum, quote.grossRefund * (1 << 128));
         vm.prank(creator);
-        assertEq(tier.refund(id, quote.grossRefund), quote.grossRefund);
+        assertEq(tier.refund(id, member, quote.grossRefund), quote.grossRefund);
         assertEq(paymentToken.balanceOf(member), 95_000_000);
         assertApproxEqAbs(tier.creatorProceeds(), 4_700_000, 1);
-        assertApproxEqAbs(tier.claimableReward(id), 250_000, 1);
+        assertApproxEqAbs(retiredCreditScaled(tier, member) / (1 << 128), 250_000, 1);
         assertEq(tier.totalProtectedLiability(), 5_000_000);
         assertEq(tier.lifetimeGross(), 20_000_000);
-        assertEq(tier.sharesOf(id), 20_000_000);
+        assertEq(tier.sharesOf(id), 0);
+        assertEq(tier.occupiedSupply(), 0);
+        _assertBurned(id);
     }
 
     function test_immediateRefundUsesOnlyThisMembershipReservedFunding() public {
@@ -82,7 +90,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         vm.prank(creator);
         paymentToken.approve(address(tier), 0);
         vm.prank(creator);
-        tier.refund(id, 10_000_000);
+        tier.refund(id, member, 10_000_000);
         assertEq(paymentToken.balanceOf(creator), ownerBalance);
         assertEq(paymentToken.balanceOf(member), 100_000_000);
         assertEq(paymentToken.balanceOf(address(tier)), 0);
@@ -109,7 +117,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         paymentToken.approve(address(tier), 0);
         uint256 memberBefore = paymentToken.balanceOf(member);
         vm.prank(creator);
-        assertEq(tier.refund(id, 15_000_000), 15_000_000);
+        assertEq(tier.refund(id, member, 15_000_000), 15_000_000);
         assertEq(paymentToken.balanceOf(member), memberBefore + 15_000_000);
         assertEq(paymentToken.balanceOf(creator), 0);
         assertEq(paymentToken.balanceOf(address(tier)), tier.totalProtectedLiability());
@@ -127,7 +135,8 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         _purchase(payer, 2, address(0));
         uint256 id = _purchase(member, 1, address(0));
         uint256 preview = tier.previewRefund(id).grossRefund;
-        _purchase(member, 1, address(0));
+        vm.prank(member);
+        tier.renewMembership(id, 1, address(0));
         bytes32 before = keccak256(
             abi.encode(tier.allocationState(id), tier.reserveState(), tier.accountingStatus())
         );
@@ -137,7 +146,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
                 MembershipTier.GrossRefundLimitExceeded.selector, 20_000_000, preview
             )
         );
-        tier.refund(id, preview);
+        tier.refund(id, member, preview);
         assertEq(
             keccak256(
                 abi.encode(tier.allocationState(id), tier.reserveState(), tier.accountingStatus())
@@ -148,19 +157,69 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         assertEq(tier.sharesOf(id), 20_000_000);
     }
 
-    function test_fullyVestedCancellationKeepsAllEarnedEntitlements() public {
+    function test_refundRejectsExpectedOwnerMismatchWithoutPaymentOrRetirement() public {
+        uint256 id = _purchase(member, 1, address(0));
+        bytes32 before = keccak256(
+            abi.encode(tier.allocationState(id), tier.reserveState(), tier.accountingStatus())
+        );
+        uint256 memberBalance = paymentToken.balanceOf(member);
+        vm.prank(creator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MembershipTier.MembershipOwnerMismatch.selector, id, payer, member
+            )
+        );
+        tier.refund(id, payer, type(uint256).max);
+        assertEq(
+            keccak256(
+                abi.encode(tier.allocationState(id), tier.reserveState(), tier.accountingStatus())
+            ),
+            before
+        );
+        assertEq(tier.ownerOf(id), member);
+        assertEq(tier.occupiedSupply(), 1);
+        assertEq(tier.sharesOf(id), 10_000_000);
+        assertEq(paymentToken.balanceOf(member), memberBalance);
+        assertEq(retiredCreditScaled(tier, member), 0);
+    }
+
+    function test_memberAndOriginalGiftPayerHaveNoRefundOrCancellationAuthority() public {
+        vm.prank(payer);
+        uint256 id = tier.giftMembership(member, 1);
+        address[2] memory unauthorized = [member, payer];
+        for (uint256 i; i < unauthorized.length; ++i) {
+            vm.prank(unauthorized[i]);
+            vm.expectRevert(
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, unauthorized[i])
+            );
+            tier.refund(id, member, type(uint256).max);
+            vm.prank(unauthorized[i]);
+            vm.expectRevert(
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, unauthorized[i])
+            );
+            tier.cancelSubscription(id);
+        }
+        assertEq(tier.ownerOf(id), member);
+        assertEq(tier.lifetimeGross(), 10_000_000);
+        assertEq(tier.occupiedSupply(), 1);
+    }
+
+    function test_fullyVestedRetirementKeepsEntitlementsAndRejectsFurtherCancellation() public {
         uint256 id = _purchase(member, 1, referrer);
         vm.warp(_START + _PERIOD);
         tier.processAccounting(25);
-        assertEq(tier.creatorProceeds(), 9_300_000);
-        uint256 credit = tier.claimableReward(id);
+        uint256 credit = retiredCreditScaled(tier, member);
+        assertGt(credit, 0);
         vm.prank(creator);
-        assertEq(tier.refund(id, 0), 0);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, id));
+        tier.refund(id, member, 0);
         assertEq(tier.creatorProceeds(), 9_300_000);
-        assertEq(tier.claimableReward(id), credit);
+        assertEq(retiredCreditScaled(tier, member), credit);
         assertEq(tier.claimableReferral(referrer), 100_000);
         assertEq(tier.protocolFeeEarnedHeld(), 100_000);
         assertEq(paymentToken.balanceOf(address(tier)), 10_000_000);
+        assertEq(tier.sharesOf(id), 0);
+        assertEq(tier.occupiedSupply(), 0);
     }
 
     function test_unsolicitedSurplusIsNotRefundFundingOrBeneficiaryCash() public {
@@ -168,48 +227,44 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         paymentToken.mint(address(tier), 2_000_000);
         assertEq(tier.previewRefund(id).grossRefund, 10_000_000);
         vm.prank(creator);
-        tier.refund(id, 10_000_000);
+        tier.refund(id, member, 10_000_000);
         assertEq(paymentToken.balanceOf(address(tier)), 2_000_000);
         assertEq(tier.totalProtectedLiability(), 0);
         assertEq(tier.creatorProceeds(), 0);
         assertEq(tier.claimableReward(id), 0);
     }
 
-    function test_refundClearsTimeButPreservesIdentityIncentivesAndHeldOccupancy() public {
+    function test_refundPermanentlyRetiresPositionAndReleasesCapacityAndAssociation() public {
         uint256 tokenId = _purchase(member, 1, referrer);
         vm.prank(creator);
-        tier.grantTime(member, 1);
-
-        uint256 shares = tier.sharesOf(tokenId);
+        tier.addGrantTime(tokenId, member, 1);
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
-
-        (uint64 paidSeconds, uint64 grantSeconds,) = tier.timeBalances(tokenId);
-        assertEq(paidSeconds, 0);
-        assertEq(grantSeconds, 0);
-        assertFalse(tier.isActive(member));
-        assertEq(tier.ownerOf(tokenId), member);
-        assertEq(tier.sharesOf(tokenId), shares);
+        tier.refund(tokenId, member, type(uint256).max);
+        _assertBurned(tokenId);
+        assertEq(tier.balanceOf(member), 0);
+        assertEq(tier.sharesOf(tokenId), 0);
         assertEq(tier.claimableReward(tokenId), 0);
         assertFalse(tier.rewardEligible(tokenId));
         assertEq(tier.totalRewardShares(), 0);
-        (MembershipTypes.ReferralStatus status, address lockedReferrer) = tier.referralOf(tokenId);
-        assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.LockedAddress));
-        assertEq(lockedReferrer, referrer);
-        assertTrue(tier.isOccupied(tokenId));
-
-        vm.prank(creator);
-        assertEq(_sync(tokenId), 1);
         assertFalse(tier.isOccupied(tokenId));
+        assertEq(tier.occupiedSupply(), 0);
+        assertEq(tier.accountingStatus().scheduledExpirations, 0);
+        assertEq(tier.lifetimeGross(), 10_000_000);
+        assertEq(tier.allocationLots(tokenId, 0, 0, 10)[0].gross, 10_000_000);
+        assertEq(tier.processExpirations(25).retiredCount, 0);
+        uint256 fresh = _purchase(member, 1, address(0));
+        assertGt(fresh, tokenId);
+        assertEq(tier.sharesOf(fresh), 10_000_000);
+        assertEq(tier.lifetimeGross(), 20_000_000);
     }
 
     function test_giftsFromMultiplePayersRefundOnlyTheRecipient() public {
         vm.prank(payer);
-        uint256 tokenId = tier.gift(member, 1, MembershipTypes.ReferralStatus.Unset, address(0));
+        uint256 tokenId = tier.giftMembership(member, 1);
         address secondPayer = makeAddr("secondPayer");
         _fundAndApprove(secondPayer, 100_000_000);
         vm.prank(secondPayer);
-        tier.gift(member, 2, MembershipTypes.ReferralStatus.Unset, address(0));
+        tier.giftRenewal(tokenId, member, 2, MembershipTypes.ReferralStatus.Unset, address(0));
 
         vm.warp(_START + 45 days);
         tier.processAccounting(25);
@@ -218,7 +273,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
 
         uint256 memberBefore = paymentToken.balanceOf(member);
         vm.prank(creator);
-        tier.refund(tokenId, grossRefund);
+        tier.refund(tokenId, member, grossRefund);
         assertEq(paymentToken.balanceOf(member) - memberBefore, 15_000_000);
         assertEq(paymentToken.balanceOf(payer), 90_000_000);
         assertEq(paymentToken.balanceOf(secondPayer), 80_000_000);
@@ -231,28 +286,29 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
 
         vm.prank(creator);
         tier.cancelSubscription(tokenId);
-        assertFalse(tier.isActive(member));
+        assertEq(tier.balanceOf(member), 0);
 
         vm.prank(creator);
         tier.setPaused(false);
-        _purchase(member, 1, address(0));
+        tokenId = _purchase(member, 1, address(0));
         vm.prank(creator);
         tier.setPaused(true);
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
-        assertFalse(tier.isActive(member));
+        tier.refund(tokenId, member, type(uint256).max);
+        assertEq(tier.balanceOf(member), 0);
     }
 
     function test_cancellationAdapterAllowsFullExecutionTimeRefundWithoutCeilings() public {
         uint256 id = _purchase(member, 1, address(0));
         assertEq(tier.previewRefund(id).grossRefund, 10_000_000);
-        _purchase(member, 1, address(0));
+        vm.prank(member);
+        tier.renewMembership(id, 1, address(0));
         uint256 ownerBefore = paymentToken.balanceOf(creator);
         vm.prank(creator);
         tier.cancelSubscription(id);
         assertEq(paymentToken.balanceOf(creator), ownerBefore);
         assertEq(paymentToken.balanceOf(member), 100_000_000);
-        assertFalse(tier.isActive(member));
+        assertEq(tier.balanceOf(member), 0);
     }
 
     function test_cancellationRejectsNativeValueBeforeAuthorityCheck() public {
@@ -281,17 +337,170 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, creator)
         );
-        tier.refund(id, type(uint256).max);
+        tier.refund(id, member, type(uint256).max);
         vm.prank(nextCreator);
         paymentToken.approve(address(tier), 0);
         uint256 ownerBefore = paymentToken.balanceOf(nextCreator);
         vm.prank(nextCreator);
-        tier.refund(id, 5_000_000);
+        tier.refund(id, member, 5_000_000);
         assertEq(paymentToken.balanceOf(nextCreator), ownerBefore);
         assertEq(tier.creatorProceeds(), earned);
         vm.prank(nextCreator);
         assertEq(tier.withdrawCreatorProceeds(), earned);
         assertEq(paymentToken.balanceOf(nextCreator), ownerBefore + earned);
+    }
+
+    function test_transferredGiftRefundAndEarnedCreditBelongToCurrentNftOwner() public {
+        address recipient = makeAddr("transferred gift recipient");
+        vm.prank(payer);
+        uint256 id = tier.giftMembership(member, 2);
+        vm.warp(_START + 15 days);
+        tier.processAccounting(25);
+        uint256 earned = tier.claimableReward(id);
+        uint256 originalMemberBalance = paymentToken.balanceOf(member);
+        uint256 originalPayerBalance = paymentToken.balanceOf(payer);
+        uint256 creatorBalance = paymentToken.balanceOf(creator);
+        vm.prank(member);
+        tier.transferFrom(member, recipient, id);
+        MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
+        assertEq(quote.recipient, recipient);
+        assertEq(quote.grossRefund, 15_000_000);
+        vm.prank(creator);
+        assertEq(tier.refund(id, recipient, quote.grossRefund), 15_000_000);
+        assertEq(paymentToken.balanceOf(recipient), 15_000_000);
+        assertEq(paymentToken.balanceOf(member), originalMemberBalance);
+        assertEq(paymentToken.balanceOf(payer), originalPayerBalance);
+        assertEq(paymentToken.balanceOf(creator), creatorBalance);
+        assertEq(retiredCreditScaled(tier, recipient) / (1 << 128), earned);
+        assertEq(retiredCreditScaled(tier, member), 0);
+        assertEq(retiredCreditScaled(tier, payer), 0);
+        assertEq(tier.lifetimeGross(), 20_000_000);
+        _assertBurned(id);
+    }
+
+    function test_transferInvalidatesPinnedRefundRecipientWithoutChangingRefundQuoteEconomics()
+        public
+    {
+        address recipient = makeAddr("refund quote recipient");
+        uint256 id = _purchase(member, 2, referrer);
+        vm.warp(_START + 15 days);
+        tier.processAccounting(25);
+        MembershipTypes.RefundPreview memory oldQuote = tier.previewRefund(id);
+        vm.prank(member);
+        tier.transferFrom(member, recipient, id);
+        MembershipTypes.RefundPreview memory freshQuote = tier.previewRefund(id);
+        assertEq(oldQuote.recipient, member);
+        assertEq(freshQuote.recipient, recipient);
+        assertEq(freshQuote.grossRefund, oldQuote.grossRefund);
+        assertEq(freshQuote.generation, oldQuote.generation);
+        assertTrue(freshQuote.complete);
+        bytes32 before = keccak256(
+            abi.encode(tier.allocationState(id), tier.reserveState(), tier.accountingStatus())
+        );
+        vm.prank(creator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MembershipTier.MembershipOwnerMismatch.selector, id, member, recipient
+            )
+        );
+        tier.refund(id, oldQuote.recipient, oldQuote.grossRefund);
+        assertEq(
+            keccak256(
+                abi.encode(tier.allocationState(id), tier.reserveState(), tier.accountingStatus())
+            ),
+            before
+        );
+        assertEq(tier.ownerOf(id), recipient);
+        assertEq(retiredCreditScaled(tier, recipient), 0);
+        vm.prank(creator);
+        assertEq(
+            tier.refund(id, freshQuote.recipient, freshQuote.grossRefund), freshQuote.grossRefund
+        );
+    }
+
+    function test_transferredNftAndItsApprovalsNeverConferCreatorRefundOrCancellationAuthority()
+        public
+    {
+        address recipient = makeAddr("refund authority recipient");
+        address operator = makeAddr("refund authority operator");
+        uint256 id = _purchase(member, 1, address(0));
+        vm.prank(member);
+        tier.transferFrom(member, recipient, id);
+        vm.prank(recipient);
+        tier.approve(payer, id);
+        vm.prank(recipient);
+        tier.setApprovalForAll(operator, true);
+        address[4] memory unauthorized = [member, recipient, payer, operator];
+        for (uint256 i; i < unauthorized.length; ++i) {
+            vm.prank(unauthorized[i]);
+            vm.expectRevert(
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, unauthorized[i])
+            );
+            tier.refund(id, recipient, type(uint256).max);
+            vm.prank(unauthorized[i]);
+            vm.expectRevert(
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, unauthorized[i])
+            );
+            tier.cancelSubscription(id);
+        }
+        assertEq(tier.ownerOf(id), recipient);
+        assertEq(tier.sharesOf(id), 10_000_000);
+        assertEq(tier.occupiedSupply(), 1);
+        vm.prank(creator);
+        tier.refund(id, recipient, 10_000_000);
+        assertEq(paymentToken.balanceOf(recipient), 10_000_000);
+    }
+
+    function test_creatorCancellationAdapterUsesExecutionTimeOwnerAfterTransfer() public {
+        address recipient = makeAddr("cancel adapter recipient");
+        uint256 id = _purchase(member, 1, address(0));
+        uint256 memberBalance = paymentToken.balanceOf(member);
+        vm.prank(member);
+        tier.transferFrom(member, recipient, id);
+        vm.prank(creator);
+        tier.setPaused(true);
+        vm.prank(creator);
+        tier.cancelSubscription(id);
+        assertEq(paymentToken.balanceOf(recipient), 10_000_000);
+        assertEq(paymentToken.balanceOf(member), memberBalance);
+        assertEq(tier.balanceOf(recipient), 0);
+        _assertBurned(id);
+    }
+
+    function test_sponsorshipRequiresFreshOwnerAndReferralSnapshotsAfterTransfer() public {
+        address recipient = makeAddr("sponsored transfer recipient");
+        _fundAndApprove(recipient, 100_000_000);
+        vm.prank(payer);
+        uint256 id = tier.giftMembership(member, 1);
+        (MembershipTypes.ReferralStatus oldStatus, address oldReferrer) = tier.referralOf(id);
+        assertEq(uint256(oldStatus), uint256(MembershipTypes.ReferralStatus.Unset));
+        vm.prank(member);
+        tier.transferFrom(member, recipient, id);
+        uint256 payerBefore = paymentToken.balanceOf(payer);
+        vm.prank(payer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MembershipTier.MembershipOwnerMismatch.selector, id, member, recipient
+            )
+        );
+        tier.giftRenewal(id, member, 1, oldStatus, oldReferrer);
+        assertEq(paymentToken.balanceOf(payer), payerBefore);
+        assertEq(tier.expiresAt(id), _START + _PERIOD);
+        vm.prank(recipient);
+        tier.renewMembership(id, 1, referrer);
+        vm.prank(payer);
+        vm.expectRevert(MembershipTier.ReferralStateMismatch.selector);
+        tier.giftRenewal(id, recipient, 1, oldStatus, oldReferrer);
+        assertEq(paymentToken.balanceOf(payer), payerBefore);
+        assertEq(tier.expiresAt(id), _START + 2 * _PERIOD);
+        (MembershipTypes.ReferralStatus status, address currentReferrer) = tier.referralOf(id);
+        assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.LockedAddress));
+        assertEq(currentReferrer, referrer);
+        vm.prank(payer);
+        tier.giftRenewal(id, recipient, 1, status, currentReferrer);
+        assertEq(tier.ownerOf(id), recipient);
+        assertEq(tier.expiresAt(id), _START + 3 * _PERIOD);
+        assertEq(paymentToken.balanceOf(payer), payerBefore - 10_000_000);
     }
 
     function testFuzz_fixedPreviewMatchesSlowTimeModel(
@@ -304,7 +513,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         uint256 tokenId = _purchase(member, periods, address(0));
         if (grantPeriods != 0) {
             vm.prank(creator);
-            tier.grantTime(member, grantPeriods);
+            tier.addGrantTime(tokenId, member, grantPeriods);
         }
 
         uint256 paidDuration = uint256(periods) * _PERIOD;
@@ -314,8 +523,16 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
 
         uint256 expected = MembershipModel.fixedRefund(remainingPaid, 10_000_000, _PERIOD);
         tier.processAccounting(25);
-        uint256 actual = tier.previewRefund(tokenId).grossRefund;
-        assertEq(actual, expected);
+        if (elapsed == paidDuration + uint256(grantPeriods) * _PERIOD) {
+            _assertBurned(tokenId);
+            vm.expectRevert(
+                abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId)
+            );
+            tier.previewRefund(tokenId);
+            assertEq(expected, 0);
+        } else {
+            assertEq(tier.previewRefund(tokenId).grossRefund, expected);
+        }
     }
 
     function _purchase(address account, uint64 periods, address referralChoice)
@@ -323,7 +540,7 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         returns (uint256 tokenId)
     {
         vm.prank(account);
-        tokenId = tier.purchase(periods, referralChoice);
+        tokenId = tier.createMembership(periods, referralChoice);
     }
 
     function _fundAndApprove(address account, uint256 amount) private {
@@ -332,10 +549,11 @@ contract FixedPriceRefundsAndOwnershipTest is Test {
         paymentToken.approve(address(tier), type(uint256).max);
     }
 
-    function _sync(uint256 tokenId) private returns (uint256 burnedCount) {
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = tokenId;
-        burnedCount = tier.synchronizeExpiredMemberships(tokenIds);
+    function _assertBurned(uint256 tokenId) private {
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId)
+        );
+        tier.ownerOf(tokenId);
     }
 }
 
@@ -367,24 +585,22 @@ contract ZeroPriceRefundsTest is Test {
     }
 
     function test_mixedZeroAndPositiveLotsRefundInBothOrders() public {
-        _contribute(0);
-        uint256 tokenId = _contribute(10_000_000);
-        uint256 zeroFirstRefund = tier.previewRefund(tokenId).grossRefund;
-        assertEq(zeroFirstRefund, 10_000_000);
-
+        uint256 tokenId = _createContribution(0);
+        _renewContribution(tokenId, 10_000_000);
+        assertEq(tier.previewRefund(tokenId).grossRefund, 10_000_000);
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
-
-        _contribute(10_000_000);
-        _contribute(0);
-        uint256 positiveFirstRefund = tier.previewRefund(tokenId).grossRefund;
-        assertEq(positiveFirstRefund, 10_000_000);
+        tier.refund(tokenId, member, type(uint256).max);
+        uint256 fresh = _createContribution(10_000_000);
+        _renewContribution(fresh, 0);
+        assertGt(fresh, tokenId);
+        assertEq(tier.previewRefund(fresh).grossRefund, 10_000_000);
+        assertEq(tier.lifetimeGross(), 20_000_000);
     }
 
     function test_partialCurrentLotPlusLaterFullLotsUsesCumulativePrefixRange() public {
-        uint256 tokenId = _contribute(12_000_000);
-        _contribute(3_000_000);
-        _contribute(5_000_000);
+        uint256 tokenId = _createContribution(12_000_000);
+        _renewContribution(tokenId, 3_000_000);
+        _renewContribution(tokenId, 5_000_000);
         vm.warp(_START + 15 days);
         tier.processAccounting(25);
 
@@ -393,31 +609,38 @@ contract ZeroPriceRefundsTest is Test {
 
         uint256 memberBefore = paymentToken.balanceOf(member);
         vm.prank(creator);
-        tier.refund(tokenId, grossRefund);
+        tier.refund(tokenId, member, grossRefund);
         assertEq(paymentToken.balanceOf(member) - memberBefore, grossRefund);
     }
 
-    function test_refundThenRejoinNeverExposesOldPrefixes() public {
-        uint256 tokenId = _contribute(4_000_000);
-        _contribute(2_000_000);
+    function test_refundThenRejoinUsesFreshIdentityWithoutOldPrefixesOrWeight() public {
+        uint256 tokenId = _createContribution(4_000_000);
+        _renewContribution(tokenId, 2_000_000);
         vm.warp(_START + 15 days);
         assertEq(_grossPreview(tokenId), 4_000_000);
-
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
-
-        _contribute(3_000_000);
+        tier.refund(tokenId, member, type(uint256).max);
+        uint256 fresh = _createContribution(3_000_000);
+        assertGt(fresh, tokenId);
+        assertEq(tier.sharesOf(tokenId), 0);
+        assertEq(tier.sharesOf(fresh), 3_000_000);
+        assertEq(tier.lifetimeGross(), 9_000_000);
         vm.warp(block.timestamp + 15 days);
-        assertEq(_grossPreview(tokenId), 1_500_000);
+        assertEq(_grossPreview(fresh), 1_500_000);
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
-        assertEq(_grossPreview(tokenId), 0);
+        tier.refund(fresh, member, type(uint256).max);
+        assertEq(tier.balanceOf(member), 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, fresh)
+        );
+        tier.previewRefund(fresh);
+        assertEq(tier.lifetimeGross(), 9_000_000);
     }
 
     function test_paidTimeConsumptionAdvancesLotsBeforeGrantTime() public {
-        uint256 tokenId = _contribute(8_000_000);
+        uint256 tokenId = _createContribution(8_000_000);
         vm.prank(creator);
-        tier.grantTime(member, 1);
+        tier.addGrantTime(tokenId, member, 1);
 
         vm.warp(_START + 15 days);
         assertEq(_grossPreview(tokenId), 4_000_000);
@@ -427,23 +650,23 @@ contract ZeroPriceRefundsTest is Test {
         assertEq(_grossPreview(tokenId), 0);
 
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
+        tier.refund(tokenId, member, type(uint256).max);
         (uint64 paidSeconds, uint64 grantSeconds,) = tier.timeBalances(tokenId);
         assertEq(paidSeconds, 0);
         assertEq(grantSeconds, 0);
     }
 
     function test_prorationRoundsDownInPaymentTokenBaseUnits() public {
-        uint256 tokenId = _contribute(1);
+        uint256 tokenId = _createContribution(1);
         assertEq(_grossPreview(tokenId), 1);
         vm.warp(_START + 1);
         assertEq(_grossPreview(tokenId), 0);
     }
 
     function test_previewMatchesOracleAtLotBoundaries() public {
-        uint256 tokenId = _contribute(_PERIOD);
-        _contribute(2 * _PERIOD);
-        _contribute(3 * _PERIOD);
+        uint256 tokenId = _createContribution(_PERIOD);
+        _renewContribution(tokenId, 2 * _PERIOD);
+        _renewContribution(tokenId, 3 * _PERIOD);
 
         vm.warp(_START + _PERIOD - 1);
         assertEq(_grossPreview(tokenId), 5 * _PERIOD + 1);
@@ -455,19 +678,20 @@ contract ZeroPriceRefundsTest is Test {
         assertEq(_grossPreview(tokenId), 0);
     }
 
-    function test_thousandsOfLotsDoNotIncreaseRefundExecutionGas() public {
-        uint256 tokenId = _contribute(0);
+    function test_thousandsOfZeroContributionRenewalsDoNotIncreaseRefundExecutionGas() public {
+        uint256 tokenId = _createContribution(0);
         uint256 gasBefore = gasleft();
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
+        tier.refund(tokenId, member, type(uint256).max);
         uint256 singleLotGas = gasBefore - gasleft();
 
-        for (uint256 i; i < 2000; ++i) {
-            _contribute(0);
+        uint256 fresh = _createContribution(0);
+        for (uint256 i = 1; i < 2000; ++i) {
+            _renewContribution(fresh, 0);
         }
         gasBefore = gasleft();
         vm.prank(creator);
-        tier.refund(tokenId, type(uint256).max);
+        tier.refund(fresh, member, type(uint256).max);
         uint256 manyLotGas = gasBefore - gasleft();
 
         assertLe(manyLotGas, singleLotGas + 10_000);
@@ -478,12 +702,14 @@ contract ZeroPriceRefundsTest is Test {
         uint64 rawElapsed
     ) public {
         uint256[] memory grossLots = new uint256[](rawGross.length);
+        uint256 tokenId;
         for (uint256 i; i < rawGross.length; ++i) {
             grossLots[i] = bound(rawGross[i], 0, 10_000_000);
-            _contribute(grossLots[i]);
+            if (i == 0) tokenId = _createContribution(grossLots[i]);
+            else _renewContribution(tokenId, grossLots[i]);
             if (i == 2 || i == 5) {
                 vm.prank(creator);
-                tier.grantTime(member, 1);
+                tier.addGrantTime(tokenId, member, 1);
             }
         }
 
@@ -493,7 +719,7 @@ contract ZeroPriceRefundsTest is Test {
         uint256 consumedPaid = elapsed > totalPaidSeconds ? totalPaidSeconds : elapsed;
 
         uint256 expected = MembershipModel.variableRefund(grossLots, _PERIOD, consumedPaid);
-        assertEq(_grossPreview(tier.tokenOf(member)), expected);
+        assertEq(_grossPreview(tokenId), expected);
     }
 
     function _deployZeroTier() private returns (MembershipTier zeroTier) {
@@ -508,13 +734,58 @@ contract ZeroPriceRefundsTest is Test {
         );
     }
 
-    function _contribute(uint256 gross) private returns (uint256 tokenId) {
+    function test_contributionRenewalAndRefundFollowTransferredPositionOwner() public {
+        uint256 id = _createContribution(12_000_000);
+        address recipient = makeAddr("contribution transfer recipient");
+        address operator = makeAddr("contribution transfer operator");
+        paymentToken.mint(recipient, 5_000_000);
+        vm.prank(recipient);
+        paymentToken.approve(address(tier), type(uint256).max);
         vm.prank(member);
-        tokenId = tier.contribute(gross, address(0));
+        tier.transferFrom(member, recipient, id);
+        vm.prank(recipient);
+        tier.setApprovalForAll(operator, true);
+        vm.prank(member);
+        vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
+        tier.renewContributionMembership(id, 1_000_000, address(0));
+        vm.prank(operator);
+        vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
+        tier.renewContributionMembership(id, 1_000_000, address(0));
+        vm.prank(recipient);
+        tier.renewContributionMembership(id, 5_000_000, address(0));
+        assertEq(tier.sharesOf(id), 17_000_000);
+        assertEq(tier.previewRefund(id).recipient, recipient);
+        vm.prank(creator);
+        tier.refund(id, recipient, 17_000_000);
+        assertEq(paymentToken.balanceOf(recipient), 17_000_000);
+        assertEq(tier.sharesOf(id), 0);
+        assertEq(tier.lifetimeGross(), 17_000_000);
+    }
+
+    function _createContribution(uint256 gross) private returns (uint256 tokenId) {
+        vm.prank(member);
+        return tier.createContributionMembership(gross, address(0));
+    }
+
+    function _renewContribution(uint256 tokenId, uint256 gross) private {
+        vm.prank(member);
+        tier.renewContributionMembership(tokenId, gross, address(0));
     }
 
     function _grossPreview(uint256 tokenId) private returns (uint256 grossRefund) {
+        uint64 expiration = tier.expiresAt(tokenId);
         tier.processAccounting(25);
+        // The local test clock deliberately selects the exact expiry branch.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp >= expiration) {
+            // The slow refund oracle returns zero for ended time. The public
+            // contract instead rejects a quote for the now-burned credential.
+            vm.expectRevert(
+                abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId)
+            );
+            tier.previewRefund(tokenId);
+            return 0;
+        }
         grossRefund = tier.previewRefund(tokenId).grossRefund;
     }
 }
@@ -533,11 +804,11 @@ contract ReentrantRefundOwner {
     }
 
     function refund(uint256 tokenId) external {
-        _tier.refund(tokenId, type(uint256).max);
+        _tier.refund(tokenId, _member, type(uint256).max);
     }
 
     function reenterGrant() external {
-        _tier.grantTime(_member, 1);
+        _tier.grantMembership(_member, 1);
     }
 }
 
@@ -566,14 +837,14 @@ contract AdversarialRefundsTest is Test {
         vm.prank(creator);
         paymentToken.approve(address(tier), type(uint256).max);
         vm.prank(member);
-        tier.purchase(1, address(0));
+        tier.createMembership(1, address(0));
     }
 
     function test_refundNeverPullsFromAFrozenOwnerWithBrokenTransferFrom() public {
         paymentToken.setFrozen(creator, true);
         paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.RevertTransfer);
         vm.prank(creator);
-        tier.refund(1, 10_000_000);
+        tier.refund(1, member, 10_000_000);
         assertEq(paymentToken.balanceOf(member), 100_000_000);
         assertEq(paymentToken.balanceOf(creator), 100_000_000);
         assertEq(tier.creatorProceeds(), 0);
@@ -603,7 +874,7 @@ contract AdversarialRefundsTest is Test {
         paymentToken.setFrozen(member, true);
         vm.prank(creator);
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
-        tier.refund(1, type(uint256).max);
+        tier.refund(1, member, type(uint256).max);
         _assertRefundStateUnchanged();
     }
 
@@ -616,9 +887,32 @@ contract AdversarialRefundsTest is Test {
         assertEq(paymentToken.allowance(newOwner, address(tier)), 0);
         assertEq(paymentToken.balanceOf(newOwner), 0);
         vm.prank(newOwner);
-        assertEq(tier.refund(1, 10_000_000), 10_000_000);
+        assertEq(tier.refund(1, member, 10_000_000), 10_000_000);
         assertEq(paymentToken.balanceOf(newOwner), 0);
         assertEq(paymentToken.balanceOf(member), 100_000_000);
+    }
+
+    function test_failedRefundDeliveryRollsBackCatchUpBurnCreditAndExpirationRemoval() public {
+        vm.warp(block.timestamp + 15 days);
+        bytes32 before = _refundFingerprint();
+        paymentToken.setTransferBehavior(AdversarialERC20.Behavior.ShortTransfer);
+        vm.prank(creator);
+        vm.expectRevert(MembershipTier.InexactTokenTransfer.selector);
+        tier.refund(1, member, 5_000_000);
+        assertEq(_refundFingerprint(), before);
+        assertEq(tier.ownerOf(1), member);
+        assertEq(retiredCreditScaled(tier, member), 0);
+
+        paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Normal);
+        vm.prank(creator);
+        assertEq(tier.refund(1, member, 5_000_000), 5_000_000);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 1));
+        tier.ownerOf(1);
+        assertGt(retiredCreditScaled(tier, member), 0);
+        assertEq(tier.sharesOf(1), 0);
+        assertEq(tier.occupiedSupply(), 0);
+        assertEq(tier.accountingStatus().scheduledExpirations, 0);
+        assertEq(tier.lifetimeGross(), 10_000_000);
     }
 
     function test_deliveryCallbackCannotReenterGrantAfterRefundClearsTime() public {
@@ -639,6 +933,10 @@ contract AdversarialRefundsTest is Test {
         (uint64 paidSeconds, uint64 grantSeconds,) = tier.timeBalances(1);
         assertEq(paidSeconds, 0);
         assertEq(grantSeconds, 0);
+        assertEq(tier.balanceOf(member), 0);
+        assertEq(tier.occupiedSupply(), 0);
+        assertEq(tier.sharesOf(1), 0);
+        assertEq(tier.accountingStatus().scheduledExpirations, 0);
     }
 
     function _expectFailedDelivery(AdversarialERC20.Behavior behavior, bytes memory revertData)
@@ -647,7 +945,7 @@ contract AdversarialRefundsTest is Test {
         paymentToken.setTransferBehavior(behavior);
         vm.prank(creator);
         vm.expectRevert(revertData);
-        tier.refund(1, type(uint256).max);
+        tier.refund(1, member, type(uint256).max);
         _assertRefundStateUnchanged();
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Normal);
     }
@@ -666,5 +964,30 @@ contract AdversarialRefundsTest is Test {
         assertEq(tier.previewRefund(1).grossRefund, 10_000_000);
         assertEq(tier.lifetimeGross(), 10_000_000);
         assertTrue(tier.rewardEligible(1));
+        assertEq(tier.ownerOf(1), member);
+        assertEq(tier.balanceOf(member), 1);
+        assertEq(tier.sharesOf(1), 10_000_000);
+        assertEq(tier.occupiedSupply(), 1);
+        assertEq(tier.accountingStatus().scheduledExpirations, 1);
+        assertEq(retiredCreditScaled(tier, member), 0);
+    }
+
+    function _refundFingerprint() private view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                tier.allocationState(1),
+                tier.reserveState(),
+                tier.accountingStatus(),
+                tier.ownerOf(1),
+                tier.expiresAt(1),
+                tier.occupiedSupply(),
+                tier.sharesOf(1),
+                tier.lifetimeGross(),
+                tier.claimableReward(1),
+                retiredCreditScaled(tier, member),
+                paymentToken.balanceOf(member),
+                paymentToken.balanceOf(address(tier))
+            )
+        );
     }
 }

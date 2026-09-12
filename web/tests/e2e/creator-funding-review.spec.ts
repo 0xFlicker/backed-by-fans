@@ -80,7 +80,7 @@ test.describe("@protocol-fork creator funding review", () => {
       await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, payer);
       await expect(
-        page.getByRole("button", { name: "Join this membership" }),
+        page.getByRole("button", { name: "New membership" }),
       ).toBeDisabled();
       await page
         .getByRole("button", { name: "Wrap 0.001 ETH", exact: true })
@@ -94,8 +94,8 @@ test.describe("@protocol-fork creator funding review", () => {
           args: [payer],
         }),
       ).toBe(price);
-      await page.getByRole("button", { name: "Join this membership" }).click();
-      await expectReconciled(page, "Join this membership");
+      await page.getByRole("button", { name: "New membership" }).click();
+      await expectReconciled(page, "New membership");
       expect(
         await f.client.readContract({
           address: weth,

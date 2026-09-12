@@ -14,7 +14,7 @@ const anvilRenderer = "0x8888888888888888888888888888888888888888";
 const anvilPreviewHarness = "0x9999999999999999999999999999999999999999";
 
 describe("buildPublicConfig", () => {
-  it("does not expose the retired fee-recipient deployment as the buyback protocol", () => {
+  it("does not attach the new lifecycle ABI to an older immutable factory", () => {
     const config = buildPublicConfig({});
 
     expect(getDeployment(config, robinhoodTestnet.id)).toMatchObject({

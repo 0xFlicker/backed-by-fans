@@ -1,4 +1,4 @@
-import { getAddress, zeroAddress, type PublicClient } from "viem";
+import { getAddress, zeroAddress, type Address, type PublicClient } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/direct-read", () => ({
@@ -99,6 +99,8 @@ const snapshotData = {
     accountedThrough: 1000n,
     nextBoundary: 0n,
     scheduledMembers: 0n,
+    scheduledExpirations: 0n,
+    nextKind: 0,
     complete: true,
   },
   supplyCap: 0n,
@@ -111,6 +113,8 @@ const snapshotData = {
 
 const vesting = {
   earned: {
+    retired: 0n,
+    retiredFractionalScaled: 0n,
     creator: 99n,
     member: 70n,
     referral: 50n,
@@ -134,9 +138,10 @@ describe("supporter direct reads", () => {
     vi.mocked(readTierAccounting).mockResolvedValue({
       ...vesting,
       preview: {
+        lifecycle: 0,
         asOf: 1000n,
         processedSteps: 0n,
-        ratesScaled: [0n, 0n, 0n, 0n] as const,
+        ratesScaled: [0n, 0n, 0n, 0n],
         earnedDeltaScaled: [0n, 0n, 0n, 0n],
         settled: vesting.earned,
         current: vesting.earned,
@@ -149,290 +154,175 @@ describe("supporter direct reads", () => {
       data: snapshotData,
     });
   });
-
-  it("reads creator proceeds for the same address regardless of checksum casing", async () => {
-    vi.mocked(readTierSnapshotState).mockResolvedValue({
-      status: "valid",
-      capturedBlock: 10n,
-      data: {
-        address: tier,
-        factory,
-        paymentToken: token,
-        creator,
-        name: "Room",
-        symbol: "ROOM",
-        description: "",
-        externalURI: "",
-        tierIdentity,
-        art,
-        media,
-        pricePerPeriod: 1n,
-        periodDuration: 30n,
-        protocolFeeBps: 100,
-        rewardBps: 0,
-        referralBps: 0,
-        startingBoostBps: 10000,
-        earlySupportGross: 0n,
-        grossPaid: 0n,
-        minimumPayment: 1n,
-        accounting: {
-          accountedThrough: 1000n,
-          nextBoundary: 0n,
-          scheduledMembers: 0n,
-          complete: true,
-        },
-        supplyCap: 0n,
-        occupiedSupply: 0n,
-        maxPrepaidPeriods: 0n,
-        paused: false,
-        renderer,
-        protocolDependencies,
-      },
-    });
-    const readContract = vi.fn(({ functionName }: { functionName: string }) => {
+  function fixture(owner = creator, failOwner = false) {
+    const requests: Record<string, unknown>[] = [];
+    const response = (request: Record<string, unknown>) => {
+      requests.push(request);
+      if (request.functionName === "ownerOf" && failOwner)
+        throw new Error("ERC721NonexistentToken");
       const values: Record<string, unknown> = {
-        tokenOf: 0n,
-        balanceOf: 0n,
-        allowance: 0n,
-        claimableReferral: 0n,
-        creatorProceeds: 99n,
-      };
-      return Promise.resolve(values[functionName]);
-    });
-    const client = {
-      getBlock: vi.fn().mockResolvedValue({ timestamp: 1_000n }),
-      getBalance: vi.fn().mockResolvedValue(0n),
-      readContract,
-    } as unknown as PublicClient;
-
-    const state = await readTierSupporterState(client, {
-      tier,
-      deployment,
-      wallet: creator.toLowerCase() as `0x${string}`,
-    });
-
-    expect(state).toMatchObject({
-      status: "valid",
-      data: { creatorProceeds: 99n, credential: undefined },
-    });
-    expect(readContract).toHaveBeenCalledWith(
-      expect.objectContaining({ functionName: "creatorProceeds" }),
-    );
-    expect(state).toMatchObject({ data: { vesting } });
-    expect(readTierAccounting).toHaveBeenCalledWith(client, {
-      tier,
-      tokenId: 0n,
-      referrer: creator.toLowerCase(),
-      blockNumber: 10n,
-    });
-  });
-
-  it("batches wallet and credential reads through verified Multicall3", async () => {
-    const wallet = getAddress("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-    vi.mocked(readTierSnapshotState).mockResolvedValue({
-      status: "valid",
-      capturedBlock: 10n,
-      data: {
-        address: tier,
-        factory,
-        paymentToken: token,
-        creator,
-        name: "Room",
-        symbol: "ROOM",
-        description: "",
-        externalURI: "",
-        tierIdentity,
-        art,
-        media,
-        pricePerPeriod: 1n,
-        periodDuration: 30n,
-        protocolFeeBps: 100,
-        rewardBps: 0,
-        referralBps: 0,
-        startingBoostBps: 10000,
-        earlySupportGross: 0n,
-        grossPaid: 0n,
-        minimumPayment: 1n,
-        accounting: {
-          accountedThrough: 1000n,
-          nextBoundary: 0n,
-          scheduledMembers: 0n,
-          complete: true,
+        tokensOfOwner: {
+          tokenIds: [7n, 9n],
+          nextOffset: 2n,
+          balance: 101n,
+          complete: false,
         },
-        supplyCap: 0n,
-        occupiedSupply: 0n,
-        maxPrepaidPeriods: 0n,
-        paused: false,
-        renderer,
-        protocolDependencies,
-      },
-    });
-    vi.mocked(verifyMulticall3).mockResolvedValue("verified");
-    const success = (result: unknown) => ({ status: "success", result });
-    const multicall = vi
-      .fn()
-      .mockResolvedValueOnce([
-        success(1n),
-        success(20n),
-        success(30n),
-        success(40n),
-        success(50n),
-      ])
-      .mockResolvedValueOnce([
-        success(1n),
-        success(true),
-        success(true),
-        success([100n, 20n, 1_880n]),
-        success([1, zeroAddress]),
-        success(60n),
-        success(70n),
-        success(true),
-        success({ grossRefund: 80n }),
-      ]);
-    const client = {
-      getBlock: vi.fn().mockResolvedValue({ timestamp: 1_000n }),
-      getBalance: vi.fn(),
-      multicall,
-      readContract: vi.fn().mockResolvedValue(600n),
-    } as unknown as PublicClient;
-
-    const state = await readTierSupporterState(client, {
-      tier,
-      deployment,
-      wallet,
-    });
-
-    expect(state).toMatchObject({
-      status: "valid",
-      data: {
-        walletPaymentTokenBalance: 20n,
-        walletEthBalance: 30n,
+        ownerOf: owner,
+        balanceOf: 20n,
+        getEthBalance: 30n,
         allowance: 40n,
         claimableReferral: 50n,
-        credential: {
-          tokenId: 1n,
-          minted: true,
-          paidSeconds: 100n,
-          grantSeconds: 20n,
-          rewardEligible: true,
-          refundableGross: 80n,
-        },
-      },
-    });
-    expect(multicall).toHaveBeenCalledTimes(2);
-    expect(state).toMatchObject({ data: { totalEligibleRewardShares: 600n } });
-    expect(client.readContract).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({
-        address: tier,
-        functionName: "totalRewardShares",
-        blockNumber: 10n,
-      }),
-    );
-    expect(client.getBalance).not.toHaveBeenCalled();
-  });
-
-  it("reads creator proceeds through verified Multicall3 without a membership", async () => {
-    vi.mocked(verifyMulticall3).mockResolvedValue("verified");
-    const success = (result: unknown) => ({ status: "success", result });
-    const multicall = vi
-      .fn()
-      .mockResolvedValueOnce([
-        success(0n),
-        success(20n),
-        success(30n),
-        success(40n),
-        success(50n),
-      ])
-      .mockResolvedValueOnce([success(99n)]);
-    const client = {
-      getBlock: vi.fn().mockResolvedValue({ timestamp: 1_000n }),
-      multicall,
-      readContract: vi.fn().mockResolvedValue(600n),
-    } as unknown as PublicClient;
-
-    const state = await readTierSupporterState(client, {
+        creatorProceeds: 99n,
+        totalRewardShares: 600n,
+        isActiveToken: true,
+        isOccupied: true,
+        timeBalances: [100n, 0n, 1000n],
+        referralOf: [0, zeroAddress],
+        sharesOf: 60n,
+        claimableReward: 70n,
+        rewardEligible: true,
+        previewRefund: { recipient: owner, grossRefund: 100n, complete: true },
+      };
+      if (!(String(request.functionName) in values))
+        throw new Error(`Unexpected ${request.functionName}`);
+      return values[String(request.functionName)];
+    };
+    return {
+      requests,
+      client: {
+        getBlock: vi.fn().mockResolvedValue({ timestamp: 1000n }),
+        getBalance: vi.fn().mockResolvedValue(30n),
+        readContract: vi.fn(async (request) => response(request)),
+        multicall: vi.fn(async ({ contracts }) =>
+          contracts.map((request: Record<string, unknown>) => ({
+            status: "success",
+            result: response(request),
+          })),
+        ),
+      } as unknown as PublicClient,
+    };
+  }
+  it("keeps creation explicit even when the wallet already owns multiple positions", async () => {
+    const f = fixture();
+    const state = await readTierSupporterState(f.client, {
       tier,
       deployment,
       wallet: creator,
     });
-
-    expect(state).toMatchObject({
-      status: "valid",
-      data: { creatorProceeds: 99n, credential: undefined },
-    });
-    expect(multicall).toHaveBeenCalledTimes(2);
-  });
-
-  it("keeps a burned member's permanent record and accrued reward readable", async () => {
-    const wallet = getAddress("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-    vi.mocked(verifyMulticall3).mockResolvedValue("verified");
-    const success = (result: unknown) => ({ status: "success", result });
-    const multicall = vi
-      .fn()
-      .mockResolvedValueOnce([
-        success(1n),
-        success(20n),
-        success(30n),
-        success(40n),
-        success(50n),
-      ])
-      .mockResolvedValueOnce([
-        success(0n),
-        success(false),
-        success(false),
-        success([0n, 0n, 2_000n]),
-        success([1, zeroAddress]),
-        success(60n),
-        success(70n),
-        success(false),
-        { status: "failure" },
-      ]);
-    const client = {
-      getBlock: vi.fn().mockResolvedValue({ timestamp: 2_100n }),
-      multicall,
-      readContract: vi.fn().mockResolvedValue(600n),
-    } as unknown as PublicClient;
-
-    const state = await readTierSupporterState(client, {
-      tier,
-      deployment,
-      wallet,
-    });
-
     expect(state).toMatchObject({
       status: "valid",
       data: {
-        credential: {
-          tokenId: 1n,
-          owner: wallet,
-          minted: false,
-          active: false,
-          occupied: false,
-          expiration: 2_000n,
-          rewardEligible: false,
-          claimableReward: 70n,
-          refundableGross: 0n,
-        },
+        credential: undefined,
+        ownerPage: { tokenIds: [7n, 9n], complete: false, balance: 101n },
+        creatorProceeds: 99n,
       },
     });
-    expect(state).toMatchObject({ data: { vesting } });
+    expect(f.requests.some((r) => r.functionName === "ownerOf")).toBe(false);
+    expect(f.requests.every((r) => r.blockNumber === 10n)).toBe(true);
   });
-
-  it("does not replace unavailable accounting with zero balances", async () => {
-    vi.mocked(readTierAccounting).mockRejectedValueOnce(
-      new Error("accounting read unavailable"),
-    );
-    const client = {
-      getBlock: vi.fn().mockResolvedValue({ timestamp: 1_000n }),
-      getBalance: vi.fn().mockResolvedValue(0n),
-      readContract: vi.fn().mockResolvedValue(0n),
-    } as unknown as PublicClient;
-    const result = await readTierSupporterState(client, {
+  it.each(["missing", "verified"] as const)(
+    "reads only the selected token with owner proof using %s multicall",
+    async (mode) => {
+      vi.mocked(verifyMulticall3).mockResolvedValue(mode);
+      const f = fixture();
+      const state = await readTierSupporterState(f.client, {
+        tier,
+        deployment,
+        wallet: creator.toLowerCase() as Address,
+        tokenId: 9n,
+      });
+      expect(state).toMatchObject({
+        status: "valid",
+        data: {
+          credential: { tokenId: 9n, owner: creator, active: true },
+          creatorProceeds: 99n,
+        },
+      });
+      expect(f.requests.filter((r) => r.functionName === "ownerOf")).toEqual([
+        expect.objectContaining({ args: [9n] }),
+      ]);
+      expect(vi.mocked(readTierAccounting)).toHaveBeenLastCalledWith(
+        f.client,
+        expect.objectContaining({
+          tokenId: 9n,
+          beneficiary: creator.toLowerCase(),
+          blockNumber: 10n,
+        }),
+      );
+    },
+  );
+  it("pins bounded continuation to the snapshot block and preserves incompleteness", async () => {
+    const f = fixture();
+    await readTierSupporterState(f.client, {
       tier,
       deployment,
-      wallet: token,
+      wallet: creator,
+      ownerOffset: 100n,
     });
-    expect(result.status).toBe("unavailable");
-    expect(result).not.toHaveProperty("data");
+    expect(f.requests).toContainEqual(
+      expect.objectContaining({
+        functionName: "tokensOfOwner",
+        args: [creator, 100n, 100n],
+        blockNumber: 10n,
+      }),
+    );
+  });
+  it("rejects stale ownership instead of inferring access from another owned NFT", async () => {
+    const f = fixture(token);
+    expect(
+      (
+        await readTierSupporterState(f.client, {
+          tier,
+          deployment,
+          wallet: creator,
+          tokenId: 9n,
+        })
+      ).status,
+    ).toBe("unavailable");
+  });
+  it("rejects an already-burned selected ID while unselected ended rewards remain separately readable", async () => {
+    const f = fixture(creator, true);
+    expect(
+      (
+        await readTierSupporterState(f.client, {
+          tier,
+          deployment,
+          wallet: creator,
+          tokenId: 9n,
+        })
+      ).status,
+    ).toBe("unavailable");
+    expect(
+      (
+        await readTierSupporterState(f.client, {
+          tier,
+          deployment,
+          wallet: creator,
+        })
+      ).status,
+    ).toBe("valid");
+  });
+  it("keeps proven ownership available when reward projection fails without inventing balances", async () => {
+    vi.mocked(readTierAccounting).mockRejectedValueOnce(
+      new Error("accounting unavailable"),
+    );
+    const f = fixture();
+    const state = await readTierSupporterState(f.client, {
+      tier,
+      deployment,
+      wallet: creator,
+      tokenId: 9n,
+    });
+    expect(state).toMatchObject({
+      status: "valid",
+      data: {
+        credential: { tokenId: 9n, owner: creator, active: true },
+        vesting: undefined,
+        vestingError: expect.any(String),
+      },
+    });
+    expect(
+      f.requests.some((request) => request.functionName === "previewRefund"),
+    ).toBe(false);
   });
 });

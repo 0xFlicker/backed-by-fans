@@ -1,3 +1,4 @@
+import { hasLiveOwnedPosition } from "./helpers/membership-positions";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
@@ -47,7 +48,7 @@ async function seedPurchase(referrer: Address = zeroAddress) {
       account: member,
       address: tier,
       abi: membershipTierAbi,
-      functionName: "purchase",
+      functionName: "createMembership",
       args: [1n, referrer],
     }),
   );
@@ -62,6 +63,15 @@ async function vestSeedPurchase() {
     functionName: "expiresAt",
     args: [1n],
   });
+  expectSuccessfulReceipt(
+    await sendContract({
+      account: requiredAnvilAddress("creator"),
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "addGrantTime",
+      args: [1n, requiredAnvilAddress("member"), 1n],
+    }),
+  );
   await rpcRequest("evm_setNextBlockTimestamp", [Number(end)]);
   await rpcRequest("evm_mine");
   expectSuccessfulReceipt(
@@ -101,7 +111,7 @@ test.describe("configured Anvil claims and refunds", () => {
       await installAnvilWallet(page, member);
       await seedPurchase(referrer);
       const reward = await vestSeedPurchase();
-      await page.goto(`/chains/31337/tiers/${tier}`);
+      await page.goto(`/chains/31337/tiers/${tier}?tokenId=1`);
       await connectAnvilWallet(page, member);
 
       const rewardRow = page
@@ -157,7 +167,8 @@ test.describe("configured Anvil claims and refunds", () => {
       // exercises issuer-restricted token delivery.
       const claimData = encodeFunctionData({
         abi: membershipTierAbi,
-        functionName: "claimAll",
+        functionName: "claimRewards",
+        args: [[1n], 25n],
       });
       await page.route(`${requiredAnvilRpc()}/`, async (route) => {
         const payload = route.request().postDataJSON();
@@ -195,7 +206,7 @@ test.describe("configured Anvil claims and refunds", () => {
         });
       });
       await installAnvilWallet(page, member);
-      await page.goto(`/chains/31337/tiers/${tier}`);
+      await page.goto(`/chains/31337/tiers/${tier}?tokenId=1`);
       await connectAnvilWallet(page, member);
 
       const rewardRow = page
@@ -224,8 +235,8 @@ test.describe("configured Anvil claims and refunds", () => {
         }),
       ).resolves.toBe(reward);
       await expect(
-        page.getByText(/funds remain available here/i),
-      ).toBeVisible();
+        page.locator(".membership-transaction.transaction-retry"),
+      ).toContainText("That did not go through.");
       await expect(rewardRow.locator("input")).toHaveCount(0);
       await page.unroute(`${requiredAnvilRpc()}/`);
       const balanceBeforeRetry = await client.readContract({
@@ -319,12 +330,15 @@ test.describe("configured Anvil claims and refunds", () => {
         .click();
       await expectReconciled(page, "Unpause tier");
 
-      const tokenId = await client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "tokenOf",
-        args: [member],
-      });
+      const tokenId = 1n;
+      expect(
+        await client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "balanceOf",
+          args: [member],
+        }),
+      ).toBe(0n);
       const balances = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
@@ -333,14 +347,9 @@ test.describe("configured Anvil claims and refunds", () => {
       });
       expect(balances[0]).toBe(0n);
       expect(balances[1]).toBe(0n);
-      await expect(
-        client.readContract({
-          address: tier,
-          abi: membershipTierAbi,
-          functionName: "isActive",
-          args: [member],
-        }),
-      ).resolves.toBe(false);
+      await expect(hasLiveOwnedPosition(client, tier, member)).resolves.toBe(
+        false,
+      );
     } finally {
       await revertAnvil(snapshot);
     }
@@ -442,8 +451,9 @@ for (const variablePrice of [false, true]) {
       await page.getByLabel("Referral share (%)").fill("5");
       await page.getByRole("radio", { name: /^None / }).check();
       await page.getByRole("button", { name: /^risks$/i }).click();
-      await page.getByRole("checkbox").nth(0).check();
-      await page.getByRole("checkbox").nth(1).check();
+      await page
+        .getByRole("checkbox", { name: /I understand the price, period/ })
+        .check();
       await page.getByRole("button", { name: /^review$/i }).click();
       await page
         .getByRole("button", { name: "Publish this membership" })
@@ -472,7 +482,9 @@ for (const variablePrice of [false, true]) {
         account: member,
         address: tier,
         abi: membershipTierAbi,
-        functionName: variablePrice ? "contribute" : "purchase",
+        functionName: variablePrice
+          ? "createContributionMembership"
+          : "createMembership",
         args: [variablePrice ? 120_000_000n : 12n, creator],
       });
       expectSuccessfulReceipt(purchase);
@@ -491,8 +503,8 @@ for (const variablePrice of [false, true]) {
               account: member,
               address: tier,
               abi: membershipTierAbi,
-              functionName: "contribute",
-              args: [gross, creator],
+              functionName: "renewContributionMembership",
+              args: [1n, gross, creator],
             }),
           );
       } else {
@@ -503,7 +515,7 @@ for (const variablePrice of [false, true]) {
             account: creator,
             address: tier,
             abi: membershipTierAbi,
-            functionName: "purchase",
+            functionName: "createMembership",
             args: [1n, zeroAddress],
           }),
         );
@@ -548,7 +560,7 @@ for (const variablePrice of [false, true]) {
         address: tier,
         abi: membershipTierAbi,
         functionName: "previewAccounting",
-        args: [1n, creator, 0n],
+        args: [1n, creator, creator, 0n],
       });
       for (const value of [
         earned.settled.creator,
@@ -647,7 +659,7 @@ for (const variablePrice of [false, true]) {
         const selector = encodeFunctionData({
           abi: membershipTierAbi,
           functionName: "refund",
-          args: [1n, funding.grossRefund],
+          args: [1n, funding.recipient, funding.grossRefund],
         }).slice(0, 10);
         await page.route(`${requiredAnvilRpc()}/`, async (route) => {
           const payload = route.request().postDataJSON();
@@ -748,7 +760,7 @@ for (const variablePrice of [false, true]) {
       await expect(
         page
           .getByRole("status")
-          .filter({ hasText: "Historical reward weight is retained." }),
+          .filter({ hasText: "The membership is permanently retired." }),
       ).toContainText(usdgDisplay(actual.grossRefund));
       expect(
         await client.readContract({
@@ -757,7 +769,7 @@ for (const variablePrice of [false, true]) {
           functionName: "sharesOf",
           args: [1n],
         }),
-      ).toBe(shares);
+      ).toBe(0n);
       expect(
         await client.readContract({
           address: tier,
@@ -782,7 +794,15 @@ for (const variablePrice of [false, true]) {
         args: [1n],
       });
       expect(remaining.slice(0, 2)).toEqual([0n, 0n]);
-      expect(remaining[2]).toBeGreaterThanOrEqual(execution);
+      expect(remaining[2]).toBe(0n);
+      await expect(
+        client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "ownerOf",
+          args: [1n],
+        }),
+      ).rejects.toThrow();
       const liability = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
@@ -796,7 +816,7 @@ for (const variablePrice of [false, true]) {
       });
       expect(custody).toBeGreaterThanOrEqual(liability);
       const evidence = {
-        kind: "local mock payment token; real split protocol graph",
+        kind: "authentic origin payment token on disposable fork; current split protocol graph",
         tier,
         variablePrice,
         claims,
@@ -863,8 +883,9 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
     await page.getByLabel("Membership name").fill("Vested beneficiary claims");
     await page.getByLabel("Symbol", { exact: true }).fill("CASH");
     await page.getByRole("button", { name: /^risks$/i }).click();
-    await page.getByRole("checkbox").nth(0).check();
-    await page.getByRole("checkbox").nth(1).check();
+    await page
+      .getByRole("checkbox", { name: /I understand the price, period/ })
+      .check();
     await page.getByRole("button", { name: /^review$/i }).click();
     await page.getByRole("button", { name: "Publish this membership" }).click();
     await expect(
@@ -888,7 +909,7 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
         account: member,
         address: tier,
         abi: membershipTierAbi,
-        functionName: "purchase",
+        functionName: "createMembership",
         args: [12n, creator],
       }),
     );
@@ -941,7 +962,8 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
     const selectors = [
       encodeFunctionData({
         abi: membershipTierAbi,
-        functionName: "claimAll",
+        functionName: "claimRewards",
+        args: [[1n], 25n],
       }).slice(0, 10),
     ];
     await page.route(`${requiredAnvilRpc()}/`, async (route) => {
@@ -988,12 +1010,12 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
           address: tier,
           abi: membershipTierAbi,
           functionName: "previewAccounting",
-          args: [1n, creator, 0n],
+          args: [1n, creator, creator, 0n],
         }),
       });
       await route.fulfill({ response: upstream, json: response });
     });
-    await page.goto(`/chains/31337/tiers/${tier}`);
+    await page.goto(`/chains/31337/tiers/${tier}?tokenId=1`);
     const memberPool = page.getByRole("region", {
       name: "Vesting and accounting",
     });
@@ -1025,7 +1047,7 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
         address: tier,
         abi: membershipTierAbi,
         functionName: "previewAccounting",
-        args: [1n, creator, 0n],
+        args: [1n, creator, creator, 0n],
       });
       expect(
         label === "Membership rewards"
@@ -1056,6 +1078,15 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
       path,
       contentType: "application/json",
     });
+    const accounting = page.locator("details.membership-accounting");
+    if (
+      !(await accounting.evaluate(
+        (element) => (element as HTMLDetailsElement).open,
+      ))
+    )
+      await accounting
+        .getByText("Rewards & accounting", { exact: true })
+        .click();
     await page
       .getByRole("region", { name: "Vesting and accounting" })
       .screenshot({ path: testInfo.outputPath("vesting-summary.png") });

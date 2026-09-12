@@ -204,7 +204,7 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
       member,
       tier,
       membershipTierAbi,
-      "purchase",
+      "createMembership",
       [12n, "0x0000000000000000000000000000000000000000"],
     );
     const start = (

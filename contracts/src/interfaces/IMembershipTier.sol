@@ -6,19 +6,27 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import {MembershipTypes} from "../types/MembershipTypes.sol";
-import {IERC5192} from "./IERC5192.sol";
 import {IERC5643} from "./IERC5643.sol";
 
 /// @notice Immutable economic terms and public-standard surface of one membership tier.
-interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
+interface IMembershipTier is IERC165, IERC721, IERC5643 {
+    function previewClaimRewards(address beneficiary, uint256[] calldata tokenIds, uint256 maxSteps)
+        external
+        view
+        returns (MembershipTypes.ClaimPreview memory);
     event MetadataUpdate(uint256 tokenId);
     event BatchMetadataUpdate(uint256 fromTokenId, uint256 toTokenId);
     event MembershipTimeUpdated(
         uint256 indexed tokenId, uint64 paidSeconds, uint64 grantSeconds, uint64 expiration
     );
-    event ExpiredMembershipSynchronized(
-        uint256 indexed tokenId, address indexed recipient, uint256 suspendedShares
+    event MembershipRetired(
+        uint256 indexed tokenId,
+        address indexed owner,
+        uint64 effectiveAt,
+        uint256 removedShares,
+        uint256 creditScaled
     );
+    event RetiredRewardClaimed(address indexed owner, uint256 amount);
     event RewardEligibilityUpdated(
         uint256 indexed tokenId, bool eligible, uint256 eligibleShares, uint256 totalRewardShares
     );
@@ -115,7 +123,11 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
         uint256 indexed tokenId, uint256 indexed generation, uint256[4] cancellationScaled
     );
     event AccountingProgress(
-        uint64 accountedThrough, uint256 processedSteps, bool complete, uint256 earnedScaledDelta
+        uint64 accountedThrough,
+        uint256 processedSteps,
+        bool complete,
+        uint256 earnedScaledDelta,
+        uint256 retiredCount
     );
     event FundingLotScheduled(
         uint256 indexed tokenId,
@@ -147,20 +159,25 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
     /// No token transfer, beneficiary change or worker payment is implied by processing.
     function processAccounting(uint256 maxSteps)
         external
-        returns (
-            uint256 processedSteps,
-            uint64 accountedThrough,
-            bool complete,
-            uint256 earnedScaledDelta
-        );
+        returns (MembershipTypes.MaintenanceResult memory);
+    function processExpirations(uint256 maxSteps)
+        external
+        returns (MembershipTypes.MaintenanceResult memory);
+    function claimRetiredRewards() external returns (uint256 amount);
+    function claimableRetiredReward(address beneficiary)
+        external
+        view
+        returns (uint256 raw, uint256 fractionalScaled);
     function accountingStatus() external view returns (MembershipTypes.AccountingStatus memory);
     /// @notice Project balances without writes, transfers or transaction simulation.
     /// @dev Reads at most 256 checkpoints. Zero reads only continuous time if no
     /// checkpoint is due. Inspect current.status.complete before treating it as current.
-    function previewAccounting(uint256 tokenId, address referrer, uint256 maxSteps)
-        external
-        view
-        returns (MembershipTypes.AccountingPreview memory);
+    function previewAccounting(
+        uint256 tokenId,
+        address beneficiary,
+        address referrer,
+        uint256 maxSteps
+    ) external view returns (MembershipTypes.AccountingPreview memory);
     function allocationState(uint256 tokenId)
         external
         view
@@ -185,11 +202,10 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function totalMinted() external view returns (uint256);
 
-    function tokenOf(address recipient) external view returns (uint256);
-
-    function activeBalanceOf(address recipient) external view returns (uint256);
-
-    function isActive(address recipient) external view returns (bool);
+    function tokensOfOwner(address recipient, uint256 offset, uint256 limit)
+        external
+        view
+        returns (MembershipTypes.PositionPage memory);
 
     function isActiveToken(uint256 tokenId) external view returns (bool);
 
@@ -200,16 +216,23 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function isOccupied(uint256 tokenId) external view returns (bool);
 
-    function purchase(uint64 periods, address referralChoice) external returns (uint256 tokenId);
-
-    function gift(
-        address recipient,
+    function createMembership(uint64 periods, address referralChoice)
+        external
+        returns (uint256 tokenId);
+    function renewMembership(uint256 tokenId, uint64 periods, address referralChoice) external;
+    function createContributionMembership(uint256 gross, address referralChoice)
+        external
+        returns (uint256 tokenId);
+    function renewContributionMembership(uint256 tokenId, uint256 gross, address referralChoice)
+        external;
+    function giftMembership(address recipient, uint64 periods) external returns (uint256 tokenId);
+    function giftRenewal(
+        uint256 tokenId,
+        address expectedOwner,
         uint64 periods,
         MembershipTypes.ReferralStatus expectedReferralStatus,
         address expectedReferrer
-    ) external returns (uint256 tokenId);
-
-    function contribute(uint256 gross, address referralChoice) external returns (uint256 tokenId);
+    ) external;
 
     function referralOf(uint256 tokenId)
         external
@@ -238,13 +261,15 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
 
     function claimReferral() external returns (uint256 amount);
 
-    /// @notice Settle up to 25 checkpoints and claim all three payout categories for the caller.
+    /// @notice Discover extant positions and settled beneficiary reward interests.
     function hasClaimInterest(address beneficiary) external view returns (bool);
 
-    function claimAll() external returns (MembershipTypes.ClaimResult memory);
+    function claimRewards(uint256[] calldata tokenIds, uint256 maxSteps)
+        external
+        returns (MembershipTypes.ClaimResult memory);
 
     /// @notice Factory-only batch entry; payouts always go to the supplied beneficiary.
-    function claimAllFor(address beneficiary, uint256 maxSteps)
+    function claimRewardsFor(address beneficiary, uint256[] calldata tokenIds, uint256 maxSteps)
         external
         returns (MembershipTypes.ClaimResult memory);
 
@@ -253,15 +278,17 @@ interface IMembershipTier is IERC165, IERC721, IERC5192, IERC5643 {
         view
         returns (MembershipTypes.RefundPreview memory);
 
-    function refund(uint256 tokenId, uint256 maxGrossRefund) external returns (uint256 grossRefund);
-
-    function grantTime(address recipient, uint64 periods) external returns (uint256 tokenId);
-
-    function revokeGrantTime(uint256 tokenId) external returns (uint64 revokedSeconds);
-
-    function synchronizeExpiredMemberships(uint256[] calldata tokenIds)
+    function refund(uint256 tokenId, address expectedOwner, uint256 maxGrossRefund)
         external
-        returns (uint256 burnedCount);
+        returns (uint256 grossRefund);
+
+    function grantMembership(address recipient, uint64 periods) external returns (uint256 tokenId);
+
+    function addGrantTime(uint256 tokenId, address expectedOwner, uint64 periods) external;
+
+    function revokeGrantTime(uint256 tokenId, address expectedOwner)
+        external
+        returns (uint64 revokedSeconds);
 
     function setPaused(bool newPaused) external;
 

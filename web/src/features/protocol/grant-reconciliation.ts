@@ -1,4 +1,9 @@
-import { parseEventLogs, type Address, type PublicClient } from "viem";
+import {
+  parseEventLogs,
+  zeroAddress,
+  type Address,
+  type PublicClient,
+} from "viem";
 
 import { membershipTierAbi } from "@/contracts";
 import type { SuccessfulWriteReceipt } from "@/features/protocol/write-reconciliation";
@@ -40,21 +45,37 @@ export async function reconcileTierGrant(
   baseline: TierGrantBaseline,
   receipt: SuccessfulWriteReceipt,
 ) {
-  const [tokenId, block] = await Promise.all([
+  const mint = parseEventLogs({
+    abi: membershipTierAbi,
+    eventName: "Transfer",
+    logs: receipt.logs,
+    strict: true,
+  }).find(
+    (event) =>
+      isSameAddress(event.address, baseline.tier) &&
+      isSameAddress(event.args.from, zeroAddress) &&
+      isSameAddress(event.args.to, baseline.recipient),
+  );
+  const tokenId = baseline.tokenId || mint?.args.tokenId;
+  if (!tokenId) return undefined;
+  const [owner, balances, block] = await Promise.all([
     client.readContract({
       address: baseline.tier,
       abi: membershipTierAbi,
-      functionName: "tokenOf",
-      args: [baseline.recipient],
+      functionName: "ownerOf",
+      args: [tokenId],
+      blockNumber: receipt.blockNumber,
+    }),
+    client.readContract({
+      address: baseline.tier,
+      abi: membershipTierAbi,
+      functionName: "timeBalances",
+      args: [tokenId],
+      blockNumber: receipt.blockNumber,
     }),
     client.getBlock({ blockNumber: receipt.blockNumber }),
   ]);
-  if (
-    tokenId === 0n ||
-    (baseline.tokenId !== 0n && tokenId !== baseline.tokenId)
-  ) {
-    return undefined;
-  }
+  if (!isSameAddress(owner, baseline.recipient)) return undefined;
 
   const previous = balancesAt(baseline, block.timestamp);
   if (!previous) return undefined;
@@ -75,7 +96,7 @@ export async function reconcileTierGrant(
       event.args.expiration === expiration,
   );
 
-  return proven
+  return proven && balances[0] === paidSeconds && balances[1] === grantSeconds
     ? { tokenId, paidSeconds, grantSeconds, expiration }
     : undefined;
 }

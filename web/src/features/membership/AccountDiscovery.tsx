@@ -1,13 +1,12 @@
 "use client";
-import { StreamingAmount } from "@/components/StreamingAmount";
+import { formatMembershipDate } from "./date";
 
 import Link from "next/link";
 import { AccountRewards } from "./AccountRewards";
-import { readAccountRewards } from "./account-rewards-read";
 import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Address } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
 
@@ -18,10 +17,16 @@ import {
   emptyAccountCache,
   loadAccountCache,
   mergeAccountPage,
+  mergeOwnerPage,
+  type AccountTierResult,
+  type CachedAccountTier,
   saveAccountCache,
   type AccountCache,
 } from "@/features/membership/account-cache";
-import { discoverAccountPage } from "@/features/membership/account-discovery";
+import {
+  discoverAccountPage,
+  readAccountOwnerPage,
+} from "@/features/membership/account-discovery";
 import type { AccountDiscoveryPage } from "@/features/membership/account-discovery";
 import {
   getDeployment,
@@ -122,35 +127,21 @@ function HydratedDiscovery({
 }: ConnectedDiscoveryProps) {
   const client = usePublicClient({ chainId: deployment.chainId })!;
   const [savedCache, setSavedCache] = useState<AccountCache>(() =>
-    initialPage
-      ? mergeAccountPage(emptyAccountCache(), {
-          resumeOffset:
-            initialPage.skipped.length > 0
-              ? initialPage.offset
-              : initialPage.scannedTo,
-          complete:
-            initialPage.nextOffset === null && initialPage.skipped.length === 0,
-          capturedBlock: initialPage.capturedBlock,
-          scannedTiers: initialPage.scannedTiers,
-          results: initialPage.results,
-        })
-      : loadAccountCache(window.localStorage, cacheKey),
+    loadAccountCache(window.localStorage, cacheKey),
   );
-  const [offset, setOffset] = useState(
-    () =>
-      initialPage?.offset ??
-      (savedCache.complete ? 0n : BigInt(savedCache.cursor)),
-  );
+  const [offset, setOffset] = useState(0n);
+  const [blockNumber, setBlockNumber] = useState<bigint>();
   const [request, setRequest] = useState(0);
+  const [ownerPages, setOwnerPages] = useState<
+    { result: AccountTierResult; block: bigint }[]
+  >([]);
   const discovery = useQuery({
     queryKey: ["account-discovery", cacheKey, offset.toString(), request],
     queryFn: () =>
-      discoverAccountPage(client, {
-        deployment,
-        wallet,
-        offset,
-      }),
-    initialData: initialPage?.offset === offset ? initialPage : undefined,
+      discoverAccountPage(client, { deployment, wallet, offset, blockNumber }),
+    initialData:
+      request === 0 && initialPage?.offset === offset ? initialPage : undefined,
+    retry: false,
   });
   const paymentTokens = useQuery({
     queryKey: [
@@ -172,314 +163,299 @@ function HydratedDiscovery({
     paymentTokens.data?.status === "partial"
       ? paymentTokens.data.data
       : [];
-
   function claimLabel(raw: bigint, paymentToken: Address) {
     const token = tokenData.find(
       (candidate) =>
         candidate.address.toLowerCase() === paymentToken.toLowerCase(),
     );
     return token
-      ? `${formatLocalizedTokenAmount({
-          raw,
-          decimals: token.decimals,
-          multiplier: token.uiMultiplier,
-        })} ${token.symbol}`
+      ? `${formatLocalizedTokenAmount({ raw, decimals: token.decimals, multiplier: token.uiMultiplier })} ${token.symbol}`
       : "Payment token unavailable";
   }
-
   const currentCache = useMemo(() => {
-    if (!discovery.data) return savedCache;
-    const hasSkipped = discovery.data.skipped.length > 0;
-    return mergeAccountPage(savedCache, {
-      resumeOffset: hasSkipped
-        ? discovery.data.offset
-        : discovery.data.scannedTo,
-      complete: discovery.data.nextOffset === null && !hasSkipped,
-      capturedBlock: discovery.data.capturedBlock,
-      scannedTiers: discovery.data.scannedTiers,
-      results: discovery.data.results,
-    });
-  }, [discovery.data, savedCache]);
-
+    const page = discovery.data;
+    const base = page
+      ? mergeAccountPage(savedCache, {
+          resumeOffset: page.skipped.length ? page.offset : page.scannedTo,
+          complete: page.nextOffset === null && page.skipped.length === 0,
+          capturedBlock: page.capturedBlock,
+          scannedTiers: page.scannedTiers,
+          results: page.results,
+        })
+      : savedCache;
+    // Owner enumeration can reorder after a transfer or burn. A refreshed tier
+    // starts at its new first page; discard continuations from older blocks.
+    return ownerPages.reduce(
+      (cache, page) =>
+        cache.results.some(
+          (tier) =>
+            tier.tier.toLowerCase() === page.result.tier.toLowerCase() &&
+            tier.capturedBlock === page.block.toString(),
+        )
+          ? mergeOwnerPage(cache, page.result, page.block)
+          : cache,
+      base,
+    );
+  }, [discovery.data, savedCache, ownerPages]);
   useEffect(() => {
-    if (discovery.data) {
+    if (discovery.data)
       saveAccountCache(window.localStorage, cacheKey, currentCache);
-    }
   }, [cacheKey, currentCache, discovery.data]);
-
-  const earnings = useQuery({
-    queryKey: [
-      "account-rewards",
-      deployment.chainId,
-      deployment.factoryAddress,
-      wallet,
-      ...currentCache.results.map((tier) => tier.tier),
-    ],
-    queryFn: () => readAccountRewards(client, wallet, currentCache.results),
-    enabled: currentCache.results.length > 0,
+  const moreOwners = useMutation({
     retry: false,
-    refetchInterval: 15_000,
+    mutationFn: (tier: CachedAccountTier) =>
+      readAccountOwnerPage(client, {
+        deployment,
+        wallet,
+        tier: tier.tier,
+        offset: BigInt(tier.nextOwnerOffset),
+        blockNumber: BigInt(tier.capturedBlock),
+      }),
+    onSuccess: (result, tier) =>
+      setOwnerPages((previous) => [
+        ...previous,
+        { result, block: BigInt(tier.capturedBlock) },
+      ]),
   });
-
-  function keepCurrentPage() {
-    setSavedCache(currentCache);
+  function refresh() {
+    setSavedCache(emptyAccountCache());
+    setOwnerPages([]);
+    setOffset(0n);
+    setBlockNumber(undefined);
+    setRequest((value) => value + 1);
   }
-
-  function advance(nextOffset: bigint) {
-    keepCurrentPage();
-    setOffset(nextOffset);
-  }
-
   const page = discovery.data;
-  const hasSkipped = Boolean(page?.skipped.length);
-
+  const complete =
+    currentCache.complete &&
+    currentCache.results.every((tier) => tier.ownerComplete);
   return (
     <section className="account-results">
       <AccountRewards
         deployment={deployment}
         wallet={wallet}
         tiers={currentCache.results}
-        complete={currentCache.complete}
+        complete={complete}
         formatAmount={claimLabel}
+        onRefresh={refresh}
       />
       <div className="account-results-heading">
         <div>
           <h2 className="font-display">Your memberships</h2>
           <p>
-            The memberships connected to this wallet, including the ones you
-            support and the ones you run.
+            Each membership is an independent position. Ownership and balances
+            below are captured at the displayed block.
           </p>
         </div>
         <button
           aria-label="Refresh memberships"
           className="account-refresh"
-          disabled={discovery.isFetching}
-          onClick={() => {
-            keepCurrentPage();
-            setOffset(0n);
-            setRequest((value) => value + 1);
-          }}
+          disabled={discovery.isFetching || moreOwners.isPending}
+          onClick={refresh}
           type="button"
         >
           <ArrowClockwiseIcon aria-hidden="true" size={18} weight="bold" />
           <span>{discovery.isFetching ? "Refreshing" : "Refresh"}</span>
         </button>
       </div>
-
-      {discovery.isLoading && (
-        <ReadStateView
-          state={{
-            status: "loading",
-            label: "Looking for memberships connected to this wallet.",
-          }}
-        />
+      {discovery.isPending && (
+        <p role="status">Looking for memberships connected to this wallet.</p>
       )}
+      {(discovery.isError || !discovery.isFetchedAfterMount) &&
+        currentCache.results.length > 0 && (
+          <p role="status">
+            Saved memberships are outdated until refreshed. Reward claims verify
+            current ownership separately.
+          </p>
+        )}
       {discovery.error && (
-        <ReadStateView
-          onRetry={() => void discovery.refetch()}
-          state={(() => {
-            const state = classifyReadError(discovery.error);
-            return state.status === "rate-limited"
-              ? state
-              : {
-                  ...state,
-                  reason: "rpc-unavailable" as const,
-                };
-          })()}
-        />
+        <p role="alert">
+          {classifyReadError(discovery.error).label}{" "}
+          <button type="button" onClick={() => void discovery.refetch()}>
+            Retry discovery
+          </button>
+        </p>
       )}
-      {page && (
-        <>
-          {hasSkipped && (
-            <p className="warning-copy" role="alert">
-              We could not check {page.skipped.length} membership
-              {page.skipped.length === 1 ? " yet" : "s yet"}. Your saved list
-              has not been changed.
-            </p>
-          )}
-
-          {currentCache.results.length === 0 ? (
-            <div className="empty-room">
-              <h3>No memberships are connected to this wallet.</h3>
-              <p>Explore memberships to find a creator to support.</p>
-              <Link className="button button-dark" href="/">
-                Explore memberships
-              </Link>
-            </div>
-          ) : (
-            <ul className="account-tier-list">
-              {currentCache.results.map((tier, index) => {
-                const current = earnings.isError
-                  ? undefined
-                  : earnings.data?.results[index];
-                const reward = current?.reward ?? 0n;
-                const referral = current?.referral ?? 0n;
-                const creator = current?.creator ?? 0n;
-                const hasClaim = reward > 0n || referral > 0n || creator > 0n;
-                const viewHref =
-                  `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route;
-
-                return (
-                  <li key={tier.tier}>
-                    <article className="account-membership-card">
-                      <Link
-                        aria-label={`View ${tier.name}`}
-                        className="account-card-artwork-link"
-                        href={viewHref}
+      {page?.skipped.length ? (
+        <p className="warning-copy" role="alert">
+          We could not check {page.skipped.length} tiers. Retained results for
+          those tiers are outdated.
+        </p>
+      ) : null}
+      {!complete && (
+        <p role="status">
+          Discovery is incomplete. Loaded position and balance totals cover only
+          the pages shown.
+        </p>
+      )}
+      {currentCache.results.length === 0 && page && (
+        <div className="empty-room">
+          <h3>
+            {complete
+              ? "No memberships are connected to this wallet."
+              : "No memberships found in these pages yet."}
+          </h3>
+          <p>Explore memberships to find a creator to support.</p>
+          <Link className="button button-dark" href="/">
+            Explore memberships
+          </Link>
+        </div>
+      )}
+      <ul className="account-tier-list">
+        {currentCache.results.map((tier, index) => {
+          const viewHref =
+            `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route;
+          return (
+            <li key={tier.tier}>
+              <article className="account-membership-card">
+                <Link
+                  aria-label={`View ${tier.name}`}
+                  className="account-card-artwork-link"
+                  href={viewHref}
+                >
+                  <AccountArtwork
+                    chainId={deployment.chainId}
+                    eager={index === 0}
+                    name={tier.name}
+                    tier={tier.tier}
+                  />
+                </Link>
+                <div className="account-card-copy">
+                  <div className="account-card-identity">
+                    <strong className="font-display">{tier.name}</strong>
+                    {tier.creatorOwned && (
+                      <span className="membership-state">
+                        You are the creator
+                      </span>
+                    )}
+                  </div>
+                  <p className="small-copy">
+                    Snapshot block {tier.capturedBlock}. Showing{" "}
+                    {tier.positions.length} of {tier.ownerBalance} owned
+                    memberships.
+                  </p>
+                  {tier.positions.length === 0 && (
+                    <p>No owned membership NFTs in this snapshot.</p>
+                  )}
+                  <ul>
+                    {tier.positions.map((position) => (
+                      <li
+                        key={`${deployment.chainId}:${tier.tier}:${position.tokenId}`}
                       >
-                        <AccountArtwork
-                          chainId={deployment.chainId}
-                          eager={index === 0}
-                          name={tier.name}
-                          tier={tier.tier}
-                        />
-                      </Link>
-                      <div className="account-card-copy">
-                        <div className="account-card-identity">
-                          <strong className="font-display">{tier.name}</strong>
-                          <span className="membership-state">
-                            {tier.creatorOwned && tier.active
-                              ? "Member and creator"
-                              : tier.creatorOwned
-                                ? "You are the creator"
-                                : tier.tokenId === "0"
-                                  ? "Not currently a member"
-                                  : tier.active
-                                    ? "Membership active"
-                                    : "Membership ended"}
-                          </span>
-                        </div>
-
-                        {earnings.isError && (
-                          <p className="small-copy">Earnings unavailable.</p>
-                        )}
-                        {current && !current.complete && (
-                          <p className="small-copy">
-                            Earnings preview is partial.
-                          </p>
-                        )}
-                        {hasClaim && (
-                          <dl className="account-card-balances">
-                            {reward > 0n && (
-                              <div>
-                                <dt>Rewards ready</dt>
-                                <dd>
-                                  {
-                                    <StreamingAmount
-                                      identity={`${deployment.chainId}:${wallet}:${tier.tier}:rewardStream`}
-                                      streams={
-                                        current?.rewardStream
-                                          ? [current.rewardStream]
-                                          : []
-                                      }
-                                      format={(raw) =>
-                                        claimLabel(raw, tier.paymentToken)
-                                      }
-                                      refresh={() => earnings.refetch()}
-                                      active={!earnings.isError}
-                                    />
-                                  }
-                                </dd>
-                              </div>
-                            )}
-                            {referral > 0n && (
-                              <div>
-                                <dt>Referral earnings</dt>
-                                <dd>
-                                  {
-                                    <StreamingAmount
-                                      identity={`${deployment.chainId}:${wallet}:${tier.tier}:referralStream`}
-                                      streams={
-                                        current?.referralStream
-                                          ? [current.referralStream]
-                                          : []
-                                      }
-                                      format={(raw) =>
-                                        claimLabel(raw, tier.paymentToken)
-                                      }
-                                      refresh={() => earnings.refetch()}
-                                      active={!earnings.isError}
-                                    />
-                                  }
-                                </dd>
-                              </div>
-                            )}
-                            {tier.creatorOwned && creator > 0n && (
-                              <div>
-                                <dt>Creator earnings</dt>
-                                <dd>
-                                  {
-                                    <StreamingAmount
-                                      identity={`${deployment.chainId}:${wallet}:${tier.tier}:creatorStream`}
-                                      streams={
-                                        current?.creatorStream
-                                          ? [current.creatorStream]
-                                          : []
-                                      }
-                                      format={(raw) =>
-                                        claimLabel(raw, tier.paymentToken)
-                                      }
-                                      refresh={() => earnings.refetch()}
-                                      active={!earnings.isError}
-                                    />
-                                  }
-                                </dd>
-                              </div>
-                            )}
-                          </dl>
-                        )}
-
-                        <div className="account-tier-actions">
-                          <Link
-                            className={`button ${tier.creatorOwned ? "button-light" : "button-dark"}`}
-                            href={viewHref}
-                          >
-                            View membership
-                          </Link>
-                          {tier.creatorOwned && (
-                            <Link
-                              className="button button-dark"
-                              href={
-                                `/chains/${deployment.chainId}/tiers/${tier.tier}/manage` as Route
-                              }
-                            >
-                              Manage membership
-                            </Link>
+                        <Link
+                          href={
+                            `${viewHref}?tokenId=${position.tokenId}` as Route
+                          }
+                        >
+                          Membership #{position.tokenId}
+                        </Link>
+                        <p>
+                          {position.active
+                            ? "Membership active"
+                            : "Expired — awaiting retirement"}
+                        </p>
+                        <p>
+                          Expires{" "}
+                          {formatMembershipDate(BigInt(position.expiration))}
+                        </p>
+                        <p>
+                          Settled position rewards:{" "}
+                          {claimLabel(
+                            BigInt(position.claimableReward),
+                            tier.paymentToken,
                           )}
-                        </div>
-                      </div>
-                    </article>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {(hasSkipped || page.nextOffset !== null) && (
-            <div className="account-pagination-actions">
-              {hasSkipped ? (
-                <button
-                  className="button button-dark"
-                  onClick={() => {
-                    keepCurrentPage();
-                    setRequest((value) => value + 1);
-                  }}
-                  type="button"
-                >
-                  Try again
-                </button>
-              ) : (
-                <button
-                  className="button button-dark"
-                  onClick={() => advance(page.nextOffset as bigint)}
-                  type="button"
-                >
-                  Find more memberships
-                </button>
-              )}
-            </div>
-          )}
-        </>
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                  {!tier.ownerComplete && (
+                    <button
+                      className="button button-outline"
+                      type="button"
+                      disabled={moreOwners.isPending || discovery.isFetching}
+                      onClick={() => moreOwners.mutate(tier)}
+                    >
+                      More memberships in {tier.name}
+                    </button>
+                  )}
+                  {(BigInt(tier.retiredReward) > 0n ||
+                    BigInt(tier.retiredFractionalScaled) > 0n) && (
+                    <p>
+                      Rewards from ended memberships:{" "}
+                      {claimLabel(
+                        BigInt(tier.retiredReward),
+                        tier.paymentToken,
+                      )}
+                      .{" "}
+                      {BigInt(tier.retiredFractionalScaled) > 0n &&
+                        "Fractional credit is preserved."}
+                    </p>
+                  )}
+                  {BigInt(tier.claimableReferral) > 0n && (
+                    <p>
+                      Settled referral rewards:{" "}
+                      {claimLabel(
+                        BigInt(tier.claimableReferral),
+                        tier.paymentToken,
+                      )}
+                    </p>
+                  )}
+                  {tier.creatorOwned && (
+                    <p>
+                      Settled creator rewards:{" "}
+                      {claimLabel(
+                        BigInt(tier.creatorProceeds),
+                        tier.paymentToken,
+                      )}
+                    </p>
+                  )}
+                  <div className="account-tier-actions">
+                    <Link className="button button-dark" href={viewHref}>
+                      View membership
+                    </Link>
+                    {tier.creatorOwned && (
+                      <Link
+                        className="button button-dark"
+                        href={`${viewHref}/manage` as Route}
+                      >
+                        Manage membership
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </article>
+            </li>
+          );
+        })}
+      </ul>
+      {moreOwners.isPending && (
+        <p role="status">Loading another ownership page…</p>
+      )}
+      {moreOwners.error && (
+        <p role="alert">
+          {classifyReadError(moreOwners.error).label} Retry the ownership page
+          or refresh memberships.
+        </p>
+      )}
+      {page && (page.skipped.length > 0 || page.nextOffset !== null) && (
+        <div className="account-pagination-actions">
+          <button
+            className="button button-dark"
+            type="button"
+            disabled={discovery.isFetching || moreOwners.isPending}
+            onClick={() => {
+              if (page.skipped.length) {
+                void discovery.refetch();
+                return;
+              }
+              setSavedCache(currentCache);
+              setOwnerPages([]);
+              setBlockNumber(page.capturedBlock);
+              setOffset(page.nextOffset!);
+            }}
+          >
+            {page.skipped.length ? "Try again" : "Find more memberships"}
+          </button>
+        </div>
       )}
     </section>
   );

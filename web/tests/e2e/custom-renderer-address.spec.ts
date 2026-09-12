@@ -81,8 +81,9 @@ test("@anvil copies and reuses a direct renderer", async ({
     });
 
     await page.getByRole("button", { name: /^risks$/i }).click();
-    await page.getByRole("checkbox").nth(0).check();
-    await page.getByRole("checkbox").nth(1).check();
+    await page
+      .getByRole("checkbox", { name: /I understand the price, period/ })
+      .check();
     await page.getByRole("button", { name: /^review$/i }).click();
 
     const publish = page.getByRole("button", {

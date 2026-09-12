@@ -45,29 +45,34 @@ f.text(80,906,'Example assumes a recorded referrer. Member amounts are pool tota
 f.text(1180,914,'Separate execution',18,MUTED,400,'middle')
 f.save('payment-flow.svg')
 
-t=Drawing('Membership access, NFT ownership and rewards over time','A positive payment creates membership. Renewal extends access. At expiry access ends but the NFT and reward eligibility remain. Creator synchronization burns the NFT and suspends rewards. A positive payment on return remints the same identity and restores eligibility.',830)
-t.title('01','One membership. Three different states.','Example: a paid membership with rewards enabled, no refund, and no complimentary time.')
-xs=[290,500,760,990,1210]
-labels=[('Join','Positive payment'),('Renew','Time added'),('Expire','Time runs out'),('Creator sync','Expired NFT burned'),('Return','Positive payment')]
+t=Drawing('Transferable membership lifecycle','A live NFT transfers with its time, weight and rewards. At expiration access and reward accrual end. Permissionless maintenance burns the expired NFT effective at its expiration boundary and saves earned rewards for its final owner. Returning creates a new token and new weight.',880)
+t.title('01','The position moves. Expiration ends it.','Renew before expiry to extend the same NFT. Return after expiry with a new identity.')
+xs=[290,500,750,1000,1240]
+labels=[('Create #1','New position'),('Transfer #1','New owner'),('Expire #1','Time runs out'),('Maintenance','Burn #1'),('Create #2','Fresh return')]
 for x,(label,sub) in zip(xs,labels):
     t.text(x,228,label,24,INK,700,'middle');t.text(x,261,sub,17,MUTED,400,'middle');t.path(f'M{x} 286 V620',LINE,1.5,'4 8')
-for y,label in [(334,'Active access'),(444,'NFT in wallet'),(554,'Reward eligibility')]:
+for y,label in [(334,'Active access'),(444,'NFT in wallet'),(554,'Reward weight')]:
     t.text(60,y+10,label,21,INK,700)
-    t.rect(290,y-25,1030,54,'#e9e4da','none',6)
-    end=760 if y==334 else 990
-    t.rect(290,y-25,end-290,54,LIME if y==334 else INK,'none',6)
-    t.text((290+end)/2,y+10,'Active' if y==334 else ('Present' if y==444 else 'Eligible'),22,INK if y==334 else PAPER,500,'middle')
-    t.rect(1210,y-25,110,54,LIME if y==334 else INK,'none',6)
-    t.text(1265,y+10,'Active' if y==334 else ('Present' if y==444 else 'Eligible'),18,INK if y==334 else PAPER,500,'middle')
-    t.text((end+1210)/2,y+10,'Expired' if y==334 else ('Burned' if y==444 else 'Suspended'),20,MUTED,400,'middle')
-t.path('M290 641 H1320',INK,2,arrow=True)
-t.text(1320,676,'Time →',19,MUTED,400,'end')
-t.text(60,725,'Expiry ends access. Creator synchronization separately burns the NFT and suspends reward eligibility.',22)
-t.text(60,766,'The same identity can return. Previously earned rewards remain claimable after the NFT is burned.',21,MUTED)
-t.text(60,803,'Event spacing is illustrative. Returning remains subject to the tier’s capacity and terms.',18,MUTED)
+    t.rect(290,y-25,1050,54,'#e9e4da','none',6)
+    t.rect(290,y-25,460,54,LIME if y==334 else INK,'none',6)
+    t.text(520,y+10,'Active' if y==334 else ('Token #1' if y==444 else 'Position #1 weight'),22,INK if y==334 else PAPER,500,'middle')
+    if y==444:
+        t.rect(750,y-25,250,54,'#f4d8ae','none',6)
+        t.text(875,y+9,'Expired · cannot transfer',17,INK,400,'middle')
+        t.text(1115,y+9,'Burned',19,MUTED,400,'middle')
+    else:
+        t.text(995,y+10,'Ended at expiration' if y==334 else 'Removed effective at expiry',20,MUTED,400,'middle')
+    t.rect(1240,y-25,100,54,LIME if y==334 else INK,'none',6)
+    t.text(1290,y+10,'Active' if y==334 else ('#2' if y==444 else 'New'),18,INK if y==334 else PAPER,500,'middle')
+t.path('M290 641 H1340',INK,2,arrow=True)
+t.text(1340,676,'Time →',19,MUTED,400,'end')
+t.text(60,725,'Live transfer carries all time, weight and unclaimed rewards. It needs no accounting catch-up.',22)
+t.text(60,766,'Maintenance settles through expiry, then burns the NFT and saves earned rewards for the final owner.',21,MUTED)
+t.text(60,807,'That owner can claim after the burn, including whole units accumulated from preserved fractions.',21,MUTED)
+t.text(60,850,'Event spacing is illustrative. Maintenance and live transfers remain available while paused.',18,MUTED)
 t.save('membership-timeline.svg')
 
-c=Drawing('Early-support reward weight','Illustrative 1.5 times starting boost tapers to 1 times after 1000 total payment units. The curve shows weight per additional payment unit, not a loss of previously earned weight. The first 100 units add 147.5 shares; 100 units paid after the threshold add 100 shares.',940)
+c=Drawing('Early-support reward weight','Illustrative 1.5 times starting boost tapers to 1 times after 1000 total payment units. The curve shows weight per additional payment unit, not decay of a live position’s weight; retirement permanently removes that position’s weight. The first 100 units add 147.5 shares; 100 units paid after the threshold add 100 shares.',940)
 c.title('03','Earlier support can receive more weight.','Illustrative curve: 1.5× starting weight, reaching 1× after 1,000 units paid into the tier.')
 x0,x1,y0,y1=160,1260,585,260
 X=lambda v:x0+(x1-x0)*v/1500
@@ -83,8 +88,8 @@ c.text(410,343,'Bonus on new payments tapers',23,BLUE,700)
 c.text(1110,550,'Normal weight',21,INK,500,'middle')
 c.text(710,672,'Total paid into the tier (units)',22,INK,500,'middle')
 c.rect(60,714,610,129,'#fffdf8');c.text(86,750,'First 100 units paid',22,INK,700);c.text(86,791,'147.5 shares added',28);c.text(86,822,'Includes the average bonus across that payment.',18,MUTED)
-c.rect(700,714,640,129,'#fffdf8');c.text(726,750,'100 units paid after the threshold',22,INK,700);c.text(726,791,'100 shares added',28);c.text(726,822,'Earlier shares keep their existing weight.',18,MUTED)
-c.text(60,893,'The curve changes the weight added by new payments. Weight already earned does not shrink.',23,INK,700)
+c.rect(700,714,640,129,'#fffdf8');c.text(726,750,'100 units paid after the threshold',22,INK,700);c.text(726,791,'100 shares added',28);c.text(726,822,'Live positions keep their existing weight until retirement.',18,MUTED)
+c.text(60,893,'Live transfers preserve weight. Retirement removes it; a new position starts on the current curve.',22,INK,700)
 c.text(60,926,'Shares determine the split of eligible member rewards; they are not a promised reward amount.',19,MUTED)
 c.save('reward-weight.svg')
 print('Created',len(list(OUT.glob('*.svg'))),'SVG diagrams')

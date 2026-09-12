@@ -38,7 +38,7 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
       batch * 12n,
     );
     await f.write(member, weth, erc20Abi, "approve", [tier, batch * 12n]);
-    await f.write(member, tier, membershipTierAbi, "purchase", [
+    await f.write(member, tier, membershipTierAbi, "createMembership", [
       12n,
       zeroAddress,
     ]);

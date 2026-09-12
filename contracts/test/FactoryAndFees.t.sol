@@ -96,6 +96,14 @@ contract FutureRenderer is IMembershipRenderer {
 }
 
 contract FactoryAndFeesTest is Test {
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        return 0x150b7a02;
+    }
+
     uint256 private constant _STANDARD_RUNTIME_LIMIT = 24_576;
     uint256 private constant _STANDARD_INITCODE_LIMIT = 49_152;
     uint256 private constant _ROBINHOOD_RUNTIME_LIMIT = 98_304;
@@ -103,7 +111,7 @@ contract FactoryAndFeesTest is Test {
     uint256 private constant _RENDERER_RUNTIME_LIMIT = 88_000;
     uint256 private constant _RENDERER_INITCODE_LIMIT = 176_000;
     // Includes immutable fee terms, protected reserves and the paid-time accounting surface.
-    uint256 private constant _MAX_TIER_DEPLOY_GAS = 7_500_000;
+    uint256 private constant _MAX_TIER_DEPLOY_GAS = 10_000_000;
     MockUSDG private paymentToken;
     MockUSDG private stockToken;
     OnchainMetadataRenderer private renderer;
@@ -154,20 +162,20 @@ contract FactoryAndFeesTest is Test {
         cfg.tierSalt = bytes32(uint256(456));
         vm.prank(creator);
         MembershipTier pwyw = MembershipTier(factory.createTier(cfg));
-        pwyw.contribute(0, address(0));
+        pwyw.createContributionMembership(0, address(0));
         assertEq(pwyw.lifetimeGross(), 0);
         uint64 cursor = pwyw.accountingStatus().accountedThrough;
         vm.warp(block.timestamp + 1);
         vm.expectRevert(
             abi.encodeWithSelector(MembershipTier.PaymentBelowMinimum.selector, 999_999, 1_000_000)
         );
-        pwyw.contribute(999_999, address(0));
+        pwyw.createContributionMembership(999_999, address(0));
         assertEq(pwyw.accountingStatus().accountedThrough, cursor);
         factory.setMinimumPayment(address(paymentToken), 2_000_000);
         assertEq(pwyw.minimumPayment(), 1_000_000);
         paymentToken.mint(address(this), 1_000_000);
         paymentToken.approve(address(pwyw), 1_000_000);
-        pwyw.contribute(1_000_000, address(0));
+        pwyw.createContributionMembership(1_000_000, address(0));
         assertEq(pwyw.lifetimeGross(), 1_000_000);
         cfg.tierSalt = bytes32(uint256(457));
         vm.prank(creator);
@@ -781,7 +789,7 @@ contract FactoryAndFeesTest is Test {
         MembershipTier tier = MembershipTier(_createTier(factory, creator, config));
         paymentToken.mint(address(this), gross);
         paymentToken.approve(address(tier), gross);
-        tier.contribute(gross, referred ? nextOwner : address(0));
+        tier.createContributionMembership(gross, referred ? nextOwner : address(0));
         uint256 fee = uint256(gross) * rate / 10_000;
         uint256 reward = uint256(gross) * config.rewardBps / 10_000;
         uint256 referral = referred ? uint256(gross) * config.referralBps / 10_000 : 0;
@@ -806,7 +814,7 @@ contract FactoryAndFeesTest is Test {
         MembershipTier tier = MembershipTier(_createTier(factory, creator, config));
         paymentToken.mint(address(this), 120_000_000);
         paymentToken.approve(address(tier), 120_000_000);
-        tier.purchase(12, address(0));
+        tier.createMembership(12, address(0));
         vm.prank(creator);
         assertEq(tier.withdrawCreatorProceeds(), 0);
         assertEq(tier.totalProtectedLiability(), 120_000_000);
@@ -958,13 +966,13 @@ contract FactoryAndFeesTest is Test {
         uint256 cap = type(uint112).max;
         paymentToken.mint(address(this), cap + 1);
         paymentToken.approve(address(tier), type(uint256).max);
-        uint256 id = tier.contribute(cap, address(0));
+        uint256 id = tier.createContributionMembership(cap, address(0));
         assertEq(tier.lifetimeGross(), cap);
         assertEq(tier.sharesOf(id), cap + 4500);
         uint64 expiry = tier.expiresAt(id);
         bytes32 reservesBefore = keccak256(abi.encode(tier.reserveState()));
         vm.expectRevert(MembershipTier.CurveCapacityExceeded.selector);
-        tier.contribute(1, address(0));
+        tier.createContributionMembership(1, address(0));
         assertEq(paymentToken.balanceOf(address(this)), 1);
         assertEq(tier.expiresAt(id), expiry);
         assertEq(keccak256(abi.encode(tier.reserveState())), reservesBefore);
@@ -974,11 +982,14 @@ contract FactoryAndFeesTest is Test {
         vm.prank(creator);
         assertGt(tier.withdrawCreatorProceeds(), 0);
         vm.prank(creator);
-        assertEq(tier.refund(id, cap), cap / 2);
+        assertEq(tier.refund(id, address(this), cap), cap / 2);
         assertEq(tier.lifetimeGross(), cap);
-        assertEq(tier.sharesOf(id), cap + 4500);
-        tier.contribute(0, address(0));
-        assertTrue(tier.isActive(address(this)));
+        assertEq(tier.sharesOf(id), 0);
+        tier.createContributionMembership(0, address(0));
+        assertTrue(
+            (tier.tokensOfOwner(address(this), 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(address(this), 0, 1).tokenIds[0]))
+        );
         assertFalse(tier.rewardEligible(id));
         assertEq(tier.lifetimeGross(), cap);
     }

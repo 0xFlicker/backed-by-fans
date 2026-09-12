@@ -18,7 +18,7 @@ contract RewardCurveCalibrationTest is Test {
     function test_calibrationLifecycleCashAgainstRationalReport() public {
         new LinkedVestingFixture().install();
         uint256[] memory data = abi.decode(
-            vm.readFileBinary("deployments/curve-calibration/lifecycle.bin"), (uint256[])
+            vm.readFileBinary("test/fixtures/membership-curve-lifecycle.bin"), (uint256[])
         );
         assertEq(data.length, 6 * 13);
         MockUSDG token = new MockUSDG();
@@ -49,35 +49,37 @@ contract RewardCurveCalibrationTest is Test {
             vm.prank(b);
             token.approve(address(tier), type(uint256).max);
             vm.prank(a);
-            uint256 idA = tier.contribute(100e18, referrer);
+            uint256 idA = tier.createContributionMembership(100e18, referrer);
             vm.prank(b);
-            uint256 idB = tier.contribute(100e18, referrer);
+            uint256 idB = tier.createContributionMembership(100e18, referrer);
             vm.warp(1010);
             if (refund) {
                 tier.setPaused(true);
-                assertEq(tier.refund(idB, type(uint256).max), data[i + 3]);
+                assertEq(tier.refund(idB, tier.ownerOf(idB), type(uint256).max), data[i + 3]);
                 tier.setPaused(false);
             } else {
                 uint256[] memory ids = new uint256[](1);
                 ids[0] = idB;
-                tier.synchronizeExpiredMemberships(ids);
+                tier.processExpirations(25).retiredCount;
                 vm.prank(a);
-                tier.contribute(100e18, referrer);
+                tier.createContributionMembership(100e18, referrer);
             }
             vm.warp(1020);
             if (!refund) {
                 vm.prank(a);
-                tier.contribute(100e18, referrer);
+                tier.createContributionMembership(100e18, referrer);
             }
             vm.prank(b);
-            tier.contribute(1e18, referrer);
+            tier.createContributionMembership(1e18, referrer);
             vm.warp(1030);
             tier.processAccounting(25);
             assertEq(tier.lifetimeGross(), data[i + 2]);
-            assertEq(tier.sharesOf(idA), data[i + 4]);
-            assertEq(tier.sharesOf(idB), data[i + 5]);
-            assertApproxEqAbs(tier.claimableReward(idA), data[i + 6], 1);
-            assertApproxEqAbs(tier.claimableReward(idB), data[i + 7], 1);
+            assertEq(_ownerShares(tier, a), data[i + 4]);
+            assertEq(tier.sharesOf(idA), 0);
+            assertEq(_ownerShares(tier, b), data[i + 5]);
+            assertEq(tier.sharesOf(idB), 0);
+            assertApproxEqAbs(_ownerReward(tier, a), data[i + 6], 1);
+            assertApproxEqAbs(_ownerReward(tier, b), data[i + 7], 1);
             assertApproxEqAbs(tier.creatorProceeds(), data[i + 8], 1);
             assertApproxEqAbs(tier.claimableReferral(referrer), data[i + 10], 1);
             assertApproxEqAbs(tier.protocolFeeEarnedHeld(), data[i + 11], 1);
@@ -87,7 +89,22 @@ contract RewardCurveCalibrationTest is Test {
                 unearned += reserves.unearnedScaled[purpose];
             }
             assertApproxEqAbs(unearned / Q, data[i + 12], 1);
-            console2.log("cash", i / 13, tier.claimableReward(idA), tier.claimableReward(idB));
+            console2.log("cash", i / 13, _ownerReward(tier, a), _ownerReward(tier, b));
+        }
+    }
+
+    function _ownerShares(MembershipTier tier, address owner) private view returns (uint256 sum) {
+        uint256[] memory ids = tier.tokensOfOwner(owner, 0, 100).tokenIds;
+        for (uint256 i; i < ids.length; ++i) {
+            sum += tier.sharesOf(ids[i]);
+        }
+    }
+
+    function _ownerReward(MembershipTier tier, address owner) private view returns (uint256 sum) {
+        uint256[] memory ids = tier.tokensOfOwner(owner, 0, 100).tokenIds;
+        (sum,) = tier.claimableRetiredReward(owner);
+        for (uint256 i; i < ids.length; ++i) {
+            sum += tier.claimableReward(ids[i]);
         }
     }
 

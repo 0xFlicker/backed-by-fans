@@ -11,7 +11,6 @@ import {Vm} from "forge-std/Vm.sol";
 
 import {MembershipTier} from "../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
-import {IERC5192} from "../src/interfaces/IERC5192.sol";
 import {IERC5643} from "../src/interfaces/IERC5643.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
@@ -37,7 +36,7 @@ contract MetadataAndStandardsTest is Test {
     }
 
     function test_tokenMetadataContainsOneSelfContainedSVGArtwork() public {
-        uint256 tokenId = tier.grantTime(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1);
         string memory json = _decodeDataURI(tier.tokenURI(tokenId), "data:application/json;base64,");
         string memory image = vm.parseJsonString(json, ".image");
         string memory svg = _decodeDataURI(image, "data:image/svg+xml;base64,");
@@ -54,7 +53,7 @@ contract MetadataAndStandardsTest is Test {
     }
 
     function test_tokenMetadataReflectsPassiveExpirationWithStableGeometry() public {
-        uint256 tokenId = tier.grantTime(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1);
         string memory activeSVG = _svgFromTier(tokenId);
         string memory activeGeometry = _attribute(activeSVG, "data-geometry");
 
@@ -75,13 +74,16 @@ contract MetadataAndStandardsTest is Test {
                 '"value":"EXPIRED"'
             )
         );
-        assertFalse(tier.isActive(member));
+        assertFalse(
+            (tier.tokensOfOwner(member, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+        );
         assertTrue(tier.isOccupied(tokenId));
     }
 
     function test_mutableMetadataSignalsRefreshWithoutChangingImmutableArt() public {
-        tier.grantTime(member, 1);
-        tier.grantTime(makeAddr("other"), 1);
+        tier.grantMembership(member, 1);
+        tier.grantMembership(makeAddr("other"), 1);
         bytes32 artBefore = keccak256(abi.encode(tier.artConfig()));
         bytes32 mediaBefore = keccak256(abi.encode(tier.mediaConfig()));
         bytes32 identityBefore = tier.tierIdentity();
@@ -136,10 +138,10 @@ contract MetadataAndStandardsTest is Test {
 
     function test_lifecycleMutationsEmitPublishedStandardsEvents() public {
         vm.recordLogs();
-        uint256 tokenId = tier.grantTime(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1);
         Vm.Log[] memory grantLogs = vm.getRecordedLogs();
 
-        assertEq(_countLogs(grantLogs, keccak256("Locked(uint256)")), 1);
+        assertEq(_countLogs(grantLogs, keccak256("Locked(uint256)")), 0);
         assertEq(_countLogs(grantLogs, keccak256("SubscriptionUpdate(uint256,uint64)")), 1);
         assertEq(_countLogs(grantLogs, keccak256("MetadataUpdate(uint256)")), 1);
 
@@ -147,12 +149,12 @@ contract MetadataAndStandardsTest is Test {
         vm.recordLogs();
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
-        assertEq(tier.synchronizeExpiredMemberships(tokenIds), 1);
+        assertEq(tier.processExpirations(25).retiredCount, 1);
         Vm.Log[] memory syncLogs = vm.getRecordedLogs();
 
         assertEq(
             _countLogs(
-                syncLogs, keccak256("ExpiredMembershipSynchronized(uint256,address,uint256)")
+                syncLogs, keccak256("MembershipRetired(uint256,address,uint64,uint256,uint256)")
             ),
             1
         );
@@ -160,14 +162,13 @@ contract MetadataAndStandardsTest is Test {
     }
 
     function test_standardAdaptersExposeRenewalAndCreatorOnlyCancellation() public {
-        uint256 tokenId = tier.grantTime(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1);
         uint64 expiration = tier.expiresAt(tokenId);
 
         assertTrue(tier.supportsInterface(type(IERC721).interfaceId));
-        assertTrue(tier.supportsInterface(type(IERC5192).interfaceId));
+        assertFalse(tier.supportsInterface(0xb45a3c0e));
         assertTrue(tier.supportsInterface(type(IERC5643).interfaceId));
         assertTrue(tier.supportsInterface(0x49064906));
-        assertTrue(tier.locked(tokenId));
         assertFalse(tier.isRenewable(tokenId));
 
         vm.prank(member);
@@ -183,14 +184,14 @@ contract MetadataAndStandardsTest is Test {
     }
 
     function test_isRenewableTurnsTrueAfterReferralChoiceIsLocked() public {
-        uint256 tokenId = tier.grantTime(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1);
         assertFalse(tier.isRenewable(tokenId));
 
         uint256 price = tier.pricePerPeriod();
         token.mint(member, price);
         vm.startPrank(member);
         token.approve(address(tier), price);
-        tier.purchase(1, address(0));
+        tier.renewMembership(tokenId, 1, address(0));
         vm.stopPrank();
 
         assertTrue(tier.isRenewable(tokenId));

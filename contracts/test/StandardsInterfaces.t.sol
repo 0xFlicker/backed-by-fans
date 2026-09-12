@@ -6,8 +6,8 @@ import {Test} from "forge-std/Test.sol";
 
 import {MembershipTier} from "../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
-import {IERC5192} from "../src/interfaces/IERC5192.sol";
 import {IERC5643} from "../src/interfaces/IERC5643.sol";
+import {IMembershipTier} from "../src/interfaces/IMembershipTier.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
@@ -16,7 +16,11 @@ import {MockUSDG} from "./mocks/MockUSDG.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract StandardsInterfacesTest is Test {
-    function test_erc5643CancellationPreservesAccountingBehindAtomicityAndPermanentWeight() public {
+    function test_membershipInterfaceMatchesWebAuthenticityRequirement() public pure {
+        assertEq(type(IMembershipTier).interfaceId, bytes4(0x584eb4c9));
+    }
+
+    function test_erc5643CancellationPreservesAccountingAtomicityAndRetiresWeight() public {
         new LinkedVestingFixture().install();
         vm.warp(1000);
         MockUSDG token = new MockUSDG();
@@ -34,11 +38,11 @@ contract StandardsInterfacesTest is Test {
             token.mint(member, 1000);
             vm.startPrank(member);
             token.approve(address(tier), 1000);
-            tier.purchase(1, address(0));
+            tier.createMembership(1, address(0));
             vm.stopPrank();
         }
         address first = address(uint160(10_001));
-        tier.grantTime(first, 2);
+        tier.addGrantTime(1, first, 2);
         vm.warp(1010);
         tier.setPaused(true);
         bytes32 stateBefore = _fingerprint(tier);
@@ -53,20 +57,21 @@ contract StandardsInterfacesTest is Test {
         vm.prank(first);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, first));
         tier.cancelSubscription(1);
+        tier.processAccounting(25);
         tier.cancelSubscription(1);
         (uint64 paid, uint64 granted,) = tier.timeBalances(1);
         assertEq(paid, 0);
         assertEq(granted, 0);
-        assertEq(tier.sharesOf(1), 1000);
+        assertEq(tier.sharesOf(1), 0);
         assertEq(tier.lifetimeGross(), 26_000);
         assertFalse(tier.rewardEligible(1));
         assertTrue(tier.accountingStatus().complete);
         assertTrue(tier.supportsInterface(type(IERC5643).interfaceId));
-        assertTrue(tier.supportsInterface(type(IERC5192).interfaceId));
+        assertFalse(tier.supportsInterface(0xb45a3c0e));
     }
 
     function test_erc5192InterfaceIdMatchesPublishedStandard() public pure {
-        assertEq(type(IERC5192).interfaceId, bytes4(0xb45a3c0e));
+        assertEq(bytes4(keccak256("locked(uint256)")), bytes4(0xb45a3c0e));
     }
 
     function _fingerprint(MembershipTier tier) private view returns (bytes32) {

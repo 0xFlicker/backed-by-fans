@@ -1,3 +1,4 @@
+import { expectSingleOwnedPosition } from "./helpers/membership-positions";
 import { expect, test } from "@playwright/test";
 import { erc20Abi } from "viem";
 import { membershipTierAbi } from "../../src/contracts";
@@ -53,14 +54,9 @@ for (const kind of ["WETH", "protocol-token"] as const)
       await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, member);
       await page.getByLabel("Periods", { exact: true }).fill("12");
-      await page.getByRole("button", { name: "Join this membership" }).click();
-      await expectReconciled(page, "Join this membership");
-      const tokenId = await f.client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "tokenOf",
-        args: [member],
-      });
+      await page.getByRole("button", { name: "New membership" }).click();
+      await expectReconciled(page, "New membership");
+      const tokenId = await expectSingleOwnedPosition(f.client, tier, member);
       expect(tokenId).toBe(1n);
       expect(
         balanceBefore -

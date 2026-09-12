@@ -36,7 +36,7 @@ export async function previewAdvance(
           client.readContract({
             ...common,
             functionName: "previewAccounting",
-            args: [0n, zeroAddress, item.maxAccountingSteps],
+            args: [0n, zeroAddress, zeroAddress, item.maxAccountingSteps],
           }),
           client.readContract({ ...common, functionName: "paymentToken" }),
         ]);

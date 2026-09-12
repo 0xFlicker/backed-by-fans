@@ -1,3 +1,4 @@
+import { expectSingleOwnedPosition } from "./helpers/membership-positions";
 import { resolve } from "node:path";
 
 import { expect, test } from "@playwright/test";
@@ -79,7 +80,7 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
         account: member,
         address: tier,
         abi: membershipTierAbi,
-        functionName: "purchase",
+        functionName: "createMembership",
         args: [1n, zeroAddress],
       }),
     );
@@ -88,7 +89,7 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
         account: creator,
         address: tier,
         abi: membershipTierAbi,
-        functionName: "grantTime",
+        functionName: "grantMembership",
         args: [expiredMember, 1n],
       }),
     );
@@ -99,7 +100,7 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
         account: member,
         address: tier,
         abi: membershipTierAbi,
-        functionName: "purchase",
+        functionName: "createMembership",
         args: [1n, zeroAddress],
       }),
     );
@@ -121,18 +122,12 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
       }),
     );
 
-    const activeToken = await client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "tokenOf",
-      args: [member],
-    });
-    const expiredToken = await client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "tokenOf",
-      args: [expiredMember],
-    });
+    const activeToken = await expectSingleOwnedPosition(client, tier, member);
+    const expiredToken = await expectSingleOwnedPosition(
+      client,
+      tier,
+      expiredMember,
+    );
     const beforeArt = await client.readContract({
       address: tier,
       abi: membershipTierAbi,

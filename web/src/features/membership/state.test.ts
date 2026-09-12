@@ -16,7 +16,6 @@ import {
   readRewardQuote,
   reconcilePaymentWeight,
   averageRewardBoost,
-  receiptRestoredRewardWeight,
 } from "@/features/membership/state";
 import { isSameAddress } from "@/lib/address";
 
@@ -116,38 +115,6 @@ describe("supporter membership state", () => {
     expect(
       reconcilePaymentWeight({ logs: [payment(0n)] }, { ...input, gross: 0n }),
     ).toBe(0n);
-    const activation = {
-      address: recipient,
-      data: encodeAbiParameters(
-        [{ type: "bool" }, { type: "uint256" }, { type: "uint256" }],
-        [true, 400n, 900n],
-      ),
-      topics: encodeEventTopics({
-        abi: membershipTierAbi,
-        eventName: "RewardEligibilityUpdated",
-        args: { tokenId: 4n },
-      }),
-    } as Log;
-    expect(
-      receiptRestoredRewardWeight(
-        { logs: [activation, issued] },
-        recipient,
-        4n,
-      ),
-    ).toBe(290n);
-    expect(receiptRestoredRewardWeight({ logs: [issued] }, recipient, 4n)).toBe(
-      0n,
-    );
-    expect(
-      receiptRestoredRewardWeight({ logs: [activation] }, recipient, 4n),
-    ).toBe(0n);
-    expect(
-      receiptRestoredRewardWeight(
-        { logs: [activation, issued] },
-        recipient,
-        5n,
-      ),
-    ).toBe(0n);
   });
   it.each([
     [{ walletReady: false, tokenId: 0n }, "unready"],
@@ -158,11 +125,11 @@ describe("supporter membership state", () => {
     ],
     [
       { walletReady: true, tokenId: 1n, active: false, occupied: true },
-      "expired-occupied",
+      "expired-pending",
     ],
     [
       { walletReady: true, tokenId: 1n, active: false, occupied: false },
-      "historical-synchronized",
+      "retired",
     ],
   ] as const)("classifies %o as %s", (input, expected) => {
     expect(classifyMembershipState(input)).toBe(expected);

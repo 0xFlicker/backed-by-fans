@@ -1,48 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="830" viewBox="0 0 1400 830" role="img" aria-labelledby="title desc"><title id="title">Membership access, NFT ownership and rewards over time</title><desc id="desc">A positive payment creates membership. Renewal extends access. At expiry access ends but the NFT and reward eligibility remain. Creator synchronization burns the NFT and suspends rewards. A positive payment on return remints the same identity and restores eligibility.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="880" viewBox="0 0 1400 880" role="img" aria-labelledby="title desc"><title id="title">Transferable membership lifecycle</title><desc id="desc">A live NFT transfers with its time, weight and rewards. At expiration access and reward accrual end. Permissionless maintenance burns the expired NFT effective at its expiration boundary and saves earned rewards for its final owner. Returning creates a new token and new weight.</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10" fill="none" stroke="#11131a" stroke-width="1.4"/></marker></defs>
-<rect width="1400" height="830" fill="#f7f2e8"/>
+<rect width="1400" height="880" fill="#f7f2e8"/>
 <text x="60" y="48" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" text-anchor="start">BACKED BY FANS  /  01</text>
-<text x="60" y="105" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="500" text-anchor="start">One membership. Three different states.</text>
-<text x="60" y="147" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" text-anchor="start">Example: a paid membership with rewards enabled, no refund, and no complimentary time.</text>
-<text x="290" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Join</text>
-<text x="290" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Positive payment</text>
+<text x="60" y="105" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="500" text-anchor="start">The position moves. Expiration ends it.</text>
+<text x="60" y="147" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" text-anchor="start">Renew before expiry to extend the same NFT. Return after expiry with a new identity.</text>
+<text x="290" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Create #1</text>
+<text x="290" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">New position</text>
 <path d="M290 286 V620" fill="none" stroke="#c9c3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 8"/>
-<text x="500" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Renew</text>
-<text x="500" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Time added</text>
+<text x="500" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Transfer #1</text>
+<text x="500" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">New owner</text>
 <path d="M500 286 V620" fill="none" stroke="#c9c3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 8"/>
-<text x="760" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Expire</text>
-<text x="760" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Time runs out</text>
-<path d="M760 286 V620" fill="none" stroke="#c9c3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 8"/>
-<text x="990" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Creator sync</text>
-<text x="990" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Expired NFT burned</text>
-<path d="M990 286 V620" fill="none" stroke="#c9c3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 8"/>
-<text x="1210" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Return</text>
-<text x="1210" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Positive payment</text>
-<path d="M1210 286 V620" fill="none" stroke="#c9c3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 8"/>
+<text x="750" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Expire #1</text>
+<text x="750" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Time runs out</text>
+<path d="M750 286 V620" fill="none" stroke="#c9c3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 8"/>
+<text x="1000" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Maintenance</text>
+<text x="1000" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Burn #1</text>
+<path d="M1000 286 V620" fill="none" stroke="#c9c3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 8"/>
+<text x="1240" y="228" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Create #2</text>
+<text x="1240" y="261" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Fresh return</text>
+<path d="M1240 286 V620" fill="none" stroke="#c9c3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 8"/>
 <text x="60" y="344" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="start">Active access</text>
-<rect x="290" y="309" width="1030" height="54" rx="6" fill="#e9e4da" stroke="none" stroke-width="2"/>
-<rect x="290" y="309" width="470" height="54" rx="6" fill="#d9f99d" stroke="none" stroke-width="2"/>
-<text x="525.0" y="344" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="500" text-anchor="middle">Active</text>
-<rect x="1210" y="309" width="110" height="54" rx="6" fill="#d9f99d" stroke="none" stroke-width="2"/>
-<text x="1265" y="344" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" text-anchor="middle">Active</text>
-<text x="985.0" y="344" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" text-anchor="middle">Expired</text>
+<rect x="290" y="309" width="1050" height="54" rx="6" fill="#e9e4da" stroke="none" stroke-width="2"/>
+<rect x="290" y="309" width="460" height="54" rx="6" fill="#d9f99d" stroke="none" stroke-width="2"/>
+<text x="520" y="344" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="500" text-anchor="middle">Active</text>
+<text x="995" y="344" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" text-anchor="middle">Ended at expiration</text>
+<rect x="1240" y="309" width="100" height="54" rx="6" fill="#d9f99d" stroke="none" stroke-width="2"/>
+<text x="1290" y="344" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" text-anchor="middle">Active</text>
 <text x="60" y="454" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="start">NFT in wallet</text>
-<rect x="290" y="419" width="1030" height="54" rx="6" fill="#e9e4da" stroke="none" stroke-width="2"/>
-<rect x="290" y="419" width="700" height="54" rx="6" fill="#11131a" stroke="none" stroke-width="2"/>
-<text x="640.0" y="454" fill="#f7f2e8" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="500" text-anchor="middle">Present</text>
-<rect x="1210" y="419" width="110" height="54" rx="6" fill="#11131a" stroke="none" stroke-width="2"/>
-<text x="1265" y="454" fill="#f7f2e8" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" text-anchor="middle">Present</text>
-<text x="1100.0" y="454" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" text-anchor="middle">Burned</text>
-<text x="60" y="564" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="start">Reward eligibility</text>
-<rect x="290" y="529" width="1030" height="54" rx="6" fill="#e9e4da" stroke="none" stroke-width="2"/>
-<rect x="290" y="529" width="700" height="54" rx="6" fill="#11131a" stroke="none" stroke-width="2"/>
-<text x="640.0" y="564" fill="#f7f2e8" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="500" text-anchor="middle">Eligible</text>
-<rect x="1210" y="529" width="110" height="54" rx="6" fill="#11131a" stroke="none" stroke-width="2"/>
-<text x="1265" y="564" fill="#f7f2e8" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" text-anchor="middle">Eligible</text>
-<text x="1100.0" y="564" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" text-anchor="middle">Suspended</text>
-<path d="M290 641 H1320" fill="none" stroke="#11131a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
-<text x="1320" y="676" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="end">Time →</text>
-<text x="60" y="725" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" text-anchor="start">Expiry ends access. Creator synchronization separately burns the NFT and suspends reward eligibility.</text>
-<text x="60" y="766" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" text-anchor="start">The same identity can return. Previously earned rewards remain claimable after the NFT is burned.</text>
-<text x="60" y="803" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="start">Event spacing is illustrative. Returning remains subject to the tier’s capacity and terms.</text>
+<rect x="290" y="419" width="1050" height="54" rx="6" fill="#e9e4da" stroke="none" stroke-width="2"/>
+<rect x="290" y="419" width="460" height="54" rx="6" fill="#11131a" stroke="none" stroke-width="2"/>
+<text x="520" y="454" fill="#f7f2e8" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="500" text-anchor="middle">Token #1</text>
+<rect x="750" y="419" width="250" height="54" rx="6" fill="#f4d8ae" stroke="none" stroke-width="2"/>
+<text x="875" y="453" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" text-anchor="middle">Expired · cannot transfer</text>
+<text x="1115" y="453" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="middle">Burned</text>
+<rect x="1240" y="419" width="100" height="54" rx="6" fill="#11131a" stroke="none" stroke-width="2"/>
+<text x="1290" y="454" fill="#f7f2e8" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" text-anchor="middle">#2</text>
+<text x="60" y="564" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" text-anchor="start">Reward weight</text>
+<rect x="290" y="529" width="1050" height="54" rx="6" fill="#e9e4da" stroke="none" stroke-width="2"/>
+<rect x="290" y="529" width="460" height="54" rx="6" fill="#11131a" stroke="none" stroke-width="2"/>
+<text x="520" y="564" fill="#f7f2e8" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="500" text-anchor="middle">Position #1 weight</text>
+<text x="995" y="564" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="400" text-anchor="middle">Removed effective at expiry</text>
+<rect x="1240" y="529" width="100" height="54" rx="6" fill="#11131a" stroke="none" stroke-width="2"/>
+<text x="1290" y="564" fill="#f7f2e8" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" text-anchor="middle">New</text>
+<path d="M290 641 H1340" fill="none" stroke="#11131a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1340" y="676" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="end">Time →</text>
+<text x="60" y="725" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" text-anchor="start">Live transfer carries all time, weight and unclaimed rewards. It needs no accounting catch-up.</text>
+<text x="60" y="766" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" text-anchor="start">Maintenance settles through expiry, then burns the NFT and saves earned rewards for the final owner.</text>
+<text x="60" y="807" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" text-anchor="start">That owner can claim after the burn, including whole units accumulated from preserved fractions.</text>
+<text x="60" y="850" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="start">Event spacing is illustrative. Maintenance and live transfers remain available while paused.</text>
 </svg>

@@ -9,7 +9,7 @@ import { VestingSummary } from "@/features/membership/VestingSummary";
 import { ReleaseTierFees } from "@/features/protocol/ReleaseTierFees";
 
 import { useReducer, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import { getAddress, zeroAddress, type Address, type Hash } from "viem";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
@@ -28,10 +28,17 @@ import {
   validateSupplyCap,
 } from "@/features/creator/management";
 import { readTierManagementState } from "@/features/creator/management-read";
-import { ExpiredMembershipSyncControl } from "@/features/creator/ExpiredMembershipSyncControl";
+import {
+  MembershipMaintenance,
+  type MaintenanceOutcome,
+} from "@/features/membership/MembershipMaintenance";
+import { RetiredRewardClaim } from "@/features/membership/RetiredRewardClaim";
 import { RendererManagementControl } from "@/features/creator/RendererManagementControl";
-import { reconcileExpiredMembershipSync } from "@/features/creator/expired-membership-sync";
-import { receiptMembershipRefund } from "@/features/protocol/payout-reconciliation";
+import {
+  receiptMembershipRefund,
+  receiptMembershipMaintenance,
+  receiptRetiredReward,
+} from "@/features/protocol/payout-reconciliation";
 import { formatMembershipDate } from "@/features/membership/date";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import {
@@ -41,6 +48,7 @@ import {
 import { receiptCreatorWithdrawal } from "@/features/protocol/withdrawal-reconciliation";
 import {
   isSuccessfulWriteReceipt,
+  invalidateMembershipReads,
   reconcileSuccessfulWrite,
   type SuccessfulWriteReceipt,
 } from "@/features/protocol/write-reconciliation";
@@ -105,6 +113,9 @@ function ManagementControls({
     snapshot.maxPrepaidPeriods.toString(),
   );
   const [grantRecipient, setGrantRecipient] = useState("");
+  const queries = useQueryClient();
+  const [grantMode, setGrantMode] = useState<"new" | "add">("new");
+  const [grantToken, setGrantToken] = useState("");
   const [grantPeriods, setGrantPeriods] = useState("1");
   const [revokeToken, setRevokeToken] = useState("");
   const [refundToken, setRefundToken] = useState("");
@@ -230,7 +241,23 @@ function ManagementControls({
       return reconcileSuccessfulWrite({
         dispatch,
         receipt,
-        reconcile,
+        reconcile: async (confirmed) => {
+          const result = await reconcile(confirmed);
+          if (result !== undefined) {
+            await invalidateMembershipReads(queries, confirmed, {
+              chainId: expectedChainId,
+              tier: snapshot.address,
+              owners: [
+                account.address!,
+                ...(isNonZeroAddress(grantRecipient)
+                  ? [getAddress(grantRecipient)]
+                  : []),
+              ],
+            });
+            await onRefresh();
+          }
+          return result;
+        },
       });
     } catch (error) {
       dispatch({
@@ -261,18 +288,9 @@ function ManagementControls({
     return provesAction(refreshed.data) ? refreshed.data : undefined;
   }
 
-  async function readRecipientTime(recipient: Address) {
+  async function readRecipientTime(recipient: Address, tokenId: bigint) {
     const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
-    const [block, tokenId] = await Promise.all([
-      client.getBlock({ blockNumber }),
-      client.readContract({
-        address: snapshot.address,
-        abi: membershipTierAbi,
-        functionName: "tokenOf",
-        args: [recipient],
-        blockNumber,
-      }),
-    ]);
+    const block = await client.getBlock({ blockNumber });
     if (tokenId === 0n) {
       return {
         tokenId,
@@ -282,7 +300,7 @@ function ManagementControls({
         grantSeconds: 0n,
       };
     }
-    const [expiration, balances] = await Promise.all([
+    const [expiration, balances, owner] = await Promise.all([
       client.readContract({
         address: snapshot.address,
         abi: membershipTierAbi,
@@ -297,7 +315,22 @@ function ManagementControls({
         args: [tokenId],
         blockNumber,
       }),
+      client.readContract({
+        address: snapshot.address,
+        abi: membershipTierAbi,
+        functionName: "ownerOf",
+        args: [tokenId],
+        blockNumber,
+      }),
     ]);
+    if (!isSameAddress(owner, recipient))
+      throw new Error(
+        "This membership's owner changed. Select the current owner before adding time.",
+      );
+    if (expiration <= block.timestamp)
+      throw new Error(
+        "This membership has ended. Create a new complimentary membership.",
+      );
     return {
       tokenId,
       timestamp: block.timestamp,
@@ -329,6 +362,7 @@ function ManagementControls({
       paidSeconds: balances[0],
       grantSeconds: balances[1],
       refundableGross: refund.grossRefund,
+      owner: refund.recipient,
     };
   }
 
@@ -338,11 +372,13 @@ function ManagementControls({
       | "setSupplyCap"
       | "setMaxPrepaidPeriods"
       | "setTierMetadata"
-      | "grantTime"
+      | "grantMembership"
+      | "addGrantTime"
       | "revokeGrantTime"
       | "refund"
       | "withdrawCreatorProceeds"
-      | "synchronizeExpiredMemberships"
+      | "processAccounting"
+      | "claimRetiredRewards"
       | "transferOwnership"
       | "acceptOwnership",
   >(functionName: Name, args: readonly unknown[] = []) {
@@ -427,6 +463,7 @@ function ManagementControls({
         });
         if (
           !isCurrentRefundQuote(freshRefund) ||
+          !isSameAddress(freshRefund.recipient, preview.recipient) ||
           freshRefund.generation !== preview.generation ||
           freshRefund.grossRefund > preview.grossRefund
         ) {
@@ -436,7 +473,11 @@ function ManagementControls({
         }
         await performUnlocked(
           `Refund membership #${preview.tokenId}`,
-          tierWrite("refund", [preview.tokenId, preview.grossRefund]),
+          tierWrite("refund", [
+            preview.tokenId,
+            preview.recipient,
+            preview.grossRefund,
+          ]),
           async (receipt) => {
             const refunded = receiptMembershipRefund(receipt, {
               tier: snapshot.address,
@@ -452,8 +493,7 @@ function ManagementControls({
               args: [preview.tokenId],
               blockNumber: await client.getBlockNumber({ cacheTime: 0 }),
             });
-            // Later grants, reactivation or another cancellation may already be
-            // visible. This receipt and the advanced generation prove this refund.
+            // The supplied receipt and advanced funding generation prove this refund.
             if (current.generation <= preview.generation) return undefined;
             setRefundOutcome(refunded);
             return current;
@@ -471,6 +511,7 @@ function ManagementControls({
   async function grant() {
     if (
       grantPeriodsValue === undefined ||
+      grantTokenValue === undefined ||
       !isNonZeroAddress(grantRecipient.trim())
     ) {
       return;
@@ -478,7 +519,7 @@ function ManagementControls({
     await runExclusive(async () => {
       try {
         const recipient = getAddress(grantRecipient.trim());
-        const before = await readRecipientTime(recipient);
+        const before = await readRecipientTime(recipient, grantTokenValue);
         const grantedSeconds = grantPeriodsValue * snapshot.periodDuration;
         const baseline = {
           tier: snapshot.address,
@@ -491,7 +532,13 @@ function ManagementControls({
         };
         await performUnlocked(
           "Grant complimentary time",
-          tierWrite("grantTime", [recipient, grantPeriodsValue]),
+          grantMode === "new"
+            ? tierWrite("grantMembership", [recipient, grantPeriodsValue])
+            : tierWrite("addGrantTime", [
+                grantTokenValue,
+                recipient,
+                grantPeriodsValue,
+              ]),
           (receipt) => reconcileTierGrant(client, baseline, receipt),
         );
       } catch (error) {
@@ -514,7 +561,7 @@ function ManagementControls({
         }
         await performUnlocked(
           "Revoke remaining grant time",
-          tierWrite("revokeGrantTime", [revokeTokenValue]),
+          tierWrite("revokeGrantTime", [revokeTokenValue, before.owner]),
           async (receipt) => {
             if (
               !receiptProvesGrantRevocation(receipt, {
@@ -524,8 +571,14 @@ function ManagementControls({
             ) {
               return undefined;
             }
-            const current = await readTokenTime(revokeTokenValue);
-            return current.grantSeconds === 0n ? current : undefined;
+            const current = await client.readContract({
+              address: snapshot.address,
+              abi: membershipTierAbi,
+              functionName: "timeBalances",
+              args: [revokeTokenValue],
+              blockNumber: receipt.blockNumber,
+            });
+            return current[1] === 0n ? current : undefined;
           },
         );
       } catch (error) {
@@ -534,27 +587,27 @@ function ManagementControls({
     });
   }
 
-  async function synchronizeExpiredMemberships(tokenIds: readonly bigint[]) {
-    const synchronizedBlock = await perform(
-      `Sync ${tokenIds.length} expired membership${tokenIds.length === 1 ? "" : "s"}`,
-      tierWrite("synchronizeExpiredMemberships", [[...tokenIds]]),
-      async (receipt) => {
-        const reconciled = await reconcileExpiredMembershipSync(client, {
-          tier: snapshot.address,
-          tokenIds,
-          receipt,
-        });
-        if (!reconciled) return undefined;
-        const refreshed = await onRefresh();
-        return refreshed?.status === "valid"
-          ? refreshed.capturedBlock
-          : undefined;
-      },
-    );
-    return typeof synchronizedBlock === "bigint"
-      ? synchronizedBlock
-      : undefined;
-  }
+  const [maintenanceOutcome, setMaintenanceOutcome] =
+    useState<MaintenanceOutcome>();
+  const retiredCredit = useQuery({
+    queryKey: [
+      "retired-credit",
+      expectedChainId,
+      snapshot.address,
+      account.address,
+      capturedBlock.toString(),
+    ],
+    enabled: Boolean(account.address),
+    queryFn: () =>
+      client.readContract({
+        address: snapshot.address,
+        abi: membershipTierAbi,
+        functionName: "claimableRetiredReward",
+        args: [account.address!],
+        blockNumber: capturedBlock,
+      }),
+    retry: false,
+  });
 
   const capError = validateSupplyCap(supplyCap, snapshot.occupiedSupply);
   const supplyCapValue = parseUint64Input(supplyCap, { allowZero: true });
@@ -563,6 +616,7 @@ function ManagementControls({
     allowZero: false,
   });
   const revokeTokenValue = parseTokenId(revokeToken);
+  const grantTokenValue = grantMode === "new" ? 0n : parseTokenId(grantToken);
   const refundTokenValue = parseTokenId(refundToken);
   const currentRefundPreview =
     fresh && snapshot.paused && refundPreview?.capturedBlock === capturedBlock
@@ -775,6 +829,28 @@ function ManagementControls({
             </div>
             <div className="creator-field-grid">
               <label className="creator-field">
+                <span>Grant action</span>
+                <select
+                  value={grantMode}
+                  onChange={(event) =>
+                    setGrantMode(event.target.value as "new" | "add")
+                  }
+                >
+                  <option value="new">New complimentary membership</option>
+                  <option value="add">Add time to a live membership</option>
+                </select>
+              </label>
+              {grantMode === "add" && (
+                <label className="creator-field">
+                  <span>Membership token to extend</span>
+                  <input
+                    inputMode="numeric"
+                    value={grantToken}
+                    onChange={(event) => setGrantToken(event.target.value)}
+                  />
+                </label>
+              )}
+              <label className="creator-field">
                 <span>Recipient</span>
                 <input
                   className="font-mono"
@@ -782,6 +858,8 @@ function ManagementControls({
                   value={grantRecipient}
                 />
                 {recipientError && <small role="alert">{recipientError}</small>}
+              </label>
+              <label className="creator-field">
                 <span>Whole periods</span>
                 <input
                   inputMode="numeric"
@@ -794,6 +872,7 @@ function ManagementControls({
                     !writesVerified ||
                     !permissions.canGrant ||
                     !isNonZeroAddress(grantRecipient.trim()) ||
+                    grantTokenValue === undefined ||
                     grantPeriodsValue === undefined
                   }
                   onClick={() => void grant()}
@@ -823,17 +902,60 @@ function ManagementControls({
             </div>
           </section>
 
-          <ExpiredMembershipSyncControl
-            account={account.address}
-            canSync={canOwnerWrite}
-            capturedBlock={capturedBlock}
-            client={client}
-            onSync={synchronizeExpiredMemberships}
-            owner={snapshot.creator}
-            tier={snapshot.address}
-            totalMinted={snapshot.totalMinted}
-            walletChainId={account.chainId}
+          <MembershipMaintenance
+            status={snapshot.accounting}
+            canAdvance={writesVerified}
+            stale={!fresh}
+            pending={isTransactionInFlight(transaction.phase)}
+            outcome={maintenanceOutcome}
+            onAdvance={() =>
+              void perform(
+                "Advance maintenance",
+                tierWrite("processAccounting", [25n]),
+                async (receipt) => {
+                  const outcome = receiptMembershipMaintenance(
+                    receipt,
+                    snapshot.address,
+                  );
+                  if (!outcome) return undefined;
+                  setMaintenanceOutcome(outcome);
+                  refundPreviewVersion.current += 1;
+                  setRefundPreview(undefined);
+                  return onRefresh();
+                },
+              )
+            }
           />
+          {account.address && (
+            <RetiredRewardClaim
+              credit={retiredCredit.data}
+              canClaim={writesVerified}
+              loading={retiredCredit.isPending}
+              stale={!fresh || retiredCredit.isError}
+              error={
+                retiredCredit.error
+                  ? decodeTransactionError(retiredCredit.error)
+                  : undefined
+              }
+              pending={isTransactionInFlight(transaction.phase)}
+              paymentLabel={paymentLabel}
+              onClaim={() =>
+                void perform(
+                  "Claim ended membership rewards",
+                  tierWrite("claimRetiredRewards"),
+                  async (receipt) => {
+                    const paid = receiptRetiredReward(receipt, {
+                      tier: snapshot.address,
+                      owner: account.address!,
+                    });
+                    if (!paid) return undefined;
+                    setPayout(paid);
+                    return onRefresh();
+                  },
+                )
+              }
+            />
+          )}
 
           <section className="control-group">
             <div>
@@ -935,7 +1057,8 @@ function ManagementControls({
                 {refundOutcome.canceledPaidSeconds.toLocaleString()} paid
                 seconds and{" "}
                 {refundOutcome.canceledGrantSeconds.toLocaleString()} granted
-                seconds. Historical reward weight is retained.
+                seconds. The membership is permanently retired. Already-earned
+                rewards remain claimable by its final owner.
               </p>
             )}
             <button

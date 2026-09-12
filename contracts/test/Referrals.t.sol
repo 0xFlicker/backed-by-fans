@@ -52,7 +52,7 @@ contract ReferralsTest is Test {
 
     function test_firstPositiveSelfPaymentLocksReferrerAndReservesBeforeEarning() public {
         vm.prank(member);
-        uint256 tokenId = tier.purchase(1, referrer);
+        uint256 tokenId = tier.createMembership(1, referrer);
 
         (MembershipTypes.ReferralStatus status, address lockedReferrer) = tier.referralOf(tokenId);
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.LockedAddress));
@@ -60,18 +60,24 @@ contract ReferralsTest is Test {
         assertEq(tier.claimableReferral(referrer), 0);
         assertEq(tier.creatorProceeds(), 0);
         assertEq(tier.reserveState().unearnedScaled[2], 100_000 * (1 << 128));
-        assertEq(tier.tokenOf(referrer), 0);
+        assertEq(
+            (tier.tokensOfOwner(referrer, 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(referrer, 0, 1).tokenIds[0]),
+            0
+        );
         _vest(_PERIOD / 2);
         assertApproxEqAbs(tier.claimableReferral(referrer), 50_000, 1);
         _vest(_PERIOD / 2);
         assertEq(tier.claimableReferral(referrer), 100_000);
         assertEq(tier.creatorProceeds(), 9_300_000);
-        assertApproxEqAbs(tier.claimableReward(tokenId), 500_000, 1);
+        (uint256 earned,) = tier.claimableRetiredReward(member);
+        assertApproxEqAbs(earned, 500_000, 1);
     }
 
     function test_explicitNoneLocksAndLaterReplacementFailsAtomically() public {
         vm.prank(member);
-        uint256 tokenId = tier.purchase(1, address(0));
+        uint256 tokenId = tier.createMembership(1, address(0));
         uint64 expiration = tier.expiresAt(tokenId);
         uint256 balance = paymentToken.balanceOf(member);
 
@@ -81,7 +87,7 @@ contract ReferralsTest is Test {
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.ReferralChoiceMismatch.selector);
-        tier.purchase(1, referrer);
+        tier.renewMembership(tokenId, 1, referrer);
 
         assertEq(paymentToken.balanceOf(member), balance);
         assertEq(tier.expiresAt(tokenId), expiration);
@@ -90,14 +96,14 @@ contract ReferralsTest is Test {
 
     function test_lockedAddressAllowsSameChoiceButRejectsReplacement() public {
         vm.prank(member);
-        uint256 tokenId = tier.purchase(1, referrer);
+        uint256 tokenId = tier.createMembership(1, referrer);
 
         vm.prank(member);
-        tier.purchase(1, referrer);
+        tier.renewMembership(tokenId, 1, referrer);
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.ReferralChoiceMismatch.selector);
-        tier.purchase(1, replacement);
+        tier.renewMembership(tokenId, 1, replacement);
 
         assertEq(tier.expiresAt(tokenId), _START + 2 * _PERIOD);
         _vest(2 * _PERIOD);
@@ -107,7 +113,7 @@ contract ReferralsTest is Test {
 
     function test_selfReferralIsAllowed() public {
         vm.prank(member);
-        uint256 tokenId = tier.purchase(1, member);
+        uint256 tokenId = tier.createMembership(1, member);
 
         (, address lockedReferrer) = tier.referralOf(tokenId);
         assertEq(lockedReferrer, member);
@@ -117,19 +123,24 @@ contract ReferralsTest is Test {
 
     function test_giftsNeverLockButUseAnExistingRecipientChoice() public {
         vm.prank(payer);
-        uint256 tokenId = tier.gift(member, 1, MembershipTypes.ReferralStatus.Unset, address(0));
+        uint256 tokenId = tier.giftMembership(member, 1);
 
         (MembershipTypes.ReferralStatus status,) = tier.referralOf(tokenId);
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.Unset));
         assertEq(tier.creatorProceeds(), 0);
         assertEq(tier.ownerOf(tokenId), member);
         assertEq(tier.sharesOf(tokenId), 10_000_000);
-        assertEq(tier.tokenOf(payer), 0);
+        assertEq(
+            (tier.tokensOfOwner(payer, 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(payer, 0, 1).tokenIds[0]),
+            0
+        );
 
         vm.prank(member);
-        tier.purchase(1, referrer);
+        tier.renewMembership(tokenId, 1, referrer);
         vm.prank(payer);
-        tier.gift(member, 1, MembershipTypes.ReferralStatus.LockedAddress, referrer);
+        tier.giftRenewal(tokenId, member, 1, MembershipTypes.ReferralStatus.LockedAddress, referrer);
 
         // The earlier unattributed gift never acquires the later locked
         // referrer. Only its own subsequent service intervals can earn referral cash.
@@ -141,27 +152,27 @@ contract ReferralsTest is Test {
         _vest(_PERIOD);
         assertEq(tier.claimableReferral(referrer), 200_000);
         assertEq(tier.creatorProceeds(), 28_000_000);
-        assertEq(tier.sharesOf(tokenId), 30_000_000);
-        assertEq(tier.expiresAt(tokenId), _START + 3 * _PERIOD);
+        assertEq(tier.sharesOf(tokenId), 0);
+        assertEq(tier.balanceOf(member), 0);
     }
 
     function test_giftRejectsReferralStateChangedAfterPreviewWithoutChargingPayer() public {
         uint256 payerBalance = paymentToken.balanceOf(payer);
 
         vm.prank(member);
-        uint256 tokenId = tier.purchase(1, referrer);
+        uint256 tokenId = tier.createMembership(1, referrer);
         uint64 expiration = tier.expiresAt(tokenId);
 
         vm.prank(payer);
         vm.expectRevert(MembershipTier.ReferralStateMismatch.selector);
-        tier.gift(member, 1, MembershipTypes.ReferralStatus.Unset, address(0));
+        tier.giftRenewal(tokenId, member, 1, MembershipTypes.ReferralStatus.Unset, address(0));
 
         assertEq(paymentToken.balanceOf(payer), payerBalance);
         assertEq(tier.expiresAt(tokenId), expiration);
         assertEq(tier.claimableReferral(referrer), 0);
 
         vm.prank(payer);
-        tier.gift(member, 1, MembershipTypes.ReferralStatus.LockedAddress, referrer);
+        tier.giftRenewal(tokenId, member, 1, MembershipTypes.ReferralStatus.LockedAddress, referrer);
         _vest(2 * _PERIOD);
         assertEq(tier.claimableReferral(referrer), 200_000);
     }
@@ -169,21 +180,26 @@ contract ReferralsTest is Test {
     function test_selfGiftCannotBypassSelfPaymentAttribution() public {
         vm.prank(member);
         vm.expectRevert(MembershipTier.SelfGiftNotAllowed.selector);
-        tier.gift(member, 1, MembershipTypes.ReferralStatus.Unset, address(0));
+        tier.giftMembership(member, 1);
 
-        assertEq(tier.tokenOf(member), 0);
+        assertEq(
+            (tier.tokensOfOwner(member, 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(member, 0, 1).tokenIds[0]),
+            0
+        );
         assertEq(paymentToken.balanceOf(address(tier)), 0);
     }
 
     function test_standardRenewalRequiresExistingChoiceOnPositivePriceTier() public {
-        uint256 tokenId = tier.grantTime(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1);
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.ReferralChoiceRequired.selector);
         tier.renewSubscription(tokenId, _PERIOD);
 
         vm.prank(member);
-        tier.purchase(1, referrer);
+        tier.renewMembership(tokenId, 1, referrer);
         vm.prank(member);
         tier.renewSubscription(tokenId, 2 * _PERIOD);
 
@@ -200,7 +216,7 @@ contract ReferralsTest is Test {
         MembershipTier zeroTier = new MembershipTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
-        uint256 tokenId = zeroTier.grantTime(member, 1);
+        uint256 tokenId = zeroTier.grantMembership(member, 1);
 
         assertTrue(zeroTier.isRenewable(tokenId));
 
@@ -218,20 +234,25 @@ contract ReferralsTest is Test {
 
     function test_oneReferrerClaimsIndependentStreamsAtRateAndSuspensionBoundaries() public {
         vm.prank(member);
-        uint256 first = tier.purchase(1, referrer);
+        uint256 first = tier.createMembership(1, referrer);
         _vest(_PERIOD / 2);
         uint256 paid = tier.claimableReferral(referrer);
         vm.prank(referrer);
         assertEq(tier.claimReferral(), paid);
         vm.prank(payer);
-        uint256 second = tier.purchase(2, referrer);
+        uint256 second = tier.createMembership(2, referrer);
         _vest(_PERIOD / 2);
         assertApproxEqAbs(tier.claimableReferral(referrer) + paid, 150_000, 1);
         uint256[] memory ids = new uint256[](1);
         ids[0] = first;
-        tier.synchronizeExpiredMemberships(ids);
+        tier.processExpirations(25).retiredCount;
         assertFalse(tier.rewardEligible(first));
-        assertEq(tier.tokenOf(referrer), 0);
+        assertEq(
+            (tier.tokensOfOwner(referrer, 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(referrer, 0, 1).tokenIds[0]),
+            0
+        );
         _vest(_PERIOD);
         uint256 next = tier.claimableReferral(referrer);
         vm.prank(referrer);

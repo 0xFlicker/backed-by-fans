@@ -316,7 +316,7 @@ async function main() {
       args: [config],
     }),
     factory,
-    7_500_000n,
+    10_000_000n,
   );
   const events = parseEventLogs({
     abi: factoryArtifact.abi,

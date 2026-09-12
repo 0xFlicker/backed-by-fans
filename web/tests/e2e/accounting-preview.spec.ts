@@ -7,6 +7,8 @@ import {
   connectAnvilWallet,
   anvilPublicClient,
   rpcRequest,
+  snapshotAnvil,
+  revertAnvil,
 } from "./helpers/anvil";
 
 const directory = process.env.BBF_PREVIEW_REVIEW_DIR;
@@ -24,7 +26,7 @@ test("live previews refresh without a transaction and a membership claim pays pr
   };
   const client = anvilPublicClient();
   expect(await client.getChainId()).toBe(31337);
-  const saved = await rpcRequest<string>("evm_snapshot");
+  const saved = await snapshotAnvil();
   const tier = demo.tiers[0].address;
   const readonlySelectors = new Set([
     encodeFunctionData({
@@ -34,7 +36,8 @@ test("live previews refresh without a transaction and a membership claim pays pr
     }).slice(0, 10),
     encodeFunctionData({
       abi: membershipTierAbi,
-      functionName: "claimAll",
+      functionName: "claimRewards",
+      args: [[], 25n],
     }).slice(0, 10),
   ]);
   const transactionPreviews: string[] = [];
@@ -59,26 +62,44 @@ test("live previews refresh without a transaction and a membership claim pays pr
     await installAnvilWallet(page, demo.owner);
     await page.goto("/account");
     await connectAnvilWallet(page, demo.owner);
+    const ownerPage = await client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "tokensOfOwner",
+      args: [demo.owner, 0n, 100n],
+    });
+    expect(ownerPage.tokenIds.length).toBeGreaterThan(0);
+    const selectedId = ownerPage.tokenIds[0];
     const rewards = page.getByRole("region", { name: "Rewards", exact: true });
+    await rewards
+      .getByRole("checkbox", { name: new RegExp(`membership #${selectedId}$`) })
+      .first()
+      .check();
     await expect(rewards).toContainText("WETH");
     await expect(
-      rewards.getByRole("button", { name: "Claim everything" }),
+      rewards.getByRole("button", { name: "Claim selected rewards" }),
     ).toBeEnabled();
     const before = await rewards
-      .locator(".account-reward-amount")
+      .getByText(/^(Partial selected rewards|Selected rewards):/)
       .allTextContents();
     await rpcRequest("evm_increaseTime", [86400]);
     await rpcRequest("evm_mine");
     await expect
-      .poll(() => rewards.locator(".account-reward-amount").allTextContents(), {
-        timeout: 25000,
-      })
+      .poll(
+        () =>
+          rewards
+            .getByText(/^(Partial selected rewards|Selected rewards):/)
+            .allTextContents(),
+        {
+          timeout: 25000,
+        },
+      )
       .not.toEqual(before);
     await page.screenshot({
       path: info.outputPath("account-desktop.png"),
       fullPage: true,
     });
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 320, height: 844 });
     await expect
       .poll(() =>
         page.evaluate(
@@ -92,7 +113,7 @@ test("live previews refresh without a transaction and a membership claim pays pr
       path: info.outputPath("account-phone.png"),
       fullPage: true,
     });
-    await page.goto(`/chains/31337/tiers/${tier}`);
+    await page.goto(`/chains/31337/tiers/${tier}?tokenId=${selectedId}`);
     const earnings = page.locator(".claim-groups");
     await expect(earnings).toContainText("Your earnings");
     await expect(
@@ -127,7 +148,7 @@ test("live previews refresh without a transaction and a membership claim pays pr
     expect(await client.getTransactionCount({ address: demo.owner })).toBe(
       nonce,
     );
-    await page.goto(`/chains/31337/tiers/${tier}`);
+    await page.goto(`/chains/31337/tiers/${tier}?tokenId=${selectedId}`);
     await expect(
       earnings.getByRole("button", { name: "Claim rewards" }),
     ).toBeEnabled();
@@ -135,7 +156,7 @@ test("live previews refresh without a transaction and a membership claim pays pr
       address: tier,
       abi: membershipTierAbi,
       functionName: "previewAccounting",
-      args: [1n, demo.owner, 256n],
+      args: [selectedId, demo.owner, demo.owner, 256n],
     });
     expect(
       projected.current.member + projected.current.creator,
@@ -144,7 +165,7 @@ test("live previews refresh without a transaction and a membership claim pays pr
       address: tier,
       abi: membershipTierAbi,
       functionName: "previewAccounting",
-      args: [0n, zeroAddress, 0n],
+      args: [0n, zeroAddress, zeroAddress, 0n],
     });
     await rpcRequest("anvil_impersonateAccount", [demo.owner]);
     await earnings.getByRole("button", { name: "Claim rewards" }).click();
@@ -158,7 +179,7 @@ test("live previews refresh without a transaction and a membership claim pays pr
       address: tier,
       abi: membershipTierAbi,
       functionName: "previewAccounting",
-      args: [1n, demo.owner, 0n],
+      args: [selectedId, demo.owner, demo.owner, 0n],
     });
     expect(after.settled.creator).toBe(0n);
     expect(after.settled.member).toBe(0n);
@@ -168,6 +189,6 @@ test("live previews refresh without a transaction and a membership claim pays pr
     expect(errors).toEqual([]);
   } finally {
     await rpcRequest("anvil_stopImpersonatingAccount", [demo.owner]);
-    expect(await rpcRequest("evm_revert", [saved])).toBe(true);
+    await revertAnvil(saved);
   }
 });

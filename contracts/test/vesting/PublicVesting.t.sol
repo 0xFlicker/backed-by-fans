@@ -68,7 +68,7 @@ contract PublicVestingTest is Test {
         token.mint(member, periods * tier.pricePerPeriod());
         vm.startPrank(member);
         token.approve(address(tier), type(uint256).max);
-        id = tier.purchase(periods, referral);
+        id = tier.createMembership(periods, referral);
         vm.stopPrank();
     }
 
@@ -79,7 +79,7 @@ contract PublicVestingTest is Test {
         token.mint(member, gross);
         vm.startPrank(member);
         token.approve(address(tier), type(uint256).max);
-        id = tier.contribute(gross, referral);
+        id = tier.createContributionMembership(gross, referral);
         vm.stopPrank();
     }
 
@@ -87,15 +87,18 @@ contract PublicVestingTest is Test {
         MembershipTier tier = _tier(false, 10_000);
         uint256 id = _pay(tier, alice, 12, referrer);
         MembershipTypes.EarnedBalances memory earned =
-        tier.previewAccounting(id, referrer, 0).settled;
+        tier.previewAccounting(id, address(0), referrer, 0).settled;
         assertEq(earned.creator + earned.member + earned.referral + earned.protocol, 0);
         assertEq(tier.sharesOf(id), 120 * UNIT);
         assertEq(tier.lifetimeGross(), 120 * UNIT);
-        assertTrue(tier.isActive(alice));
+        assertTrue(
+            (tier.tokensOfOwner(alice, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(alice, 0, 1).tokenIds[0]))
+        );
         assertEq(tier.totalProtectedLiability(), 120 * UNIT);
         vm.warp(START + 30);
         tier.processAccounting(25);
-        earned = tier.previewAccounting(id, referrer, 0).settled;
+        earned = tier.previewAccounting(id, address(0), referrer, 0).settled;
         assertEq(earned.creator, 24 * UNIT);
         assertEq(
             earned.member * Q + earned.fractionalScaled[1] + tier.reserveState().indexCarryScaled,
@@ -123,8 +126,8 @@ contract PublicVestingTest is Test {
         );
         assertEq(token.allowance(creator, address(tier)), 0);
         vm.prank(creator);
-        assertEq(tier.refund(id, 90 * UNIT), 90 * UNIT);
-        assertEq(tier.sharesOf(id), 120 * UNIT);
+        assertEq(tier.refund(id, alice, 90 * UNIT), 90 * UNIT);
+        assertEq(tier.sharesOf(id), 0);
         assertEq(tier.lifetimeGross(), 120 * UNIT);
         assertFalse(tier.rewardEligible(id));
         assertEq(token.balanceOf(address(tier)), 3 * UNIT - memberClaim);
@@ -143,12 +146,10 @@ contract PublicVestingTest is Test {
         vm.warp(START + 120);
         tier.processAccounting(25);
         MembershipTypes.EarnedBalances memory earned =
-        tier.previewAccounting(id, referrer, 0).settled;
+        tier.previewAccounting(id, address(0), referrer, 0).settled;
         assertEq(earned.creator, 96 * UNIT);
-        assertEq(
-            earned.member * Q + earned.fractionalScaled[1] + tier.reserveState().indexCarryScaled,
-            12 * UNIT * Q
-        );
+        (uint256 retired, uint256 fraction) = tier.claimableRetiredReward(alice);
+        assertEq(retired * Q + fraction + tier.reserveState().distributionDustScaled, 12 * UNIT * Q);
         assertEq(tier.allocationState(id).earnedScaled[1], 12 * UNIT * Q);
         assertEq(earned.referral, 6 * UNIT);
         assertEq(earned.protocol, 6 * UNIT);
@@ -160,57 +161,57 @@ contract PublicVestingTest is Test {
         tier.withdrawCreatorProceeds();
     }
 
-    function test_freeAndGrantedReactivationPreserveSuspensionUntilPositivePayment() public {
+    function test_freeReturnAndGrantHaveNoHistoricalWeight() public {
         MembershipTier tier = _tier(true, 10_000);
         uint256 id = _contribute(tier, alice, 120 * UNIT, referrer);
         vm.warp(START + 11);
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = id;
-        vm.prank(creator);
-        assertEq(tier.synchronizeExpiredMemberships(ids), 1);
-        assertFalse(tier.rewardEligible(id));
+        assertEq(tier.processExpirations(25).retiredCount, 1);
+        assertEq(tier.sharesOf(id), 0);
         assertEq(tier.balanceOf(alice), 0);
-        uint256 available = tier.claimableReward(id);
+        (uint256 available, uint256 fraction) = tier.claimableRetiredReward(alice);
         assertLe(12 * UNIT - available, 1);
-        MembershipTypes.EarnedBalances memory settled =
-        tier.previewAccounting(id, referrer, 0).settled;
         assertEq(
-            available * Q + settled.fractionalScaled[1]
-                + tier.reserveState().distributionDustScaled,
-            12 * UNIT * Q
+            available * Q + fraction + tier.reserveState().distributionDustScaled, 12 * UNIT * Q
         );
         vm.prank(alice);
-        assertEq(tier.claimReward(id), available);
+        assertEq(tier.claimRetiredRewards(), available);
         vm.warp(START + 12);
-        assertEq(_contribute(tier, alice, 0, address(0)), id);
-        assertTrue(tier.isActive(alice));
-        assertFalse(tier.rewardEligible(id));
+        uint256 fresh = _contribute(tier, alice, 0, address(0));
+        assertGt(fresh, id);
+        assertTrue(tier.isActiveToken(fresh));
+        assertFalse(tier.rewardEligible(fresh));
         vm.prank(creator);
-        tier.grantTime(alice, 1);
-        assertFalse(tier.rewardEligible(id));
+        tier.addGrantTime(fresh, alice, 1);
         vm.warp(START + 13);
-        _contribute(tier, alice, 1, referrer);
-        assertTrue(tier.rewardEligible(id));
-        assertEq(tier.sharesOf(id), 120 * UNIT + 1);
+        token.mint(alice, 1);
+        vm.prank(alice);
+        tier.renewContributionMembership(fresh, 1, referrer);
+        assertTrue(tier.rewardEligible(fresh));
+        assertEq(tier.sharesOf(fresh), 1);
+        assertEq(tier.sharesOf(id), 0);
         assertEq(tier.lifetimeGross(), 120 * UNIT + 1);
-        MembershipTypes.AllocationLot[] memory lots = tier.allocationLots(id, 0, 0, 100);
-        assertEq(lots.length, 2);
-        assertEq(lots[1].start, START + 22); // waits behind free paid time, not the grant
-        assertEq(lots[1].end, START + 32);
+        MembershipTypes.AllocationLot[] memory lots = tier.allocationLots(fresh, 0, 0, 100);
+        assertEq(lots.length, 1);
+        assertEq(lots[0].start, START + 22);
+        assertEq(lots[0].end, START + 32);
     }
 
     function test_freeExtensionPreservesEligibleWeightAndNoFundingNode() public {
         MembershipTier tier = _tier(true, 10_000);
         uint256 id = _contribute(tier, alice, 100 * UNIT, address(0));
         vm.warp(START + 5);
-        _contribute(tier, alice, 0, address(0));
+        vm.prank(alice);
+        tier.renewContributionMembership(id, 0, address(0));
         assertTrue(tier.rewardEligible(id));
         assertEq(tier.sharesOf(id), 100 * UNIT);
         assertEq(tier.allocationLots(id, 0, 0, 100).length, 1);
         vm.warp(START + 10);
         tier.processAccounting(25);
         assertEq(tier.accountingStatus().scheduledMembers, 0);
-        assertTrue(tier.isActive(alice));
+        assertTrue(
+            (tier.tokensOfOwner(alice, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(alice, 0, 1).tokenIds[0]))
+        );
     }
 
     function test_curveUsesExecutionCursorAndAdjacentPurchasesTelescope() public {
@@ -223,9 +224,10 @@ contract PublicVestingTest is Test {
         assertEq(tier.sharesOf(first) + tier.sharesOf(second), cumulative);
         assertGt(tier.sharesOf(first), tier.sharesOf(second));
         vm.prank(creator);
-        tier.refund(first, type(uint256).max);
+        tier.refund(first, alice, type(uint256).max);
         assertEq(tier.lifetimeGross(), gross);
-        assertEq(tier.sharesOf(first) + tier.sharesOf(second), cumulative);
+        assertEq(tier.sharesOf(first), 0);
+        assertLt(tier.sharesOf(second), cumulative);
     }
 
     function test_incompleteMutationRevertsAtomicallyAndPermissionlessProgressPersists() public {
@@ -241,12 +243,20 @@ contract PublicVestingTest is Test {
             abi.encodeWithSelector(MembershipTier.AccountingBehind.selector, START + 10, START + 10)
         );
         vm.prank(alice);
-        tier.purchase(1, address(0));
+        tier.createMembership(1, address(0));
         assertEq(tier.accountingStatus().accountedThrough, START);
         assertEq(tier.accountingStatus().scheduledMembers, 26);
         assertEq(token.balanceOf(alice), 10 * UNIT);
-        assertEq(tier.tokenOf(alice), 0);
-        (uint256 processed, uint64 cursor, bool complete,) = tier.processAccounting(25);
+        assertEq(
+            (tier.tokensOfOwner(alice, 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(alice, 0, 1).tokenIds[0]),
+            0
+        );
+        MembershipTypes.MaintenanceResult memory progress = tier.processAccounting(25);
+        uint256 processed = progress.processedSteps;
+        uint64 cursor = progress.accountedThrough;
+        bool complete = progress.complete;
         assertEq(processed, 25);
         assertEq(cursor, START + 10);
         assertFalse(complete);
@@ -257,8 +267,9 @@ contract PublicVestingTest is Test {
         assertGt(tier.withdrawCreatorProceeds(), 0); // settled claims remain available while behind and paused
         vm.prank(creator);
         tier.setPaused(false);
+        assertEq(tier.processAccounting(25).processedSteps, 25);
         vm.prank(alice);
-        tier.purchase(1, address(0));
+        tier.createMembership(1, address(0));
         assertTrue(tier.accountingStatus().complete);
         assertEq(tier.lifetimeGross(), 270 * UNIT);
         assertEq(tier.accountingStatus().scheduledMembers, 1);
@@ -276,7 +287,9 @@ contract PublicVestingTest is Test {
             router.advance(tiers, purchases, START + 10);
         assertEq(steps + releases + buys + burned, 0);
         assertEq(tier.accountingStatus().accountedThrough, START + 1);
-        assertGt(tier.previewAccounting(1, address(0), 0).settled.fractionalScaled[0], 0);
+        assertGt(
+            tier.previewAccounting(1, address(0), address(0), 0).settled.fractionalScaled[0], 0
+        );
         vm.expectRevert(ProtocolBurnRouter.NothingToDo.selector);
         router.advance(tiers, purchases, START + 10);
     }
@@ -363,7 +376,9 @@ contract PublicVestingTest is Test {
     function test_waitingFundedHeadProjectsNoEarningAcrossFreeAccess() public {
         MembershipTier tier = _tier(true, 10_000);
         uint256 id = _contribute(tier, alice, 0, address(0));
-        _contribute(tier, alice, 10 * UNIT, address(0));
+        token.mint(alice, 10 * UNIT);
+        vm.prank(alice);
+        tier.renewContributionMembership(id, 10 * UNIT, address(0));
         vm.warp(START + 2);
         MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
         assertTrue(quote.projected);
@@ -382,13 +397,14 @@ contract PublicVestingTest is Test {
         MembershipTier tier = _tier(true, 10_000);
         uint256 id = _contribute(tier, alice, 10 * UNIT, address(0));
         vm.warp(START + 2);
-        _contribute(tier, alice, 0, address(0));
+        vm.prank(alice);
+        tier.renewContributionMembership(id, 0, address(0));
         MembershipTypes.RefundPreview memory preview = tier.previewRefund(id);
         assertEq(preview.accessAsOf, START + 2);
-        assertEq(preview.accountingAsOf, START);
-        assertFalse(preview.complete);
+        assertEq(preview.accountingAsOf, START + 2);
+        assertTrue(preview.complete);
         assertEq(preview.paidSeconds, 18);
-        assertTrue(preview.projected);
+        assertFalse(preview.projected);
         assertEq(preview.fundingAsOf, START + 2);
         assertEq(preview.grossRefund, 8 * UNIT);
         vm.expectRevert(VestingLedger.InvalidAllocationPageSize.selector);

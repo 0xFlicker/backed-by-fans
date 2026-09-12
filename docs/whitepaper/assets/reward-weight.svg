@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="940" viewBox="0 0 1400 940" role="img" aria-labelledby="title desc"><title id="title">Early-support reward weight</title><desc id="desc">Illustrative 1.5 times starting boost tapers to 1 times after 1000 total payment units. The curve shows weight per additional payment unit, not a loss of previously earned weight. The first 100 units add 147.5 shares; 100 units paid after the threshold add 100 shares.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="940" viewBox="0 0 1400 940" role="img" aria-labelledby="title desc"><title id="title">Early-support reward weight</title><desc id="desc">Illustrative 1.5 times starting boost tapers to 1 times after 1000 total payment units. The curve shows weight per additional payment unit, not decay of a live position’s weight; retirement permanently removes that position’s weight. The first 100 units add 147.5 shares; 100 units paid after the threshold add 100 shares.</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10" fill="none" stroke="#11131a" stroke-width="1.4"/></marker></defs>
 <rect width="1400" height="940" fill="#f7f2e8"/>
 <text x="60" y="48" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" text-anchor="start">BACKED BY FANS  /  03</text>
@@ -28,7 +28,7 @@
 <rect x="700" y="714" width="640" height="129" rx="12" fill="#fffdf8" stroke="#c9c3b8" stroke-width="2"/>
 <text x="726" y="750" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="start">100 units paid after the threshold</text>
 <text x="726" y="791" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="400" text-anchor="start">100 shares added</text>
-<text x="726" y="822" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="start">Earlier shares keep their existing weight.</text>
-<text x="60" y="893" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" text-anchor="start">The curve changes the weight added by new payments. Weight already earned does not shrink.</text>
+<text x="726" y="822" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" text-anchor="start">Live positions keep their existing weight until retirement.</text>
+<text x="60" y="893" fill="#11131a" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" text-anchor="start">Live transfers preserve weight. Retirement removes it; a new position starts on the current curve.</text>
 <text x="60" y="926" fill="#4d4f5d" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" text-anchor="start">Shares determine the split of eligible member rewards; they are not a promised reward amount.</text>
 </svg>

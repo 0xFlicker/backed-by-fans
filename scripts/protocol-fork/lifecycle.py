@@ -213,7 +213,7 @@ class Run:
         link_args = ["--libraries", link["mapping"]]
         shutil.copy2(link_path, self.evidence / "link-manifest.json")
         if self.args.mode == "run":
-            self.command("curve-calibration", ["python3", str(ROOT / "specs/004-vesting-reward-curves/evidence/curve-calibration.py"), "--solidity"])
+            self.command("curve-calibration", ["python3", str(ROOT / "scripts/calibrate-membership-lifecycle.py")])
             self.command("contracts", ["forge", "test", *link_args, "--json", "--code-size-limit", "1000000", "--gas-limit", "1000000000"], ROOT / "contracts")
         node = self.service("anvil", ["anvil", "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--silent"])
         for _ in range(200):

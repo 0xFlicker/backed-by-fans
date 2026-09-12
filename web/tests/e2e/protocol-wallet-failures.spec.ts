@@ -1,3 +1,5 @@
+import { hasLiveOwnedPosition } from "./helpers/membership-positions";
+import {} from "./helpers/membership-positions";
 import { expect, test } from "@playwright/test";
 import { erc20Abi, type Hash } from "viem";
 import { membershipTierAbi } from "../../src/contracts";
@@ -40,12 +42,12 @@ test("@protocol-fork wrong-network membership writes stay disabled until the wal
     });
     await expect(switchNetwork).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Join this membership" }),
+      page.getByRole("button", { name: "New membership" }),
     ).toBeDisabled();
     await switchNetwork.click();
     await expect(switchNetwork).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Join this membership" }),
+      page.getByRole("button", { name: "New membership" }),
     ).toBeEnabled();
   } finally {
     await revertAnvil(snapshot);
@@ -157,7 +159,7 @@ for (const failure of [
       });
       await page.goto(`/chains/31337/tiers/${tier}`);
       await connectAnvilWallet(page, member);
-      const join = page.getByRole("button", { name: "Join this membership" });
+      const join = page.getByRole("button", { name: "New membership" });
       if (failure === "insufficient asset" || failure === "insufficient gas") {
         await expect(join).toBeDisabled();
         await expect(
@@ -171,7 +173,7 @@ for (const failure of [
           await f.client.readContract({
             address: tier,
             abi: membershipTierAbi,
-            functionName: "tokenOf",
+            functionName: "balanceOf",
             args: [member],
           }),
         ).toBe(0n);
@@ -185,21 +187,14 @@ for (const failure of [
             await f.client.readContract({
               address: tier,
               abi: membershipTierAbi,
-              functionName: "tokenOf",
+              functionName: "balanceOf",
               args: [member],
             }),
           ).toBe(0n);
           await join.click();
         }
-        await expectReconciled(page, "Join this membership");
-        expect(
-          await f.client.readContract({
-            address: tier,
-            abi: membershipTierAbi,
-            functionName: "isActive",
-            args: [member],
-          }),
-        ).toBe(true);
+        await expectReconciled(page, "New membership");
+        expect(await hasLiveOwnedPosition(f.client, tier, member)).toBe(true);
       }
       await f.retain(`wallet-${failure.replaceAll(" ", "-")}`, {
         failure,

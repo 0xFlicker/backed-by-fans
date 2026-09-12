@@ -43,7 +43,7 @@ for (const kind of ["AMD", "WETH"] as const)
           gross,
         );
       await f.write(member, asset, erc20Abi, "approve", [tier, gross]);
-      await f.write(member, tier, membershipTierAbi, "purchase", [
+      await f.write(member, tier, membershipTierAbi, "createMembership", [
         12n,
         zeroAddress,
       ]);

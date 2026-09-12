@@ -117,25 +117,29 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
     event EverythingClaimed(address indexed beneficiary, uint256 tierCount);
 
     /// @notice Atomically settle and pay the caller across an explicit bounded set of official tiers.
-    function claimEverything(address[] calldata tiers_)
+    function claimEverything(MembershipTypes.TierClaimRequest[] calldata requests)
         external
         override
         nonReentrant
         returns (MembershipTypes.ClaimResult[] memory results)
     {
-        if (tiers_.length == 0 || tiers_.length > MAX_CLAIM_TIERS) {
+        if (requests.length == 0 || requests.length > MAX_CLAIM_TIERS) {
             revert InvalidClaimBatch();
         }
-        for (uint256 i; i < tiers_.length; ++i) {
-            if (!isRegisteredTier[tiers_[i]]) revert InvalidClaimBatch();
+        uint256 selectedCount;
+        for (uint256 i; i < requests.length; ++i) {
+            selectedCount += requests[i].tokenIds.length;
+            if (selectedCount > 32) revert InvalidClaimBatch();
+            if (!isRegisteredTier[requests[i].tier]) revert InvalidClaimBatch();
             for (uint256 j; j < i; ++j) {
-                if (tiers_[i] == tiers_[j]) revert InvalidClaimBatch();
+                if (requests[i].tier == requests[j].tier) revert InvalidClaimBatch();
             }
         }
-        results = new MembershipTypes.ClaimResult[](tiers_.length);
+        results = new MembershipTypes.ClaimResult[](requests.length);
         uint256 remaining = MAX_CLAIM_STEPS;
-        for (uint256 i; i < tiers_.length; ++i) {
-            try IMembershipTier(tiers_[i]).claimAllFor(msg.sender, remaining) returns (
+        for (uint256 i; i < requests.length; ++i) {
+            try IMembershipTier(requests[i].tier)
+                .claimRewardsFor(msg.sender, requests[i].tokenIds, remaining) returns (
                 MembershipTypes.ClaimResult memory result
             ) {
                 remaining -= result.processedSteps;
@@ -154,12 +158,12 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
                         cursor := mload(add(reason, 36))
                         next := mload(add(reason, 68))
                     }
-                    revert ClaimAccountingBehind(i, tiers_[i], cursor, next);
+                    revert ClaimAccountingBehind(i, requests[i].tier, cursor, next);
                 }
-                revert ClaimFailed(i, tiers_[i], reason);
+                revert ClaimFailed(i, requests[i].tier, reason);
             }
         }
-        emit EverythingClaimed(msg.sender, tiers_.length);
+        emit EverythingClaimed(msg.sender, requests.length);
     }
 
     /// @inheritdoc IMembershipFactory

@@ -1,13 +1,13 @@
 # Backed By Fans — whitepaper outline
 
 Status: working outline for review, not publication copy or a deployment attestation.
-Source baseline: `cf2ad73e0ba009de84a435dfb0bef0f50722e1e9`.
+Source scope: current transferable-membership contract sources and `specs/005-transferable-memberships/`; attach the release revision and deployment evidence when publishing.
 
 ## Editorial scope
 
 Membership-first. Explain a prepaid subscription that fans renew manually: creators set the terms, fans fund membership time, and payments accrue to participants as that time is consumed. No automatic billing is implied.
 
-Fans receive a soulbound membership NFT and, when enabled by the creator, member rewards. Creators supply any access, content, or community benefits. The protocol supplies membership records, accounting, and interfaces that other applications can use.
+Fans receive an independent transferable membership NFT and, when enabled by the creator, member rewards. A wallet can hold several positions in the same tier; each token ID carries its own time and economics. Creators supply any access, content, or community benefits. The protocol supplies membership records, accounting, and interfaces that other applications can use.
 
 Use “protocol token” until it has a name. Its supporting role is fee-funded buyback/burn and intended availability as a membership payment currency. Exclude speculative tier-creation burns, creator/fan token incentives, and other undecided utility. Do not imply that ordinary membership rewards are paid in the protocol token.
 
@@ -19,11 +19,11 @@ Target: 8–12 pages of main text, with a technical appendix. Markdown is the so
 
 - Introduce creators, fans, and tiers without opening with token economics.
 - A creator may publish multiple tiers with separate terms.
-- A payment buys time; renewal adds time through an explicit transaction.
+- A payment creates a new position or renews an explicitly selected live token ID. Creation never merges with another membership owned by the wallet.
 - Benefits can include Discord, websites, communities, or recognition of support. These are creator-defined examples, not protocol-provided entitlements.
-- Describe the NFT as non-transferable proof of membership/support, subject to the expiry and synchronization behavior below. Do not promise a permanent NFT in the wallet.
+- Describe a live NFT as transferable proof of membership that carries the entire position. Access ends at expiration; chronological maintenance permanently burns the expired token. Historical funding evidence remains available.
 
-Sources: [S1] `purchase`, `contribute`, `renewSubscription`, `locked`, `_update`; [S2] `createTier`.
+Sources: [S1] `createMembership`, `createContributionMembership`, `renewMembership`, `renewSubscription`, `transferFrom`, `_update`; [S2] `createTier`.
 
 ## 2. What a tier promises—and what its creator can change
 
@@ -43,40 +43,44 @@ Sources: [S1] `purchase`, `contribute`, `renewSubscription`, `locked`, `_update`
 | --- | --- |
 | Description and external URL | Copy and linked benefits can change. |
 | Renderer, art settings, and media | Presentation can change for existing NFTs as well as new ones, subject to validation. |
-| Pause/unpause | Blocks new time purchases/contributions and grants; it does not stop elapsed time or reverse accrued value. |
-| Supply cap | Cannot set a nonzero cap below occupied supply; zero is uncapped. Expiry and freeing an occupied slot are separate. |
+| Pause/unpause | Blocks new membership time; live transfers, approvals, maintenance and claims remain available. Time and earned value continue under the same rules. |
+| Supply cap | Counts independent positions, not wallets; zero is uncapped. Retirement releases capacity once, and capacity-sensitive changes catch up first. A nonzero cap cannot be below occupied supply. |
 | Maximum prepaid periods | Changes the limit on subsequent time additions; does not erase existing paid time. |
-| Grant or revoke grant time | Complimentary time has no payment backing. Revocation does not remove paid seconds. |
-| Refund | Creator-authorized refund cancels remaining funded time and clears grant time; fans do not have an unconditional self-service refund right. |
-| Synchronize expired memberships | Burns expired NFTs, frees occupied slots, and suspends their reward eligibility. |
+| Grant or revoke grant time | Create or extend a selected position explicitly. Complimentary time has no payment backing. Revocation preserves remaining paid time; no remaining time causes retirement. |
+| Refund | Current creator authority alone initiates cancellation. Pay the current NFT owner, cancel remaining funding, clear paid/grant time and retire permanently; NFT ownership or approval does not confer refund authority. |
 | Transfer tier ownership | Two-step transfer changes the creator authority; it does not rewrite immutable terms. |
 | Withdraw earned creator proceeds | Only earned proceeds are available; unearned funding and other protected liabilities are distinct. |
 
 Protocol fee is **at least 1%, not universally exactly 1%**: creation validates `protocolFeeBps >= 100` and the three explicit cuts must total no more than 100%. Creator proceeds receive the remainder. Member and referral rates may be zero.
 
-Sources: [S1] immutable declarations, constructor, creator setters, `refund`, `synchronizeExpiredMemberships`, `transferOwnership`; [S2] `createTier`; [S3] `TierConfig`.
+Permissionless maintenance is not a creator-only control. Any caller can process both funding and expiration checkpoints, including while paused.
+
+Sources: [S1] immutable declarations, constructor, creator setters, `refund`, `processAccounting`, `processExpirations`, `transferOwnership`; [S2] `createTier`; [S3] `TierConfig`.
 
 ## 3. The membership lifecycle
 
 **Reader takeaway:** NFT existence, active access, and reward eligibility are related but different states.
 
-1. **Create:** publish a tier and its fixed terms.
-2. **Join:** a successful payment adds time and mints a wallet-bound NFT. A wallet has one persistent token identity per tier.
-3. **Accrue:** all four allocations are earned over the funded interval. Accounting transactions settle elapsed time.
-4. **Renew:** add prepaid time. New funding follows existing paid time rather than being earned immediately. Paid seconds are consumed before grant seconds.
-5. **Expire:** active access ends when time runs out. Holding the NFT alone must not be used as proof of active access.
-6. **Synchronize:** the creator can burn the expired NFT and suspend reward weight. Natural expiry alone does not suspend that weight.
-7. **Return:** qualifying time additions can remint the same token ID to the same wallet. A positive payment activates reward weight; a zero contribution or complimentary grant does not restore suspended reward eligibility.
+1. **Publish a tier:** establish the creator’s fixed economic terms.
+2. **Create a membership:** issue a new monotonically increasing token ID, even when the recipient already owns memberships in the tier. Initialize its own time, reward and referral state.
+3. **Accrue:** all four payment allocations are earned over their funded interval. Each live position participates with its accumulated eligible weight.
+4. **Renew:** the owner selects an existing ID before expiration. Paid time follows remaining paid time; paid seconds are consumed before grant seconds. Referral choice and existing weight remain attached to that position.
+5. **Transfer:** owner or approved caller moves the entire live position: time, shares, eligibility, unclaimed member rewards, funding history and referral lock. Ownership/approval/enumeration change without checkpoint catch-up, including while paused or with more than 25 due events. The recipient can already own other positions.
+6. **Expire:** access, transfer and extension end exactly at the expiration timestamp. An expired-awaiting-maintenance NFT may still exist, but cannot regain time or historic weight.
+7. **Retire:** anyone processes funding through the historical expiration before removing weight. Burn the NFT permanently, clear live membership/referral association, release capacity once, and transfer exact earned credit to the final owner’s separate retired balance. Keep funding history.
+8. **Return:** create a different token ID with fresh state and new weight under the current curve. Retirement and refunds never rewind lifetime gross; a new NFT neither consumes nor inherits retired credit.
+
+Distinguish ownership authority from original funding provenance. Current ownership grants access, owner-only claims and renewal. Token and operator approvals permit transfer only; they grant no claim, owner-only renewal or creator authority. A token-specific approval clears on transfer and burn.
 
 Include a small sidebar on gifts and contributions:
 
-- Fixed-price gifts buy time for the recipient and credit that membership's shares.
-- Contribution-mode tiers add one period per contribution, including zero-value contributions. Positive contributions must meet the minimum and fund accrual; zero contributions create no paid allocation or new shares.
-- Grant time is complimentary access, with no payment allocation or new shares.
+- A fixed-price gift can create a new recipient position or sponsor renewal of a specified live ID. Sponsorship validates expected owner and referral state. It does not select a new referral.
+- Contribution-mode creation or renewal adds one period, including zero-value contributions. Positive contributions meet the minimum and fund accrual; zero contributions create no funded allocation, shares or referral lock.
+- Grant creation and targeted grant extension add complimentary access without funding or shares. Every position, including a zero-contribution or grant-only one, has an expiration schedule entry.
 
-**Figure 1:** lifecycle diagram with separate rows for access, NFT existence, and reward eligibility. Show the creator synchronization transaction explicitly between “expired” and “burned/suspended.”
+**Figure 1:** show a transferable live position, expiration, chronological retirement, separately retained owner credit, and a new identity on return. Distinguish the historical effective expiration from the later maintenance transaction. No arrow returns a retired ID to the live state.
 
-Sources: [S1] `_purchaseFixed`, `_contribute`, `_applyPayment`, `_prepareTimeIncrease`, `_timeBalancesAt`, `grantTime`, `synchronizeExpiredMemberships`; [S4] `issueShares`, `_setWeight`.
+Sources: [S1] `createMembership`, `renewMembership`, `createContributionMembership`, `renewContributionMembership`, `giftMembership`, `giftRenewal`, `grantMembership`, `addGrantTime`, `_timeBalancesAt`, `_retire`, `_update`; [S4] `issueShares`, `retireMember`; [S8] indexed expiration schedule.
 
 ## 4. Where a payment goes
 
@@ -103,27 +107,27 @@ Illustrative fixed-price tier: 70% creator, 20% members, 5% referral, 5% protoco
 
 The member column is a pool total, not one fan's reward. Individual rewards depend on eligible weight during each accrual interval. Display values are idealized; contract base-unit rounding and fractional reserves belong in the appendix.
 
-With no recorded referrer, the example becomes 75/20/0/5. A creator-authorized refund halfway through would return the unused funded amount, subject to integer rounding, and cancel future accrual from that payment. Already earned allocations are not clawed back.
+With no recorded referrer, the example becomes 75/20/0/5. A creator-authorized refund halfway through would pay the current NFT owner the unused funded amount, subject to integer rounding, cancel future accrual, and retire the position. Already earned allocations are not clawed back.
 
 Sources: [S1] `_applyPayment`, `_refund`, claims, `releaseProtocolFees`; [S4] `append`, `_integrate`, `_distribute`, `cancelFunding`.
 
 ## 5. Optional member rewards and referrals
 
-**Reader takeaway:** rewards arise from funded membership activity, with explicit eligibility rules—not token ownership or promised returns.
+**Reader takeaway:** a funded position’s earnings belong to its current owner, including after transfer, and depend on its eligible weight during each earning interval.
 
-- Member rewards are optional per tier. When enabled, positive membership payments create permanent accounting shares using the tier's immutable reward-weight curve.
-- “Shares” are accounting weight, not transferable tokens or ownership of the creator's business.
+- Member rewards are optional per tier. Positive payments issue token-scoped accounting shares using the tier’s immutable curve. Shares accumulate in a live position and are destroyed at retirement.
+- “Shares” are accounting weight that moves only with the whole NFT position. They are not separately transferable assets or ownership of the creator’s business.
 - Early payments can receive more weight per unit. The boost tapers toward normal weight according to cumulative gross paid into that tier. A large payment crossing the curve receives integrated weight, not the initial boost on its entire amount.
-- Renewal and gift payments can contribute to the pool, as can a fan's own payment. Avoid saying rewards come exclusively from “future fans.”
+- Creation, renewal and gift payments contribute to the pool. A position’s own funding can contribute to its earnings. Its current holder need not have made any of its historical payments.
 - New weight does not receive rewards already earned before its issuance. It can participate in subsequent accrual from funding already underway, as well as its own new funding.
-- Refunds do not erase historical shares or rewind the early-support curve. They suspend eligibility immediately. Creator synchronization also suspends expired memberships; natural expiry alone does not.
-- Accrued credit remains claimable by the associated wallet after synchronization burns the NFT. Suspended intervals are not backfilled.
-- A referrer is locked on the membership's first qualifying self-payment, including the choice of no referrer. Gifts do not choose a new referrer; an existing lock applies. Explain this once in plain language, with the attribution states in the appendix.
+- Retirement destroys shares permanently. Natural retirement takes economic effect at expiration, after funding through that boundary; refunds retire at the cancellation timestamp. Neither action reduces lifetime gross or reopens the earlier curve.
+- Exact accrued credit moves to the owner at retirement and remains separately claimable without an NFT. Aggregate fractions from multiple retired positions before rounding; retain the remainder after payment. This payout requires no global catch-up and remains available while paused.
+- A referral choice locks on the position’s first qualifying positive owner payment. Renewal and transfer preserve it, even if the recipient is the recorded referrer. A new gift position starts Unset regardless of other NFTs in that wallet; sponsorship follows the selected position’s lock. Fresh IDs start fresh referral state.
 - No eligible weight: member allocations remain protected as unassigned amounts rather than becoming creator proceeds. Do not advertise a future redistribution mechanism that does not exist.
 
 **Figure 3:** optional two-fan timeline separating share issuance from later accrual. Use equal weights first; introduce the early-support curve only afterward.
 
-Sources: [S1] `_lockReferralChoice`, `_validateReferralChoice`, `_applyPayment`, `claimReward`, `_deactivateRewardEligibility`; [S4] `issueShares`, `_setWeight`, `_distribute`; [S5] `validate`, `quote`, `cumulative`.
+Sources: [S1] `_lockReferralChoice`, `_validateReferralChoice`, `_applyPayment`, `claimReward`, `claimRetiredRewards`; [S4] `issueShares`, `retireMember`, `takeRetired`, `_distribute`; [S5] `validate`, `quote`, `cumulative`.
 
 ## 6. A supporting protocol token
 
@@ -142,35 +146,51 @@ Sources: [S2] `bindProtocolToken`, `setPaymentTokenEnabled`, `setMinimumPayment`
 
 **Reader takeaway:** know what the contracts enforce and who controls the rest.
 
-- Creators control mutable benefits, metadata/art, refunds, expiry synchronization, and tier ownership as listed above.
+- Creators control mutable benefits, metadata/art, grants/revocations, refunds and tier ownership as listed above. Expiration maintenance is permissionless, so cleanup does not depend on creator availability.
 - Protocol authority controls token admission/minima for new tiers, one-time protocol-token binding, and buyback configuration/pauses. Do not equate creator-owned memberships with the absence of administrative powers.
-- Integrations should read active membership status for access; NFT ownership alone is insufficient. Historical support and current access are different uses.
-- A soulbound credential does not migrate to another wallet through an NFT transfer. Avoid promising wallet recovery that is not implemented.
+- Integrations check both current ownership and active status for the selected token ID. Timestamp-expired NFTs provide no access even before burn. Identify positions by chain, tier and ID, not a wallet-to-single-token lookup.
+- Live NFT transfers move the position between wallets without financial catch-up; token approvals authorize only that movement. Original payer/referral records do not become ownership fallback or recovery authority.
 - Contract bugs, payment-token restrictions, chain/RPC availability, external applications, and buyback liquidity/execution are dependencies to explain plainly.
 - Accounting may be stale until processed; a projected amount and a settled withdrawable amount should be distinguished.
 - Reward weight does not promise a particular reward amount. Creator benefits are not enforced merely because membership ownership is onchain.
 
-Sources: [S1] access views, soulbound methods, owner methods, `processAccounting`; [S2] owner methods; [S6] authority modifier and setters; [S7] execution entrypoints.
+Sources: [S1] `isActiveToken`, `ownerOf`, transfers/approvals, owner methods, `processAccounting`, `processExpirations`; [S2] owner methods; [S6] authority modifier and setters; [S7] execution entrypoints.
+
+## 8. Managing multiple positions and bounded work
+
+**Reader takeaway:** a large portfolio remains usable through explicit pages, selected claims and resumable maintenance; partial results must be labeled.
+
+- Owner discovery returns at most 100 extant IDs per tier. Read all pages/details at one captured block, include expired-awaiting-maintenance status, and restart pagination on refresh because transfers and burns change owner ordering.
+- Claims select at most 32 IDs total across at most 8 distinct tiers and share at most 25 accounting events. Owner-level retired, referral and creator categories are included once per tier. Empty ID lists can claim owner-level balances without NFTs.
+- Revalidate ownership at execution. Reject duplicates and stale selections atomically. A selection retired by its own successful catch-up pays through retired credit; already-burned IDs use the retired route instead.
+- Public maintenance accepts 1–25 steps. A funding START, funding END or one retirement uses a step. Funding through a timestamp, including all equal-time tails, precedes retirements ordered by ID. Save progress across batches; the last permitted event can complete the call.
+- Finite backlogs clear through repeated calls. Completion is relative to each transaction’s timestamp; advancing time can make additional work due. Maintenance and claims remain available while paused.
+- All time/weight/funding mutations maintain the schedule and catch up before accepting changes. Failed atomic operations do not commit attempted maintenance. Transfers/approvals and already-settled retired withdrawals are exceptions to the catch-up requirement.
+- Preview work is limited to 256 events. Timestamp, progress, queue counts and completeness qualify results; a larger exploratory preview does not prove feasibility under a 25-step transaction limit.
+- Loading, empty, failed, stale and incomplete are distinct application states. Displayed partial totals cover only loaded positions. Unavailable reads never imply zero assets or an empty wallet.
+
+Sources: [S1] `tokensOfOwner`, `claimRewards`, `claimRewardsFor`, `previewClaimRewards`, `processAccounting`, `processExpirations`; [S2] `claimEverything`; [S4] `encodedPreview`, `encodedClaimPreview`; [S8] expiration schedule.
 
 ## Technical appendix plan
 
-- Gross allocation formulas, rounding, and protected liabilities.
-- Cumulative reward-weight formula and a crossing-the-horizon example.
-- Distinct access/NFT/eligibility state table, including refunds, gifts, grants, zero contributions, and rejoining.
-- Referral states and locking behavior.
-- Accounting catch-up and refund projections; distinguish preview completeness from current-chain state.
-- Contract map, source revision, deployed addresses/network, and verification evidence as of publication.
-- Glossary: tier, period, paid time, grant time, allocation, accrual, share, eligibility, synchronization, claim, buyback, burn.
+- Gross allocation formulas, rounding, refund reserves and protected liabilities.
+- Cumulative reward-weight formula and a crossing-the-horizon example; only positive accepted payments advance lifetime gross, and refunds never reduce it.
+- Distinct live, expired-awaiting-maintenance and retired states. Include transfer, refund, gifts, grants, zero contributions and fresh return without a retired-to-live transition.
+- Referral states and locking by token ID, independent of a wallet’s other positions or funding history.
+- Exact retired credit uses Q = 2^128 subdivisions per raw payment unit. Retirement moves credit without changing member liability; payout subtracts whole units and retains fractions. Global unallocated carry/dust is separate from a member’s earned fraction.
+- Combined funding/expiry ordering and partial equal-timestamp batches. Historical settlement uses eligibility at the accounting cursor; public wall-clock eligibility cannot discard unsettled earnings.
+- Bounded discovery, claims and previews with captured blocks, completeness and stale-selection failures.
+- Contract map, final source revision, deployed addresses/network and verification evidence as of publication. Source/model checks do not establish browser, wallet, deployment or accessibility runtime results.
+- Glossary: tier, position, token ID, period, paid time, grant time, allocation, accrual, share, eligibility, checkpoint, retirement, retired credit, claim, buyback, burn.
 
-## Findings to resolve in the prose
+## Editorial checks for publication
 
-These do not require new protocol design; they require accurate wording:
-
-1. **Memento qualification:** the permanent membership record survives, but the NFT can be burned by creator synchronization after expiry. Our earlier “remains in the wallet” wording was too strong.
-2. **Subscription qualification:** renewal is manual, and access expiry is immediate in time-based views. Reward suspension is a separate action; do not say rewards automatically stop at expiry.
-3. **Reward source qualification:** “future fans” is an intuitive introduction, but payments from existing fans and the recipient's own funding also participate.
-4. **Fee qualification:** 1% is a minimum in current creation validation, not the only allowed protocol rate.
-5. **Documentation drift:** `docs/protocol/accounting.md` describes superseded immediate allocation, fixed fees, and owner-top-up refunds. It must not be used as the whitepaper's accounting authority. This outline follows current contracts instead; updating that older document is separate work.
+1. **Identity:** every creation has a new ID; renewal names a live ID. Wallets can own multiple independent positions in a tier.
+2. **Transfer:** the whole position follows ownership without settlement, including while paused or with pending maintenance. Approvals authorize transfer only.
+3. **Expiration:** access/transfer/renewal end immediately at expiry. Late maintenance settles to the historical boundary and burns permanently; it cannot award post-expiry earnings or restore weight.
+4. **Conservation:** retirement preserves exact earned fractions for the final owner. New IDs do not inherit old weight, consume retired credit, or rewind lifetime payment volume.
+5. **Funding authority:** current ownership governs member rights and refund destination. Only creator authority initiates refunds; historical payment provenance confers no ownership rights.
+6. **Evidence:** keep prose, diagrams and contract references aligned; label incomplete reads and distinguish implementation tests from public deployment or browser proof.
 
 ## Source map
 
@@ -183,3 +203,4 @@ References name the functions to inspect alongside each section, so line-number 
 - [S5 — RewardCurve](../../contracts/src/libraries/RewardCurve.sol)
 - [S6 — ProtocolBuybackVault](../../contracts/src/ProtocolBuybackVault.sol)
 - [S7 — ProtocolBurnRouter](../../contracts/src/ProtocolBurnRouter.sol)
+- [S8 — ExpirationSchedule](../../contracts/src/libraries/ExpirationSchedule.sol)
