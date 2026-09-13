@@ -47,36 +47,28 @@
       }
     ],
     "mediaStoreFactory": {
-      "address": "0xb47C69e087B8E714B85dA3ea4264c3883Bbb476F",
-      "runtimeCodehash": "0xaf442096520184d5269bedb6e563a9bbc8468f9657a777d7e428ab5997d51ddf"
+      "address": "0x871396021051a27Bd67e6f8Ab73b5071f6aB0B80",
+      "runtimeCodehash": "0x0aa8050d72138d8ed5af4a0bcd1d10374b7ee2274f8e55b865d96982b07dde01"
     },
     "renderer": {
-      "address": "0xb8c18cbF055fD317c2b2F171179Bd1b78445c35C",
-      "runtimeCodehash": "0x39a439a272d68ed8ec963794825a81786ecf6e09421a9e67f2190e0aa4ff2483"
+      "address": "0x94DC932dFdde3a394F59271f97603B62530d28c8",
+      "runtimeCodehash": "0x1bacf299bd6e8c6940f7ed50eae2095b8b89ae5ccf36e19993522b850da83ac6"
     },
     "previewHarness": {
-      "address": "0xD5E799A531A5E90773173186Bc756e92F56E5833",
-      "runtimeCodehash": "0xe08b70bd61caa0367c6ee7f9baa4e474e094294ba061c8826fb27662aab576a9"
+      "address": "0x1BF436A67b71Ab6153f9B84507D7cC0c83c1F297",
+      "runtimeCodehash": "0x8c89d7ccb32c4a7ff502ea71943da3ba60cca7208a7067adc36229602a8a6e5e"
     },
     "membershipFactory": {
-      "address": "0x8a21010752693377509C533f4E1e81DF551E673a",
-      "runtimeCodehash": "0xc429d02eff7ee04de446e4c1ddc16ac02ce7424feffc7f0114bebf14a8526c26"
+      "address": "0xE0a9f373cF1B2e56825f68c7050b3E6d81131B59",
+      "runtimeCodehash": "0x13d618e7fe10fa165e585375751c924e2a745109ef0b639e23346db371f41a08"
     },
     "vestingLedger": {
-      "address": "0xCA48e24C30800eFfD34644c2c4113bD93aD3dD4F",
-      "runtimeCodehash": "0xa4c22c5d3f760e3a876c5ef48fdf7b095fafa4bfd6948fd981c9d95c60d82f1a"
+      "address": "0xeC7004f51b7dA735a595ADDEAB68e7A339474429",
+      "runtimeCodehash": "0x9742a858b59e69fc14ba3ee0d135b98cac2a16f9837f3b9c9604e0f3ac5a1eae"
     },
-    "tierCodeStoreA": {
-      "address": "0xaafb0e29b185F6A4A6757c19cA18b89c22DBE131",
-      "runtimeCodehash": "0x527c0e3a30c4edb2a1c432f6c8052949fe3f1b094ef9cdf9dcee56fa13b03758"
-    },
-    "tierCodeStoreB": {
-      "address": "0xb3F9517128f015bDb733816831d2cF3F188fcBf3",
-      "runtimeCodehash": "0xa0d166bef17e195c0493f813dce442d494535a7704d6dafa1e9ca7c8755b4e69"
-    },
-    "tierCreationCode": {
-      "length": 41193,
-      "hash": "0x1b79a595af729fe34ecb9fec0414f51f265af1a32c93478da0c187fa6337a341"
+    "tierImplementation": {
+      "address": "0x47c1E3a745cE309963c22F0399d738eC1c838EEe",
+      "runtimeCodehash": "0x43e0424205772df1c054ccb7beebca14fa3b49da7bca76cf601a8c465030b855"
     }
   },
   "safe": {

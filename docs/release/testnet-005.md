@@ -1,6 +1,6 @@
 # Feature 005 testnet release preparation
 
-Prepared 2026-09-13 UTC from feature source `d83c922`, with the manifest-cleanup fix and this release evidence still awaiting commit. This is preparation evidence, not a public deployment record. The existing fork on port 18557 and webpage on port 3110 remain running.
+Prepared 2026-09-13 UTC from feature source `d83c922`, with preparation source committed as `529abc5`. Guarded manifest preparation passed; exact-candidate rehearsal follows the manifest commit. This is preparation evidence, not a public deployment record. The existing fork on port 18557 and webpage on port 3110 remain running.
 
 ## Release configuration
 
@@ -36,7 +36,7 @@ Read-only Solidity predictions from the source above:
 | MembershipTier implementation | `0x47c1E3a745cE309963c22F0399d738eC1c838EEe` |
 | MembershipFactory | `0xE0a9f373cF1B2e56825f68c7050b3E6d81131B59` |
 
-These are preliminary predictions, not promoted deployment addresses. Guarded `prepare` must regenerate and validate them against committed source. The old operational manifest and prior deployment evidence remain intact until that step.
+Guarded `prepare` regenerated these same addresses from committed source and validated testnet state. They are now the prepared operational manifest, not publicly deployed or promoted addresses. The obsolete A/B fields were removed; the old completed journal was verified and archived byte-for-byte as `candidate-d792d793d357-promoted.json`. Historical broadcasts remain intact.
 
 The preparation fix removes obsolete A/B code-store, tier-deployer and tier-creation-code fields from the operational manifest. The schema-9 deployment journal's `tierCreationCode` still intentionally records implementation initcode metadata.
 

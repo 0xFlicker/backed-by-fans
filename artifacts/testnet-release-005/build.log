@@ -61,9 +61,9 @@ Import trace for requested module:
   Generating static pages using 17 workers (0/10) ...
 (node:14295) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-  Generating static pages using 17 workers (2/10) 
-  Generating static pages using 17 workers (4/10) 
-  Generating static pages using 17 workers (7/10) 
+  Generating static pages using 17 workers (2/10)
+  Generating static pages using 17 workers (4/10)
+  Generating static pages using 17 workers (7/10)
 ✓ Generating static pages using 17 workers (10/10) in 795ms
   Finalizing page optimization ...
   Collecting build traces ...
@@ -91,4 +91,3 @@ Route (app)
 
 ○  (Static)   prerendered as static content
 ƒ  (Dynamic)  server-rendered on demand
-

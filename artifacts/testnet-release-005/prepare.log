@@ -1,0 +1,27 @@
+Compiling 12 files with Solc 0.8.36
+Solc 0.8.36 finished in 472.07ms
+Compiler run successful!
+Compiling 238 files with Solc 0.8.36
+Solc 0.8.36 finished in 27.22s
+Compiler run successful!
+No files changed, compilation skipped
+
+Ran 1 test for test/deployment/DeploymentScripts.t.sol:DeploymentScriptsTest
+[PASS] test_releaseWrapperPlanMatchesSolidityConfig() (gas: 27487720)
+Logs:
+  BBF_RELEASE_FACTORY_RUNTIME_HASH: 0x13d618e7fe10fa165e585375751c924e2a745109ef0b639e23346db371f41a08
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 20.86ms (2.86ms CPU time)
+
+Ran 1 test suite in 25.73ms (20.86ms CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0xeC7004f51b7dA735a595ADDEAB68e7A339474429 0x3f137940412ebba5d27ec8b22d87c000c8c56b198c74e485e050555df6e151e7 0x9742a858b59e69fc14ba3ee0d135b98cac2a16f9837f3b9c9604e0f3ac5a1eae empty                missing
+media store factory    0x871396021051a27Bd67e6f8Ab73b5071f6aB0B80 0xa30407682804264175dc012d77d0206bf089a760d16ff0164bab6393dcba813d 0x0aa8050d72138d8ed5af4a0bcd1d10374b7ee2274f8e55b865d96982b07dde01 vesting ledger       missing
+renderer               0x94DC932dFdde3a394F59271f97603B62530d28c8 0x774504f8a519abdca6296f87dabca3c5ba03cc3920d99acd6757eaa3bdf9daa0 0x1bacf299bd6e8c6940f7ed50eae2095b8b89ae5ccf36e19993522b850da83ac6 media store factory  missing
+renderer preview harness 0x1BF436A67b71Ab6153f9B84507D7cC0c83c1F297 0x597094b8e61a28ba77c9ddb9cce208fc1597c4a70588ffb6a2958b8c4c63324f 0x8c89d7ccb32c4a7ff502ea71943da3ba60cca7208a7067adc36229602a8a6e5e renderer             missing
+tier implementation    0x47c1E3a745cE309963c22F0399d738eC1c838EEe 0x76439242d15ea68cd445f746354158e040aee02b662f2a24ee4764ccc2ecf273 0x43e0424205772df1c054ccb7beebca14fa3b49da7bca76cf601a8c465030b855 renderer preview harness missing
+membership factory     0xE0a9f373cF1B2e56825f68c7050b3E6d81131B59 0x09cfc595cf91fb19bd98fcc05b55d657b3250343d43e1e596ba7e6f6c96ef401 0x13d618e7fe10fa165e585375751c924e2a745109ef0b639e23346db371f41a08 tier implementation  missing
+
+Protocol deployment: prepared reviewed operational state at contracts/config/operational-state/46630.json
+Protocol deployment: review and commit that file before dry-run or broadcast
