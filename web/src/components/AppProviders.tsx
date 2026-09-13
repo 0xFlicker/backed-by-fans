@@ -9,6 +9,8 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, type State } from "wagmi";
 
+import { TestnetFaucetNotice } from "@/components/TestnetFaucetNotice";
+
 import { createWalletConfig } from "@/lib/wallet-config";
 
 const rainbowThemeOptions = {
@@ -58,7 +60,10 @@ export function AppProviders({
   return (
     <WagmiProvider config={walletConfig} initialState={initialState}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider theme={rainbowTheme}>{children}</RainbowKitProvider>
+        <RainbowKitProvider theme={rainbowTheme}>
+          {children}
+          <TestnetFaucetNotice />
+        </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
