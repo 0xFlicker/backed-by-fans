@@ -1612,6 +1612,19 @@ run_anvil_preflight() {
   fi
 }
 
+require_explorer_source() {
+  local address="$1" metadata
+  if ! metadata="$(curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+    "${verifier_url%/}/v2/smart-contracts/$address")"; then
+    fail "Could not confirm Blockscout verification for $address; retry resume-verify later"
+  fi
+  if ! jq -e '.is_verified == true and .is_fully_verified == true
+    and (.source_code | type == "string" and length > 0)
+    and (.abi | type == "array")' <<<"$metadata" >/dev/null; then
+    fail "Blockscout has not confirmed full source verification for $address; retry resume-verify later"
+  fi
+}
+
 verify_sources() {
   local journal="$1"
   local index verified_at output safe_output
@@ -1639,6 +1652,8 @@ verify_sources() {
     require_recorded_source_checkout "$journal"
     safe_output="${output//$rpc_url/<rpc-url>}"
     printf '%s\n' "$safe_output"
+    require_explorer_source "${component_addresses[$index]}"
+    require_recorded_source_checkout "$journal"
     verified_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     atomic_jq "$journal" \
       --argjson index "$index" \

@@ -134,7 +134,7 @@ Sources: [S1] `_lockReferralChoice`, `_validateReferralChoice`, `_applyPayment`,
 **Reader takeaway:** membership is useful independently; token participation is optional.
 
 - Describe the mechanism as connecting community membership activity to the protocol token through earned-fee-funded buybacks and burns. Avoid implying a guaranteed market-price outcome.
-- Separate fee accrual, fee release to the vault, market execution, and burning. Execution is not automatic at each payment or each second.
+- Separate fee accrual, fee release to the vault, market execution, and burning. Execution is not automatic at each payment or each second. Available buyback funds include unspent vault fees and earned fees awaiting release, which can be released within the buyback transaction; unearned funding is excluded.
 - Token binding, available inventory, configured routes/limits, pauses, and market conditions determine whether execution is possible.
 - Intended use as a tier payment currency requires payment-token enablement and a configured minimum. Binding the protocol token does not itself enable it for tier creation.
 - Creators who want that currency would create tiers denominated in it. Existing tiers cannot switch currency.
@@ -158,15 +158,15 @@ Sources: [S1] `isActiveToken`, `ownerOf`, transfers/approvals, owner methods, `p
 
 ## 8. Managing multiple positions and bounded work
 
-**Reader takeaway:** a large portfolio remains usable through explicit pages, selected claims and resumable maintenance; partial results must be labeled.
+**Reader takeaway:** a large portfolio remains usable through paged discovery, Claim all and resumable maintenance; partial results must be labeled.
 
-- Owner discovery returns at most 100 extant IDs per tier. Read all pages/details at one captured block, include expired-awaiting-maintenance status, and restart pagination on refresh because transfers and burns change owner ordering.
-- Claims select at most 32 IDs total across at most 8 distinct tiers and share at most 25 accounting events. Owner-level retired, referral and creator categories are included once per tier. Empty ID lists can claim owner-level balances without NFTs.
+- Owner discovery uses caller-selected page sizes, with no fixed contract page maximum. Read all pages/details at one captured block, include expired-awaiting-maintenance status, and restart pagination on refresh because transfers and burns change owner ordering.
+- Claim all discovers positions and uses simulation and gas estimates to choose transaction batches. Contracts impose no fixed position or tier count; callers supply the shared accounting work budget. The interface offers Claim all rather than individual position selection. After an interrupted claim, pressing Claim all again claims the remaining rewards. Owner-level retired, referral and creator categories are included once per tier. Empty ID lists can claim owner-level balances without NFTs.
 - Revalidate ownership at execution. Reject duplicates and stale selections atomically. A selection retired by its own successful catch-up pays through retired credit; already-burned IDs use the retired route instead.
-- Public maintenance accepts 1–25 steps. A funding START, funding END or one retirement uses a step. Funding through a timestamp, including all equal-time tails, precedes retirements ordered by ID. Save progress across batches; the last permitted event can complete the call.
+- Public maintenance accepts a caller-supplied work budget without a fixed contract maximum. A funding START, funding END or one retirement uses a step. Funding through a timestamp, including all equal-time tails, precedes retirements ordered by ID. Save progress across batches; the last permitted event can complete the call.
 - Finite backlogs clear through repeated calls. Completion is relative to each transaction’s timestamp; advancing time can make additional work due. Maintenance and claims remain available while paused.
 - All time/weight/funding mutations maintain the schedule and catch up before accepting changes. Failed atomic operations do not commit attempted maintenance. Transfers/approvals and already-settled retired withdrawals are exceptions to the catch-up requirement.
-- Preview work is limited to 256 events. Timestamp, progress, queue counts and completeness qualify results; a larger exploratory preview does not prove feasibility under a 25-step transaction limit.
+- Preview work uses a caller-selected budget. Timestamp, progress, queue counts and completeness qualify results; a complete preview does not prove a later transaction has sufficient gas or accounting budget.
 - Loading, empty, failed, stale and incomplete are distinct application states. Displayed partial totals cover only loaded positions. Unavailable reads never imply zero assets or an empty wallet.
 
 Sources: [S1] `tokensOfOwner`, `claimRewards`, `claimRewardsFor`, `previewClaimRewards`, `processAccounting`, `processExpirations`; [S2] `claimEverything`; [S4] `encodedPreview`, `encodedClaimPreview`; [S8] expiration schedule.

@@ -20,6 +20,7 @@ if [[ -n "${BBF_DEPLOY_TEST_TOCTOU_MARKER:-}" ]]; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "$script_dir/test-blockscout-verification.py"
 test_dir="$(mktemp -d "${TMPDIR:-/tmp}/backed-by-fans-deploy-test.XXXXXX")"
 mock_bin="$script_dir/test-fixtures/deploy-protocol"
 mock_log="$test_dir/calls.log"
