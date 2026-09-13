@@ -1,0 +1,1217 @@
+{
+  "version": 1,
+  "createdAt": "2026-09-13T19:01:34.452Z",
+  "projectRoot": ".",
+  "suiteDir": "test/fizz",
+  "metaDir": "fizz_data",
+  "contracts": [
+    {
+      "name": "MembershipFactory",
+      "sourcePath": "src/MembershipFactory.sol",
+      "sourceHash": "sha256:6b915ddccd6f68420591ae94ec02f2def296003c892b5b0dc22e374288edb9c4",
+      "constructor": {
+        "inputs": [
+          {
+            "name": "initialPaymentTokens",
+            "type": "contract",
+            "internalType": "IERC20[]"
+          },
+          {
+            "name": "mediaStoreFactory_",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "initialOwner",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "protocolToken_",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "implementation_",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "initialMinimumPayments",
+            "type": "array",
+            "internalType": "uint112[]"
+          }
+        ],
+        "stateMutability": "nonpayable"
+      },
+      "functions": [
+        {
+          "name": "acceptOwnership",
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "acceptOwnership()"
+        },
+        {
+          "name": "bindProtocolToken",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "bindProtocolToken(address)"
+        },
+        {
+          "name": "claimEverything",
+          "inputs": [
+            {
+              "name": "requests",
+              "type": "array",
+              "internalType": "MembershipTypes.TierClaimRequest[]"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "claimEverything(MembershipTypes.TierClaimRequest[],uint256)"
+        },
+        {
+          "name": "createTier",
+          "inputs": [
+            {
+              "name": "config",
+              "type": "tuple",
+              "internalType": "MembershipTypes.TierConfig"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "createTier(MembershipTypes.TierConfig)"
+        },
+        {
+          "name": "setMinimumPayment",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "minimum",
+              "type": "uint112",
+              "internalType": "uint112"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "setMinimumPayment(address,uint112)"
+        },
+        {
+          "name": "setPaymentTokenEnabled",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "enabled",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "setPaymentTokenEnabled(address,bool)"
+        },
+        {
+          "name": "transferOwnership",
+          "inputs": [
+            {
+              "name": "newOwner",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "transferOwnership(address)"
+        }
+      ]
+    },
+    {
+      "name": "MembershipTier",
+      "sourcePath": "src/MembershipTier.sol",
+      "sourceHash": "sha256:f79058bf0475460ba57316d9de3ea6304219c971903cc8e8cb555d5e43b61667",
+      "constructor": {
+        "inputs": [],
+        "stateMutability": "nonpayable"
+      },
+      "functions": [
+        {
+          "name": "acceptOwnership",
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "acceptOwnership()"
+        },
+        {
+          "name": "addGrantTime",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "expectedOwner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "periods",
+              "type": "uint64",
+              "internalType": "uint64"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "addGrantTime(uint256,address,uint64,uint256)"
+        },
+        {
+          "name": "approve",
+          "inputs": [
+            {
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "approve(address,uint256)"
+        },
+        {
+          "name": "cancelSubscription",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "payable",
+          "tier": "primary",
+          "signature": "cancelSubscription(uint256)"
+        },
+        {
+          "name": "claimReferral",
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "claimReferral()"
+        },
+        {
+          "name": "claimRetiredRewards",
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "claimRetiredRewards()"
+        },
+        {
+          "name": "claimReward",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "claimReward(uint256,uint256)"
+        },
+        {
+          "name": "claimRewards",
+          "inputs": [
+            {
+              "name": "tokenIds",
+              "type": "array",
+              "internalType": "uint256[]"
+            },
+            {
+              "name": "maxSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "claimRewards(uint256[],uint256)"
+        },
+        {
+          "name": "claimRewardsFor",
+          "inputs": [
+            {
+              "name": "beneficiary",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenIds",
+              "type": "array",
+              "internalType": "uint256[]"
+            },
+            {
+              "name": "maxSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "claimRewardsFor(address,uint256[],uint256)"
+        },
+        {
+          "name": "createContributionMembership",
+          "inputs": [
+            {
+              "name": "gross",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "referralChoice",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "createContributionMembership(uint256,address,uint256)"
+        },
+        {
+          "name": "createMembership",
+          "inputs": [
+            {
+              "name": "periods",
+              "type": "uint64",
+              "internalType": "uint64"
+            },
+            {
+              "name": "referralChoice",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "createMembership(uint64,address,uint256)"
+        },
+        {
+          "name": "giftMembership",
+          "inputs": [
+            {
+              "name": "recipient",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "periods",
+              "type": "uint64",
+              "internalType": "uint64"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "giftMembership(address,uint64,uint256)"
+        },
+        {
+          "name": "giftRenewal",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "expectedOwner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "periods",
+              "type": "uint64",
+              "internalType": "uint64"
+            },
+            {
+              "name": "expectedReferralStatus",
+              "type": "enum",
+              "internalType": "MembershipTypes.ReferralStatus"
+            },
+            {
+              "name": "expectedReferrer",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "giftRenewal(uint256,address,uint64,MembershipTypes.ReferralStatus,address,uint256)"
+        },
+        {
+          "name": "grantMembership",
+          "inputs": [
+            {
+              "name": "recipient",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "periods",
+              "type": "uint64",
+              "internalType": "uint64"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "grantMembership(address,uint64,uint256)"
+        },
+        {
+          "name": "initialize",
+          "inputs": [
+            {
+              "name": "config",
+              "type": "tuple",
+              "internalType": "MembershipTypes.TierConfig"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "initialize(MembershipTypes.TierConfig)"
+        },
+        {
+          "name": "processAccounting",
+          "inputs": [
+            {
+              "name": "maxSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "processAccounting(uint256)"
+        },
+        {
+          "name": "processExpirations",
+          "inputs": [
+            {
+              "name": "maxSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "processExpirations(uint256)"
+        },
+        {
+          "name": "refund",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "expectedOwner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "maxGrossRefund",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "refund(uint256,address,uint256,uint256)"
+        },
+        {
+          "name": "releaseProtocolFees",
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "releaseProtocolFees()"
+        },
+        {
+          "name": "renewContributionMembership",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "gross",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "referralChoice",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "renewContributionMembership(uint256,uint256,address,uint256)"
+        },
+        {
+          "name": "renewMembership",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "periods",
+              "type": "uint64",
+              "internalType": "uint64"
+            },
+            {
+              "name": "referralChoice",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "renewMembership(uint256,uint64,address,uint256)"
+        },
+        {
+          "name": "renewSubscription",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "duration",
+              "type": "uint64",
+              "internalType": "uint64"
+            }
+          ],
+          "stateMutability": "payable",
+          "tier": "primary",
+          "signature": "renewSubscription(uint256,uint64)"
+        },
+        {
+          "name": "revokeGrantTime",
+          "inputs": [
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "expectedOwner",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "maxAccountingSteps",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "revokeGrantTime(uint256,address,uint256)"
+        },
+        {
+          "name": "safeTransferFrom",
+          "inputs": [
+            {
+              "name": "from",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "safeTransferFrom(address,address,uint256)"
+        },
+        {
+          "name": "safeTransferFrom",
+          "inputs": [
+            {
+              "name": "from",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "data",
+              "type": "bytes",
+              "internalType": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "safeTransferFrom(address,address,uint256,bytes)"
+        },
+        {
+          "name": "setApprovalForAll",
+          "inputs": [
+            {
+              "name": "operator",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "approved",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "setApprovalForAll(address,bool)"
+        },
+        {
+          "name": "setMaxPrepaidPeriods",
+          "inputs": [
+            {
+              "name": "newMaximum",
+              "type": "uint64",
+              "internalType": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "setMaxPrepaidPeriods(uint64)"
+        },
+        {
+          "name": "setPaused",
+          "inputs": [
+            {
+              "name": "newPaused",
+              "type": "bool",
+              "internalType": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "setPaused(bool)"
+        },
+        {
+          "name": "setPresentation",
+          "inputs": [
+            {
+              "name": "newRenderer",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "newArt",
+              "type": "tuple",
+              "internalType": "MembershipTypes.ArtConfig"
+            },
+            {
+              "name": "newMedia",
+              "type": "tuple",
+              "internalType": "MembershipTypes.MediaConfig"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "setPresentation(address,MembershipTypes.ArtConfig,MembershipTypes.MediaConfig)"
+        },
+        {
+          "name": "setSupplyCap",
+          "inputs": [
+            {
+              "name": "newSupplyCap",
+              "type": "uint64",
+              "internalType": "uint64"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "secondary",
+          "signature": "setSupplyCap(uint64)"
+        },
+        {
+          "name": "setTierMetadata",
+          "inputs": [
+            {
+              "name": "newMetadata",
+              "type": "tuple",
+              "internalType": "MembershipTypes.TierMetadata"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "setTierMetadata(MembershipTypes.TierMetadata)"
+        },
+        {
+          "name": "transferFrom",
+          "inputs": [
+            {
+              "name": "from",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "to",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenId",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "transferFrom(address,address,uint256)"
+        },
+        {
+          "name": "transferOwnership",
+          "inputs": [
+            {
+              "name": "newOwner",
+              "type": "address",
+              "internalType": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "transferOwnership(address)"
+        },
+        {
+          "name": "withdrawCreatorProceeds",
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "tier": "primary",
+          "signature": "withdrawCreatorProceeds()"
+        }
+      ]
+    }
+  ],
+  "handlers": {
+    "Handlers.sol": "sha256:46f8cae4e7187d2668ce015e3546c84f500337140db11a898b707923933af5ae",
+    "MembershipFactoryHandler.sol": "sha256:f93240de6be3f2a27423998d2ceaee8c74571185fb528b0b2f2cff229aca36ae",
+    "MembershipTierHandler.sol": "sha256:52d387f3ab7f6b44fa6a99a85d8afbbebf2f434f24a936d0507aa9e18fa00cf5",
+    "SpecificPropertiesHandler.sol": "sha256:4f09076d18b74f65d44ad974e91288b3d9358349ff91614e1690245a1ffee962"
+  },
+  "properties": [
+    {
+      "id": "GL-01",
+      "checkbox": "x",
+      "functionName": "property_accountingConservation",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-02",
+      "checkbox": "x",
+      "functionName": "property_tierSolvency",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-03",
+      "checkbox": "x",
+      "functionName": "property_rewardShareDenominator",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-04",
+      "checkbox": "x",
+      "functionName": "property_occupiedSupplySync",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-05",
+      "checkbox": "x",
+      "functionName": "property_expirationScheduleSync",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-06",
+      "checkbox": "x",
+      "functionName": "property_mintedRetiredCounts",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-07",
+      "checkbox": "x",
+      "functionName": "property_paymentTokenRegistry",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-08",
+      "checkbox": "-",
+      "functionName": null,
+      "file": null
+    },
+    {
+      "id": "GL-09",
+      "checkbox": "x",
+      "functionName": "property_protectedLiabilityCeiling",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-10",
+      "checkbox": "x",
+      "functionName": "property_lifetimeGrossMonotonic",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-11",
+      "checkbox": "x",
+      "functionName": "property_totalMintedMonotonic",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-12",
+      "checkbox": "x",
+      "functionName": "property_accountedThroughMonotonic",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-13",
+      "checkbox": "x",
+      "functionName": "property_factoryCountsMonotonic",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-14",
+      "checkbox": "x",
+      "functionName": "property_rewardPerShareMonotonic",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-15",
+      "checkbox": "x",
+      "functionName": "property_ownershipOccupancySync",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-16",
+      "checkbox": "x",
+      "functionName": "property_supplyCap",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-17",
+      "checkbox": "x",
+      "functionName": "property_rewardEligibility",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-18",
+      "checkbox": "x",
+      "functionName": "property_erc721Enumeration",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-19",
+      "checkbox": "x",
+      "functionName": "property_interfaces",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "GL-20",
+      "checkbox": "x",
+      "functionName": "property_completeAccountingStatus",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-01",
+      "checkbox": "x",
+      "functionName": "property_paymentAppendsLot",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-02",
+      "checkbox": "x",
+      "functionName": "property_protocolFeeRelease",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-03",
+      "checkbox": "x",
+      "functionName": "property_refundAccounting",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-04",
+      "checkbox": "x",
+      "functionName": "property_purchaseRefundRoundTrip",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-05",
+      "checkbox": "x",
+      "functionName": "property_giftRefundRoundTrip",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-06",
+      "checkbox": "x",
+      "functionName": "property_repeatedRefundCycles",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-07",
+      "checkbox": "x",
+      "functionName": "property_grantRevokeRoundTrip",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-08",
+      "checkbox": "x",
+      "functionName": "property_transferRoundTrip",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-09",
+      "checkbox": "x",
+      "functionName": "property_sharePreviewMatchesIssue",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-10",
+      "checkbox": "x",
+      "functionName": "property_shareQuoteShape",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-11",
+      "checkbox": "x",
+      "functionName": "property_paymentAllocationRounding",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-12",
+      "checkbox": "x",
+      "functionName": "property_renewalExactness",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-13",
+      "checkbox": "x",
+      "functionName": "property_refundPreviewMatches",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-14",
+      "checkbox": "x",
+      "functionName": "property_accountingPreviewMatches",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-15",
+      "checkbox": "x",
+      "functionName": "property_paymentTotalsPreviewMatches",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-16",
+      "checkbox": "x",
+      "functionName": "property_claimPreviewMatches",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-17",
+      "checkbox": "x",
+      "functionName": "property_tierCreationIdentity",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-18",
+      "checkbox": "x",
+      "functionName": "property_referralImmutable",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-19",
+      "checkbox": "x",
+      "functionName": "property_fixedCreationCounts",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-20",
+      "checkbox": "x",
+      "functionName": "property_zeroGrossCreation",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-21",
+      "checkbox": "x",
+      "functionName": "property_transferPreservesPosition",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-22",
+      "checkbox": "x",
+      "functionName": "property_refundRetiresPosition",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-23",
+      "checkbox": "x",
+      "functionName": "property_grantCreation",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-24",
+      "checkbox": "x",
+      "functionName": "property_revokeGrantBranch",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-25",
+      "checkbox": "x",
+      "functionName": "property_accountingProgress",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-26",
+      "checkbox": "x",
+      "functionName": "property_paymentTokenEnablement",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-27",
+      "checkbox": "x",
+      "functionName": "property_extantSharesMonotonic",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-28",
+      "checkbox": "x",
+      "functionName": "property_factoryAdminGuards",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-29",
+      "checkbox": "x",
+      "functionName": "property_tierAdminGuards",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-30",
+      "checkbox": "x",
+      "functionName": "property_foreignOwnerGuards",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-31",
+      "checkbox": "x",
+      "functionName": "property_claimFactoryGuard",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-32",
+      "checkbox": "x",
+      "functionName": "property_expiredGuards",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-33",
+      "checkbox": "x",
+      "functionName": "property_duplicateSaltGuard",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-34",
+      "checkbox": "x",
+      "functionName": "property_pausedExitLiveness",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-35",
+      "checkbox": "x",
+      "functionName": "property_dueBoundaryLiveness",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-36",
+      "checkbox": "x",
+      "functionName": "property_claimLiveness",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-37",
+      "checkbox": "x",
+      "functionName": "property_giftReferralIsolation",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-38",
+      "checkbox": "x",
+      "functionName": "property_prepaidLimit",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-39",
+      "checkbox": "x",
+      "functionName": "property_curveCapacityGuard",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-40",
+      "checkbox": "x",
+      "functionName": "property_claimSelectionGuard",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-41",
+      "checkbox": "x",
+      "functionName": "property_donationIsolation",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-42",
+      "checkbox": "x",
+      "functionName": "property_fullBalanceContribution",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-43",
+      "checkbox": "x",
+      "functionName": "property_approvedTransfer",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-44",
+      "checkbox": "x",
+      "functionName": "property_operatorTransfer",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-45",
+      "checkbox": "x",
+      "functionName": "property_selfTransfer",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-46",
+      "checkbox": "x",
+      "functionName": "property_safeTransferReceiver",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-47",
+      "checkbox": "x",
+      "functionName": "property_renewableSoundness",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-48",
+      "checkbox": "x",
+      "functionName": "property_allocationOrder",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-49",
+      "checkbox": "x",
+      "functionName": "property_allocationCursor",
+      "file": "test/fizz/Properties.sol"
+    },
+    {
+      "id": "SP-50",
+      "checkbox": "x",
+      "functionName": "property_allocationGeneration",
+      "file": "test/fizz/Properties.sol"
+    }
+  ]
+}
