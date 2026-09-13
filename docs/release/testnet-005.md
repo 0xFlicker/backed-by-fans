@@ -1,6 +1,6 @@
 # Feature 005 testnet release preparation
 
-Prepared 2026-09-13 UTC from feature source `d83c922`, with preparation source committed as `529abc5`. Guarded manifest preparation passed; exact-candidate rehearsal follows the manifest commit. This is preparation evidence, not a public deployment record. The existing fork on port 18557 and webpage on port 3110 remain running.
+Prepared 2026-09-13 UTC from feature source `d83c922`, with preparation source committed as `529abc5`. Guarded manifest preparation and the exact-candidate testnet-fork rehearsal passed. The reviewed manifest was committed as `b52780c`; the final evidence commit changes documentation/logs only. This is preparation evidence, not a public deployment record. The existing fork on port 18557 and webpage on port 3110 remain running.
 
 ## Release configuration
 
@@ -40,28 +40,15 @@ Guarded `prepare` regenerated these same addresses from committed source and val
 
 The preparation fix removes obsolete A/B code-store, tier-deployer and tier-creation-code fields from the operational manifest. The schema-9 deployment journal's `tierCreationCode` still intentionally records implementation initcode metadata.
 
-## Finish preparation
+## Preparation completed
 
-From `/Users/user/Development/backed-by-fans`:
+- `529abc5` committed the preparation fix and archived the completed A/B candidate after verifying its historical broadcast record.
+- Guarded `testnet prepare` passed and replaced `contracts/config/operational-state/46630.json`; `b52780c` committed the reviewed six-component manifest. Safe ownership and all payment-token configuration were preserved.
+- `testnet dry-run` passed against that commit and manifest blob `be98c0e349be0dd622b9b8c1f65c7f50becf6ffb`. All six contracts deployed successfully on a separate temporary chain-46630 fork, with exact runtime hashes, factory dependencies, Safe configuration and native size checks passing. The temporary fork was cleaned up.
+- The old `candidate.json` is absent; its completed contents are preserved in `candidate-d792d793d357-promoted.json`. No stale active `run-latest.json` was restored. The next authorized broadcast can create its own current candidate journal.
+- Preparation loaded no signing account and submitted no public transaction. The active local fork and webpage remain available.
 
-1. Review and commit the two deployment-script changes, updated runbook, this document and public preparation evidence. `contracts/scripts/deploy-protocol.sh:653` requires all source committed before `prepare`; do not bypass that guard.
-2. Generate the official candidate without a signing account:
-
-   ```sh
-   cd /Users/user/Development/backed-by-fans/contracts
-   PROTOCOL_TOKEN_ADDRESS=0x0000000000000000000000000000000000000000 \
-     ./scripts/deploy-protocol.sh testnet prepare
-   git diff -- config/operational-state/46630.json
-   ```
-
-3. Confirm the owner, token list, zero protocol token, six component addresses and exact runtime hashes. Confirm obsolete A/B fields are absent. Review and commit the generated manifest.
-4. Rehearse the exact candidate:
-
-   ```sh
-   ./scripts/deploy-protocol.sh testnet dry-run
-   ```
-
-   Expected: exact chain-46630 raw CREATE2 preflight passes in a separate temporary Anvil instance; component code, factory dependencies, Safe ownership and native Robinhood limits match. No public submission or active web-binding promotion occurs. This rehearsal is still pending the commits above.
+Rehearsal evidence is `artifacts/testnet-release-005/dry-run.log`. The final evidence commit changes no contract source, deployment script or operational manifest relative to the rehearsed candidate.
 
 ## Public deployment and explorer acceptance
 
