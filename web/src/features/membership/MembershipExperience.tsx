@@ -1457,7 +1457,7 @@ export function MembershipExperience({
           <aside className="supporter-secondary">
             <section className="claim-groups" aria-labelledby="claims-title">
               <h2 id="claims-title">Your earnings</h2>
-              {earnings.isError ? (
+              {earnings.isError && !earnings.data ? (
                 <p role="alert">
                   Earnings unavailable.{" "}
                   <button
@@ -1496,7 +1496,7 @@ export function MembershipExperience({
                             }
                             format={paymentLabel}
                             refresh={() => earnings.refetch()}
-                            active={!earnings.isError}
+                            active={Boolean(earnings.data)}
                           />
                         </div>
                       ),

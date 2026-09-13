@@ -261,12 +261,10 @@ function HydratedDiscovery({
   });
   // Both the summary and cards use the same claim preview, never stored balances.
   const rewards = new Map(
-    earnings.isError
-      ? []
-      : earnings.data?.results.map(
-          (result, index) =>
-            [rewardTiers[index].tier.toLowerCase(), result] as const,
-        ),
+    earnings.data?.results.map(
+      (result, index) =>
+        [rewardTiers[index].tier.toLowerCase(), result] as const,
+    ),
   );
   const totals = new Map<Address, bigint>();
   for (const tier of currentCache.results) {
@@ -316,7 +314,8 @@ function HydratedDiscovery({
         onRefresh={refresh}
       >
         <div className="account-reward-balances">
-          {discovery.isError || earnings.isError ? (
+          {(discovery.isError && !discovery.data) ||
+          (earnings.isError && !earnings.data) ? (
             <p role="alert">Rewards unavailable. Refresh to try again.</p>
           ) : discovery.isPending ||
             (rewardTiers.length > 0 && earnings.isPending) ? (
@@ -336,7 +335,7 @@ function HydratedDiscovery({
                       streams={streamsFor(token)}
                       format={(raw) => claimLabel(raw, token)}
                       refresh={() => earnings.refetch()}
-                      active={!earnings.isError}
+                      active={Boolean(earnings.data)}
                     />
                   </p>
                   {quote && (
@@ -348,7 +347,7 @@ function HydratedDiscovery({
                           `≈ ${formatRewardUsd(raw, quote.price)}`
                         }
                         refresh={() => earnings.refetch()}
-                        active={!earnings.isError}
+                        active={Boolean(earnings.data)}
                       />
                     </p>
                   )}
@@ -383,11 +382,10 @@ function HydratedDiscovery({
       {discovery.isPending && (
         <p role="status">Looking for memberships connected to this wallet.</p>
       )}
-      {(discovery.isError || !discovery.data) &&
-        currentCache.results.length > 0 && (
-          <p role="status">Refresh to update your memberships.</p>
-        )}
-      {discovery.error && (
+      {!discovery.data && currentCache.results.length > 0 && (
+        <p role="status">Refresh to update your memberships.</p>
+      )}
+      {discovery.error && !discovery.data && (
         <p role="alert">
           {classifyReadError(discovery.error).label}{" "}
           <button type="button" onClick={() => void discovery.refetch()}>
@@ -428,7 +426,7 @@ function HydratedDiscovery({
                 streams={[stream]}
                 format={(raw) => claimLabel(raw, tier.paymentToken)}
                 refresh={() => earnings.refetch()}
-                active={!earnings.isError}
+                active={Boolean(earnings.data)}
               />
             ) : (
               "—"
@@ -503,7 +501,7 @@ function HydratedDiscovery({
                       More memberships in {tier.name}
                     </button>
                   )}
-                  {earnings.isError && (
+                  {earnings.isError && !earnings.data && (
                     <p className="small-copy">Rewards unavailable.</p>
                   )}
                   {((current?.retired ?? 0n) > 0n ||

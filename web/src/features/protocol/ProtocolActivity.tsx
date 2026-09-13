@@ -11,6 +11,7 @@ import { usePublicClient } from "wagmi";
 import { zeroAddress, type Address, type PublicClient } from "viem";
 import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import { CopyableAddress } from "@/features/membership/RendererDetails";
+import { retainSnapshotOnReadFailure } from "@/lib/read-state";
 import { ReadStateView } from "@/components/ReadState";
 import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
@@ -82,6 +83,15 @@ export function ProtocolActivity({
       const snapshot = await readPublicBuybacks(client!, deployment, {
         assetOffset,
       });
+      retainSnapshotOnReadFailure(
+        snapshot,
+        cache.getQueryData<State>([
+          "protocol",
+          chainId,
+          "snapshot",
+          assetOffset,
+        ]),
+      );
       return snapshot.status === "valid"
         ? {
             ...snapshot,
@@ -141,12 +151,6 @@ export function ProtocolActivity({
           Refresh activity
         </button>
       </header>
-      {query.isError && (
-        <p className="inline-status" role="alert">
-          The latest read failed. Displayed amounts are from the previous
-          snapshot.
-        </p>
-      )}
       {!state ? (
         <p role="status">Loading public protocol data…</p>
       ) : state.status !== "valid" ? (
@@ -207,7 +211,7 @@ export function ProtocolActivity({
                     <div>
                       <dt>Available</dt>
                       <dd>
-                        {funding.isError ? (
+                        {funding.isError && !funding.data ? (
                           "Unavailable"
                         ) : !funding.data ? (
                           "…"
@@ -229,7 +233,7 @@ export function ProtocolActivity({
                               `${formatLocalizedTokenAmount({ raw, decimals: item.data.metadata?.decimals ?? 0, multiplier: item.data.metadata?.uiMultiplier ?? 10n ** 18n })} ${item.data.metadata?.symbol ?? ""}`
                             }
                             refresh={() => refresh()}
-                            active={!funding.isError && !query.isError}
+                            active={Boolean(funding.data)}
                           />
                         )}
                       </dd>
@@ -558,7 +562,7 @@ function TierForecasts({
     >
       <summary id="forecast-title">Membership funding</summary>
       <p>Funding from current memberships, earned as paid time is used.</p>
-      {tiers.isError ? (
+      {tiers.isError && !tiers.data ? (
         <p className="inline-status">Tier discovery is unavailable.</p>
       ) : tiers.isPending ? (
         <p role="status">Loading tiers…</p>
@@ -675,7 +679,7 @@ function TierForecast({
     ],
     queryFn: () => readTierFunding(client, tier, { blockNumber }),
   });
-  if (funding.isError)
+  if (funding.isError && !funding.data)
     return (
       <p role="alert">
         Membership funding could not be read. Refresh to try again.
@@ -720,7 +724,7 @@ function TierForecast({
                   `${formatLocalizedTokenAmount({ raw, decimals: token.data!.decimals, multiplier: token.data!.uiMultiplier })} ${token.data!.symbol}`
                 }
                 refresh={() => funding.refetch()}
-                active={!funding.isError}
+                active={Boolean(funding.data)}
               />
             ) : (
               display(current.earnedHeld)
@@ -783,7 +787,7 @@ function ActivityHistory({
         Fee releases, donations, conversions, burns and Safe changes. Pons
         trading compensation has its own ledger below.
       </p>
-      {history.isError && (
+      {history.isError && !history.data && (
         <p role="alert" className="inline-status">
           Activity history is unavailable.
         </p>

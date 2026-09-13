@@ -10,6 +10,7 @@ import { getDeployment, publicConfig } from "@/lib/config";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import {
   classifyReadError,
+  retainSnapshotOnReadFailure,
   type ReadState,
   unavailableDeploymentState,
 } from "@/lib/read-state";
@@ -63,12 +64,16 @@ export function TierReadPanel({
   async function read(id: bigint) {
     if (deployment.status !== "ready") throw new Error(deployment.detail);
     if (!client) throw new Error("No public client is available.");
-    return readTierSupporterState(client, {
+    const next = await readTierSupporterState(client, {
       tier: tierAddress,
       deployment,
       wallet: account.address,
       tokenId: id,
     });
+    return retainSnapshotOnReadFailure(
+      next,
+      queries.getQueryData<ReadState<TierSupporterSnapshot>>(queryKey(id)),
+    );
   }
   const tier = useQuery({
     queryKey: queryKey(tokenId),

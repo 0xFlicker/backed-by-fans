@@ -84,3 +84,18 @@ export function unavailableDeploymentState(
     label: deployment.detail,
   };
 }
+
+// Let TanStack Query retain the last successful snapshot on transient read failure.
+export function retainSnapshotOnReadFailure<
+  T extends { status: string; label?: string; reason?: string },
+>(next: T, previous?: { status: string }): T {
+  if (
+    (previous?.status === "valid" || previous?.status === "stale") &&
+    (next.status === "rate-limited" ||
+      next.status === "partial" ||
+      (next.status === "unavailable" && next.reason === "rpc-unavailable"))
+  ) {
+    throw new Error(next.label ?? "Refresh unavailable");
+  }
+  return next;
+}

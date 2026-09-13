@@ -63,7 +63,7 @@ export function PaymentFlow({
         streams={[paymentFlowStream(selected, kind, category)]}
         base={base}
         format={format}
-        active={!query.isError}
+        active={Boolean(selected)}
         refresh={() => query.refetch()}
       />
     );
@@ -103,7 +103,7 @@ export function PaymentFlow({
           </label>
         )}
       </div>
-      {query.isError && (
+      {query.isError && !selected && (
         <p role="alert">
           Payment totals could not be refreshed.
           {selected ? " Showing the previous snapshot." : ""}{" "}
