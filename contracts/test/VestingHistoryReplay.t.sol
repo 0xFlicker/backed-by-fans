@@ -39,7 +39,7 @@ contract VestingHistoryReplayTest is Test {
             address(new OnchainMediaStoreFactory()),
             address(this),
             address(0),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(token))
         );
     }
@@ -191,9 +191,9 @@ contract VestingHistoryReplayTest is Test {
             bool voluntary = tier.pricePerPeriod() == 0;
             vm.prank(_member(target));
             if (voluntary) {
-                tier.createContributionMembership(op == 2 ? 0 : arg, _referrer(target % 2));
+                tier.createContributionMembership(op == 2 ? 0 : arg, _referrer(target % 2), 25);
             } else {
-                tier.createMembership(arg.toUint64(), _referrer(target % 2));
+                tier.createMembership(arg.toUint64(), _referrer(target % 2), 25);
             }
         } else if (op == 1 || op == 3) {
             address beneficiary = tier.ownerOf(target);
@@ -202,21 +202,21 @@ contract VestingHistoryReplayTest is Test {
                 locked == address(0) ? _referrer((uint160(beneficiary) - 0x100) % 2) : locked;
             bool voluntary = tier.pricePerPeriod() == 0;
             vm.prank(beneficiary);
-            if (voluntary) tier.renewContributionMembership(target, op == 3 ? 0 : arg, choice);
-            else tier.renewMembership(target, arg.toUint64(), choice);
+            if (voluntary) tier.renewContributionMembership(target, op == 3 ? 0 : arg, choice, 25);
+            else tier.renewMembership(target, arg.toUint64(), choice, 25);
         } else if (op == 4) {
             vm.prank(_owner(ownerIndex));
-            tier.grantMembership(_member(target), arg.toUint64());
+            tier.grantMembership(_member(target), arg.toUint64(), 25);
         } else if (op == 5 || op == 6 || op == 7) {
             address beneficiary = tier.ownerOf(target);
             vm.prank(_owner(ownerIndex));
-            if (op == 5) tier.addGrantTime(target, beneficiary, arg.toUint64());
-            else if (op == 6) tier.revokeGrantTime(target, beneficiary);
-            else refunded += tier.refund(target, beneficiary, type(uint256).max);
+            if (op == 5) tier.addGrantTime(target, beneficiary, arg.toUint64(), 25);
+            else if (op == 6) tier.revokeGrantTime(target, beneficiary, 25);
+            else refunded += tier.refund(target, beneficiary, type(uint256).max, 25);
         } else if (op == 9) {
             address beneficiary = tier.ownerOf(target);
             vm.prank(beneficiary);
-            uint256 amount = tier.claimReward(target);
+            uint256 amount = tier.claimReward(target, 25);
             positionClaimed[target] += amount;
             claimed[1] += amount;
         } else if (op == 10) {
@@ -237,11 +237,11 @@ contract VestingHistoryReplayTest is Test {
             vm.prank(_owner(ownerIndex));
             tier.acceptOwnership();
         } else if (op == 15) {
-            tier.giftMembership(_member(target), arg.toUint64());
+            tier.giftMembership(_member(target), arg.toUint64(), 25);
         } else if (op == 16) {
             address beneficiary = tier.ownerOf(target);
             (MembershipTypes.ReferralStatus status, address referrer) = tier.referralOf(target);
-            tier.giftRenewal(target, beneficiary, arg.toUint64(), status, referrer);
+            tier.giftRenewal(target, beneficiary, arg.toUint64(), status, referrer, 25);
         } else if (op == 17) {
             vm.prank(_owner(ownerIndex));
             tier.setPaused(true);

@@ -8,18 +8,19 @@ import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {ProtocolBurnRouterTest} from "./ProtocolBurnRouter.t.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {AdversarialERC20} from "./mocks/AdversarialERC20.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract ClaimEverythingTest is ProtocolBurnRouterTest {
     function test_claimEverythingSettlesAndPaysCurrentCreatorAcrossTiers() public {
         MembershipTier second = _secondTier();
         token.approve(address(second), 1000);
-        uint256 ownId = second.createMembership(1, address(0));
+        uint256 ownId = second.createMembership(1, address(0), 25);
         vm.warp(1150);
         MembershipTypes.TierClaimRequest[] memory targets = _requests(tier, second);
         uint256 beforeBalance = token.balanceOf(address(this));
         targets[1].tokenIds = _ids(ownId);
-        MembershipTypes.ClaimResult[] memory results = factory.claimEverything(targets);
+        MembershipTypes.ClaimResult[] memory results = factory.claimEverything(targets, 25);
         assertEq(results.length, 2);
         assertGt(results[0].creator, 0);
         assertGt(results[1].creator, 0);
@@ -35,12 +36,12 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
     function test_claimRewardsCombinesMemberReferralAndCreator() public {
         MembershipTier second = _secondTier();
         token.approve(address(second), 1000);
-        uint256 ownId = second.createMembership(1, address(0));
+        uint256 ownId = second.createMembership(1, address(0), 25);
         address buyer = makeAddr("referred buyer");
         token.mint(buyer, 1000);
         vm.startPrank(buyer);
         token.approve(address(second), 1000);
-        second.createMembership(1, address(this));
+        second.createMembership(1, address(this), 25);
         vm.stopPrank();
         vm.warp(1150);
         MembershipTypes.AccountingPreview memory preview =
@@ -110,10 +111,10 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
     function test_rejectsDuplicateAndUnregisteredTargets() public {
         MembershipTypes.TierClaimRequest[] memory targets = _requests(tier, tier);
         vm.expectRevert(MembershipFactory.InvalidClaimBatch.selector);
-        factory.claimEverything(targets);
+        factory.claimEverything(targets, 25);
         targets[1].tier = address(123);
         vm.expectRevert(MembershipFactory.InvalidClaimBatch.selector);
-        factory.claimEverything(targets);
+        factory.claimEverything(targets, 25);
     }
 
     function test_reportsBlockedTierAndRollsBackEarlierClaims() public {
@@ -123,7 +124,7 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
             token.mint(buyer, 1000);
             vm.startPrank(buyer);
             token.approve(address(second), 1000);
-            second.createMembership(1, address(0));
+            second.createMembership(1, address(0), 25);
             vm.stopPrank();
         }
         vm.warp(1200);
@@ -139,11 +140,11 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
                 uint64(1200)
             )
         );
-        factory.claimEverything(targets);
+        factory.claimEverything(targets, 25);
         assertEq(token.balanceOf(address(this)), balance);
         assertEq(tier.accountingStatus().accountedThrough, cursor);
         while (!second.accountingStatus().complete) second.processAccounting(25);
-        factory.claimEverything(targets);
+        factory.claimEverything(targets, 25);
         assertGt(token.balanceOf(address(this)), balance);
     }
 
@@ -162,7 +163,7 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
                 abi.encodeWithSelector(AdversarialERC20.ForcedTransferRevert.selector)
             )
         );
-        factory.claimEverything(targets);
+        factory.claimEverything(targets, 25);
         assertEq(token.balanceOf(address(this)), beforeBalance);
         assertEq(second.ownerOf(1), address(this), "failed payout restores retired NFT");
         assertEq(second.accountingStatus().accountedThrough, secondCursor);
@@ -170,7 +171,7 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         (uint256 rolledBackRetired,) = second.claimableRetiredReward(address(this));
         assertEq(rolledBackRetired, 0);
         other.setTransferBehavior(AdversarialERC20.Behavior.Normal);
-        factory.claimEverything(targets);
+        factory.claimEverything(targets, 25);
         assertGt(token.balanceOf(address(this)), beforeBalance);
         assertGt(other.balanceOf(address(this)), 0);
     }
@@ -180,9 +181,9 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         MembershipTypes.TierClaimRequest[] memory targets =
             new MembershipTypes.TierClaimRequest[](1);
         targets[0] = MembershipTypes.TierClaimRequest(address(second), new uint256[](0));
-        other.setCallback(address(factory), abi.encodeCall(factory.claimEverything, (targets)));
+        other.setCallback(address(factory), abi.encodeCall(factory.claimEverything, (targets, 25)));
         other.setTransferBehavior(AdversarialERC20.Behavior.Callback);
-        factory.claimEverything(targets);
+        factory.claimEverything(targets, 25);
         assertEq(other.callbackAttempts(), 1);
         assertFalse(other.lastCallbackSucceeded());
     }
@@ -190,9 +191,9 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
     function test_depletedBudgetAllowsContinuousSettlementButNotAnotherCheckpoint() public {
         MembershipTier second = _secondTier();
         for (uint256 i; i < 25; ++i) {
-            tier.grantMembership(address(this), 1);
+            tier.grantMembership(address(this), 1, 25);
         }
-        uint256 secondId = second.grantMembership(address(this), 1);
+        uint256 secondId = second.grantMembership(address(this), 1, 25);
         vm.warp(1200);
         MembershipTypes.TierClaimRequest[] memory targets = _requests(tier, second);
         uint256 occupiedBefore = tier.occupiedSupply();
@@ -205,18 +206,18 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
                 uint64(1200)
             )
         );
-        factory.claimEverything(targets);
+        factory.claimEverything(targets, 25);
         assertEq(tier.occupiedSupply(), occupiedBefore, "earlier retirements roll back");
         assertEq(second.ownerOf(secondId), address(this));
         second.processAccounting(1);
-        MembershipTypes.ClaimResult[] memory results = factory.claimEverything(targets);
+        MembershipTypes.ClaimResult[] memory results = factory.claimEverything(targets, 25);
         assertEq(results[0].processedSteps, 25);
         assertEq(results[1].processedSteps, 0);
         assertEq(tier.occupiedSupply(), 1);
     }
 
     function test_directClaimsRejectDuplicateInvalidAndUnownedIdsBeforeAccounting() public {
-        uint256 id = tier.grantMembership(address(this), 1);
+        uint256 id = tier.grantMembership(address(this), 1, 25);
         uint256[] memory ids = new uint256[](2);
         ids[0] = id;
         ids[1] = id;
@@ -236,52 +237,49 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         assertEq(tier.accountingStatus().accountedThrough, cursor);
     }
 
-    function test_directClaimBoundAccepts32AndRejects33Selections() public {
+    function test_directClaimAcceptsAboveFormerPositionAndWorkBounds() public {
         uint256[] memory ids = new uint256[](33);
         for (uint256 i; i < ids.length; ++i) {
-            ids[i] = tier.grantMembership(address(this), 1);
+            ids[i] = tier.grantMembership(address(this), 1, 25);
         }
-        vm.expectRevert(MembershipTier.InvalidClaim.selector);
-        tier.claimRewards(ids, 25);
+        assertEq(tier.claimRewards(ids, 25).processedSteps, 0);
         assembly ("memory-safe") { mstore(ids, 32) }
         MembershipTypes.ClaimResult memory result = tier.claimRewards(ids, 25);
         assertEq(result.liveReward + result.retiredReward, 0);
-        vm.expectRevert(MembershipTier.InvalidClaim.selector);
-        tier.claimRewards(ids, 26);
+        assertEq(tier.claimRewards(ids, 26).processedSteps, 0);
     }
 
-    function test_factoryEnforces32AggregateIdsAndEightUniqueTiers() public {
+    function test_factoryAcceptsAboveFormerPositionAndTierBounds() public {
         MembershipTier second = _secondTier();
         MembershipTypes.TierClaimRequest[] memory targets = _requests(tier, second);
         targets[0].tokenIds = new uint256[](16);
         targets[1].tokenIds = new uint256[](17);
         for (uint256 i; i < 16; ++i) {
-            targets[0].tokenIds[i] = tier.grantMembership(address(this), 1);
+            targets[0].tokenIds[i] = tier.grantMembership(address(this), 1, 25);
         }
         for (uint256 i; i < 17; ++i) {
-            targets[1].tokenIds[i] = second.grantMembership(address(this), 1);
+            targets[1].tokenIds[i] = second.grantMembership(address(this), 1, 25);
         }
-        vm.expectRevert(MembershipFactory.InvalidClaimBatch.selector);
-        factory.claimEverything(targets);
+        assertEq(factory.claimEverything(targets, 25).length, 2);
         uint256[] memory secondIds = targets[1].tokenIds;
         assembly ("memory-safe") { mstore(secondIds, 16) }
-        assertEq(factory.claimEverything(targets).length, 2);
+        assertEq(factory.claimEverything(targets, 25).length, 2);
 
         targets = new MembershipTypes.TierClaimRequest[](9);
         for (uint256 i; i < 9; ++i) {
             MembershipTier created = _tierWithSalt(1000 + i);
             targets[i] = MembershipTypes.TierClaimRequest(address(created), new uint256[](0));
         }
-        vm.expectRevert(MembershipFactory.InvalidClaimBatch.selector);
-        factory.claimEverything(targets);
+        _sortRequests(targets);
+        assertEq(factory.claimEverything(targets, 25).length, 9);
         assembly ("memory-safe") { mstore(targets, 8) }
-        assertEq(factory.claimEverything(targets).length, 8);
+        assertEq(factory.claimEverything(targets, 25).length, 8);
     }
 
     function test_selectedPositionRetiringDuringClaimPaysRetiredCategoryOnceWhilePaused() public {
         MembershipTier second = _secondTier();
         token.approve(address(second), 1000);
-        uint256 id = second.createMembership(1, address(0));
+        uint256 id = second.createMembership(1, address(0), 25);
         second.setPaused(true);
         vm.warp(1200);
         uint256 beforeBalance = token.balanceOf(address(this));
@@ -305,19 +303,19 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         MembershipTier second = _secondTier();
         token.mint(address(this), 3000);
         token.approve(address(second), 3000);
-        second.createMembership(1, address(0));
+        second.createMembership(1, address(0), 25);
         vm.warp(1200);
         second.processAccounting(25);
         (uint256 retired,) = second.claimableRetiredReward(address(this));
         assertGt(retired, 0);
         uint256[] memory ids = new uint256[](2);
-        ids[0] = second.createMembership(1, address(0));
-        ids[1] = second.createMembership(1, address(0));
+        ids[0] = second.createMembership(1, address(0), 25);
+        ids[1] = second.createMembership(1, address(0), 25);
         address buyer = makeAddr("multi-position referred buyer");
         token.mint(buyer, 1000);
         vm.startPrank(buyer);
         token.approve(address(second), 1000);
-        second.createMembership(1, address(this));
+        second.createMembership(1, address(this), 25);
         vm.stopPrank();
         vm.warp(1250);
         second.processAccounting(25);
@@ -340,12 +338,12 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
     function test_emptySelectionPaysRetiredReferralAndCreatorWithoutAnNft() public {
         MembershipTier second = _secondTier();
         token.approve(address(second), 1000);
-        second.createMembership(1, address(0));
+        second.createMembership(1, address(0), 25);
         address buyer = makeAddr("empty-selection referred buyer");
         token.mint(buyer, 1000);
         vm.startPrank(buyer);
         token.approve(address(second), 1000);
-        second.createMembership(1, address(this));
+        second.createMembership(1, address(this), 25);
         vm.stopPrank();
         vm.warp(1200);
         second.processAccounting(25);
@@ -389,10 +387,11 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         config.pricePerPeriod = 1000;
         config.periodDuration = 100;
         config.tierSalt = bytes32(uint256(123));
+        _canonicalSecondSalt(config);
         second = MembershipTier(factory.createTier(config));
         other.mint(address(this), 1000);
         other.approve(address(second), 1000);
-        second.createMembership(1, address(0));
+        second.createMembership(1, address(0), 25);
         vm.warp(1200);
     }
 
@@ -404,7 +403,7 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
             token.approve(address(tiers[t]), type(uint256).max);
             uint256 count = t == 0 ? 101 : 1;
             for (uint256 j; j < count; ++j) {
-                tiers[t].createMembership(1, address(this));
+                tiers[t].createMembership(1, address(this), 25);
             }
         }
         MembershipTypes.PositionPage memory first = tiers[0].tokensOfOwner(address(this), 0, 100);
@@ -421,12 +420,12 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         for (uint256 t; t < 9; ++t) {
             oversized[t] = MembershipTypes.TierClaimRequest(address(tiers[t]), new uint256[](0));
         }
-        vm.expectRevert(MembershipFactory.InvalidClaimBatch.selector);
-        factory.claimEverything(oversized);
+        _sortRequests(oversized);
+        factory.claimEverything(oversized, 25);
         oversized = new MembershipTypes.TierClaimRequest[](1);
         oversized[0] = MembershipTypes.TierClaimRequest(address(tiers[0]), _range(1, 33));
-        vm.expectRevert(MembershipFactory.InvalidClaimBatch.selector);
-        factory.claimEverything(oversized);
+        _sortRequests(oversized);
+        factory.claimEverything(oversized, 25);
 
         vm.warp(1150);
         uint256 paid;
@@ -477,8 +476,8 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         MembershipTier second = _secondTier();
         token.mint(address(this), 2000);
         token.approve(address(second), 2000);
-        uint256 first = second.createMembership(1, address(0));
-        uint256 last = second.createMembership(1, address(0));
+        uint256 first = second.createMembership(1, address(0), 25);
+        uint256 last = second.createMembership(1, address(0), 25);
         MembershipTypes.TierClaimRequest[] memory batch = _requests(tier, second);
         batch[1].tokenIds = _range(first, 2);
         vm.warp(1150);
@@ -486,15 +485,25 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         uint256 beforeBalance = token.balanceOf(address(this));
         uint64 cursor = tier.accountingStatus().accountedThrough;
         vm.expectRevert();
-        factory.claimEverything(batch);
+        factory.claimEverything(batch, 25);
         assertEq(token.balanceOf(address(this)), beforeBalance);
         assertEq(tier.accountingStatus().accountedThrough, cursor);
-        second.refund(first, address(this), 1000);
+        second.refund(first, address(this), 1000, 25);
         batch[1].tokenIds = _ids(first);
         vm.expectRevert();
-        factory.claimEverything(batch);
+        factory.claimEverything(batch, 25);
         assertEq(token.balanceOf(address(this)), beforeBalance + 500);
         assertEq(tier.accountingStatus().accountedThrough, cursor);
+    }
+
+    function _sortRequests(MembershipTypes.TierClaimRequest[] memory requests) private pure {
+        for (uint256 i = 1; i < requests.length; ++i) {
+            uint256 j = i;
+            while (j > 0 && requests[j - 1].tier > requests[j].tier) {
+                (requests[j - 1], requests[j]) = (requests[j], requests[j - 1]);
+                --j;
+            }
+        }
     }
 
     function _range(uint256 start, uint256 count) private pure returns (uint256[] memory ids) {
@@ -508,6 +517,7 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         private
         returns (uint256 total)
     {
+        _sortRequests(batch);
         MembershipTypes.ClaimPreview[] memory previews =
             new MembershipTypes.ClaimPreview[](batch.length);
         uint256 remaining = 25;
@@ -518,7 +528,7 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
             remaining -= previews[t].processedSteps;
         }
         uint256 beforeBalance = token.balanceOf(address(this));
-        MembershipTypes.ClaimResult[] memory results = factory.claimEverything(batch);
+        MembershipTypes.ClaimResult[] memory results = factory.claimEverything(batch, 25);
         for (uint256 t; t < batch.length; ++t) {
             MembershipTypes.ClaimPreview memory preview = previews[t];
             uint256 live;
@@ -550,6 +560,21 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         config.referralBps = 1000;
         config.pricePerPeriod = 1000;
         config.periodDuration = 100;
+        _canonicalSecondSalt(config);
         return MembershipTier(factory.createTier(config));
+    }
+
+    function _canonicalSecondSalt(MembershipTypes.TierConfig memory config) private view {
+        bytes32 seed = config.tierSalt;
+        uint256 nonce;
+        while (
+            Clones.predictDeterministicAddress(
+                        factory.implementation(),
+                        keccak256(abi.encode(address(this), config.tierSalt)),
+                        address(factory)
+                    ) <= address(tier) || factory.isTierSaltUsed(address(this), config.tierSalt)
+        ) {
+            config.tierSalt = keccak256(abi.encode(seed, ++nonce));
+        }
     }
 }

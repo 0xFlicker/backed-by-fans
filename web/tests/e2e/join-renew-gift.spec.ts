@@ -54,9 +54,7 @@ test.describe("configured Anvil join, renew, and gift", () => {
       await expectReconciled(page, "New membership");
 
       const tokenId = await expectSingleOwnedPosition(client, tier, member);
-      await page
-        .getByRole("combobox", { name: "Membership action" })
-        .selectOption(tokenId.toString());
+
       await page
         .getByRole("textbox", { name: "Periods", exact: true })
         .fill("1");
@@ -78,6 +76,32 @@ test.describe("configured Anvil join, renew, and gift", () => {
           .getByRole("region", { name: "Current membership status" })
           .getByRole("heading", { name: "Membership active" }),
       ).toBeVisible();
+
+      await expect(
+        page.getByRole("combobox", { name: "Your memberships" }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Join again", exact: true }),
+      ).toBeVisible();
+      await page
+        .getByRole("region", { name: "Current membership status" })
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath("returning-member-desktop.png"),
+      });
+      await page.setViewportSize({ width: 320, height: 780 });
+      await expect(
+        page.getByRole("button", { name: "Join again", exact: true }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath("returning-member-mobile.png"),
+      });
+      await page.setViewportSize({ width: 1280, height: 720 });
 
       const renew = page.getByRole("button", {
         name: `Renew membership #${tokenId}`,
@@ -183,9 +207,7 @@ test("@anvil free renewal preserves a live position and a return starts fresh", 
       .click();
     await expectReconciled(page);
     const id = await expectSingleOwnedPosition(client, tier, creator);
-    await page
-      .getByRole("combobox", { name: "Membership action" })
-      .selectOption(id.toString());
+
     const oldShares = await client.readContract({
       ...common,
       functionName: "sharesOf",
@@ -219,9 +241,7 @@ test("@anvil free renewal preserves a live position and a return starts fresh", 
     await rpcRequest("evm_setNextBlockTimestamp", [Number(expiry)]);
     await rpcRequest("evm_mine");
     await page.reload();
-    await page
-      .getByRole("combobox", { name: "Membership action" })
-      .selectOption(id.toString());
+
     await expect(
       page.getByRole("button", { name: "Membership ended", exact: true }),
     ).toBeDisabled();

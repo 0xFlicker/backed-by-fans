@@ -28,8 +28,6 @@ interface IRendererRegistry {
 
     function rendererSchema() external view returns (bytes32);
 
-    function maxPageSize() external view returns (uint256);
-
     function maxInitCodeBytes() external view returns (uint256);
 
     function deployAndRegister(bytes calldata initCode) external returns (address renderer);

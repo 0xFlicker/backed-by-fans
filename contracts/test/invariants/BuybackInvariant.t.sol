@@ -252,7 +252,7 @@ contract BuybackInvariantTest is StdInvariant, Test {
                     media,
                     address(this),
                     address(token),
-                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.implementation(),
                     MembershipTestConfig.minimumPayments(assets)
                 )
             )
@@ -279,7 +279,7 @@ contract BuybackInvariantTest is StdInvariant, Test {
         token.mint(address(0xDEAD), 1200);
         vm.startPrank(address(0xDEAD));
         token.approve(address(tier), 1200);
-        uint256 id = tier.createMembership(12, address(0xCAFE));
+        uint256 id = tier.createMembership(12, address(0xCAFE), 25);
         vm.stopPrank();
         _handler = new BuybackHandler(vault, tier, token, curve, payment, id);
         bytes4[] memory selectors = new bytes4[](5);

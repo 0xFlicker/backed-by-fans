@@ -171,17 +171,21 @@ A gift creating a new membership leaves its referral choice unset, even if the r
 
 Referral rewards follow the same time-based model as other earnings. A referrer earns their allocation while the referred membership’s funded time is used and can claim the earned amount in that tier’s payment currency.
 
+## Fixed tier contracts
+
+A single factory creates each tier as a standard ERC-1167 minimal proxy pointing to one fixed implementation. Every tier keeps its own balances, memberships, creator authority, and economic settings. Initialization happens once, atomically with creation. The shared implementation cannot be initialized, and neither the proxy target nor the implementation is upgradeable. Sharing code reduces deployment work without allowing the factory owner to rewrite a tier’s fixed terms.
+
 ## Managing several memberships
 
-Membership lists identify each position by its chain, tier, and token ID. They load ownership in pages of at most 100 NFTs per tier and keep all pages of a snapshot at the same block. Transfers and burns can change list order, so a refresh starts ownership discovery again. An incomplete list is labeled as partial; its balances do not imply a complete wallet total.
+Membership lists identify each position by its chain, tier, and token ID. The application chooses a page size and keeps all pages of a snapshot at the same block. Transfers and burns can change list order, so a refresh starts ownership discovery again. An incomplete list is labeled as partial; its balances do not imply a complete wallet total.
 
-Claims select particular token IDs. A claim transaction supports up to 32 selected positions across at most eight tiers, with a shared limit of 25 accounting steps. Larger portfolios use additional pages and transactions. Execution verifies current ownership again, and a stale selection fails visibly rather than silently omitting a position. Retired, referral, and creator balances are counted once per tier, including for wallets with no remaining NFTs.
+Claim all discovers the wallet’s memberships and tier balances, then simulates and estimates transactions to choose batches that fit the network. Larger portfolios can require additional wallet confirmations. A rejected transaction leaves confirmed batches completed, and the remaining selection can be resumed. Fans can also select particular positions. Execution verifies ownership again; the application rechecks captured positions after maintenance and transfers without adding newly received memberships to an ongoing claim. Retired, referral, and creator balances are counted once per tier in each transaction, including for wallets with no remaining NFTs.
 
-Maintenance calls also have a limit of 25 steps. Each funding start, funding end, or membership retirement counts as one step. Calls save completed progress, so anyone can continue a large backlog through repeated transactions, including while paused. “Complete” means caught up through that transaction’s timestamp; newly elapsed time can create more work.
+Callers choose the accounting work budget for each maintenance or membership transaction. Contracts impose no fixed step, selection, or page maximum. Each funding start, funding end, or membership retirement counts as one step. Calls save completed progress, so anyone can continue a large backlog through repeated transactions, including while paused. “Complete” means caught up through that transaction’s timestamp; newly elapsed time can create more work.
 
 Purchases, renewals, gifts, contributions, grants, revocations, and refunds all maintain the expiration schedule. Changes to time, weight, or funding require accounting catch-up first. Complimentary and zero-contribution memberships also have expiration entries. If an atomic operation cannot finish its required catch-up, it reverts; explicit maintenance is the route that saves partial progress. Transfers, approvals, and already-settled retired withdrawals do not have this prerequisite.
 
-Previews report their timestamp, progress, and completeness. They can inspect up to 256 events, but a larger preview budget does not mean a transaction with a 25-step limit can finish. Unavailable or incomplete reads must not be presented as zero rewards or proof that a wallet has no membership.
+Previews report their timestamp, progress, and completeness using a caller-selected work budget. A complete preview does not guarantee that a later transaction has enough gas or work budget. Unavailable or incomplete reads must not be presented as zero rewards or proof that a wallet has no membership.
 
 ## The protocol token
 

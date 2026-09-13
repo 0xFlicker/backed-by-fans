@@ -44,7 +44,7 @@
 
 ## R6 — Bounded discovery and claims
 
-**Decision**: Page current owner indices with a hard 100-position page limit and one captured block per multi-page read. Remove unbounded wallet-level `isActive`/`activeBalanceOf` APIs; use `isActiveToken` for access proof and page-derived summaries with completeness. Batch claims select at most 32 IDs total across at most 8 tiers with 25 aggregate accounting steps. Reject duplicate tiers/IDs and stale ownership atomically. Claim retired-owner credit separately even when no NFTs remain. Creator, referral and retired categories are collected once per selected tier.
+**Decision**: Page current owner indices with a caller-supplied page limit and one captured block per multi-page read. Remove unbounded wallet-level `isActive`/`activeBalanceOf` APIs; use `isActiveToken` for access proof and page-derived summaries with completeness. Batch claims accept explicit sorted tier/ID lists and a caller-supplied aggregate accounting budget, without hard-coded iteration ceilings. Reject duplicate tiers/IDs and stale ownership atomically. Claim retired-owner credit separately even when no NFTs remain. Creator, referral and retired categories are collected once per selected tier.
 
 **Rationale**: The factory currently bounds tiers and accounting, but assumes one token per wallet. `account-cache.ts` keys only by tier; `membership-read.ts` and rewards readers use `tokenOf`. The existing creator expiration UI scans `totalMinted`; batching RPC calls does not bound that total scan. Explicit selected IDs keep execution bounded. Snapshot reads prevent swap-and-pop enumeration from skipping entries; submitted actions still revalidate current state.
 
@@ -68,4 +68,12 @@
 
 ## Research completion
 
-All technical unknowns identified for Phase 0 have a design decision above. Two read-only research agents inspected accounting and product surfaces; the findings were reconciled against the tier source, vendored ERC-721, project constitution and verification scripts. Numeric batching limits are design ceilings whose worst-case gas remains an implementation acceptance gate. No protocol transaction or test result is claimed by this research.
+All technical unknowns identified for Phase 0 have a design decision above. Two read-only research agents inspected accounting and product surfaces; the findings were reconciled against the tier source, vendored ERC-721, project constitution and verification scripts. Numeric batch maxima were removed by the 2026-09-12 amendment; callers choose bounds and measured resource use informs application batch sizing. No protocol transaction or test result is claimed by this research.
+
+## 2026-09-12 clone and caller-budget amendment
+
+Feature 005 remains open. One fixed implementation is deployed separately; the membership factory directly deploys standard deterministic ERC-1167 clones and initializes each atomically once. The implementation is initialization-locked. Initializable OpenZeppelin ERC-721 enumeration/ownership preserve independent tier state; fixed economic storage has no setters or upgrade path. Factory registration distinguishes official tiers. Tier A/B stores and the separate tier deployer are removed.
+
+Custom membership mutations accept an explicit accounting budget; factory claims share a caller budget across sorted tier requests by actual consumed steps. All protocol batch/page paths remove arbitrary numeric iteration ceilings. Inputs, economics and native Robinhood limits remain validated. Positive-budget maintenance saves chronological partial progress; atomic mutations revert if catch-up cannot finish. Standard ERC-5643 signatures require separate maintenance for due events. Transfer and settled retired-credit withdrawal do not run catch-up.
+
+Validation includes above-former-cap cases, small/large batch equivalence, locked/atomic clone initialization, independent storage, Claim all interruption/revalidation, and measured before/after gas. Replace only the owned fork/web at RPC 18557, chain 31337 and web 3110 using the existing private RPC/pin. Explorer verification/clone recognition is deferred to the next authorized testnet deployment. Previous evidence does not validate this amendment.

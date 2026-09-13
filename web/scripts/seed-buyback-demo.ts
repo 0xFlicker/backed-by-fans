@@ -277,7 +277,7 @@ try {
         tier,
         membershipTierAbi,
         "createMembership",
-        [4n, zeroAddress],
+        [4n, zeroAddress, 25n],
       );
       const created = parseEventLogs({
         abi: membershipTierAbi,

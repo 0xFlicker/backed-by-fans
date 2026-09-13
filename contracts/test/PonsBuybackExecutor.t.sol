@@ -60,7 +60,7 @@ contract PonsBuybackExecutorTest is Test {
                     media,
                     address(this),
                     address(token),
-                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.implementation(),
                     MembershipTestConfig.minimumPayments(assets)
                 )
             )
@@ -106,7 +106,7 @@ contract PonsBuybackExecutorTest is Test {
         MembershipTier tier = MembershipTier(factory.createTier(config));
         payment.mint(address(this), 300);
         payment.approve(address(tier), 200);
-        uint256 id = tier.createMembership(2, address(0));
+        uint256 id = tier.createMembership(2, address(0), 25);
         vm.warp(block.timestamp + 1);
         assertEq(id, 1);
         tier.processAccounting(25);
@@ -421,7 +421,7 @@ contract PonsBuybackExecutorTest is Test {
         (bool deposited,) = Integration.WETH.call{value: 230}(abi.encodeWithSignature("deposit()"));
         assertTrue(deposited);
         assertTrue(IERC20(Integration.WETH).approve(address(tier), 200));
-        uint256 id = tier.createMembership(2, address(0));
+        uint256 id = tier.createMembership(2, address(0), 25);
         assertTrue(IERC20(Integration.WETH).transfer(address(vault), 30));
         (bool sent,) = address(vault).call{value: 10}("");
         assertTrue(sent);

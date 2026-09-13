@@ -41,9 +41,9 @@ contract MembershipIdentityTest is Test {
     }
 
     function test_eachCreationMintsIndependentSequentialPositionForSameOwner() public {
-        uint256 first = tier.grantMembership(member, 1);
-        uint256 second = tier.grantMembership(member, 2);
-        uint256 third = tier.grantMembership(other, 1);
+        uint256 first = tier.grantMembership(member, 1, 25);
+        uint256 second = tier.grantMembership(member, 2, 25);
+        uint256 third = tier.grantMembership(other, 1, 25);
         assertEq(first, 1);
         assertEq(second, 2);
         assertEq(third, 3);
@@ -62,7 +62,7 @@ contract MembershipIdentityTest is Test {
         uint64 firstEnd = tier.expiresAt(first);
         uint64 secondEnd = tier.expiresAt(second);
         vm.prank(member);
-        tier.renewMembership(first, 1, referrer);
+        tier.renewMembership(first, 1, referrer, 25);
         assertEq(tier.totalMinted(), 2);
         assertEq(tier.balanceOf(member), 2);
         assertEq(tier.expiresAt(first), firstEnd + PERIOD);
@@ -82,7 +82,7 @@ contract MembershipIdentityTest is Test {
         vm.warp(end - 1);
         assertTrue(tier.isRenewable(id));
         vm.prank(member);
-        tier.renewMembership(id, 1, address(0));
+        tier.renewMembership(id, 1, address(0), 25);
         assertEq(tier.totalMinted(), 1);
         assertEq(tier.expiresAt(id), end + PERIOD);
         assertEq(tier.sharesOf(id), 2 * PRICE);
@@ -99,7 +99,7 @@ contract MembershipIdentityTest is Test {
                 abi.encodeWithSelector(MembershipTier.MembershipExpired.selector, id, end)
             );
             vm.prank(member);
-            tier.renewMembership(id, 1, address(0));
+            tier.renewMembership(id, 1, address(0), 25);
             vm.expectRevert(
                 abi.encodeWithSelector(MembershipTier.MembershipExpired.selector, id, end)
             );
@@ -118,12 +118,12 @@ contract MembershipIdentityTest is Test {
         MembershipTier curved = _deploy(config);
         _fundAndApprove(member, curved);
         vm.prank(member);
-        uint256 first = curved.createMembership(2, referrer);
+        uint256 first = curved.createMembership(2, referrer, 25);
         assertEq(curved.sharesOf(first), 4 * PRICE);
         uint64 end = curved.expiresAt(first);
         vm.warp(end);
         vm.prank(member);
-        uint256 second = curved.createMembership(1, other);
+        uint256 second = curved.createMembership(1, other, 25);
         assertGt(second, first);
         assertEq(curved.totalMinted(), 2);
         assertEq(curved.sharesOf(first), 0);
@@ -141,30 +141,30 @@ contract MembershipIdentityTest is Test {
             abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, first)
         );
         vm.prank(member);
-        curved.renewMembership(first, 1, referrer);
+        curved.renewMembership(first, 1, referrer, 25);
     }
 
     function test_selectedRenewalRequiresOwnerAndKeepsLockedReferral() public {
         uint256 id = _create(member, 1, referrer);
         vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
         vm.prank(other);
-        tier.renewMembership(id, 1, referrer);
+        tier.renewMembership(id, 1, referrer, 25);
         vm.expectRevert(MembershipTier.ReferralChoiceMismatch.selector);
         vm.prank(member);
-        tier.renewMembership(id, 1, other);
+        tier.renewMembership(id, 1, other, 25);
         assertEq(tier.sharesOf(id), PRICE);
         assertEq(tier.lifetimeGross(), PRICE);
     }
 
     function test_grantExtensionTargetsOnlySelectedIdAndExpectedOwner() public {
-        uint256 first = tier.grantMembership(member, 1);
-        uint256 second = tier.grantMembership(member, 1);
+        uint256 first = tier.grantMembership(member, 1, 25);
+        uint256 second = tier.grantMembership(member, 1, 25);
         uint64 end = tier.expiresAt(first);
-        tier.addGrantTime(first, member, 2);
+        tier.addGrantTime(first, member, 2, 25);
         assertEq(tier.expiresAt(first), end + 2 * PERIOD);
         assertEq(tier.expiresAt(second), end);
         vm.expectRevert();
-        tier.addGrantTime(first, other, 1);
+        tier.addGrantTime(first, other, 1, 25);
         assertEq(tier.expiresAt(first), end + 2 * PERIOD);
         assertEq(tier.sharesOf(first), 0);
         assertEq(tier.lifetimeGross(), 0);
@@ -175,16 +175,16 @@ contract MembershipIdentityTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, address(wallet))
         );
-        tier.grantMembership(address(wallet), 1);
+        tier.grantMembership(address(wallet), 1, 25);
         assertEq(tier.totalMinted(), 0);
         assertEq(tier.occupiedSupply(), 0);
         assertEq(tier.balanceOf(address(wallet)), 0);
-        assertEq(tier.grantMembership(member, 1), 1);
+        assertEq(tier.grantMembership(member, 1, 25), 1);
     }
 
     function test_ownerPagesBoundedAt100AndIncludeEveryIndependentPosition() public {
         for (uint256 i; i < 101; ++i) {
-            tier.grantMembership(member, 1);
+            tier.grantMembership(member, 1, 25);
         }
         MembershipTypes.PositionPage memory first = tier.tokensOfOwner(member, 0, 100);
         assertEq(first.tokenIds.length, 100);
@@ -211,7 +211,6 @@ contract MembershipIdentityTest is Test {
         tier.tokensOfOwner(address(0), 0, 1);
         vm.expectRevert();
         tier.tokensOfOwner(member, 0, 0);
-        vm.expectRevert();
         tier.tokensOfOwner(member, 0, 101);
         MembershipTypes.PositionPage memory empty = tier.tokensOfOwner(member, 10, 100);
         assertEq(empty.tokenIds.length, 0);
@@ -220,8 +219,8 @@ contract MembershipIdentityTest is Test {
     }
 
     function test_ownerEnumerationDropsBurnedPositionWithoutLosingSurvivor() public {
-        uint256 first = tier.grantMembership(member, 1);
-        uint256 second = tier.grantMembership(member, 2);
+        uint256 first = tier.grantMembership(member, 1, 25);
+        uint256 second = tier.grantMembership(member, 2, 25);
         vm.warp(tier.expiresAt(first));
         tier.processExpirations(1);
         MembershipTypes.PositionPage memory page = tier.tokensOfOwner(member, 0, 100);
@@ -235,12 +234,12 @@ contract MembershipIdentityTest is Test {
 
     function test_capacityCountsPositionsAndCreationCatchesUpExpiredCapacity() public {
         tier.setSupplyCap(2);
-        uint256 first = tier.grantMembership(member, 1);
-        uint256 second = tier.grantMembership(member, 2);
+        uint256 first = tier.grantMembership(member, 1, 25);
+        uint256 second = tier.grantMembership(member, 2, 25);
         vm.expectRevert(MembershipTier.CapacityReached.selector);
-        tier.grantMembership(member, 1);
+        tier.grantMembership(member, 1, 25);
         vm.warp(tier.expiresAt(first));
-        uint256 third = tier.grantMembership(member, 1);
+        uint256 third = tier.grantMembership(member, 1, 25);
         assertGt(third, second);
         assertEq(tier.occupiedSupply(), 2);
         assertEq(tier.balanceOf(member), 2);
@@ -253,13 +252,13 @@ contract MembershipIdentityTest is Test {
         uint256 second = _create(member, 2, address(0));
         vm.expectRevert(MembershipTier.PrepaymentLimitExceeded.selector);
         vm.prank(member);
-        tier.renewMembership(first, 1, address(0));
+        tier.renewMembership(first, 1, address(0), 25);
         assertEq(tier.sharesOf(first), 2 * PRICE);
         assertEq(tier.sharesOf(second), 2 * PRICE);
         assertEq(tier.lifetimeGross(), 4 * PRICE);
         vm.expectRevert(MembershipTier.InvalidPeriods.selector);
         vm.prank(member);
-        tier.createMembership(0, address(0));
+        tier.createMembership(0, address(0), 25);
     }
 
     function test_contributionsCreateIndependentIdsAndRenewExplicitTarget() public {
@@ -268,9 +267,9 @@ contract MembershipIdentityTest is Test {
         MembershipTier contributionTier = _deploy(config);
         _fundAndApprove(member, contributionTier);
         vm.startPrank(member);
-        uint256 first = contributionTier.createContributionMembership(0, referrer);
-        uint256 second = contributionTier.createContributionMembership(PRICE, referrer);
-        contributionTier.renewContributionMembership(first, PRICE, other);
+        uint256 first = contributionTier.createContributionMembership(0, referrer, 25);
+        uint256 second = contributionTier.createContributionMembership(PRICE, referrer, 25);
+        contributionTier.renewContributionMembership(first, PRICE, other, 25);
         vm.stopPrank();
         assertEq(first, 1);
         assertEq(second, 2);
@@ -282,14 +281,14 @@ contract MembershipIdentityTest is Test {
         assertEq(locked, other);
         vm.expectRevert(MembershipTier.IncorrectPricingMode.selector);
         vm.prank(member);
-        contributionTier.createMembership(1, address(0));
+        contributionTier.createMembership(1, address(0), 25);
         vm.expectRevert(MembershipTier.IncorrectPricingMode.selector);
         vm.prank(member);
-        tier.createContributionMembership(0, address(0));
+        tier.createContributionMembership(0, address(0), 25);
     }
 
     function test_erc5643RequiresOwnerIntegralDurationAndLockedPricedReferral() public {
-        uint256 granted = tier.grantMembership(member, 1);
+        uint256 granted = tier.grantMembership(member, 1, 25);
         assertFalse(tier.isRenewable(granted));
         vm.expectRevert(MembershipTier.ReferralChoiceRequired.selector);
         vm.prank(member);
@@ -316,8 +315,8 @@ contract MembershipIdentityTest is Test {
         config.pricePerPeriod = 0;
         MembershipTier contributionTier = _deploy(config);
         vm.startPrank(member);
-        uint256 first = contributionTier.createContributionMembership(0, address(0));
-        uint256 second = contributionTier.createContributionMembership(0, address(0));
+        uint256 first = contributionTier.createContributionMembership(0, address(0), 25);
+        uint256 second = contributionTier.createContributionMembership(0, address(0), 25);
         vm.expectRevert(MembershipTier.InvalidPeriods.selector);
         contributionTier.renewSubscription(first, 2 * PERIOD);
         contributionTier.renewSubscription(first, PERIOD);
@@ -329,7 +328,7 @@ contract MembershipIdentityTest is Test {
     }
 
     function test_nativeEthIsRejectedByAdaptersAndFallback() public {
-        uint256 id = tier.grantMembership(member, 1);
+        uint256 id = tier.grantMembership(member, 1, 25);
         vm.deal(member, 3 ether);
         vm.expectRevert(MembershipTier.NativeValueRejected.selector);
         vm.prank(member);
@@ -357,7 +356,7 @@ contract MembershipIdentityTest is Test {
         returns (uint256 id)
     {
         vm.prank(owner);
-        id = tier.createMembership(periods, referralChoice);
+        id = tier.createMembership(periods, referralChoice, 25);
     }
 
     function _fundAndApprove(address owner, MembershipTier target) private {
@@ -374,7 +373,7 @@ contract MembershipIdentityTest is Test {
     }
 
     function _deploy(MembershipTypes.TierConfig memory config) private returns (MembershipTier) {
-        return new MembershipTier(
+        return MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
     }

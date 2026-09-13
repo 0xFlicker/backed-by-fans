@@ -69,9 +69,9 @@ it("builds at most eight unique tiers sharing exactly 25 requested checkpoints",
     plan.tiers.reduce((sum, item) => sum + item.maxAccountingSteps, 0n),
   ).toBe(25n);
   expect(plan.purchases.map((item) => item.asset)).toEqual([
+    zeroAddress,
     addr(4),
     addr(7),
-    zeroAddress,
   ]);
   expect(plan.deadline).toBe(1300n);
   expect(

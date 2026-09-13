@@ -6,6 +6,7 @@ review and must resolve to the commits below.
 | Dependency | Tag | Commit | License |
 | --- | --- | --- | --- |
 | OpenZeppelin Contracts | `v5.7.0` | `cab19933c33c2ad1d4c7a84864a3601dddfd16f3` | MIT |
+| OpenZeppelin Contracts Upgradeable | `v5.7.0` | `14f52c54d3a1eefbda3d4071efba24d3c1e07e8a` | MIT |
 | forge-std | `v1.16.2` | `bf647bd6046f2f7da30d0c2bf435e5c76a780c1b` | MIT OR Apache-2.0 |
 
 The compiler is Solidity `0.8.36` and the required Foundry release is `v1.7.1`.
@@ -42,3 +43,5 @@ specifications, with original project comments:
 Tests derive the ERC-5192 and ERC-5643 identifiers from their Solidity
 signatures. ERC-4906 specifies a fixed identifier because its interface contains
 events rather than functions.
+
+The upgradeable package supplies initialization-aware ERC-721 enumeration and ownership storage for ERC-1167 clones. Backed By Fans exposes no upgrade mechanism: its implementation constructor disables initialization, each clone initializes once during factory creation, and its runtime embeds a fixed implementation address.

@@ -64,7 +64,7 @@ contract LocalLifecycleEvidenceTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(paymentTokens)
         );
 
@@ -109,13 +109,13 @@ contract LocalLifecycleEvidenceTest is Test {
         );
 
         vm.prank(member);
-        uint256 memberToken = tier.createMembership(1, referrer);
+        uint256 memberToken = tier.createMembership(1, referrer, 25);
         string memory activeTokenURI = tier.tokenURI(memberToken);
         assertGt(bytes(activeTokenURI).length, 0);
         vm.prank(giftPayer);
-        uint256 giftToken = tier.giftMembership(giftRecipient, 1);
+        uint256 giftToken = tier.giftMembership(giftRecipient, 1, 25);
         vm.prank(member);
-        tier.renewMembership(memberToken, 1, referrer);
+        tier.renewMembership(memberToken, 1, referrer, 25);
 
         assertEq(
             (tier.tokensOfOwner(member, 0, 1).balance == 0
@@ -168,13 +168,13 @@ contract LocalLifecycleEvidenceTest is Test {
         _assertTierCustody(0);
 
         vm.prank(creator);
-        uint256 grantToken = tier.grantMembership(grantRecipient, 1);
+        uint256 grantToken = tier.grantMembership(grantRecipient, 1, 25);
         assertTrue(
             (tier.tokensOfOwner(grantRecipient, 0, 1).balance != 0
                     && tier.isActiveToken(tier.tokensOfOwner(grantRecipient, 0, 1).tokenIds[0]))
         );
         vm.prank(creator);
-        assertEq(tier.revokeGrantTime(grantToken, grantRecipient), 30 days);
+        assertEq(tier.revokeGrantTime(grantToken, grantRecipient, 25), 30 days);
         assertFalse(
             (tier.tokensOfOwner(grantRecipient, 0, 1).balance != 0
                     && tier.isActiveToken(tier.tokensOfOwner(grantRecipient, 0, 1).tokenIds[0]))
@@ -196,7 +196,7 @@ contract LocalLifecycleEvidenceTest is Test {
         assertTrue(refundPreview.complete);
         assertEq(refundPreview.grossRefund, 15_000_000);
         vm.prank(nextCreator);
-        uint256 refundPaid = tier.refund(memberToken, member, refundPreview.grossRefund);
+        uint256 refundPaid = tier.refund(memberToken, member, refundPreview.grossRefund, 25);
         assertEq(refundPaid, refundPreview.grossRefund);
         assertFalse(
             (tier.tokensOfOwner(member, 0, 1).balance != 0
@@ -283,7 +283,7 @@ contract LocalLifecycleEvidenceTest is Test {
         paymentToken.mint(member, 120_000_000);
         vm.startPrank(member);
         paymentToken.approve(address(target), type(uint256).max);
-        uint256 id = target.createMembership(12, referrer);
+        uint256 id = target.createMembership(12, referrer, 25);
         vm.stopPrank();
         MembershipTypes.EarnedBalances memory cash =
         target.previewAccounting(id, address(0), referrer, 0).settled;
@@ -300,7 +300,7 @@ contract LocalLifecycleEvidenceTest is Test {
         vm.prank(creator);
         uint256 creatorCash = target.withdrawCreatorProceeds();
         vm.prank(member);
-        uint256 memberCash = target.claimReward(id);
+        uint256 memberCash = target.claimReward(id, 25);
         vm.prank(referrer);
         uint256 referralCash = target.claimReferral();
         uint256 protocolCash = target.releaseProtocolFees();
@@ -309,7 +309,7 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(referralCash, cash.referral);
         assertEq(protocolCash, cash.protocol);
         vm.prank(creator);
-        uint256 refunded = target.refund(id, member, 90_000_000);
+        uint256 refunded = target.refund(id, member, 90_000_000, 25);
         assertEq(refunded, 90_000_000);
         uint256 remainder = paymentToken.balanceOf(address(target));
         assertEq(
@@ -336,8 +336,8 @@ contract LocalLifecycleEvidenceTest is Test {
         paymentToken.mint(member, 120_000_000);
         vm.startPrank(member);
         paymentToken.approve(address(target), type(uint256).max);
-        uint256 id = target.createContributionMembership(0, address(0));
-        target.renewContributionMembership(id, 120_000_000, referrer);
+        uint256 id = target.createContributionMembership(0, address(0), 25);
+        target.renewContributionMembership(id, 120_000_000, referrer, 25);
         vm.stopPrank();
         MembershipTypes.AllocationLot[] memory lots = target.allocationLots(id, 0, 0, 100);
         assertEq(lots.length, 1);

@@ -249,7 +249,11 @@ function SettingsEditor({
       );
     if (selected.length > 32)
       throw new Error("Save up to 32 currencies in one Safe transaction.");
-    const rows = selected.map((asset) => drafts[asset]);
+    const rows = selected
+      .map((asset) => drafts[asset])
+      .sort((a, b) =>
+        a.asset.toLowerCase().localeCompare(b.asset.toLowerCase()),
+      );
     const limits = rows.map(draftLimits);
     const globalMinInterval = intervalSeconds(globalMinutes);
     return {

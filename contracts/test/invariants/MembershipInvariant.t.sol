@@ -65,7 +65,7 @@ contract MembershipHandler is Test {
         address referral = referralSeed % 2 == 0 ? address(0) : _actor(referralSeed >> 1);
         paymentToken.mint(owner, gross);
         vm.prank(owner);
-        uint256 id = tier.createContributionMembership(gross, referral);
+        uint256 id = tier.createContributionMembership(gross, referral, 25);
         assertEq(id, book.createPosition(owner, _now(), _paid(gross, referral)));
     }
 
@@ -78,7 +78,7 @@ contract MembershipHandler is Test {
         MembershipModel.Position storage position = book.positions[id];
         paymentToken.mint(position.owner, gross);
         vm.prank(position.owner);
-        tier.renewContributionMembership(id, gross, position.referrer);
+        tier.renewContributionMembership(id, gross, position.referrer, 25);
         book.increasePosition(id, _now(), _paid(gross, position.referrer));
     }
 
@@ -92,12 +92,12 @@ contract MembershipHandler is Test {
         if (id != 0 && periodsSeed % 2 == 0) {
             address owner = book.positions[id].owner;
             vm.prank(creator);
-            tier.addGrantTime(id, owner, periods);
+            tier.addGrantTime(id, owner, periods, 25);
             book.increasePosition(id, _now(), increase);
         } else if (book.occupied < tier.supplyCap()) {
             address owner = _actor(seed);
             vm.prank(creator);
-            id = tier.grantMembership(owner, periods);
+            id = tier.grantMembership(owner, periods, 25);
             assertEq(id, book.createPosition(owner, _now(), increase));
         }
     }
@@ -110,7 +110,7 @@ contract MembershipHandler is Test {
         _settle(25);
         address owner = book.positions[id].owner;
         vm.prank(creator);
-        tier.revokeGrantTime(id, owner);
+        tier.revokeGrantTime(id, owner, 25);
         book.revokePositionGrant(id, _now());
     }
 
@@ -122,7 +122,7 @@ contract MembershipHandler is Test {
         uint256 expected = book.refundPosition(id, _now());
         uint256 beforeBalance = paymentToken.balanceOf(owner);
         vm.prank(creator);
-        assertEq(tier.refund(id, owner, type(uint256).max), expected);
+        assertEq(tier.refund(id, owner, type(uint256).max, 25), expected);
         assertEq(paymentToken.balanceOf(owner) - beforeBalance, expected);
     }
 
@@ -145,7 +145,7 @@ contract MembershipHandler is Test {
         address owner = book.positions[id].owner;
         uint256 expected = book.claimPositionCredit(id, owner, _now());
         vm.prank(owner);
-        assertEq(tier.claimReward(id), expected);
+        assertEq(tier.claimReward(id, 25), expected);
     }
 
     function claimRetired(uint256 seed) external {
@@ -194,7 +194,7 @@ contract MembershipHandler is Test {
         bytes32 beforeState = _fingerprint();
         vm.prank(_actor(seed));
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.createContributionMembership(0, address(0));
+        tier.createContributionMembership(0, address(0), 25);
         assertEq(_fingerprint(), beforeState);
         vm.prank(creator);
         tier.setPaused(paused);
@@ -215,7 +215,7 @@ contract MembershipHandler is Test {
         uint256 balance = paymentToken.balanceOf(owner);
         vm.prank(owner);
         vm.expectRevert();
-        tier.createContributionMembership(100, address(0));
+        tier.createContributionMembership(100, address(0), 25);
         paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.Normal);
         assertEq(_fingerprint(), beforeState);
         assertEq(paymentToken.balanceOf(owner), balance);
@@ -371,7 +371,7 @@ contract MembershipInvariantTest is StdInvariant, Test {
             address(mediaStoreFactory),
             address(this),
             address(_paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(_paymentToken))
         );
 
@@ -430,10 +430,10 @@ contract RewardSettlementIndependenceTest is Test {
         MembershipTypes.TierConfig memory config =
             MembershipTestConfig.defaultConfig(address(this), address(renderer), address(token));
         config.pricePerPeriod = 0;
-        MembershipTier frequent = new MembershipTier(
+        MembershipTier frequent = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(makeAddr("frequentFactory"), address(token)), token, config
         );
-        MembershipTier deferred = new MembershipTier(
+        MembershipTier deferred = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(makeAddr("deferredFactory"), address(token)), token, config
         );
         address first = makeAddr("settlementFirst");
@@ -444,27 +444,27 @@ contract RewardSettlementIndependenceTest is Test {
         vm.startPrank(first);
         token.approve(address(frequent), type(uint256).max);
         token.approve(address(deferred), type(uint256).max);
-        frequent.createContributionMembership(100_000, address(0));
-        deferred.createContributionMembership(100_000, address(0));
+        frequent.createContributionMembership(100_000, address(0), 25);
+        deferred.createContributionMembership(100_000, address(0), 25);
         vm.stopPrank();
         vm.warp(block.timestamp + config.periodDuration / 2);
         frequent.processAccounting(25);
         vm.startPrank(first);
-        uint256 earlyClaim = frequent.claimReward(1);
+        uint256 earlyClaim = frequent.claimReward(1, 25);
         vm.stopPrank();
 
         vm.startPrank(second);
         token.approve(address(frequent), type(uint256).max);
         token.approve(address(deferred), type(uint256).max);
-        uint256 frequentSecond = frequent.createContributionMembership(100_000, address(0));
-        uint256 deferredSecond = deferred.createContributionMembership(100_000, address(0));
+        uint256 frequentSecond = frequent.createContributionMembership(100_000, address(0), 25);
+        uint256 deferredSecond = deferred.createContributionMembership(100_000, address(0), 25);
         vm.stopPrank();
         assertEq(frequent.claimableReward(frequentSecond), deferred.claimableReward(deferredSecond));
         assertLe(frequent.claimableReward(frequentSecond), 5000);
 
         vm.startPrank(first);
-        frequent.renewContributionMembership(1, 37_000, address(0));
-        deferred.renewContributionMembership(1, 37_000, address(0));
+        frequent.renewContributionMembership(1, 37_000, address(0), 25);
+        deferred.renewContributionMembership(1, 37_000, address(0), 25);
         vm.stopPrank();
         vm.warp(block.timestamp + 2 * config.periodDuration);
         frequent.processAccounting(25);
@@ -497,7 +497,7 @@ contract FrozenGiftLifecycleTest is Test {
         MembershipTypes.TierConfig memory config =
             MembershipTestConfig.defaultConfig(address(this), address(renderer), address(token));
         config.supplyCap = 1;
-        MembershipTier tier = new MembershipTier(
+        MembershipTier tier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(makeAddr("giftFactory"), address(token)), token, config
         );
         address payer = makeAddr("giftPayer");
@@ -507,7 +507,7 @@ contract FrozenGiftLifecycleTest is Test {
         token.mint(payer, config.pricePerPeriod);
         vm.startPrank(payer);
         token.approve(address(tier), type(uint256).max);
-        uint256 tokenId = tier.giftMembership(recipient, 1);
+        uint256 tokenId = tier.giftMembership(recipient, 1, 25);
         vm.stopPrank();
 
         _assertFrozenRefundIsAtomic(token, tier, recipient, tokenId);
@@ -526,7 +526,7 @@ contract FrozenGiftLifecycleTest is Test {
         token.mint(competitor, config.pricePerPeriod);
         vm.startPrank(competitor);
         token.approve(address(tier), type(uint256).max);
-        uint256 competitorTokenId = tier.createMembership(1, address(0));
+        uint256 competitorTokenId = tier.createMembership(1, address(0), 25);
         vm.stopPrank();
         assertEq(competitorTokenId, 2);
         assertEq(tier.occupiedSupply(), 1);
@@ -545,7 +545,7 @@ contract FrozenGiftLifecycleTest is Test {
         uint256 creatorProceeds = tier.creatorProceeds();
         bytes32 reserves = keccak256(abi.encode(tier.reserveState()));
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
-        tier.refund(tokenId, recipient, type(uint256).max);
+        tier.refund(tokenId, recipient, type(uint256).max, 25);
 
         assertEq(abi.encode(tier.previewRefund(tokenId)), abi.encode(quote));
         assertEq(token.balanceOf(address(tier)), tierBalance);

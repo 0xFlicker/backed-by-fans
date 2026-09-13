@@ -118,18 +118,16 @@ contract DeployForkProtocol is ProtocolDeployment {
         vm.serializeAddress(object, "factory", address(result.factory));
         vm.serializeAddress(object, "vestingLedger", address(VestingLedger));
         vm.serializeBytes32(object, "vestingLedgerRuntimeCodehash", address(VestingLedger).codehash);
-        MembershipTypes.TierCodeConfig memory tierCode = tierCodeConfiguration();
-        vm.serializeAddress(object, "tierCodeStoreA", tierCode.storeA);
-        vm.serializeAddress(object, "tierCodeStoreB", tierCode.storeB);
-        vm.serializeAddress(object, "tierDeployer", result.factory.deployer());
+        vm.serializeAddress(object, "tierImplementation", result.factory.implementation());
+        vm.serializeBytes32(
+            object, "tierImplementationRuntimeCodehash", result.factory.implementation().codehash
+        );
         vm.serializeAddress(object, "burnRouter", result.factory.burnRouter());
         vm.serializeAddress(
             object,
             "executorCodeStore",
             ProtocolBuybackVault(payable(result.factory.buybackVault())).executorCreationCodeStore()
         );
-        vm.serializeBytes32(object, "tierCreationCodeHash", tierCode.creationCodeHash);
-        vm.serializeUint(object, "tierCreationCodeLength", tierCode.creationCodeLength);
         vm.serializeAddress(object, "buybackVault", result.factory.buybackVault());
         vm.serializeAddress(object, "mediaStoreFactory", address(result.mediaStoreFactory));
         vm.serializeAddress(object, "renderer", address(result.renderer));

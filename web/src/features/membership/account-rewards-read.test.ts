@@ -182,21 +182,6 @@ it.each([
   { label: "zero token ID", selection: [{ ...tiers[0], tokenIds: [0n] }] },
   { label: "negative token ID", selection: [{ ...tiers[0], tokenIds: [-1n] }] },
   { label: "duplicate tiers", selection: [tiers[0], tiers[0]] },
-  {
-    label: "more than 32 aggregate IDs",
-    selection: tiers.map((tier) => ({
-      ...tier,
-      tokenIds: Array.from({ length: 17 }, (_, i) => BigInt(i + 1)),
-    })),
-  },
-  {
-    label: "more than eight tiers",
-    selection: Array.from({ length: 9 }, (_, i) => ({
-      tier: `0x${(i + 1).toString(16).padStart(40, "0")}` as Address,
-      name: `Tier ${i}`,
-      tokenIds: [],
-    })),
-  },
 ])("rejects $label before any network work", async ({ selection }) => {
   const f = fixture();
   await expect(

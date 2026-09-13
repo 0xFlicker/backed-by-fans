@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
-  encodeDeployData,
   getCreate2Address,
   keccak256,
   stringToHex,
@@ -13,7 +12,6 @@ import {
 import {
   compareRuntime,
   exactLibraryRuntime,
-  verifyTierCodeStores,
   type ImmutableReferences,
 } from "./verify-runtime";
 
@@ -31,7 +29,7 @@ type Bootstrap = Record<string, string>;
 const CREATE2 = "0x4e59b44847b379578588920cA78FbF26c0B4956C" as const;
 const targets = {
   factory: "MembershipFactory.sol/MembershipFactory.json",
-  tierDeployer: "MembershipTierDeployer.sol/MembershipTierDeployer.json",
+  tierImplementation: "MembershipTier.sol/MembershipTier.json",
   buybackVault: "ProtocolBuybackVault.sol/ProtocolBuybackVault.json",
   burnRouter: "ProtocolBurnRouter.sol/ProtocolBurnRouter.json",
   executor: "PonsBuybackExecutor.sol/PonsBuybackExecutor.json",
@@ -55,9 +53,6 @@ export async function verifyProtocolGraph(
   const artifact = async (path: string): Promise<Artifact> =>
     JSON.parse(await readFile(resolve(out, path), "utf8"));
   const tier = await artifact("MembershipTier.sol/MembershipTier.json");
-  const store = await artifact(
-    "ImmutableCodeStore.sol/ImmutableCodeStore.json",
-  );
   const leaf = await artifact(
     "vesting-leaf/VestingLedger.sol/VestingLedger.json",
   );
@@ -101,50 +96,30 @@ export async function verifyProtocolGraph(
     !/^0x[0-9a-f]+$/i.test(tier.bytecode.object)
   )
     throw new Error("Tier creation artifact is not fully linked");
-  const [a, b] = await Promise.all([
-    client.getCode({ address: bootstrap.tierCodeStoreA as Address }),
-    client.getCode({ address: bootstrap.tierCodeStoreB as Address }),
-  ]);
-  if (!a || !b) throw new Error("Missing tier code store runtime");
-  const sizes = verifyTierCodeStores(tier.bytecode.object, a, b);
+  const implementationSalt = keccak256(
+    stringToHex("Backed By Fans tier implementation v1"),
+  );
+  const implementationAddress = getCreate2Address({
+    from: CREATE2,
+    salt: implementationSalt,
+    bytecodeHash: keccak256(tier.bytecode.object),
+  });
   same(
-    sizes.creationCodeLength,
-    bootstrap.tierCreationCodeLength,
-    "bootstrap tier creation length",
+    implementationAddress,
+    bootstrap.tierImplementation,
+    "implementation CREATE2 identity",
   );
   same(
-    keccak256(tier.bytecode.object),
-    bootstrap.tierCreationCodeHash,
-    "bootstrap tier creation hash",
+    keccak256(tier.deployedBytecode.object),
+    bootstrap.tierImplementationRuntimeCodehash,
+    "implementation runtime hash",
   );
-  const stores = [];
-  for (const [index, runtime] of [a, b].entries()) {
-    const role = index === 0 ? "tierCodeStoreA" : "tierCodeStoreB";
-    const salt = keccak256(
-      stringToHex(`Backed By Fans tier code ${index === 0 ? "A" : "B"} v1`),
-    );
-    const initCode = encodeDeployData({
-      abi: store.abi,
-      bytecode: store.bytecode.object,
-      args: [`0x${runtime.slice(4)}`],
-    });
-    const address = getCreate2Address({
-      from: CREATE2,
-      salt,
-      bytecodeHash: keccak256(initCode),
-    });
-    same(address, bootstrap[role], `${role} deterministic address`);
-    if ((initCode.length - 2) / 2 + 32 > 95000)
-      throw new Error("Store CREATE2 payload exceeds limit");
-    stores.push({
-      role,
-      address,
-      salt,
-      initCode,
-      runtime,
-      runtimeCodeHash: keccak256(runtime),
-    });
-  }
+  const implementation = {
+    role: "tierImplementation",
+    address: implementationAddress,
+    salt: implementationSalt,
+    initCode: tier.bytecode.object,
+  };
   const records = [];
   const artifacts: Partial<Record<keyof typeof targets, Artifact>> = {};
   for (const [role, target] of Object.entries(targets) as [
@@ -186,14 +161,14 @@ export async function verifyProtocolGraph(
     });
   };
   for (const [name, role] of [
-    ["deployer", "tierDeployer"],
+    ["implementation", "tierImplementation"],
     ["buybackVault", "buybackVault"],
     ["burnRouter", "burnRouter"],
     ["mediaStoreFactory", "mediaStoreFactory"],
   ])
     same(await read("factory", name), bootstrap[role], `factory ${name}`);
   same(await read("factory", "owner"), bootstrap.safe, "factory authority");
-  for (const role of ["tierDeployer", "buybackVault", "burnRouter"] as const)
+  for (const role of ["buybackVault", "burnRouter"] as const)
     same(
       await read(role, "factory"),
       bootstrap.factory,
@@ -254,46 +229,34 @@ export async function verifyProtocolGraph(
       "executor token binding",
     );
   }
-  for (const side of ["A", "B"] as const) {
-    same(
-      await read("tierDeployer", `creationCodeStore${side}`),
-      bootstrap[`tierCodeStore${side}`],
-      `store ${side} immutable reference`,
-    );
-    same(
-      await read("tierDeployer", `creationCodeStore${side}Hash`),
-      keccak256(side === "A" ? a : b),
-      `store ${side} immutable hash`,
-    );
-  }
-  same(
-    await read("tierDeployer", "tierCreationCodeHash"),
-    keccak256(tier.bytecode.object),
-    "deployer creation hash",
-  );
-  same(
-    await read("tierDeployer", "tierCreationCodeLength"),
-    sizes.creationCodeLength,
-    "deployer creation length",
-  );
   const minimumPayments = [];
-  const tokenCount = await read("factory", "paymentTokenCount") as bigint;
+  const tokenCount = (await read("factory", "paymentTokenCount")) as bigint;
   for (let offset = 0n; offset < tokenCount; offset += 100n) {
-    const tokens = await client.readContract({address: bootstrap.factory as Address, abi: artifacts.factory!.abi, functionName: "paymentTokens", args: [offset, 100n]}) as Address[];
+    const tokens = (await client.readContract({
+      address: bootstrap.factory as Address,
+      abi: artifacts.factory!.abi,
+      functionName: "paymentTokens",
+      args: [offset, 100n],
+    })) as Address[];
     if (!tokens.length) throw new Error("Empty payment token page");
     for (const token of tokens) {
-      const minimum = await client.readContract({address: bootstrap.factory as Address, abi: artifacts.factory!.abi, functionName: "minimumPayment", args: [token]}) as bigint;
-      if (minimum <= 0n || minimum >= 1n << 112n) throw new Error("Invalid currency minimum");
-      minimumPayments.push({token, minimum: minimum.toString()});
+      const minimum = (await client.readContract({
+        address: bootstrap.factory as Address,
+        abi: artifacts.factory!.abi,
+        functionName: "minimumPayment",
+        args: [token],
+      })) as bigint;
+      if (minimum <= 0n || minimum >= 1n << 112n)
+        throw new Error("Invalid currency minimum");
+      minimumPayments.push({ token, minimum: minimum.toString() });
     }
   }
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     minimumPayments,
     tierCreationCode: tier.bytecode.object,
     creationCodeHash: keccak256(tier.bytecode.object),
     tierLibraries: tier.metadata.settings.libraries,
-    storeCreationCode: store.bytecode.object,
     executorCodeStore: {
       address: executorStoreAddress,
       runtime: executorStoreRuntime as Hex,
@@ -308,7 +271,7 @@ export async function verifyProtocolGraph(
       runtime: ledgerCode,
       runtimeCodeHash: keccak256(libraryRuntime),
     },
-    stores,
+    implementation,
     records,
   };
 }

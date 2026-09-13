@@ -17,7 +17,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract StandardsInterfacesTest is Test {
     function test_membershipInterfaceMatchesWebAuthenticityRequirement() public pure {
-        assertEq(type(IMembershipTier).interfaceId, bytes4(0x584eb4c9));
+        assertEq(type(IMembershipTier).interfaceId, bytes4(0xd1b6b944));
     }
 
     function test_erc5643CancellationPreservesAccountingAtomicityAndRetiresWeight() public {
@@ -30,7 +30,7 @@ contract StandardsInterfacesTest is Test {
         config.pricePerPeriod = 1000;
         config.periodDuration = 10;
         config.supplyCap = 0;
-        MembershipTier tier = new MembershipTier(
+        MembershipTier tier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(token)), token, config
         );
         for (uint256 i = 1; i <= 26; ++i) {
@@ -38,17 +38,17 @@ contract StandardsInterfacesTest is Test {
             token.mint(member, 1000);
             vm.startPrank(member);
             token.approve(address(tier), 1000);
-            tier.createMembership(1, address(0));
+            tier.createMembership(1, address(0), 25);
             vm.stopPrank();
         }
         address first = address(uint160(10_001));
-        tier.addGrantTime(1, first, 2);
+        tier.addGrantTime(1, first, 2, 25);
         vm.warp(1010);
         tier.setPaused(true);
         bytes32 stateBefore = _fingerprint(tier);
         vm.expectRevert(
             abi.encodeWithSelector(
-                MembershipTier.AccountingBehind.selector, uint64(1010), uint64(1010)
+                MembershipTier.AccountingBehind.selector, uint64(1000), uint64(1010)
             )
         );
         tier.cancelSubscription(1);
@@ -57,7 +57,7 @@ contract StandardsInterfacesTest is Test {
         vm.prank(first);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, first));
         tier.cancelSubscription(1);
-        tier.processAccounting(25);
+        while (!tier.accountingStatus().complete) tier.processAccounting(25);
         tier.cancelSubscription(1);
         (uint64 paid, uint64 granted,) = tier.timeBalances(1);
         assertEq(paid, 0);

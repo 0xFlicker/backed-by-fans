@@ -10,6 +10,8 @@ import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.so
 import {BuybackTypes} from "../src/types/BuybackTypes.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {MockUSDG} from "./mocks/MockUSDG.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {Test} from "forge-std/Test.sol";
 
@@ -50,7 +52,7 @@ contract BuybackAdministrationTest is Test {
             address(new OnchainMediaStoreFactory()),
             admin,
             address(token),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(token))
         );
         vault = ProtocolBuybackVault(payable(factory.buybackVault()));
@@ -94,6 +96,34 @@ contract BuybackAdministrationTest is Test {
         assertEq(held.totalReceived, 10);
         assertEq(vault.syncDonation(weth), 0);
         assertEq(vault.syncDonation(address(0)), 0);
+    }
+
+    function test_acceptsThirtyThreeExecutionLimitUpdates() public {
+        address[] memory assets = new address[](33);
+        BuybackTypes.ExecutionLimits[] memory limits = new BuybackTypes.ExecutionLimits[](33);
+        vm.mockCall(
+            BuybackIntegration.POOL_MANAGER,
+            abi.encodeWithSignature("extsload(bytes32)"),
+            abi.encode(uint256(1 << 96))
+        );
+        for (uint256 i; i < assets.length; ++i) {
+            assets[i] = address(SafeCast.toUint160(i + 65_536));
+            vm.etch(assets[i], hex"00");
+            BuybackTypes.TypedRoute memory route = BuybackTypes.TypedRoute(new PoolKey[](1));
+            route.pools[0].currency0 = Currency.wrap(address(0));
+            route.pools[0].currency1 = Currency.wrap(assets[i]);
+            route.pools[0].fee = 100;
+            route.pools[0].tickSpacing = 1;
+            vm.prank(admin);
+            vault.setRoute(assets[i], route);
+            limits[i] = _limits();
+        }
+        vm.prank(admin);
+        vault.setExecutionLimits(60, assets, limits);
+        for (uint256 i; i < assets.length; ++i) {
+            assertEq(vault.revision(assets[i]), 2);
+            assertEq(vault.limits(assets[i]).maxInput, limits[i].maxInput);
+        }
     }
 
     function test_routeAndLimitsChangesAdvanceRevisionWithoutClearingStandingLimits() public {

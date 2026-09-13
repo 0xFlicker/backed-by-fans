@@ -34,7 +34,7 @@ contract RewardsTest is Test {
 
         paymentToken = new MockUSDG();
         renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(
+        tier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)),
             paymentToken,
             MembershipTestConfig.defaultConfig(
@@ -49,7 +49,7 @@ contract RewardsTest is Test {
 
     function test_firstPositivePaymentMintsSharesAndReservesRewardsUntilService() public {
         vm.prank(firstMember);
-        uint256 id = tier.createMembership(1, address(0));
+        uint256 id = tier.createMembership(1, address(0), 25);
         assertEq(tier.sharesOf(id), 10_000_000);
         assertEq(tier.totalRewardShares(), 10_000_000);
         assertEq(tier.reserveState().unearnedScaled[1], 500_000 * Q);
@@ -65,10 +65,10 @@ contract RewardsTest is Test {
 
     function test_newSharesReceiveOnlyFundingConsumedAfterTheyJoin() public {
         vm.prank(firstMember);
-        uint256 first = tier.createMembership(1, address(0));
+        uint256 first = tier.createMembership(1, address(0), 25);
         vm.warp(_START + _PERIOD / 2);
         vm.prank(secondMember);
-        uint256 second = tier.createMembership(1, address(0));
+        uint256 second = tier.createMembership(1, address(0), 25);
         assertEq(tier.claimableReward(second), 0);
         assertApproxEqAbs(_credit(tier, first, firstMember), 250_000 * Q, 40_000_000);
         vm.warp(_START + _PERIOD);
@@ -80,22 +80,22 @@ contract RewardsTest is Test {
 
     function test_grantOnlyCredentialGetsNoEarlierRewardBeforeFirstShares() public {
         vm.prank(firstMember);
-        uint256 first = tier.createMembership(1, address(0));
-        uint256 second = tier.grantMembership(secondMember, 1);
+        uint256 first = tier.createMembership(1, address(0), 25);
+        uint256 second = tier.grantMembership(secondMember, 1, 25);
         vm.warp(_START + _PERIOD / 2);
         tier.processAccounting(25);
         assertEq(tier.sharesOf(second), 0);
         assertEq(tier.claimableReward(second), 0);
         uint256 earlier = _credit(tier, first, firstMember);
         vm.prank(secondMember);
-        tier.renewMembership(second, 1, address(0));
+        tier.renewMembership(second, 1, address(0), 25);
         assertEq(_credit(tier, first, firstMember), earlier);
         assertEq(_credit(tier, second, secondMember), 0);
     }
 
     function test_giftAssignsSharesAndVestedRewardsToRecipientCredential() public {
         vm.prank(payer);
-        uint256 id = tier.giftMembership(firstMember, 2);
+        uint256 id = tier.giftMembership(firstMember, 2, 25);
         assertEq(tier.ownerOf(id), firstMember);
         assertEq(tier.sharesOf(id), 20_000_000);
         assertEq(tier.claimableReward(id), 0);
@@ -116,11 +116,11 @@ contract RewardsTest is Test {
 
     function test_retirementDestroysSharesAndPreservesEarnedOwnerCredit() public {
         vm.prank(firstMember);
-        uint256 tokenId = tier.createMembership(1, address(0));
-        tier.addGrantTime(tokenId, firstMember, 1);
+        uint256 tokenId = tier.createMembership(1, address(0), 25);
+        tier.addGrantTime(tokenId, firstMember, 1, 25);
         assertGt(tier.sharesOf(tokenId), 0);
 
-        tier.revokeGrantTime(tokenId, tier.ownerOf(tokenId));
+        tier.revokeGrantTime(tokenId, tier.ownerOf(tokenId), 25);
         vm.warp(tier.expiresAt(tokenId));
         assertEq(_sync(tier, tokenId), 1);
 
@@ -133,7 +133,7 @@ contract RewardsTest is Test {
     function test_zeroContributionMintsNoSharesOrReward() public {
         MembershipTier zeroTier = _deployZeroTier();
         vm.prank(firstMember);
-        uint256 tokenId = zeroTier.createContributionMembership(0, address(0));
+        uint256 tokenId = zeroTier.createContributionMembership(0, address(0), 25);
 
         assertEq(zeroTier.sharesOf(tokenId), 0);
         assertEq(zeroTier.totalRewardShares(), 0);
@@ -149,7 +149,7 @@ contract RewardsTest is Test {
         paymentToken.approve(address(zeroTier), gross);
 
         vm.prank(firstMember);
-        uint256 tokenId = zeroTier.createContributionMembership(gross, address(0));
+        uint256 tokenId = zeroTier.createContributionMembership(gross, address(0), 25);
 
         uint256 reward = gross * 500 / 10_000;
         assertEq(reward, 100_000_000_000_000_000_000_000_000);
@@ -174,7 +174,7 @@ contract RewardsTest is Test {
             address(this), address(renderer), address(largeSupplyToken)
         );
         config.pricePerPeriod = 0;
-        MembershipTier largeTier = new MembershipTier(
+        MembershipTier largeTier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(largeSupplyToken)),
             largeSupplyToken,
             config
@@ -186,7 +186,7 @@ contract RewardsTest is Test {
         largeSupplyToken.approve(address(largeTier), gross);
 
         vm.prank(largeHolder);
-        uint256 tokenId = largeTier.createContributionMembership(gross, address(0));
+        uint256 tokenId = largeTier.createContributionMembership(gross, address(0), 25);
 
         vm.warp(_START + _PERIOD);
         largeTier.processAccounting(25);
@@ -222,11 +222,11 @@ contract RewardsTest is Test {
         _fundAndApproveFor(payer, zeroTier, thirdGross);
 
         vm.prank(firstMember);
-        uint256 firstToken = zeroTier.createContributionMembership(firstGross, address(0));
+        uint256 firstToken = zeroTier.createContributionMembership(firstGross, address(0), 25);
         vm.prank(secondMember);
-        uint256 secondToken = zeroTier.createContributionMembership(secondGross, address(0));
+        uint256 secondToken = zeroTier.createContributionMembership(secondGross, address(0), 25);
         vm.prank(payer);
-        uint256 thirdToken = zeroTier.createContributionMembership(thirdGross, address(0));
+        uint256 thirdToken = zeroTier.createContributionMembership(thirdGross, address(0), 25);
 
         uint256 allocated = uint256(firstGross) * 500 / 10_000 + uint256(secondGross) * 500 / 10_000
             + uint256(thirdGross) * 500 / 10_000;
@@ -320,7 +320,7 @@ contract RewardsTest is Test {
         uint256 carry = target.reserveState().indexCarryScaled;
         uint256 originalCredit = _credit(target, first, firstMember);
         assertGt(carry, 0);
-        target.refund(first, target.ownerOf(first), 7);
+        target.refund(first, target.ownerOf(first), 7, 25);
         _contribution(target, payer, 7);
         assertEq(target.totalRewardShares(), 14);
         assertEq(target.reserveState().indexCarryScaled, 0);
@@ -374,7 +374,7 @@ contract RewardsTest is Test {
     {
         bool live = target.balanceOf(beneficiary) != 0;
         vm.prank(beneficiary);
-        return live ? target.claimReward(id) : target.claimRetiredRewards();
+        return live ? target.claimReward(id, 25) : target.claimRetiredRewards();
     }
 
     function _streamTier(uint64 duration) private returns (MembershipTier target) {
@@ -385,7 +385,7 @@ contract RewardsTest is Test {
         config.periodDuration = duration;
         config.rewardBps = 5000;
         config.referralBps = 0;
-        target = new MembershipTier(
+        target = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
     }
@@ -396,7 +396,7 @@ contract RewardsTest is Test {
     {
         _fundAndApproveFor(account, target, gross);
         vm.prank(account);
-        id = target.createContributionMembership(gross, address(0));
+        id = target.createContributionMembership(gross, address(0), 25);
     }
 
     function _deployZeroTier() private returns (MembershipTier zeroTier) {
@@ -404,7 +404,7 @@ contract RewardsTest is Test {
             address(this), address(renderer), address(paymentToken)
         );
         config.pricePerPeriod = 0;
-        zeroTier = new MembershipTier(
+        zeroTier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
         vm.prank(firstMember);

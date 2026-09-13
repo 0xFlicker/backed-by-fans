@@ -12,7 +12,7 @@ const input = {
 it("always creates a new position when creation is explicitly selected", () => {
   expect(membershipPaymentCall({ ...input, intent: { kind: "new" } })).toEqual({
     functionName: "createMembership",
-    args: [2n, zeroAddress],
+    args: [2n, zeroAddress, 25n],
   });
 });
 it("targets exactly the selected live token for fixed-price renewal", () => {
@@ -21,7 +21,10 @@ it("targets exactly the selected live token for fixed-price renewal", () => {
       ...input,
       intent: { kind: "renew", tokenId: 7n, expiration: 101n },
     }),
-  ).toEqual({ functionName: "renewMembership", args: [7n, 2n, zeroAddress] });
+  ).toEqual({
+    functionName: "renewMembership",
+    args: [7n, 2n, zeroAddress, 25n],
+  });
 });
 it("rejects expired renewal without silently choosing creation", () => {
   expect(() =>
@@ -41,7 +44,7 @@ it("keeps zero-value contribution creation separate from renewal", () => {
     }),
   ).toEqual({
     functionName: "createContributionMembership",
-    args: [0n, zeroAddress],
+    args: [0n, zeroAddress, 25n],
   });
   expect(
     membershipPaymentCall({
@@ -52,7 +55,7 @@ it("keeps zero-value contribution creation separate from renewal", () => {
     }),
   ).toEqual({
     functionName: "renewContributionMembership",
-    args: [8n, 0n, zeroAddress],
+    args: [8n, 0n, zeroAddress, 25n],
   });
 });
 it("keys positions by chain, tier and token rather than wallet or tier alone", () => {

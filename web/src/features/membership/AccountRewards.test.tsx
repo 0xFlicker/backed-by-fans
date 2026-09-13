@@ -23,6 +23,9 @@ const token = "0x4444444444444444444444444444444444444444";
 const secondTier = "0x0000000000000000000000000000000000000065";
 const scale = 1n << 128n;
 const m = vi.hoisted(() => ({
+  discoverAll: vi.fn(),
+  gas: vi.fn(),
+  block: vi.fn(),
   simulate: vi.fn(),
   write: vi.fn(),
   receipt: vi.fn(),
@@ -34,12 +37,25 @@ const m = vi.hoisted(() => ({
     isConnected: true,
   },
 }));
-vi.mock("./account-rewards-read", () => ({ readAccountRewards: m.preview }));
-vi.mock("@wagmi/core", () => ({ simulateContract: m.simulate }));
+vi.mock("./account-rewards-read", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./account-rewards-read")>()),
+  readAccountRewards: m.preview,
+}));
+vi.mock("./claim-all", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./claim-all")>()),
+  discoverClaimAll: m.discoverAll,
+}));
+vi.mock("@wagmi/core", () => ({
+  simulateContract: m.simulate,
+  getAccount: () => m.account,
+}));
 vi.mock("wagmi", () => ({
   useConfig: () => ({}),
   usePublicClient: () => ({
     readContract: m.read,
+    getBlockNumber: async () => 42n,
+    estimateContractGas: m.gas,
+    getBlock: m.block,
     waitForTransactionReceipt: m.receipt,
   }),
   useWriteContract: () => ({ writeContractAsync: m.write }),
@@ -173,7 +189,11 @@ beforeEach(() => {
     }),
   );
   m.write.mockResolvedValue(`0x${"ab".repeat(32)}`);
-  m.read.mockResolvedValue([0n, 0n]);
+  m.read.mockImplementation(async (request) =>
+    request.functionName === "ownerOf" ? wallet : [0n, 0n],
+  );
+  m.gas.mockResolvedValue(1n);
+  m.block.mockResolvedValue({ gasLimit: 100n });
   m.receipt.mockResolvedValue(claimReceipt());
 });
 
@@ -197,7 +217,7 @@ it("starts without implicit selections then submits exactly the selected IDs usi
   );
   expect(m.write.mock.calls[0][0]).toMatchObject({
     functionName: "claimEverything",
-    args: [[{ tier, tokenIds: [1n] }]],
+    args: [[{ tier, tokenIds: [1n] }], 25n],
   });
   expect(
     screen.getByRole("checkbox", { name: "WETH Fans membership #1" }),
@@ -215,7 +235,7 @@ it("supports a tier-only selection with no implicit NFT", async () => {
   );
   await waitFor(() => expect(m.write).toHaveBeenCalled());
   expect(m.write.mock.calls[0][0]).toMatchObject({
-    args: [[{ tier, tokenIds: [] }]],
+    args: [[{ tier, tokenIds: [] }], 25n],
   });
 });
 it("keeps zero and fractional-only claims visible without spending gas", async () => {
@@ -312,7 +332,7 @@ it("never silently turns a claim into maintenance when its fresh preview becomes
   ).toBeVisible();
   expect(m.write).not.toHaveBeenCalled();
 });
-it("bounds selection at 32 positions while leaving all positions discoverable", async () => {
+it("allows selections beyond the former 32-position cap", async () => {
   mount({ positions: 33 });
   for (let id = 1; id <= 32; id++)
     await userEvent.click(
@@ -323,7 +343,13 @@ it("bounds selection at 32 positions while leaving all positions discoverable", 
   ).toBeVisible();
   expect(
     screen.getByRole("checkbox", { name: "WETH Fans membership #33" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
+  await userEvent.click(
+    screen.getByRole("checkbox", { name: "WETH Fans membership #33" }),
+  );
+  expect(
+    screen.getByText("33 memberships across 1 tiers selected."),
+  ).toBeVisible();
   await userEvent.click(
     screen.getByRole("checkbox", { name: "WETH Fans membership #1" }),
   );
@@ -331,7 +357,7 @@ it("bounds selection at 32 positions while leaving all positions discoverable", 
     screen.getByRole("checkbox", { name: "WETH Fans membership #33" }),
   ).toBeEnabled();
 });
-it("bounds selections at eight tiers and preserves them across tier pages", async () => {
+it("allows selections beyond eight tiers and preserves them across pages", async () => {
   mount({ count: 9 });
   for (const checkbox of screen.getAllByRole("checkbox", { name: /^Include/ }))
     await userEvent.click(checkbox);
@@ -340,17 +366,20 @@ it("bounds selections at eight tiers and preserves them across tier pages", asyn
   );
   expect(
     screen.getByRole("checkbox", { name: "Include Tier 9 tier rewards" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   expect(
     screen.getByRole("checkbox", { name: "Tier 9 membership #1" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
+  await userEvent.click(
+    screen.getByRole("checkbox", { name: "Tier 9 membership #1" }),
+  );
   await userEvent.click(
     screen.getByRole("button", { name: "Previous reward tiers" }),
   );
   expect(
     screen.getByRole("checkbox", { name: "Include WETH Fans tier rewards" }),
   ).toBeChecked();
-  expect(m.preview.mock.calls.at(-1)![2]).toHaveLength(8);
+  expect(m.preview.mock.calls.at(-1)![2]).toHaveLength(9);
 });
 it("rejects a receipt without the factory's selected-claim confirmation", async () => {
   m.receipt.mockResolvedValue({ status: "success", logs: [] });
@@ -526,7 +555,7 @@ it("groups actual receipt payouts across live, retired, referral and creator cat
   );
   expect(
     await screen.findByText(
-      /Selected rewards claimed.*Paid 19 WETH.*Paid 5 USDG/,
+      /Selected rewards claimed.*Paid 5 USDG.*Paid 19 WETH/,
     ),
   ).toBeVisible();
 });
@@ -622,4 +651,183 @@ it("lets the owner clear an invalid selection without silently dropping its posi
   expect(screen.getByText("No rewards selected.")).toBeVisible();
   expect(screen.getByRole("heading", { name: "Your rewards" })).toHaveFocus();
   expect(m.write).not.toHaveBeenCalled();
+});
+
+it("claims all discovered positions beyond the old cap without manual selections", async () => {
+  const ids = Array.from({ length: 33 }, (_, i) => BigInt(i + 1));
+  m.discoverAll.mockResolvedValue({
+    wallet,
+    chainId: 31337,
+    factory,
+    queue: [{ tier, name: "WETH Fans", tokenIds: ids }],
+    completed: 0,
+    removedPositions: 0,
+  });
+  mount();
+  await userEvent.click(screen.getByRole("button", { name: "Claim all" }));
+  await screen.findByText(
+    "All rewards in this selection claimed. 1 transactions confirmed.",
+  );
+  expect(m.write).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      functionName: "claimEverything",
+      args: [[{ tier, tokenIds: ids }], 25n],
+    }),
+  );
+  expect(m.discoverAll).toHaveBeenCalledTimes(1);
+});
+
+it("splits by estimated gas and resumes after rejection without replaying a confirmed batch", async () => {
+  m.discoverAll.mockResolvedValue({
+    wallet,
+    chainId: 31337,
+    factory,
+    queue: [{ tier, name: "WETH Fans", tokenIds: [1n, 2n, 3n, 4n, 5n] }],
+    completed: 0,
+    removedPositions: 0,
+  });
+  m.gas.mockImplementation(
+    async (request) => BigInt(request.args[0][0].tokenIds.length) * 30n,
+  );
+  m.write
+    .mockResolvedValueOnce(`0x${"ab".repeat(32)}`)
+    .mockRejectedValueOnce(new Error("User rejected the request."));
+  mount();
+  await userEvent.click(screen.getByRole("button", { name: "Claim all" }));
+  await screen.findByRole("alert");
+  expect(m.write.mock.calls[0][0].args[0][0].tokenIds).toEqual([1n, 2n]);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Resume claim all" }),
+  );
+  await screen.findByText(
+    "All rewards in this selection claimed. 3 transactions confirmed.",
+  );
+  expect(m.discoverAll).toHaveBeenCalledTimes(1);
+  for (const [request] of m.write.mock.calls.slice(1))
+    expect(request.args[0][0].tokenIds.every((id: bigint) => id > 2n)).toBe(
+      true,
+    );
+});
+
+it("Claim all advances pending accounting before claiming the captured scope", async () => {
+  m.discoverAll.mockResolvedValue({
+    wallet,
+    chainId: 31337,
+    factory,
+    queue: [{ tier, name: "WETH Fans", tokenIds: [1n] }],
+    completed: 0,
+    removedPositions: 0,
+  });
+  m.preview.mockResolvedValueOnce({
+    results: [],
+    blocked: { tier, name: "WETH Fans", tokenIds: [1n] },
+    complete: false,
+  });
+  const event = getAbiItem({
+    abi: membershipTierAbi,
+    name: "AccountingProgress",
+  });
+  m.receipt
+    .mockResolvedValueOnce({
+      status: "success",
+      logs: [
+        {
+          address: tier,
+          topics: encodeEventTopics({
+            abi: membershipTierAbi,
+            eventName: "AccountingProgress",
+          }),
+          data: encodeAbiParameters(
+            event.inputs.filter((input) => !input.indexed),
+            [950n, 25n, false, 1n, 12n],
+          ),
+        },
+      ],
+    })
+    .mockResolvedValue(claimReceipt());
+  mount();
+  await userEvent.click(screen.getByRole("button", { name: "Claim all" }));
+  await screen.findByText(
+    "All rewards in this selection claimed. 2 transactions confirmed.",
+  );
+  expect(m.write.mock.calls.map(([request]) => request.functionName)).toEqual([
+    "processAccounting",
+    "claimEverything",
+  ]);
+  expect(m.discoverAll).toHaveBeenCalledTimes(1);
+});
+
+it("Claim all pays a retired-only scope without selecting or owning an NFT", async () => {
+  m.discoverAll.mockResolvedValue({
+    wallet,
+    chainId: 31337,
+    factory,
+    queue: [{ tier, name: "WETH Fans", tokenIds: [] }],
+    completed: 0,
+    removedPositions: 0,
+  });
+  m.preview.mockResolvedValue({
+    results: [
+      {
+        ...previewResult([]),
+        reward: 0n,
+        retired: 4n,
+        referral: 0n,
+        creator: 0n,
+      },
+    ],
+    complete: true,
+  });
+  m.receipt.mockResolvedValue({
+    status: "success",
+    logs: [
+      {
+        address: tier,
+        topics: encodeEventTopics({
+          abi: membershipTierAbi,
+          eventName: "RetiredRewardClaimed",
+          args: { owner: wallet },
+        }),
+        data: encodeAbiParameters([{ type: "uint256" }], [4n]),
+      },
+      {
+        address: factory,
+        topics: encodeEventTopics({
+          abi: membershipFactoryAbi,
+          eventName: "EverythingClaimed",
+          args: { beneficiary: wallet },
+        }),
+        data: encodeAbiParameters([{ type: "uint256" }], [1n]),
+      },
+    ],
+  });
+  mount({ positions: 0 });
+  await userEvent.click(screen.getByRole("button", { name: "Claim all" }));
+  await screen.findByText(
+    "All rewards in this selection claimed. 1 transactions confirmed.",
+  );
+  expect(m.write).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      functionName: "claimEverything",
+      args: [[{ tier, tokenIds: [] }], 25n],
+    }),
+  );
+});
+
+it("explains positions removed from Claim all after ownership changes", async () => {
+  m.discoverAll.mockResolvedValue({
+    wallet,
+    chainId: 31337,
+    factory,
+    queue: [{ tier, name: "WETH Fans", tokenIds: [1n] }],
+    completed: 0,
+    removedPositions: 0,
+  });
+  m.read.mockImplementation(async ({ functionName }) =>
+    functionName === "ownerOf" ? factory : [0n, 0n],
+  );
+  mount();
+  await userEvent.click(screen.getByRole("button", { name: "Claim all" }));
+  await screen.findByText(/1 captured membership ended or changed owner/);
+  expect(m.write.mock.calls[0][0].args[0][0].tokenIds).toEqual([]);
 });

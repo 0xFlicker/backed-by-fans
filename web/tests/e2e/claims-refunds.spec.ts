@@ -49,7 +49,7 @@ async function seedPurchase(referrer: Address = zeroAddress) {
       address: tier,
       abi: membershipTierAbi,
       functionName: "createMembership",
-      args: [1n, referrer],
+      args: [1n, referrer, 25n],
     }),
   );
 }
@@ -69,7 +69,7 @@ async function vestSeedPurchase() {
       address: tier,
       abi: membershipTierAbi,
       functionName: "addGrantTime",
-      args: [1n, requiredAnvilAddress("member"), 1n],
+      args: [1n, requiredAnvilAddress("member"), 1n, 25n],
     }),
   );
   await rpcRequest("evm_setNextBlockTimestamp", [Number(end)]);
@@ -485,7 +485,7 @@ for (const variablePrice of [false, true]) {
         functionName: variablePrice
           ? "createContributionMembership"
           : "createMembership",
-        args: [variablePrice ? 120_000_000n : 12n, creator],
+        args: [variablePrice ? 120_000_000n : 12n, creator, 25n],
       });
       expectSuccessfulReceipt(purchase);
       const start = (
@@ -504,7 +504,7 @@ for (const variablePrice of [false, true]) {
               address: tier,
               abi: membershipTierAbi,
               functionName: "renewContributionMembership",
-              args: [1n, gross, creator],
+              args: [1n, gross, creator, 25n],
             }),
           );
       } else {
@@ -516,7 +516,7 @@ for (const variablePrice of [false, true]) {
             address: tier,
             abi: membershipTierAbi,
             functionName: "createMembership",
-            args: [1n, zeroAddress],
+            args: [1n, zeroAddress, 25n],
           }),
         );
       }
@@ -589,7 +589,7 @@ for (const variablePrice of [false, true]) {
         address: tier,
         abi: membershipTierAbi,
         functionName: "claimReward",
-        args: [1n],
+        args: [1n, 25n],
       });
       expectSuccessfulReceipt(memberClaim);
       claims.push(memberClaim.transactionHash);
@@ -659,7 +659,7 @@ for (const variablePrice of [false, true]) {
         const selector = encodeFunctionData({
           abi: membershipTierAbi,
           functionName: "refund",
-          args: [1n, funding.recipient, funding.grossRefund],
+          args: [1n, funding.recipient, funding.grossRefund, 25n],
         }).slice(0, 10);
         await page.route(`${requiredAnvilRpc()}/`, async (route) => {
           const payload = route.request().postDataJSON();
@@ -910,7 +910,7 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
         address: tier,
         abi: membershipTierAbi,
         functionName: "createMembership",
-        args: [12n, creator],
+        args: [12n, creator, 25n],
       }),
     );
     await rpcRequest("evm_increaseTime", [3 * 30 * 86_400]);

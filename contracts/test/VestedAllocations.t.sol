@@ -44,7 +44,7 @@ contract VestedAllocationsTest is Test {
             address(new OnchainMediaStoreFactory()),
             address(this),
             address(protocolToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(asset))
         );
         asset.mint(address(this), 1e30);
@@ -52,7 +52,7 @@ contract VestedAllocationsTest is Test {
 
     function test_stoppedCollectorStoresReservesUntilAccountingThenReleasesOnlyEarned() public {
         MembershipTier tier = _tier(1000, 10_000_000);
-        uint256 id = tier.createMembership(12, address(0));
+        uint256 id = tier.createMembership(12, address(0), 25);
         vm.warp(1300);
         assertFalse(tier.accountingStatus().complete);
         assertEq(tier.protocolFeeEarnedHeld(), 0);
@@ -80,12 +80,12 @@ contract VestedAllocationsTest is Test {
     function test_eventsExcludeFreeGapsAndRetainCanceledGenerationAttribution() public {
         MembershipTier tier = _tier(10_000, 0);
         vm.recordLogs();
-        tier.createContributionMembership(0, address(0));
-        tier.renewContributionMembership(1, 100, address(0));
+        tier.createContributionMembership(0, address(0), 25);
+        tier.renewContributionMembership(1, 100, address(0), 25);
         vm.warp(1150);
         tier.processAccounting(25);
-        assertEq(tier.refund(1, tier.ownerOf(1), 50), 50);
-        tier.createContributionMembership(80, address(0));
+        assertEq(tier.refund(1, tier.ownerOf(1), 50, 25), 50);
+        tier.createContributionMembership(80, address(0), 25);
         vm.warp(1200);
         tier.processAccounting(25);
         // 80 Q / 100 has a fractional per-second remainder until the END.
@@ -156,19 +156,19 @@ contract VestedAllocationsTest is Test {
 
     function test_fullProtocolAllocationRefundAfterReleaseClosesGeneration() public {
         MembershipTier tier = _tier(10_000, 10);
-        uint256 id = tier.createMembership(12, address(0));
+        uint256 id = tier.createMembership(12, address(0), 25);
         vm.warp(1350);
         tier.processAccounting(25);
         // The scaled per-second rate is rounded down; the END supplies its tail.
         assertEq(tier.releaseProtocolFees(), 34);
-        assertEq(tier.refund(id, tier.ownerOf(id), 85), 85);
+        assertEq(tier.refund(id, tier.ownerOf(id), 85, 25), 85);
         assertEq(tier.protocolFeeEarnedHeld(), 0);
         assertEq(tier.allocationState(id).generation, 1);
         assertEq(tier.lifetimeGross(), 120);
         assertEq(tier.reserveState().unearnedScaled[3], 0);
         assertEq(asset.balanceOf(address(tier)), 1);
         assertEq(tier.totalProtectedLiability(), 1);
-        uint256 fresh = tier.createMembership(1, address(0));
+        uint256 fresh = tier.createMembership(1, address(0), 25);
         assertGt(fresh, id);
         vm.warp(1400);
         tier.processAccounting(25);
@@ -186,8 +186,8 @@ contract VestedAllocationsTest is Test {
         uint256 secondsUsed = bound(elapsed, 0, PERIOD);
         MembershipTier frequent = _tier(rate, 0);
         MembershipTier deferred = _tier(rate, 0);
-        uint256 id = frequent.createContributionMembership(gross, address(0));
-        deferred.createContributionMembership(gross, address(0));
+        uint256 id = frequent.createContributionMembership(gross, address(0), 25);
+        deferred.createContributionMembership(gross, address(0), 25);
         for (uint256 s = 1; s <= secondsUsed; ++s) {
             vm.warp(1000 + s);
             frequent.processAccounting(25);
@@ -212,10 +212,10 @@ contract VestedAllocationsTest is Test {
 
     function test_grantsAndZeroGrossPaidGapsCannotAccelerateLaterFunding() public {
         MembershipTier tier = _tier(10_000, 0);
-        uint256 id = tier.grantMembership(address(this), 1);
+        uint256 id = tier.grantMembership(address(this), 1, 25);
         vm.warp(1050);
-        tier.renewContributionMembership(id, 0, address(0));
-        tier.renewContributionMembership(id, 100, address(0));
+        tier.renewContributionMembership(id, 0, address(0), 25);
+        tier.renewContributionMembership(id, 100, address(0), 25);
         vm.warp(1150);
         tier.processAccounting(25);
         assertEq(tier.protocolFeeEarnedHeld(), 0);
@@ -231,9 +231,9 @@ contract VestedAllocationsTest is Test {
 
     function test_cancellationRoundingRemainsProtectedAndNeverBecomesEarned() public {
         MembershipTier tier = _tier(10_000, 1);
-        uint256 id = tier.createMembership(1, address(0));
+        uint256 id = tier.createMembership(1, address(0), 25);
         vm.warp(1050);
-        assertEq(tier.refund(id, tier.ownerOf(id), 0), 0);
+        assertEq(tier.refund(id, tier.ownerOf(id), 0, 25), 0);
         uint256 earned = Q / PERIOD * 50;
         assertEq(
             tier.previewAccounting(id, address(0), address(0), 0).settled.fractionalScaled[3],
@@ -252,13 +252,13 @@ contract VestedAllocationsTest is Test {
     function test_releaseAndRefundOrderProduceIdenticalFunding() public {
         MembershipTier a = _tier(1000, 10);
         MembershipTier b = _tier(1000, 10);
-        a.createMembership(12, address(0));
-        b.createMembership(12, address(0));
+        a.createMembership(12, address(0), 25);
+        b.createMembership(12, address(0), 25);
         vm.warp(1350);
         a.processAccounting(25);
         uint256 releasedA = a.releaseProtocolFees();
-        assertEq(a.refund(1, a.ownerOf(1), 85), 85);
-        assertEq(b.refund(1, b.ownerOf(1), 85), 85);
+        assertEq(a.refund(1, a.ownerOf(1), 85, 25), 85);
+        assertEq(b.refund(1, b.ownerOf(1), 85, 25), 85);
         assertEq(b.releaseProtocolFees(), releasedA);
         assertEq(
             abi.encode(a.previewAccounting(1, address(0), address(0), 0).settled),
@@ -270,12 +270,10 @@ contract VestedAllocationsTest is Test {
 
     function test_budgetsAndPagesRejectUnboundedInputs() public {
         MembershipTier tier = _tier(1000, 10);
-        tier.createMembership(1, address(0));
+        tier.createMembership(1, address(0), 25);
         vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);
         tier.processAccounting(0);
-        vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);
         tier.processAccounting(101);
-        vm.expectRevert(VestingLedger.InvalidAllocationPageSize.selector);
         tier.allocationLots(1, 0, 0, 101);
         vm.expectRevert(VestingLedger.InvalidAllocationPageSize.selector);
         tier.allocationLots(1, 0, 0, 0);
@@ -285,7 +283,7 @@ contract VestedAllocationsTest is Test {
 
     function test_expiredAndBurnedCredentialsRetainCollectibleEarnings() public {
         MembershipTier tier = _tier(1000, 10);
-        uint256 id = tier.createMembership(1, address(0));
+        uint256 id = tier.createMembership(1, address(0), 25);
         vm.warp(1100);
         uint256[] memory ids = new uint256[](1);
         ids[0] = id;
@@ -301,7 +299,7 @@ contract VestedAllocationsTest is Test {
     function test_maximumBatchAndConstantWorkRelease() public {
         MembershipTier tier = _tier(1000, 10);
         for (uint160 i; i < 25; ++i) {
-            tier.giftMembership(address(uint160(0x1000) + i), 1);
+            tier.giftMembership(address(uint160(0x1000) + i), 1, 25);
         }
         vm.warp(1100);
         vm.cool(address(tier));
@@ -340,8 +338,8 @@ contract VestedAllocationsTest is Test {
         uint256[4] memory earned;
         for (uint256 i; i < amounts.length; ++i) {
             uint256 gross = bound(amounts[i], 0, 1e20);
-            if (i == 0) tier.createContributionMembership(gross, address(0));
-            else tier.renewContributionMembership(1, gross, address(0));
+            if (i == 0) tier.createContributionMembership(gross, address(0), 25);
+            else tier.renewContributionMembership(1, gross, address(0), 25);
             totalGross += gross;
             uint256 used = consumed > i * PERIOD ? consumed - i * PERIOD : 0;
             if (used > PERIOD) used = PERIOD;
@@ -358,7 +356,13 @@ contract VestedAllocationsTest is Test {
         vm.warp(1000 + consumed);
         tier.processAccounting(25);
         MembershipTypes.AllocationState memory state = tier.allocationState(1);
-        MembershipTypes.RefundPreview memory quote = tier.previewRefund(1);
+        MembershipTypes.RefundPreview memory quote;
+        if (consumed < 8 * PERIOD) {
+            quote = tier.previewRefund(1);
+        } else {
+            vm.expectRevert(abi.encodeWithSignature("ERC721NonexistentToken(uint256)", 1));
+            tier.previewRefund(1);
+        }
         assertEq(quote.grossRefund, grossRefund);
         uint256 remaining = grossRefund * Q;
         for (uint256 purpose; purpose < 4; ++purpose) {
@@ -372,7 +376,7 @@ contract VestedAllocationsTest is Test {
         }
         assertEq(remaining, 0);
         if (consumed < 8 * PERIOD) {
-            assertEq(tier.refund(1, address(this), grossRefund), grossRefund);
+            assertEq(tier.refund(1, address(this), grossRefund, 25), grossRefund);
         } else {
             assertEq(grossRefund, 0);
             assertEq(tier.balanceOf(address(this)), 0);
@@ -385,14 +389,14 @@ contract VestedAllocationsTest is Test {
 
     function test_largeHistoriesKeepViewsAndResetBounded() public {
         MembershipTier tier = _tier(10_000, 0);
-        tier.createContributionMembership(100, address(0));
+        tier.createContributionMembership(100, address(0), 25);
         vm.warp(1050);
         vm.cool(address(tier));
         uint256 before = gasleft();
         tier.allocationState(1);
         uint256 oneLotView = before - gasleft();
         for (uint256 i; i < 511; ++i) {
-            tier.renewContributionMembership(1, 100, address(0));
+            tier.renewContributionMembership(1, 100, address(0), 25);
         }
         vm.cool(address(tier));
         before = gasleft();
@@ -401,11 +405,11 @@ contract VestedAllocationsTest is Test {
         assertLt(manyLotView, oneLotView + 50_000);
         vm.cool(address(tier));
         before = gasleft();
-        tier.refund(1, tier.ownerOf(1), type(uint256).max);
+        tier.refund(1, tier.ownerOf(1), type(uint256).max, 25);
         uint256 refundGas = before - gasleft();
         assertLt(refundGas, 1_000_000); // Includes permanent burn and owner enumeration removal.
         before = gasleft();
-        uint256 fresh = tier.createContributionMembership(100, address(0));
+        uint256 fresh = tier.createContributionMembership(100, address(0), 25);
         uint256 rejoinGas = before - gasleft();
         emit log_named_uint("one-lot view gas", oneLotView);
         emit log_named_uint("512-lot view gas", manyLotView);

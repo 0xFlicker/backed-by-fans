@@ -71,7 +71,7 @@ for (const operation of ["renewal", "refund", "maintenance"] as const) {
         address: tier,
         abi: membershipTierAbi,
         functionName: "createMembership",
-        args: [12n, zeroAddress],
+        args: [12n, zeroAddress, 25n],
       });
       expectSuccessfulReceipt(payment);
       const id = mintedPosition(payment, tier, member);
@@ -85,7 +85,7 @@ for (const operation of ["renewal", "refund", "maintenance"] as const) {
           address: tier,
           abi: membershipTierAbi,
           functionName: "grantMembership",
-          args: [recipient, 1n],
+          args: [recipient, 1n, 25n],
         });
         expectSuccessfulReceipt(grant);
         lastGrant = mintedPosition(grant, tier, recipient);

@@ -28,8 +28,10 @@ export function membershipPaymentCall(input: {
   gross: bigint;
   pricePerPeriod: bigint;
   referralChoice: Address;
+  maxAccountingSteps?: bigint;
 }) {
   const { intent, referralChoice } = input;
+  const maxAccountingSteps = input.maxAccountingSteps ?? 25n;
   if (
     intent.kind === "renew" &&
     (intent.tokenId === 0n || intent.expiration <= input.now)
@@ -42,21 +44,31 @@ export function membershipPaymentCall(input: {
     return intent.kind === "new"
       ? {
           functionName: "createContributionMembership" as const,
-          args: [input.gross, referralChoice] as const,
+          args: [input.gross, referralChoice, maxAccountingSteps] as const,
         }
       : {
           functionName: "renewContributionMembership" as const,
-          args: [intent.tokenId, input.gross, referralChoice] as const,
+          args: [
+            intent.tokenId,
+            input.gross,
+            referralChoice,
+            maxAccountingSteps,
+          ] as const,
         };
   }
   return intent.kind === "new"
     ? {
         functionName: "createMembership" as const,
-        args: [input.periods, referralChoice] as const,
+        args: [input.periods, referralChoice, maxAccountingSteps] as const,
       }
     : {
         functionName: "renewMembership" as const,
-        args: [intent.tokenId, input.periods, referralChoice] as const,
+        args: [
+          intent.tokenId,
+          input.periods,
+          referralChoice,
+          maxAccountingSteps,
+        ] as const,
       };
 }
 

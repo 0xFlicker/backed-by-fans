@@ -11,23 +11,20 @@ export async function readAccountRewards(
   client: PublicClient,
   wallet: Address,
   tiers: readonly TierClaimSelection[],
+  maxAccountingSteps = 25n,
 ) {
   const tierKeys = new Set(tiers.map((tier) => tier.tier.toLowerCase()));
   if (
-    tiers.length > 8 ||
     tierKeys.size !== tiers.length ||
-    tiers.reduce((n, tier) => n + tier.tokenIds.length, 0) > 32 ||
     tiers.some(
       (tier) =>
         new Set(tier.tokenIds).size !== tier.tokenIds.length ||
         tier.tokenIds.some((id) => id <= 0n),
     )
   )
-    throw new Error(
-      "Select at most 32 unique memberships across 8 unique tiers.",
-    );
+    throw new Error("Select unique memberships in unique tiers.");
   const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
-  let remaining = 25n;
+  let remaining = maxAccountingSteps;
   let blocked: TierClaimSelection | undefined;
   const results = [];
   for (const tier of tiers) {
@@ -74,4 +71,16 @@ export async function readAccountRewards(
     complete: results.every((item) => item.complete),
     blockNumber,
   };
+}
+
+/** Match the contracts' canonical, linear duplicate validation. */
+export function sortClaimSelection(
+  tiers: readonly TierClaimSelection[],
+): TierClaimSelection[] {
+  return tiers
+    .map((tier) => ({
+      ...tier,
+      tokenIds: [...tier.tokenIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+    }))
+    .sort((a, b) => a.tier.toLowerCase().localeCompare(b.tier.toLowerCase()));
 }

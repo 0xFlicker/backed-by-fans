@@ -382,9 +382,9 @@ contract OnchainMediaStoreTest is Test {
         assertEq(factory.creatorMedia(creator, 3, 2).length, 0);
         assertEq(factory.creatorMedia(creator, 0, 0).length, 0);
 
-        uint256 oversizedPage = factory.maxPageSize() + 1;
-        vm.expectRevert(IOnchainMediaStoreFactory.InvalidPageSize.selector);
-        factory.creatorMedia(creator, 0, oversizedPage);
+        uint256 oversizedPage = 100 + 1;
+        assertEq(factory.creatorMedia(creator, 0, oversizedPage).length, 3);
+        assertEq(factory.creatorMedia(creator, 0, type(uint256).max).length, 3);
     }
 
     function test_textValidationAcceptsUTF8AndXMLCharacters() public view {

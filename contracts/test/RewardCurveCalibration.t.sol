@@ -39,7 +39,7 @@ contract RewardCurveCalibrationTest is Test {
             config.referralBps = 500;
             config.startingBoostBps = uint32(data[i]);
             config.earlySupportGross = data[i] == 10_000 ? 0 : 1000e18;
-            MembershipTier tier = new MembershipTier(
+            MembershipTier tier = MembershipTestConfig.deployTier(
                 SyntheticVaultBinding.bind(address(this), address(token)), token, config
             );
             token.mint(a, 400e18);
@@ -49,28 +49,28 @@ contract RewardCurveCalibrationTest is Test {
             vm.prank(b);
             token.approve(address(tier), type(uint256).max);
             vm.prank(a);
-            uint256 idA = tier.createContributionMembership(100e18, referrer);
+            uint256 idA = tier.createContributionMembership(100e18, referrer, 25);
             vm.prank(b);
-            uint256 idB = tier.createContributionMembership(100e18, referrer);
+            uint256 idB = tier.createContributionMembership(100e18, referrer, 25);
             vm.warp(1010);
             if (refund) {
                 tier.setPaused(true);
-                assertEq(tier.refund(idB, tier.ownerOf(idB), type(uint256).max), data[i + 3]);
+                assertEq(tier.refund(idB, tier.ownerOf(idB), type(uint256).max, 25), data[i + 3]);
                 tier.setPaused(false);
             } else {
                 uint256[] memory ids = new uint256[](1);
                 ids[0] = idB;
                 tier.processExpirations(25).retiredCount;
                 vm.prank(a);
-                tier.createContributionMembership(100e18, referrer);
+                tier.createContributionMembership(100e18, referrer, 25);
             }
             vm.warp(1020);
             if (!refund) {
                 vm.prank(a);
-                tier.createContributionMembership(100e18, referrer);
+                tier.createContributionMembership(100e18, referrer, 25);
             }
             vm.prank(b);
-            tier.createContributionMembership(1e18, referrer);
+            tier.createContributionMembership(1e18, referrer, 25);
             vm.warp(1030);
             tier.processAccounting(25);
             assertEq(tier.lifetimeGross(), data[i + 2]);

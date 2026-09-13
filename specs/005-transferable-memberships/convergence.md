@@ -1,5 +1,27 @@
 # Feature 005 convergence
 
+**Current outcome (2026-09-12): CONVERGED within the recorded local evidence scope.** The amended implementation remains feature 005. All 83 implementation tasks are complete. This verdict does not imply user acceptance, independent audit or public release approval. Public explorer verification and clone recognition remain deferred to the next authorized testnet deployment.
+
+## Amended-scope assessment
+
+Checked 21 functional requirements, 11 success criteria, 15 user-story acceptance scenarios and listed edge cases, 13 plan decision groups, and all five constitutional principles plus workflow/evidence boundaries. **Zero remaining findings:** 0 missing / 0 partial / 0 contradicts / 0 unrequested; 0 critical / high / medium / low. No convergence tasks were appended. The assessment left tasks.md byte-for-byte unchanged at SHA-256 `28515bb775013e4eef601e8d0ba7de3522c276f3713f13a438c5bb01f1871b44`; the implementing workflow subsequently completed T083 and recorded this report and final source inventory.
+
+| Amended requirement | Implementation and evidence |
+|---|---|
+| FR-018 / SC-008 | MembershipFactory creates standard fixed-target ERC-1167 clones; MembershipTier locks implementation initialization and atomically initializes isolated clone state. Tier A/B stores and the separate tier deployer are removed. Initialization, independent terms/state and exact deployed-runtime checks pass; equivalent tier creation gas falls from 8,768,426 to 678,194. |
+| FR-019 / SC-009 | Explicit caller budgets and ordered arrays bound tier/ledger/factory/router work; registry and allocation pages clamp to remaining entries. No former arbitrary iteration maxima remain. Tests exceed the old position/tier/event/preview/page/router/admin ceilings; under-gassed failure is atomic and smaller maintenance calls preserve progress. |
+| FR-020 / SC-010 | AccountRewards provides primary Claim all with snapshot discovery, current ownership checks, simulated resource-sized batches, maintenance and standard wagmi/viem receipts/rejection/resumption. A browser claim processes 108 memberships across nine tiers in one transaction. Focused tests cover resource splitting, rejection, ownership changes, incomplete discovery and retired-only rewards. |
+| FR-021 / SC-011 | Fresh authentic-origin fork and app run on RPC 18557 / chain 31337 / web 3110. Current linked artifacts and exact 45-byte clone target match deployment. Native profile and source/recovery tooling pass; earlier evidence is preserved. Public explorer claims remain deferred. |
+| Continuing FR-001–017 / SC-001–007 | Lifecycle, chronological accounting, fractional conservation, current-owner authority, independent positions, previews, grants/refunds, paused transfer/maintenance and documentation remain covered by the regression/model/invariant suites and configured browser flows through clones. Accessibility evidence distinguishes automated keyboard/axe/narrow-screen checks from physical assistive-technology and extension-wallet proof. |
+
+See [amended implementation and validation](evidence/clone-amendment.md) for test scope, benchmark details, addresses and retained artifacts, and [final source inventory](evidence/source-snapshot-amendment.json) for exact uncommitted source identity. Validation includes 552 contract regressions, eight stateful/conservation tests, 48 authentic-fork contract tests, 771 web tests and 22 distinct applicable browser scenarios across the retained run and focused repair. The production build's 273 source/public files match the current web files byte-for-byte. Slither's high-severity gate passes; its 117 reported findings remain retained rather than being represented as a clean independent audit.
+
+The implementation is ready for user review of this local replacement. No additional implementation pass is identified for the specified scope. No commit, push, public broadcast or migration occurred.
+
+Earlier assessments below apply only to their original source snapshots and do not establish acceptance of this amendment.
+
+## Historical assessment before the scope amendment
+
 Outcome: **converged — the implementation satisfies the spec, plan and tasks within the recorded evidence scope**. The previous F1 configured-acceptance gap and F2 verification gap are resolved. The existing private origin configuration was sufficient; no new user input was required. This is implementation acceptance, not public release approval.
 
 Scope: 17 FRs, 7 SCs, 15 acceptance scenarios, the listed edge cases, 10 plan decision groups and all five constitutional principles plus workflow/evidence boundaries. Source identity is the uncommitted snapshot in `evidence/source-snapshot.json`; the base commit alone does not identify this implementation.

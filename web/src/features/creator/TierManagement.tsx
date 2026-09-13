@@ -477,6 +477,7 @@ function ManagementControls({
             preview.tokenId,
             preview.recipient,
             preview.grossRefund,
+            25n,
           ]),
           async (receipt) => {
             const refunded = receiptMembershipRefund(receipt, {
@@ -533,11 +534,12 @@ function ManagementControls({
         await performUnlocked(
           "Grant complimentary time",
           grantMode === "new"
-            ? tierWrite("grantMembership", [recipient, grantPeriodsValue])
+            ? tierWrite("grantMembership", [recipient, grantPeriodsValue, 25n])
             : tierWrite("addGrantTime", [
                 grantTokenValue,
                 recipient,
                 grantPeriodsValue,
+                25n,
               ]),
           (receipt) => reconcileTierGrant(client, baseline, receipt),
         );
@@ -561,7 +563,7 @@ function ManagementControls({
         }
         await performUnlocked(
           "Revoke remaining grant time",
-          tierWrite("revokeGrantTime", [revokeTokenValue, before.owner]),
+          tierWrite("revokeGrantTime", [revokeTokenValue, before.owner, 25n]),
           async (receipt) => {
             if (
               !receiptProvesGrantRevocation(receipt, {

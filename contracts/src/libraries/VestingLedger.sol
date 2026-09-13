@@ -18,7 +18,6 @@ library VestingLedger {
     uint256 internal constant SCALE = 1 << 128;
     uint256 internal constant MAX_GROSS = type(uint112).max;
     uint256 internal constant PURPOSES = 4;
-    uint256 internal constant MAX_STEPS = 25;
 
     struct Lot {
         uint64 start;
@@ -185,7 +184,7 @@ library VestingLedger {
         uint256 offset,
         uint256 limit
     ) external view returns (bytes memory) {
-        if (limit == 0 || limit > 100) revert InvalidAllocationPageSize();
+        if (limit == 0) revert InvalidAllocationPageSize();
         Lot[] storage queue = self.lots[tokenId][generation];
         uint256 count = offset >= queue.length ? 0 : Math.min(limit, queue.length - offset);
         MembershipTypes.AllocationLot[] memory page = new MembershipTypes.AllocationLot[](count);
@@ -335,7 +334,6 @@ library VestingLedger {
         ExpirationSchedule.State storage expirations,
         PreviewRequest memory request
     ) private view returns (PreviewState memory work) {
-        if (request.maxSteps > 256) revert InvalidAccountingSteps();
         if (!self.initialized || request.through < self.accountedThrough) {
             revert AccountingInvariant();
         }
@@ -820,11 +818,11 @@ library VestingLedger {
         returns (ProcessResult memory progress)
     {
         // A depleted shared claim budget may integrate continuous time but cannot
-        // pop another checkpoint. Public tier entry points enforce the maximum.
+        // pop another checkpoint. The caller owns the work budget.
         if (maxSteps == 0 && self.heap.length != 0 && self.heap[0].timestamp <= through) {
             revert AccountingBehind(self.accountedThrough, self.heap[0].timestamp);
         }
-        progress = _process(self, through, maxSteps == 0 ? 1 : maxSteps);
+        progress = _process(self, through, maxSteps);
         if (!progress.complete) {
             revert AccountingBehind(progress.accountedThrough, self.heap[0].timestamp);
         }
@@ -850,8 +848,9 @@ library VestingLedger {
         private
         returns (ProcessResult memory result)
     {
-        if (maxSteps > MAX_STEPS) revert InvalidAccountingSteps();
-        if (!self.initialized || through < self.accountedThrough) revert AccountingInvariant();
+        if (!self.initialized || through < self.accountedThrough) {
+            revert AccountingInvariant();
+        }
         uint256[4] memory earned;
         while (
             result.processed < maxSteps && self.heap.length != 0

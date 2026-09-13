@@ -824,7 +824,7 @@ export function MembershipExperience({
     await perform(
       `Gift ${giftPeriodValue} period${giftPeriodValue === 1n ? "" : "s"}`,
       giftMode === "new"
-        ? tierWrite("giftMembership", [normalizedGift, giftPeriodValue])
+        ? tierWrite("giftMembership", [normalizedGift, giftPeriodValue, 25n])
         : tierWrite("giftRenewal", [
             giftTokenValue,
             normalizedGift,
@@ -835,6 +835,7 @@ export function MembershipExperience({
                 ? 1
                 : 2,
             giftState.data.referrer,
+            25n,
           ]),
       async (receipt) => {
         if (
@@ -1055,21 +1056,22 @@ export function MembershipExperience({
   const managePath =
     `/chains/${expectedChainId}/tiers/${snapshot.address}/manage` as Route;
 
+  const positionSelector = snapshot.wallet && snapshot.ownerPage && (
+    <PositionSelector
+      key={`${snapshot.wallet}:${capturedBlock}`}
+      chainId={expectedChainId}
+      tier={snapshot.address}
+      owner={snapshot.wallet}
+      blockNumber={capturedBlock}
+      initialPage={snapshot.ownerPage}
+      selectedTokenId={snapshot.credential?.tokenId ?? 0n}
+      onSelect={onSelectPosition}
+      busy={isTransactionInFlight(transaction.phase)}
+    />
+  );
+
   return (
     <div className="membership-experience">
-      {snapshot.wallet && snapshot.ownerPage && (
-        <PositionSelector
-          key={`${snapshot.wallet}:${capturedBlock}`}
-          chainId={expectedChainId}
-          tier={snapshot.address}
-          owner={snapshot.wallet}
-          blockNumber={capturedBlock}
-          initialPage={snapshot.ownerPage}
-          selectedTokenId={snapshot.credential?.tokenId ?? 0n}
-          onSelect={onSelectPosition}
-          busy={isTransactionInFlight(transaction.phase)}
-        />
-      )}
       {transferOutcome && <p role="status">{transferOutcome}</p>}
       <section className="membership-hero" aria-label="Membership overview">
         <div className="membership-artwork-stage">
@@ -1138,12 +1140,14 @@ export function MembershipExperience({
         </div>
       </section>
 
+      {!snapshot.credential && positionSelector}
       {snapshot.credential && (
         <section
           className={`membership-status status-${actionState}`}
           aria-label="Current membership status"
         >
           <div>
+            {positionSelector}
             <h2 id="membership-status-title">
               {membershipStatusTitle(snapshot.credential)}
             </h2>
@@ -1532,12 +1536,6 @@ export function MembershipExperience({
                       <summary>Settled funds</summary>
                       {(
                         [
-                          [
-                            "Membership rewards",
-                            earnings.data.settled.member,
-                            "claimReward",
-                            [snapshot.credential?.tokenId ?? 0n],
-                          ],
                           [
                             "Referral proceeds",
                             earnings.data.settled.referral,

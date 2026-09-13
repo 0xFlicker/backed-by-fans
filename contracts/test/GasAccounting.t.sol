@@ -73,7 +73,7 @@ contract GasAccountingTest is Test {
             address(new OnchainMediaStoreFactory()),
             address(this),
             address(token),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(token))
         );
         for (uint256 i; i < 8; ++i) {
@@ -101,12 +101,12 @@ contract GasAccountingTest is Test {
         result = MembershipTier(factory.createTier(config));
         token.mint(address(this), 10_000);
         token.approve(address(result), 10_000);
-        result.createMembership(1, address(0));
+        result.createMembership(1, address(0), 25);
         address buyer = makeAddr("referred buyer");
         token.mint(buyer, 1000);
         vm.startPrank(buyer);
         token.approve(address(result), 1000);
-        result.createMembership(1, address(this));
+        result.createMembership(1, address(this), 25);
         vm.stopPrank();
     }
 
@@ -118,19 +118,27 @@ contract GasAccountingTest is Test {
             ids[0] = 1;
             tiers[i] = MembershipTypes.TierClaimRequest(benchmarkTiers[i], ids);
         }
+        for (uint256 i = 1; i < tiers.length; ++i) {
+            uint256 j = i;
+            while (j > 0 && tiers[j - 1].tier > tiers[j].tier) {
+                (tiers[j - 1], tiers[j]) = (tiers[j], tiers[j - 1]);
+                --j;
+            }
+        }
         vm.warp(settle ? 1100 : 1050);
         for (uint256 i; i < count; ++i) {
             vm.cool(tiers[i].tier);
         }
         vm.cool(address(factory));
         vm.cool(address(token));
+        vm.cool(MembershipTestConfig.implementation());
         vm.cool(ledger);
         uint256 beforeGas = gasleft();
-        MembershipTypes.ClaimResult[] memory results = factory.claimEverything(tiers);
+        MembershipTypes.ClaimResult[] memory results = factory.claimEverything(tiers, 25);
         uint256 used = beforeGas - gasleft();
-        _recordGas(name, used, abi.encodeCall(factory.claimEverything, (tiers)));
+        _recordGas(name, used, abi.encodeCall(factory.claimEverything, (tiers, 25)));
         assertLe(
-            used, settle ? 2_700_000 : count == 1 ? 400_000 : count == 3 ? 1_160_000 : 3_400_000
+            used, settle ? 2_700_000 : count == 1 ? 430_000 : count == 3 ? 1_230_000 : 3_400_000
         );
         for (uint256 i; i < count; ++i) {
             assertEq(results[i].processedSteps, settle ? 4 : 0);
@@ -161,6 +169,7 @@ contract GasAccountingTest is Test {
         vm.warp(1050);
         vm.cool(address(tier));
         vm.cool(address(token));
+        vm.cool(MembershipTestConfig.implementation());
         vm.cool(ledger);
         vm.prank(makeAddr("referred buyer"));
         uint256[] memory ids = new uint256[](1);
@@ -181,23 +190,24 @@ contract GasAccountingTest is Test {
         vm.warp(1050);
         vm.cool(address(tier));
         vm.cool(address(token));
+        vm.cool(MembershipTestConfig.implementation());
         vm.cool(ledger);
         vm.prank(buyer);
         uint256 beforeGas = gasleft();
         uint256 tokenId;
         if (renewal) {
-            tier.renewMembership(1, 1, referrer);
+            tier.renewMembership(1, 1, referrer, 25);
             tokenId = 1;
         } else {
-            tokenId = tier.createMembership(1, referrer);
+            tokenId = tier.createMembership(1, referrer, 25);
         }
         uint256 used = beforeGas - gasleft();
         _recordGas(
             renewal ? "renewal" : "join",
             used,
             renewal
-                ? abi.encodeCall(tier.renewMembership, (1, 1, referrer))
-                : abi.encodeCall(tier.createMembership, (1, referrer))
+                ? abi.encodeCall(tier.renewMembership, (1, 1, referrer, 25))
+                : abi.encodeCall(tier.createMembership, (1, referrer, 25))
         );
         assertLe(used, renewal ? 600_000 : 1_050_000);
         assertEq(tokenId, renewal ? 1 : 3);
@@ -239,6 +249,7 @@ contract GasAccountingTest is Test {
         VestingSchedulerHarness scheduler =
             continuing ? continuingEnds : staggered ? staggeredEnds : equalEnds;
         vm.cool(address(scheduler));
+        vm.cool(MembershipTestConfig.implementation());
         vm.cool(ledger);
         uint256 beforeGas = gasleft();
         VestingLedger.ProcessResult memory result = scheduler.process(1200, steps);
@@ -289,6 +300,7 @@ contract GasAccountingTest is Test {
         vm.cool(address(token));
         vm.cool(address(vault));
         vm.cool(address(router));
+        vm.cool(MembershipTestConfig.implementation());
         vm.cool(ledger);
         uint256 beforeGas = gasleft();
         (, uint256 released, uint256 bought, uint256 burned) =

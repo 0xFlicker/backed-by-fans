@@ -26,7 +26,7 @@ contract DeferredProtocolTokenForkTest is AuthenticAssetFixture {
                     deployCode("OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory"),
                     address(this),
                     address(0),
-                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.implementation(),
                     MembershipTestConfig.minimumPayments(assets)
                 )
             )
@@ -48,7 +48,7 @@ contract DeferredProtocolTokenForkTest is AuthenticAssetFixture {
         MembershipTier tier = MembershipTier(factory.createTier(config));
         vm.startPrank(trader);
         assets[0].approve(address(tier), acquired);
-        uint256 id = tier.createMembership(4, address(0));
+        uint256 id = tier.createMembership(4, address(0), 25);
         vm.stopPrank();
         vm.warp(block.timestamp + 100);
         assertEq(id, 1);

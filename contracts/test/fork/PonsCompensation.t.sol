@@ -340,7 +340,7 @@ contract PonsCompensationForkTest is AuthenticAssetFixture {
                     media,
                     address(this),
                     address(token),
-                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.implementation(),
                     MembershipTestConfig.minimumPayments(assets)
                 )
             )

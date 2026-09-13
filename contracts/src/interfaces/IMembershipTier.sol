@@ -10,6 +10,9 @@ import {IERC5643} from "./IERC5643.sol";
 
 /// @notice Immutable economic terms and public-standard surface of one membership tier.
 interface IMembershipTier is IERC165, IERC721, IERC5643 {
+    /// @notice Initialize a fresh clone atomically from its factory, exactly once.
+    function initialize(MembershipTypes.TierConfig calldata config) external;
+
     function previewClaimRewards(address beneficiary, uint256[] calldata tokenIds, uint256 maxSteps)
         external
         view
@@ -109,7 +112,6 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
     function MAX_LIFETIME_GROSS() external view returns (uint256);
     /// @notice Q = 2^128 scaled units per raw token unit; claims retain fractional credits.
     function ACCOUNTING_SCALE() external view returns (uint256);
-    function MAX_ACCOUNTING_STEPS() external view returns (uint256);
     function previewShares(uint256 gross) external view returns (MembershipTypes.ShareQuote memory);
 
     event ProtocolFeesReleased(address indexed vault, address indexed asset, uint256 amount);
@@ -153,7 +155,7 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
     function MIN_ENABLED_BOOST_BPS() external view returns (uint32);
     function MAX_BOOST_BPS() external view returns (uint32);
     function BOOST_STEP_BPS() external view returns (uint32);
-    /// @notice Anyone may process 1–25 START/END checkpoints, including while paused.
+    /// @notice Anyone may process a caller-bounded number of funding/expiry events, including while paused.
     /// @dev Returns actual work, not the requested maximum. An incomplete successful call
     /// saves progress; an AccountingBehind mutation reverts all of its attempted progress.
     /// No token transfer, beneficiary change or worker payment is implied by processing.
@@ -170,7 +172,7 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
         returns (uint256 raw, uint256 fractionalScaled);
     function accountingStatus() external view returns (MembershipTypes.AccountingStatus memory);
     /// @notice Project balances without writes, transfers or transaction simulation.
-    /// @dev Reads at most 256 checkpoints. Zero reads only continuous time if no
+    /// @dev Reads at most the caller-supplied checkpoint budget. Zero reads only continuous time if no
     /// checkpoint is due. Inspect current.status.complete before treating it as current.
     function previewAccounting(
         uint256 tokenId,
@@ -216,22 +218,36 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
 
     function isOccupied(uint256 tokenId) external view returns (bool);
 
-    function createMembership(uint64 periods, address referralChoice)
+    function createMembership(uint64 periods, address referralChoice, uint256 maxAccountingSteps)
         external
         returns (uint256 tokenId);
-    function renewMembership(uint256 tokenId, uint64 periods, address referralChoice) external;
-    function createContributionMembership(uint256 gross, address referralChoice)
+    function renewMembership(
+        uint256 tokenId,
+        uint64 periods,
+        address referralChoice,
+        uint256 maxAccountingSteps
+    ) external;
+    function createContributionMembership(
+        uint256 gross,
+        address referralChoice,
+        uint256 maxAccountingSteps
+    ) external returns (uint256 tokenId);
+    function renewContributionMembership(
+        uint256 tokenId,
+        uint256 gross,
+        address referralChoice,
+        uint256 maxAccountingSteps
+    ) external;
+    function giftMembership(address recipient, uint64 periods, uint256 maxAccountingSteps)
         external
         returns (uint256 tokenId);
-    function renewContributionMembership(uint256 tokenId, uint256 gross, address referralChoice)
-        external;
-    function giftMembership(address recipient, uint64 periods) external returns (uint256 tokenId);
     function giftRenewal(
         uint256 tokenId,
         address expectedOwner,
         uint64 periods,
         MembershipTypes.ReferralStatus expectedReferralStatus,
-        address expectedReferrer
+        address expectedReferrer,
+        uint256 maxAccountingSteps
     ) external;
 
     function referralOf(uint256 tokenId)
@@ -257,7 +273,9 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
 
     function withdrawCreatorProceeds() external returns (uint256 amount);
 
-    function claimReward(uint256 tokenId) external returns (uint256 amount);
+    function claimReward(uint256 tokenId, uint256 maxAccountingSteps)
+        external
+        returns (uint256 amount);
 
     function claimReferral() external returns (uint256 amount);
 
@@ -278,15 +296,25 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
         view
         returns (MembershipTypes.RefundPreview memory);
 
-    function refund(uint256 tokenId, address expectedOwner, uint256 maxGrossRefund)
+    function refund(
+        uint256 tokenId,
+        address expectedOwner,
+        uint256 maxGrossRefund,
+        uint256 maxAccountingSteps
+    ) external returns (uint256 grossRefund);
+
+    function grantMembership(address recipient, uint64 periods, uint256 maxAccountingSteps)
         external
-        returns (uint256 grossRefund);
+        returns (uint256 tokenId);
 
-    function grantMembership(address recipient, uint64 periods) external returns (uint256 tokenId);
+    function addGrantTime(
+        uint256 tokenId,
+        address expectedOwner,
+        uint64 periods,
+        uint256 maxAccountingSteps
+    ) external;
 
-    function addGrantTime(uint256 tokenId, address expectedOwner, uint64 periods) external;
-
-    function revokeGrantTime(uint256 tokenId, address expectedOwner)
+    function revokeGrantTime(uint256 tokenId, address expectedOwner, uint256 maxAccountingSteps)
         external
         returns (uint64 revokedSeconds);
 

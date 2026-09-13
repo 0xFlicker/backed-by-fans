@@ -34,8 +34,6 @@ interface IOnchainMediaStoreFactory {
 
     function maxCodeStorePayloadBytes() external view returns (uint256);
 
-    function maxPageSize() external view returns (uint256);
-
     function store(bytes calldata payload, MembershipTypes.MediaMIME mime)
         external
         returns (address mediaStore);

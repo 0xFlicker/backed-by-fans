@@ -4146,3 +4146,57 @@ dd {
   min-height: auto;
   margin-inline-end: 0.5rem;
 }
+
+.membership-position-choice {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  color: var(--muted-ink);
+  font-size: 0.9rem;
+}
+
+.membership-position-actions,
+.membership-position-pages,
+.membership-position-actions label {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+
+.membership-position-choice select {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--ink);
+  font: inherit;
+  max-width: 100%;
+  padding: 0.4rem 0;
+}
+
+.membership-position-choice button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.4rem 0;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.membership-position-choice button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.membership-position-choice :is(button, select):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+.membership-position-choice p {
+  margin: 0;
+}

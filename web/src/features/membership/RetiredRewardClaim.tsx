@@ -1,4 +1,5 @@
 export function RetiredRewardClaim({
+  label = "Ended membership rewards",
   credit,
   canClaim,
   onClaim,
@@ -8,6 +9,7 @@ export function RetiredRewardClaim({
   pending = false,
   error,
 }: {
+  label?: string;
   credit?: readonly [bigint, bigint];
   canClaim: boolean;
   onClaim: () => void;
@@ -20,7 +22,7 @@ export function RetiredRewardClaim({
   return (
     <section
       className="control-group"
-      aria-label="Ended membership rewards"
+      aria-label={label}
       aria-busy={pending || loading}
     >
       <h2>Ended membership rewards</h2>

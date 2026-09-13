@@ -55,7 +55,7 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
         address: configuredTier,
         abi: membershipTierAbi,
         functionName: "createMembership",
-        args: [1n, zeroAddress],
+        args: [1n, zeroAddress, 25n],
       }),
     );
 
@@ -197,7 +197,7 @@ test("@anvil paused maintenance retires an NFT and its member claims before retu
         address: configuredTier,
         abi: membershipTierAbi,
         functionName: "createMembership",
-        args: [1n, zeroAddress],
+        args: [1n, zeroAddress, 25n],
       }),
     );
     const id = await expectSingleOwnedPosition(client, configuredTier, member);

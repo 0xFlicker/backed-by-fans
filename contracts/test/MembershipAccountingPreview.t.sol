@@ -24,7 +24,7 @@ contract MembershipAccountingPreviewTest is Test {
         MembershipTypes.TierConfig memory config =
             MembershipTestConfig.defaultConfig(address(this), renderer, address(token));
         config.periodDuration = 100;
-        tier = new MembershipTier(
+        tier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(token)), token, config
         );
         token.mint(ALICE, 1_000_000_000);
@@ -34,7 +34,7 @@ contract MembershipAccountingPreviewTest is Test {
 
     function test_previewRetirementPreservesHistoricalEligibilityAndCredit() public {
         vm.prank(ALICE);
-        uint256 id = tier.createMembership(1, address(0));
+        uint256 id = tier.createMembership(1, address(0), 25);
         vm.warp(1_000_200);
         MembershipTypes.AccountingPreview memory before =
             tier.previewAccounting(id, ALICE, address(0), 25);
@@ -52,8 +52,8 @@ contract MembershipAccountingPreviewTest is Test {
     function test_batchPreviewCountsRetiredOwnerCreditOnceAndMatchesPayout() public {
         vm.startPrank(ALICE);
         uint256[] memory ids = new uint256[](2);
-        ids[0] = tier.createMembership(1, address(0));
-        ids[1] = tier.createMembership(2, address(0));
+        ids[0] = tier.createMembership(1, address(0), 25);
+        ids[1] = tier.createMembership(2, address(0), 25);
         vm.stopPrank();
         vm.warp(1_000_100);
         MembershipTypes.ClaimPreview memory preview = tier.previewClaimRewards(ALICE, ids, 25);
@@ -75,8 +75,8 @@ contract MembershipAccountingPreviewTest is Test {
 
     function test_batchPreviewUsesOneBudgetAndRejectsInvalidSelection() public {
         uint256[] memory ids = new uint256[](2);
-        ids[0] = tier.grantMembership(ALICE, 1);
-        ids[1] = tier.grantMembership(ALICE, 1);
+        ids[0] = tier.grantMembership(ALICE, 1, 25);
+        ids[1] = tier.grantMembership(ALICE, 1, 25);
         vm.warp(1_000_100);
         MembershipTypes.ClaimPreview memory preview = tier.previewClaimRewards(ALICE, ids, 1);
         assertFalse(preview.complete);
@@ -93,8 +93,8 @@ contract MembershipAccountingPreviewTest is Test {
     }
 
     function test_freeExpiryUsesPreviewBudgetAndShowsIncompletePhase() public {
-        tier.grantMembership(ALICE, 1);
-        tier.grantMembership(BOB, 1);
+        tier.grantMembership(ALICE, 1, 25);
+        tier.grantMembership(BOB, 1, 25);
         vm.warp(1_000_100);
         MembershipTypes.AccountingPreview memory preview =
             tier.previewAccounting(0, ALICE, address(0), 1);
@@ -113,7 +113,7 @@ contract MembershipAccountingPreviewTest is Test {
     }
 
     function test_zeroBudgetDoesNotSkipDueExpiration() public {
-        uint256 id = tier.grantMembership(ALICE, 1);
+        uint256 id = tier.grantMembership(ALICE, 1, 25);
         vm.warp(1_000_100);
         MembershipTypes.AccountingPreview memory preview =
             tier.previewAccounting(id, ALICE, address(0), 0);
@@ -124,11 +124,11 @@ contract MembershipAccountingPreviewTest is Test {
 
     function test_variableDenominatorPreviewMatchesEveryBatchSplit() public {
         vm.prank(ALICE);
-        uint256 first = tier.createMembership(1, address(0));
+        uint256 first = tier.createMembership(1, address(0), 25);
         token.mint(BOB, 1_000_000_000);
         vm.startPrank(BOB);
         token.approve(address(tier), type(uint256).max);
-        uint256 second = tier.createMembership(2, address(0));
+        uint256 second = tier.createMembership(2, address(0), 25);
         vm.stopPrank();
         tier.processAccounting(25);
         vm.warp(1_000_200);

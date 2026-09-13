@@ -48,10 +48,12 @@ interface IMembershipFactory {
     event PaymentTokenEnabled(address indexed token);
     event PaymentTokenDisabled(address indexed token);
 
-    /// @notice Settle and claim the caller's funds from up to eight registered tiers, with 25 shared checkpoints.
-    function claimEverything(MembershipTypes.TierClaimRequest[] calldata requests)
-        external
-        returns (MembershipTypes.ClaimResult[] memory);
+    /// @notice Settle and claim the caller's selected tiers using a caller-supplied shared work budget.
+    /// @dev Tiers and each tier's token IDs must be strictly ascending and unique.
+    function claimEverything(
+        MembershipTypes.TierClaimRequest[] calldata requests,
+        uint256 maxAccountingSteps
+    ) external returns (MembershipTypes.ClaimResult[] memory);
 
     function rendererSchema() external view returns (bytes32);
 
@@ -59,7 +61,7 @@ interface IMembershipFactory {
 
     function mediaStoreFactoryRuntimeCodehash() external view returns (bytes32);
 
-    function deployer() external view returns (address);
+    function implementation() external view returns (address);
 
     /// @notice Permanently bind the validated launch token; callable by the protocol owner once.
     function bindProtocolToken(address token) external;
@@ -68,8 +70,6 @@ interface IMembershipFactory {
 
     function buybackVault() external view returns (address);
     function burnRouter() external view returns (address);
-
-    function maxPageSize() external pure returns (uint256);
 
     function paymentTokenCount() external view returns (uint256);
 

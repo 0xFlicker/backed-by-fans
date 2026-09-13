@@ -751,7 +751,7 @@ test("@anvil reward-curves publishes all presets and confirms execution-time wei
       const paymentData = encodeFunctionData({
         abi: membershipTierAbi,
         functionName: "createMembership",
-        args: [2n, "0x0000000000000000000000000000000000000000"],
+        args: [2n, "0x0000000000000000000000000000000000000000", 25n],
       });
       let intervened = false;
       let paymentHash: `0x${string}` | undefined;
@@ -770,7 +770,7 @@ test("@anvil reward-curves publishes all presets and confirms execution-time wei
               address: tier,
               abi: membershipTierAbi,
               functionName: "createMembership",
-              args: [1n, "0x0000000000000000000000000000000000000000"],
+              args: [1n, "0x0000000000000000000000000000000000000000", 25n],
             }),
           );
           const response = await route.fetch();

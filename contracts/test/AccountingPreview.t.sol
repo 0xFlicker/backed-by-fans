@@ -159,8 +159,7 @@ contract AccountingPreviewTest is Test {
         assertEq(p.current.status.nextBoundary, START + 10);
     }
 
-    function test_invalidBudget() public {
-        vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);
+    function test_previewAcceptsCallerBudgetAboveFormerCap() public view {
         h.preview(0, REF, START, 257);
     }
 

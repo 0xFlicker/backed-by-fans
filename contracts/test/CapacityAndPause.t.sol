@@ -31,7 +31,7 @@ contract CapacityAndPauseTest is Test {
     }
 
     function test_expiredPositionReleasesSlotThroughPermissionlessIdempotentMaintenance() public {
-        uint256 tokenId = tier.grantMembership(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1, 25);
         vm.warp(tier.expiresAt(tokenId));
 
         assertFalse(tier.isActiveToken(tokenId));
@@ -48,7 +48,7 @@ contract CapacityAndPauseTest is Test {
     }
 
     function test_maintenanceBeforeExpiryDoesNotMutateStoredMembershipTime() public {
-        uint256 tokenId = tier.grantMembership(member, 2);
+        uint256 tokenId = tier.grantMembership(member, 2, 25);
         MembershipTypes.MembershipState memory beforeState = tier.storedTimeState(tokenId);
         vm.warp(_START + 15 days);
 
@@ -63,9 +63,9 @@ contract CapacityAndPauseTest is Test {
     }
 
     function test_creationRetiresExpiredPositionBeforeReusingCapacityWithNewId() public {
-        uint256 tokenId = tier.grantMembership(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1, 25);
         vm.warp(tier.expiresAt(tokenId));
-        uint256 fresh = tier.grantMembership(member, 1);
+        uint256 fresh = tier.grantMembership(member, 1, 25);
         assertGt(fresh, tokenId);
         assertEq(tier.occupiedSupply(), 1);
         assertFalse(tier.isOccupied(tokenId));
@@ -76,17 +76,17 @@ contract CapacityAndPauseTest is Test {
         );
         tier.ownerOf(tokenId);
         vm.expectRevert(MembershipTier.CapacityReached.selector);
-        tier.grantMembership(competitor, 1);
+        tier.grantMembership(competitor, 1, 25);
     }
 
     function test_returningWalletCanLoseReleasedCapacityRace() public {
-        uint256 tokenId = tier.grantMembership(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1, 25);
         vm.warp(tier.expiresAt(tokenId));
         vm.prank(competitor);
         assertEq(tier.processExpirations(25).retiredCount, 1);
-        tier.grantMembership(competitor, 1);
+        tier.grantMembership(competitor, 1, 25);
         vm.expectRevert(MembershipTier.CapacityReached.selector);
-        tier.grantMembership(member, 1);
+        tier.grantMembership(member, 1, 25);
         assertEq(tier.balanceOf(member), 0);
         assertFalse(tier.isOccupied(tokenId));
         assertEq(tier.totalMinted(), 2);
@@ -94,8 +94,8 @@ contract CapacityAndPauseTest is Test {
 
     function test_activeOrHeldOccupancyConstrainsSupplyCapLowering() public {
         MembershipTierHarness uncappedTier = _deployTier(0);
-        uncappedTier.grantMembership(member, 1);
-        uncappedTier.grantMembership(competitor, 1);
+        uncappedTier.grantMembership(member, 1, 25);
+        uncappedTier.grantMembership(competitor, 1, 25);
 
         vm.expectRevert(MembershipTier.SupplyCapBelowOccupancy.selector);
         uncappedTier.setSupplyCap(1);
@@ -114,7 +114,7 @@ contract CapacityAndPauseTest is Test {
     }
 
     function test_pauseBlocksFixedPriceTimeIncreasesButNotPassiveAccess() public {
-        uint256 tokenId = tier.grantMembership(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1, 25);
         uint64 expiration = tier.expiresAt(tokenId);
         tier.setPaused(true);
 
@@ -123,26 +123,26 @@ contract CapacityAndPauseTest is Test {
         assertTrue(tier.isActiveToken(tokenId));
 
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.grantMembership(member, 1);
+        tier.grantMembership(member, 1, 25);
 
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.addGrantTime(tokenId, member, 1);
-
-        vm.expectRevert(MembershipTier.TierPaused.selector);
-        vm.prank(member);
-        tier.createMembership(1, address(0));
+        tier.addGrantTime(tokenId, member, 1, 25);
 
         vm.expectRevert(MembershipTier.TierPaused.selector);
         vm.prank(member);
-        tier.renewMembership(tokenId, 1, address(0));
+        tier.createMembership(1, address(0), 25);
+
+        vm.expectRevert(MembershipTier.TierPaused.selector);
+        vm.prank(member);
+        tier.renewMembership(tokenId, 1, address(0), 25);
 
         vm.expectRevert(MembershipTier.TierPaused.selector);
         vm.prank(competitor);
-        tier.giftMembership(member, 1);
+        tier.giftMembership(member, 1, 25);
 
         vm.expectRevert(MembershipTier.TierPaused.selector);
         vm.prank(competitor);
-        tier.giftRenewal(tokenId, member, 1, MembershipTypes.ReferralStatus.Unset, address(0));
+        tier.giftRenewal(tokenId, member, 1, MembershipTypes.ReferralStatus.Unset, address(0), 25);
 
         assertEq(tier.expiresAt(tokenId), expiration);
         vm.warp(expiration);
@@ -155,16 +155,16 @@ contract CapacityAndPauseTest is Test {
     function test_multiplePositionsInOneWalletConsumeIndependentCapacity() public {
         MembershipTierHarness target = _deployTier(2);
         uint256 paid = _purchase(target, member);
-        uint256 granted = target.grantMembership(member, 2);
+        uint256 granted = target.grantMembership(member, 2, 25);
         assertNotEq(paid, granted);
         assertEq(target.balanceOf(member), 2);
         assertEq(target.occupiedSupply(), 2);
         vm.expectRevert(MembershipTier.CapacityReached.selector);
-        target.grantMembership(member, 1);
-        target.revokeGrantTime(granted, member);
+        target.grantMembership(member, 1, 25);
+        target.revokeGrantTime(granted, member, 25);
         assertEq(target.occupiedSupply(), 1);
         assertTrue(target.isActiveToken(paid));
-        uint256 replacement = target.grantMembership(competitor, 1);
+        uint256 replacement = target.grantMembership(competitor, 1, 25);
         assertGt(replacement, granted);
         assertEq(target.occupiedSupply(), 2);
         assertEq(target.lifetimeGross(), 10_000_000);
@@ -200,7 +200,7 @@ contract CapacityAndPauseTest is Test {
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
         MembershipTypes.TierConfig memory config = _config(address(renderer), address(token));
         config.supplyCap = supplyCap;
-        deployedTier = new MembershipTierHarness(
+        deployedTier = MembershipTestConfig.deployHarness(
             SyntheticVaultBinding.bind(address(this), address(token)),
             token,
             address(renderer),
@@ -212,7 +212,7 @@ contract CapacityAndPauseTest is Test {
 
     function _purchase(MembershipTier target, address buyer) private returns (uint256 tokenId) {
         vm.prank(buyer);
-        tokenId = target.createMembership(1, address(0));
+        tokenId = target.createMembership(1, address(0), 25);
     }
 
     function _fundAndApprove(MembershipTier target, address buyer) private {

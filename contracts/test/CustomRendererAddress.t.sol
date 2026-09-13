@@ -109,7 +109,7 @@ contract CustomRendererAddressTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(paymentToken))
         );
     }
@@ -203,7 +203,7 @@ contract CustomRendererAddressTest is Test {
         MembershipTier tier = _createTier();
         address member = makeAddr("member");
         vm.prank(creator);
-        uint256 tokenId = tier.grantMembership(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1, 25);
         TaggedRenderer replacement = new TaggedRenderer("replacement", false);
         MembershipTypes.ArtConfig memory art = tier.artConfig();
         MembershipTypes.MediaConfig memory media = tier.mediaConfig();
@@ -269,7 +269,7 @@ contract CustomRendererAddressTest is Test {
         MembershipTier tier = _createTier();
         address member = makeAddr("member");
         vm.prank(creator);
-        uint256 tokenId = tier.grantMembership(member, 2);
+        uint256 tokenId = tier.grantMembership(member, 2, 25);
         bytes32 beforeState = _stateHash(tier, tokenId);
         TaggedRenderer replacement = new TaggedRenderer("replacement", false);
         MembershipTypes.ArtConfig memory nextArt = tier.artConfig();

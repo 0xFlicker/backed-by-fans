@@ -29,15 +29,15 @@ FOUNDRY_PROFILE=robinhood forge test --libraries "$linked_mapping" --match-path 
 | Approvals and receivers | Owner/approved/operator transfer; self-transfer; accepting/rejecting/reentrant receiver | Standard approval reset and enumeration; no nested guard failure for valid transfer; callback cannot expose partial state or steal credit |
 | Transfer-only approval | Token-approved address and owner-wide operator attempt owner-only renewal and reward claims, including payout to owner | Both fail without ownership; normal approved transfers work; independent sponsorship remains available without NFT approval |
 | Exact expiry | Transfer/renew at T−1, T, T+1 before cleanup | Success only while live; expired/burned ID cannot revive |
-| Chronological tails | Funding ends/starts and many expirations at T; punctual and delayed processing | All funding through T credited before retirement; exact scaled equality across batches 1–25 and every phase split |
+| Chronological tails | Funding ends/starts and many expirations at T; punctual and delayed processing | All funding through T credited before retirement; exact scaled equality across batches 1–25, batches above 25 and every phase split |
 | Fractions | Several positions retire to one owner, including a transferred position | Fractions combine before rounding; claim raw units and retain remainder; no double liability; zero-NFT claim works |
 | Last eligible member | Retire only weighted position with free positions remaining | Total shares zero; prior credit preserved; later funding follows existing unassigned rules |
 | Fresh return | Create A/B for one wallet; renew A; expire A; create C | B unchanged; A burned/zero; C new ID and referral state; gross never rewinds |
 | Every time path | Purchase/gift/contribution including zero; create/add/revoke grant; refund/cancel | Schedule matches absolute expiry after every mutation; zero remaining time retires exactly once; partial revocation preserves surviving position |
 | Paused maintenance and transfer | Pause with overdue funding/expiry and occupied cap; transfer a still-live position by owner and approved caller before maintenance, with more than 25 due steps | Transfer succeeds without processing checkpoints; separately, any wallet saves bounded maintenance progress and releases capacity; live transfers/claims/approvals usable; new time blocked; expired transfers still fail |
-| Backlog | At least 10,000 scheduled positions, staggered and identical expiries | At most 25 events/call, committed progress, no history scan, eventual completion without new events; record gas |
+| Backlog | At least 10,000 scheduled positions, staggered and identical expiries | At most the caller-supplied events/call, committed progress, no history scan, eventual completion without new events; record gas |
 | Pages | At least 101 same-tier positions and 9 tiers; block-pinned pages | Every ID reachable; explicit continuation; no cache collisions; refresh after transfer/burn does not skip IDs |
-| Claims | Maximum batch; ownership changes after selection; duplicates; beneficiary-only tier | Clear atomic stale/invalid selection errors; no double payout; 32 total IDs and 25 total steps enforced |
+| Claims | Maximum batch; ownership changes after selection; duplicates; beneficiary-only tier | Clear atomic stale/invalid selection errors; no double payout; sorted unique selected IDs and the caller-supplied shared accounting budget enforced |
 | Preview | Same state/timestamp, budgets 0/1/25/256 as applicable | Projection matches writes, including same-time partial phases and historical eligibility; shared tier balances counted once |
 
 Conservation checks use exact integer/scaled arithmetic and the independent model, not tolerances or assertions copied from implementation. Include mixed paid/grant time, original referral streams after transfer, refund reserve safety and lifetime-gross boundaries. Compare a final allowed step that completes work against one leaving work at the same timestamp.
@@ -90,3 +90,11 @@ Record successful library-supplied receipts and canonical rereads through the ex
 ## Completion record
 
 Record commit, tool versions, command outcomes, matched test counts, independent model comparisons, maximum batch gas, bytecode sizes, generated-binding checks, browser evidence and PDF visual inspection. Keep source, local contract, browser and intended-profile deployment evidence separate. Requirements checklist, task generation and cross-artifact analysis precede implementation; convergence follows implementation.
+
+## 2026-09-12 clone and caller-budget amendment
+
+Feature 005 remains open. One fixed implementation is deployed separately; the membership factory directly deploys standard deterministic ERC-1167 clones and initializes each atomically once. The implementation is initialization-locked. Initializable OpenZeppelin ERC-721 enumeration/ownership preserve independent tier state; fixed economic storage has no setters or upgrade path. Factory registration distinguishes official tiers. Tier A/B stores and the separate tier deployer are removed.
+
+Custom membership mutations accept an explicit accounting budget; factory claims share a caller budget across sorted tier requests by actual consumed steps. All protocol batch/page paths remove arbitrary numeric iteration ceilings. Inputs, economics and native Robinhood limits remain validated. Positive-budget maintenance saves chronological partial progress; atomic mutations revert if catch-up cannot finish. Standard ERC-5643 signatures require separate maintenance for due events. Transfer and settled retired-credit withdrawal do not run catch-up.
+
+Validation includes above-former-cap cases, small/large batch equivalence, locked/atomic clone initialization, independent storage, Claim all interruption/revalidation, and measured before/after gas. Replace only the owned fork/web at RPC 18557, chain 31337 and web 3110 using the existing private RPC/pin. Explorer verification/clone recognition is deferred to the next authorized testnet deployment. Previous evidence does not validate this amendment.

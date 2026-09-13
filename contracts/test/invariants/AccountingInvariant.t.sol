@@ -76,7 +76,7 @@ contract AccountingHandler is Test {
         );
         _settle();
         vm.prank(actor);
-        uint256 id = tier.createMembership(periods, choice);
+        uint256 id = tier.createMembership(periods, choice, 25);
         _owners[id] = actor;
         if (_referralStatus[id] == MembershipTypes.ReferralStatus.Unset) {
             _referralStatus[id] = choice == address(0)
@@ -96,7 +96,7 @@ contract AccountingHandler is Test {
         paymentToken.mint(payer, gross);
         _settle();
         vm.prank(payer);
-        uint256 id = tier.giftMembership(recipient, periods);
+        uint256 id = tier.giftMembership(recipient, periods, 25);
         _owners[id] = recipient;
         _payment(id, gross, uint64(periods * tier.periodDuration()));
     }
@@ -136,7 +136,7 @@ contract AccountingHandler is Test {
         MembershipTypes.EarnedBalances memory before =
         tier.previewAccounting(id, address(0), actor, 0).settled;
         vm.prank(actor);
-        uint256 claimed = tier.claimReward(id);
+        uint256 claimed = tier.claimReward(id, 25);
         assertEq(claimed, before.member);
         assertEq(
             tier.previewAccounting(id, address(0), actor, 0).settled.fractionalScaled[1],
@@ -182,7 +182,7 @@ contract AccountingHandler is Test {
             MembershipTypes.TierClaimRequest[] memory targets =
                 new MembershipTypes.TierClaimRequest[](1);
             targets[0] = MembershipTypes.TierClaimRequest(address(tier), ids);
-            result = factory.claimEverything(targets)[0];
+            result = factory.claimEverything(targets, 25)[0];
         } else {
             result = tier.claimRewards(ids, 25);
         }
@@ -219,7 +219,7 @@ contract AccountingHandler is Test {
         uint256 expected = _funding.unusedGross(id, uint64(block.timestamp));
         assertEq(tier.previewRefund(id).grossRefund, expected);
         vm.prank(creator);
-        assertEq(tier.refund(id, actor, expected), expected);
+        assertEq(tier.refund(id, actor, expected, 25), expected);
         assertEq(_funding.cancel(id), expected);
         _lifecycle[id].refundTime(uint64(block.timestamp));
         _eligible[id] = false;
@@ -317,7 +317,7 @@ contract AccountingHandler is Test {
         if (exit == 0) {
             if (id == 0 || tier.claimableReward(id) == 0) return;
             frozen = actor;
-            data = abi.encodeCall(MembershipTier.claimReward, (id));
+            data = abi.encodeCall(MembershipTier.claimReward, (id, 25));
         } else if (exit == 1) {
             if (tier.claimableReferral(actor) == 0) return;
             frozen = actor;
@@ -340,7 +340,9 @@ contract AccountingHandler is Test {
             ) return;
             frozen = actor;
             caller = creator;
-            data = abi.encodeCall(MembershipTier.refund, (id, tier.ownerOf(id), type(uint256).max));
+            data = abi.encodeCall(
+                MembershipTier.refund, (id, tier.ownerOf(id), type(uint256).max, 25)
+            );
         }
         bytes32 before = _fingerprint();
         paymentToken.setFrozen(frozen, true);
@@ -515,7 +517,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
             address(mediaStoreFactory),
             address(this),
             address(_paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(_paymentToken))
         );
 
@@ -596,7 +598,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
         MembershipTier bounded = MembershipTier(_factory.createTier(config));
         _paymentToken.mint(address(this), c + 8);
         _paymentToken.approve(address(bounded), type(uint256).max);
-        uint256 id = bounded.createContributionMembership(c, address(0xCAFE));
+        uint256 id = bounded.createContributionMembership(c, address(0xCAFE), 25);
         assertEq(bounded.lifetimeGross(), c);
         assertEq(bounded.totalProtectedLiability(), c);
         assertEq(bounded.sharesOf(id), c + c * 9 / 2);
@@ -616,12 +618,12 @@ contract AccountingInvariantTest is StdInvariant, Test {
         // Donations never alter any protected purpose or replenish lifetime capacity.
         assertTrue(_paymentToken.transfer(address(bounded), 7));
         assertEq(_paymentToken.balanceOf(address(bounded)) - bounded.totalProtectedLiability(), 7);
-        uint256 returned = bounded.refund(id, bounded.ownerOf(id), c);
+        uint256 returned = bounded.refund(id, bounded.ownerOf(id), c, 25);
         assertEq(returned, c / 2);
         assertEq(bounded.allocationState(id).generation, 1);
         assertEq(bounded.lifetimeGross(), c);
         vm.expectRevert(RewardCurve.CurveCapacityExceeded.selector);
-        bounded.createContributionMembership(1, address(0xCAFE));
+        bounded.createContributionMembership(1, address(0xCAFE), 25);
         assertEq(bounded.allocationState(id).generation, 1);
         uint256 beforeBalance = _paymentToken.balanceOf(address(bounded));
         bounded.claimRetiredRewards();

@@ -6,7 +6,6 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
-import {MembershipTierDeployer} from "./MembershipTierDeployer.sol";
 import {ProtocolBurnRouter} from "./ProtocolBurnRouter.sol";
 import {ProtocolBuybackVault} from "./ProtocolBuybackVault.sol";
 import {TierIdentity} from "./TierIdentity.sol";
@@ -17,19 +16,19 @@ import {IOnchainMediaStoreFactory} from "./interfaces/IOnchainMediaStoreFactory.
 import {ProtocolSafeValidation} from "./libraries/ProtocolSafeValidation.sol";
 import {VestingLedger} from "./libraries/VestingLedger.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
 /// @notice Permissionless official-tier registry with a permanent vault and one-time token binding.
 /// @dev Uses the existing Cancun target's transient guard: the lock is reset
 /// after each call, with no persistent storage write or weaker callback protection.
 contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershipFactory {
-    uint256 public constant override maxPageSize = 100;
     bytes32 public constant override rendererSchema =
         0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4;
     uint16 private constant _BPS_DENOMINATOR = 10_000;
 
     address public immutable override mediaStoreFactory;
     bytes32 public immutable override mediaStoreFactoryRuntimeCodehash;
-    address public immutable override deployer;
+    address public immutable override implementation;
 
     address public immutable override buybackVault;
     address public immutable override burnRouter;
@@ -69,7 +68,7 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
         address mediaStoreFactory_,
         address initialOwner,
         address protocolToken_,
-        MembershipTypes.TierCodeConfig memory tierCode,
+        address implementation_,
         uint112[] memory initialMinimumPayments
     ) Ownable(initialOwner) {
         if (initialPaymentTokens.length == 0) {
@@ -92,7 +91,8 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
         mediaStoreFactoryRuntimeCodehash = mediaStoreFactory_.codehash;
         buybackVault = address(new ProtocolBuybackVault(address(this), protocolToken_));
         burnRouter = address(new ProtocolBurnRouter(address(this), buybackVault));
-        deployer = address(new MembershipTierDeployer(address(this), tierCode));
+        if (implementation_.code.length == 0) revert InvalidContract();
+        implementation = implementation_;
 
         for (uint256 i; i < initialPaymentTokens.length; ++i) {
             address token = address(initialPaymentTokens[i]);
@@ -107,8 +107,6 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
         }
     }
 
-    uint256 public constant MAX_CLAIM_TIERS = 8;
-    uint256 public constant MAX_CLAIM_STEPS = 25;
     error InvalidClaimBatch();
     error ClaimAccountingBehind(
         uint256 batchIndex, address tier, uint64 accountedThrough, uint64 nextCheckpoint
@@ -117,26 +115,19 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
     event EverythingClaimed(address indexed beneficiary, uint256 tierCount);
 
     /// @notice Atomically settle and pay the caller across an explicit bounded set of official tiers.
-    function claimEverything(MembershipTypes.TierClaimRequest[] calldata requests)
-        external
-        override
-        nonReentrant
-        returns (MembershipTypes.ClaimResult[] memory results)
-    {
-        if (requests.length == 0 || requests.length > MAX_CLAIM_TIERS) {
+    function claimEverything(
+        MembershipTypes.TierClaimRequest[] calldata requests,
+        uint256 maxAccountingSteps
+    ) external override nonReentrant returns (MembershipTypes.ClaimResult[] memory results) {
+        if (requests.length == 0) {
             revert InvalidClaimBatch();
         }
-        uint256 selectedCount;
         for (uint256 i; i < requests.length; ++i) {
-            selectedCount += requests[i].tokenIds.length;
-            if (selectedCount > 32) revert InvalidClaimBatch();
             if (!isRegisteredTier[requests[i].tier]) revert InvalidClaimBatch();
-            for (uint256 j; j < i; ++j) {
-                if (requests[i].tier == requests[j].tier) revert InvalidClaimBatch();
-            }
+            if (i != 0 && requests[i - 1].tier >= requests[i].tier) revert InvalidClaimBatch();
         }
         results = new MembershipTypes.ClaimResult[](requests.length);
-        uint256 remaining = MAX_CLAIM_STEPS;
+        uint256 remaining = maxAccountingSteps;
         for (uint256 i; i < requests.length; ++i) {
             try IMembershipTier(requests[i].tier)
                 .claimRewardsFor(msg.sender, requests[i].tokenIds, remaining) returns (
@@ -229,7 +220,10 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
         bytes32 identity = TierIdentity.derive(address(this), msg.sender, config.tierSalt);
         _usedTierSalts[msg.sender][config.tierSalt] = true;
 
-        tier = MembershipTierDeployer(deployer).deploy(config);
+        tier = Clones.cloneDeterministic(
+            implementation, keccak256(abi.encode(msg.sender, config.tierSalt))
+        );
+        IMembershipTier(tier).initialize(config);
         bytes32 deployedIdentity = IMembershipTier(tier).tierIdentity();
         if (deployedIdentity != identity) revert TierIdentityMismatch(identity, deployedIdentity);
 
@@ -298,12 +292,11 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
         override
         returns (address[] memory page)
     {
-        if (limit > maxPageSize) revert InvalidPageSize();
         uint256 length = _tiers.length;
         if (offset >= length || limit == 0) return new address[](0);
 
-        uint256 end = offset + limit;
-        if (end > length) end = length;
+        uint256 count = limit < length - offset ? limit : length - offset;
+        uint256 end = offset + count;
 
         page = new address[](end - offset);
         for (uint256 i; i < page.length; ++i) {
@@ -323,12 +316,11 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
         override
         returns (address[] memory page)
     {
-        if (limit > maxPageSize) revert InvalidPageSize();
         uint256 length = _paymentTokens.length;
         if (offset >= length || limit == 0) return new address[](0);
 
-        uint256 end = offset + limit;
-        if (end > length) end = length;
+        uint256 count = limit < length - offset ? limit : length - offset;
+        uint256 end = offset + count;
 
         page = new address[](end - offset);
         for (uint256 i; i < page.length; ++i) {

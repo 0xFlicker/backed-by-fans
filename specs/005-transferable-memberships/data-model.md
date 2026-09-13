@@ -55,7 +55,7 @@ For scale Q = 2^128 and settled token credit C:
 
 `PositionPage` contains bounded token IDs, next offset, current enumerable balance and page completion. A page lists current extant NFTs, including expired-awaiting-maintenance; timestamp-based position status distinguishes them. Consumers pin every page and position detail to one block. Burn/transfer changes owner order, so refresh starts from offset zero at a new snapshot. No claim or payment uses an offset as identity.
 
-`TierClaimRequest` contains tier and selected token IDs. A tier appears once per transaction. Bounds are 8 tiers, 32 total token IDs, and 25 total checkpoint steps. Empty IDs are allowed for creator/referral/retired-owner-only claims. Tier results contain processed steps and separate live reward, retired reward, referral and creator amounts. A factory result must not imply all account positions were selected.
+`TierClaimRequest` contains tier and selected token IDs. A tier appears once per transaction. The request lists bound selected work; a caller-supplied aggregate accounting budget bounds checkpoint work. No numeric batch ceiling is enforced. Empty IDs are allowed for creator/referral/retired-owner-only claims. Tier results contain processed steps and separate live reward, retired reward, referral and creator amounts. A factory result must not imply all account positions were selected.
 
 Position selection is checked against the beneficiary before catch-up, then rechecked after catch-up. A selected expired token retired by that same call contributes via the beneficiary's retired balance. A token already burned before the call or transferred away causes a visible stale-selection failure; the UI refetches. Duplicate IDs are invalid. A direct retired-credit claim has no position dependency and can pay already-settled credit without global catch-up.
 
@@ -71,3 +71,11 @@ Position selection is checked against the beneficiary before catch-up, then rech
 8. Preview results match writes at the same timestamp and work budget, including partial equal-timestamp phases.
 
 Financial settlement uses stored historical eligibility until the coordinator reaches expiration; the public wall-clock eligibility getter cannot be used to discard an expired position's still-unsettled index delta. Per-tier batch previews simulate shared accounting once and include owner-level balances once across all selected positions.
+
+## 2026-09-12 clone and caller-budget amendment
+
+Feature 005 remains open. One fixed implementation is deployed separately; the membership factory directly deploys standard deterministic ERC-1167 clones and initializes each atomically once. The implementation is initialization-locked. Initializable OpenZeppelin ERC-721 enumeration/ownership preserve independent tier state; fixed economic storage has no setters or upgrade path. Factory registration distinguishes official tiers. Tier A/B stores and the separate tier deployer are removed.
+
+Custom membership mutations accept an explicit accounting budget; factory claims share a caller budget across sorted tier requests by actual consumed steps. All protocol batch/page paths remove arbitrary numeric iteration ceilings. Inputs, economics and native Robinhood limits remain validated. Positive-budget maintenance saves chronological partial progress; atomic mutations revert if catch-up cannot finish. Standard ERC-5643 signatures require separate maintenance for due events. Transfer and settled retired-credit withdrawal do not run catch-up.
+
+Validation includes above-former-cap cases, small/large batch equivalence, locked/atomic clone initialization, independent storage, Claim all interruption/revalidation, and measured before/after gas. Replace only the owned fork/web at RPC 18557, chain 31337 and web 3110 using the existing private RPC/pin. Explorer verification/clone recognition is deferred to the next authorized testnet deployment. Previous evidence does not validate this amendment.

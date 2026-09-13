@@ -67,7 +67,7 @@ test("@anvil vested-account discovers a burned membership's durable earned claim
         address: tier,
         abi: membershipTierAbi,
         functionName: "createMembership",
-        args: [2n, zeroAddress],
+        args: [2n, zeroAddress, 25n],
       }),
     );
     const id = await expectSingleOwnedPosition(client, tier, member);
@@ -109,7 +109,7 @@ test("@anvil vested-account discovers a burned membership's durable earned claim
     );
     await expect(card).toContainText("Rewards from ended memberships");
     const ended = page
-      .getByRole("region", { name: "Ended membership rewards" })
+      .getByRole("region", { name: /^Ended membership rewards for/ })
       .filter({
         has: page.getByRole("button", {
           name: "Claim ended membership rewards",
@@ -233,7 +233,7 @@ test("keeps the account route keyboard reachable, responsive, and accessible", a
   expect(results.violations).toEqual([]);
 });
 
-test("@anvil pages 101 positions and nine tiers, rejects stale selection, and claims bounded batches", async ({
+test("@anvil pages 101 positions and nine tiers, rejects stale selection, and claims all automatically", async ({
   page,
 }, info) => {
   test.setTimeout(360_000);
@@ -269,7 +269,7 @@ test("@anvil pages 101 positions and nine tiers, rejects stale selection, and cl
             address: entry.tier,
             abi: membershipTierAbi,
             functionName: "createMembership",
-            args: [1n, member],
+            args: [1n, member, 25n],
           }),
         );
     }
@@ -322,51 +322,29 @@ test("@anvil pages 101 positions and nine tiers, rejects stale selection, and cl
     await rewards.getByRole("button", { name: "Clear selection" }).click();
     await page.getByRole("button", { name: "Refresh memberships" }).click();
     await expect(card).toContainText("Showing 100 of 100 owned memberships.");
-    for (let start = 2; start <= 101; start += 32) {
-      for (let id = start; id <= Math.min(start + 31, 101); id++)
-        await firstGroup
-          .getByRole("checkbox", {
-            name: `${first.name} membership #${id}`,
-            exact: true,
-          })
-          .check();
-      await rewards
-        .getByRole("button", { name: "Claim selected rewards" })
-        .click();
-      await expect(
-        rewards
-          .getByRole("status")
-          .filter({ hasText: "Selected rewards claimed." }),
-      ).toBeVisible({ timeout: 45_000 });
-      await expect(rewards.getByText("No rewards selected.")).toBeVisible();
-    }
-    // Seven remaining tiers fit on page one; the ninth tier is a separate batch.
-    for (const entry of tiers.slice(1, 8))
-      await rewards
-        .getByRole("checkbox", {
-          name: `${entry.name} membership #1`,
-          exact: true,
-        })
-        .check();
-    await rewards
-      .getByRole("button", { name: "Claim selected rewards" })
-      .click();
-    await expect(rewards.getByText("No rewards selected.")).toBeVisible({
-      timeout: 45_000,
+    const beforeClaim = await client.readContract({
+      address: token,
+      abi: usdgAbi,
+      functionName: "balanceOf",
+      args: [member],
     });
-    await rewards.getByRole("button", { name: "More reward tiers" }).click();
     await rewards
-      .getByRole("checkbox", {
-        name: `${tiers[8].name} membership #1`,
-        exact: true,
-      })
-      .check();
-    await rewards
-      .getByRole("button", { name: "Claim selected rewards" })
+      .getByRole("button", { name: "Claim all", exact: true })
       .click();
-    await expect(rewards.getByText("No rewards selected.")).toBeVisible({
-      timeout: 45_000,
+    await expect(
+      rewards.getByRole("status").filter({
+        hasText:
+          "All rewards in this selection claimed. 1 transactions confirmed.",
+      }),
+    ).toBeVisible({ timeout: 90_000 });
+    const afterClaim = await client.readContract({
+      address: token,
+      abi: usdgAbi,
+      functionName: "balanceOf",
+      args: [member],
     });
+    expect(afterClaim).toBeGreaterThan(beforeClaim);
+    await expect(rewards.getByText("No rewards selected.")).toBeVisible();
     await page.setViewportSize({ width: 320, height: 844 });
     expect(
       await page.evaluate(

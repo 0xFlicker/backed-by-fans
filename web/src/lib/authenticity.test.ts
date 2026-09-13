@@ -130,7 +130,7 @@ describe("tier authenticity and write guard", () => {
     vi.mocked(client.readContract).mockImplementation(async (request) => {
       if (
         request.functionName === "supportsInterface" &&
-        request.args?.[0] === "0x584eb4c9"
+        request.args?.[0] === "0xd1b6b944"
       )
         return false as never;
       return original(request);

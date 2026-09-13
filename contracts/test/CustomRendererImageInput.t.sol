@@ -82,7 +82,7 @@ contract CustomRendererImageInputTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(paymentToken))
         );
     }
@@ -133,7 +133,7 @@ contract CustomRendererImageInputTest is Test {
         paymentToken.mint(creator, config.pricePerPeriod);
         vm.startPrank(creator);
         paymentToken.approve(address(tier), config.pricePerPeriod);
-        uint256 tokenId = tier.createMembership(1, address(0));
+        uint256 tokenId = tier.createMembership(1, address(0), 25);
         vm.stopPrank();
 
         (address receivedStore, bytes32 receivedDigest, uint32 receivedLength) =

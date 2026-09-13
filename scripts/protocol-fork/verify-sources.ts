@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 import {
   compareRuntime,
   exactLibraryRuntime,
-  verifyTierCodeStores,
   type ImmutableReferences,
 } from "./verify-runtime";
 import type { verifyProtocolGraph } from "./verify-protocol-graph";
@@ -28,9 +27,16 @@ const sha256 = (value: string | Buffer) =>
 export function verifyRetainedProtocolSources(
   proof: Awaited<ReturnType<typeof verifyProtocolGraph>>,
 ) {
-  if (proof.schemaVersion !== 2 || proof.stores.length !== 2)
+  if (proof.schemaVersion !== 3)
     throw new Error("Invalid protocol graph proof");
-  if (!Array.isArray(proof.minimumPayments) || proof.minimumPayments.some((item) => BigInt(item.minimum) <= 0n || BigInt(item.minimum) >= (1n << 112n))) throw new Error("Invalid retained minimum payments");
+  if (
+    !Array.isArray(proof.minimumPayments) ||
+    proof.minimumPayments.some(
+      (item) =>
+        BigInt(item.minimum) <= 0n || BigInt(item.minimum) >= 1n << 112n,
+    )
+  )
+    throw new Error("Invalid retained minimum payments");
   const ledgerSalt = keccak256(stringToHex("Backed By Fans vesting ledger v1"));
   const ledgerAddress = getCreate2Address({
     from: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
@@ -42,7 +48,6 @@ export function verifyRetainedProtocolSources(
     proof.library.salt !== ledgerSalt
   )
     throw new Error("Retained library deployment identity differs");
-  const [a, b] = proof.stores;
   if (
     proof.executorCodeStore.runtime !==
       `0x00${proof.executorCodeStore.creationCode.slice(2)}` ||
@@ -50,9 +55,6 @@ export function verifyRetainedProtocolSources(
       proof.executorCodeStore.runtimeCodeHash
   )
     throw new Error("Retained executor code store differs");
-  if (a.role !== "tierCodeStoreA" || b.role !== "tierCodeStoreB")
-    throw new Error("Reordered tier code stores");
-  verifyTierCodeStores(proof.tierCreationCode, a.runtime, b.runtime);
   if (keccak256(proof.tierCreationCode) !== proof.creationCodeHash)
     throw new Error("Tier creation source hash differs");
   if (
@@ -73,33 +75,31 @@ export function verifyRetainedProtocolSources(
     proof.library.runtimeCodeHash
   )
     throw new Error("Retained library runtime hash differs");
-  for (const item of proof.stores) {
-    if (keccak256(item.runtime) !== item.runtimeCodeHash)
-      throw new Error("Retained store runtime hash differs");
-    const expectedSalt = keccak256(
-      stringToHex(
-        `Backed By Fans tier code ${item.role === "tierCodeStoreA" ? "A" : "B"} v1`,
-      ),
-    );
-    const expectedInitCode = concatHex([
-      proof.storeCreationCode,
-      encodeAbiParameters([{ type: "bytes" }], [`0x${item.runtime.slice(4)}`]),
-    ]);
-    if (item.salt !== expectedSalt || item.initCode !== expectedInitCode)
-      throw new Error("Retained store deployment payload differs");
-    if (
-      getCreate2Address({
-        from: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
-        salt: expectedSalt,
-        bytecodeHash: keccak256(item.initCode),
-      }).toLowerCase() !== item.address.toLowerCase()
-    )
-      throw new Error("Retained store address differs");
-  }
+  const implementation = proof.implementation;
+  const salt = keccak256(stringToHex("Backed By Fans tier implementation v1"));
+  if (
+    implementation.salt !== salt ||
+    implementation.initCode !== proof.tierCreationCode ||
+    getCreate2Address({
+      from: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+      salt,
+      bytecodeHash: proof.creationCodeHash,
+    }).toLowerCase() !== implementation.address.toLowerCase()
+  )
+    throw new Error("Retained implementation identity differs");
+  const implementationRecord = proof.records.find(
+    (record) => record.role === "tierImplementation",
+  );
+  if (
+    !implementationRecord ||
+    implementationRecord.address.toLowerCase() !==
+      implementation.address.toLowerCase()
+  )
+    throw new Error("Retained implementation source address differs");
   const roles = new Set(proof.records.map((record) => record.role));
   for (const role of [
     "factory",
-    "tierDeployer",
+    "tierImplementation",
     "buybackVault",
     "burnRouter",
     "mediaStoreFactory",

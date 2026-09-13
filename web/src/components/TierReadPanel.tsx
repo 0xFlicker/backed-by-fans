@@ -34,11 +34,12 @@ export function TierReadPanel({
   const [selection, setSelection] = useState<{
     wallet?: Address;
     tokenId: bigint;
-  }>({ tokenId: initialTokenId });
+    explicit: boolean;
+  }>({ tokenId: initialTokenId, explicit: initialTokenId !== 0n });
   // Bind a URL-selected token to the first connected wallet. It must not
   // silently remain selected when a different wallet connects later.
   if (selection.wallet === undefined && account.address) {
-    setSelection({ wallet: account.address, tokenId: selection.tokenId });
+    setSelection({ ...selection, wallet: account.address });
   }
   const [notice, setNotice] = useState("");
   const tokenId =
@@ -53,7 +54,7 @@ export function TierReadPanel({
     id.toString(),
   ];
   const selectPosition = (id: bigint) => {
-    setSelection({ wallet: account.address, tokenId: id });
+    setSelection({ wallet: account.address, tokenId: id, explicit: true });
     setNotice(
       id === 0n ? "New membership selected." : `Membership #${id} selected.`,
     );
@@ -80,6 +81,25 @@ export function TierReadPanel({
     placeholderData: (previous) => previous ?? initialState,
     staleTime: 0,
   });
+  // Present a sole owned membership without choosing among independent positions.
+  // An explicit "Join again" choice remains new, even after a refresh.
+  if (
+    tokenId === 0n &&
+    (!selection.explicit || selection.wallet !== account.address) &&
+    tier.isFetchedAfterMount &&
+    !tier.isPlaceholderData &&
+    !tier.isError &&
+    tier.data?.status === "valid" &&
+    tier.data.data.wallet === account.address &&
+    tier.data.data.ownerPage?.balance === 1n &&
+    tier.data.data.ownerPage.tokenIds.length === 1
+  ) {
+    setSelection({
+      wallet: account.address,
+      tokenId: tier.data.data.ownerPage.tokenIds[0],
+      explicit: true,
+    });
+  }
   async function refresh(selected?: bigint) {
     if (selected !== undefined && selected !== tokenId) {
       const next = await read(selected);

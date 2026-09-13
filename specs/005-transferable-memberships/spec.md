@@ -2,13 +2,31 @@
 
 **Feature Branch**: `codex/005-transferable-memberships`  
 **Created**: 2026-09-11  
-**Status**: Specification quality validated; clarified; plan and tasks prepared; implementation pending
+**Status**: Open — scope amended 2026-09-12; implementation and validation pending. Feature 005 has not been accepted as validated.
 
 ## Input and scope
 
 Make membership NFTs transferable and retire expired memberships through checkpoint maintenance. Transfer the entire live token position, settle expiration at its actual timestamp, permanently burn expired credentials and weight, preserve earned fractional rewards for the final owner, and start returning members with fresh identities. Maintenance must be permissionless, bounded, resumable, deterministic, and available while paused. Every time mutation and the complete application, contract, test, and whitepaper surface must follow this lifecycle. Allow multiple independent memberships per wallet per tier, explicit creation versus renewal, token-ID targets, and bounded discovery and claims.
 
 This specification records the supplied requirements because the repository's previous active feature, `004-vesting-reward-curves`, describes the superseded persistent-credential lifecycle. This work creates a separate feature rather than rewriting that feature's historical evidence. This backfill completes specification quality review for the existing feature; implementation and release remain separate work.
+
+## Scope amendment — 2026-09-12
+
+This work remains **feature 005**. Do not create a successor feature for the deployment/claims refactor. Earlier implementation checks and deployment records are historical evidence for their exact source; they do not establish validation or acceptance of this amended feature. The current convergence verdict is reopened.
+
+The following requirements supersede earlier numeric work-cap, manual-only claim and A/B deployment decisions in this feature's supporting artifacts. Those artifacts must be reconciled before implementation. Existing lifecycle, authorization, economics, fractional conservation and accessibility requirements remain binding.
+
+- **FR-018**: Use one membership factory that directly creates standard, non-upgradeable ERC-1167 clones of one separately deployed, fixed implementation. Remove tier A/B stores and the separate tier deployer. Initialize each clone atomically once, lock implementation initialization, and preserve independently fixed tier terms and isolated state. Use Robinhood-native deployment limits, not Ethereum's 24,576-byte runtime ceiling or speculative extra limits.
+- **FR-019**: Remove hard-coded iteration, batch and pagination ceilings across all protocol batch paths, including membership accounting/claims/previews/discovery, allocation history, protocol fee collection and purchases, registry pages and batched execution-limit updates. Use caller-supplied work/page bounds or explicit request arrays; preserve iterative progress, exact chronology and atomic failure behavior. Economic bounds, input-format constraints and actual native chain limits remain.
+- **FR-020**: Restore **Claim all** as the default reward action, with optional manual selection. Discover positions and beneficiary balances automatically; simulate and estimate feasible batches, show progress and additional wallet confirmations, and support interruption/resumption without silent omissions or duplicate liabilities. Revalidate ownership and accounting before each submission.
+- **FR-021**: Replace the existing owned fork and web app with the amended implementation after local validation, retaining RPC port 18557, execution chain 31337 and web port 3110. Use the existing private origin RPC/pin and preserve prior evidence. Public source verification and automatic clone recognition are checks for the **next authorized testnet deployment**, not prerequisites for the next fork.
+
+Additional acceptance criteria:
+
+- **SC-008**: Factory-created tiers have standard ERC-1167 runtime, the intended fixed implementation, independent state and immutable economic behavior; initialization cannot be repeated, and failed initialization leaves no registered tier. Report measured deployment and operation gas against equivalent earlier scenarios.
+- **SC-009**: Successful tests exceed the former 32-position, eight-tier, 25-event, 256-preview-event and 100-item page ceilings and the corresponding other protocol batch ceilings. Small repeated maintenance calls produce the same exact result as larger calls. Oversized failed transactions leave state unchanged and smaller calls remain usable.
+- **SC-010**: Claim all succeeds in one transaction where feasible and across resumable batches otherwise, including maintenance, wallet rejection, ownership changes, retired-only balances and incomplete discovery. It does not indefinitely chase new positions or ongoing accrual.
+- **SC-011**: The replacement fork and web app expose the amended graph/interfaces and pass focused local/browser acceptance under Robinhood-native limits. Explorer verification remains explicitly deferred to testnet and is not claimed from fork results.
 
 ## Clarifications
 
@@ -80,7 +98,7 @@ Equal-time funding START/END and many expirations; a batch ending in each phase;
 - **FR-007**: Move all earned member credit including fractions to a separately claimable balance of the final owner without per-position rounding loss or duplicate liability. No new NFT is required to claim it.
 - **FR-008**: Renew only a live, explicitly selected token. Returning after expiration uses explicit creation with a new monotonically increasing ID, fresh position accounting and referral state, and new weight at the current curve cursor.
 - **FR-009**: Keep lifetime gross monotonic through transfers, retirement, claims, grant changes and refunds.
-- **FR-010**: Provide permissionless maintenance with a hard work limit, committed partial progress, deterministic equal-timestamp ordering and accurate completion status. Make it available while paused.
+- **FR-010**: Provide permissionless maintenance with a caller-supplied work bound, committed partial progress, deterministic equal-timestamp ordering and accurate completion status. Make it available while paused.
 - **FR-011**: Every create/renew purchase, gift, contribution (including zero), grant, revocation and refund must update expiration scheduling. Schedule every extant position, including zero-weight complimentary ones.
 - **FR-012**: Require catch-up before mutations that change membership time, weight or funding, or calculate newly earned payouts, so those operations cannot cross unresolved historical expirations. NFT transfers and approvals do not require catch-up: live transfers change only ownership, approval and owner listings and enforce expiration directly by timestamp. Withdrawal of already-settled retired credit also does not require catch-up; it only debits and pays that balance, without advancing accounting, changing weights or assigning new earnings. Failed atomic mutations must not be described as having saved attempted maintenance.
 - **FR-013**: Permit multiple independent NFTs per wallet per tier, without automatic wallet-based targeting or position merging.

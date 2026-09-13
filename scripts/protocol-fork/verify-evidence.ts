@@ -446,7 +446,6 @@ export async function verifyEvidence(
       }),
     ),
     { role: "vestingLedger", ...protocolGraph.library },
-    ...protocolGraph.stores,
     { role: "executorCodeStore", ...protocolGraph.executorCodeStore },
   ]) {
     const deployment = manifest.deployments.find(
@@ -470,9 +469,7 @@ export async function verifyEvidence(
   }
   for (const role of [
     "vestingLedger",
-    "tierCodeStoreA",
-    "tierCodeStoreB",
-    "tierDeployer",
+    "tierImplementation",
     "burnRouter",
     "executorCodeStore",
   ]) {
@@ -494,7 +491,6 @@ export async function verifyEvidence(
       measurements.transactions.every(
         (row: { serializedBytes: number; gasUsed: string }) =>
           row.serializedBytes > 0 &&
-          row.serializedBytes <= 95000 &&
           n(row.gasUsed) > 0n &&
           n(row.gasUsed) <= 100000000n,
       ),

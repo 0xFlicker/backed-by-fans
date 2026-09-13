@@ -32,7 +32,7 @@ test("live previews refresh without a transaction and a membership claim pays pr
     encodeFunctionData({
       abi: membershipFactoryAbi,
       functionName: "claimEverything",
-      args: [[]],
+      args: [[], 25n],
     }).slice(0, 10),
     encodeFunctionData({
       abi: membershipTierAbi,

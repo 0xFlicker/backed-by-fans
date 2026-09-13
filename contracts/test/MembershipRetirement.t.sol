@@ -40,6 +40,30 @@ contract MembershipRetirementTest is Test {
         _fund(BOB, tier);
     }
 
+    function test_largeCallerBudgetsAndFailedOversizedWorkPreserveProgress() public {
+        for (uint256 i; i < 301; ++i) {
+            tier.grantMembership(ALICE, 1, 0);
+        }
+        assertEq(tier.tokensOfOwner(ALICE, 0, 301).tokenIds.length, 301);
+        tier.setPaused(true);
+        vm.warp(START + PERIOD);
+        MembershipTypes.AccountingPreview memory preview =
+            tier.previewAccounting(0, ALICE, address(0), 257);
+        assertEq(preview.processedSteps, 257);
+        assertFalse(preview.current.status.complete);
+        uint64 beforeCursor = tier.accountingStatus().accountedThrough;
+        (bool success,) =
+            address(tier).call{gas: 100_000}(abi.encodeCall(tier.processAccounting, (301)));
+        assertFalse(success);
+        assertEq(tier.occupiedSupply(), 301);
+        assertEq(tier.accountingStatus().accountedThrough, beforeCursor);
+        assertEq(tier.processAccounting(26).retiredCount, 26);
+        MembershipTypes.MaintenanceResult memory result = tier.processAccounting(275);
+        assertEq(result.processedSteps, 275);
+        assertTrue(result.complete);
+        assertEq(tier.occupiedSupply(), 0);
+    }
+
     function test_delayedRetirementBurnsAtExpirationAndPreservesFundingHistory() public {
         uint256 id = _purchase(ALICE, 1);
         tier.processAccounting(25);
@@ -118,7 +142,7 @@ contract MembershipRetirementTest is Test {
         address[] memory owners = new address[](count);
         for (uint256 i; i < count; ++i) {
             owners[i] = makeAddr(string.concat("grant-owner-", vm.toString(i)));
-            ids[i] = tier.grantMembership(owners[i], 1);
+            ids[i] = tier.grantMembership(owners[i], 1, 25);
         }
         tier.setPaused(true);
         vm.warp(START + PERIOD + 100);
@@ -143,7 +167,7 @@ contract MembershipRetirementTest is Test {
     function test_zeroContributionExpiresWithoutAnyFundingCheckpoints() public {
         MembershipTier freeTier = _deploy(0);
         vm.prank(ALICE);
-        uint256 id = freeTier.createContributionMembership(0, address(0));
+        uint256 id = freeTier.createContributionMembership(0, address(0), 25);
         assertEq(freeTier.sharesOf(id), 0);
         assertEq(freeTier.lifetimeGross(), 0);
         vm.warp(START + PERIOD);
@@ -175,18 +199,18 @@ contract MembershipRetirementTest is Test {
         uint256 id = _purchase(ALICE, 1);
         vm.warp(START + PERIOD);
         vm.prank(ALICE);
-        assertEq(tier.claimReward(id), 3);
+        assertEq(tier.claimReward(id, 25), 3);
         _assertBurned(tier, id, ALICE);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, id));
         vm.prank(ALICE);
-        tier.claimReward(id);
+        tier.claimReward(id, 25);
     }
 
     function test_retiredFractionsCombineAcrossFreshMembershipsBeforeRounding() public {
         MembershipTier fractionalTier = _deploy(3);
         _fund(ALICE, fractionalTier);
         vm.prank(ALICE);
-        uint256 first = fractionalTier.createMembership(1, address(0));
+        uint256 first = fractionalTier.createMembership(1, address(0), 25);
         vm.warp(START + PERIOD);
         fractionalTier.processAccounting(25);
         assertEq(_retiredScaled(fractionalTier, ALICE), Q - 1);
@@ -195,7 +219,7 @@ contract MembershipRetirementTest is Test {
         assertEq(_retiredScaled(fractionalTier, ALICE), Q - 1);
 
         vm.prank(ALICE);
-        uint256 second = fractionalTier.createMembership(1, address(0));
+        uint256 second = fractionalTier.createMembership(1, address(0), 25);
         assertGt(second, first);
         assertEq(fractionalTier.sharesOf(second), 3);
         assertEq(_retiredScaled(fractionalTier, ALICE), Q - 1);
@@ -222,7 +246,7 @@ contract MembershipRetirementTest is Test {
     function test_settledRetiredClaimDoesNotRequireCatchUpOrAnNFTWhilePaused() public {
         uint256 id = _purchase(ALICE, 1);
         for (uint256 i; i < 26; ++i) {
-            tier.grantMembership(makeAddr(string.concat("later-grant-", vm.toString(i))), 2);
+            tier.grantMembership(makeAddr(string.concat("later-grant-", vm.toString(i))), 2, 25);
         }
         vm.warp(START + PERIOD);
         tier.processAccounting(25);
@@ -302,7 +326,7 @@ contract MembershipRetirementTest is Test {
 
     function _purchase(address member, uint64 periods) private returns (uint256) {
         vm.prank(member);
-        return tier.createMembership(periods, address(0));
+        return tier.createMembership(periods, address(0), 25);
     }
 
     function _fund(address member, MembershipTier target) private {
@@ -321,7 +345,7 @@ contract MembershipRetirementTest is Test {
         config.rewardBps = 5000;
         config.referralBps = 0;
         config.maxPrepaidPeriods = 0;
-        return new MembershipTier(
+        return MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
     }

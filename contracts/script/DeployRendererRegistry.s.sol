@@ -24,10 +24,9 @@ abstract contract RendererRegistryGuard is Script {
         if (address(registry) == address(0) || address(registry).code.length == 0) {
             revert InvalidRegistry(address(registry));
         }
-        if (
-            registry.rendererSchema() != RENDERER_SCHEMA || registry.maxPageSize() != 100
-                || registry.maxInitCodeBytes() != 94_656
-        ) revert RegistryInvariantFailed(address(registry));
+        if (registry.rendererSchema() != RENDERER_SCHEMA || registry.maxInitCodeBytes() != 94_656) {
+            revert RegistryInvariantFailed(address(registry));
+        }
     }
 }
 

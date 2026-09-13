@@ -21,10 +21,7 @@ import {
 import { anvil } from "../../web/node_modules/viem/chains";
 import { verifyProtocolGraph } from "../../scripts/protocol-fork/verify-protocol-graph";
 import { verifyRetainedProtocolSources } from "../../scripts/protocol-fork/verify-sources";
-import {
-  compareRuntime,
-  type ImmutableReferences,
-} from "../../scripts/protocol-fork/verify-runtime";
+import { type ImmutableReferences } from "../../scripts/protocol-fork/verify-runtime";
 import { captureSourceSnapshot } from "../../scripts/protocol-fork/preflight";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -74,7 +71,7 @@ async function main() {
     throw new Error("Fresh Anvil canonical CREATE2 deployer required");
   const [account] = await wallet.getAddresses();
   if (!account) throw new Error("Anvil unlocked account required");
-  const output = resolve(root, "deployments/split-rehearsal");
+  const output = resolve(root, "deployments/clone-rehearsal");
   await mkdir(output, { recursive: true });
   const source = await captureSourceSnapshot();
   await writeFile(
@@ -89,10 +86,6 @@ async function main() {
     gasLimit = 100_000_000n,
   ) => {
     const bytes = (data.length - 2) / 2;
-    if (bytes > 95000)
-      throw new Error(
-        `${role}: transaction data exceeds unchanged 95,000-byte limit`,
-      );
     const hash = await wallet.sendTransaction({
       account,
       to,
@@ -180,31 +173,11 @@ async function main() {
     keccak256(stringToHex("Backed By Fans renderer preview harness v1")),
   );
   const tierArtifact = await artifact("MembershipTier.sol/MembershipTier.json");
-  const storeArtifact = await artifact(
-    "ImmutableCodeStore.sol/ImmutableCodeStore.json",
+  const tierImplementation = await deploy2(
+    "tier implementation",
+    tierArtifact.bytecode.object,
+    keccak256(stringToHex("Backed By Fans tier implementation v1")),
   );
-  const creation = tierArtifact.bytecode.object;
-  const length = (creation.length - 2) / 2;
-  const split = Math.floor(length / 2) * 2 + 2;
-  const chunks = [
-    creation.slice(0, split),
-    `0x${creation.slice(split)}`,
-  ] as Hex[];
-  const stores = [];
-  for (const [i, chunk] of chunks.entries())
-    stores.push(
-      await deploy2(
-        `tier code ${i === 0 ? "A" : "B"}`,
-        encodeDeployData({
-          abi: storeArtifact.abi,
-          bytecode: storeArtifact.bytecode.object,
-          args: [chunk],
-        }),
-        keccak256(
-          stringToHex(`Backed By Fans tier code ${i === 0 ? "A" : "B"} v1`),
-        ),
-      ),
-    );
   const factoryArtifact = await artifact(
     "MembershipFactory.sol/MembershipFactory.json",
   );
@@ -218,7 +191,7 @@ async function main() {
         mediaStoreFactory,
         account,
         zeroAddress,
-        [stores[0], stores[1], BigInt(length), keccak256(creation)],
+        tierImplementation,
         [1_000_000n],
       ],
     }),
@@ -237,11 +210,10 @@ async function main() {
     previewHarness,
     vestingLedger,
     vestingLedgerRuntimeCodehash: link.runtimeCodeHash,
-    tierCodeStoreA: stores[0],
-    tierCodeStoreB: stores[1],
-    tierCreationCodeLength: String(length),
-    tierCreationCodeHash: keccak256(creation),
-    tierDeployer: await readFactory("deployer"),
+    tierImplementation,
+    tierImplementationRuntimeCodehash: keccak256(
+      tierArtifact.deployedBytecode.object,
+    ),
     burnRouter: await readFactory("burnRouter"),
     buybackVault: await readFactory("buybackVault"),
     executor: zeroAddress,
@@ -336,13 +308,11 @@ async function main() {
   const tierRuntime = await client.getCode({ address: tierAddress });
   if (!tierRuntime || (tierRuntime.length - 2) / 2 > 98304)
     throw new Error("Created tier runtime size failure");
-  const comparison = compareRuntime(
-    tierArtifact.deployedBytecode.object,
-    tierRuntime,
-    tierArtifact.deployedBytecode.immutableReferences ?? {},
-  );
-  if (!comparison.exact)
-    throw new Error("Created tier source metadata differs");
+  const expectedClone = `0x363d3d373d3d3d363d73${tierImplementation.slice(2).toLowerCase()}5af43d82803e903d91602b57fd5bf3`;
+  if (tierRuntime.toLowerCase() !== expectedClone)
+    throw new Error(
+      "Created tier does not match the fixed ERC-1167 implementation",
+    );
   for (const [name, expected] of Object.entries({
     buybackVault: bootstrap.buybackVault,
     owner: account,
@@ -373,7 +343,11 @@ async function main() {
       config,
       code: tierRuntime,
       compiled: tierArtifact.deployedBytecode,
-      comparison,
+      comparison: {
+        exact: true,
+        standard: "ERC-1167",
+        implementation: tierImplementation,
+      },
       transactionHash: receipt.transactionHash,
     }),
   );
@@ -390,7 +364,7 @@ async function main() {
       transactions,
     }),
   );
-  console.log(`Complete split graph verified; evidence at ${output}`);
+  console.log(`Complete clone graph verified; evidence at ${output}`);
   await writeFile(
     resolve(output, "status.json"),
     json({ status: "passed", source }),

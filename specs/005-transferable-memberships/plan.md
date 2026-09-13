@@ -4,6 +4,36 @@
 
 **Input**: User lifecycle requirements recorded in `specs/005-transferable-memberships/spec.md`.
 
+## Current scope and acceptance status — 2026-09-12
+
+**Feature 005 remains open and unvalidated.** The following amendment is part of 005, not a new feature. It supersedes the earlier fixed numeric work limits and deployment approach below. Existing test results remain evidence only for the earlier source snapshot. Reconcile the supporting API/data-model/research/quickstart documents and repeat affected analysis before implementing this amendment; do not alter reviewer-owned checklist markers to imply approval.
+
+### Deployment and initialization
+
+Deploy one locked membership implementation separately and supply its address immutably to the membership factory. The factory directly uses standard OpenZeppelin ERC-1167 clones, without appended immutable arguments, and initializes them atomically before registration. Use deterministic clones with creator/tier-salt-derived salts, preserving identity and duplicate-salt semantics. Remove tier A/B stores, TierCodeConfig and MembershipTierDeployer and their active deployment checks. Retain unrelated buyback dependencies.
+
+Replace constructor-based tier setup with one-time initialize(config), recording the calling factory/vault, creator, NFT metadata, economic terms and accounting state. Use matching pinned OpenZeppelin initializable enumeration/ownership components, disable implementation initialization and expose no upgrade, reinitialization or fixed-economic setters. Each clone has separate storage and a permanently fixed implementation. Use the Robinhood profile (98,304-byte runtime, 196,608-byte initcode, configured 100M gas ceiling), with actual network restrictions distinguished from test budgets. Update public verification tooling for the next authorized testnet deployment; explorer recognition is deferred to that deployment.
+
+### Caller-bounded work and interfaces
+
+Remove hard-coded batch/page/step maxima across all protocol batch paths, including factory, tier, ledger, protocol router, registry/media pagination and batch execution-limit updates. Preserve economic and format bounds. Arrays bound selected operations; maintenance and projections use maxSteps; pages use offset/limit. Custom mutations that currently hide 25-step catch-up gain a caller-supplied accounting budget. Factory claims become claimEverything(requests, maxAccountingSteps), sharing actual consumed steps across tiers. Require sorted unique tier/asset addresses and token IDs where appropriate so duplicate validation is linear; migrate all callers. Remove obsolete maximum getters and compatibility signatures.
+
+Successful standalone maintenance preserves partial chronological progress. Atomic mutation failure rolls back attempted catch-up. Zero-budget operations may settle continuous accrual but cannot cross queued events; standard ERC-5643 signatures require separate maintenance when necessary. Clamp pages against remaining items before arithmetic/allocation. Preserve funding-before-expiration ordering, permanent retirement, fractional credit and every existing authority boundary.
+
+### Claim all and replacement fork
+
+Restore Claim all as the primary action and keep manual selection optional. Use block-pinned discovery, capture the invocation's membership scope, and avoid chasing ongoing accrual/new incoming memberships. Simulate/estimate with headroom, split only for resource constraints, and surface actual authorization/accounting/payment errors. Revalidate each batch, explain ownership changes, correctly include beneficiary categories across split tiers, and retain successful progress on rejection/failure. Continue using wagmi's transaction lifecycle without a new persistent transaction subsystem.
+
+After implementation and relevant local checks, replace only the owned services with a fresh uniquely identified fork using the existing private RPC/pinned origin. Keep RPC 18557, chain 31337 and web 3110; regenerate bindings/fixtures, invalidate obsolete local query state, preserve previous evidence and leave the new services running. No public transaction or explorer acceptance is required for this fork.
+
+### Validation and handoff
+
+Re-run lifecycle/authority/conservation/model suites through clones; test locked/atomic initialization and independent fixed terms; exercise values above every removed cap; prove repeated small maintenance equals larger batches and oversized failures are atomic. Measure equivalent deployment and operation gas, including combined multi-tier claims with accounting work. Run interface generation, tooling/build and focused fork/browser Claim all and lifecycle scenarios. Update integration docs and whitepaper/PDF. Re-run convergence for **005** only after the amended work and required validation finish. No commit, push, public deployment or migration is inferred.
+
+## Earlier lifecycle design baseline
+
+The remaining sections describe the original lifecycle plan. Their fixed numeric caps and deployment assumptions are superseded by the amendment above, while unaffected accounting and product requirements continue to apply.
+
 ## Summary
 
 Make each membership NFT an independent transferable position. Replace wallet-based identity reuse with explicit creation and token-ID renewal, and retire expired positions permanently at their actual expiration boundary. A tier coordinator combines the existing funding schedule with a new indexed expiration schedule, settles funding before removing shares, and moves exact earned credit to a separately claimable owner balance before burning. Product flows, discovery, claims, previews, generated interfaces and the whitepaper adopt the same lifecycle.

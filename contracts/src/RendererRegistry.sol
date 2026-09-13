@@ -12,7 +12,6 @@ import {IRendererRegistry} from "./interfaces/IRendererRegistry.sol";
 contract RendererRegistry is IRendererRegistry, ReentrancyGuard {
     bytes32 public constant override rendererSchema =
         0xfed0707e5f6edd2453280da0318c42550633f3b8bcb13fee8818ae2d70294ab4;
-    uint256 public constant override maxPageSize = 100;
     // Leaves room for the ABI envelope and a conservatively large signed EIP-1559 envelope under
     // Robinhood Nitro's 95,000-byte transaction limit.
     uint256 public constant override maxInitCodeBytes = 94_656;
@@ -188,12 +187,11 @@ contract RendererRegistry is IRendererRegistry, ReentrancyGuard {
         view
         returns (address[] memory page)
     {
-        if (limit > maxPageSize) revert InvalidPageSize(maxPageSize, limit);
         uint256 length = values.length;
         if (offset >= length || limit == 0) return new address[](0);
 
-        uint256 end = offset + limit;
-        if (end > length) end = length;
+        uint256 count = limit < length - offset ? limit : length - offset;
+        uint256 end = offset + count;
         page = new address[](end - offset);
         for (uint256 i; i < page.length; ++i) {
             page[i] = values[offset + i];

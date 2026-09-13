@@ -41,7 +41,7 @@ contract DeferredProtocolTokenTest is Test {
             address(new OnchainMediaStoreFactory()),
             address(this),
             address(0),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(asset))
         );
         vault = ProtocolBuybackVault(payable(factory.buybackVault()));
@@ -58,7 +58,7 @@ contract DeferredProtocolTokenTest is Test {
         tier = MembershipTier(factory.createTier(config));
         asset.mint(address(this), 5000);
         asset.approve(address(tier), 4000);
-        tier.createMembership(4, address(0));
+        tier.createMembership(4, address(0), 25);
         vm.warp(1100);
     }
 
@@ -81,7 +81,7 @@ contract DeferredProtocolTokenTest is Test {
         _collect();
         assertEq(asset.balanceOf(address(vault)), 250);
         assertEq(tier.reserveState().unearnedScaled[3] / tier.ACCOUNTING_SCALE(), 750);
-        uint256 gross = tier.refund(1, tier.ownerOf(1), 3000);
+        uint256 gross = tier.refund(1, tier.ownerOf(1), 3000, 25);
         assertEq(gross, 3000);
         assertEq(tier.reserveState().unearnedScaled[3], 0);
         assertEq(tier.protocolFeeEarnedHeld(), 0);

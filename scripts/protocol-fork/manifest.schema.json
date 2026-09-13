@@ -951,34 +951,21 @@
           "type": "string",
           "pattern": "^0x[0-9a-fA-F]{40}$"
         },
-        "tierCodeStoreA": {
-          "type": "string",
-          "pattern": "^0x[0-9a-fA-F]{40}$"
-        },
-        "tierCodeStoreB": {
-          "type": "string",
-          "pattern": "^0x[0-9a-fA-F]{40}$"
-        },
-        "tierDeployer": {
-          "type": "string",
-          "pattern": "^0x[0-9a-fA-F]{40}$"
-        },
         "executorCodeStore": {
           "type": "string",
           "pattern": "^0x[0-9a-fA-F]{40}$"
-        },
-        "tierCreationCodeHash": {
-          "type": "string",
-          "pattern": "^0x[0-9a-fA-F]{64}$"
         },
         "vestingLedgerRuntimeCodehash": {
           "type": "string",
           "pattern": "^0x[0-9a-fA-F]{64}$"
         },
-        "tierCreationCodeLength": {
-          "type": "integer",
-          "minimum": 2,
-          "maximum": 49150
+        "tierImplementation": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{40}$"
+        },
+        "tierImplementationRuntimeCodehash": {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
         }
       },
       "required": [
@@ -1002,13 +989,10 @@
         "developerTokensPurchased",
         "vestingLedger",
         "burnRouter",
-        "tierCodeStoreA",
-        "tierCodeStoreB",
-        "tierDeployer",
         "executorCodeStore",
-        "tierCreationCodeHash",
         "vestingLedgerRuntimeCodehash",
-        "tierCreationCodeLength"
+        "tierImplementation",
+        "tierImplementationRuntimeCodehash"
       ]
     }
   },

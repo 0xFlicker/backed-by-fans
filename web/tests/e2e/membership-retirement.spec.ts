@@ -59,7 +59,7 @@ test("@anvil permissionless paused batches retire memberships and preserve a zer
       ...common,
       account: member,
       functionName: "createMembership",
-      args: [1n, zeroAddress],
+      args: [1n, zeroAddress, 25n],
     });
     expectSuccessfulReceipt(purchase);
     const created = parseEventLogs({
@@ -86,7 +86,7 @@ test("@anvil permissionless paused batches retire memberships and preserve a zer
         ...common,
         account: creator,
         functionName: "grantMembership",
-        args: [recipient, 1n],
+        args: [recipient, 1n, 25n],
       });
       expectSuccessfulReceipt(receipt);
       const grant = parseEventLogs({

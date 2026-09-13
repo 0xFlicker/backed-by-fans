@@ -70,14 +70,6 @@ library MembershipTypes {
         uint256 creator;
     }
 
-    /// @notice Independently deployed STOP-prefixed chunks of the exact linked tier initcode.
-    struct TierCodeConfig {
-        address storeA;
-        address storeB;
-        uint256 creationCodeLength;
-        bytes32 creationCodeHash;
-    }
-
     enum ImageFit {
         Cover,
         Contain,

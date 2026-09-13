@@ -2450,25 +2450,7 @@ export const membershipFactoryAbi = [
       { name: "mediaStoreFactory_", internalType: "address", type: "address" },
       { name: "initialOwner", internalType: "address", type: "address" },
       { name: "protocolToken_", internalType: "address", type: "address" },
-      {
-        name: "tierCode",
-        internalType: "struct MembershipTypes.TierCodeConfig",
-        type: "tuple",
-        components: [
-          { name: "storeA", internalType: "address", type: "address" },
-          { name: "storeB", internalType: "address", type: "address" },
-          {
-            name: "creationCodeLength",
-            internalType: "uint256",
-            type: "uint256",
-          },
-          {
-            name: "creationCodeHash",
-            internalType: "bytes32",
-            type: "bytes32",
-          },
-        ],
-      },
+      { name: "implementation_", internalType: "address", type: "address" },
       {
         name: "initialMinimumPayments",
         internalType: "uint112[]",
@@ -2476,20 +2458,6 @@ export const membershipFactoryAbi = [
       },
     ],
     stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "MAX_CLAIM_STEPS",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "MAX_CLAIM_TIERS",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
   },
   {
     type: "function",
@@ -2531,6 +2499,7 @@ export const membershipFactoryAbi = [
           { name: "tokenIds", internalType: "uint256[]", type: "uint256[]" },
         ],
       },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "claimEverything",
     outputs: [
@@ -2648,7 +2617,7 @@ export const membershipFactoryAbi = [
   {
     type: "function",
     inputs: [],
-    name: "deployer",
+    name: "implementation",
     outputs: [{ name: "", internalType: "address", type: "address" }],
     stateMutability: "view",
   },
@@ -2681,13 +2650,6 @@ export const membershipFactoryAbi = [
     ],
     name: "isTierSaltUsed",
     outputs: [{ name: "", internalType: "bool", type: "bool" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "maxPageSize",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
   {
@@ -3168,6 +3130,15 @@ export const membershipFactoryAbi = [
     name: "DuplicatePaymentToken",
   },
   { type: "error", inputs: [], name: "EmptyPaymentTokenList" },
+  { type: "error", inputs: [], name: "FailedDeployment" },
+  {
+    type: "error",
+    inputs: [
+      { name: "balance", internalType: "uint256", type: "uint256" },
+      { name: "needed", internalType: "uint256", type: "uint256" },
+    ],
+    name: "InsufficientBalance",
+  },
   { type: "error", inputs: [], name: "InvalidAddress" },
   { type: "error", inputs: [], name: "InvalidClaimBatch" },
   { type: "error", inputs: [], name: "InvalidContract" },
@@ -3264,106 +3235,7 @@ export const membershipFactoryAbi = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export const membershipTierAbi = [
-  {
-    type: "constructor",
-    inputs: [
-      { name: "factory_", internalType: "address", type: "address" },
-      {
-        name: "paymentToken_",
-        internalType: "contract IERC20",
-        type: "address",
-      },
-      {
-        name: "config",
-        internalType: "struct MembershipTypes.TierConfig",
-        type: "tuple",
-        components: [
-          { name: "creator", internalType: "address", type: "address" },
-          { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
-          { name: "renderer", internalType: "address", type: "address" },
-          { name: "paymentToken", internalType: "address", type: "address" },
-          { name: "name", internalType: "string", type: "string" },
-          { name: "symbol", internalType: "string", type: "string" },
-          { name: "pricePerPeriod", internalType: "uint256", type: "uint256" },
-          { name: "minimumPayment", internalType: "uint112", type: "uint112" },
-          { name: "periodDuration", internalType: "uint64", type: "uint64" },
-          { name: "protocolFeeBps", internalType: "uint16", type: "uint16" },
-          { name: "rewardBps", internalType: "uint16", type: "uint16" },
-          { name: "referralBps", internalType: "uint16", type: "uint16" },
-          { name: "startingBoostBps", internalType: "uint32", type: "uint32" },
-          {
-            name: "earlySupportGross",
-            internalType: "uint112",
-            type: "uint112",
-          },
-          { name: "supplyCap", internalType: "uint64", type: "uint64" },
-          { name: "maxPrepaidPeriods", internalType: "uint64", type: "uint64" },
-          {
-            name: "metadata",
-            internalType: "struct MembershipTypes.TierMetadata",
-            type: "tuple",
-            components: [
-              { name: "description", internalType: "string", type: "string" },
-              { name: "externalURI", internalType: "string", type: "string" },
-            ],
-          },
-          {
-            name: "art",
-            internalType: "struct MembershipTypes.ArtConfig",
-            type: "tuple",
-            components: [
-              { name: "engine", internalType: "uint16", type: "uint16" },
-              {
-                name: "collectionSeed",
-                internalType: "uint128",
-                type: "uint128",
-              },
-              { name: "palette", internalType: "uint8", type: "uint8" },
-              { name: "intensity", internalType: "uint8", type: "uint8" },
-              { name: "density", internalType: "uint8", type: "uint8" },
-              { name: "symmetry", internalType: "uint8", type: "uint8" },
-              { name: "typographyScale", internalType: "uint8", type: "uint8" },
-              { name: "typographyStyle", internalType: "uint8", type: "uint8" },
-              { name: "textVisibility", internalType: "uint8", type: "uint8" },
-              {
-                name: "imageFit",
-                internalType: "enum MembershipTypes.ImageFit",
-                type: "uint8",
-              },
-              { name: "focalX", internalType: "uint8", type: "uint8" },
-              { name: "focalY", internalType: "uint8", type: "uint8" },
-              { name: "grain", internalType: "uint8", type: "uint8" },
-              { name: "mediaMix", internalType: "uint8", type: "uint8" },
-              { name: "primary", internalType: "uint8", type: "uint8" },
-              { name: "secondary", internalType: "uint8", type: "uint8" },
-              { name: "tertiary", internalType: "uint8", type: "uint8" },
-            ],
-          },
-          {
-            name: "media",
-            internalType: "struct MembershipTypes.MediaConfig",
-            type: "tuple",
-            components: [
-              {
-                name: "mime",
-                internalType: "enum MembershipTypes.MediaMIME",
-                type: "uint8",
-              },
-              { name: "store", internalType: "address", type: "address" },
-              { name: "length", internalType: "uint32", type: "uint32" },
-              { name: "digest", internalType: "bytes32", type: "bytes32" },
-              {
-                name: "runtimeCodehash",
-                internalType: "bytes32",
-                type: "bytes32",
-              },
-            ],
-          },
-        ],
-      },
-    ],
-    stateMutability: "nonpayable",
-  },
+  { type: "constructor", inputs: [], stateMutability: "nonpayable" },
   {
     type: "function",
     inputs: [],
@@ -3376,13 +3248,6 @@ export const membershipTierAbi = [
     inputs: [],
     name: "BOOST_STEP_BPS",
     outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "MAX_ACCOUNTING_STEPS",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
   {
@@ -3494,6 +3359,7 @@ export const membershipTierAbi = [
       { name: "tokenId", internalType: "uint256", type: "uint256" },
       { name: "expectedOwner", internalType: "address", type: "address" },
       { name: "periods", internalType: "uint64", type: "uint64" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "addGrantTime",
     outputs: [],
@@ -3675,7 +3541,10 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
-    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    inputs: [
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
+    ],
     name: "claimReward",
     outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
     stateMutability: "nonpayable",
@@ -3756,6 +3625,7 @@ export const membershipTierAbi = [
     inputs: [
       { name: "gross", internalType: "uint256", type: "uint256" },
       { name: "referralChoice", internalType: "address", type: "address" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "createContributionMembership",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
@@ -3766,6 +3636,7 @@ export const membershipTierAbi = [
     inputs: [
       { name: "periods", internalType: "uint64", type: "uint64" },
       { name: "referralChoice", internalType: "address", type: "address" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "createMembership",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
@@ -3825,6 +3696,7 @@ export const membershipTierAbi = [
     inputs: [
       { name: "recipient", internalType: "address", type: "address" },
       { name: "periods", internalType: "uint64", type: "uint64" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "giftMembership",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
@@ -3842,6 +3714,7 @@ export const membershipTierAbi = [
         type: "uint8",
       },
       { name: "expectedReferrer", internalType: "address", type: "address" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "giftRenewal",
     outputs: [],
@@ -3852,6 +3725,7 @@ export const membershipTierAbi = [
     inputs: [
       { name: "recipient", internalType: "address", type: "address" },
       { name: "periods", internalType: "uint64", type: "uint64" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "grantMembership",
     outputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
@@ -3863,6 +3737,102 @@ export const membershipTierAbi = [
     name: "hasClaimInterest",
     outputs: [{ name: "", internalType: "bool", type: "bool" }],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "config",
+        internalType: "struct MembershipTypes.TierConfig",
+        type: "tuple",
+        components: [
+          { name: "creator", internalType: "address", type: "address" },
+          { name: "tierSalt", internalType: "bytes32", type: "bytes32" },
+          { name: "renderer", internalType: "address", type: "address" },
+          { name: "paymentToken", internalType: "address", type: "address" },
+          { name: "name", internalType: "string", type: "string" },
+          { name: "symbol", internalType: "string", type: "string" },
+          { name: "pricePerPeriod", internalType: "uint256", type: "uint256" },
+          { name: "minimumPayment", internalType: "uint112", type: "uint112" },
+          { name: "periodDuration", internalType: "uint64", type: "uint64" },
+          { name: "protocolFeeBps", internalType: "uint16", type: "uint16" },
+          { name: "rewardBps", internalType: "uint16", type: "uint16" },
+          { name: "referralBps", internalType: "uint16", type: "uint16" },
+          { name: "startingBoostBps", internalType: "uint32", type: "uint32" },
+          {
+            name: "earlySupportGross",
+            internalType: "uint112",
+            type: "uint112",
+          },
+          { name: "supplyCap", internalType: "uint64", type: "uint64" },
+          { name: "maxPrepaidPeriods", internalType: "uint64", type: "uint64" },
+          {
+            name: "metadata",
+            internalType: "struct MembershipTypes.TierMetadata",
+            type: "tuple",
+            components: [
+              { name: "description", internalType: "string", type: "string" },
+              { name: "externalURI", internalType: "string", type: "string" },
+            ],
+          },
+          {
+            name: "art",
+            internalType: "struct MembershipTypes.ArtConfig",
+            type: "tuple",
+            components: [
+              { name: "engine", internalType: "uint16", type: "uint16" },
+              {
+                name: "collectionSeed",
+                internalType: "uint128",
+                type: "uint128",
+              },
+              { name: "palette", internalType: "uint8", type: "uint8" },
+              { name: "intensity", internalType: "uint8", type: "uint8" },
+              { name: "density", internalType: "uint8", type: "uint8" },
+              { name: "symmetry", internalType: "uint8", type: "uint8" },
+              { name: "typographyScale", internalType: "uint8", type: "uint8" },
+              { name: "typographyStyle", internalType: "uint8", type: "uint8" },
+              { name: "textVisibility", internalType: "uint8", type: "uint8" },
+              {
+                name: "imageFit",
+                internalType: "enum MembershipTypes.ImageFit",
+                type: "uint8",
+              },
+              { name: "focalX", internalType: "uint8", type: "uint8" },
+              { name: "focalY", internalType: "uint8", type: "uint8" },
+              { name: "grain", internalType: "uint8", type: "uint8" },
+              { name: "mediaMix", internalType: "uint8", type: "uint8" },
+              { name: "primary", internalType: "uint8", type: "uint8" },
+              { name: "secondary", internalType: "uint8", type: "uint8" },
+              { name: "tertiary", internalType: "uint8", type: "uint8" },
+            ],
+          },
+          {
+            name: "media",
+            internalType: "struct MembershipTypes.MediaConfig",
+            type: "tuple",
+            components: [
+              {
+                name: "mime",
+                internalType: "enum MembershipTypes.MediaMIME",
+                type: "uint8",
+              },
+              { name: "store", internalType: "address", type: "address" },
+              { name: "length", internalType: "uint32", type: "uint32" },
+              { name: "digest", internalType: "bytes32", type: "bytes32" },
+              {
+                name: "runtimeCodehash",
+                internalType: "bytes32",
+                type: "bytes32",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    name: "initialize",
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -4348,6 +4318,7 @@ export const membershipTierAbi = [
       { name: "tokenId", internalType: "uint256", type: "uint256" },
       { name: "expectedOwner", internalType: "address", type: "address" },
       { name: "maxGrossRefund", internalType: "uint256", type: "uint256" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "refund",
     outputs: [
@@ -4375,6 +4346,7 @@ export const membershipTierAbi = [
       { name: "tokenId", internalType: "uint256", type: "uint256" },
       { name: "gross", internalType: "uint256", type: "uint256" },
       { name: "referralChoice", internalType: "address", type: "address" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "renewContributionMembership",
     outputs: [],
@@ -4386,6 +4358,7 @@ export const membershipTierAbi = [
       { name: "tokenId", internalType: "uint256", type: "uint256" },
       { name: "periods", internalType: "uint64", type: "uint64" },
       { name: "referralChoice", internalType: "address", type: "address" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "renewMembership",
     outputs: [],
@@ -4482,6 +4455,7 @@ export const membershipTierAbi = [
     inputs: [
       { name: "tokenId", internalType: "uint256", type: "uint256" },
       { name: "expectedOwner", internalType: "address", type: "address" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
     name: "revokeGrantTime",
     outputs: [
@@ -5015,6 +4989,19 @@ export const membershipTierAbi = [
       },
     ],
     name: "FundingLotScheduled",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "version",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+    ],
+    name: "Initialized",
   },
   {
     type: "event",
@@ -5671,6 +5658,7 @@ export const membershipTierAbi = [
   { type: "error", inputs: [], name: "InvalidAddress" },
   { type: "error", inputs: [], name: "InvalidClaim" },
   { type: "error", inputs: [], name: "InvalidExpiration" },
+  { type: "error", inputs: [], name: "InvalidInitialization" },
   { type: "error", inputs: [], name: "InvalidMediaConfig" },
   { type: "error", inputs: [], name: "InvalidMetadata" },
   { type: "error", inputs: [], name: "InvalidMinimumPayment" },
@@ -5706,6 +5694,7 @@ export const membershipTierAbi = [
   },
   { type: "error", inputs: [], name: "NativeValueRejected" },
   { type: "error", inputs: [], name: "NoGrantTime" },
+  { type: "error", inputs: [], name: "NotInitializing" },
   {
     type: "error",
     inputs: [{ name: "owner", internalType: "address", type: "address" }],
@@ -5802,13 +5791,6 @@ export const onchainMediaStoreFactoryAbi = [
     type: "function",
     inputs: [],
     name: "maxCodeStorePayloadBytes",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "maxPageSize",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
@@ -6744,27 +6726,6 @@ export const protocolBurnRouterAbi = [
       { name: "vault_", internalType: "address", type: "address" },
     ],
     stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "MAX_ACCOUNTING_STEPS",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "MAX_PURCHASES",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "MAX_TIERS",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
   },
   {
     type: "function",
@@ -7870,13 +7831,6 @@ export const rendererRegistryAbi = [
     type: "function",
     inputs: [],
     name: "maxInitCodeBytes",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "maxPageSize",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
@@ -10467,24 +10421,6 @@ export const useReadMembershipFactory = /*#__PURE__*/ createUseReadContract({
 });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"MAX_CLAIM_STEPS"`
- */
-export const useReadMembershipFactoryMaxClaimSteps =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipFactoryAbi,
-    functionName: "MAX_CLAIM_STEPS",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"MAX_CLAIM_TIERS"`
- */
-export const useReadMembershipFactoryMaxClaimTiers =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipFactoryAbi,
-    functionName: "MAX_CLAIM_TIERS",
-  });
-
-/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"burnRouter"`
  */
 export const useReadMembershipFactoryBurnRouter =
@@ -10503,12 +10439,12 @@ export const useReadMembershipFactoryBuybackVault =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"deployer"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"implementation"`
  */
-export const useReadMembershipFactoryDeployer =
+export const useReadMembershipFactoryImplementation =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
-    functionName: "deployer",
+    functionName: "implementation",
   });
 
 /**
@@ -10545,15 +10481,6 @@ export const useReadMembershipFactoryIsTierSaltUsed =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipFactoryAbi,
     functionName: "isTierSaltUsed",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipFactoryAbi}__ and `functionName` set to `"maxPageSize"`
- */
-export const useReadMembershipFactoryMaxPageSize =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipFactoryAbi,
-    functionName: "maxPageSize",
   });
 
 /**
@@ -10976,15 +10903,6 @@ export const useReadMembershipTierBoostStepBps =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "BOOST_STEP_BPS",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"MAX_ACCOUNTING_STEPS"`
- */
-export const useReadMembershipTierMaxAccountingSteps =
-  /*#__PURE__*/ createUseReadContract({
-    abi: membershipTierAbi,
-    functionName: "MAX_ACCOUNTING_STEPS",
   });
 
 /**
@@ -11761,6 +11679,15 @@ export const useWriteMembershipTierGrantMembership =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"initialize"`
+ */
+export const useWriteMembershipTierInitialize =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipTierAbi,
+    functionName: "initialize",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"processAccounting"`
  */
 export const useWriteMembershipTierProcessAccounting =
@@ -12055,6 +11982,15 @@ export const useSimulateMembershipTierGrantMembership =
   });
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"initialize"`
+ */
+export const useSimulateMembershipTierInitialize =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipTierAbi,
+    functionName: "initialize",
+  });
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"processAccounting"`
  */
 export const useSimulateMembershipTierProcessAccounting =
@@ -12292,6 +12228,15 @@ export const useWatchMembershipTierFundingLotScheduledEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipTierAbi,
     eventName: "FundingLotScheduled",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"Initialized"`
+ */
+export const useWatchMembershipTierInitializedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    eventName: "Initialized",
   });
 
 /**
@@ -12541,15 +12486,6 @@ export const useReadOnchainMediaStoreFactoryMaxCodeStorePayloadBytes =
   /*#__PURE__*/ createUseReadContract({
     abi: onchainMediaStoreFactoryAbi,
     functionName: "maxCodeStorePayloadBytes",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link onchainMediaStoreFactoryAbi}__ and `functionName` set to `"maxPageSize"`
- */
-export const useReadOnchainMediaStoreFactoryMaxPageSize =
-  /*#__PURE__*/ createUseReadContract({
-    abi: onchainMediaStoreFactoryAbi,
-    functionName: "maxPageSize",
   });
 
 /**
@@ -12847,33 +12783,6 @@ export const useSimulatePonsBuybackExecutorExecute =
 export const useReadProtocolBurnRouter = /*#__PURE__*/ createUseReadContract({
   abi: protocolBurnRouterAbi,
 });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"MAX_ACCOUNTING_STEPS"`
- */
-export const useReadProtocolBurnRouterMaxAccountingSteps =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBurnRouterAbi,
-    functionName: "MAX_ACCOUNTING_STEPS",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"MAX_PURCHASES"`
- */
-export const useReadProtocolBurnRouterMaxPurchases =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBurnRouterAbi,
-    functionName: "MAX_PURCHASES",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"MAX_TIERS"`
- */
-export const useReadProtocolBurnRouterMaxTiers =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBurnRouterAbi,
-    functionName: "MAX_TIERS",
-  });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBurnRouterAbi}__ and `functionName` set to `"factory"`
@@ -13632,18 +13541,6 @@ export const useReadRendererRegistryMaxInitCodeBytes =
     abi: rendererRegistryAbi,
     address: rendererRegistryAddress,
     functionName: "maxInitCodeBytes",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link rendererRegistryAbi}__ and `functionName` set to `"maxPageSize"`
- *
- * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x4d421062e1af4ab12e4f65ba475f169f633d745a)
- */
-export const useReadRendererRegistryMaxPageSize =
-  /*#__PURE__*/ createUseReadContract({
-    abi: rendererRegistryAbi,
-    address: rendererRegistryAddress,
-    functionName: "maxPageSize",
   });
 
 /**

@@ -35,7 +35,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
         paymentToken = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(
+        tier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)),
             paymentToken,
             MembershipTestConfig.defaultConfig(
@@ -49,7 +49,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_fixedDestinationsClaimAllPaymentLiabilities() public {
         vm.prank(member);
-        tier.createMembership(1, referrer);
+        tier.createMembership(1, referrer, 25);
 
         assertEq(tier.creatorProceeds(), 0);
         assertEq(_retiredReward(member), 0);
@@ -84,7 +84,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_creatorWithdrawalCannotConsumeRewardOrReferralLiabilities() public {
         vm.prank(member);
-        tier.createMembership(2, referrer);
+        tier.createMembership(2, referrer, 25);
 
         _vest(60 days);
 
@@ -98,7 +98,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_currentOwnerReceivesPreexistingCreatorProceedsAfterTwoStepTransfer() public {
         vm.prank(member);
-        tier.createMembership(1, address(0));
+        tier.createMembership(1, address(0), 25);
 
         _vest(30 days);
 
@@ -118,7 +118,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_claimsAndWithdrawalsRemainAvailableWhilePaused() public {
         vm.prank(member);
-        tier.createMembership(1, referrer);
+        tier.createMembership(1, referrer, 25);
         tier.setPaused(true);
 
         _vest(30 days);
@@ -140,7 +140,7 @@ contract ClaimsAndWithdrawalsTest is Test {
             address(this), address(renderer), address(secondToken)
         );
         secondConfig.tierSalt = keccak256("second-claims-token");
-        MembershipTier secondTier = new MembershipTier(
+        MembershipTier secondTier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(secondToken)),
             secondToken,
             secondConfig
@@ -152,9 +152,9 @@ contract ClaimsAndWithdrawalsTest is Test {
         secondToken.approve(address(secondTier), type(uint256).max);
 
         vm.prank(member);
-        uint256 firstTokenId = tier.createMembership(1, referrer);
+        uint256 firstTokenId = tier.createMembership(1, referrer, 25);
         vm.prank(secondMember);
-        uint256 secondTokenId = secondTier.createMembership(1, secondReferrer);
+        uint256 secondTokenId = secondTier.createMembership(1, secondReferrer, 25);
 
         _vest(15 days);
         secondTier.processAccounting(25);
@@ -168,7 +168,7 @@ contract ClaimsAndWithdrawalsTest is Test {
         vm.prank(referrer);
         tier.claimReferral();
         vm.prank(member);
-        tier.claimReward(firstTokenId);
+        tier.claimReward(firstTokenId, 25);
 
         assertEq(secondToken.balanceOf(address(secondTier)), secondBalanceBefore);
         assertEq(secondTier.creatorProceeds(), secondCreatorBefore);
@@ -177,7 +177,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
         uint256 refundAmount = secondTier.previewRefund(secondTokenId).grossRefund;
         uint256 firstTokenBalanceBefore = paymentToken.balanceOf(address(tier));
-        secondTier.refund(secondTokenId, secondMember, refundAmount);
+        secondTier.refund(secondTokenId, secondMember, refundAmount, 25);
 
         assertEq(paymentToken.balanceOf(address(tier)), firstTokenBalanceBefore);
         assertEq(tier.creatorProceeds(), 0);
@@ -198,7 +198,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_fractionalCreditRemainsAfterClaimsAndLaterCashCanAccrue() public {
         vm.prank(member);
-        uint256 id = tier.createMembership(1, referrer);
+        uint256 id = tier.createMembership(1, referrer, 25);
         _vest(1 days);
         MembershipTypes.EarnedBalances memory before_ =
         tier.previewAccounting(id, address(0), referrer, 0).settled;
@@ -206,7 +206,7 @@ contract ClaimsAndWithdrawalsTest is Test {
         assertGt(before_.fractionalScaled[1], 0);
         assertEq(tier.withdrawCreatorProceeds(), before_.creator);
         vm.prank(member);
-        assertEq(tier.claimReward(id), before_.member);
+        assertEq(tier.claimReward(id, 25), before_.member);
         vm.prank(referrer);
         assertEq(tier.claimReferral(), before_.referral);
         assertEq(tier.releaseProtocolFees(), before_.protocol);
@@ -229,13 +229,13 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_settledBeneficiaryClaimsRemainAvailableButPositionClaimsRequireCatchUp() public {
         vm.prank(member);
-        uint256 id = tier.createMembership(1, referrer);
+        uint256 id = tier.createMembership(1, referrer, 25);
         for (uint256 i; i < 100; ++i) {
             address other = address(SafeCast.toUint160(0x1000 + i));
             paymentToken.mint(other, 10_000_000);
             vm.startPrank(other);
             paymentToken.approve(address(tier), 10_000_000);
-            tier.createMembership(1, referrer);
+            tier.createMembership(1, referrer, 25);
             vm.stopPrank();
         }
         vm.warp(block.timestamp + 30 days);
@@ -253,7 +253,7 @@ contract ClaimsAndWithdrawalsTest is Test {
                 SafeCast.toUint64(block.timestamp)
             )
         );
-        tier.claimReward(id);
+        tier.claimReward(id, 25);
         assertEq(tier.accountingStatus().scheduledMembers, pending, "claim catch-up is atomic");
         assertEq(tier.ownerOf(id), member);
         assertEq(tier.withdrawCreatorProceeds(), balances.creator);
@@ -268,7 +268,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_burnedPositionLeavesOnlyOwnerCreditAndRetainsFractionAfterPayout() public {
         vm.prank(member);
-        uint256 id = tier.createMembership(1, referrer);
+        uint256 id = tier.createMembership(1, referrer, 25);
         _vest(30 days);
         tier.setPaused(true);
         assertFalse(tier.rewardEligible(id));
@@ -280,7 +280,7 @@ contract ClaimsAndWithdrawalsTest is Test {
         assertEq(tier.claimableReward(id), 0);
         vm.prank(member);
         vm.expectRevert();
-        tier.claimReward(id);
+        tier.claimReward(id, 25);
         vm.prank(stranger);
         assertEq(tier.claimRetiredRewards(), 0);
         vm.prank(member);
@@ -310,11 +310,11 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_singlePositionClaimCanRetireItsSelectionAndPaysOwner() public {
         vm.prank(member);
-        uint256 id = tier.createMembership(1, referrer);
+        uint256 id = tier.createMembership(1, referrer, 25);
         vm.warp(block.timestamp + 30 days);
         uint256 beforeBalance = paymentToken.balanceOf(member);
         vm.prank(member);
-        uint256 claimed = tier.claimReward(id);
+        uint256 claimed = tier.claimReward(id, 25);
         assertApproxEqAbs(claimed, 500_000, 1);
         assertEq(paymentToken.balanceOf(member) - beforeBalance, claimed);
         assertEq(tier.balanceOf(member), 0);
@@ -323,14 +323,14 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_approvalsCannotClaimAndTransferredSelectionCannotPayFormerOwner() public {
         vm.prank(member);
-        uint256 id = tier.createMembership(1, referrer);
+        uint256 id = tier.createMembership(1, referrer, 25);
         _vest(1 days);
         uint256 reward = tier.claimableReward(id);
         vm.prank(member);
         tier.approve(stranger, id);
         vm.prank(stranger);
         vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
-        tier.claimReward(id);
+        tier.claimReward(id, 25);
         vm.prank(member);
         tier.setApprovalForAll(stranger, true);
         vm.prank(stranger);
@@ -342,16 +342,16 @@ contract ClaimsAndWithdrawalsTest is Test {
         vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
         tier.claimRewards(_ids(id), 25);
         vm.prank(nextOwner);
-        assertEq(tier.claimReward(id), reward);
+        assertEq(tier.claimReward(id, 25), reward);
     }
 
     function test_retiredPayoutNeedsNoCatchUpWhenLaterPositionsHaveLargeBacklog() public {
         vm.prank(member);
-        tier.createMembership(1, address(0));
+        tier.createMembership(1, address(0), 25);
         _vest(30 days);
         uint256 earned = _retiredReward(member);
         for (uint256 i; i < 26; ++i) {
-            tier.grantMembership(stranger, 1);
+            tier.grantMembership(stranger, 1, 25);
         }
         vm.warp(block.timestamp + 30 days);
         tier.setPaused(true);
@@ -367,7 +367,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_tokenApprovalAndOperatorCannotRenewOrClaimEvenForOwnerBeneficiary() public {
         vm.prank(member);
-        uint256 id = tier.createMembership(1, referrer);
+        uint256 id = tier.createMembership(1, referrer, 25);
         _vest(1 days);
         uint256 reward = tier.claimableReward(id);
         uint64 expiration = tier.expiresAt(id);
@@ -379,13 +379,13 @@ contract ClaimsAndWithdrawalsTest is Test {
         for (uint256 i; i < approved.length; ++i) {
             vm.prank(approved[i]);
             vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
-            tier.renewMembership(id, 1, referrer);
+            tier.renewMembership(id, 1, referrer, 25);
             vm.prank(approved[i]);
             vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
             tier.renewSubscription(id, 30 days);
             vm.prank(approved[i]);
             vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
-            tier.claimReward(id);
+            tier.claimReward(id, 25);
             vm.prank(approved[i]);
             vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
             tier.claimRewards(_ids(id), 25);
@@ -397,7 +397,7 @@ contract ClaimsAndWithdrawalsTest is Test {
         assertEq(tier.claimableReward(id), reward);
         assertEq(tier.lifetimeGross(), 10_000_000);
         vm.prank(member);
-        assertEq(tier.claimReward(id), reward);
+        assertEq(tier.claimReward(id, 25), reward);
     }
 
     function test_currentOwnerClaimsTransferredPositionWithoutClaimingTheirSibling() public {
@@ -405,9 +405,9 @@ contract ClaimsAndWithdrawalsTest is Test {
         vm.prank(nextOwner);
         paymentToken.approve(address(tier), type(uint256).max);
         vm.prank(nextOwner);
-        uint256 sibling = tier.createMembership(1, address(0));
+        uint256 sibling = tier.createMembership(1, address(0), 25);
         vm.prank(member);
-        uint256 transferred = tier.createMembership(1, referrer);
+        uint256 transferred = tier.createMembership(1, referrer, 25);
         _vest(15 days);
         uint256 transferredReward = tier.claimableReward(transferred);
         uint256 siblingReward = tier.claimableReward(sibling);
@@ -417,10 +417,10 @@ contract ClaimsAndWithdrawalsTest is Test {
         tier.transferFrom(member, nextOwner, transferred);
         vm.prank(member);
         vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
-        tier.claimReward(transferred);
+        tier.claimReward(transferred, 25);
         vm.prank(member);
         vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
-        tier.renewMembership(transferred, 1, referrer);
+        tier.renewMembership(transferred, 1, referrer, 25);
         uint256 beneficiaryBefore = paymentToken.balanceOf(nextOwner);
         vm.prank(nextOwner);
         MembershipTypes.ClaimResult memory claimed = tier.claimRewards(_ids(transferred), 25);
@@ -435,7 +435,7 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_delayedRetirementCreditsOnlyFinalOwnerAcrossSuccessiveLiveTransfers() public {
         vm.prank(member);
-        uint256 id = tier.createMembership(1, referrer);
+        uint256 id = tier.createMembership(1, referrer, 25);
         uint64 expiration = tier.expiresAt(id);
         uint64 originalCursor = tier.accountingStatus().accountedThrough;
         vm.warp(block.timestamp + 10 days);
@@ -472,17 +472,17 @@ contract ClaimsAndWithdrawalsTest is Test {
 
     function test_pausedTransferMovesUnclaimedRewardAuthorityToCurrentOwner() public {
         vm.prank(member);
-        uint256 id = tier.createMembership(2, referrer);
+        uint256 id = tier.createMembership(2, referrer, 25);
         tier.setPaused(true);
         vm.warp(block.timestamp + 15 days);
         vm.prank(member);
         tier.transferFrom(member, nextOwner, id);
         vm.prank(member);
         vm.expectRevert(MembershipTier.TokenOwnerOnly.selector);
-        tier.claimReward(id);
+        tier.claimReward(id, 25);
         uint256 beforeBalance = paymentToken.balanceOf(nextOwner);
         vm.prank(nextOwner);
-        uint256 reward = tier.claimReward(id);
+        uint256 reward = tier.claimReward(id, 25);
         assertApproxEqAbs(reward, 250_000, 1);
         assertEq(paymentToken.balanceOf(nextOwner) - beforeBalance, reward);
         assertEq(tier.ownerOf(id), nextOwner);
@@ -514,7 +514,7 @@ contract ReentrantRewardClaimant {
 
     function createMembership() external {
         _token.approve(address(_tier), type(uint256).max);
-        tokenId = _tier.createMembership(1, address(0));
+        tokenId = _tier.createMembership(1, address(0), 25);
     }
 
     function onERC721Received(address, address, uint256, bytes calldata)
@@ -526,13 +526,13 @@ contract ReentrantRewardClaimant {
     }
 
     function claim() external returns (uint256 amount) {
-        amount = _tier.claimReward(tokenId);
+        amount = _tier.claimReward(tokenId, 25);
     }
 
     function reenterClaim() external {
         ++callbackAttempts;
         (reentrySucceeded,) =
-            address(_tier).call(abi.encodeCall(MembershipTier.claimReward, (tokenId)));
+            address(_tier).call(abi.encodeCall(MembershipTier.claimReward, (tokenId, 25)));
     }
 }
 
@@ -553,7 +553,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         referrer = makeAddr("referrer");
         paymentToken = new AdversarialERC20();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTierHarness(
+        tier = MembershipTestConfig.deployHarness(
             SyntheticVaultBinding.bind(feeVault, address(paymentToken)),
             paymentToken,
             address(renderer),
@@ -590,13 +590,13 @@ contract AdversarialPaymentsAndExitsTest is Test {
         paymentToken.setFrozen(member, true);
         vm.prank(member);
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
-        tier.createMembership(1, address(0));
+        tier.createMembership(1, address(0), 25);
         _assertNoPaymentState();
     }
 
     function test_zeroEarnedClaimsDoNotAttemptFrozenTokenDeliveryOrEmitPayouts() public {
         vm.prank(member);
-        uint256 id = tier.createMembership(1, referrer);
+        uint256 id = tier.createMembership(1, referrer, 25);
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.RevertTransfer);
         paymentToken.setFrozen(member, true);
         paymentToken.setFrozen(referrer, true);
@@ -604,7 +604,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         vm.recordLogs();
         assertEq(tier.withdrawCreatorProceeds(), 0);
         vm.prank(member);
-        assertEq(tier.claimReward(id), 0);
+        assertEq(tier.claimReward(id, 25), 0);
         vm.prank(referrer);
         assertEq(tier.claimReferral(), 0);
         assertEq(tier.releaseProtocolFees(), 0);
@@ -624,7 +624,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
     function test_failedEarnedReleasePreservesAccountingWithoutBlockingPayment() public {
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.ReturnFalse);
         vm.prank(member);
-        uint256 id = tier.createMembership(1, referrer);
+        uint256 id = tier.createMembership(1, referrer, 25);
         vm.warp(block.timestamp + 30 days);
         assertEq(id, 1);
         tier.processAccounting(25);
@@ -646,7 +646,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         paymentToken.setFrozen(feeVault, true);
         paymentToken.setFrozen(tier.buybackVault(), true);
         vm.prank(member);
-        uint256 id = tier.createMembership(1, address(0));
+        uint256 id = tier.createMembership(1, address(0), 25);
         assertEq(tier.sharesOf(id), 10_000_000);
         assertEq(tier.reserveState().unearnedScaled[3], 100_000 * (1 << 128));
         assertTrue(tier.isActiveToken(id));
@@ -654,13 +654,14 @@ contract AdversarialPaymentsAndExitsTest is Test {
 
     function test_reentrantInboundCallbackCannotDoublePurchase() public {
         paymentToken.setCallback(
-            address(tier), abi.encodeCall(MembershipTier.createMembership, (uint64(1), address(0)))
+            address(tier),
+            abi.encodeCall(MembershipTier.createMembership, (uint64(1), address(0), 25))
         );
         paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.Callback);
         paymentToken.setTransferBehavior(AdversarialERC20.Behavior.Callback);
 
         vm.prank(member);
-        uint256 tokenId = tier.createMembership(1, address(0));
+        uint256 tokenId = tier.createMembership(1, address(0), 25);
 
         assertEq(paymentToken.callbackAttempts(), 1);
         assertFalse(paymentToken.lastCallbackSucceeded());
@@ -671,14 +672,14 @@ contract AdversarialPaymentsAndExitsTest is Test {
 
     function test_existingMemberTimeIsCheckpointedBeforeInboundTokenCallback() public {
         vm.prank(member);
-        uint256 tokenId = tier.createMembership(1, address(0));
+        uint256 tokenId = tier.createMembership(1, address(0), 25);
         vm.warp(block.timestamp + 10 days);
 
         paymentToken.setCallback(address(this), abi.encodeCall(this.observeStoredTime, (tokenId)));
         paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.Callback);
 
         vm.prank(member);
-        tier.renewMembership(tokenId, 1, address(0));
+        tier.renewMembership(tokenId, 1, address(0), 25);
 
         assertEq(observedPaidSeconds, 20 days);
         assertEq(observedCheckpoint, block.timestamp);
@@ -694,7 +695,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
 
     function test_failedCreatorRewardAndReferralExitsRestoreLiabilities() public {
         vm.prank(member);
-        uint256 tokenId = tier.createMembership(1, referrer);
+        uint256 tokenId = tier.createMembership(1, referrer, 25);
         vm.warp(block.timestamp + 30 days);
         tier.processAccounting(25);
         uint256 reward = _retiredReward(member);
@@ -736,9 +737,9 @@ contract AdversarialPaymentsAndExitsTest is Test {
         paymentToken.approve(address(tier), type(uint256).max);
 
         vm.prank(member);
-        uint256 firstTokenId = tier.createMembership(1, referrer);
+        uint256 firstTokenId = tier.createMembership(1, referrer, 25);
         vm.prank(secondMember);
-        uint256 secondTokenId = tier.createMembership(1, secondReferrer);
+        uint256 secondTokenId = tier.createMembership(1, secondReferrer, 25);
 
         vm.warp(block.timestamp + 15 days);
         tier.processAccounting(25);
@@ -748,12 +749,12 @@ contract AdversarialPaymentsAndExitsTest is Test {
         paymentToken.setFrozen(member, true);
         vm.prank(member);
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
-        tier.claimReward(firstTokenId);
+        tier.claimReward(firstTokenId, 25);
         assertEq(tier.claimableReward(firstTokenId), firstReward);
         assertEq(tier.claimableReward(secondTokenId), secondReward);
 
         vm.prank(secondMember);
-        assertEq(tier.claimReward(secondTokenId), secondReward);
+        assertEq(tier.claimReward(secondTokenId, 25), secondReward);
         assertEq(tier.claimableReward(firstTokenId), firstReward);
 
         uint256 firstReferral = tier.claimableReferral(referrer);
@@ -804,7 +805,7 @@ contract AdversarialPaymentsAndExitsTest is Test {
         paymentToken.setTransferFromBehavior(behavior);
         vm.prank(member);
         vm.expectRevert(revertData);
-        tier.createMembership(1, address(0));
+        tier.createMembership(1, address(0), 25);
         _assertNoPaymentState();
         paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.Normal);
     }

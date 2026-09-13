@@ -52,37 +52,58 @@ export function PositionSelector({
     staleTime: Infinity,
     retry: false,
   });
+  if (initialPage.balance === 0n) return null;
+
   return (
     <section
-      className="control-group"
+      className="membership-position-choice"
       aria-label="Membership selection"
       aria-busy={page.isFetching}
     >
-      <label className="creator-field">
-        <span>Membership action</span>
-        <select
-          value={selectedTokenId.toString()}
-          disabled={busy}
-          onChange={(event) => onSelect(BigInt(event.target.value))}
-        >
-          <option value="0">New membership</option>
-          {selectedTokenId !== 0n &&
-            !page.data?.tokenIds.includes(selectedTokenId) && (
-              <option value={selectedTokenId.toString()}>
-                Selected membership #{selectedTokenId.toString()}
+      <div className="membership-position-actions">
+        {initialPage.balance === 1n ? (
+          selectedTokenId !== 0n ? (
+            <span>Your membership #{selectedTokenId.toString()}</span>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onSelect(initialPage.tokenIds[0])}
+            >
+              Back to your membership
+            </button>
+          )
+        ) : (
+          <label>
+            <span>Your memberships</span>
+            <select
+              value={selectedTokenId.toString()}
+              disabled={busy}
+              onChange={(event) => onSelect(BigInt(event.target.value))}
+            >
+              <option value="0" disabled>
+                Choose a membership
               </option>
-            )}
-          {page.data?.tokenIds.map((id) => (
-            <option key={id.toString()} value={id.toString()}>
-              Membership #{id.toString()}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p>
-        New membership creates an independent position. Select an existing ID to
-        view or renew it.
-      </p>
+              {selectedTokenId !== 0n &&
+                !page.data?.tokenIds.includes(selectedTokenId) && (
+                  <option value={selectedTokenId.toString()}>
+                    Membership #{selectedTokenId.toString()}
+                  </option>
+                )}
+              {page.data?.tokenIds.map((id) => (
+                <option key={id.toString()} value={id.toString()}>
+                  Membership #{id.toString()}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {selectedTokenId !== 0n && (
+          <button type="button" disabled={busy} onClick={() => onSelect(0n)}>
+            Join again
+          </button>
+        )}
+      </div>
       {page.isPending && <p role="status">Loading memberships…</p>}
       {page.error && (
         <p role="alert">
@@ -92,31 +113,32 @@ export function PositionSelector({
           </button>
         </p>
       )}
-      {page.data && (
-        <p>
-          {page.data.balance === 0n
-            ? "No memberships in this wallet."
-            : `Showing ${page.data.tokenIds.length} of ${page.data.balance} memberships. ${page.data.complete ? "End of this snapshot." : "More memberships are available."}`}
-        </p>
+      {(offset > 0n || (page.data && !page.data.complete)) && (
+        <nav
+          className="membership-position-pages"
+          aria-label="Membership pages"
+        >
+          {offset > 0n && (
+            <button
+              type="button"
+              disabled={busy || page.isFetching}
+              onClick={() => setOffset(offset > 100n ? offset - 100n : 0n)}
+            >
+              Previous memberships
+            </button>
+          )}
+          {page.data && <span>{page.data.balance.toString()} memberships</span>}
+          {page.data && !page.data.complete && (
+            <button
+              type="button"
+              disabled={busy || page.isFetching}
+              onClick={() => page.data && setOffset(page.data.nextOffset)}
+            >
+              More memberships
+            </button>
+          )}
+        </nav>
       )}
-      <div className="button-row">
-        <button
-          type="button"
-          className="button button-outline"
-          disabled={busy || page.isFetching || offset === 0n}
-          onClick={() => setOffset(offset > 100n ? offset - 100n : 0n)}
-        >
-          Previous memberships
-        </button>
-        <button
-          type="button"
-          className="button button-outline"
-          disabled={busy || page.isFetching || !page.data || page.data.complete}
-          onClick={() => page.data && setOffset(page.data.nextOffset)}
-        >
-          More memberships
-        </button>
-      </div>
     </section>
   );
 }

@@ -571,7 +571,7 @@ describe("supporter membership experience", () => {
     }
   }
 
-  it("retains settled claims when a current earnings claim needs catch-up", async () => {
+  it("requires maintenance before claiming member rewards when accounting is behind", async () => {
     renderExperience(
       { ...snapshot, credential: credential() },
       100n,
@@ -582,7 +582,9 @@ describe("supporter membership experience", () => {
       screen.getByRole("link", { name: "Advance to claim" }),
     ).toBeVisible();
     await userEvent.click(screen.getByText("Settled funds", { exact: true }));
-    expect(screen.getByRole("button", { name: "Claim settled" })).toBeEnabled();
+    expect(
+      screen.queryByRole("button", { name: "Claim settled" }),
+    ).not.toBeInTheDocument();
     expect(paymentWrite.send).not.toHaveBeenCalled();
   });
 

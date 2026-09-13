@@ -31,7 +31,7 @@ contract MembershipReceiverTest is Test {
         other = makeAddr("receiverOther");
         payment = new MockUSDG();
         OnchainMetadataRenderer renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(
+        tier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(payment)),
             payment,
             MembershipTestConfig.defaultConfig(address(this), address(renderer), address(payment))
@@ -48,7 +48,7 @@ contract MembershipReceiverTest is Test {
     function test_safeGiftMintShowsCompletePositionAndCatchesNestedMutationFailures() public {
         _probe(1, false);
         vm.prank(member);
-        uint256 id = tier.giftMembership(address(receiver), 1);
+        uint256 id = tier.giftMembership(address(receiver), 1, 25);
         _assertObservation(id, member, address(0), PRICE, PRICE, 1);
         _assertGuardFailures();
         assertEq(payment.balanceOf(member), 9 * PRICE);
@@ -63,7 +63,7 @@ contract MembershipReceiverTest is Test {
         _probe(1, false);
         uint256 id = abi.decode(
             receiver.execute(
-                abi.encodeCall(MembershipTier.createMembership, (uint64(1), address(0)))
+                abi.encodeCall(MembershipTier.createMembership, (uint64(1), address(0), 25))
             ),
             (uint256)
         );
@@ -74,14 +74,14 @@ contract MembershipReceiverTest is Test {
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.LockedNone));
         // The callback guard must clear when the successful outer transaction ends.
         receiver.execute(
-            abi.encodeCall(MembershipTier.renewMembership, (id, uint64(1), address(0)))
+            abi.encodeCall(MembershipTier.renewMembership, (id, uint64(1), address(0), 25))
         );
         assertEq(tier.expiresAt(id), START + 2 * PERIOD);
     }
 
     function test_safeGrantMintShowsScheduledZeroWeightPositionBeforeCallback() public {
         _probe(1, false);
-        uint256 id = tier.grantMembership(address(receiver), 1);
+        uint256 id = tier.grantMembership(address(receiver), 1, 25);
         _assertObservation(id, address(this), address(0), 0, 0, 0);
         _assertGuardFailures();
         assertEq(payment.balanceOf(address(tier)), 0);
@@ -154,11 +154,11 @@ contract MembershipReceiverTest is Test {
         _probe(1, true);
         vm.prank(member);
         vm.expectRevert(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector);
-        tier.giftMembership(address(receiver), 1);
+        tier.giftMembership(address(receiver), 1, 25);
         _assertMintRolledBack();
         _configure(MembershipReceiver.Response.Accept);
         vm.prank(member);
-        assertEq(tier.giftMembership(address(receiver), 1), 1);
+        assertEq(tier.giftMembership(address(receiver), 1, 25), 1);
     }
 
     function test_rejectedMintRollsBackForWrongSelectorAndExplicitRevert() public {
@@ -167,12 +167,12 @@ contract MembershipReceiverTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, address(receiver))
         );
-        tier.giftMembership(address(receiver), 1);
+        tier.giftMembership(address(receiver), 1, 25);
         _assertMintRolledBack();
         _configure(MembershipReceiver.Response.RevertCallback);
         vm.prank(member);
         vm.expectRevert(MembershipReceiver.ReceiverRejected.selector);
-        tier.giftMembership(address(receiver), 1);
+        tier.giftMembership(address(receiver), 1, 25);
         _assertMintRolledBack();
     }
 
@@ -182,7 +182,7 @@ contract MembershipReceiverTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, invalid)
         );
-        tier.giftMembership(invalid, 1);
+        tier.giftMembership(invalid, 1, 25);
         _assertMintRolledBack();
         uint256 id = _create();
         vm.prank(member);
@@ -196,7 +196,7 @@ contract MembershipReceiverTest is Test {
 
     function _create() private returns (uint256) {
         vm.prank(member);
-        return tier.createMembership(1, address(0));
+        return tier.createMembership(1, address(0), 25);
     }
 
     function _configure(MembershipReceiver.Response response) private {
@@ -205,8 +205,8 @@ contract MembershipReceiverTest is Test {
 
     function _probe(uint256 id, bool bubble) private {
         bytes[] memory calls = new bytes[](7);
-        calls[0] = abi.encodeCall(MembershipTier.claimReward, (id));
-        calls[1] = abi.encodeCall(MembershipTier.renewMembership, (id, uint64(1), address(0)));
+        calls[0] = abi.encodeCall(MembershipTier.claimReward, (id, 25));
+        calls[1] = abi.encodeCall(MembershipTier.renewMembership, (id, uint64(1), address(0), 25));
         calls[2] = abi.encodeWithSignature(
             "transferFrom(address,address,uint256)", address(receiver), other, id
         );

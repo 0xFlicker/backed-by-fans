@@ -35,7 +35,7 @@ contract PaymentsAndTimeTest is Test {
 
         paymentToken = new MockUSDG();
         renderer = new OnchainMetadataRenderer();
-        tier = new MembershipTier(
+        tier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)),
             paymentToken,
             _config()
@@ -69,7 +69,7 @@ contract PaymentsAndTimeTest is Test {
     }
 
     function test_paidTimeInsertedAheadOfGrantTimeIsConsumedFirst() public {
-        uint256 tokenId = tier.grantMembership(member, 2);
+        uint256 tokenId = tier.grantMembership(member, 2, 25);
         uint64 originalExpiration = tier.expiresAt(tokenId);
         vm.warp(_START + 15 days);
 
@@ -129,7 +129,7 @@ contract PaymentsAndTimeTest is Test {
 
     function test_timeBalanceViewReturnsEffectiveCheckpointWithoutWriting() public {
         uint256 tokenId = _purchase(2);
-        tier.addGrantTime(tokenId, member, 1);
+        tier.addGrantTime(tokenId, member, 1, 25);
         vm.warp(_START + 15 days);
 
         (uint64 paidSeconds, uint64 grantSeconds, uint64 effectiveCheckpoint) =
@@ -151,7 +151,7 @@ contract PaymentsAndTimeTest is Test {
         vm.expectRevert(MembershipTier.PrepaymentLimitExceeded.selector);
         _renew(tokenId, 1);
 
-        tier.addGrantTime(tokenId, member, 1);
+        tier.addGrantTime(tokenId, member, 1, 25);
         assertEq(tier.expiresAt(tokenId), expiration + _PERIOD);
     }
 
@@ -168,7 +168,7 @@ contract PaymentsAndTimeTest is Test {
         vm.expectRevert(MembershipTier.InvalidPeriods.selector);
         _purchase(0);
 
-        uint256 tokenId = tier.grantMembership(member, 1);
+        uint256 tokenId = tier.grantMembership(member, 1, 25);
         vm.prank(member);
         vm.expectRevert(MembershipTier.InvalidPaidDuration.selector);
         tier.renewSubscription(tokenId, 0);
@@ -229,7 +229,7 @@ contract PaymentsAndTimeTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(
                 MembershipTestConfig.paymentTokens(paymentToken, secondToken)
             )
@@ -250,8 +250,8 @@ contract PaymentsAndTimeTest is Test {
         vm.startPrank(member);
         paymentToken.approve(address(firstTier), type(uint256).max);
         secondToken.approve(address(secondTier), type(uint256).max);
-        firstTier.createMembership(1, address(0));
-        secondTier.createMembership(1, address(0));
+        firstTier.createMembership(1, address(0), 25);
+        secondTier.createMembership(1, address(0), 25);
         vm.stopPrank();
 
         assertEq(address(firstTier.paymentToken()), address(paymentToken));
@@ -275,20 +275,20 @@ contract PaymentsAndTimeTest is Test {
     function test_zeroPriceSelfActionAddsOnePeriodWithOrWithoutContribution() public {
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = 0;
-        MembershipTier zeroTier = new MembershipTier(
+        MembershipTier zeroTier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
         vm.prank(member);
         paymentToken.approve(address(zeroTier), type(uint256).max);
 
         vm.prank(member);
-        uint256 tokenId = zeroTier.createContributionMembership(0, makeAddr("ignored"));
+        uint256 tokenId = zeroTier.createContributionMembership(0, makeAddr("ignored"), 25);
         (MembershipTypes.ReferralStatus status,) = zeroTier.referralOf(tokenId);
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.Unset));
         assertEq(zeroTier.sharesOf(tokenId), 0);
 
         vm.prank(member);
-        zeroTier.renewContributionMembership(tokenId, 4_000_000, address(0));
+        zeroTier.renewContributionMembership(tokenId, 4_000_000, address(0), 25);
 
         assertEq(zeroTier.expiresAt(tokenId), _START + 2 * _PERIOD);
         assertEq(zeroTier.sharesOf(tokenId), 4_000_000);
@@ -311,11 +311,11 @@ contract PaymentsAndTimeTest is Test {
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.IncorrectPricingMode.selector);
-        zeroTier.createMembership(1, address(0));
+        zeroTier.createMembership(1, address(0), 25);
 
         vm.prank(makeAddr("thirdParty"));
         vm.expectRevert(MembershipTier.IncorrectPricingMode.selector);
-        zeroTier.giftMembership(member, 1);
+        zeroTier.giftMembership(member, 1, 25);
     }
 
     function test_pauseBlocksCanonicalPurchasesGiftsAndStandardRenewal() public {
@@ -324,12 +324,12 @@ contract PaymentsAndTimeTest is Test {
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.createMembership(1, address(0));
+        tier.createMembership(1, address(0), 25);
 
         address payer = makeAddr("payer");
         vm.prank(payer);
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.giftMembership(member, 1);
+        tier.giftMembership(member, 1, 25);
 
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);
@@ -337,13 +337,13 @@ contract PaymentsAndTimeTest is Test {
 
         MembershipTypes.TierConfig memory config = _config();
         config.pricePerPeriod = 0;
-        MembershipTier zeroTier = new MembershipTier(
+        MembershipTier zeroTier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
         zeroTier.setPaused(true);
         vm.prank(member);
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        zeroTier.createContributionMembership(0, address(0));
+        zeroTier.createContributionMembership(0, address(0), 25);
     }
 
     function test_priceAndLifetimeCapacityBoundsFailBeforeCustodyOrTime() public {
@@ -351,13 +351,14 @@ contract PaymentsAndTimeTest is Test {
         config.pricePerPeriod = uint256(type(uint112).max) + 1;
         address binding = SyntheticVaultBinding.bind(address(this), address(paymentToken));
         vm.expectRevert(RewardCurve.InvalidCurveSettings.selector);
-        new MembershipTier(binding, paymentToken, config);
+        MembershipTestConfig.deployTier(binding, paymentToken, config);
         config.pricePerPeriod = type(uint112).max;
-        MembershipTier expensiveTier = new MembershipTier(binding, paymentToken, config);
+        MembershipTier expensiveTier =
+            MembershipTestConfig.deployTier(binding, paymentToken, config);
 
         vm.prank(member);
         vm.expectRevert(RewardCurve.CurveCapacityExceeded.selector);
-        expensiveTier.createMembership(2, address(0));
+        expensiveTier.createMembership(2, address(0), 25);
 
         assertEq(expensiveTier.totalMinted(), 0);
         assertEq(paymentToken.balanceOf(address(expensiveTier)), 0);
@@ -380,7 +381,7 @@ contract PaymentsAndTimeTest is Test {
         config.pricePerPeriod = 0;
         config.rewardBps = rewardRate;
         config.referralBps = referralRate;
-        MembershipTier fuzzTier = new MembershipTier(
+        MembershipTier fuzzTier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(fuzzToken)), fuzzToken, config
         );
         fuzzToken.mint(member, gross);
@@ -388,7 +389,7 @@ contract PaymentsAndTimeTest is Test {
         fuzzToken.approve(address(fuzzTier), gross);
 
         vm.prank(member);
-        uint256 tokenId = fuzzTier.createContributionMembership(gross, chosenReferrer);
+        uint256 tokenId = fuzzTier.createContributionMembership(gross, chosenReferrer, 25);
 
         uint256 protocolAmount = Math.mulDiv(gross, 100, 10_000);
         uint256 rewardAmount = Math.mulDiv(gross, rewardRate, 10_000);
@@ -423,25 +424,25 @@ contract PaymentsAndTimeTest is Test {
 
     function _renew(uint256 id, uint64 periods) private {
         vm.prank(member);
-        tier.renewMembership(id, periods, address(0));
+        tier.renewMembership(id, periods, address(0), 25);
     }
 
     function _purchase(uint64 periods) private returns (uint256 tokenId) {
         vm.prank(member);
-        tokenId = tier.createMembership(periods, address(0));
+        tokenId = tier.createMembership(periods, address(0), 25);
     }
 
     function test_badPaymentRollsBackCatchUpFundingSharesAndCustody() public {
         AdversarialERC20 token = new AdversarialERC20();
         MembershipTypes.TierConfig memory config = _config();
         config.paymentToken = address(token);
-        MembershipTier target = new MembershipTier(
+        MembershipTier target = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(token)), token, config
         );
         token.mint(member, 100_000_000);
         vm.startPrank(member);
         token.approve(address(target), type(uint256).max);
-        target.createMembership(1, address(0));
+        target.createMembership(1, address(0), 25);
         vm.stopPrank();
         vm.warp(_START + _PERIOD / 2);
         bytes32 beforeState = keccak256(
@@ -458,7 +459,7 @@ contract PaymentsAndTimeTest is Test {
             token.setTransferFromBehavior(AdversarialERC20.Behavior(behavior));
             vm.prank(member);
             vm.expectRevert();
-            target.createMembership(1, address(0));
+            target.createMembership(1, address(0), 25);
             assertEq(
                 keccak256(
                     abi.encode(
@@ -483,15 +484,15 @@ contract PaymentsAndTimeTest is Test {
         config.pricePerPeriod = 0;
         config.startingBoostBps = 30_000;
         config.earlySupportGross = 1000;
-        MembershipTier target = new MembershipTier(
+        MembershipTier target = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
         vm.prank(member);
         paymentToken.approve(address(target), type(uint256).max);
         vm.recordLogs();
         vm.startPrank(member);
-        target.createContributionMembership(0, address(0));
-        target.renewContributionMembership(1, 100, address(0));
+        target.createContributionMembership(0, address(0), 25);
+        target.renewContributionMembership(1, 100, address(0), 25);
         vm.stopPrank();
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 processed;
@@ -552,14 +553,14 @@ contract PaymentsAndTimeTest is Test {
         config.rewardBps = 1000;
         config.referralBps = 500;
         config.maxPrepaidPeriods = 0;
-        MembershipTier vested = new MembershipTier(
+        MembershipTier vested = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
         );
         address referrer = makeAddr("original referrer");
-        uint256 tokenId = vested.grantMembership(member, 5);
+        uint256 tokenId = vested.grantMembership(member, 5, 25);
         vm.startPrank(member);
         paymentToken.approve(address(vested), type(uint256).max);
-        vested.renewMembership(tokenId, 12, referrer);
+        vested.renewMembership(tokenId, 12, referrer, 25);
         vm.stopPrank();
         MembershipTypes.AllocationLot[] memory lots = vested.allocationLots(tokenId, 0, 0, 100);
         assertEq(lots.length, 1);
@@ -579,7 +580,7 @@ contract PaymentsAndTimeTest is Test {
             assertEq(allocation.unearnedScaled[purpose], firstPartial[purpose] * 3 * Q);
         }
         vm.prank(member);
-        vested.renewMembership(tokenId, 3, referrer);
+        vested.renewMembership(tokenId, 3, referrer, 25);
         lots = vested.allocationLots(tokenId, 0, 0, 100);
         assertEq(lots.length, 2);
         assertEq(lots[1].start, _START + 120);

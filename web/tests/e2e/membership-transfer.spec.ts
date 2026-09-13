@@ -63,7 +63,7 @@ test("@anvil transfers a selected live position while paused with an incomplete 
         ...common,
         account: member,
         functionName: "createMembership",
-        args: [2n, zeroAddress],
+        args: [2n, zeroAddress, 25n],
       }),
       tier,
       member,
@@ -73,7 +73,7 @@ test("@anvil transfers a selected live position while paused with an incomplete 
         ...common,
         account: member,
         functionName: "createMembership",
-        args: [2n, zeroAddress],
+        args: [2n, zeroAddress, 25n],
       }),
       tier,
       member,
@@ -83,7 +83,7 @@ test("@anvil transfers a selected live position while paused with an incomplete 
         ...common,
         account: member,
         functionName: "giftMembership",
-        args: [recipient, 2n],
+        args: [recipient, 2n, 25n],
       }),
       tier,
       recipient,
@@ -98,7 +98,7 @@ test("@anvil transfers a selected live position while paused with an incomplete 
           ...common,
           account: creator,
           functionName: "grantMembership",
-          args: [grantee, 1n],
+          args: [grantee, 1n, 25n],
         }),
         tier,
         grantee,
@@ -193,7 +193,7 @@ test("@anvil transfers a selected live position while paused with an incomplete 
         ...common,
         account: recipient,
         functionName: "claimReward",
-        args: [first],
+        args: [first, 25n],
       }),
     ).rejects.toThrow();
     await transfer.getByLabel("Transfer recipient wallet").fill(recipient);
@@ -247,7 +247,7 @@ test("@anvil transfers a selected live position while paused with an incomplete 
         ...common,
         account: member,
         functionName: "claimReward",
-        args: [first],
+        args: [first, 25n],
       }),
     ).rejects.toThrow();
     await expect(
@@ -255,7 +255,7 @@ test("@anvil transfers a selected live position while paused with an incomplete 
         ...common,
         account: member,
         functionName: "renewMembership",
-        args: [first, 1n, zeroAddress],
+        args: [first, 1n, zeroAddress, 25n],
       }),
     ).rejects.toThrow();
     for (

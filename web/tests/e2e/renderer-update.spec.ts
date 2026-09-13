@@ -81,7 +81,7 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
         address: tier,
         abi: membershipTierAbi,
         functionName: "createMembership",
-        args: [1n, zeroAddress],
+        args: [1n, zeroAddress, 25n],
       }),
     );
     expectSuccessfulReceipt(
@@ -90,7 +90,7 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
         address: tier,
         abi: membershipTierAbi,
         functionName: "grantMembership",
-        args: [expiredMember, 1n],
+        args: [expiredMember, 1n, 25n],
       }),
     );
     await rpcRequest("evm_increaseTime", [2_592_001]);
@@ -101,7 +101,7 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
         address: tier,
         abi: membershipTierAbi,
         functionName: "createMembership",
-        args: [1n, zeroAddress],
+        args: [1n, zeroAddress, 25n],
       }),
     );
     expectSuccessfulReceipt(

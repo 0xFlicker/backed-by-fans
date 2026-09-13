@@ -4,7 +4,6 @@ pragma solidity =0.8.36;
 import {ISafeL2} from "../../script/CreateSafe.s.sol";
 import {DeployForkProtocol} from "../../script/DeployForkProtocol.s.sol";
 import {MembershipTier} from "../../src/MembershipTier.sol";
-import {MembershipTierDeployer} from "../../src/MembershipTierDeployer.sol";
 import {ProtocolBuybackVault} from "../../src/ProtocolBuybackVault.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
@@ -31,15 +30,8 @@ contract ProtocolForkDeploymentTest is PonsForkFixture {
         assertEq(vm.parseJsonAddress(output, ".factory"), address(graph.factory));
         assertEq(vm.parseJsonAddress(output, ".buybackVault"), graph.factory.buybackVault());
         assertEq(vm.parseJsonAddress(output, ".safe"), graph.safe);
-        MembershipTypes.TierCodeConfig memory tierCode = deployment.tierCodeConfiguration();
-        MembershipTierDeployer tierDeployer = MembershipTierDeployer(graph.factory.deployer());
-        assertEq(vm.parseJsonAddress(output, ".tierCodeStoreA"), tierCode.storeA);
-        assertEq(vm.parseJsonAddress(output, ".tierCodeStoreB"), tierCode.storeB);
-        assertEq(vm.parseJsonAddress(output, ".tierDeployer"), address(tierDeployer));
-        assertEq(tierDeployer.factory(), address(graph.factory));
-        assertEq(tierDeployer.tierCreationCodeHash(), keccak256(type(MembershipTier).creationCode));
-        assertEq(tierDeployer.creationCodeStoreAHash(), tierCode.storeA.codehash);
-        assertEq(tierDeployer.creationCodeStoreBHash(), tierCode.storeB.codehash);
+        assertEq(vm.parseJsonAddress(output, ".tierImplementation"), graph.factory.implementation());
+        assertEq(graph.factory.implementation().code, type(MembershipTier).runtimeCode);
         assertEq(
             vm.parseJsonString(output, ".developerTokensPurchased"),
             vm.toString(graph.developerTokensPurchased)

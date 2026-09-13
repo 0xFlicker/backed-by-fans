@@ -40,7 +40,7 @@ contract PublicVestingTest is Test {
             address(new OnchainMediaStoreFactory()),
             address(this),
             address(0),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(token))
         );
     }
@@ -68,7 +68,7 @@ contract PublicVestingTest is Test {
         token.mint(member, periods * tier.pricePerPeriod());
         vm.startPrank(member);
         token.approve(address(tier), type(uint256).max);
-        id = tier.createMembership(periods, referral);
+        id = tier.createMembership(periods, referral, 25);
         vm.stopPrank();
     }
 
@@ -79,7 +79,7 @@ contract PublicVestingTest is Test {
         token.mint(member, gross);
         vm.startPrank(member);
         token.approve(address(tier), type(uint256).max);
-        id = tier.createContributionMembership(gross, referral);
+        id = tier.createContributionMembership(gross, referral, 25);
         vm.stopPrank();
     }
 
@@ -111,7 +111,7 @@ contract PublicVestingTest is Test {
         vm.prank(creator);
         assertEq(tier.withdrawCreatorProceeds(), 24 * UNIT);
         vm.prank(alice);
-        assertEq(tier.claimReward(id), memberClaim);
+        assertEq(tier.claimReward(id, 25), memberClaim);
         vm.prank(referrer);
         assertEq(tier.claimReferral(), 15 * UNIT / 10);
         assertEq(tier.releaseProtocolFees(), 15 * UNIT / 10);
@@ -126,7 +126,7 @@ contract PublicVestingTest is Test {
         );
         assertEq(token.allowance(creator, address(tier)), 0);
         vm.prank(creator);
-        assertEq(tier.refund(id, alice, 90 * UNIT), 90 * UNIT);
+        assertEq(tier.refund(id, alice, 90 * UNIT, 25), 90 * UNIT);
         assertEq(tier.sharesOf(id), 0);
         assertEq(tier.lifetimeGross(), 120 * UNIT);
         assertFalse(tier.rewardEligible(id));
@@ -181,11 +181,11 @@ contract PublicVestingTest is Test {
         assertTrue(tier.isActiveToken(fresh));
         assertFalse(tier.rewardEligible(fresh));
         vm.prank(creator);
-        tier.addGrantTime(fresh, alice, 1);
+        tier.addGrantTime(fresh, alice, 1, 25);
         vm.warp(START + 13);
         token.mint(alice, 1);
         vm.prank(alice);
-        tier.renewContributionMembership(fresh, 1, referrer);
+        tier.renewContributionMembership(fresh, 1, referrer, 25);
         assertTrue(tier.rewardEligible(fresh));
         assertEq(tier.sharesOf(fresh), 1);
         assertEq(tier.sharesOf(id), 0);
@@ -201,7 +201,7 @@ contract PublicVestingTest is Test {
         uint256 id = _contribute(tier, alice, 100 * UNIT, address(0));
         vm.warp(START + 5);
         vm.prank(alice);
-        tier.renewContributionMembership(id, 0, address(0));
+        tier.renewContributionMembership(id, 0, address(0), 25);
         assertTrue(tier.rewardEligible(id));
         assertEq(tier.sharesOf(id), 100 * UNIT);
         assertEq(tier.allocationLots(id, 0, 0, 100).length, 1);
@@ -224,7 +224,7 @@ contract PublicVestingTest is Test {
         assertEq(tier.sharesOf(first) + tier.sharesOf(second), cumulative);
         assertGt(tier.sharesOf(first), tier.sharesOf(second));
         vm.prank(creator);
-        tier.refund(first, alice, type(uint256).max);
+        tier.refund(first, alice, type(uint256).max, 25);
         assertEq(tier.lifetimeGross(), gross);
         assertEq(tier.sharesOf(first), 0);
         assertLt(tier.sharesOf(second), cumulative);
@@ -243,7 +243,7 @@ contract PublicVestingTest is Test {
             abi.encodeWithSelector(MembershipTier.AccountingBehind.selector, START + 10, START + 10)
         );
         vm.prank(alice);
-        tier.createMembership(1, address(0));
+        tier.createMembership(1, address(0), 25);
         assertEq(tier.accountingStatus().accountedThrough, START);
         assertEq(tier.accountingStatus().scheduledMembers, 26);
         assertEq(token.balanceOf(alice), 10 * UNIT);
@@ -269,7 +269,7 @@ contract PublicVestingTest is Test {
         tier.setPaused(false);
         assertEq(tier.processAccounting(25).processedSteps, 25);
         vm.prank(alice);
-        tier.createMembership(1, address(0));
+        tier.createMembership(1, address(0), 25);
         assertTrue(tier.accountingStatus().complete);
         assertEq(tier.lifetimeGross(), 270 * UNIT);
         assertEq(tier.accountingStatus().scheduledMembers, 1);
@@ -378,7 +378,7 @@ contract PublicVestingTest is Test {
         uint256 id = _contribute(tier, alice, 0, address(0));
         token.mint(alice, 10 * UNIT);
         vm.prank(alice);
-        tier.renewContributionMembership(id, 10 * UNIT, address(0));
+        tier.renewContributionMembership(id, 10 * UNIT, address(0), 25);
         vm.warp(START + 2);
         MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
         assertTrue(quote.projected);
@@ -398,7 +398,7 @@ contract PublicVestingTest is Test {
         uint256 id = _contribute(tier, alice, 10 * UNIT, address(0));
         vm.warp(START + 2);
         vm.prank(alice);
-        tier.renewContributionMembership(id, 0, address(0));
+        tier.renewContributionMembership(id, 0, address(0), 25);
         MembershipTypes.RefundPreview memory preview = tier.previewRefund(id);
         assertEq(preview.accessAsOf, START + 2);
         assertEq(preview.accountingAsOf, START + 2);
@@ -409,7 +409,6 @@ contract PublicVestingTest is Test {
         assertEq(preview.grossRefund, 8 * UNIT);
         vm.expectRevert(VestingLedger.InvalidAllocationPageSize.selector);
         tier.allocationLots(id, 0, 0, 0);
-        vm.expectRevert(VestingLedger.InvalidAllocationPageSize.selector);
         tier.allocationLots(id, 0, 0, 101);
         assertEq(tier.allocationLots(id, 0, type(uint256).max, 100).length, 0);
     }

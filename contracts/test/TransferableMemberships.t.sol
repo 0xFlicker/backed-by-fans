@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {MembershipTier} from "../src/MembershipTier.sol";
@@ -15,10 +16,6 @@ import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract TransferStateTier is MembershipTier {
-    constructor(address factory_, IERC20 token, MembershipTypes.TierConfig memory config)
-        MembershipTier(factory_, token, config)
-    {}
-
     function storedTime(uint256 id) external view returns (MembershipTypes.MembershipState memory) {
         return _membershipStates[id];
     }
@@ -59,9 +56,10 @@ contract TransferableMembershipsTest is Test {
         config.referralBps = 500;
         config.protocolFeeBps = 100;
         config.maxPrepaidPeriods = 0;
-        tier = new TransferStateTier(
-            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
-        );
+        address factory = SyntheticVaultBinding.bind(address(this), address(paymentToken));
+        tier = TransferStateTier(Clones.clone(address(new TransferStateTier())));
+        vm.prank(factory);
+        tier.initialize(config);
         _fund(ALICE);
         _fund(BOB);
         _fund(REFERRER);
@@ -69,7 +67,7 @@ contract TransferableMembershipsTest is Test {
 
     function test_ownerTransferPreservesEntirePositionWithoutSettlingOrPayingSender() public {
         uint256 id = _create(ALICE, 2, REFERRER);
-        tier.addGrantTime(id, ALICE, 1);
+        tier.addGrantTime(id, ALICE, 1, 25);
         vm.warp(START + 3);
         tier.processAccounting(25);
         assertGt(tier.claimableReward(id), 0);
@@ -183,9 +181,9 @@ contract TransferableMembershipsTest is Test {
     }
 
     function test_pausedApprovalAndSafeOperatorTransferIgnoreGrantOnlyExpiryBacklog() public {
-        uint256 live = tier.grantMembership(ALICE, 3);
+        uint256 live = tier.grantMembership(ALICE, 3, 25);
         for (uint256 i; i < 30; ++i) {
-            tier.grantMembership(_backlogOwner(i), 1);
+            tier.grantMembership(_backlogOwner(i), 1, 25);
         }
         vm.warp(START + PERIOD);
         tier.setPaused(true);
@@ -248,14 +246,14 @@ contract TransferableMembershipsTest is Test {
         assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.LockedAddress));
         assertEq(beneficiary, REFERRER);
         vm.prank(REFERRER);
-        tier.renewMembership(id, 1, REFERRER);
+        tier.renewMembership(id, 1, REFERRER, 25);
         MembershipTypes.AllocationLot[] memory lots = tier.allocationLots(id, 0, 0, 100);
         assertEq(lots.length, 2);
         assertEq(lots[0].referrer, REFERRER);
         assertEq(lots[1].referrer, REFERRER);
         vm.expectRevert(MembershipTier.ReferralChoiceMismatch.selector);
         vm.prank(REFERRER);
-        tier.renewMembership(id, 1, BOB);
+        tier.renewMembership(id, 1, BOB, 25);
     }
 
     function test_delayedRetirementCreditsFinalOwnerIncludingPretransferEarnings() public {
@@ -292,7 +290,7 @@ contract TransferableMembershipsTest is Test {
 
     function _assertBackloggedTransfer(bool paused) private {
         uint256 live = _create(ALICE, 3, REFERRER);
-        tier.addGrantTime(live, ALICE, 1);
+        tier.addGrantTime(live, ALICE, 1, 25);
         uint256[] memory expired = new uint256[](30);
         for (uint256 i; i < expired.length; ++i) {
             address holder = _backlogOwner(i);
@@ -381,7 +379,7 @@ contract TransferableMembershipsTest is Test {
         returns (uint256)
     {
         vm.prank(owner);
-        return tier.createMembership(periods, referralChoice);
+        return tier.createMembership(periods, referralChoice, 25);
     }
 
     function _fund(address owner) private {

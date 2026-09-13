@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import type { Address } from "viem";
 import { TierReadPanel } from "./TierReadPanel";
@@ -25,12 +25,17 @@ vi.mock("@/features/membership/membership-read", () => ({
 vi.mock("@/features/membership/MembershipExperience", () => ({
   MembershipExperience: ({
     snapshot,
+    onSelectPosition,
   }: {
     snapshot: { wallet: Address; tokenId: bigint };
+    onSelectPosition: (id: bigint) => void;
   }) => (
-    <p>
-      {snapshot.wallet}:{snapshot.tokenId.toString()}
-    </p>
+    <div>
+      <p>
+        {snapshot.wallet}:{snapshot.tokenId.toString()}
+      </p>
+      <button onClick={() => onSelectPosition(0n)}>Join again</button>
+    </div>
   ),
 }));
 
@@ -71,4 +76,30 @@ it("binds a URL position after connection and clears it when wallets switch", as
     mocks.client,
     expect.objectContaining({ wallet: second, tokenId: 7n }),
   );
+});
+
+it("opens the sole membership but preserves an explicit new membership choice", async () => {
+  const wallet = "0x1111111111111111111111111111111111111111";
+  mocks.account.address = wallet;
+  mocks.read.mockImplementation(async (_client, input) => ({
+    status: "valid",
+    capturedBlock: 1n,
+    data: { ...input, ownerPage: { balance: 1n, tokenIds: [9n] } },
+  }));
+  const queries = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queries}>
+      <TierReadPanel
+        chainId={31337}
+        tierAddress="0x3333333333333333333333333333333333333333"
+      />
+    </QueryClientProvider>,
+  );
+  await screen.findByText(`${wallet}:9`);
+  fireEvent.click(screen.getByRole("button", { name: "Join again" }));
+  await screen.findByText(`${wallet}:0`);
+  await queries.invalidateQueries();
+  await waitFor(() => expect(screen.getByText(`${wallet}:0`)).toBeVisible());
 });

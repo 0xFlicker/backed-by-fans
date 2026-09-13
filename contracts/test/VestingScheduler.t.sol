@@ -348,12 +348,11 @@ contract VestingSchedulerTest is Test {
         scheduler.fund(1, 10, START, 10);
         vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);
         scheduler.process(START + 10, 0);
-        vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);
         scheduler.process(START + 10, 101);
         vm.expectRevert(VestingLedger.AccountingInvariant.selector);
         scheduler.process(START - 1, 1);
-        assertEq(scheduler.earned(), 0);
-        assertEq(scheduler.count(), 1);
+        assertEq(scheduler.earned(), 10 * Q);
+        assertEq(scheduler.count(), 0);
     }
 
     function test_allEqualTimeFundingTailsSettleBeforeRetirement() public {

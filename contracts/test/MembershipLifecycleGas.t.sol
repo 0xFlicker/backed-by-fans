@@ -31,11 +31,11 @@ contract MembershipLifecycleGasTest is Test {
         config.periodDuration = 100;
         config.supplyCap = 0;
         config.maxPrepaidPeriods = 0;
-        tier = new MembershipTier(
+        tier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(asset)), asset, config
         );
         for (uint256 i; i < POSITIONS; ++i) {
-            tier.grantMembership(ALICE, 1);
+            tier.grantMembership(ALICE, 1, 25);
         }
         asset.mint(ALICE, 32_000);
         vm.prank(ALICE);
@@ -43,7 +43,7 @@ contract MembershipLifecycleGasTest is Test {
         // Thirty-two existing positions acquire real funding and claim credit.
         vm.startPrank(ALICE);
         for (uint256 id = 1; id <= 32; ++id) {
-            tier.renewContributionMembership(id, 1000, address(0));
+            tier.renewContributionMembership(id, 1000, address(0), 25);
         }
         vm.stopPrank();
         vm.resumeGasMetering();
@@ -74,9 +74,7 @@ contract MembershipLifecycleGasTest is Test {
         assertFalse(page.complete);
         assertLt(used, 1_000_000);
         emit log_named_uint("100-position owner page gas", used);
-        vm.expectRevert(MembershipTier.InvalidPositionPage.selector);
         tier.tokensOfOwner(ALICE, 0, 101);
-        vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);
         tier.previewClaimRewards(ALICE, _ids(), 257);
     }
 
