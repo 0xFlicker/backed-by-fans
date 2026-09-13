@@ -104,24 +104,14 @@ test("@anvil vested-account discovers a burned membership's durable earned claim
     const card = page
       .locator(".account-membership-card")
       .filter({ hasText: name });
-    await expect(card).toContainText(
-      "No owned membership NFTs in this snapshot.",
-    );
-    await expect(card).toContainText("Rewards from ended memberships");
-    const ended = page
-      .getByRole("region", { name: /^Ended membership rewards for/ })
-      .filter({
-        has: page.getByRole("button", {
-          name: "Claim ended membership rewards",
-        }),
-      });
-    await ended
-      .getByRole("button", { name: "Claim ended membership rewards" })
+    await expect(card.locator(".account-position")).toHaveCount(0);
+    await expect(card).toContainText("Other rewards");
+    await page
+      .getByRole("region", { name: "Rewards", exact: true })
+      .getByRole("button", { name: "Claim all", exact: true })
       .click();
     await expect(
-      page
-        .getByRole("status")
-        .filter({ hasText: "Ended membership rewards claimed." }),
+      page.getByRole("status").filter({ hasText: "All rewards claimed." }),
     ).toBeVisible({ timeout: 45_000 });
     expect(
       (
@@ -233,7 +223,7 @@ test("keeps the account route keyboard reachable, responsive, and accessible", a
   expect(results.violations).toEqual([]);
 });
 
-test("@anvil pages 101 positions and nine tiers, rejects stale selection, and claims all automatically", async ({
+test("@anvil pages 101 positions and nine tiers, refreshes transferred positions, and claims all automatically", async ({
   page,
 }, info) => {
   test.setTimeout(360_000);
@@ -285,27 +275,15 @@ test("@anvil pages 101 positions and nine tiers, rejects stale selection, and cl
     const card = page
       .locator(".account-membership-card")
       .filter({ hasText: first.name });
-    await expect(card).toContainText("Showing 100 of 101 owned memberships.");
+    await expect(card.locator(".account-position")).toHaveCount(100);
     await expect(
-      page.getByText(
-        "Discovery is incomplete. Loaded position and balance totals cover only the pages shown.",
-      ),
+      page.getByText("More memberships are available below."),
     ).toBeVisible();
     await card
       .getByRole("button", { name: `More memberships in ${first.name}` })
       .click();
-    await expect(card).toContainText("Showing 101 of 101 owned memberships.");
+    await expect(card.locator(".account-position")).toHaveCount(101);
     const rewards = page.getByRole("region", { name: "Rewards", exact: true });
-    const firstGroup = rewards.getByRole("group", {
-      name: first.name,
-      exact: true,
-    });
-    await firstGroup
-      .getByRole("checkbox", {
-        name: `${first.name} membership #1`,
-        exact: true,
-      })
-      .check();
     expectSuccessfulReceipt(
       await sendContract({
         account: member,
@@ -315,13 +293,8 @@ test("@anvil pages 101 positions and nine tiers, rejects stale selection, and cl
         args: [member, recipient, 1n],
       }),
     );
-    await expect(rewards.getByRole("alert")).toBeVisible({ timeout: 25_000 });
-    await expect(
-      rewards.getByRole("button", { name: "Claim selected rewards" }),
-    ).toBeDisabled();
-    await rewards.getByRole("button", { name: "Clear selection" }).click();
     await page.getByRole("button", { name: "Refresh memberships" }).click();
-    await expect(card).toContainText("Showing 100 of 100 owned memberships.");
+    await expect(card.locator(".account-position")).toHaveCount(100);
     const beforeClaim = await client.readContract({
       address: token,
       abi: usdgAbi,
@@ -333,8 +306,7 @@ test("@anvil pages 101 positions and nine tiers, rejects stale selection, and cl
       .click();
     await expect(
       rewards.getByRole("status").filter({
-        hasText:
-          "All rewards in this selection claimed. 1 transactions confirmed.",
+        hasText: "All rewards claimed. 1 transactions confirmed.",
       }),
     ).toBeVisible({ timeout: 90_000 });
     const afterClaim = await client.readContract({
@@ -344,7 +316,7 @@ test("@anvil pages 101 positions and nine tiers, rejects stale selection, and cl
       args: [member],
     });
     expect(afterClaim).toBeGreaterThan(beforeClaim);
-    await expect(rewards.getByText("No rewards selected.")).toBeVisible();
+    await expect(rewards.getByRole("checkbox")).toHaveCount(0);
     await page.setViewportSize({ width: 320, height: 844 });
     expect(
       await page.evaluate(

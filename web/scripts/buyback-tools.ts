@@ -1,3 +1,4 @@
+import { parseSupportedChainId } from "../src/lib/chains";
 import { parseArgs } from "node:util";
 import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -8,16 +9,20 @@ const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     "app-url": { type: "string", default: "http://127.0.0.1:3110" },
+    "chain-id": { type: "string" },
     input: { type: "string" },
     output: { type: "string" },
   },
 });
 if (positionals.length !== 1)
   throw new Error(
-    "Usage: buyback-tools.sh review | rehearse --input /absolute/settings.json --output /absolute/report.json",
+    "Usage: buyback-tools.sh review --chain-id <id> | rehearse --input /absolute/settings.json --output /absolute/report.json",
   );
 if (positionals[0] === "review") {
-  const url = new URL("/tools/buybacks", values["app-url"]);
+  const chainId = parseSupportedChainId(values["chain-id"] ?? "");
+  if (!chainId)
+    throw new Error("Review requires --chain-id with a supported network ID.");
+  const url = new URL(`/chains/${chainId}/tools/buybacks`, values["app-url"]);
   if (
     url.protocol !== "http:" ||
     !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)

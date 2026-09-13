@@ -75,7 +75,7 @@ function mount() {
         })
       }
     >
-      <BuybackSettings />
+      <BuybackSettings chainId={31337} />
     </QueryClientProvider>,
   );
 }
@@ -93,6 +93,7 @@ beforeEach(() => {
           earned: 1000000000000000000n,
           reservedScaled: 9000000000000000000n * (1n << 128n),
           checkpointsDue: true,
+          previewComplete: true,
         },
       ],
     ]),
@@ -479,4 +480,14 @@ it("keeps ETH settings and fee amounts visible before protocol token launch", as
   await screen.findByText("ETH · ETH + WETH");
   expect(screen.getByLabelText("Minimum batch · ETH")).toBeInTheDocument();
   expect(screen.getByText("9 ETH")).toBeInTheDocument();
+});
+
+it("labels incomplete earnings and calculations as partial", async () => {
+  const snapshot = await mock.read();
+  snapshot.fees.get(zeroAddress).previewComplete = false;
+  mount();
+  expect(
+    await screen.findByText("Earned, awaiting release · partial"),
+  ).toBeVisible();
+  expect(screen.getByText(/Calculations use the earnings shown/)).toBeVisible();
 });

@@ -38,7 +38,9 @@ export async function simulateAdvance(
       processedSteps,
       purchases,
       burned,
-      ready: processedSteps > 0n || purchases > 0n,
+      // advanceAccounting reverts with NothingToDo when it cannot settle anything.
+      // A successful call can settle continuous accrual with zero checkpoints.
+      ready: mode === "accounting" || processedSteps > 0n || purchases > 0n,
     };
   } catch (error) {
     const reverted =

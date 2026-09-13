@@ -3,6 +3,12 @@ import { formatMembershipDate } from "./date";
 
 import Link from "next/link";
 import { AccountRewards } from "./AccountRewards";
+import {
+  readAccountRewards,
+  rewardScale,
+  sortClaimSelection,
+} from "./account-rewards-read";
+import { readRewardUsdPrices, formatRewardUsd } from "@/lib/reward-usd";
 import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react";
@@ -224,6 +230,62 @@ function HydratedDiscovery({
     setBlockNumber(undefined);
     setRequest((value) => value + 1);
   }
+  const rewardTiers = sortClaimSelection(
+    currentCache.results.map((tier) => ({
+      tier: tier.tier,
+      name: tier.name,
+      tokenIds: tier.positions.map((position) => BigInt(position.tokenId)),
+    })),
+  );
+  const earnings = useQuery({
+    queryKey: [
+      "account-rewards",
+      deployment.chainId,
+      deployment.factoryAddress,
+      wallet,
+      rewardTiers.map((tier) => [tier.tier, tier.tokenIds.map(String)]),
+      request,
+    ],
+    queryFn: () => readAccountRewards(client, wallet, rewardTiers),
+    enabled: rewardTiers.length > 0,
+    refetchInterval: 15_000,
+    retry: false,
+  });
+  // Both the summary and cards use the same claim preview, never stored balances.
+  const rewards = new Map(
+    earnings.isError
+      ? []
+      : earnings.data?.results.map(
+          (result, index) =>
+            [rewardTiers[index].tier.toLowerCase(), result] as const,
+        ),
+  );
+  const totals = new Map<Address, bigint>();
+  for (const tier of currentCache.results) {
+    const result = rewards.get(tier.tier.toLowerCase());
+    if (!result) continue;
+    const total =
+      result.reward + result.retired + result.referral + result.creator;
+    const token = tier.paymentToken.toLowerCase() as Address;
+    if (total > 0n) totals.set(token, (totals.get(token) ?? 0n) + total);
+  }
+  const rewardTokens = [...totals.keys()];
+  const usd = useQuery({
+    queryKey: [
+      "account-reward-usd",
+      deployment.chainId,
+      deployment.factoryAddress,
+      ...rewardTokens,
+    ],
+    queryFn: () =>
+      readRewardUsdPrices(client, deployment.factoryAddress, rewardTokens),
+    enabled:
+      rewardTokens.length > 0 &&
+      (deployment.chainId === 31337 || deployment.chainId === 4663),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    retry: false,
+  });
   const page = discovery.data;
   const complete =
     currentCache.complete &&
@@ -233,18 +295,47 @@ function HydratedDiscovery({
       <AccountRewards
         deployment={deployment}
         wallet={wallet}
-        tiers={currentCache.results}
-        complete={complete}
-        formatAmount={claimLabel}
         onRefresh={refresh}
-      />
+      >
+        <div className="account-reward-balances">
+          {discovery.isError || earnings.isError ? (
+            <p role="alert">Rewards unavailable. Refresh to try again.</p>
+          ) : discovery.isPending ||
+            (rewardTiers.length > 0 && earnings.isPending) ? (
+            <p role="status">Checking rewards…</p>
+          ) : totals.size === 0 ? (
+            <p>No rewards to claim yet.</p>
+          ) : (
+            [...totals].map(([token, amount]) => {
+              const quote = usd.data?.find(
+                (item) => item.token.toLowerCase() === token,
+              );
+              return (
+                <div className="account-reward-balance" key={token}>
+                  <p className="account-reward-amount">
+                    {claimLabel(amount, token)}
+                  </p>
+                  {quote && (
+                    <p className="account-reward-usd">
+                      ≈ {formatRewardUsd(amount, quote.price)}
+                    </p>
+                  )}
+                </div>
+              );
+            })
+          )}
+          {(!complete || (earnings.data && !earnings.data.complete)) &&
+            !earnings.isError && (
+              <p className="account-reward-note">
+                Some rewards are still being checked. Claim all includes the
+                rest.
+              </p>
+            )}
+        </div>
+      </AccountRewards>
       <div className="account-results-heading">
         <div>
           <h2 className="font-display">Your memberships</h2>
-          <p>
-            Each membership is an independent position. Ownership and balances
-            below are captured at the displayed block.
-          </p>
         </div>
         <button
           aria-label="Refresh memberships"
@@ -262,10 +353,7 @@ function HydratedDiscovery({
       )}
       {(discovery.isError || !discovery.isFetchedAfterMount) &&
         currentCache.results.length > 0 && (
-          <p role="status">
-            Saved memberships are outdated until refreshed. Reward claims verify
-            current ownership separately.
-          </p>
+          <p role="status">Refresh to update your memberships.</p>
         )}
       {discovery.error && (
         <p role="alert">
@@ -277,16 +365,11 @@ function HydratedDiscovery({
       )}
       {page?.skipped.length ? (
         <p className="warning-copy" role="alert">
-          We could not check {page.skipped.length} tiers. Retained results for
-          those tiers are outdated.
+          We couldn’t refresh {page.skipped.length} memberships. Try refreshing
+          again.
         </p>
       ) : null}
-      {!complete && (
-        <p role="status">
-          Discovery is incomplete. Loaded position and balance totals cover only
-          the pages shown.
-        </p>
-      )}
+      {!complete && <p role="status">More memberships are available below.</p>}
       {currentCache.results.length === 0 && page && (
         <div className="empty-room">
           <h3>
@@ -302,6 +385,9 @@ function HydratedDiscovery({
       )}
       <ul className="account-tier-list">
         {currentCache.results.map((tier, index) => {
+          const current = rewards.get(tier.tier.toLowerCase());
+          const previewAmount = (amount: bigint | undefined) =>
+            amount === undefined ? "—" : claimLabel(amount, tier.paymentToken);
           const viewHref =
             `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route;
           return (
@@ -328,48 +414,47 @@ function HydratedDiscovery({
                       </span>
                     )}
                   </div>
-                  <p className="small-copy">
-                    Snapshot block {tier.capturedBlock}. Showing{" "}
-                    {tier.positions.length} of {tier.ownerBalance} owned
-                    memberships.
-                  </p>
-                  {tier.positions.length === 0 && (
-                    <p>No owned membership NFTs in this snapshot.</p>
-                  )}
-                  <ul>
-                    {tier.positions.map((position) => (
-                      <li
-                        key={`${deployment.chainId}:${tier.tier}:${position.tokenId}`}
-                      >
-                        <Link
-                          href={
-                            `${viewHref}?tokenId=${position.tokenId}` as Route
-                          }
-                        >
-                          Membership #{position.tokenId}
-                        </Link>
-                        <p>
-                          {position.active
-                            ? "Membership active"
-                            : "Expired — awaiting retirement"}
-                        </p>
-                        <p>
-                          Expires{" "}
-                          {formatMembershipDate(BigInt(position.expiration))}
-                        </p>
-                        <p>
-                          Settled position rewards:{" "}
-                          {claimLabel(
-                            BigInt(position.claimableReward),
-                            tier.paymentToken,
-                          )}
-                        </p>
-                      </li>
-                    ))}
+                  <ul className="account-position-list">
+                    {tier.positions.map((position) => {
+                      const reward = current?.positions.find(
+                        (item) => item.tokenId === BigInt(position.tokenId),
+                      );
+                      return (
+                        <li className="account-position" key={position.tokenId}>
+                          <div className="account-position-meta">
+                            <Link
+                              className="account-token-id"
+                              aria-label={`Membership #${position.tokenId}`}
+                              href={
+                                `${viewHref}?tokenId=${position.tokenId}` as Route
+                              }
+                            >
+                              #{position.tokenId}
+                            </Link>
+                            <span className="account-position-expiry">
+                              {position.active ? "Expires" : "Ended"}{" "}
+                              {formatMembershipDate(
+                                BigInt(position.expiration),
+                              )}
+                            </span>
+                          </div>
+                          <dl className="account-position-reward">
+                            <dt>To claim</dt>
+                            <dd>
+                              {previewAmount(
+                                reward
+                                  ? reward.creditScaled / rewardScale
+                                  : undefined,
+                              )}
+                            </dd>
+                          </dl>
+                        </li>
+                      );
+                    })}
                   </ul>
                   {!tier.ownerComplete && (
                     <button
-                      className="button button-outline"
+                      className="text-button account-more-memberships"
                       type="button"
                       disabled={moreOwners.isPending || discovery.isFetching}
                       onClick={() => moreOwners.mutate(tier)}
@@ -377,36 +462,32 @@ function HydratedDiscovery({
                       More memberships in {tier.name}
                     </button>
                   )}
-                  {(BigInt(tier.retiredReward) > 0n ||
-                    BigInt(tier.retiredFractionalScaled) > 0n) && (
-                    <p>
-                      Rewards from ended memberships:{" "}
-                      {claimLabel(
-                        BigInt(tier.retiredReward),
-                        tier.paymentToken,
-                      )}
-                      .{" "}
-                      {BigInt(tier.retiredFractionalScaled) > 0n &&
-                        "Fractional credit is preserved."}
-                    </p>
+                  {earnings.isError && (
+                    <p className="small-copy">Rewards unavailable.</p>
                   )}
-                  {BigInt(tier.claimableReferral) > 0n && (
-                    <p>
-                      Settled referral rewards:{" "}
-                      {claimLabel(
-                        BigInt(tier.claimableReferral),
-                        tier.paymentToken,
+                  {((current?.retired ?? 0n) > 0n ||
+                    (current?.referral ?? 0n) > 0n ||
+                    tier.creatorOwned) && (
+                    <dl className="account-card-balances">
+                      {(current?.retired ?? 0n) > 0n && (
+                        <div>
+                          <dt>Other rewards</dt>
+                          <dd>{previewAmount(current?.retired)}</dd>
+                        </div>
                       )}
-                    </p>
-                  )}
-                  {tier.creatorOwned && (
-                    <p>
-                      Settled creator rewards:{" "}
-                      {claimLabel(
-                        BigInt(tier.creatorProceeds),
-                        tier.paymentToken,
+                      {(current?.referral ?? 0n) > 0n && (
+                        <div>
+                          <dt>Referral earnings</dt>
+                          <dd>{previewAmount(current?.referral)}</dd>
+                        </div>
                       )}
-                    </p>
+                      {tier.creatorOwned && (
+                        <div>
+                          <dt>Creator earnings</dt>
+                          <dd>{previewAmount(current?.creator)}</dd>
+                        </div>
+                      )}
+                    </dl>
                   )}
                   <div className="account-tier-actions">
                     <Link className="button button-dark" href={viewHref}>

@@ -116,7 +116,10 @@ export async function previewAdvance(
     complete,
     currencies,
     funds: [...releases].map(([asset, value]) => ({ asset, ...value })),
-    ready: processedSteps > 0n || purchases > 0n,
+    ready:
+      processedSteps > 0n ||
+      purchases > 0n ||
+      (mode === "accounting" && earnedScaled > 0n),
     useful:
       processedSteps > 0n ||
       earnedScaled > 0n ||

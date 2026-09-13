@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getAddress } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -27,7 +27,21 @@ vi.mock("./account-discovery", () => ({
   readAccountOwnerPage: vi.fn(),
 }));
 
-vi.mock("./AccountRewards", () => ({ AccountRewards: () => null }));
+const rewardMock = vi.hoisted(() => ({
+  preview: vi.fn(),
+  creator: 0n,
+  referral: 0n,
+  retired: 0n,
+}));
+vi.mock("./account-rewards-read", async (original) => ({
+  ...(await original<typeof import("./account-rewards-read")>()),
+  readAccountRewards: rewardMock.preview,
+}));
+vi.mock("./AccountRewards", () => ({
+  AccountRewards: ({ children }: { children: import("react").ReactNode }) => (
+    <section aria-label="Rewards">{children}</section>
+  ),
+}));
 
 vi.mock("wagmi", () => ({
   useAccount: () => ({
@@ -143,6 +157,25 @@ function partialOwnerPage(): AccountDiscoveryPage {
 }
 
 beforeEach(() => {
+  rewardMock.creator = 0n;
+  rewardMock.referral = 0n;
+  rewardMock.retired = 0n;
+  rewardMock.preview
+    .mockReset()
+    .mockImplementation(async (_client, _wallet, tiers) => ({
+      complete: true,
+      results: tiers.map((tier: { tokenIds: bigint[] }) => ({
+        reward: BigInt(tier.tokenIds.length) * 80_000n,
+        creator: rewardMock.creator,
+        referral: rewardMock.referral,
+        retired: rewardMock.retired,
+        positions: tier.tokenIds.map((tokenId) => ({
+          tokenId,
+          creditScaled: 80_000n * (1n << 128n),
+        })),
+        complete: true,
+      })),
+    }));
   vi.mocked(discoverAccountPage).mockReset().mockResolvedValue(page);
   vi.mocked(readAccountOwnerPage)
     .mockReset()
@@ -158,17 +191,19 @@ beforeEach(() => {
 });
 
 describe("account discovery", () => {
-  it("renders every position from a matching server snapshot without client loading", () => {
+  it("shows token identity and expiration immediately, then current claim amounts", async () => {
     renderSnapshot();
     expect(screen.getByText("Genesis Fans")).toBeVisible();
     expect(screen.getByRole("link", { name: "Membership #1" })).toHaveAttribute(
       "href",
       `/chains/46630/tiers/${tier}?tokenId=1`,
     );
-    expect(screen.getByText("Membership active")).toBeVisible();
+    expect(screen.getByText(/^Expires /)).toBeVisible();
+    expect(await screen.findAllByText("0.08 AMD")).toHaveLength(2);
     expect(
-      screen.getByText("Settled position rewards: 0.05 AMD"),
-    ).toBeVisible();
+      screen.queryByText(/Settled position rewards|Snapshot block/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("0.05 AMD")).not.toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "Genesis Fans collection artwork" }),
     ).toHaveAttribute(
@@ -188,7 +223,8 @@ describe("account discovery", () => {
     expect(discoverAccountPage).not.toHaveBeenCalled();
   });
 
-  it("shows creator rewards from the settled snapshot without a wallet-wide streaming query", () => {
+  it("shows current creator earnings instead of the smaller settled balance", async () => {
+    rewardMock.creator = 30_000n;
     renderSnapshot({
       ...page,
       results: [
@@ -202,16 +238,16 @@ describe("account discovery", () => {
         },
       ],
     });
-    expect(
-      screen.getByText("Settled creator rewards: 0.0226 AMD"),
-    ).toBeVisible();
+    expect(await screen.findAllByText("0.03 AMD")).toHaveLength(2);
+    expect(screen.getByText("Creator earnings")).toBeVisible();
+    expect(screen.queryByText("0.0226 AMD")).not.toBeInTheDocument();
     expect(screen.getByText("You are the creator")).toBeVisible();
     expect(
-      screen.getByText("No owned membership NFTs in this snapshot."),
-    ).toBeVisible();
+      screen.queryByText(/No owned membership NFTs/),
+    ).not.toBeInTheDocument();
   });
 
-  it("labels a zero settled creator balance as zero", () => {
+  it("shows zero when the current creator preview is zero", async () => {
     renderSnapshot({
       ...page,
       results: [
@@ -225,7 +261,7 @@ describe("account discovery", () => {
         },
       ],
     });
-    expect(screen.getByText("Settled creator rewards: 0 AMD")).toBeVisible();
+    expect(await screen.findByText("0 AMD")).toBeVisible();
     expect(screen.queryByText(/0\.0226 AMD/)).not.toBeInTheDocument();
   });
 
@@ -238,9 +274,7 @@ describe("account discovery", () => {
       screen.queryByRole("button", { name: "Find more memberships" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Discovery is incomplete. Loaded position and balance totals cover only the pages shown.",
-      ),
+      screen.getByText("More memberships are available below."),
     ).toBeVisible();
   });
 
@@ -260,14 +294,14 @@ describe("account discovery", () => {
       await screen.findByRole("link", { name: "Membership #2" }),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Membership #1" })).toBeVisible();
-    expect(screen.getByText("Expired — awaiting retirement")).toBeVisible();
+    expect(screen.getByText(/^Ended /)).toBeVisible();
     expect(
       screen.queryByRole("button", {
         name: "More memberships in Genesis Fans",
       }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/Loaded position and balance totals cover only/),
+      screen.queryByText(/More memberships are available below/),
     ).not.toBeInTheDocument();
   });
 
@@ -327,7 +361,7 @@ describe("account discovery", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.queryByText(/Discovery is incomplete/),
+      screen.queryByText(/More memberships are available below/),
     ).not.toBeInTheDocument();
   });
 
@@ -339,9 +373,9 @@ describe("account discovery", () => {
     await user.click(
       screen.getByRole("button", { name: "More memberships in Genesis Fans" }),
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "No balance or membership value was assumed",
-    );
+    expect(
+      await screen.findByText(/No balance or membership value was assumed/),
+    ).toBeVisible();
     expect(screen.getByRole("link", { name: "Membership #1" })).toBeVisible();
     expect(
       screen.queryByRole("link", { name: "Membership #2" }),
@@ -350,7 +384,7 @@ describe("account discovery", () => {
       screen.getByRole("button", { name: "More memberships in Genesis Fans" }),
     ).toBeEnabled();
     expect(
-      screen.getByText(/Loaded position and balance totals cover only/),
+      screen.getByText(/More memberships are available below/),
     ).toBeVisible();
   });
 
@@ -362,19 +396,19 @@ describe("account discovery", () => {
     await act(async () => {
       await queryClient.refetchQueries({ queryKey: ["account-discovery"] });
     });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "No balance or membership value was assumed",
-    );
+    expect(
+      await screen.findByText(/No balance or membership value was assumed/),
+    ).toBeVisible();
     expect(screen.getByRole("link", { name: "Membership #1" })).toBeVisible();
     expect(
-      screen.getByText(/Saved memberships are outdated until refreshed/),
+      screen.getByText(/Refresh to update your memberships/),
     ).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Retry discovery" }),
     ).toBeVisible();
   });
 
-  it("keeps fractional retired balances visible when no NFTs remain", () => {
+  it("retains a tier with fractional credit without exposing accounting jargon", () => {
     renderSnapshot({
       ...page,
       results: [
@@ -388,10 +422,10 @@ describe("account discovery", () => {
         },
       ],
     });
+    expect(screen.getByText("Genesis Fans")).toBeVisible();
     expect(
-      screen.getByText(/Rewards from ended memberships: 0 AMD/),
-    ).toBeVisible();
-    expect(screen.getByText(/Fractional credit is preserved/)).toBeVisible();
+      screen.queryByText(/Fractional credit|Settled|Snapshot block/),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", {
         name: "No memberships are connected to this wallet.",
@@ -437,4 +471,81 @@ describe("account discovery", () => {
       screen.queryByRole("link", { name: "Membership #2" }),
     ).not.toBeInTheDocument();
   });
+});
+
+it("adds current position, retired, referral and creator rewards once per tier", async () => {
+  rewardMock.creator = 10_000n;
+  rewardMock.referral = 20_000n;
+  rewardMock.retired = 30_000n;
+  renderSnapshot({
+    ...page,
+    results: [
+      {
+        ...page.results[0],
+        creatorOwned: true,
+        positions: [
+          ...page.results[0].positions,
+          { ...page.results[0].positions[0], tokenId: 2n },
+        ],
+        ownerBalance: 2n,
+        nextOwnerOffset: 2n,
+      },
+    ],
+  });
+  const summary = within(screen.getByRole("region", { name: "Rewards" }));
+  expect(await summary.findByText("0.22 AMD")).toBeVisible();
+  expect(screen.getAllByText("0.08 AMD")).toHaveLength(2);
+  expect(screen.getByText("0.03 AMD")).toBeVisible();
+});
+it("shows unavailable instead of zero or settled amounts when the preview fails", async () => {
+  rewardMock.preview.mockRejectedValue(new Error("RPC unavailable"));
+  renderSnapshot();
+  expect(
+    await screen.findByText("Rewards unavailable. Refresh to try again."),
+  ).toBeVisible();
+  expect(screen.queryByText("0.05 AMD")).not.toBeInTheDocument();
+  expect(screen.queryByText("0 AMD")).not.toBeInTheDocument();
+});
+
+it("refreshes the summary and card together without showing stored balances", async () => {
+  const { queryClient } = renderSnapshot();
+  expect(await screen.findAllByText("0.08 AMD")).toHaveLength(2);
+  rewardMock.preview.mockResolvedValue({
+    complete: true,
+    results: [
+      {
+        reward: 90_000n,
+        retired: 0n,
+        referral: 0n,
+        creator: 0n,
+        complete: true,
+        positions: [{ tokenId: 1n, creditScaled: 90_000n * (1n << 128n) }],
+      },
+    ],
+  });
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: ["account-rewards"] });
+  });
+  expect(await screen.findAllByText("0.09 AMD")).toHaveLength(2);
+  expect(screen.queryByText("0.08 AMD")).not.toBeInTheDocument();
+});
+it("labels incomplete reward previews without implying the total is final", async () => {
+  rewardMock.preview.mockResolvedValue({
+    complete: false,
+    results: [
+      {
+        reward: 20_000n,
+        retired: 0n,
+        referral: 0n,
+        creator: 0n,
+        complete: false,
+        positions: [{ tokenId: 1n, creditScaled: 20_000n * (1n << 128n) }],
+      },
+    ],
+  });
+  renderSnapshot();
+  expect(await screen.findAllByText("0.02 AMD")).toHaveLength(2);
+  expect(
+    screen.getByText(/Some rewards are still being checked/),
+  ).toBeVisible();
 });

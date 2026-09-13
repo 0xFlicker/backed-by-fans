@@ -391,7 +391,7 @@ At 100%, reserved fees fund the entire unused-time gross refund after earlier
 earned fees have burned. Forecasts describe existing paid schedules and remain
 conditional on refunds, gas, liquidity and configured standing limits.
 
-For batch sizes and timing, open `/tools/buybacks` and follow the
+For batch sizes and timing, open `/chains/<chainId>/tools/buybacks` and follow the
 [calculator workflow](contracts/local-policy-tools.md#open-the-calculator).
 Review all selected currencies and save them together through the Safe. The
 [operator workflow](contracts/operations-and-evidence.md) also covers asset and

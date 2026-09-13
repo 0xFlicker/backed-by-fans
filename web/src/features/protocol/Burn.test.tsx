@@ -297,9 +297,7 @@ it("keeps continuous accrual out of the main action but allows explicit settleme
     complete: true,
   });
   mount();
-  expect(
-    await screen.findByText("Accounting is up to date."),
-  ).not.toBeVisible();
+  expect(await screen.findByText("No checkpoints are due.")).not.toBeVisible();
   expect(
     screen.getByRole("button", { name: "Advance and burn" }),
   ).toBeDisabled();
@@ -335,4 +333,43 @@ it("does not submit if ready work disappears after the preview", async () => {
     "Nothing needs advancing right now.",
   );
   expect(m.write).not.toHaveBeenCalled();
+});
+
+it("submits the primary accounting action for accrued rewards with zero checkpoints", async () => {
+  m.preview.mockResolvedValue({
+    processedSteps: 0n,
+    purchases: 0n,
+    ready: true,
+    useful: true,
+    funds: [],
+    complete: true,
+  });
+  const request = { address: router, functionName: "advanceAccounting" };
+  m.simulate.mockResolvedValue({ request, result: 0n });
+  const receipt = await m.receipt();
+  const event = getAbiItem({
+    abi: protocolBurnRouterAbi,
+    name: "AdvanceCompleted",
+  });
+  receipt.logs[0].data = encodeAbiParameters(
+    event.inputs.filter((i) => !i.indexed),
+    [0n, 0n, 0n, 0n, false],
+  );
+  m.receipt.mockResolvedValue(receipt);
+  mount();
+  await userEvent.selectOptions(
+    screen.getByRole("combobox", { name: "Action" }),
+    "accounting",
+  );
+  const button = screen.getByRole("button", { name: "Advance accounting" });
+  await waitFor(() => expect(button).toBeEnabled());
+  await userEvent.click(button);
+  await waitFor(() => expect(m.write).toHaveBeenCalledExactlyOnceWith(request));
+  expect(m.simulate.mock.calls[0][1].functionName).toBe("advanceAccounting");
+  expect(
+    await screen.findByText("Membership accounting advanced."),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Settle accrued rewards" }),
+  ).not.toBeInTheDocument();
 });

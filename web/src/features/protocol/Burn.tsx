@@ -242,7 +242,7 @@ export function Burn({
           : account.chainId !== chainId
             ? "Switch your wallet to this network."
             : mode === "accounting"
-              ? "Settle up to 25 checkpoints. You pay the network fee."
+              ? "Settle accrued rewards and up to 25 checkpoints. You pay the network fee."
               : mode === "buyback"
                 ? "Buy and burn using funds already released to the vault. You pay the network fee."
                 : "Settle rewards and run eligible buybacks. You pay the network fee."}
@@ -267,7 +267,7 @@ export function Burn({
                     : preview.data?.plan.accountingCoverageIncomplete ||
                         preview.data?.plan.unavailableTiers
                       ? "No checkpoints ready in the checked memberships."
-                      : "Accounting is up to date."}
+                      : "No checkpoints are due."}
                 </div>
               )}
               {mode !== "accounting" && (
@@ -331,7 +331,7 @@ export function Burn({
         >
           Refresh status
         </button>
-        {mode !== "buyback" && (
+        {mode === "both" && (
           <button
             type="button"
             className="text-button"

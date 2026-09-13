@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import {
   useAccount,
-  useChainId,
   useConfig,
   usePublicClient,
   useWriteContract,
@@ -28,11 +27,7 @@ import {
   protocolBuybackVaultAbi,
 } from "@/contracts";
 import { WalletControl } from "@/components/WalletControl";
-import {
-  isSupportedChainId,
-  getSupportedChain,
-  type SupportedChainId,
-} from "@/lib/chains";
+import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { getDeployment, publicConfig } from "@/lib/config";
 import { formatRawTokenAmount } from "@/lib/token-amount";
 import { readCalculator, estimateAsset } from "@/lib/buyback-settings/read";
@@ -77,9 +72,7 @@ type Rehearsal = {
 const fullAmount = (raw: bigint, decimals: number, multiplier: bigint) =>
   formatUnits(raw * multiplier, decimals + 18);
 
-export function BuybackSettings() {
-  const selected = useChainId();
-  const chainId = isSupportedChainId(selected) ? selected : undefined;
+export function BuybackSettings({ chainId }: { chainId: SupportedChainId }) {
   return (
     <>
       <header className="protocol-heading">
@@ -91,11 +84,7 @@ export function BuybackSettings() {
         </p>
         <WalletControl />
       </header>
-      {chainId ? (
-        <LoadSettings key={chainId} chainId={chainId} />
-      ) : (
-        <p role="alert">Choose a supported membership network.</p>
-      )}
+      <LoadSettings key={chainId} chainId={chainId} />
     </>
   );
 }
@@ -104,8 +93,9 @@ function LoadSettings({ chainId }: { chainId: SupportedChainId }) {
   const query = useQuery({
     queryKey: ["protocol", chainId, "calculator"],
     enabled: Boolean(client),
-    staleTime: Infinity,
+    staleTime: 0,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: () =>
       readCalculator(
         client! as PublicClient,
@@ -609,11 +599,18 @@ function SettingsEditor({
                   <dd>{amount(released)}</dd>
                 </div>
                 <div>
-                  <dt>Earned, awaiting release</dt>
+                  <dt>
+                    Earned, awaiting release
+                    {fees?.previewComplete === false ? " · partial" : ""}
+                  </dt>
                   <dd>{amount(fees?.earned ?? 0n)}</dd>
                 </div>
                 <div>
-                  <dt>Reserved funding · includes unprocessed time</dt>
+                  <dt>
+                    {fees?.previewComplete === false
+                      ? "Reserved funding · includes unprocessed time"
+                      : "Future membership fees"}
+                  </dt>
                   <dd>{amount((fees?.reservedScaled ?? 0n) / (1n << 128n))}</dd>
                 </div>
                 <div>
@@ -621,9 +618,11 @@ function SettingsEditor({
                   <dd>
                     {!fees
                       ? "No membership funding"
-                      : fees.checkpointsDue
-                        ? "Checkpoints are due. Advance accounting to catch up."
-                        : "No checkpoints are due."}
+                      : !fees.previewComplete
+                        ? "Preview incomplete. Calculations use the earnings shown; advance accounting and refresh to include the rest."
+                        : fees.checkpointsDue
+                          ? "Checkpoints are due. Advance accounting to catch up."
+                          : "No checkpoints are due."}
                   </dd>
                 </div>
                 <div>

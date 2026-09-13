@@ -2,7 +2,7 @@
 
 ## Routine operation
 
-1. Open `/tools/buybacks` on the local website. Refresh balances and estimate all
+1. Open `/chains/<chainId>/tools/buybacks` on the local website. Refresh balances and estimate all
    currencies. Set the target percentage/timeframe and gas preference.
 2. Apply calculated sizes, review the affected currencies, and run the optional
    sequential rehearsal. Inspect deferred balances, actual burns and gas costs.
@@ -70,7 +70,7 @@ execution key; it needs no Safe authority.
 
 ## Token onboarding, routes and pauses
 
-Use `/tools/buybacks` for normal human-unit size/interval changes. Asset onboarding
+Use `/chains/<chainId>/tools/buybacks` for normal human-unit size/interval changes. Asset onboarding
 and route repair are separate, occasional Safe operations. Enabling an asset does
 not create a liquid route; disabling it prevents new tiers, not existing payments.
 

@@ -445,7 +445,7 @@ export function ProtocolActivity({
               earning.
             </p>
             <p>
-              <a href="/tools/buybacks">
+              <a href={`/chains/${chainId}/tools/buybacks`}>
                 Calculate and configure buyback settings
               </a>
             </p>
@@ -919,7 +919,7 @@ function PonsCompensation({ snapshot }: { snapshot: PublicBuybacks }) {
           <details>
             <summary>External roles and shared compensation balances</summary>
             <p>
-              <a href="/tools/buybacks">
+              <a href={`/chains/${snapshot.chainId}/tools/buybacks`}>
                 Calculate and configure buyback settings
               </a>
             </p>

@@ -10,18 +10,18 @@ const plan: PreviewPlan = {
   tiers: [{ tier, maxAccountingSteps: 25n }],
   purchases: [{ asset, revision: 1n }],
 };
-function fixture(steps = 2n) {
+function fixture(steps = 2n, accrues = true) {
   const readContract = vi.fn(async ({ functionName, args }) => {
     if (functionName === "previewAccounting")
       return {
         processedSteps: steps,
         asOf: 100n,
         ratesScaled: [0n, 0n, 0n, 0n] as const,
-        earnedDeltaScaled: [5n, 0n, 0n, 7n],
+        earnedDeltaScaled: accrues ? [5n, 0n, 0n, 7n] : [0n, 0n, 0n, 0n],
         settled: { protocol: 3n, fractionalScaled: [0n, 0n, 0n, 0n] },
         current: {
           fractionalScaled: [0n, 0n, 0n, 0n],
-          protocol: 10n,
+          protocol: accrues ? 10n : 3n,
           status: { nextBoundary: 0n, complete: true },
         },
       };
@@ -73,10 +73,10 @@ it("does not preview accounting or future releases in buyback-only mode", async 
     ),
   ).toBe(true);
 });
-it("keeps continuous accrual as optional settlement and honors zero accounting budgets", async () => {
+it("enables continuous accrual settlement and honors zero accounting budgets", async () => {
   const f = fixture(0n);
   expect(await previewAdvance(f.client, plan, "accounting")).toMatchObject({
-    ready: false,
+    ready: true,
     useful: true,
   });
   expect(
@@ -86,4 +86,25 @@ it("keeps continuous accrual as optional settlement and honors zero accounting b
       "both",
     ),
   ).toMatchObject({ funds: [{ asset, amount: 3n, delta: 0n }] });
+});
+
+it("does not enable accounting with a zero budget even when fees have accrued", async () => {
+  const f = fixture(0n);
+  expect(
+    await previewAdvance(
+      f.client,
+      {
+        ...plan,
+        tiers: [{ tier, maxAccountingSteps: 0n }],
+      },
+      "accounting",
+    ),
+  ).toMatchObject({ ready: false, useful: false });
+});
+it("does not enable accounting when no checkpoints or new earnings remain", async () => {
+  const f = fixture(0n, false);
+  expect(await previewAdvance(f.client, plan, "accounting")).toMatchObject({
+    ready: false,
+    useful: false,
+  });
 });

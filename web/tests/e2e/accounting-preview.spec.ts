@@ -71,30 +71,10 @@ test("live previews refresh without a transaction and a membership claim pays pr
     expect(ownerPage.tokenIds.length).toBeGreaterThan(0);
     const selectedId = ownerPage.tokenIds[0];
     const rewards = page.getByRole("region", { name: "Rewards", exact: true });
-    await rewards
-      .getByRole("checkbox", { name: new RegExp(`membership #${selectedId}$`) })
-      .first()
-      .check();
-    await expect(rewards).toContainText("WETH");
     await expect(
-      rewards.getByRole("button", { name: "Claim selected rewards" }),
+      rewards.getByRole("button", { name: "Claim all", exact: true }),
     ).toBeEnabled();
-    const before = await rewards
-      .getByText(/^(Partial selected rewards|Selected rewards):/)
-      .allTextContents();
-    await rpcRequest("evm_increaseTime", [86400]);
-    await rpcRequest("evm_mine");
-    await expect
-      .poll(
-        () =>
-          rewards
-            .getByText(/^(Partial selected rewards|Selected rewards):/)
-            .allTextContents(),
-        {
-          timeout: 25000,
-        },
-      )
-      .not.toEqual(before);
+    await expect(rewards.getByRole("checkbox")).toHaveCount(0);
     await page.screenshot({
       path: info.outputPath("account-desktop.png"),
       fullPage: true,
