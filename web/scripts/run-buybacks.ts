@@ -110,7 +110,7 @@ export function createBuybackRunner(options: Options) {
         functionName,
         args,
         account,
-        ...(options.chainId === 31337 ? { gasPrice: 2_000_000_000n } : {}),
+        ...(options.chainId === 31337 ? { gasPrice: 100_000_000n } : {}),
       });
     } catch (error) {
       log({
@@ -352,7 +352,7 @@ export function createBuybackRunner(options: Options) {
             const block = await client.getBlock();
             const gasPrice =
               options.chainId === 31337
-                ? 2_000_000_000n
+                ? 100_000_000n
                 : await client.getGasPrice();
             const market = await readMarketState(client, {
               vault,

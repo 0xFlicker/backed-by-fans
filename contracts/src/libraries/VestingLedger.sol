@@ -3,7 +3,9 @@ pragma solidity =0.8.36;
 
 import {IMembershipTier} from "../interfaces/IMembershipTier.sol";
 import {MembershipTypes} from "../types/MembershipTypes.sol";
+import {ExpirationSchedule} from "./ExpirationSchedule.sol";
 import {RewardCurve} from "./RewardCurve.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
@@ -16,7 +18,6 @@ library VestingLedger {
     uint256 internal constant SCALE = 1 << 128;
     uint256 internal constant MAX_GROSS = type(uint112).max;
     uint256 internal constant PURPOSES = 4;
-    uint256 internal constant MAX_STEPS = 25;
 
     struct Lot {
         uint64 start;
@@ -80,6 +81,7 @@ library VestingLedger {
         mapping(uint256 => uint256) heapPosition; // one-based; zero means absent
         mapping(address => ReferrerAccount) referrers;
         mapping(uint256 => MemberAccount) members;
+        mapping(address => uint256) retiredCreditScaled;
         uint256 totalShares;
         uint256 rewardPerShare;
         uint256 rewardCarry;
@@ -182,7 +184,7 @@ library VestingLedger {
         uint256 offset,
         uint256 limit
     ) external view returns (bytes memory) {
-        if (limit == 0 || limit > 100) revert InvalidAllocationPageSize();
+        if (limit == 0) revert InvalidAllocationPageSize();
         Lot[] storage queue = self.lots[tokenId][generation];
         uint256 count = offset >= queue.length ? 0 : Math.min(limit, queue.length - offset);
         MembershipTypes.AllocationLot[] memory page = new MembershipTypes.AllocationLot[](count);
@@ -261,81 +263,378 @@ library VestingLedger {
         uint256 source;
     }
 
+    struct PreviewExpiry {
+        MembershipTypes.ExpirationNode node;
+        uint256 source;
+    }
+
+    struct PreviewRequest {
+        uint256 tokenId;
+        address beneficiary;
+        address referrer;
+        uint64 through;
+        uint256 maxSteps;
+    }
+
     struct PreviewState {
         PreviewNode[] frontier;
         uint256 length;
         uint256 scheduled;
+        PreviewExpiry[] expiryFrontier;
+        uint256 expiryLength;
+        uint256 scheduledExpirations;
         uint64 cursor;
         uint256[4] rates;
         uint256[4] earned;
         uint256 referralRate;
         uint256 referralEarned;
+        uint256 totalShares;
+        uint256 rewardIndex;
+        uint256 rewardCarry;
+        uint256 distributedReward;
+        uint256 memberLiabilityDelta;
+        uint256 unassignedDelta;
+        uint256 dustDelta;
+        uint256 retiredScaled;
+        bool targetRetired;
+        uint64 lastRetiredAt;
+        uint256 lastRetiredId;
+    }
+
+    function encodedPaymentTotals(
+        State storage self,
+        ExpirationSchedule.State storage expirations,
+        uint64 through,
+        uint256 maxSteps
+    ) external view returns (bytes memory) {
+        PreviewRequest memory request = PreviewRequest(0, address(0), address(0), through, maxSteps);
+        PreviewState memory work = _previewState(self, expirations, request);
+        MembershipTypes.PaymentTotals memory result;
+        result.processedSteps = _previewAdvance(self, expirations, work, request);
+        result.grossReceived = self.totalGross;
+        result.refunded = self.refundedRaw;
+        result.paidRaw = self.paidRaw;
+        result.cancellationScaled = self.cancellationScaled;
+        for (uint256 i; i < PURPOSES; ++i) {
+            result.unearnedScaled[i] = self.unearnedScaled[i] - work.earned[i];
+            result.earnedScaled[i] =
+                self.earnedScaled[i] + (i == 1 ? work.memberLiabilityDelta : work.earned[i]);
+        }
+        result.unassignedMemberScaled = self.unassigned + work.unassignedDelta;
+        result.distributionDustScaled = self.distributionDust + work.dustDelta;
+        result.indexCarryScaled = work.rewardCarry;
+        result.asOf = through;
+        result.status = _previewStatus(work, through);
+        result.hasEligibleMembers = work.totalShares != 0;
+        if (result.status.complete) result.allocationRatesScaled = work.rates;
+        return abi.encode(result);
     }
 
     function encodedPreview(
         State storage self,
+        ExpirationSchedule.State storage expirations,
         uint256 tokenId,
+        address beneficiary,
         address referrer,
         uint64 through,
         uint256 maxSteps
     ) external view returns (bytes memory) {
-        if (maxSteps > 256) revert InvalidAccountingSteps();
-        if (!self.initialized || through < self.accountedThrough) revert AccountingInvariant();
-        MembershipTypes.AccountingPreview memory result;
-        result.asOf = through;
-        result.settled = _balances(self, tokenId, referrer, through);
-        PreviewState memory work;
-        // A pop adds at most two stored children and one queued successor.
-        work.frontier = new PreviewNode[](2 * maxSteps + 1);
+        return abi.encode(
+            _preview(
+                self, expirations, PreviewRequest(tokenId, beneficiary, referrer, through, maxSteps)
+            )
+        );
+    }
+
+    function _preview(
+        State storage self,
+        ExpirationSchedule.State storage expirations,
+        PreviewRequest memory request
+    ) private view returns (MembershipTypes.AccountingPreview memory result) {
+        PreviewState memory work = _previewState(self, expirations, request);
+        result.asOf = request.through;
+        result.settled = _balances(self, request.tokenId, request.referrer, request.through);
+        result.settled.retired = work.retiredScaled / SCALE;
+        result.settled.retiredFractionalScaled = work.retiredScaled % SCALE;
+        result.settled.status = _previewStatus(work, request.through);
+        result.processedSteps = _previewAdvance(self, expirations, work, request);
+        _previewResult(self, expirations, work, request, result);
+    }
+
+    function _previewState(
+        State storage self,
+        ExpirationSchedule.State storage expirations,
+        PreviewRequest memory request
+    ) private view returns (PreviewState memory work) {
+        if (!self.initialized || request.through < self.accountedThrough) {
+            revert AccountingInvariant();
+        }
+        // Each funding pop exposes at most two stored children and one successor;
+        // each expiry pop exposes at most two children. Neither copies a full heap.
+        work.frontier = new PreviewNode[](2 * request.maxSteps + 1);
+        work.expiryFrontier = new PreviewExpiry[](request.maxSteps + 1);
         work.scheduled = self.heap.length;
+        work.scheduledExpirations = expirations.nodes.length;
         work.cursor = self.accountedThrough;
         work.rates = self.activeRates;
-        work.referralRate = self.referrers[referrer].rate;
+        work.referralRate = self.referrers[request.referrer].rate;
+        work.totalShares = self.totalShares;
+        work.rewardIndex = self.rewardPerShare;
+        work.rewardCarry = self.rewardCarry;
+        work.retiredScaled = self.retiredCreditScaled[request.beneficiary];
+        work.targetRetired = expirations.position[request.tokenId] == 0;
         if (self.heap.length != 0) _previewStored(self, work, 0);
-        while (
-            result.processedSteps < maxSteps && work.length != 0
-                && work.frontier[0].node.timestamp <= through
-        ) {
-            PreviewNode memory entry = _previewPop(work);
-            _previewIntegrate(work, entry.node.timestamp);
-            if (entry.source != 0) {
-                uint256 left = 2 * (entry.source - 1) + 1;
-                if (left < self.heap.length) _previewStored(self, work, left);
-                if (left + 1 < self.heap.length) _previewStored(self, work, left + 1);
-            }
-            _previewBoundary(self, work, entry, referrer);
-            ++result.processedSteps;
+        if (expirations.nodes.length != 0) _previewExpiryStored(expirations, work, 0);
+    }
+
+    /// @dev One bounded accounting overlay for all selected positions. Retirement is
+    /// a chronological prefix, so its final (timestamp, ID) identifies every popped ID.
+    function encodedClaimPreview(
+        State storage self,
+        ExpirationSchedule.State storage expirations,
+        address beneficiary,
+        uint256[] calldata tokenIds,
+        uint64 through,
+        uint256 maxSteps,
+        bool creator
+    ) external view returns (bytes memory) {
+        PreviewRequest memory request =
+            PreviewRequest(0, beneficiary, beneficiary, through, maxSteps);
+        PreviewState memory work = _previewState(self, expirations, request);
+        MembershipTypes.ClaimPreview memory result;
+        result.asOf = through;
+        result.processedSteps = _previewAdvance(self, expirations, work, request);
+        result.accountedThrough = work.cursor;
+        result.complete = _previewStatus(work, through).complete;
+        result.retiredCreditScaled = work.retiredScaled;
+        result.referralCreditScaled = _balanceScaled(self, 0, beneficiary)[2] + work.referralEarned;
+        result.creatorCreditScaled = creator ? self.earnedScaled[0] + work.earned[0] : 0;
+        result.positions = new MembershipTypes.PositionClaimPreview[](tokenIds.length);
+        for (uint256 i; i < tokenIds.length; ++i) {
+            result.positions[i] =
+                _previewClaimPosition(self, expirations, work, tokenIds[i], through);
         }
-        bool complete = work.length == 0 || work.frontier[0].node.timestamp > through;
-        if (complete) _previewIntegrate(work, through);
+        return abi.encode(result);
+    }
+
+    function _previewClaimPosition(
+        State storage self,
+        ExpirationSchedule.State storage expirations,
+        PreviewState memory work,
+        uint256 id,
+        uint64 through
+    ) private view returns (MembershipTypes.PositionClaimPreview memory) {
+        uint256 position = expirations.position[id];
+        uint64 expiry = position == 0 ? 0 : expirations.nodes[position - 1].timestamp;
+        bool retired = position == 0
+            || (work.lastRetiredId != 0
+                && (expiry < work.lastRetiredAt
+                    || (expiry == work.lastRetiredAt && id <= work.lastRetiredId)));
+        MemberAccount storage member = self.members[id];
+        return MembershipTypes.PositionClaimPreview(
+            id,
+            retired
+                ? MembershipTypes.MembershipLifecycle.Retired
+                : expiry <= through
+                    ? MembershipTypes.MembershipLifecycle.ExpiredPending
+                    : MembershipTypes.MembershipLifecycle.Live,
+            retired
+                ? 0
+                : member.creditScaled
+                    + (member.eligible ? member.shares * (work.rewardIndex - member.index) : 0)
+        );
+    }
+
+    function _previewAdvance(
+        State storage self,
+        ExpirationSchedule.State storage expirations,
+        PreviewState memory work,
+        PreviewRequest memory request
+    ) private view returns (uint256 processed) {
+        while (true) {
+            bool expiryDue = work.expiryLength != 0
+                && work.expiryFrontier[0].node.timestamp <= request.through;
+            uint64 boundary = expiryDue ? work.expiryFrontier[0].node.timestamp : request.through;
+            while (
+                processed < request.maxSteps && work.length != 0
+                    && work.frontier[0].node.timestamp <= boundary
+            ) {
+                PreviewNode memory entry = _previewPop(work);
+                _previewIntegrate(work, entry.node.timestamp);
+                if (entry.source != 0) {
+                    uint256 left = 2 * (entry.source - 1) + 1;
+                    if (left < self.heap.length) _previewStored(self, work, left);
+                    if (left + 1 < self.heap.length) _previewStored(self, work, left + 1);
+                }
+                _previewBoundary(self, work, entry, request.referrer);
+                ++processed;
+            }
+            bool fundingComplete = work.length == 0 || work.frontier[0].node.timestamp > boundary;
+            if (fundingComplete) _previewIntegrate(work, boundary);
+            _previewDistribute(work);
+            if (!fundingComplete || !expiryDue || processed == request.maxSteps) return processed;
+            _previewRetire(self, expirations, work, request);
+            ++processed;
+        }
+    }
+
+    /// @dev Apply the write quotient/remainder policy before every denominator
+    /// change. Global carry never becomes an individual retired credit.
+    function _previewDistribute(PreviewState memory work) private pure {
+        uint256 amount = work.earned[1] - work.distributedReward;
+        work.distributedReward = work.earned[1];
+        if (amount == 0) return;
+        if (work.totalShares == 0) {
+            work.unassignedDelta += amount;
+            return;
+        }
+        uint256 available = amount + work.rewardCarry;
+        uint256 quotient = available / work.totalShares;
+        work.rewardIndex += quotient;
+        work.memberLiabilityDelta += quotient * work.totalShares;
+        work.rewardCarry = available % work.totalShares;
+    }
+
+    function _previewRetire(
+        State storage self,
+        ExpirationSchedule.State storage expirations,
+        PreviewState memory work,
+        PreviewRequest memory request
+    ) private view {
+        PreviewExpiry memory entry = _previewExpiryPop(work);
+        work.lastRetiredAt = entry.node.timestamp;
+        work.lastRetiredId = entry.node.tokenId;
+        uint256 left = 2 * entry.source + 1;
+        if (left < expirations.nodes.length) _previewExpiryStored(expirations, work, left);
+        if (left + 1 < expirations.nodes.length) _previewExpiryStored(expirations, work, left + 1);
+        --work.scheduledExpirations;
+        MemberAccount storage member = self.members[entry.node.tokenId];
+        uint256 credit = member.creditScaled
+            + (member.eligible ? member.shares * (work.rewardIndex - member.index) : 0);
+        // No transfers are possible after expiry. Read only popped IDs, once each.
+        if (
+            credit != 0 && IERC721(address(this)).ownerOf(entry.node.tokenId) == request.beneficiary
+        ) {
+            work.retiredScaled += credit;
+        }
+        if (member.eligible && member.shares != 0) {
+            work.totalShares -= member.shares;
+            work.dustDelta += work.rewardCarry;
+            work.rewardCarry = 0;
+        }
+        if (entry.node.tokenId == request.tokenId) work.targetRetired = true;
+    }
+
+    function _previewResult(
+        State storage self,
+        ExpirationSchedule.State storage expirations,
+        PreviewState memory work,
+        PreviewRequest memory request,
+        MembershipTypes.AccountingPreview memory result
+    ) private view {
         result.earnedDeltaScaled = work.earned;
-        uint256[4] memory scaled = _balanceScaled(self, tokenId, referrer);
+        uint256[4] memory scaled = _balanceScaled(self, request.tokenId, request.referrer);
         scaled[0] += work.earned[0];
         scaled[3] += work.earned[3];
         scaled[2] += work.referralEarned;
-        if (work.earned[1] != 0 && self.totalShares != 0 && self.members[tokenId].eligible) {
-            scaled[1] += self.members[tokenId].shares
-            * ((work.earned[1] + self.rewardCarry) / self.totalShares);
-        }
+        MemberAccount storage target = self.members[request.tokenId];
+        scaled[1] = work.targetRetired
+            ? 0
+            : target.creditScaled
+                + (target.eligible ? target.shares * (work.rewardIndex - target.index) : 0);
         result.current = _rawBalances(scaled);
-        if (complete) {
+        result.current.retired = work.retiredScaled / SCALE;
+        result.current.retiredFractionalScaled = work.retiredScaled % SCALE;
+        result.current.status = _previewStatus(work, request.through);
+        if (work.targetRetired) {
+            result.lifecycle = MembershipTypes.MembershipLifecycle.Retired;
+        } else {
+            uint256 position = expirations.position[request.tokenId];
+            result.lifecycle = expirations.nodes[position - 1].timestamp <= request.through
+                ? MembershipTypes.MembershipLifecycle.ExpiredPending
+                : MembershipTypes.MembershipLifecycle.Live;
+        }
+        if (result.current.status.complete) {
             result.ratesScaled[0] = work.rates[0];
             result.ratesScaled[2] = work.referralRate;
             result.ratesScaled[3] = work.rates[3];
-            if (self.totalShares != 0 && self.members[tokenId].eligible) {
-                // Full-precision multiplication avoids overflow. Flooring loses less than
-                // one accounting-scale unit per second; this rate is presentation only.
-                result.ratesScaled[1] =
-                    Math.mulDiv(work.rates[1], self.members[tokenId].shares, self.totalShares);
+            if (!work.targetRetired && work.totalShares != 0 && target.eligible) {
+                result.ratesScaled[1] = Math.mulDiv(work.rates[1], target.shares, work.totalShares);
             }
         }
-        result.current.status = MembershipTypes.AccountingStatus(
-            work.cursor,
-            work.length == 0 ? 0 : work.frontier[0].node.timestamp,
-            work.scheduled,
-            complete
-        );
-        return abi.encode(result);
+    }
+
+    function _previewStatus(PreviewState memory work, uint64 through)
+        private
+        pure
+        returns (MembershipTypes.AccountingStatus memory status)
+    {
+        status.accountedThrough = work.cursor;
+        status.scheduledMembers = work.scheduled;
+        status.scheduledExpirations = work.scheduledExpirations;
+        if (work.length != 0) {
+            status.nextBoundary = work.frontier[0].node.timestamp;
+            status.nextKind = MembershipTypes.BoundaryKind.Funding;
+        }
+        if (
+            work.expiryLength != 0
+                && (status.nextBoundary == 0
+                    || work.expiryFrontier[0].node.timestamp < status.nextBoundary)
+        ) {
+            status.nextBoundary = work.expiryFrontier[0].node.timestamp;
+            status.nextKind = MembershipTypes.BoundaryKind.Expiration;
+        }
+        status.complete =
+            work.cursor == through && (status.nextBoundary == 0 || status.nextBoundary > through);
+    }
+
+    function _previewExpiryStored(
+        ExpirationSchedule.State storage expirations,
+        PreviewState memory work,
+        uint256 index
+    ) private view {
+        PreviewExpiry memory entry = PreviewExpiry(expirations.nodes[index], index);
+        uint256 position = work.expiryLength++;
+        while (position != 0) {
+            uint256 parent = (position - 1) / 2;
+            if (!_previewExpiryLess(entry, work.expiryFrontier[parent])) break;
+            work.expiryFrontier[position] = work.expiryFrontier[parent];
+            position = parent;
+        }
+        work.expiryFrontier[position] = entry;
+    }
+
+    function _previewExpiryLess(PreviewExpiry memory a, PreviewExpiry memory b)
+        private
+        pure
+        returns (bool)
+    {
+        return a.node.timestamp < b.node.timestamp
+            || (a.node.timestamp == b.node.timestamp && a.node.tokenId < b.node.tokenId);
+    }
+
+    function _previewExpiryPop(PreviewState memory work)
+        private
+        pure
+        returns (PreviewExpiry memory first)
+    {
+        first = work.expiryFrontier[0];
+        PreviewExpiry memory last = work.expiryFrontier[--work.expiryLength];
+        if (work.expiryLength == 0) return first;
+        uint256 index;
+        while (2 * index + 1 < work.expiryLength) {
+            uint256 child = 2 * index + 1;
+            if (
+                child + 1 < work.expiryLength
+                    && _previewExpiryLess(
+                        work.expiryFrontier[child + 1], work.expiryFrontier[child]
+                    )
+            ) ++child;
+            if (!_previewExpiryLess(work.expiryFrontier[child], last)) break;
+            work.expiryFrontier[index] = work.expiryFrontier[child];
+            index = child;
+        }
+        work.expiryFrontier[index] = last;
     }
 
     function _previewBoundary(
@@ -486,6 +785,9 @@ library VestingLedger {
         result.accountedThrough = self.accountedThrough;
         result.scheduledMembers = self.heap.length;
         result.nextBoundary = self.heap.length == 0 ? 0 : self.heap[0].timestamp;
+        result.nextKind = self.heap.length == 0
+            ? MembershipTypes.BoundaryKind.None
+            : MembershipTypes.BoundaryKind.Funding;
         result.complete = result.accountedThrough == now_
             && (result.nextBoundary == 0 || result.nextBoundary > now_);
     }
@@ -535,8 +837,19 @@ library VestingLedger {
         external
         returns (ProcessResult memory result)
     {
+        if (maxSteps == 0) revert InvalidAccountingSteps();
         result = _process(self, through, maxSteps);
         _emitProgress(result);
+    }
+
+    /// @notice Advance only funding to a tier-selected chronological boundary.
+    /// @dev The coordinator shares the event budget with retirement; zero allows
+    /// continuous accrual only when no funding checkpoint is due through the boundary.
+    function advanceTo(State storage self, uint64 through, uint256 maxSteps)
+        external
+        returns (ProcessResult memory)
+    {
+        return _process(self, through, maxSteps);
     }
 
     function _catchUp(State storage self, uint64 through, uint256 maxSteps)
@@ -544,11 +857,11 @@ library VestingLedger {
         returns (ProcessResult memory progress)
     {
         // A depleted shared claim budget may integrate continuous time but cannot
-        // pop another checkpoint. Public tier entry points enforce the maximum.
+        // pop another checkpoint. The caller owns the work budget.
         if (maxSteps == 0 && self.heap.length != 0 && self.heap[0].timestamp <= through) {
             revert AccountingBehind(self.accountedThrough, self.heap[0].timestamp);
         }
-        progress = _process(self, through, maxSteps == 0 ? 1 : maxSteps);
+        progress = _process(self, through, maxSteps);
         if (!progress.complete) {
             revert AccountingBehind(progress.accountedThrough, self.heap[0].timestamp);
         }
@@ -558,7 +871,11 @@ library VestingLedger {
     // Delegatecall preserves the tier as emitter for both public processing and claims.
     function _emitProgress(ProcessResult memory progress) private {
         emit IMembershipTier.AccountingProgress(
-            progress.accountedThrough, progress.processed, progress.complete, progress.earnedScaled
+            progress.accountedThrough,
+            progress.processed,
+            progress.complete,
+            progress.earnedScaled,
+            0
         );
     }
 
@@ -570,8 +887,9 @@ library VestingLedger {
         private
         returns (ProcessResult memory result)
     {
-        if (maxSteps == 0 || maxSteps > MAX_STEPS) revert InvalidAccountingSteps();
-        if (!self.initialized || through < self.accountedThrough) revert AccountingInvariant();
+        if (!self.initialized || through < self.accountedThrough) {
+            revert AccountingInvariant();
+        }
         uint256[4] memory earned;
         while (
             result.processed < maxSteps && self.heap.length != 0
@@ -590,7 +908,9 @@ library VestingLedger {
             if (
                 account.active == node.isStart
                     || node.timestamp != (node.isStart ? lot.start : lot.end)
-            ) revert AccountingInvariant();
+            ) {
+                revert AccountingInvariant();
+            }
             if (node.isStart) {
                 _scheduleHead(self, node.tokenId, true);
             } else {
@@ -619,7 +939,7 @@ library VestingLedger {
         _setWeight(self, tokenId, shares, eligible);
     }
 
-    /// @notice Issue at the live gross cursor and restore the member's permanent weight.
+    /// @notice Add payment weight to a live position at the lifetime gross cursor.
     function issueShares(
         State storage self,
         uint256 tokenId,
@@ -657,6 +977,47 @@ library VestingLedger {
             + (member.eligible ? member.shares * (self.rewardPerShare - member.index) : 0);
     }
 
+    /// @notice Preserve an ended position's exact earned credit for its final owner.
+    /// @dev The tier authorizes retirement and reaches the effective expiration first.
+    /// All funding at the current cursor must be complete before changing its denominator.
+    function retireMember(State storage self, uint256 tokenId, address beneficiary)
+        external
+        returns (uint256 creditScaled)
+    {
+        if (
+            !self.initialized || beneficiary == address(0)
+                || (self.heap.length != 0 && self.heap[0].timestamp <= self.accountedThrough)
+        ) {
+            revert AccountingInvariant();
+        }
+        MemberAccount storage member = self.members[tokenId];
+        _settleMember(self, member);
+        creditScaled = member.creditScaled;
+        self.retiredCreditScaled[beneficiary] += creditScaled;
+        if (member.eligible && member.shares != 0) {
+            self.distributionDust += self.rewardCarry;
+            self.rewardCarry = 0;
+            self.totalShares -= member.shares;
+        }
+        delete self.members[tokenId];
+    }
+
+    function takeRetired(State storage self, address beneficiary)
+        external
+        returns (uint256 amount)
+    {
+        return _takeRetired(self, beneficiary);
+    }
+
+    function _takeRetired(State storage self, address beneficiary)
+        private
+        returns (uint256 amount)
+    {
+        amount = self.retiredCreditScaled[beneficiary] / SCALE;
+        self.retiredCreditScaled[beneficiary] -= amount * SCALE;
+        _debit(self, 1, amount);
+    }
+
     function referrerCredit(State storage self, address referrer) external view returns (uint256) {
         ReferrerAccount storage account = self.referrers[referrer];
         return
@@ -682,7 +1043,7 @@ library VestingLedger {
     function _takeReferrer(State storage self, address referrer) private returns (uint256 amount) {
         ReferrerAccount storage account = self.referrers[referrer];
         // With no active stream, credit is already final. Avoid creating a timestamp
-        // slot for every non-referrer who calls claimAll. Starting a stream still
+        // slot for every non-referrer who claims selected rewards. Starting a stream still
         // settles its timestamp in _scheduleHead before increasing the rate.
         if (account.rate != 0) _settleReferrer(self, referrer);
         amount = account.creditScaled / SCALE;
@@ -700,27 +1061,30 @@ library VestingLedger {
         _debit(self, purpose, amount);
     }
 
-    /// @notice Settle and collect the tier-authorized categories in one linked call.
-    /// The tier supplies identity/ownership and transfers the total. Delegatecall
-    /// keeps the original tier as event emitter and gives this library no custody.
-    function claimAll(
+    /// @notice Collect categories after the tier validates selection and completes both schedules.
+    function takeClaims(
         State storage self,
-        uint64 through,
-        uint256 maxSteps,
-        uint256 tokenId,
+        uint256[] calldata tokenIds,
         address beneficiary,
         bool creator
     ) external returns (MembershipTypes.ClaimResult memory result) {
-        ProcessResult memory progress = _catchUp(self, through, maxSteps);
-        result.processedSteps = progress.processed;
-        if (tokenId != 0) result.reward = _takeMember(self, tokenId);
+        for (uint256 i; i < tokenIds.length; ++i) {
+            // Retired entries have zero shares/credit; their credit is collected once below.
+            if (
+                self.members[tokenIds[i]].shares == 0 && self.members[tokenIds[i]].creditScaled == 0
+            ) continue;
+            uint256 amount = _takeMember(self, tokenIds[i]);
+            result.liveReward += amount;
+            if (amount != 0) emit IMembershipTier.RewardClaimed(tokenIds[i], beneficiary, amount);
+        }
+        result.retiredReward = _takeRetired(self, beneficiary);
         result.referral = _takeReferrer(self, beneficiary);
         if (creator) {
             result.creator = self.earnedScaled[0] / SCALE;
             _debit(self, 0, result.creator);
         }
-        if (result.reward != 0) {
-            emit IMembershipTier.RewardClaimed(tokenId, beneficiary, result.reward);
+        if (result.retiredReward != 0) {
+            emit IMembershipTier.RetiredRewardClaimed(beneficiary, result.retiredReward);
         }
         if (result.referral != 0) {
             emit IMembershipTier.ReferralClaimed(beneficiary, result.referral);

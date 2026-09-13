@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'curl %s\n' "$*" >>"$MOCK_LOG"
+if [[ "${MOCK_EXPLORER_UNVERIFIED:-0}" == "1" ]]; then
+  printf '{"is_verified":false}\n'
+else
+  printf '{"is_verified":true,"is_fully_verified":true,"source_code":"contract Verified {}","abi":[]}\n'
+fi

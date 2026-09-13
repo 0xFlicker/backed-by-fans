@@ -130,9 +130,8 @@ it("validates the bootstrap export without promoting it to receipt evidence", ()
     properties.map((key) => [key, address]),
   );
   Object.assign(value, {
-    tierCreationCodeHash: `0x${"1".repeat(64)}`,
+    tierImplementationRuntimeCodehash: `0x${"1".repeat(64)}`,
     vestingLedgerRuntimeCodehash: `0x${"2".repeat(64)}`,
-    tierCreationCodeLength: 40000,
     runId: "isolated-bootstrap",
     chainId: 31337,
     scope: "deployment-fragment-awaiting-receipts",
@@ -152,14 +151,11 @@ it("validates the bootstrap export without promoting it to receipt evidence", ()
   ).toBe(true);
   for (const key of [
     "vestingLedger",
-    "tierCodeStoreA",
-    "tierCodeStoreB",
-    "tierDeployer",
+    "tierImplementation",
     "executorCodeStore",
     "burnRouter",
-    "tierCreationCodeHash",
+    "tierImplementationRuntimeCodehash",
     "vestingLedgerRuntimeCodehash",
-    "tierCreationCodeLength",
   ]) {
     const missing = { ...value };
     delete missing[key];

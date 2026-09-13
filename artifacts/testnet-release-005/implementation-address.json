@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "returns": {
+    "0": {
+      "internal_type": "address",
+      "value": "0x47c1E3a745cE309963c22F0399d738eC1c838EEe"
+    }
+  },
+  "logs": []
+}

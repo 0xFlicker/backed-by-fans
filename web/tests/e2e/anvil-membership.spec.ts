@@ -129,11 +129,11 @@ test.describe("@anvil configured local Anvil membership", () => {
       await connectAnvilWallet(page, member);
       await expect(page.getByText(/exact 10 USDG approval/i)).toBeVisible();
 
-      const join = page.getByRole("button", { name: "Join this membership" });
+      const join = page.getByRole("button", { name: "New membership" });
       await expect(join).toBeEnabled();
       await join.click();
 
-      await expectReconciled(page, "Join this membership");
+      await expectReconciled(page, "New membership");
       await expect(
         page
           .getByRole("region", { name: "Current membership status" })

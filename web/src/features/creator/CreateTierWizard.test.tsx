@@ -8,7 +8,7 @@ import {
   type Address,
   type Hex,
 } from "viem";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createDefaultArtConfig } from "@/features/creator-studio/art-config";
 import { defaultCreatorForm } from "@/features/creator/config";
@@ -178,7 +178,17 @@ describe("creator setup component", () => {
     ).not.toBeInTheDocument();
   });
 
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((media: string) => ({
+        matches: true,
+        media,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
     walletAddress = undefined;
     walletChainId = 46_630;
     failDraftRecovery = false;
@@ -329,11 +339,14 @@ describe("creator setup component", () => {
     renderWizard();
     await user.click(screen.getByRole("button", { name: /^support split$/i }));
     expect(screen.getByRole("radio", { name: /^some/i })).toBeChecked();
+    const chart = document.querySelector(".reward-curve-chart");
     await user.click(screen.getByRole("radio", { name: /^more/i }));
+    expect(document.querySelector(".reward-curve-chart")).toBe(chart);
     expect(screen.getByText(/starts at 3×/i)).toBeVisible();
     await user.click(screen.getByRole("radio", { name: /^custom/i }));
     const boost = screen.getByLabelText("Starting boost (×)");
     await user.clear(boost);
+    expect(document.querySelector(".reward-curve-chart")).toBe(chart);
     await user.type(boost, "2.37");
     const window = screen.getByLabelText(
       "Early-support window (purchased periods)",

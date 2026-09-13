@@ -8,10 +8,10 @@ policies, budgets to refill, price signers or required observation collectors.
 Use the existing local web server:
 
 ```sh
-./contracts/scripts/buyback-tools.sh review --app-url http://127.0.0.1:3110
+./contracts/scripts/buyback-tools.sh review --chain-id 31337 --app-url http://127.0.0.1:3110
 ```
 
-Or open <http://127.0.0.1:3110/tools/buybacks>. It loads the configured protocol
+Or open <http://127.0.0.1:3110/chains/31337/tools/buybacks>. It loads the configured protocol
 and all registered currencies directly. ETH includes canonical WETH; do not create
 separate ETH and WETH settings.
 

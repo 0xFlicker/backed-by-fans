@@ -1,3 +1,4 @@
+import { expectSingleOwnedPosition } from "./helpers/membership-positions";
 import { formatRawTokenAmount } from "../../src/lib/token-amount";
 import { expect, test, type Page } from "@playwright/test";
 import { resolve } from "node:path";
@@ -120,16 +121,13 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
         });
         await switchAnvilAccount(page, member);
         await page.getByLabel("Periods", { exact: true }).fill("12");
-        await page
-          .getByRole("button", { name: "Join this membership" })
-          .click();
-        await expectReconciled(page, "Join this membership");
-        const tokenId = await client.readContract({
-          address: deployedTier,
-          abi: membershipTierAbi,
-          functionName: "tokenOf",
-          args: [member],
-        });
+        await page.getByRole("button", { name: "New membership" }).click();
+        await expectReconciled(page, "New membership");
+        const tokenId = await expectSingleOwnedPosition(
+          client,
+          deployedTier,
+          member,
+        );
         const expires = await client.readContract({
           address: deployedTier,
           abi: membershipTierAbi,
@@ -752,8 +750,8 @@ test("@anvil reward-curves publishes all presets and confirms execution-time wei
       ).toBeVisible();
       const paymentData = encodeFunctionData({
         abi: membershipTierAbi,
-        functionName: "purchase",
-        args: [2n, "0x0000000000000000000000000000000000000000"],
+        functionName: "createMembership",
+        args: [2n, "0x0000000000000000000000000000000000000000", 25n],
       });
       let intervened = false;
       let paymentHash: `0x${string}` | undefined;
@@ -771,8 +769,8 @@ test("@anvil reward-curves publishes all presets and confirms execution-time wei
               account: member,
               address: tier,
               abi: membershipTierAbi,
-              functionName: "purchase",
-              args: [1n, "0x0000000000000000000000000000000000000000"],
+              functionName: "createMembership",
+              args: [1n, "0x0000000000000000000000000000000000000000", 25n],
             }),
           );
           const response = await route.fetch();
@@ -781,9 +779,9 @@ test("@anvil reward-curves publishes all presets and confirms execution-time wei
         } else await route.continue();
       });
       await page
-        .getByRole("button", { name: "Join this membership", exact: true })
+        .getByRole("button", { name: "New membership", exact: true })
         .click();
-      await expectReconciled(page, "Join this membership");
+      await expectReconciled(page, "New membership");
       expect(intervened).toBe(true);
       expect(paymentHash).toBeDefined();
       const receipt = await client.getTransactionReceipt({

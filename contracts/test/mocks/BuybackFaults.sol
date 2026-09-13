@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+
 import {BuybackIntegration} from "../../src/libraries/BuybackIntegration.sol";
 import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
+import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -47,10 +49,15 @@ contract AdvanceFaultTier is AdvanceStageFault {
         releaseFault = release_;
     }
 
-    function processAccounting(uint256 maximum) external returns (uint256, uint64, bool, uint256) {
+    function processAccounting(uint256 maximum)
+        external
+        returns (MembershipTypes.MaintenanceResult memory)
+    {
         ++accounted;
         _fault(accountFault);
-        return (accountFault == Fault.ExcessSteps ? maximum + 1 : 1, 1000, true, 1);
+        return MembershipTypes.MaintenanceResult(
+            accountFault == Fault.ExcessSteps ? maximum + 1 : 1, 0, 1000, true, 1
+        );
     }
 
     function releaseProtocolFees() external returns (uint256) {

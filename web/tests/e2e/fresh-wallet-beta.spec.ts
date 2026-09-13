@@ -1,7 +1,7 @@
+import { hasLiveOwnedPosition } from "./helpers/membership-positions";
 import { expect, test } from "@playwright/test";
 import { erc20Abi } from "viem";
 
-import { membershipTierAbi } from "../../src/contracts";
 import {
   anvilEnabled,
   anvilPublicClient,
@@ -45,7 +45,7 @@ test("@anvil recognizes a newly funded wallet and completes its first purchase",
       page.getByText(/add a small amount of ETH .* for gas/i),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Join this membership" }),
+      page.getByRole("button", { name: "New membership" }),
     ).toBeDisabled();
 
     // Fund only gas directly; the already-acquired authentic USDG arrives via
@@ -65,18 +65,13 @@ test("@anvil recognizes a newly funded wallet and completes its first purchase",
     await expect(page.getByText(/add 10 USDG to this wallet/i)).toHaveCount(0);
     await expect(page.getByText(/add a small amount of ETH/i)).toHaveCount(0);
 
-    const join = page.getByRole("button", { name: "Join this membership" });
+    const join = page.getByRole("button", { name: "New membership" });
     await expect(join).toBeEnabled();
     await join.click();
-    await expectReconciled(page, "Join this membership");
-    await expect(
-      client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "isActive",
-        args: [freshWallet],
-      }),
-    ).resolves.toBe(true);
+    await expectReconciled(page, "New membership");
+    await expect(hasLiveOwnedPosition(client, tier, freshWallet)).resolves.toBe(
+      true,
+    );
     await expect(
       client.readContract({
         address: paymentToken,

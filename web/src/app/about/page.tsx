@@ -26,9 +26,17 @@ export default function AboutPage() {
             Your support becomes time, creator income, and rewards for the
             people who keep the work moving.
           </p>
-          <a className={styles.flowLink} href="#payment-flow">
-            See how support flows <span aria-hidden="true">↗</span>
-          </a>
+          <div className={styles.heroLinks}>
+            <a className={styles.flowLink} href="#payment-flow">
+              See how support flows <span aria-hidden="true">↗</span>
+            </a>
+            <a
+              className={styles.flowLink}
+              href="/backed-by-fans-whitepaper.pdf"
+            >
+              Read the whitepaper (PDF) <span aria-hidden="true">↗</span>
+            </a>
+          </div>
         </div>
 
         <div className="hero-art settle-media">

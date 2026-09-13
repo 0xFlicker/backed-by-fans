@@ -10,6 +10,7 @@ import {
   zeroHash,
   erc20Abi,
   parseEther,
+  parseEventLogs,
   keccak256,
   toBytes,
   type Address,
@@ -74,13 +75,13 @@ if (
 if (saved?.completed) {
   if (saved.tiers?.length !== 3) throw new Error("Incomplete demo evidence");
   for (const tier of saved.tiers) {
-    const tokenId = await client.readContract({
+    const currentOwner = await client.readContract({
       address: tier.address,
       abi: membershipTierAbi,
-      functionName: "tokenOf",
-      args: [owner],
+      functionName: "ownerOf",
+      args: [BigInt(tier.tokenId)],
     });
-    if (tokenId !== BigInt(tier.tokenId))
+    if (currentOwner.toLowerCase() !== owner.toLowerCase())
       throw new Error(
         "Demo membership changed; inspect the current fork before reseeding",
       );
@@ -116,7 +117,7 @@ const transact = async (
   const receipt = await client.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success")
     throw new Error(`${functionName} reverted: ${hash}`);
-  return simulation.result;
+  return receipt;
 };
 const art = await client.readContract({
   address: fixture.tier,
@@ -214,12 +215,23 @@ try {
         args: [identity],
       });
     }
-    let tokenId = await client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "tokenOf",
-      args: [owner],
-    });
+    const recorded = saved?.tiers?.find(
+      (item) => item.address.toLowerCase() === tier.toLowerCase(),
+    );
+    let tokenId = recorded ? BigInt(recorded.tokenId) : 0n;
+    if (
+      tokenId === 0n &&
+      (await client.readContract({
+        address: tier,
+        abi: membershipTierAbi,
+        functionName: "balanceOf",
+        args: [owner],
+      })) !== 0n
+    ) {
+      throw new Error(
+        "An existing demo position has no saved receipt identity; use a fresh fixture.",
+      );
+    }
     if (tokenId === 0n) {
       const gross = currency.price * 4n;
       const balance = await client.readContract({
@@ -260,16 +272,29 @@ try {
         tier,
         gross,
       ]);
-      await transact(owner, tier, membershipTierAbi, "purchase", [
-        4n,
-        zeroAddress,
-      ]);
-      tokenId = await client.readContract({
-        address: tier,
+      const receipt = await transact(
+        owner,
+        tier,
+        membershipTierAbi,
+        "createMembership",
+        [4n, zeroAddress, 25n],
+      );
+      const created = parseEventLogs({
         abi: membershipTierAbi,
-        functionName: "tokenOf",
-        args: [owner],
-      });
+        eventName: "Transfer",
+        logs: receipt.logs,
+        strict: true,
+      }).find(
+        (event) =>
+          event.address.toLowerCase() === tier.toLowerCase() &&
+          event.args.from === zeroAddress &&
+          event.args.to.toLowerCase() === owner.toLowerCase(),
+      );
+      if (!created)
+        throw new Error(
+          "The successful receipt did not identify a new demo membership.",
+        );
+      tokenId = created.args.tokenId;
     }
     tiers.push({
       symbol: currency.symbol,
@@ -278,6 +303,7 @@ try {
       tokenId,
       pricePerPeriod: currency.price,
     });
+    await writeFile(marker, json({ ...plan, completed: false, tiers }));
   }
   if ((await client.getBlock()).timestamp < BigInt(plan.advanceTo)) {
     await test.setNextBlockTimestamp({ timestamp: BigInt(plan.advanceTo) });

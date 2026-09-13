@@ -218,12 +218,7 @@ contract RendererRegistryTest is Test {
         vm.prank(_alice);
         _registry.unregister(address(wrong));
 
-        uint256 invalidPageSize = _registry.maxPageSize() + 1;
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RendererRegistry.InvalidPageSize.selector, _registry.maxPageSize(), invalidPageSize
-            )
-        );
+        uint256 invalidPageSize = 100 + 1;
         _registry.creators(0, invalidPageSize);
     }
 }

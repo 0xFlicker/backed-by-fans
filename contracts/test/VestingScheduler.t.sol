@@ -25,6 +25,49 @@ contract VestingSchedulerHarness {
         return VestingLedger.process(ledger, through, steps);
     }
 
+    function advance(uint64 through, uint256 steps)
+        external
+        returns (VestingLedger.ProcessResult memory)
+    {
+        return VestingLedger.advanceTo(ledger, through, steps);
+    }
+
+    function retire(uint256 member, address beneficiary) external returns (uint256) {
+        return VestingLedger.retireMember(ledger, member, beneficiary);
+    }
+
+    function advanceAndRetire(uint64 through, uint256 steps, uint256 member, address beneficiary)
+        external
+    {
+        VestingLedger.advanceTo(ledger, through, steps);
+        VestingLedger.retireMember(ledger, member, beneficiary);
+    }
+
+    function retired(address beneficiary) external view returns (uint256) {
+        return ledger.retiredCreditScaled[beneficiary];
+    }
+
+    function totalShares() external view returns (uint256) {
+        return ledger.totalShares;
+    }
+
+    function accountingFingerprint() external view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                ledger.accountedThrough,
+                ledger.heap,
+                ledger.earnedScaled,
+                ledger.unearnedScaled,
+                ledger.activeRates,
+                ledger.rewardPerShare,
+                ledger.rewardCarry,
+                ledger.distributionDust,
+                ledger.unassigned,
+                ledger.totalShares
+            )
+        );
+    }
+
     function fundAllocations(
         uint256 member,
         uint256[4] memory amounts,
@@ -305,12 +348,178 @@ contract VestingSchedulerTest is Test {
         scheduler.fund(1, 10, START, 10);
         vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);
         scheduler.process(START + 10, 0);
-        vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);
         scheduler.process(START + 10, 101);
         vm.expectRevert(VestingLedger.AccountingInvariant.selector);
         scheduler.process(START - 1, 1);
-        assertEq(scheduler.earned(), 0);
-        assertEq(scheduler.count(), 1);
+        assertEq(scheduler.earned(), 10 * Q);
+        assertEq(scheduler.count(), 0);
+    }
+
+    function test_allEqualTimeFundingTailsSettleBeforeRetirement() public {
+        scheduler.weight(1, 1, true);
+        scheduler.weight(2, 2, true);
+        scheduler.fundAllocations(9, [uint256(0), 1, 0, 0], START, 3, address(0));
+        scheduler.fundAllocations(2, [uint256(0), 1, 0, 0], START, 3, address(0));
+        scheduler.fundAllocations(5, [uint256(0), 1, 0, 0], START, 3, address(0));
+
+        VestingLedger.ProcessResult memory first = scheduler.advance(START + 3, 1);
+        assertEq(first.processed, 1);
+        assertEq(first.accountedThrough, START + 3);
+        assertFalse(first.complete);
+        assertEq(scheduler.node(0).tokenId, 5);
+        // Each duration-three stream leaves one scaled unit at its END.
+        assertEq(first.earnedScaled, 3 * Q - 2);
+        assertEq(scheduler.credit(1), Q - 1);
+        assertEq(scheduler.carry(), 1);
+        vm.expectRevert(VestingLedger.AccountingInvariant.selector);
+        scheduler.retire(1, address(11));
+        assertEq(scheduler.totalShares(), 3);
+        assertEq(scheduler.retired(address(11)), 0);
+
+        VestingLedger.ProcessResult memory second = scheduler.advance(START + 3, 1);
+        assertFalse(second.complete);
+        assertEq(second.earnedScaled, 1);
+        assertEq(scheduler.node(0).tokenId, 9);
+        assertEq(scheduler.carry(), 2);
+        VestingLedger.ProcessResult memory last = scheduler.advance(START + 3, 1);
+        assertEq(last.processed, 1);
+        assertTrue(last.complete, "final permitted END must complete the funding phase");
+        assertEq(last.earnedScaled, 1);
+        assertEq(scheduler.retire(1, address(11)), Q);
+        assertEq(scheduler.credit(1), 0);
+        assertEq(scheduler.retired(address(11)), Q);
+        assertEq(scheduler.credit(2), 2 * Q);
+        assertEq(scheduler.totalShares(), 2);
+        assertEq(scheduler.carry(), 0);
+        assertEq(scheduler.dust(), 0);
+    }
+
+    function test_equalTimeFutureStartMustFinishBeforeRetirementAndEarnsOnlyAfterIt() public {
+        scheduler.weight(1, 1, true);
+        scheduler.weight(2, 1, true);
+        scheduler.fundAllocations(1, [uint256(0), 2, 0, 0], START, 3, address(0));
+        scheduler.fundAllocations(9, [uint256(0), 6, 0, 0], START + 3, 3, address(0));
+
+        VestingLedger.ProcessResult memory first = scheduler.advance(START + 3, 1);
+        assertFalse(first.complete);
+        assertEq(scheduler.node(0).tokenId, 9);
+        assertTrue(scheduler.node(0).isStart);
+        vm.expectRevert(VestingLedger.AccountingInvariant.selector);
+        scheduler.retire(1, address(11));
+        VestingLedger.ProcessResult memory start = scheduler.advance(START + 3, 1);
+        assertTrue(start.complete);
+        assertEq(start.earnedScaled, 0, "starting funding has no immediate earnings");
+        assertEq(scheduler.retire(1, address(11)), Q);
+
+        vm.warp(START + 100);
+        assertTrue(scheduler.advance(START + 6, 1).complete);
+        assertEq(scheduler.retired(address(11)), Q);
+        assertEq(scheduler.credit(2), 7 * Q);
+        assertEq(scheduler.liabilityScaled(), 8 * Q);
+    }
+
+    function test_retirementFailureRollsBackAttemptedFundingProgress() public {
+        scheduler.weight(1, 1, true);
+        scheduler.fundAllocations(1, [uint256(0), 1, 0, 0], START, 3, address(0));
+        scheduler.fundAllocations(2, [uint256(0), 1, 0, 0], START, 3, address(0));
+        bytes32 before = scheduler.accountingFingerprint();
+
+        vm.expectRevert(VestingLedger.AccountingInvariant.selector);
+        scheduler.advanceAndRetire(START + 3, 1, 1, address(11));
+        assertEq(scheduler.accountingFingerprint(), before);
+        assertEq(scheduler.node(0).tokenId, 1);
+        assertEq(scheduler.credit(1), 0);
+        assertEq(scheduler.retired(address(11)), 0);
+        assertEq(scheduler.position(1), 1);
+
+        scheduler.advanceAndRetire(START + 3, 2, 1, address(11));
+        assertEq(scheduler.retired(address(11)), 2 * Q);
+        assertEq(scheduler.totalShares(), 0);
+        assertEq(scheduler.count(), 0);
+    }
+
+    function test_zeroRemainingBudgetIntegratesOnlyBeforeNextFundingBoundary() public {
+        scheduler.weight(1, 1, true);
+        scheduler.fundAllocations(1, [uint256(0), 1, 0, 0], START, 3, address(0));
+        VestingLedger.ProcessResult memory before = scheduler.advance(START + 2, 0);
+        assertEq(before.processed, 0);
+        assertTrue(before.complete);
+        assertEq(before.accountedThrough, START + 2);
+        assertEq(before.earnedScaled, 2 * (Q / 3));
+        bytes32 fingerprint = scheduler.accountingFingerprint();
+
+        VestingLedger.ProcessResult memory blocked = scheduler.advance(START + 4, 0);
+        assertFalse(blocked.complete);
+        assertEq(blocked.processed, 0);
+        assertEq(blocked.earnedScaled, 0);
+        assertEq(blocked.accountedThrough, START + 2);
+        assertEq(scheduler.accountingFingerprint(), fingerprint);
+
+        assertTrue(scheduler.advance(START + 3, 1).complete);
+        assertEq(scheduler.retire(1, address(11)), Q);
+        VestingLedger.ProcessResult memory idle = scheduler.advance(START + 4, 0);
+        assertTrue(idle.complete);
+        assertEq(idle.processed, 0);
+        assertEq(idle.accountedThrough, START + 4);
+        assertEq(idle.earnedScaled, 0);
+    }
+
+    function testFuzz_retirementCreditAndDustAreIdenticalAcrossDelaysAndBatchSplits(uint8 steps)
+        public
+    {
+        uint256 budget = bound(steps, 1, 25);
+        VestingSchedulerHarness punctual = _retirementHistory();
+        VestingSchedulerHarness delayed = _retirementHistory();
+        for (uint64 time = START + 1; time <= START + 9; ++time) {
+            vm.warp(time);
+            _advanceFully(punctual, time, 1);
+            if (time == START + 3) punctual.retire(1, address(11));
+            if (time == START + 6) punctual.retire(2, address(22));
+        }
+
+        // The caller supplies historical expiration boundaries even though the
+        // actual clock has advanced beyond both. No wall-clock eligibility filter
+        // may discard the index earnings accumulated through those boundaries.
+        vm.warp(START + 100);
+        _advanceFully(delayed, START + 3, budget);
+        delayed.retire(1, address(11));
+        _advanceFully(delayed, START + 6, budget);
+        delayed.retire(2, address(22));
+        _advanceFully(delayed, START + 9, budget);
+
+        uint256 firstIndex = 10 * Q / 7;
+        uint256 secondIndex = 12 * Q / 5;
+        uint256 expectedDust = 10 * Q % 7 + 12 * Q % 5;
+        assertEq(delayed.retired(address(11)), 2 * firstIndex);
+        assertEq(delayed.retired(address(22)), 5 * firstIndex + 5 * secondIndex);
+        assertEq(delayed.dust(), expectedDust);
+        assertEq(delayed.unassigned(), 6 * Q);
+        assertEq(delayed.liabilityScaled(), 28 * Q);
+        assertEq(delayed.totalShares(), 0);
+        assertEq(delayed.count(), 0);
+        assertEq(delayed.credit(1), 0);
+        assertEq(delayed.credit(2), 0);
+        assertEq(delayed.accountingFingerprint(), punctual.accountingFingerprint());
+        assertEq(delayed.retired(address(11)), punctual.retired(address(11)));
+        assertEq(delayed.retired(address(22)), punctual.retired(address(22)));
+    }
+
+    function _retirementHistory() private returns (VestingSchedulerHarness result) {
+        result = new VestingSchedulerHarness(START);
+        result.weight(1, 2, true);
+        result.weight(2, 5, true);
+        result.fundAllocations(10, [uint256(0), 2, 0, 0], START, 3, address(0));
+        result.fundAllocations(20, [uint256(0), 3, 0, 0], START, 3, address(0));
+        result.fundAllocations(30, [uint256(0), 5, 0, 0], START, 3, address(0));
+        result.fundAllocations(30, [uint256(0), 12, 0, 0], START + 3, 6, address(0));
+        result.fundAllocations(7, [uint256(0), 6, 0, 0], START + 3, 3, address(0));
+    }
+
+    function _advanceFully(VestingSchedulerHarness target, uint64 through, uint256 budget) private {
+        for (uint256 i; i < 8; ++i) {
+            if (target.advance(through, budget).complete) return;
+        }
+        fail("bounded funding history must finish");
     }
 
     function testFuzz_heapOrderingAndPositionsSurviveEveryPop(uint256 seed, uint8 size) public {

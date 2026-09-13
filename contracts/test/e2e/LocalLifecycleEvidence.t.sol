@@ -64,7 +64,7 @@ contract LocalLifecycleEvidenceTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(paymentTokens)
         );
 
@@ -103,22 +103,46 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(page.length, 1);
         assertEq(page[0], address(tier));
         assertEq(tier.owner(), creator);
-        assertFalse(tier.isActive(member));
+        assertFalse(
+            (tier.tokensOfOwner(member, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+        );
 
         vm.prank(member);
-        uint256 memberToken = tier.purchase(1, referrer);
+        uint256 memberToken = tier.createMembership(1, referrer, 25);
         string memory activeTokenURI = tier.tokenURI(memberToken);
         assertGt(bytes(activeTokenURI).length, 0);
         vm.prank(giftPayer);
-        uint256 giftToken =
-            tier.gift(giftRecipient, 1, MembershipTypes.ReferralStatus.Unset, address(0));
+        uint256 giftToken = tier.giftMembership(giftRecipient, 1, 25);
         vm.prank(member);
-        assertEq(tier.purchase(1, referrer), memberToken);
+        tier.renewMembership(memberToken, 1, referrer, 25);
 
-        assertEq(tier.tokenOf(member), memberToken);
-        assertEq(tier.tokenOf(giftRecipient), giftToken);
-        assertEq(tier.activeBalanceOf(member), 1);
-        assertEq(tier.activeBalanceOf(giftRecipient), 1);
+        assertEq(
+            (tier.tokensOfOwner(member, 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(member, 0, 1).tokenIds[0]),
+            memberToken
+        );
+        assertEq(
+            (tier.tokensOfOwner(giftRecipient, 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(giftRecipient, 0, 1).tokenIds[0]),
+            giftToken
+        );
+        assertEq(
+            ((tier.tokensOfOwner(member, 0, 1).balance != 0
+                        && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+                    ? 1
+                    : 0),
+            1
+        );
+        assertEq(
+            ((tier.tokensOfOwner(giftRecipient, 0, 1).balance != 0
+                        && tier.isActiveToken(tier.tokensOfOwner(giftRecipient, 0, 1).tokenIds[0]))
+                    ? 1
+                    : 0),
+            1
+        );
         assertTrue(tier.isActiveToken(memberToken));
         assertTrue(tier.isActiveToken(giftToken));
         assertEq(tier.sharesOf(memberToken), 20_000_000);
@@ -144,13 +168,19 @@ contract LocalLifecycleEvidenceTest is Test {
         _assertTierCustody(0);
 
         vm.prank(creator);
-        uint256 grantToken = tier.grantTime(grantRecipient, 1);
-        assertTrue(tier.isActive(grantRecipient));
+        uint256 grantToken = tier.grantMembership(grantRecipient, 1, 25);
+        assertTrue(
+            (tier.tokensOfOwner(grantRecipient, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(grantRecipient, 0, 1).tokenIds[0]))
+        );
         vm.prank(creator);
-        assertEq(tier.revokeGrantTime(grantToken), 30 days);
-        assertFalse(tier.isActive(grantRecipient));
-        assertTrue(tier.isOccupied(grantToken));
-        assertEq(_syncAs(tier, grantToken, creator), 1);
+        assertEq(tier.revokeGrantTime(grantToken, grantRecipient, 25), 30 days);
+        assertFalse(
+            (tier.tokensOfOwner(grantRecipient, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(grantRecipient, 0, 1).tokenIds[0]))
+        );
+        assertFalse(tier.isOccupied(grantToken));
+        assertEq(_syncAs(tier, grantToken, creator), 0);
         assertFalse(tier.isOccupied(grantToken));
         _assertTierCustody(0);
 
@@ -166,30 +196,45 @@ contract LocalLifecycleEvidenceTest is Test {
         assertTrue(refundPreview.complete);
         assertEq(refundPreview.grossRefund, 15_000_000);
         vm.prank(nextCreator);
-        uint256 refundPaid = tier.refund(memberToken, refundPreview.grossRefund);
+        uint256 refundPaid = tier.refund(memberToken, member, refundPreview.grossRefund, 25);
         assertEq(refundPaid, refundPreview.grossRefund);
-        assertFalse(tier.isActive(member));
-        assertEq(tier.ownerOf(memberToken), member);
-        assertEq(tier.balanceOf(member), 1);
-        assertTrue(tier.isOccupied(memberToken));
-        assertEq(_syncAs(tier, memberToken, nextCreator), 1);
+        assertFalse(
+            (tier.tokensOfOwner(member, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
+        );
+        vm.expectRevert();
+        tier.ownerOf(memberToken);
+        assertEq(tier.balanceOf(member), 0);
+        assertFalse(tier.isOccupied(memberToken));
+        assertEq(_syncAs(tier, memberToken, nextCreator), 0);
         _assertTierCustody(0);
 
         vm.warp(_START + 31 days);
         vm.expectRevert();
         tier.tokenURI(memberToken);
-        assertFalse(tier.isActive(giftRecipient));
-        assertEq(tier.activeBalanceOf(giftRecipient), 0);
+        assertFalse(
+            (tier.tokensOfOwner(giftRecipient, 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(giftRecipient, 0, 1).tokenIds[0]))
+        );
+        assertEq(
+            ((tier.tokensOfOwner(giftRecipient, 0, 1).balance != 0
+                        && tier.isActiveToken(tier.tokensOfOwner(giftRecipient, 0, 1).tokenIds[0]))
+                    ? 1
+                    : 0),
+            0
+        );
         assertTrue(tier.isOccupied(giftToken));
         assertEq(_syncAs(tier, giftToken, nextCreator), 1);
         assertEq(tier.occupiedSupply(), 0);
 
-        assertEq(tier.claimableReward(memberToken), 333_333);
-        assertEq(tier.claimableReward(giftToken), 416_666);
+        (uint256 memberCredit,) = tier.claimableRetiredReward(member);
+        (uint256 giftCredit,) = tier.claimableRetiredReward(giftRecipient);
+        assertEq(memberCredit, 333_333);
+        assertEq(giftCredit, 416_666);
         vm.prank(member);
-        assertEq(tier.claimReward(memberToken), 333_333);
+        assertEq(tier.claimRetiredRewards(), 333_333);
         vm.prank(giftRecipient);
-        assertEq(tier.claimReward(giftToken), 416_666);
+        assertEq(tier.claimRetiredRewards(), 416_666);
         vm.prank(referrer);
         assertEq(tier.claimReferral(), 49_999);
         vm.prank(nextCreator);
@@ -238,16 +283,16 @@ contract LocalLifecycleEvidenceTest is Test {
         paymentToken.mint(member, 120_000_000);
         vm.startPrank(member);
         paymentToken.approve(address(target), type(uint256).max);
-        uint256 id = target.purchase(12, referrer);
+        uint256 id = target.createMembership(12, referrer, 25);
         vm.stopPrank();
         MembershipTypes.EarnedBalances memory cash =
-        target.previewAccounting(id, referrer, 0).settled;
+        target.previewAccounting(id, address(0), referrer, 0).settled;
         assertEq(cash.creator + cash.member + cash.referral + cash.protocol, 0);
         assertEq(target.totalProtectedLiability(), 120_000_000);
         assertEq(target.sharesOf(id), 120_000_000);
         vm.warp(_START + 30);
         target.processAccounting(25);
-        cash = target.previewAccounting(id, referrer, 0).settled;
+        cash = target.previewAccounting(id, address(0), referrer, 0).settled;
         assertEq(cash.creator, 24_000_000);
         assertLe(3_000_000 - cash.member, 1);
         assertEq(cash.referral, 1_500_000);
@@ -255,7 +300,7 @@ contract LocalLifecycleEvidenceTest is Test {
         vm.prank(creator);
         uint256 creatorCash = target.withdrawCreatorProceeds();
         vm.prank(member);
-        uint256 memberCash = target.claimReward(id);
+        uint256 memberCash = target.claimReward(id, 25);
         vm.prank(referrer);
         uint256 referralCash = target.claimReferral();
         uint256 protocolCash = target.releaseProtocolFees();
@@ -264,7 +309,7 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(referralCash, cash.referral);
         assertEq(protocolCash, cash.protocol);
         vm.prank(creator);
-        uint256 refunded = target.refund(id, 90_000_000);
+        uint256 refunded = target.refund(id, member, 90_000_000, 25);
         assertEq(refunded, 90_000_000);
         uint256 remainder = paymentToken.balanceOf(address(target));
         assertEq(
@@ -291,8 +336,8 @@ contract LocalLifecycleEvidenceTest is Test {
         paymentToken.mint(member, 120_000_000);
         vm.startPrank(member);
         paymentToken.approve(address(target), type(uint256).max);
-        uint256 id = target.contribute(0, address(0));
-        target.contribute(120_000_000, referrer);
+        uint256 id = target.createContributionMembership(0, address(0), 25);
+        target.renewContributionMembership(id, 120_000_000, referrer, 25);
         vm.stopPrank();
         MembershipTypes.AllocationLot[] memory lots = target.allocationLots(id, 0, 0, 100);
         assertEq(lots.length, 1);
@@ -345,6 +390,6 @@ contract LocalLifecycleEvidenceTest is Test {
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
         vm.prank(tierOwner);
-        burnedCount = target.synchronizeExpiredMemberships(tokenIds);
+        burnedCount = target.processExpirations(25).retiredCount;
     }
 }

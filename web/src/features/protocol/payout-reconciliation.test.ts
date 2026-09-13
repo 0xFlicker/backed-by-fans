@@ -6,12 +6,15 @@ import {
 } from "viem";
 import { describe, expect, it } from "vitest";
 
-import { membershipTierAbi } from "@/contracts";
+import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import {
+  receiptSelectedRewards,
   receiptMembershipRefund,
   receiptProvesPayment,
   receiptReferralClaim,
   receiptRewardClaim,
+  receiptMembershipMaintenance,
+  receiptRetiredReward,
 } from "@/features/protocol/payout-reconciliation";
 
 const tier = getAddress("0x1111111111111111111111111111111111111111");
@@ -20,6 +23,64 @@ const creator = getAddress("0x3333333333333333333333333333333333333333");
 const other = getAddress("0x4444444444444444444444444444444444444444");
 
 describe("payout receipt reconciliation", () => {
+  it("uses the final combined maintenance event instead of an intermediate ledger event", () => {
+    const progress = (steps: bigint, retired: bigint, address = tier) =>
+      ({
+        address,
+        data: encodeAbiParameters(
+          [
+            { type: "uint64" },
+            { type: "uint256" },
+            { type: "bool" },
+            { type: "uint256" },
+            { type: "uint256" },
+          ],
+          [1000n, steps, false, 0n, retired],
+        ),
+        topics: encodeEventTopics({
+          abi: membershipTierAbi,
+          eventName: "AccountingProgress",
+        }),
+      }) as Log;
+    expect(
+      receiptMembershipMaintenance(
+        {
+          logs: [progress(1n, 0n), progress(25n, 24n), progress(8n, 8n, other)],
+        },
+        tier,
+      ),
+    ).toMatchObject({
+      processedSteps: 25n,
+      retiredCount: 24n,
+      complete: false,
+    });
+    expect(receiptMembershipMaintenance({ logs: [] }, tier)).toBeUndefined();
+  });
+  it("attributes ended credit only to the receipt owner and tier", () => {
+    const receipt = {
+      logs: [
+        {
+          address: tier,
+          data: encodeAbiParameters([{ type: "uint256" }], [9n]),
+          topics: encodeEventTopics({
+            abi: membershipTierAbi,
+            eventName: "RetiredRewardClaimed",
+            args: { owner },
+          }),
+        } as Log,
+      ],
+    };
+    expect(receiptRetiredReward(receipt, { tier, owner })).toEqual({
+      amount: 9n,
+      recipient: owner,
+    });
+    expect(
+      receiptRetiredReward(receipt, { tier, owner: other }),
+    ).toBeUndefined();
+    expect(
+      receiptRetiredReward(receipt, { tier: other, owner }),
+    ).toBeUndefined();
+  });
   it("proves the exact payer, recipient, gross, and period count", () => {
     const payment = {
       address: tier,
@@ -171,5 +232,101 @@ describe("payout receipt reconciliation", () => {
         maxGrossRefund: 9n,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("selected factory reward receipts", () => {
+  const factory = creator;
+  const selection = [{ tier, tokenIds: [4n, 5n] }];
+  const confirmation = {
+    address: factory,
+    topics: encodeEventTopics({
+      abi: membershipFactoryAbi,
+      eventName: "EverythingClaimed",
+      args: { beneficiary: owner },
+    }),
+    data: encodeAbiParameters([{ type: "uint256" }], [1n]),
+  } as Log;
+  const live = (tokenId = 4n, recipient = owner) =>
+    ({
+      address: tier,
+      topics: encodeEventTopics({
+        abi: membershipTierAbi,
+        eventName: "RewardClaimed",
+        args: { tokenId, owner: recipient },
+      }),
+      data: encodeAbiParameters([{ type: "uint256" }], [7n]),
+    }) as Log;
+  const retired = {
+    address: tier,
+    topics: encodeEventTopics({
+      abi: membershipTierAbi,
+      eventName: "RetiredRewardClaimed",
+      args: { owner },
+    }),
+    data: encodeAbiParameters([{ type: "uint256" }], [3n]),
+  } as Log;
+  const referral = {
+    address: tier,
+    topics: encodeEventTopics({
+      abi: membershipTierAbi,
+      eventName: "ReferralClaimed",
+      args: { referrer: owner },
+    }),
+    data: encodeAbiParameters([{ type: "uint256" }], [2n]),
+  } as Log;
+  const creatorCredit = {
+    address: tier,
+    topics: encodeEventTopics({
+      abi: membershipTierAbi,
+      eventName: "CreatorProceedsWithdrawn",
+      args: { owner },
+    }),
+    data: encodeAbiParameters([{ type: "uint256" }], [11n]),
+  } as Log;
+  it("separates live positions from single-count owner categories", () => {
+    expect(
+      receiptSelectedRewards(
+        {
+          logs: [
+            live(),
+            live(5n),
+            retired,
+            referral,
+            creatorCredit,
+            confirmation,
+          ],
+        },
+        { factory, owner, selection },
+      ),
+    ).toEqual([
+      { tier, liveReward: 14n, retiredReward: 3n, referral: 2n, creator: 11n },
+    ]);
+  });
+  it("requires the exact factory and beneficiary confirmation", () => {
+    expect(() =>
+      receiptSelectedRewards({ logs: [live()] }, { factory, owner, selection }),
+    ).toThrow("did not confirm");
+    expect(() =>
+      receiptSelectedRewards(
+        { logs: [confirmation] },
+        { factory: other, owner, selection },
+      ),
+    ).toThrow("did not confirm");
+  });
+  it("rejects stale IDs, unexpected recipients, and repeated categories", () => {
+    for (const logs of [
+      [live(6n)],
+      [live(4n, other)],
+      [retired, retired],
+      [live(), live()],
+    ]) {
+      expect(() =>
+        receiptSelectedRewards(
+          { logs: [...logs, confirmation] },
+          { factory, owner, selection },
+        ),
+      ).toThrow(/unexpected|repeats/);
+    }
   });
 });

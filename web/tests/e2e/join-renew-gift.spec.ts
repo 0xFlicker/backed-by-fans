@@ -1,7 +1,6 @@
-import { formatRawTokenAmount } from "../../src/lib/token-amount";
+import { expectSingleOwnedPosition } from "./helpers/membership-positions";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { writeFile } from "node:fs/promises";
 
 import { membershipTierAbi } from "../../src/contracts";
 import {
@@ -49,17 +48,16 @@ test.describe("configured Anvil join, renew, and gift", () => {
       await page.reload();
       await connectAnvilWallet(page, member);
 
-      const join = page.getByRole("button", { name: "Join this membership" });
+      const join = page.getByRole("button", { name: "New membership" });
       await expect(join).toBeEnabled();
       await join.click();
-      await expectReconciled(page, "Join this membership");
+      await expectReconciled(page, "New membership");
 
-      const tokenId = await client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "tokenOf",
-        args: [member],
-      });
+      const tokenId = await expectSingleOwnedPosition(client, tier, member);
+
+      await page
+        .getByRole("textbox", { name: "Periods", exact: true })
+        .fill("1");
       const firstExpiration = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
@@ -79,12 +77,38 @@ test.describe("configured Anvil join, renew, and gift", () => {
           .getByRole("heading", { name: "Membership active" }),
       ).toBeVisible();
 
+      await expect(
+        page.getByRole("combobox", { name: "Your memberships" }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Join again", exact: true }),
+      ).toBeVisible();
+      await page
+        .getByRole("region", { name: "Current membership status" })
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath("returning-member-desktop.png"),
+      });
+      await page.setViewportSize({ width: 320, height: 780 });
+      await expect(
+        page.getByRole("button", { name: "Join again", exact: true }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath("returning-member-mobile.png"),
+      });
+      await page.setViewportSize({ width: 1280, height: 720 });
+
       const renew = page.getByRole("button", {
-        name: "Renew active membership",
+        name: `Renew membership #${tokenId}`,
       });
       await expect(renew).toBeEnabled();
       await renew.click();
-      await expectReconciled(page, "Renew active membership");
+      await expectReconciled(page, `Renew membership #${tokenId}`);
       const renewedExpiration = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
@@ -94,7 +118,9 @@ test.describe("configured Anvil join, renew, and gift", () => {
       expect(renewedExpiration - firstExpiration).toBe(2_592_000n);
 
       await page.getByText("Gift this membership", { exact: true }).click();
-      await page.getByLabel("Recipient wallet").fill(recipient);
+      await page
+        .getByLabel("Recipient wallet", { exact: true })
+        .fill(recipient);
       await expect(page.getByText("Total").last().locator("..")).toContainText(
         "10 USDG",
       );
@@ -111,12 +137,11 @@ test.describe("configured Anvil join, renew, and gift", () => {
       await gift.click();
       await expectReconciled(page, "Gift 1 period");
 
-      const recipientToken = await client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "tokenOf",
-        args: [recipient],
-      });
+      const recipientToken = await expectSingleOwnedPosition(
+        client,
+        tier,
+        recipient,
+      );
       expect(recipientToken).not.toBe(0n);
       await expect(
         client.readContract({
@@ -135,22 +160,18 @@ test.describe("configured Anvil join, renew, and gift", () => {
   });
 });
 
-test("@anvil vesting-lifecycle distinguishes free access, suspended weight and durable claims", async ({
+test("@anvil free renewal preserves a live position and a return starts fresh", async ({
   page,
 }, testInfo) => {
   test.setTimeout(180_000);
-  test.skip(
-    !process.env.BBF_ANVIL_RPC_URL,
-    "Requires a configured local chain.",
-  );
+  test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
   test.skip(
     testInfo.project.name !== "desktop",
-    "One lifecycle is sufficient.",
+    "One mutation history is sufficient.",
   );
   const creator = requiredAnvilAddress("creator");
   const client = anvilPublicClient();
-  const checkpoint = await snapshotAnvil();
-  const evidence: unknown[] = [];
+  const saved = await snapshotAnvil();
   try {
     await installAnvilWallet(page, creator);
     await page.goto("/create");
@@ -160,13 +181,14 @@ test("@anvil vesting-lifecycle distinguishes free access, suspended weight and d
     await connectAnvilWallet(page, creator);
     await page
       .getByLabel("Membership name")
-      .fill("Free access and vested weight");
-    await page.getByLabel("Symbol", { exact: true }).fill("LIFE");
+      .fill("Independent free memberships");
+    await page.getByLabel("Symbol", { exact: true }).fill("FRESH");
     await page.getByRole("button", { name: /^price & period$/i }).click();
     await page.getByLabel(/price per period/i).fill("0");
     await page.getByRole("button", { name: /^risks$/i }).click();
-    await page.getByRole("checkbox").nth(0).check();
-    await page.getByRole("checkbox").nth(1).check();
+    await page
+      .getByRole("checkbox", { name: /I understand the price, period/ })
+      .check();
     await page.getByRole("button", { name: /^review$/i }).click();
     await page.getByRole("button", { name: "Publish this membership" }).click();
     await expect(
@@ -176,156 +198,127 @@ test("@anvil vesting-lifecycle distinguishes free access, suspended weight and d
       .locator(".creator-success code")
       .first()
       .innerText()) as `0x${string}`;
+    const common = { address: tier, abi: membershipTierAbi } as const;
     await page.getByRole("link", { name: "Open membership page" }).click();
     const contribution = page.getByLabel(/optional USDG contribution/i);
-    const pay = page.getByRole("button", { name: "Add one membership period" });
     await contribution.fill("10");
-    await pay.click();
+    await page
+      .getByRole("button", { name: "New membership", exact: true })
+      .click();
     await expectReconciled(page);
-    const id = await client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "tokenOf",
-      args: [creator],
-    });
+    const id = await expectSingleOwnedPosition(client, tier, creator);
+
     const oldShares = await client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
+      ...common,
       functionName: "sharesOf",
       args: [id],
     });
-    const status = page.getByRole("region", {
-      name: "Current membership status",
+    const oldExpiration = await client.readContract({
+      ...common,
+      functionName: "expiresAt",
+      args: [id],
     });
-    const read = async () => {
-      const [time, shares, eligible, claim] = await Promise.all([
-        client.readContract({
-          address: tier,
-          abi: membershipTierAbi,
-          functionName: "timeBalances",
-          args: [id],
-        }),
-        client.readContract({
-          address: tier,
-          abi: membershipTierAbi,
-          functionName: "sharesOf",
-          args: [id],
-        }),
-        client.readContract({
-          address: tier,
-          abi: membershipTierAbi,
-          functionName: "rewardEligible",
-          args: [id],
-        }),
-        client.readContract({
-          address: tier,
-          abi: membershipTierAbi,
-          functionName: "claimableReward",
-          args: [id],
-        }),
-      ]);
-      evidence.push({
-        time: time.map(String),
-        shares: String(shares),
-        eligible,
-        claim: String(claim),
-      });
-      return { shares, eligible, claim };
-    };
-    const expire = async () => {
-      const expiration = await client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "expiresAt",
+    await contribution.fill("0");
+    await page.getByRole("button", { name: `Renew membership #${id}` }).click();
+    await expectReconciled(page);
+    expect(
+      await client.readContract({
+        ...common,
+        functionName: "sharesOf",
         args: [id],
-      });
-      await rpcRequest("evm_setNextBlockTimestamp", [Number(expiration + 1n)]);
-      await rpcRequest("evm_mine");
-      await page.reload();
-      await expect(status.getByText("Inactive", { exact: true })).toBeVisible();
-    };
-    const creatorWrite = async (
-      functionName: "synchronizeExpiredMemberships" | "grantTime" | "setPaused",
-      args: readonly unknown[],
-    ) =>
-      expectSuccessfulReceipt(
-        await sendContract({
-          account: creator,
-          address: tier,
-          abi: membershipTierAbi,
-          functionName,
-          args,
-        }),
-      );
-    await contribution.fill("0");
-    await pay.click();
-    await expectReconciled(page);
-    expect((await read()).shares).toBe(oldShares);
-    await expire();
-    await expect(status.getByText("Eligible", { exact: true })).toBeVisible();
-    await contribution.fill("0");
-    await pay.click();
-    await expectReconciled(page);
-    expect((await read()).eligible).toBe(true);
-    await expire();
-    await creatorWrite("synchronizeExpiredMemberships", [[id]]);
-    await page.reload();
-    await expect(
-      status.getByText("Not eligible", { exact: true }),
-    ).toBeVisible();
-    const suspended = await read();
-    expect(suspended.claim).toBeGreaterThan(0n);
-    await contribution.fill("0");
-    await pay.click();
-    await expectReconciled(page);
-    await expect(status.getByText("Active", { exact: true })).toBeVisible();
-    await expect(
-      status.getByText("Not eligible", { exact: true }),
-    ).toBeVisible();
-    await creatorWrite("grantTime", [creator, 1n]);
-    await page.reload();
-    expect((await read()).eligible).toBe(false);
-    await contribution.fill("0.000001");
-    await expect(pay).toBeDisabled();
-    expect((await read()).eligible).toBe(false);
-    await contribution.fill("1");
-    await pay.click();
-    await expectReconciled(page);
-    await expect(
-      page.getByText(
-        new RegExp(
-          `Historical reward weight restored: ${formatRawTokenAmount({ raw: oldShares, decimals: 6, multiplier: 10n ** 18n })} shares`,
-        ),
-      ),
-    ).toBeVisible();
-    const restored = await read();
-    expect(restored.eligible).toBe(true);
-    expect(restored.shares).toBeGreaterThan(oldShares);
-    expect(restored.claim).toBe(suspended.claim);
-    await creatorWrite("setPaused", [true]);
-    await expire();
-    await creatorWrite("synchronizeExpiredMemberships", [[id]]);
-    await page.reload();
-    await expect(
-      status.getByText("Not eligible", { exact: true }),
-    ).toBeVisible();
-    const memberClaim = page
-      .locator(".claim-row")
-      .filter({ hasText: "Membership rewards" });
-    await page
-      .locator(".claim-groups")
-      .getByRole("button", { name: "Claim rewards" })
-      .click();
-    await expectReconciled(page, "Claim rewards");
-    expect((await read()).claim).toBe(0n);
-    expect((await read()).shares).toBe(restored.shares);
-    const path = testInfo.outputPath("free-access-eligibility-claims.json");
-    await writeFile(path, JSON.stringify(evidence, null, 2));
-    await testInfo.attach("free-access-eligibility-claims.json", {
-      path,
-      contentType: "application/json",
+      }),
+    ).toBe(oldShares);
+    const expiry = await client.readContract({
+      ...common,
+      functionName: "expiresAt",
+      args: [id],
     });
+    expect(expiry).toBeGreaterThan(oldExpiration);
+    const lifetime = await client.readContract({
+      ...common,
+      functionName: "lifetimeGross",
+    });
+    await rpcRequest("evm_setNextBlockTimestamp", [Number(expiry)]);
+    await rpcRequest("evm_mine");
+    await page.reload();
+
+    await expect(
+      page.getByRole("button", { name: "Membership ended", exact: true }),
+    ).toBeDisabled();
+    expectSuccessfulReceipt(
+      await sendContract({
+        ...common,
+        account: creator,
+        functionName: "setPaused",
+        args: [true],
+      }),
+    );
+    expectSuccessfulReceipt(
+      await sendContract({
+        ...common,
+        account: creator,
+        functionName: "processAccounting",
+        args: [25n],
+      }),
+    );
+    expect(
+      await client.readContract({
+        ...common,
+        functionName: "balanceOf",
+        args: [creator],
+      }),
+    ).toBe(0n);
+    expect(
+      await client.readContract({
+        ...common,
+        functionName: "sharesOf",
+        args: [id],
+      }),
+    ).toBe(0n);
+    const retired = await client.readContract({
+      ...common,
+      functionName: "claimableRetiredReward",
+      args: [creator],
+    });
+    expect(retired[0]).toBeGreaterThan(0n);
+    expectSuccessfulReceipt(
+      await sendContract({
+        ...common,
+        account: creator,
+        functionName: "setPaused",
+        args: [false],
+      }),
+    );
+    await page.goto(`/chains/31337/tiers/${tier}`);
+    await connectAnvilWallet(page, creator);
+    await contribution.fill("0");
+    await page
+      .getByRole("button", { name: "New membership", exact: true })
+      .click();
+    await expectReconciled(page);
+    const fresh = await expectSingleOwnedPosition(client, tier, creator);
+    expect(fresh).toBeGreaterThan(id);
+    expect(
+      await client.readContract({
+        ...common,
+        functionName: "sharesOf",
+        args: [fresh],
+      }),
+    ).toBe(0n);
+    expect(
+      await client.readContract({
+        ...common,
+        functionName: "claimableRetiredReward",
+        args: [creator],
+      }),
+    ).toEqual(retired);
+    expect(
+      await client.readContract({ ...common, functionName: "lifetimeGross" }),
+    ).toBe(lifetime);
+    await expect(
+      client.readContract({ ...common, functionName: "ownerOf", args: [id] }),
+    ).rejects.toThrow();
   } finally {
-    await revertAnvil(checkpoint);
+    await revertAnvil(saved);
   }
 });

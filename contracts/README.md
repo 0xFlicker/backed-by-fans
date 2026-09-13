@@ -12,7 +12,7 @@ protocol source or tests.
 - Foundry `v1.7.1`
 - Solidity `0.8.36`
 - EVM target `cancun`
-- OpenZeppelin Contracts `v5.7.0`
+- OpenZeppelin Contracts and Contracts Upgradeable `v5.7.0`
 - forge-std `v1.16.2`
 - Slither `0.11.6` in CI
 
@@ -46,11 +46,7 @@ verifies that it resolves to the approved deployer address. The same determinist
 Safe address is used on testnet and mainnet; mainnet creation has a separate
 explicit confirmation gate.
 
-The media factory, default renderer, preview harness, and production factory
-deploy directly through Foundry's canonical CREATE2 deployer. The factory
-constructor receives the chain's reviewed initial token list, media factory,
-protocol owner, and fee recipient, so each release has a chain-specific payload
-and address. Rehearse or broadcast only through the guarded wrapper:
+The linked ledger, media factory, default renderer, preview harness, locked tier implementation and membership factory deploy through the canonical CREATE2 deployer. The factory constructor receives the reviewed initial token list, media factory, protocol owner, protocol token, fixed implementation and minimum payments; each release has an exact derived payload and address. Rehearse or broadcast only through the guarded wrapper:
 
 ```sh
 ./scripts/deploy-protocol.sh testnet dry-run
@@ -99,7 +95,7 @@ creation code. Deployable runtime, initcode, and transaction gas remain bounded
 by explicit Robinhood limit tests and the guarded deployment preflight.
 
 `FactoryAndFees.t.sol` guards every deployable runtime and initcode against the
-network limits and caps tier creation below 6.5 million gas. The guard is
+network limits and caps the representative clone tier creation below one million gas. The guard is
 deliberately a ceiling rather than exact bytecode or gas equality so harmless
 compiler variation does not make the gate brittle. `RefundsAndOwnership.t.sol`
 also compares refund execution after one and 2,000 variable-price lots, allowing
@@ -117,9 +113,20 @@ The remaining reported categories are retained in CI output for review:
 - `locked-ether` is inapplicable because the payable ERC-5643 signatures reject
   nonzero native value before other logic, while no `receive` or `fallback`
   function exists for other native transfers.
-- `reentrancy-benign` and `reentrancy-events` identify the immutable tier deployer;
-  the factory is its only caller and a new tier constructor cannot call the factory.
+- `reentrancy-benign` and `reentrancy-events` flag registration after clone initialization. The fixed initializer performs trusted library work and static dependency reads, creates no NFT, and invokes no receiver callback. Vault settlement uses its transient reentrancy guard.
 - `timestamp` is the intended subscription clock and refund-time input.
-- `assembly` is isolated to hash-verified tier creation-code storage.
-- `too-many-digits` incorrectly classifies `type(MembershipTier).creationCode` as
+- `assembly` includes standard clone creation, linked accounting and the unrelated buyback executor code store. Exact deployment/runtime proofs are retained separately.
+- `too-many-digits` incorrectly classifies compiler-produced deployment bytecode as
   a numeric literal.
+
+## Membership tier lifecycle and deployment
+
+`MembershipFactory` creates deterministic ERC-1167 clones directly and stores one fixed `implementation` address. Deploy the locked `MembershipTier` implementation separately, after its pinned VestingLedger library. `initialize(config)` takes its factory from the caller and sets each clone's own metadata, ownership and fixed economics exactly once. There is no tier deployer, A/B tier code store, upgrade admin or upgrade method. The unrelated buyback executor code store remains part of deferred protocol-token binding.
+
+Custom membership changes and `claimReward` accept a trailing `maxAccountingSteps`; `claimEverything(requests, maxAccountingSteps)` shares that caller budget across its ordered tiers. Requests must list tier addresses and token IDs in ascending order without duplicates. Standard ERC-5643 entry points use zero queued-event work and require explicit maintenance when a checkpoint is due. Transfers remain independent of accounting catch-up and available while paused.
+
+Maintenance accepts any positive work budget; previews may use zero. Pagination clamps a caller-supplied limit to the remaining data without overflow. Router tier/purchase arrays and vault execution-limit arrays use canonical ascending addresses. These APIs have no fixed iteration maxima. Callers retain ordinary gas and RPC resource constraints; failed atomic operations roll back, while successful maintenance retains progress.
+
+The web's Claim all flow discovers at one block, rechecks captured ownership, chooses transaction batches using simulation and gas estimates, and resumes uncompleted work after wallet rejection. Frontend page and work defaults are application policy.
+
+Validate production runtimes against Robinhood's 98,304-byte runtime and 196,608-byte initcode limits. Larger Foundry test-harness envelopes do not prove production deployability. The fresh local fork on chain 31337 is separate from public explorer verification: verify the shared implementation and factory and test clone recognition during the next authorized testnet deployment. This change performs no public deployment.

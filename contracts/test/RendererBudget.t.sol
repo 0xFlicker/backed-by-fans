@@ -11,7 +11,6 @@ import {Test, console2} from "forge-std/Test.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
-import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {RendererPrimitives} from "../src/renderer/RendererPrimitives.sol";
@@ -60,7 +59,6 @@ contract RendererBudgetTest is Test {
         assertLe(type(OnchainMediaStoreFactory).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
         assertLe(type(MembershipFactory).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
         assertLe(type(MembershipTier).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
-        assertLe(type(MembershipTierDeployer).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
     }
 
     function test_lowLevelCodeStoreBoundaryReservesOneSTOPByte() public view {
@@ -75,7 +73,7 @@ contract RendererBudgetTest is Test {
             address(mediaFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(
                 MembershipTestConfig.paymentTokens(IERC20(address(paymentToken)))
             )
@@ -84,7 +82,7 @@ contract RendererBudgetTest is Test {
             address(this), address(renderer), address(paymentToken)
         );
         MembershipTier tier = MembershipTier(factory.createTier(config));
-        uint256 tokenId = tier.grantTime(makeAddr("no-media-member"), 1);
+        uint256 tokenId = tier.grantMembership(makeAddr("no-media-member"), 1, 25);
 
         uint256 gasBefore = gasleft();
         string memory tokenURI = tier.tokenURI(tokenId);
@@ -92,12 +90,8 @@ contract RendererBudgetTest is Test {
 
         _assertOutputBudget("none", 0, gasUsed, bytes(tokenURI).length);
         assertTrue(factory.isRegisteredTier(address(tier)));
-        MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
         assertLe(address(factory).code.length, _ROBINHOOD_RUNTIME_LIMIT);
         assertLe(address(tier).code.length, _ROBINHOOD_RUNTIME_LIMIT);
-        assertLe(address(tierDeployer).code.length, _ROBINHOOD_RUNTIME_LIMIT);
-        assertLe(tierDeployer.creationCodeStoreA().code.length, 24_576);
-        assertLe(tierDeployer.creationCodeStoreB().code.length, 24_576);
     }
 
     function test_24KiBPublicTierTokenURIPath() public {
@@ -171,18 +165,19 @@ contract RendererBudgetTest is Test {
             digest: digest,
             runtimeCodehash: runtimeCodehash
         });
-        tier = new MembershipTier(
+        tier = MembershipTestConfig.deployTier(
             SyntheticVaultBinding.bind(address(this), address(paymentToken)),
             IERC20(address(paymentToken)),
             config
         );
-        tokenId = tier.grantTime(
+        tokenId = tier.grantMembership(
             makeAddr(
                 string.concat(
                     "member-", vm.toString(mediaLength), "-", vm.toString(uint256(engine))
                 )
             ),
-            1
+            1,
+            25
         );
     }
 

@@ -13,6 +13,8 @@ const reserves = {
     accountedThrough: 1_000n,
     nextBoundary: 1_100n,
     scheduledMembers: 2n,
+    scheduledExpirations: 0n,
+    nextKind: 1,
     complete: false,
   },
 } as const;
@@ -27,7 +29,9 @@ describe("vesting balance summaries", () => {
     expect(screen.getByText("10 units")).toBeVisible();
     expect(screen.getByText(/shared by eligible members/)).toBeVisible();
     expect(
-      screen.getByText(/Claiming rewards settles new earnings automatically/),
+      screen.getByText(
+        /Accounting includes funding and membership expirations/,
+      ),
     ).toBeVisible();
     expect(screen.queryByText("Reserved creator funding")).toBeNull();
     expect(

@@ -1583,7 +1583,6 @@ dd {
 .reward-curve-chart {
   width: 100%;
   max-width: 38rem;
-  animation: reward-curve-enter 180ms ease-out;
 }
 .reward-curve-chart text {
   fill: var(--muted-ink);
@@ -1608,21 +1607,7 @@ dd {
   stroke-width: 3;
 }
 
-@keyframes reward-curve-enter {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .reward-curve-chart {
-    animation: none;
-  }
   .reward-curve-presets label {
     transition: none;
   }
@@ -1660,6 +1645,7 @@ dd {
 }
 
 .creator-field input,
+.creator-field select,
 .creator-field textarea {
   background: var(--house-light);
   border: 1.5px solid var(--strong-line);
@@ -1669,6 +1655,7 @@ dd {
   min-height: 3.15rem;
   padding: 0.8rem 0.9rem;
   width: 100%;
+  min-width: 0;
 }
 
 .creator-field textarea {
@@ -2220,6 +2207,11 @@ dd {
   gap: 1rem;
 }
 
+.management-controls {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .control-group {
   background: var(--paper);
   border: 1.5px solid var(--strong-line);
@@ -2709,6 +2701,18 @@ dd {
   justify-content: flex-end;
 }
 
+.membership-explorer-link {
+  color: var(--muted-ink);
+  font-size: 0.8125rem;
+  text-underline-offset: 0.2em;
+}
+
+.membership-explorer-link:hover,
+.membership-explorer-link:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
 .membership-share-trigger,
 .share-dialog-native {
   gap: 0.55rem;
@@ -3146,6 +3150,9 @@ dd {
 }
 
 .account-membership-card {
+  position: relative;
+  isolation: isolate;
+  grid-template-rows: auto 1fr;
   background: var(--paper);
   border: 2px solid var(--strong-line);
   border-radius: var(--radius);
@@ -3157,6 +3164,24 @@ dd {
 .account-card-artwork-link {
   display: block;
   text-decoration: none;
+}
+
+.account-card-artwork-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.account-card-artwork-link:focus-visible::after {
+  outline: 2px solid var(--ink);
+  outline-offset: -4px;
+}
+
+.account-card-copy :is(a, button) {
+  position: relative;
+  z-index: 2;
 }
 
 .account-card-artwork {
@@ -3191,9 +3216,31 @@ dd {
 
 .account-card-copy {
   display: grid;
+  align-content: start;
   gap: 1.25rem;
   min-height: 16rem;
   padding: 1.35rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.membership-transfer,
+.account-rewards fieldset {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.membership-transfer button,
+.account-rewards button {
+  white-space: normal;
+  max-width: 100%;
+}
+
+.membership-transfer :focus-visible,
+.account-rewards :focus-visible,
+[aria-label="Membership selection"] :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
 }
 
 .account-card-identity {
@@ -3213,32 +3260,67 @@ dd {
   font-weight: 680;
 }
 
-.account-card-balances {
-  background: var(--selection-surface);
-  border-radius: var(--radius-small);
+.account-position-list {
   display: grid;
-  gap: 0.85rem;
+  gap: 1.25rem;
+  list-style: none;
+  padding: 0;
   margin: 0;
-  padding: 1rem;
 }
-
+.account-position {
+  display: grid;
+  gap: 0.65rem;
+}
+.account-position-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+}
+.account-token-id {
+  color: var(--muted-ink);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.75rem;
+}
+.account-position-reward,
+.account-card-balances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin: 0;
+}
+.account-position-reward {
+  display: grid;
+  gap: 0.2rem;
+}
 .account-card-balances > div {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
-
+.account-position-reward dt,
 .account-card-balances dt {
   color: var(--muted-ink);
-  font-size: 0.7rem;
-  font-weight: 760;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 450;
 }
-
+.account-position-reward dd,
 .account-card-balances dd {
   font-size: 1.2rem;
-  font-weight: 720;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
   margin: 0;
+}
+.account-more-memberships {
+  justify-self: start;
+}
+.account-reward-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted-ink);
 }
 
 .account-tier-actions {
@@ -4111,4 +4193,139 @@ dd {
 .protocol-page .button {
   max-width: 100%;
   white-space: normal;
+}
+
+.account-rewards .creator-field input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+  margin-inline-end: 0.5rem;
+}
+
+.membership-position-choice {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  color: var(--muted-ink);
+  font-size: 0.9rem;
+}
+
+.membership-position-actions,
+.membership-position-pages,
+.membership-position-actions label {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+
+.membership-position-choice select {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--ink);
+  font: inherit;
+  max-width: 100%;
+  padding: 0.4rem 0;
+}
+
+.membership-position-choice button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.4rem 0;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.membership-position-choice button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.membership-position-choice :is(button, select):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+
+.membership-position-choice p {
+  margin: 0;
+}
+
+.reward-curve-custom > .creator-field {
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  margin-top: 0;
+}
+
+.reward-curve-copy-row {
+  display: grid;
+}
+
+.reward-curve-copy-row > span {
+  grid-area: 1 / 1;
+}
+
+.reward-curve-copy-reserve {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.reward-curve-copy-reserve[data-copy]::before,
+.reward-curve-copy-reserve [data-copy]::before {
+  content: attr(data-copy);
+}
+
+.membership-transfer {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.membership-transfer-intro {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.membership-transfer h2 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.membership-transfer p {
+  margin: 0;
+}
+
+.membership-transfer > .creator-field {
+  margin-top: 0;
+}
+
+.membership-transfer .creator-field > .field-hint {
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.membership-transfer-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  line-height: 1.6;
+}
+
+.membership-transfer-confirmation input {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.3rem;
+}
+
+.membership-transfer > .button {
+  justify-self: start;
+  margin: 0;
 }

@@ -10,6 +10,13 @@ export async function prepareAdvance(
   client: PublicClient,
   factory: Address,
   selectedTier?: Address,
+  bounds: {
+    tierOffset?: bigint;
+    tierLimit?: bigint;
+    assetOffset?: bigint;
+    assetLimit?: bigint;
+    maxAccountingSteps?: bigint;
+  } = {},
 ) {
   const block = await client.getBlock();
   const blockNumber = block.number;
@@ -46,13 +53,28 @@ export async function prepareAdvance(
         blockNumber,
       }),
     ]);
-  if (tokenCount > 100n)
+  const tierLimit = bounds.tierLimit ?? 8n;
+  const assetLimit = bounds.assetLimit ?? 100n;
+  const accountingBudget = bounds.maxAccountingSteps ?? 25n;
+  if (tierLimit <= 0n || assetLimit <= 0n || accountingBudget < 0n)
     throw new Error(
-      "This protocol exceeds the browser's discovery limit. Use the execution runner.",
+      "Use positive discovery page sizes and a nonnegative work budget.",
     );
-  const tierPages = tierCount === 0n ? 1n : (tierCount + 7n) / 8n;
-  const tierOffset = (blockNumber % tierPages) * 8n;
-  const tierLength = tierCount - tierOffset < 8n ? tierCount - tierOffset : 8n;
+  const tierPages =
+    tierCount === 0n ? 1n : (tierCount + tierLimit - 1n) / tierLimit;
+  const tierOffset = bounds.tierOffset ?? (blockNumber % tierPages) * tierLimit;
+  const assetPages =
+    tokenCount === 0n ? 1n : (tokenCount + assetLimit - 1n) / assetLimit;
+  const assetOffset =
+    bounds.assetOffset ?? (blockNumber % assetPages) * assetLimit;
+  if (tierOffset < 0n || assetOffset < 0n)
+    throw new Error("Discovery offsets cannot be negative.");
+  const tierLength =
+    tierOffset >= tierCount
+      ? 0n
+      : tierCount - tierOffset < tierLimit
+        ? tierCount - tierOffset
+        : tierLimit;
   if (
     selectedTier &&
     !(await client.readContract({
@@ -79,7 +101,7 @@ export async function prepareAdvance(
     address: factory,
     abi: membershipFactoryAbi,
     functionName: "paymentTokens",
-    args: [0n, tokenCount],
+    args: [assetOffset, assetLimit],
     blockNumber,
   });
   const canonical = await Promise.all(
@@ -96,10 +118,6 @@ export async function prepareAdvance(
   const assets = [
     ...new Set(canonical.map((asset) => asset.toLowerCase() as Address)),
   ];
-  if (assets.length > 32)
-    throw new Error(
-      "This protocol exceeds the browser's 32-currency batch limit.",
-    );
   const discovery = await Promise.allSettled(
     tiers.map(async (tier) => {
       const [status, held] = await Promise.all([
@@ -124,18 +142,18 @@ export async function prepareAdvance(
   const ready = discovery.flatMap((item) =>
     item.status === "fulfilled" &&
     (item.value.held > 0n ||
-      (!item.value.status.complete && item.value.status.scheduledMembers > 0n))
+      (!item.value.status.complete && item.value.status.nextBoundary > 0n))
       ? [item.value]
       : [],
   );
   const accountingCount = ready.filter(
-    (item) => !item.status.complete && item.status.scheduledMembers > 0n,
+    (item) => !item.status.complete && item.status.nextBoundary > 0n,
   ).length;
-  let remaining = 25n;
+  let remaining = accountingBudget;
   let remainingTiers = accountingCount;
   const advanceTiers = ready.map((item) => {
     const maxAccountingSteps =
-      !item.status.complete && item.status.scheduledMembers > 0n
+      !item.status.complete && item.status.nextBoundary > 0n
         ? remaining / BigInt(remainingTiers--)
         : 0n;
     remaining -= maxAccountingSteps;
@@ -146,38 +164,38 @@ export async function prepareAdvance(
   ).length;
   const purchases = await Promise.all(
     (protocolToken === zeroAddress ? [] : assets).map(async (asset) => {
-      const [revision, lastBuy] = await Promise.all([
-        client.readContract({
-          address: vault,
-          abi: protocolBuybackVaultAbi,
-          functionName: "revision",
-          args: [asset],
-          blockNumber,
-        }),
-        client.readContract({
-          address: vault,
-          abi: protocolBuybackVaultAbi,
-          functionName: "lastAssetBuyAt",
-          args: [asset],
-          blockNumber,
-        }),
-      ]);
-      return { asset, revision, lastBuy };
+      const revision = await client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "revision",
+        args: [asset],
+        blockNumber,
+      });
+      return { asset, revision };
     }),
-  );
-  // Give currencies waiting longest the first opportunity under a global cooldown.
-  purchases.sort((a, b) =>
-    a.lastBuy < b.lastBuy ? -1 : a.lastBuy > b.lastBuy ? 1 : 0,
   );
   return {
     router,
     vault,
     blockNumber,
     timestamp: block.timestamp,
-    tiers: advanceTiers,
+    tiers: advanceTiers.sort((a, b) =>
+      a.tier.toLowerCase().localeCompare(b.tier.toLowerCase()),
+    ),
     unavailableTiers,
-    purchases: purchases.map(({ asset, revision }) => ({ asset, revision })),
+    purchases: purchases
+      .map(({ asset, revision }) => ({ asset, revision }))
+      .sort((a, b) =>
+        a.asset.toLowerCase().localeCompare(b.asset.toLowerCase()),
+      ),
     deadline: block.timestamp + 300n,
+    nextTierOffset:
+      tierOffset + tierLength < tierCount ? tierOffset + tierLength : null,
+    nextAssetOffset:
+      assetOffset + BigInt(tokens.length) < tokenCount
+        ? assetOffset + BigInt(tokens.length)
+        : null,
+    purchaseCoverageIncomplete: BigInt(tokens.length) < tokenCount,
     accountingCoverageIncomplete:
       !selectedTier && BigInt(tiers.length) < tierCount,
   };

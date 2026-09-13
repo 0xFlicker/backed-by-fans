@@ -12,9 +12,20 @@ it.each([
   { nextBoundary: 1000n, scheduledMembers: 1n, checkpointsDue: true },
   { nextBoundary: 1100n, scheduledMembers: 1n, checkpointsDue: false },
   { nextBoundary: 0n, scheduledMembers: 0n, checkpointsDue: false },
+  {
+    nextBoundary: 950n,
+    scheduledMembers: 300n,
+    checkpointsDue: true,
+    previewComplete: false,
+  },
 ])(
   "aggregates funding and detects due checkpoints at $nextBoundary with $scheduledMembers scheduled",
-  async ({ nextBoundary, scheduledMembers, checkpointsDue }) => {
+  async ({
+    nextBoundary,
+    scheduledMembers,
+    checkpointsDue,
+    previewComplete = true,
+  }) => {
     const factory = "0x1111111111111111111111111111111111111111",
       vault = "0x2222222222222222222222222222222222222222",
       tier = "0x3333333333333333333333333333333333333333",
@@ -31,6 +42,11 @@ it.each([
       },
     });
     const readContract = vi.fn(async ({ functionName }) => {
+      if (functionName === "previewAccounting")
+        return {
+          current: { protocol: 13n, status: { complete: previewComplete } },
+          earnedDeltaScaled: [0n, 0n, 0n, 3n * (1n << 128n) + 2n],
+        };
       if (functionName === "reserveState")
         return {
           unearnedScaled: [0n, 0n, 0n, 12n * (1n << 128n) + 5n],
@@ -44,7 +60,6 @@ it.each([
       return {
         tiers: [tier],
         paymentToken: weth,
-        protocolFeeEarnedHeld: 10n,
         totalMinted: 2n,
         canonicalAsset: zeroAddress,
       }[functionName as "tiers"];
@@ -54,11 +69,19 @@ it.each([
       {} as DeploymentAvailability,
     );
     expect(result.fees.get(zeroAddress)).toEqual({
-      earned: 10n,
-      reservedScaled: 12n * (1n << 128n) + 5n,
+      earned: 13n,
+      reservedScaled: 9n * (1n << 128n) + 3n,
+      previewComplete,
       checkpointsDue,
     });
     expect(result.fees.has(weth)).toBe(false);
+    expect(readContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionName: "previewAccounting",
+        args: [0n, zeroAddress, zeroAddress, 256n],
+        blockNumber: 42n,
+      }),
+    );
     expect(
       readContract.mock.calls.every(([args]) => args.blockNumber === 42n),
     ).toBe(true);

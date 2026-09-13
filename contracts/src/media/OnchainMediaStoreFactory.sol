@@ -15,7 +15,6 @@ contract OnchainMediaStoreFactory is IOnchainMediaStoreFactory {
     uint256 public constant override maxCodeStorePayloadBytes = 98_303;
     uint256 public constant override maxRenderableMediaBytes =
         RendererPrimitives.MAX_RENDERABLE_MEDIA_BYTES;
-    uint256 public constant override maxPageSize = 100;
 
     bytes32 private constant _MEDIA_SALT_DOMAIN = keccak256("BackedByFans.OnchainMediaStore.v1");
 
@@ -141,15 +140,13 @@ contract OnchainMediaStoreFactory is IOnchainMediaStoreFactory {
         override
         returns (MembershipTypes.MediaRecord[] memory page)
     {
-        if (limit > maxPageSize) revert InvalidPageSize();
-
         address[] storage stores = _creatorMedia[creator];
         if (limit == 0 || offset >= stores.length) {
             return new MembershipTypes.MediaRecord[](0);
         }
 
-        uint256 end = offset + limit;
-        if (end > stores.length) end = stores.length;
+        uint256 count = limit < stores.length - offset ? limit : stores.length - offset;
+        uint256 end = offset + count;
         page = new MembershipTypes.MediaRecord[](end - offset);
         for (uint256 index; index < page.length; ++index) {
             address store_ = stores[offset + index];

@@ -12,11 +12,9 @@ import {
     ProtocolDeployment,
     RobinhoodDeploymentGuard
 } from "../../script/DeployDirectProtocol.s.sol";
-import {TierCodeBuild} from "../../script/TierCodeDeployment.sol";
 import {ImmutableCodeStore} from "../../src/ImmutableCodeStore.sol";
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTier} from "../../src/MembershipTier.sol";
-import {MembershipTierDeployer} from "../../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../../src/OnchainMetadataRenderer.sol";
 import {ProtocolBuybackVault} from "../../src/ProtocolBuybackVault.sol";
 import {RendererPreviewHarness} from "../../src/RendererPreviewHarness.sol";
@@ -36,7 +34,7 @@ contract WrongDecimalsUSDG is ERC20 {
 /// @dev Mainnet fork tests cover the exact Paxos code hashes. This harness isolates other guards.
 contract DeployProtocolHarness is DeployProtocol {
     function ensureVestingLedger() external {
-        _ensureTierCodeStores();
+        _ensureTierImplementation();
     }
 
     function _validateMainnetUSDGState(address) internal view override {}
@@ -91,10 +89,9 @@ contract DeployProtocolHarness is DeployProtocol {
 }
 
 contract DeploymentScriptsTest is Test {
-    function test_wholeLinkedCreationGraphFitsReleaseLimits() public {
-        string[9] memory artifacts = [
+    function test_wholeLinkedCreationGraphFitsNativeReleaseLimits() public view {
+        string[8] memory artifacts = [
             "MembershipTier.sol:MembershipTier",
-            "MembershipTierDeployer.sol:MembershipTierDeployer",
             "MembershipFactory.sol:MembershipFactory",
             "ProtocolBuybackVault.sol:ProtocolBuybackVault",
             "PonsBuybackExecutor.sol:PonsBuybackExecutor",
@@ -104,78 +101,32 @@ contract DeploymentScriptsTest is Test {
             "RendererPreviewHarness.sol:RendererPreviewHarness"
         ];
         for (uint256 i; i < artifacts.length; ++i) {
-            uint256 creationSize = vm.getCode(artifacts[i]).length;
-            uint256 runtimeSize = vm.getDeployedCode(artifacts[i]).length;
-            assertLe(creationSize, 196_608, artifacts[i]);
-            assertLe(runtimeSize, 98_304, artifacts[i]);
-            if (i == 0) assertLe(creationSize, 49_150, "two immutable tier code stores");
-            emit log_named_uint(string.concat(artifacts[i], " creation bytes"), creationSize);
-            emit log_named_uint(string.concat(artifacts[i], " runtime bytes"), runtimeSize);
+            assertLe(vm.getCode(artifacts[i]).length, 196_608, artifacts[i]);
+            assertLe(vm.getDeployedCode(artifacts[i]).length, 98_304, artifacts[i]);
         }
-        for (uint256 i; i < 2; ++i) {
-            vm.chainId(i == 0 ? _MAINNET_CHAIN_ID : _TESTNET_CHAIN_ID);
-            uint256 dataSize = 32 + _publicDeployment.factoryInitCode().length;
-            assertLe(dataSize, 95_000, "exact raw CREATE2 transaction");
-            assertLt(dataSize, 65_000, "split factory retains substantial headroom");
-            emit log_named_uint("factory raw CREATE2 bytes", dataSize);
-        }
-        for (uint256 i; i < 2; ++i) {
-            uint256 size = 32 + _publicDeployment.tierCodeInitCode(i != 0).length;
-            assertLe(size, 95_000, "store exact raw CREATE2 transaction");
-            assertLe(size - 32, 196_608, "store initcode limit");
-            assertLe(TierCodeBuild.chunk(i != 0).length + 1, 24_576, "store runtime limit");
-            emit log_named_uint(
-                i == 0 ? "store A raw CREATE2 bytes" : "store B raw CREATE2 bytes", size
-            );
-        }
+        assertLe(_publicDeployment.factoryInitCode().length, 196_608);
+        assertLe(_publicDeployment.tierImplementationInitCode().length, 196_608);
     }
 
-    function test_externalStoresAreExactImmutableAndReusableAcrossFactories() public {
-        MembershipTypes.TierCodeConfig memory config = _publicDeployment.tierCodeConfiguration();
-        assertEq(config.creationCodeHash, keccak256(type(MembershipTier).creationCode));
-        assertEq(config.creationCodeLength, type(MembershipTier).creationCode.length);
-        assertEq(config.storeA.code, abi.encodePacked(hex"00", TierCodeBuild.chunk(false)));
-        assertEq(config.storeB.code, abi.encodePacked(hex"00", TierCodeBuild.chunk(true)));
-        MembershipTierDeployer first = new MembershipTierDeployer(address(this), config);
-        MembershipTierDeployer second = new MembershipTierDeployer(address(123), config);
-        assertEq(first.creationCodeStoreA(), second.creationCodeStoreA());
-        assertEq(first.creationCodeStoreB(), second.creationCodeStoreB());
-        assertEq(first.creationCodeStoreAHash(), config.storeA.codehash);
-        assertEq(first.creationCodeStoreBHash(), config.storeB.codehash);
-        vm.expectRevert(MembershipTierDeployer.OnlyFactory.selector);
-        second.deploy(MembershipTestConfig.defaultConfig(address(this), address(1), address(2)));
+    function test_sharedImplementationRuntimeIsExactAndInitializationIsLocked() public {
+        address implementation = _publicDeployment.tierImplementation();
+        assertEq(implementation.code, type(MembershipTier).runtimeCode);
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(address(this), address(1), address(2));
+        vm.expectRevert(bytes4(keccak256("InvalidInitialization()")));
+        MembershipTier(implementation).initialize(config);
     }
 
-    function test_missingReorderedTruncatedAndWrongHashStoresAreRejected() public {
-        MembershipTypes.TierCodeConfig memory config = _publicDeployment.tierCodeConfiguration();
-        address originalA = config.storeA;
-        config.storeA = address(0);
-        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
-        new MembershipTierDeployer(address(this), config);
-        config.storeA = config.storeB;
-        config.storeB = originalA;
-        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
-        new MembershipTierDeployer(address(this), config);
-        config = _publicDeployment.tierCodeConfiguration();
-        config.creationCodeHash = bytes32(uint256(1));
-        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
-        new MembershipTierDeployer(address(this), config);
-        config = _publicDeployment.tierCodeConfiguration();
-        vm.etch(config.storeA, hex"00");
-        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
-        new MembershipTierDeployer(address(this), config);
+    function test_existingImplementationIsReusedByDeployment() public {
+        address implementation = _publicDeployment.tierImplementation();
+        _publicDeployment.ensureVestingLedger();
+        assertEq(implementation.code, type(MembershipTier).runtimeCode);
     }
 
-    function test_executablePrefixAndPostBindingCorruptionAreRejected() public {
-        MembershipTypes.TierCodeConfig memory config = _publicDeployment.tierCodeConfiguration();
-        MembershipTierDeployer deployer = new MembershipTierDeployer(address(this), config);
-        bytes memory code = config.storeA.code;
-        code[0] = 0x01;
-        vm.etch(config.storeA, code);
-        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
-        new MembershipTierDeployer(address(this), config);
-        vm.expectRevert(MembershipTierDeployer.CreationCodeCorrupted.selector);
-        deployer.deploy(MembershipTestConfig.defaultConfig(address(this), address(1), address(2)));
+    function test_corruptedImplementationIsRejectedByDeployment() public {
+        vm.etch(_publicDeployment.tierImplementation(), hex"00");
+        vm.expectRevert(bytes4(keccak256("InvalidTierImplementationDeployment()")));
+        _publicDeployment.ensureVestingLedger();
     }
 
     function test_publicPlanAcceptsDeferredTokenAndRejectsNoncanonicalLaunchWiring() public {
@@ -199,7 +150,7 @@ contract DeploymentScriptsTest is Test {
             address(media),
             address(this),
             address(launchedToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(
                 MembershipTestConfig.paymentTokens(membershipAsset)
             )
@@ -407,19 +358,18 @@ contract DeploymentScriptsTest is Test {
         assertEq(vm.envAddress("BBF_RELEASE_RENDERER_ADDRESS"), predicted.renderer);
         assertEq(vm.envAddress("BBF_RELEASE_PREVIEW_HARNESS_ADDRESS"), predicted.previewHarness);
         assertEq(vm.envAddress("BBF_RELEASE_FACTORY_ADDRESS"), predicted.factory);
-        MembershipTypes.TierCodeConfig memory tierCode = _publicDeployment.tierCodeConfiguration();
-        assertEq(vm.envAddress("BBF_RELEASE_STORE_A_ADDRESS"), tierCode.storeA);
-        assertEq(vm.envAddress("BBF_RELEASE_STORE_B_ADDRESS"), tierCode.storeB);
         assertEq(
-            vm.envBytes32("BBF_RELEASE_STORE_A_INIT_HASH"),
-            keccak256(_publicDeployment.tierCodeInitCode(false))
+            vm.envAddress("BBF_RELEASE_IMPLEMENTATION_ADDRESS"),
+            _publicDeployment.tierImplementation()
         );
         assertEq(
-            vm.envBytes32("BBF_RELEASE_STORE_B_INIT_HASH"),
-            keccak256(_publicDeployment.tierCodeInitCode(true))
+            vm.envBytes32("BBF_RELEASE_IMPLEMENTATION_INIT_HASH"),
+            keccak256(_publicDeployment.tierImplementationInitCode())
         );
-        assertEq(vm.envBytes32("BBF_RELEASE_STORE_A_RUNTIME_HASH"), tierCode.storeA.codehash);
-        assertEq(vm.envBytes32("BBF_RELEASE_STORE_B_RUNTIME_HASH"), tierCode.storeB.codehash);
+        assertEq(
+            vm.envBytes32("BBF_RELEASE_IMPLEMENTATION_RUNTIME_HASH"),
+            _publicDeployment.tierImplementation().codehash
+        );
 
         (
             OnchainMediaStoreFactory mediaStoreFactory,
@@ -806,9 +756,7 @@ contract DeploymentScriptsTest is Test {
         assertEq(vault.factory(), address(factory));
         assertEq(vault.protocolToken(), factory.protocolToken());
 
-        MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
-        assertTrue(address(tierDeployer).code.length != 0);
-        assertEq(tierDeployer.factory(), address(factory));
+        assertEq(factory.implementation(), _publicDeployment.tierImplementation());
     }
 
     function _assertFactoryPaymentTokens(MembershipFactory factory) private view {

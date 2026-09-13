@@ -27,7 +27,7 @@ test("@protocol-fork protocol page separates accounting, buybacks and combined e
     const tier = await f.tier("Three protocol actions", token, 10000, 100n);
     await f.giveProtocolTokens(member, 1200n);
     await f.write(member, token, erc20Abi, "approve", [tier, 1200n]);
-    await f.write(member, tier, membershipTierAbi, "purchase", [
+    await f.write(member, tier, membershipTierAbi, "createMembership", [
       12n,
       zeroAddress,
     ]);

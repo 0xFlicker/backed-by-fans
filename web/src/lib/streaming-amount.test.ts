@@ -42,3 +42,12 @@ it("preserves tiny rates and very large balances", () => {
     projectedAmount({ ...stream, raw, rate: 1n, fractional: 0n }, 1000),
   ).toBe(raw);
 });
+
+it("subtracts from fractional balances before rounding and never goes negative", () => {
+  expect(projectedAmount({ ...stream, fractional: 0n, rate: -Q }, 100)).toBe(
+    9n,
+  );
+  expect(projectedAmount({ ...stream, rate: -Q }, 100)).toBe(10n);
+  expect(projectedAmount({ ...stream, rate: -Q }, 600)).toBe(9n);
+  expect(projectedAmount({ ...stream, rate: -Q }, 20000)).toBe(0n);
+});

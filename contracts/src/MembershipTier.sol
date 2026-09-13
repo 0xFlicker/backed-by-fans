@@ -1,63 +1,77 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {
+    Ownable2StepUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    ERC721Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {
+    ERC721EnumerableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {ERC721Utils} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Utils.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {TierIdentity} from "./TierIdentity.sol";
-import {IERC5192} from "./interfaces/IERC5192.sol";
 import {IERC5643} from "./interfaces/IERC5643.sol";
 import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipRenderer} from "./interfaces/IMembershipRenderer.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
 import {IOnchainMediaStoreFactory} from "./interfaces/IOnchainMediaStoreFactory.sol";
 import {IProtocolBuybackVault} from "./interfaces/IProtocolBuybackVault.sol";
+import {ExpirationSchedule} from "./libraries/ExpirationSchedule.sol";
 import {VestingLedger} from "./libraries/VestingLedger.sol";
 import {RendererPrimitives} from "./renderer/RendererPrimitives.sol";
 import {TextValidation} from "./renderer/TextValidation.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 
-/// @notice One immutable-economic creator membership tier with persistent credentials.
+/// @notice One immutable-economic creator membership tier with independent positions.
 /// @dev Uses the existing Cancun target's transient guard: the lock is reset
 /// after each call, with no persistent storage write or weaker callback protection.
-contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMembershipTier {
+contract MembershipTier is
+    ERC721EnumerableUpgradeable,
+    Ownable2StepUpgradeable,
+    ReentrancyGuardTransient,
+    IMembershipTier
+{
     using SafeCast for uint256;
+    using ExpirationSchedule for ExpirationSchedule.State;
     using SafeERC20 for IERC20;
 
-    uint16 public immutable override protocolFeeBps;
+    uint16 public override protocolFeeBps;
     uint256 public constant MAX_NAME_BYTES = 100;
     uint256 public constant MAX_SYMBOL_BYTES = 16;
     uint256 public constant MAX_DESCRIPTION_BYTES = 500;
     uint256 public constant MAX_URI_BYTES = 2048;
-    uint256 public constant MAX_SYNC_BATCH_SIZE = 100;
     uint256 public constant MAX_RENDERABLE_MEDIA_BYTES =
         RendererPrimitives.MAX_RENDERABLE_MEDIA_BYTES;
 
     uint16 private constant _BPS_DENOMINATOR = 10_000;
 
-    address public immutable override factory;
-    address public immutable override buybackVault;
-    IERC20 public immutable override paymentToken;
+    address public override factory;
+    address public override buybackVault;
+    IERC20 public override paymentToken;
     address public override renderer;
-    bytes32 public immutable override tierIdentity;
-    uint112 public immutable override minimumPayment;
-    uint256 public immutable override pricePerPeriod;
-    uint64 public immutable override periodDuration;
-    uint16 public immutable override rewardBps;
-    uint16 public immutable override referralBps;
-    uint32 public immutable override startingBoostBps;
-    uint112 public immutable override earlySupportGross;
+    bytes32 public override tierIdentity;
+    uint112 public override minimumPayment;
+    uint256 public override pricePerPeriod;
+    uint64 public override periodDuration;
+    uint16 public override rewardBps;
+    uint16 public override referralBps;
+    uint32 public override startingBoostBps;
+    uint112 public override earlySupportGross;
     uint256 public constant override MAX_LIFETIME_GROSS = type(uint112).max;
     uint256 public constant override ACCOUNTING_SCALE = 1 << 128;
-    uint256 public constant override MAX_ACCOUNTING_STEPS = 25;
 
     uint32 public constant override NORMAL_BOOST_BPS = 10_000;
     uint32 public constant override MIN_ENABLED_BOOST_BPS = 10_100;
@@ -65,6 +79,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     uint32 public constant override BOOST_STEP_BPS = 100;
 
     VestingLedger.State private _vesting;
+    ExpirationSchedule.State internal _expirations;
 
     uint64 public override supplyCap;
     uint64 public override maxPrepaidPeriods;
@@ -78,10 +93,13 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     MembershipTypes.ArtConfig private _art;
     MembershipTypes.MediaConfig private _media;
 
-    mapping(address recipient => uint256 tokenId) public override tokenOf;
     mapping(uint256 tokenId => MembershipTypes.MembershipState state) internal _membershipStates;
     mapping(uint256 tokenId => MembershipTypes.ReferralState state) private _referralStates;
     error CapacityReached();
+    error MembershipExpired(uint256 tokenId, uint64 expiration);
+    error MembershipOwnerMismatch(uint256 tokenId, address expectedOwner, address actualOwner);
+    error InvalidPositionPage();
+    error InvalidAccountingSteps();
     error DurationOverflow();
     error InvalidAddress();
     error InvalidMetadata();
@@ -89,7 +107,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     error InvalidPaidDuration();
     error InvalidPeriodDuration();
     error InvalidPeriods();
-    error InvalidSyncBatchSize(uint256 provided, uint256 maximum);
     error InvalidTokenId(uint256 tokenId);
     error InvalidRateTotal();
     error InvalidRenderer();
@@ -107,7 +124,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     error ReferralChoiceRequired();
     error ReferralStateMismatch();
     error SelfGiftNotAllowed();
-    error Soulbound();
     error SupplyCapBelowOccupancy();
     error TierPaused();
     error PaymentBelowMinimum(uint256 amount, uint256 minimum);
@@ -115,10 +131,18 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     error TimestampOverflow();
     error TokenOwnerOnly();
 
-    constructor(address factory_, IERC20 paymentToken_, MembershipTypes.TierConfig memory config)
-        ERC721(config.name, config.symbol)
-        Ownable(config.creator)
-    {
+    /// @dev The shared implementation is permanently locked; only clone storage initializes.
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(MembershipTypes.TierConfig calldata config) external override initializer {
+        address factory_ = msg.sender;
+        IERC20 paymentToken_ = IERC20(config.paymentToken);
+        __ERC721_init(config.name, config.symbol);
+        __ERC721Enumerable_init();
+        __Ownable_init(config.creator);
+        __Ownable2Step_init();
         if (
             factory_ == address(0) || address(paymentToken_) == address(0)
                 || config.renderer == address(0)
@@ -190,7 +214,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     }
 
     function rewardEligible(uint256 tokenId) public view override returns (bool) {
-        return _vesting.members[tokenId].eligible;
+        return _isActiveToken(tokenId) && _vesting.members[tokenId].eligible;
     }
 
     function totalRewardShares() public view override returns (uint256) {
@@ -217,50 +241,135 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         public
         view
         override
-        returns (MembershipTypes.AccountingStatus memory)
+        returns (MembershipTypes.AccountingStatus memory result)
     {
-        bytes memory encoded = VestingLedger.encodedStatus(_vesting, _currentTimestamp());
-        // Forward the compiler-encoded status from the shared ledger.
-        assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
+        result.accountedThrough = _vesting.accountedThrough;
+        result.scheduledMembers = _vesting.heap.length;
+        result.scheduledExpirations = _expirations.nodes.length;
+        uint64 funding = _vesting.heap.length == 0 ? 0 : _vesting.heap[0].timestamp;
+        MembershipTypes.ExpirationNode memory expiration = _expirations.peek();
+        if (funding != 0 && (expiration.tokenId == 0 || funding <= expiration.timestamp)) {
+            result.nextBoundary = funding;
+            result.nextKind = MembershipTypes.BoundaryKind.Funding;
+        } else if (expiration.tokenId != 0) {
+            result.nextBoundary = expiration.timestamp;
+            result.nextKind = MembershipTypes.BoundaryKind.Expiration;
+        }
+        uint64 now_ = _currentTimestamp();
+        result.complete = result.accountedThrough == now_
+            && (result.nextBoundary == 0 || result.nextBoundary > now_);
     }
 
     function processAccounting(uint256 maxSteps)
         external
         override
         nonReentrant
-        returns (
-            uint256 processedSteps,
-            uint64 accountedThrough,
-            bool complete,
-            uint256 earnedScaledDelta
-        )
+        returns (MembershipTypes.MaintenanceResult memory)
     {
-        VestingLedger.ProcessResult memory result = _processAccounting(maxSteps);
-        return (result.processed, result.accountedThrough, result.complete, result.earnedScaled);
+        if (maxSteps == 0) {
+            revert InvalidAccountingSteps();
+        }
+        return _processAccounting(maxSteps);
+    }
+
+    function processExpirations(uint256 maxSteps)
+        external
+        override
+        nonReentrant
+        returns (MembershipTypes.MaintenanceResult memory)
+    {
+        if (maxSteps == 0) {
+            revert InvalidAccountingSteps();
+        }
+        return _processAccounting(maxSteps);
     }
 
     function _processAccounting(uint256 maxSteps)
         private
-        returns (VestingLedger.ProcessResult memory result)
+        returns (MembershipTypes.MaintenanceResult memory result)
     {
-        return VestingLedger.process(_vesting, _currentTimestamp(), maxSteps);
+        uint64 now_ = _currentTimestamp();
+        while (true) {
+            MembershipTypes.ExpirationNode memory expiration = _expirations.peek();
+            bool due = expiration.tokenId != 0 && expiration.timestamp <= now_;
+            uint64 through = due ? expiration.timestamp : now_;
+            VestingLedger.ProcessResult memory funding =
+                VestingLedger.advanceTo(_vesting, through, maxSteps - result.processedSteps);
+            result.processedSteps += funding.processed;
+            result.earnedScaledDelta += funding.earnedScaled;
+            if (!funding.complete || !due || result.processedSteps == maxSteps) break;
+            _retire(expiration.tokenId, expiration.timestamp);
+            ++result.processedSteps;
+            ++result.retiredCount;
+        }
+        MembershipTypes.AccountingStatus memory status = accountingStatus();
+        result.accountedThrough = status.accountedThrough;
+        result.complete = status.complete;
+        emit AccountingProgress(
+            result.accountedThrough,
+            result.processedSteps,
+            result.complete,
+            result.earnedScaledDelta,
+            result.retiredCount
+        );
     }
 
-    function _catchUp() private {
-        VestingLedger.catchUp(_vesting, _currentTimestamp(), MAX_ACCOUNTING_STEPS);
+    function _catchUp(uint256 maxSteps) private returns (uint256 processedSteps) {
+        MembershipTypes.MaintenanceResult memory result = _processAccounting(maxSteps);
+        if (!result.complete) {
+            revert AccountingBehind(result.accountedThrough, accountingStatus().nextBoundary);
+        }
+        return result.processedSteps;
     }
 
-    function previewAccounting(uint256 tokenId, address referrer, uint256 maxSteps)
+    function _retire(uint256 tokenId, uint64 effectiveAt) private {
+        address beneficiary = _requireOwned(tokenId);
+        uint256 shares = _vesting.members[tokenId].shares;
+        uint256 credit = VestingLedger.retireMember(_vesting, tokenId, beneficiary);
+        _expirations.remove(tokenId);
+        if (_membershipStates[tokenId].occupied) --occupiedSupply;
+        delete _membershipStates[tokenId];
+        delete _referralStates[tokenId];
+        super._update(address(0), tokenId, address(0));
+        emit MembershipRetired(tokenId, beneficiary, effectiveAt, shares, credit);
+    }
+
+    function _requireLive(uint256 tokenId) private view returns (address beneficiary) {
+        beneficiary = _requireOwned(tokenId);
+        uint64 expiration = _storedExpiration(_membershipStates[tokenId]);
+        if (_currentTimestamp() >= expiration) revert MembershipExpired(tokenId, expiration);
+    }
+
+    function _requireExpectedOwner(uint256 tokenId, address expectedOwner) private view {
+        address actual = _requireLive(tokenId);
+        if (actual != expectedOwner) {
+            revert MembershipOwnerMismatch(tokenId, expectedOwner, actual);
+        }
+    }
+
+    function previewAccounting(
+        uint256 tokenId,
+        address beneficiary,
+        address referrer,
+        uint256 maxSteps
+    ) external view override returns (MembershipTypes.AccountingPreview memory) {
+        if (tokenId != 0) _requireKnownToken(tokenId);
+        bytes memory encoded = VestingLedger.encodedPreview(
+            _vesting, _expirations, tokenId, beneficiary, referrer, _currentTimestamp(), maxSteps
+        );
+        // Forward compiler-encoded library output without a second tuple codec.
+        assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
+    }
+
+    function previewPaymentTotals(uint256 maxSteps)
         external
         view
         override
-        returns (MembershipTypes.AccountingPreview memory)
+        returns (MembershipTypes.PaymentTotals memory)
     {
-        if (tokenId != 0) _requireKnownToken(tokenId);
-        bytes memory encoded = VestingLedger.encodedPreview(
-            _vesting, tokenId, referrer, _currentTimestamp(), maxSteps
+        bytes memory encoded = VestingLedger.encodedPaymentTotals(
+            _vesting, _expirations, _currentTimestamp(), maxSteps
         );
-        // Forward compiler-encoded library output without a second tuple codec.
         assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
     }
 
@@ -273,7 +382,10 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         _requireKnownToken(tokenId);
         bytes memory encoded =
             VestingLedger.encodedAllocationState(_vesting, tokenId, _currentTimestamp());
-        assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
+        MembershipTypes.AllocationState memory result =
+            abi.decode(encoded, (MembershipTypes.AllocationState));
+        result.status = accountingStatus();
+        return result;
     }
 
     function allocationLots(uint256 tokenId, uint256 generation, uint256 offset, uint256 limit)
@@ -290,7 +402,10 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
 
     function reserveState() external view override returns (MembershipTypes.ReserveState memory) {
         bytes memory encoded = VestingLedger.encodedReserves(_vesting, _currentTimestamp());
-        assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
+        MembershipTypes.ReserveState memory result =
+            abi.decode(encoded, (MembershipTypes.ReserveState));
+        result.status = accountingStatus();
+        return result;
     }
 
     /// @inheritdoc IMembershipTier
@@ -351,12 +466,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         if (totalMinted != 0) emit BatchMetadataUpdate(1, totalMinted);
     }
 
-    /// @inheritdoc IERC5192
-    function locked(uint256 tokenId) external view override returns (bool) {
-        _requireOwned(tokenId);
-        return true;
-    }
-
     /// @inheritdoc IERC5643
     function renewSubscription(uint256 tokenId, uint64 duration) external payable override {
         if (msg.value != 0) revert NativeValueRejected();
@@ -364,7 +473,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     }
 
     function _renewSubscription(uint256 tokenId, uint64 duration) private nonReentrant {
-        address recipient = _requireOwned(tokenId);
+        address recipient = _requireLive(tokenId);
         if (recipient != msg.sender) revert TokenOwnerOnly();
         if (duration == 0 || duration % periodDuration != 0) revert InvalidPaidDuration();
         _requireNotPaused();
@@ -372,7 +481,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         uint64 periods = duration / periodDuration;
         if (pricePerPeriod == 0) {
             if (periods != 1) revert InvalidPeriods();
-            _contribute(msg.sender, 0, address(0));
+            _contribute(tokenId, msg.sender, 0, address(0), 0);
             return;
         }
 
@@ -380,7 +489,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         if (referralState.status == MembershipTypes.ReferralStatus.Unset) {
             revert ReferralChoiceRequired();
         }
-        _purchaseFixed(msg.sender, msg.sender, periods, true, referralState.referrer);
+        _purchaseFixed(tokenId, msg.sender, msg.sender, periods, true, referralState.referrer, 0);
     }
 
     /// @inheritdoc IERC5643
@@ -393,7 +502,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
 
     function _cancelSubscription(uint256 tokenId) private nonReentrant {
         _checkOwner();
-        _refund(tokenId, type(uint256).max);
+        _refund(tokenId, _requireLive(tokenId), type(uint256).max, 0);
     }
 
     /// @inheritdoc IERC5643
@@ -405,7 +514,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     /// @inheritdoc IERC5643
     function isRenewable(uint256 tokenId) external view override returns (bool) {
         _requireOwned(tokenId);
-        if (paused) return false;
+        if (paused || !_isActiveToken(tokenId)) return false;
         if (
             pricePerPeriod != 0
                 && _referralStates[tokenId].status == MembershipTypes.ReferralStatus.Unset
@@ -432,15 +541,28 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     }
 
     /// @inheritdoc IMembershipTier
-    function activeBalanceOf(address recipient) external view override returns (uint256) {
+    function tokensOfOwner(address recipient, uint256 offset, uint256 limit)
+        external
+        view
+        override
+        returns (MembershipTypes.PositionPage memory page)
+    {
         if (recipient == address(0)) revert InvalidAddress();
-        return isActive(recipient) ? 1 : 0;
-    }
-
-    /// @inheritdoc IMembershipTier
-    function isActive(address recipient) public view override returns (bool) {
-        uint256 tokenId = tokenOf[recipient];
-        return tokenId != 0 && _isActiveToken(tokenId);
+        if (limit == 0) revert InvalidPositionPage();
+        page.balance = balanceOf(recipient);
+        if (offset >= page.balance) {
+            page.tokenIds = new uint256[](0);
+            page.nextOffset = page.balance;
+            page.complete = true;
+            return page;
+        }
+        uint256 count = Math.min(limit, page.balance - offset);
+        page.tokenIds = new uint256[](count);
+        for (uint256 i; i < count; ++i) {
+            page.tokenIds[i] = tokenOfOwnerByIndex(recipient, offset + i);
+        }
+        page.nextOffset = offset + count;
+        page.complete = page.nextOffset == page.balance;
     }
 
     /// @inheritdoc IMembershipTier
@@ -474,36 +596,72 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         return _membershipStates[tokenId].occupied;
     }
 
-    /// @inheritdoc IMembershipTier
-    function purchase(uint64 periods, address referralChoice)
+    function createMembership(uint64 periods, address referralChoice, uint256 maxAccountingSteps)
         external
         override
         nonReentrant
-        returns (uint256 tokenId)
+        returns (uint256)
     {
-        tokenId = _purchaseFixed(msg.sender, msg.sender, periods, true, referralChoice);
+        return _purchaseFixed(
+            0, msg.sender, msg.sender, periods, true, referralChoice, maxAccountingSteps
+        );
     }
 
-    /// @inheritdoc IMembershipTier
-    function gift(
-        address recipient,
+    function renewMembership(
+        uint256 tokenId,
+        uint64 periods,
+        address referralChoice,
+        uint256 maxAccountingSteps
+    ) external override nonReentrant {
+        if (_requireLive(tokenId) != msg.sender) revert TokenOwnerOnly();
+        _purchaseFixed(
+            tokenId, msg.sender, msg.sender, periods, true, referralChoice, maxAccountingSteps
+        );
+    }
+
+    function giftMembership(address recipient, uint64 periods, uint256 maxAccountingSteps)
+        external
+        override
+        nonReentrant
+        returns (uint256)
+    {
+        if (recipient == msg.sender) revert SelfGiftNotAllowed();
+        return
+            _purchaseFixed(0, msg.sender, recipient, periods, false, address(0), maxAccountingSteps);
+    }
+
+    function giftRenewal(
+        uint256 tokenId,
+        address expectedOwner,
         uint64 periods,
         MembershipTypes.ReferralStatus expectedReferralStatus,
-        address expectedReferrer
-    ) external override nonReentrant returns (uint256 tokenId) {
-        if (recipient == msg.sender) revert SelfGiftNotAllowed();
-        _validateExpectedReferralState(tokenOf[recipient], expectedReferralStatus, expectedReferrer);
-        tokenId = _purchaseFixed(msg.sender, recipient, periods, false, address(0));
+        address expectedReferrer,
+        uint256 maxAccountingSteps
+    ) external override nonReentrant {
+        _requireExpectedOwner(tokenId, expectedOwner);
+        if (expectedOwner == msg.sender) revert SelfGiftNotAllowed();
+        _validateExpectedReferralState(tokenId, expectedReferralStatus, expectedReferrer);
+        _purchaseFixed(
+            tokenId, msg.sender, expectedOwner, periods, false, address(0), maxAccountingSteps
+        );
     }
 
-    /// @inheritdoc IMembershipTier
-    function contribute(uint256 gross, address referralChoice)
-        external
-        override
-        nonReentrant
-        returns (uint256 tokenId)
-    {
-        tokenId = _contribute(msg.sender, gross, referralChoice);
+    function createContributionMembership(
+        uint256 gross,
+        address referralChoice,
+        uint256 maxAccountingSteps
+    ) external override nonReentrant returns (uint256) {
+        return _contribute(0, msg.sender, gross, referralChoice, maxAccountingSteps);
+    }
+
+    function renewContributionMembership(
+        uint256 tokenId,
+        uint256 gross,
+        address referralChoice,
+        uint256 maxAccountingSteps
+    ) external override nonReentrant {
+        if (_requireLive(tokenId) != msg.sender) revert TokenOwnerOnly();
+        _contribute(tokenId, msg.sender, gross, referralChoice, maxAccountingSteps);
     }
 
     /// @inheritdoc IMembershipTier
@@ -553,14 +711,43 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     }
 
     /// @inheritdoc IMembershipTier
-    function claimReward(uint256 tokenId) external override nonReentrant returns (uint256 amount) {
-        _requireKnownToken(tokenId);
-        address recipient = msg.sender;
-        if (tokenOf[recipient] != tokenId) revert TokenOwnerOnly();
+    function claimReward(uint256 tokenId, uint256 maxAccountingSteps)
+        external
+        override
+        nonReentrant
+        returns (uint256 amount)
+    {
+        address recipient = _requireOwned(tokenId);
+        if (recipient != msg.sender) revert TokenOwnerOnly();
+        _catchUp(maxAccountingSteps);
+        if (_ownerOf(tokenId) == address(0)) return _claimRetired(recipient);
+        if (_ownerOf(tokenId) != recipient) revert TokenOwnerOnly();
         amount = VestingLedger.takeMember(_vesting, tokenId);
         if (amount == 0) return 0;
         _pushExact(recipient, amount);
         emit RewardClaimed(tokenId, recipient, amount);
+    }
+
+    function claimableRetiredReward(address beneficiary)
+        external
+        view
+        override
+        returns (uint256 raw, uint256 fractionalScaled)
+    {
+        uint256 credit = _vesting.retiredCreditScaled[beneficiary];
+        return (credit / ACCOUNTING_SCALE, credit % ACCOUNTING_SCALE);
+    }
+
+    function claimRetiredRewards() external override nonReentrant returns (uint256) {
+        return _claimRetired(msg.sender);
+    }
+
+    function _claimRetired(address beneficiary) private returns (uint256 amount) {
+        amount = VestingLedger.takeRetired(_vesting, beneficiary);
+        if (amount != 0) {
+            _pushExact(beneficiary, amount);
+            emit RetiredRewardClaimed(beneficiary, amount);
+        }
     }
 
     /// @inheritdoc IMembershipTier
@@ -574,47 +761,77 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
 
     /// @notice Includes active referral streams even before their first settlement.
     function hasClaimInterest(address beneficiary) external view override returns (bool) {
-        return owner() == beneficiary || tokenOf[beneficiary] != 0
+        return owner() == beneficiary || (beneficiary != address(0) && balanceOf(beneficiary) != 0)
+            || _vesting.retiredCreditScaled[beneficiary] != 0
             || _vesting.referrers[beneficiary].rate != 0
             || VestingLedger.referrerCredit(_vesting, beneficiary) != 0;
     }
 
-    function claimAll()
+    function claimRewards(uint256[] calldata tokenIds, uint256 maxSteps)
         external
         override
         nonReentrant
         returns (MembershipTypes.ClaimResult memory)
     {
-        return _claimAll(msg.sender, MAX_ACCOUNTING_STEPS);
+        return _claimRewards(msg.sender, tokenIds, maxSteps);
     }
 
-    function claimAllFor(address beneficiary, uint256 maxSteps)
+    function claimRewardsFor(address beneficiary, uint256[] calldata tokenIds, uint256 maxSteps)
         external
         override
         nonReentrant
         returns (MembershipTypes.ClaimResult memory)
     {
         if (msg.sender != factory) revert ClaimFactoryOnly();
-        if (beneficiary == address(0) || maxSteps > MAX_ACCOUNTING_STEPS) revert InvalidClaim();
-        return _claimAll(beneficiary, maxSteps);
+        return _claimRewards(beneficiary, tokenIds, maxSteps);
     }
 
     error ClaimFactoryOnly();
     error InvalidClaim();
 
-    function _claimAll(address beneficiary, uint256 maxSteps)
+    function previewClaimRewards(address beneficiary, uint256[] calldata tokenIds, uint256 maxSteps)
+        external
+        view
+        override
+        returns (MembershipTypes.ClaimPreview memory)
+    {
+        _validateClaimSelection(beneficiary, tokenIds);
+        bytes memory encoded = VestingLedger.encodedClaimPreview(
+            _vesting,
+            _expirations,
+            beneficiary,
+            tokenIds,
+            _currentTimestamp(),
+            maxSteps,
+            beneficiary == owner()
+        );
+        assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
+    }
+
+    function _validateClaimSelection(address beneficiary, uint256[] calldata tokenIds)
+        private
+        view
+    {
+        if (beneficiary == address(0)) revert InvalidClaim();
+        for (uint256 i; i < tokenIds.length; ++i) {
+            if (_requireOwned(tokenIds[i]) != beneficiary) revert TokenOwnerOnly();
+            if (i != 0 && tokenIds[i - 1] >= tokenIds[i]) revert InvalidClaim();
+        }
+    }
+
+    function _claimRewards(address beneficiary, uint256[] calldata tokenIds, uint256 maxSteps)
         private
         returns (MembershipTypes.ClaimResult memory result)
     {
-        result = VestingLedger.claimAll(
-            _vesting,
-            _currentTimestamp(),
-            maxSteps,
-            tokenOf[beneficiary],
-            beneficiary,
-            beneficiary == owner()
-        );
-        uint256 amount = result.reward + result.referral + result.creator;
+        _validateClaimSelection(beneficiary, tokenIds);
+        uint256 processed = _catchUp(maxSteps);
+        for (uint256 i; i < tokenIds.length; ++i) {
+            address currentOwner = _ownerOf(tokenIds[i]);
+            if (currentOwner != address(0) && currentOwner != beneficiary) revert TokenOwnerOnly();
+        }
+        result = VestingLedger.takeClaims(_vesting, tokenIds, beneficiary, beneficiary == owner());
+        result.processedSteps = processed;
+        uint256 amount = result.liveReward + result.retiredReward + result.referral + result.creator;
         if (amount != 0) _pushExact(beneficiary, amount);
     }
 
@@ -632,22 +849,26 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         bytes memory encoded = VestingLedger.encodedRefund(
             _vesting, tokenId, recipient, paidSeconds, grantSeconds, now_
         );
-        assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
+        MembershipTypes.RefundPreview memory result =
+            abi.decode(encoded, (MembershipTypes.RefundPreview));
+        MembershipTypes.AccountingStatus memory status = accountingStatus();
+        result.complete = status.complete && _isActiveToken(tokenId);
+        result.projected = result.projected && _isActiveToken(tokenId)
+            && (status.nextBoundary == 0 || status.nextBoundary > now_);
+        return result;
     }
 
     /// @inheritdoc IMembershipTier
-    function refund(uint256 tokenId, uint256 maxGrossRefund)
-        external
-        override
-        onlyOwner
-        nonReentrant
-        returns (uint256 grossRefund)
-    {
-        return _refund(tokenId, maxGrossRefund);
+    function refund(
+        uint256 tokenId,
+        address expectedOwner,
+        uint256 maxGrossRefund,
+        uint256 maxAccountingSteps
+    ) external override onlyOwner nonReentrant returns (uint256 grossRefund) {
+        return _refund(tokenId, expectedOwner, maxGrossRefund, maxAccountingSteps);
     }
 
-    /// @inheritdoc IMembershipTier
-    function grantTime(address recipient, uint64 periods)
+    function grantMembership(address recipient, uint64 periods, uint256 maxAccountingSteps)
         external
         override
         onlyOwner
@@ -656,23 +877,39 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     {
         _requireNotPaused();
         uint64 duration = _durationForPeriods(periods);
-        tokenId = _prepareTimeIncrease(recipient, true);
+        _catchUp(maxAccountingSteps);
+        tokenId = _prepareTimeIncrease(0, recipient, duration, false);
+        _membershipStates[tokenId].grantSeconds += duration;
+        _emitTimeUpdate(tokenId, _membershipStates[tokenId]);
+        _safeMint(recipient, tokenId);
+    }
 
-        MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
-        _ensureExpirationCapacity(state, duration);
-        state.grantSeconds += duration;
-        _emitTimeUpdate(tokenId, state);
+    function addGrantTime(
+        uint256 tokenId,
+        address expectedOwner,
+        uint64 periods,
+        uint256 maxAccountingSteps
+    ) external override onlyOwner nonReentrant {
+        _requireExpectedOwner(tokenId, expectedOwner);
+        _requireNotPaused();
+        uint64 duration = _durationForPeriods(periods);
+        _catchUp(maxAccountingSteps);
+        _prepareTimeIncrease(tokenId, expectedOwner, duration, false);
+        _membershipStates[tokenId].grantSeconds += duration;
+        _emitTimeUpdate(tokenId, _membershipStates[tokenId]);
     }
 
     /// @inheritdoc IMembershipTier
-    function revokeGrantTime(uint256 tokenId)
+    function revokeGrantTime(uint256 tokenId, address expectedOwner, uint256 maxAccountingSteps)
         external
         override
         onlyOwner
         nonReentrant
         returns (uint64 revokedSeconds)
     {
-        _requireOwned(tokenId);
+        _requireExpectedOwner(tokenId, expectedOwner);
+        _catchUp(maxAccountingSteps);
+        _requireExpectedOwner(tokenId, expectedOwner);
         _checkpointTime(tokenId);
 
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
@@ -680,46 +917,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         if (revokedSeconds == 0) revert NoGrantTime();
         state.grantSeconds = 0;
         _emitTimeUpdate(tokenId, state);
-        if (state.paidSeconds == 0 && rewardEligible(tokenId)) {
-            _catchUp();
-            _deactivateRewardEligibility(tokenId);
-        }
-    }
-
-    /// @inheritdoc IMembershipTier
-    function synchronizeExpiredMemberships(uint256[] calldata tokenIds)
-        external
-        override
-        onlyOwner
-        nonReentrant
-        returns (uint256 burnedCount)
-    {
-        uint256 length = tokenIds.length;
-        if (length == 0 || length > MAX_SYNC_BATCH_SIZE) {
-            revert InvalidSyncBatchSize(length, MAX_SYNC_BATCH_SIZE);
-        }
-
-        _catchUp();
-        for (uint256 i; i < length; ++i) {
-            uint256 tokenId = tokenIds[i];
-            _requireKnownToken(tokenId);
-
-            address recipient = _ownerOf(tokenId);
-            if (recipient == address(0) || _isActiveToken(tokenId)) continue;
-
-            _checkpointTime(tokenId);
-            MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
-            uint256 suspendedShares = _deactivateRewardEligibility(tokenId);
-
-            if (state.occupied) {
-                state.occupied = false;
-                --occupiedSupply;
-            }
-
-            super._update(address(0), tokenId, address(0));
-            emit ExpiredMembershipSynchronized(tokenId, recipient, suspendedShares);
-            ++burnedCount;
-        }
+        if (state.paidSeconds == 0) _retire(tokenId, _currentTimestamp());
     }
 
     /// @inheritdoc IMembershipTier
@@ -760,7 +958,7 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         if (totalMinted != 0) emit BatchMetadataUpdate(1, totalMinted);
     }
 
-    /// @inheritdoc ERC721
+    /// @inheritdoc ERC721Upgradeable
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
         return IMembershipRenderer(renderer)
@@ -783,44 +981,52 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721, IERC165)
+        override(ERC721EnumerableUpgradeable, IERC165)
         returns (bool)
     {
-        return interfaceId == type(IERC5192).interfaceId
-            || interfaceId == type(IERC5643).interfaceId || interfaceId == 0x49064906
+        return interfaceId == type(IERC5643).interfaceId || interfaceId == 0x49064906
             || interfaceId == type(IMembershipTier).interfaceId
             || super.supportsInterface(interfaceId);
     }
 
     function _purchaseFixed(
+        uint256 tokenId,
         address payer,
         address recipient,
         uint64 periods,
         bool selfPayment,
-        address referralChoice
-    ) internal returns (uint256 tokenId) {
+        address referralChoice,
+        uint256 maxAccountingSteps
+    ) internal returns (uint256) {
+        _requireNotPaused();
+        if (tokenId != 0) _requireExpectedOwner(tokenId, recipient);
         if (pricePerPeriod == 0) revert IncorrectPricingMode();
         uint64 duration = _durationForPeriods(periods);
-        // Constructor validation bounds price to uint112; periods is uint64.
         uint256 gross = pricePerPeriod * periods;
-
-        _catchUp();
+        _catchUp(maxAccountingSteps);
         _validateGross(gross);
-        _checkpointAndValidatePaidTimeIncrease(recipient, duration);
-        if (selfPayment) _validateReferralChoice(tokenOf[recipient], referralChoice);
+        bool creating = tokenId == 0;
+        tokenId = _prepareTimeIncrease(tokenId, recipient, duration, true);
+        if (selfPayment) _validateReferralChoice(tokenId, referralChoice);
         _pullExact(payer, gross);
-
-        tokenId = _addPaidTime(recipient, duration, false);
+        _membershipStates[tokenId].paidSeconds += duration;
+        _emitTimeUpdate(tokenId, _membershipStates[tokenId]);
         if (selfPayment) _lockReferralChoice(tokenId, referralChoice);
         _applyPayment(tokenId, payer, recipient, periods, gross);
+        if (creating) _safeMint(recipient, tokenId);
+        return tokenId;
     }
 
-    function _refund(uint256 tokenId, uint256 maxGrossRefund)
-        internal
-        returns (uint256 grossRefund)
-    {
-        address recipient = _requireOwned(tokenId);
-        _catchUp();
+    function _refund(
+        uint256 tokenId,
+        address expectedOwner,
+        uint256 maxGrossRefund,
+        uint256 maxAccountingSteps
+    ) internal returns (uint256 grossRefund) {
+        _requireExpectedOwner(tokenId, expectedOwner);
+        _catchUp(maxAccountingSteps);
+        _requireExpectedOwner(tokenId, expectedOwner);
+        address recipient = expectedOwner;
         _checkpointTime(tokenId);
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
         uint64 paidSeconds = state.paidSeconds;
@@ -835,37 +1041,44 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         state.paidSeconds = 0;
         state.grantSeconds = 0;
         _emitTimeUpdate(tokenId, state);
-        _deactivateRewardEligibility(tokenId);
+        _retire(tokenId, _currentTimestamp());
         if (grossRefund != 0) _pushExact(recipient, grossRefund);
         emit RefundFunded(tokenId, generation, grossRefund, funding);
         emit FundingGenerationCanceled(tokenId, generation, residues);
         emit MembershipRefunded(tokenId, recipient, grossRefund, paidSeconds, grantSeconds);
     }
 
-    function _contribute(address payer, uint256 gross, address referralChoice)
-        internal
-        returns (uint256 tokenId)
-    {
+    function _contribute(
+        uint256 tokenId,
+        address payer,
+        uint256 gross,
+        address referralChoice,
+        uint256 maxAccountingSteps
+    ) internal returns (uint256) {
+        _requireNotPaused();
+        if (tokenId != 0) _requireExpectedOwner(tokenId, payer);
         if (pricePerPeriod != 0) revert IncorrectPricingMode();
         if (gross != 0 && gross < minimumPayment) {
             revert PaymentBelowMinimum(gross, minimumPayment);
         }
+        _catchUp(maxAccountingSteps);
+        if (gross != 0) _validateGross(gross);
+        bool creating = tokenId == 0;
+        tokenId = _prepareTimeIncrease(tokenId, payer, periodDuration, true);
         if (gross != 0) {
-            _catchUp();
-            _validateGross(gross);
-        }
-        _checkpointAndValidatePaidTimeIncrease(payer, periodDuration);
-        if (gross != 0) {
-            _validateReferralChoice(tokenOf[payer], referralChoice);
+            _validateReferralChoice(tokenId, referralChoice);
             _pullExact(payer, gross);
         }
-        tokenId = _addPaidTime(payer, periodDuration, false);
+        _membershipStates[tokenId].paidSeconds += periodDuration;
+        _emitTimeUpdate(tokenId, _membershipStates[tokenId]);
         if (gross != 0) {
             _lockReferralChoice(tokenId, referralChoice);
             _applyPayment(tokenId, payer, payer, 1, gross);
         } else {
             emit PaymentProcessed(payer, payer, tokenId, 0, 1);
         }
+        if (creating) _safeMint(payer, tokenId);
+        return tokenId;
     }
 
     function _applyPayment(
@@ -947,37 +1160,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         emit ReferralLocked(tokenId, state.status, state.referrer);
     }
 
-    function _checkpointAndValidatePaidTimeIncrease(address recipient, uint64 duration) internal {
-        _requireNotPaused();
-        if (recipient == address(0)) revert InvalidAddress();
-        if (duration == 0 || duration % periodDuration != 0) revert InvalidPaidDuration();
-
-        uint64 timestamp = _currentTimestamp();
-        uint256 tokenId = tokenOf[recipient];
-        if (tokenId == 0) {
-            _requireCapacity();
-            if (uint256(timestamp) + duration > type(uint64).max) revert DurationOverflow();
-            return;
-        }
-
-        _checkpointTime(tokenId);
-        MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
-        if (!state.occupied) _requireCapacity();
-        if (
-            maxPrepaidPeriods != 0
-                && uint256(state.paidSeconds) + duration
-                    > uint256(maxPrepaidPeriods) * periodDuration
-        ) {
-            revert PrepaymentLimitExceeded();
-        }
-        if (
-            uint256(timestamp) + state.paidSeconds + state.grantSeconds + duration
-                > type(uint64).max
-        ) {
-            revert DurationOverflow();
-        }
-    }
-
     function _pullExact(address payer, uint256 amount) internal {
         uint256 payerBalanceBefore = paymentToken.balanceOf(payer);
         uint256 tierBalanceBefore = paymentToken.balanceOf(address(this));
@@ -1011,27 +1193,6 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         }
     }
 
-    function _addPaidTime(address recipient, uint64 duration, bool checkpointRequired)
-        private
-        returns (uint256 tokenId)
-    {
-        _requireNotPaused();
-        if (duration == 0 || duration % periodDuration != 0) revert InvalidPaidDuration();
-        tokenId = _prepareTimeIncrease(recipient, checkpointRequired);
-
-        MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
-        if (
-            maxPrepaidPeriods != 0
-                && uint256(state.paidSeconds) + duration
-                    > uint256(maxPrepaidPeriods) * periodDuration
-        ) {
-            revert PrepaymentLimitExceeded();
-        }
-        _ensureExpirationCapacity(state, duration);
-        state.paidSeconds += duration;
-        _emitTimeUpdate(tokenId, state);
-    }
-
     function _checkpointTime(uint256 tokenId) internal {
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
         uint64 timestamp = _currentTimestamp();
@@ -1043,59 +1204,38 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         state.checkpoint = paidSeconds == 0 && grantSeconds == 0 ? priorExpiration : timestamp;
     }
 
-    function _prepareTimeIncrease(address recipient, bool checkpointRequired)
-        internal
-        returns (uint256 tokenId)
+    function _prepareTimeIncrease(uint256 tokenId, address recipient, uint64 duration, bool paid)
+        private
+        returns (uint256)
     {
         if (recipient == address(0)) revert InvalidAddress();
-        uint64 timestamp = _currentTimestamp();
-        tokenId = tokenOf[recipient];
-
         if (tokenId == 0) {
             _requireCapacity();
             tokenId = ++totalMinted;
-            tokenOf[recipient] = tokenId;
-
-            MembershipTypes.MembershipState storage newState = _membershipStates[tokenId];
-            newState.checkpoint = timestamp;
-            newState.occupied = true;
+            _membershipStates[tokenId].checkpoint = _currentTimestamp();
+            _membershipStates[tokenId].occupied = true;
             ++occupiedSupply;
-
-            _mint(recipient, tokenId);
-            emit Locked(tokenId);
-            return tokenId;
+        } else {
+            _requireExpectedOwner(tokenId, recipient);
+            _checkpointTime(tokenId);
         }
-
-        if (checkpointRequired) _checkpointTime(tokenId);
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
-        if (state.paidSeconds == 0 && state.grantSeconds == 0 && state.checkpoint < timestamp) {
-            state.checkpoint = timestamp;
+        if (
+            paid && maxPrepaidPeriods != 0
+                && uint256(state.paidSeconds) + duration
+                    > uint256(maxPrepaidPeriods) * periodDuration
+        ) {
+            revert PrepaymentLimitExceeded();
         }
-        if (!state.occupied) {
-            _requireCapacity();
-            state.occupied = true;
-            ++occupiedSupply;
-        }
-        if (_ownerOf(tokenId) == address(0)) {
-            _mint(recipient, tokenId);
-            emit Locked(tokenId);
-        }
-    }
-
-    function _deactivateRewardEligibility(uint256 tokenId)
-        internal
-        returns (uint256 suspendedShares)
-    {
-        if (!rewardEligible(tokenId)) return 0;
-        suspendedShares = sharesOf(tokenId);
-        VestingLedger.setWeight(_vesting, tokenId, suspendedShares, false);
-        emit RewardEligibilityUpdated(tokenId, false, suspendedShares, totalRewardShares());
+        _ensureExpirationCapacity(state, duration);
+        return tokenId;
     }
 
     function _emitTimeUpdate(uint256 tokenId, MembershipTypes.MembershipState storage state)
         internal
     {
         uint64 expiration = _storedExpiration(state);
+        _expirations.set(tokenId, expiration);
         emit SubscriptionUpdate(tokenId, expiration);
         emit MembershipTimeUpdated(tokenId, state.paidSeconds, state.grantSeconds, expiration);
         emit MetadataUpdate(tokenId);
@@ -1214,22 +1354,29 @@ contract MembershipTier is ERC721, Ownable2Step, ReentrancyGuardTransient, IMemb
         ) revert InvalidMediaConfig();
     }
 
-    /// @dev Existing credentials cannot move or burn. A future mint still uses the ERC-721 path.
-    function _update(address to, uint256 tokenId, address auth)
-        internal
-        override
-        returns (address)
+    /// @dev Ownership movement never changes the position's accounting or catches up.
+    function transferFrom(address from, address to, uint256 tokenId)
+        public
+        override(ERC721Upgradeable, IERC721)
+        nonReentrant
     {
-        if (_ownerOf(tokenId) != address(0)) revert Soulbound();
-        return super._update(to, tokenId, auth);
+        _transferLive(from, to, tokenId);
     }
 
-    function approve(address, uint256) public pure override(ERC721, IERC721) {
-        revert Soulbound();
+    /// @dev The inherited no-data overload delegates here. Keep one guard active
+    /// through the receiver, without re-entering the guarded public transferFrom.
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data)
+        public
+        override(ERC721Upgradeable, IERC721)
+        nonReentrant
+    {
+        _transferLive(from, to, tokenId);
+        ERC721Utils.checkOnERC721Received(_msgSender(), from, to, tokenId, data);
     }
 
-    function setApprovalForAll(address, bool) public pure override(ERC721, IERC721) {
-        revert Soulbound();
+    function _transferLive(address from, address to, uint256 tokenId) private {
+        _requireLive(tokenId);
+        super.transferFrom(from, to, tokenId);
     }
 
     /// @notice Starts a two-step transfer and rejects zero-address cancellation.

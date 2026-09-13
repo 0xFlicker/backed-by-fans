@@ -177,9 +177,10 @@ export async function sendContract(input: {
   });
   const client = anvilPublicClient();
   // Fixture writes also cross clock boundaries; Anvil's exact estimate has no
-  // wallet safety margin. Explicit gas budgets remain untouched.
+  // wallet safety margin. A later block can initialize settlement slots that
+  // did not exist at the estimate timestamp. Explicit budgets remain untouched.
   const estimated = input.gas ?? (await client.estimateContractGas(input));
-  const gas = input.gas ?? (estimated * 12n + 9n) / 10n + 100_000n;
+  const gas = input.gas ?? (estimated * 12n + 9n) / 10n + 500_000n;
   const hash = await rpcRequest<Hash>("eth_sendTransaction", [
     {
       from: input.account,
@@ -188,7 +189,7 @@ export async function sendContract(input: {
       gas: `0x${gas.toString(16)}`,
     },
   ]);
-  return anvilPublicClient().waitForTransactionReceipt({ hash });
+  return client.waitForTransactionReceipt({ hash });
 }
 
 export function expectSuccessfulReceipt(receipt: TransactionReceipt) {

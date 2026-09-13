@@ -1,0 +1,20 @@
+$ bash scripts/check-generated-contracts.sh
+$ bash scripts/generate-contracts.sh
+Compiling 12 files with Solc 0.8.36
+Solc 0.8.36 finished in 543.00ms
+Compiler run successful!
+Compiling 123 files with Solc 0.8.36
+Solc 0.8.36 finished in 32.14s
+Compiler run successful!
+/Users/user/Development/backed-by-fans/contracts/out/vesting-leaf/link-manifest.json
+(node:48799) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+- Validating plugins
+✔ Validating plugins
+- Resolving contracts
+✔ Resolving contracts
+- Running plugins
+✔ Running plugins
+- Writing to src/contracts.ts
+✔ Writing to src/contracts.ts
+src/contracts.ts 297ms

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
+import {ExpirationSchedule} from "../src/libraries/ExpirationSchedule.sol";
 import {VestingLedger} from "../src/libraries/VestingLedger.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
 import {VestingSchedulerHarness} from "./VestingScheduler.t.sol";
@@ -8,7 +9,24 @@ import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract AccountingPreviewHarness is VestingSchedulerHarness {
+    ExpirationSchedule.State private expirations;
     constructor(uint64 start) VestingSchedulerHarness(start) {}
+
+    function paymentTotals(uint64 through, uint256 steps)
+        external
+        view
+        returns (MembershipTypes.PaymentTotals memory)
+    {
+        return abi.decode(
+            VestingLedger.encodedPaymentTotals(ledger, expirations, through, steps),
+            (MembershipTypes.PaymentTotals)
+        );
+    }
+
+    function positionWeight(uint256 member, uint256 shares, bool eligible) external {
+        VestingLedger.setWeight(ledger, member, shares, eligible);
+        ExpirationSchedule.set(expirations, member, type(uint64).max);
+    }
 
     function preview(uint256 member, address referrer, uint64 through, uint256 steps)
         external
@@ -16,7 +34,9 @@ contract AccountingPreviewHarness is VestingSchedulerHarness {
         returns (MembershipTypes.AccountingPreview memory)
     {
         return abi.decode(
-            VestingLedger.encodedPreview(ledger, member, referrer, through, steps),
+            VestingLedger.encodedPreview(
+                ledger, expirations, member, address(0), referrer, through, steps
+            ),
             (MembershipTypes.AccountingPreview)
         );
     }
@@ -26,10 +46,16 @@ contract AccountingPreviewHarness is VestingSchedulerHarness {
         view
         returns (MembershipTypes.EarnedBalances memory)
     {
-        return abi.decode(
+        MembershipTypes.EarnedBalances memory result = abi.decode(
             VestingLedger.encodedBalances(ledger, member, referrer, through),
             (MembershipTypes.EarnedBalances)
         );
+        result.status.scheduledExpirations = expirations.nodes.length;
+        if (result.status.nextBoundary == 0 && expirations.nodes.length != 0) {
+            result.status.nextBoundary = type(uint64).max;
+            result.status.nextKind = MembershipTypes.BoundaryKind.Expiration;
+        }
+        return result;
     }
 }
 
@@ -41,6 +67,21 @@ contract AccountingPreviewTest is Test {
     function setUp() public {
         new LinkedVestingFixture().install();
         h = new AccountingPreviewHarness(START);
+    }
+
+    function test_unassignedFundingIsNotReportedAsMemberEarnings() public {
+        h.fundAllocations(1, [uint256(0), 100, 0, 0], START, 100, address(0));
+        MembershipTypes.PaymentTotals memory active = h.paymentTotals(START + 50, 25);
+        assertFalse(active.hasEligibleMembers);
+        assertEq(active.allocationRatesScaled[1], 1 << 128);
+        MembershipTypes.PaymentTotals memory p = h.paymentTotals(START + 100, 25);
+        assertTrue(p.status.complete);
+        assertEq(p.earnedScaled[1], 0);
+        assertEq(p.unassignedMemberScaled, 100 * (1 << 128));
+        h.process(START + 100, 25);
+        MembershipTypes.PaymentTotals memory stored = h.paymentTotals(START + 100, 0);
+        assertEq(stored.unassignedMemberScaled, p.unassignedMemberScaled);
+        assertEq(stored.earnedScaled[1], 0);
     }
 
     function _compare(uint256 member, address referrer, uint64 through, uint256 budget) private {
@@ -87,7 +128,7 @@ contract AccountingPreviewTest is Test {
     }
 
     function test_continuous120TokenExample() public {
-        h.weight(1, 7, true);
+        h.positionWeight(1, 7, true);
         h.fundAllocations(1, [uint256(60), 30, 6, 24], START, 120, REF);
         MembershipTypes.AccountingPreview memory p = h.preview(1, REF, START + 60, 25);
         assertEq(p.current.creator, 30);
@@ -99,8 +140,8 @@ contract AccountingPreviewTest is Test {
     }
 
     function test_ratesMatchLaterPreviewAndStopAtBoundary() public {
-        h.weight(1, 17, true);
-        h.weight(2, 13, true);
+        h.positionWeight(1, 17, true);
+        h.positionWeight(2, 13, true);
         h.fundAllocations(1, [uint256(120), 60, 30, 90], START, 120, REF);
         MembershipTypes.AccountingPreview memory a = h.preview(1, REF, START + 10, 25);
         MembershipTypes.AccountingPreview memory b = h.preview(1, REF, START + 20, 25);
@@ -144,19 +185,18 @@ contract AccountingPreviewTest is Test {
         assertEq(p.current.status.nextBoundary, START + 10);
     }
 
-    function test_invalidBudget() public {
-        vm.expectRevert(VestingLedger.InvalidAccountingSteps.selector);
+    function test_previewAcceptsCallerBudgetAboveFormerCap() public view {
         h.preview(0, REF, START, 257);
     }
 
     function test_referralRestartCancellationAndSuspension() public {
-        h.weight(1, 17, true);
+        h.positionWeight(1, 17, true);
         h.fundAllocations(1, [uint256(17), 13, 11, 7], START, 3, REF);
         _compare(1, REF, START + 1, 25);
         h.claimMember(1);
         h.claimReferral(REF);
         h.cancel(1);
-        h.weight(1, 17, false);
+        h.positionWeight(1, 17, false);
         h.fundAllocations(1, [uint256(19), 13, 11, 7], START + 4, 7, REF);
         _compare(1, REF, START + 20, 25);
     }
@@ -169,7 +209,7 @@ contract AccountingPreviewTest is Test {
         uint256 count = 1 + seed % 32;
         for (uint256 member = 1; member <= count; ++member) {
             seed = uint256(keccak256(abi.encode(seed, member)));
-            h.weight(member, 1 + seed % 127, seed % 5 != 0);
+            h.positionWeight(member, 1 + seed % 127, seed % 5 != 0);
             uint64 cursor = START + uint64(seed % 5);
             for (uint256 lot; lot < 5; ++lot) {
                 seed = uint256(keccak256(abi.encode(seed, lot)));

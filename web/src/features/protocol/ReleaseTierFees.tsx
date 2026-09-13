@@ -321,7 +321,7 @@ export function ReleaseTierFees({
       {action.data && (
         <p role="status">
           {action.data.status.complete ||
-          action.data.status.scheduledMembers === 0n ||
+          action.data.status.nextBoundary === 0n ||
           action.data.status.nextBoundary > action.data.timestamp
             ? "Accounting is up to date."
             : "More remains. Advance again to continue."}

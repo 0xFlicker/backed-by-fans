@@ -463,10 +463,10 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         address[] calldata assets,
         BuybackTypes.ExecutionLimits[] calldata limits_
     ) external override onlyProtocolAuthority nonReentrant {
-        if (assets.length > 32 || assets.length != limits_.length) revert InvalidLimits();
+        if (assets.length != limits_.length) revert InvalidLimits();
         for (uint256 i; i < assets.length; ++i) {
-            for (uint256 j; j < i; ++j) {
-                if (canonicalAsset(assets[i]) == canonicalAsset(assets[j])) revert InvalidLimits();
+            if (i != 0 && canonicalAsset(assets[i - 1]) >= canonicalAsset(assets[i])) {
+                revert InvalidLimits();
             }
             _setLimits(assets[i], limits_[i]);
         }

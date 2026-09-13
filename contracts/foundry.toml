@@ -5,6 +5,7 @@ script = "script"
 out = "out"
 libs = ["lib"]
 remappings = [
+  "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
   "forge-std/=lib/forge-std/src/",
   "@uniswap/universal-router/=external/uniswap/universal-router/",

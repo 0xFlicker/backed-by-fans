@@ -39,6 +39,32 @@ contract VestingLedgerHarness {
         VestingLedger.process(_state, block.timestamp.toUint64(), 25);
     }
 
+    function advanceTo(uint64 through, uint256 steps) external {
+        VestingLedger.advanceTo(_state, through, steps);
+    }
+
+    function retire(uint256 tokenId) external returns (uint256) {
+        return VestingLedger.retireMember(_state, tokenId, beneficiary);
+    }
+
+    function retiredCredit() external view returns (uint256) {
+        return _state.retiredCreditScaled[beneficiary];
+    }
+
+    function totalGross() external view returns (uint256) {
+        return _state.totalGross;
+    }
+
+    function totalShares() external view returns (uint256) {
+        return _state.totalShares;
+    }
+
+    function claimRetired() external returns (uint256 amount) {
+        require(msg.sender == beneficiary, "unauthorized");
+        amount = VestingLedger.takeRetired(_state, beneficiary);
+        if (amount != 0) token.safeTransfer(beneficiary, amount);
+    }
+
     function claim(uint256 purpose) external returns (uint256 amount) {
         require(msg.sender == beneficiary, "unauthorized");
         if (purpose == 1) amount = VestingLedger.takeMember(_state, 1);

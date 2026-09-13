@@ -25,6 +25,13 @@ import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract ProtocolBurnRouterTest is Test {
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        return 0x150b7a02;
+    }
     MembershipFactory factory;
     ProtocolBuybackVault vault;
     ProtocolBurnRouter router;
@@ -41,7 +48,7 @@ contract ProtocolBurnRouterTest is Test {
             address(new OnchainMediaStoreFactory()),
             address(this),
             address(token),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(token))
         );
         vault = ProtocolBuybackVault(payable(factory.buybackVault()));
@@ -58,7 +65,7 @@ contract ProtocolBurnRouterTest is Test {
         tier = MembershipTier(factory.createTier(config));
         token.mint(address(this), 5000);
         token.approve(address(tier), 4000);
-        tier.purchase(4, address(0));
+        tier.createMembership(4, address(0), 25);
         vm.warp(1100);
         vault.setBuybacksPaused(false);
     }
@@ -211,7 +218,7 @@ contract ProtocolBurnRouterTest is Test {
         );
     }
 
-    function test_duplicateCurrenciesAndOversizedAccountingRejected() public {
+    function test_duplicateCurrenciesRejectedAndCallerBudgetAccepted() public {
         ProtocolBurnRouter.Purchase[] memory p = new ProtocolBurnRouter.Purchase[](2);
         p[0] = purchases()[0];
         p[1] = p[0];
@@ -219,7 +226,6 @@ contract ProtocolBurnRouterTest is Test {
         router.advance(advanceTiers(), p, 1200);
         ProtocolBurnRouter.AdvanceTier[] memory c = advanceTiers();
         c[0].maxAccountingSteps = 101;
-        vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
         router.advance(c, purchases(), 1200);
     }
 
@@ -290,7 +296,7 @@ contract ProtocolBurnRouterTest is Test {
             token.mint(member, 1000);
             vm.startPrank(member);
             token.approve(address(tier), 1000);
-            tier.purchase(1, address(0));
+            tier.createMembership(1, address(0), 25);
             vm.stopPrank();
         }
         vm.warp(1200);
@@ -308,7 +314,7 @@ contract ProtocolBurnRouterTest is Test {
             vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).totalReceived;
         items[0].maxAccountingSteps = 25;
         (steps, released,,) = router.advance(items, none, 1200);
-        assertEq(steps, 1, "actual work, not the caller's maximum");
+        assertEq(steps, 4, "one funding boundary and three retirements remain");
         assertEq(released, 0, "the same interval cannot earn twice");
         assertTrue(tier.accountingStatus().complete);
         assertEq(
@@ -335,9 +341,35 @@ contract ProtocolBurnRouterTest is Test {
         router.advanceAccounting(advanceTiers());
     }
 
-    function test_outerBatchBoundsRejectBeforeAnyWork() public {
+    function test_acceptsNineTiersAndThirtyThreePurchases() public {
+        ProtocolBurnRouter.AdvanceTier[] memory items = new ProtocolBurnRouter.AdvanceTier[](9);
+        items[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 26);
+        MembershipTypes.TierConfig memory config =
+            MembershipTestConfig.defaultConfig(address(this), tier.renderer(), address(token));
+        for (uint256 i = 1; i < items.length; ++i) {
+            config.tierSalt = bytes32(i);
+            items[i] = ProtocolBurnRouter.AdvanceTier(factory.createTier(config), 26);
+        }
+        for (uint256 i = 1; i < items.length; ++i) {
+            for (uint256 j = i; j > 0 && items[j].tier < items[j - 1].tier; --j) {
+                (items[j], items[j - 1]) = (items[j - 1], items[j]);
+            }
+        }
+        ProtocolBurnRouter.Purchase[] memory buys = new ProtocolBurnRouter.Purchase[](33);
+        for (uint256 i; i < buys.length; ++i) {
+            buys[i] = ProtocolBurnRouter.Purchase(address(SafeCast.toUint160(i + 1)), 0);
+        }
+        (, uint256 released, uint256 bought,) = router.advance(items, buys, 1200);
+        assertEq(released, 1);
+        assertEq(bought, 0);
+        assertEq(
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Membership).available, 250
+        );
+    }
+
+    function test_invalidLargeBatchesRejectBeforeAnyWork() public {
         ProtocolBurnRouter.AdvanceTier[] memory tooMany = new ProtocolBurnRouter.AdvanceTier[](9);
-        vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
+        vm.expectRevert(ProtocolBurnRouter.UnregisteredTier.selector);
         router.advance(tooMany, new ProtocolBurnRouter.Purchase[](0), 1200);
         vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
         router.advance(advanceTiers(), new ProtocolBurnRouter.Purchase[](33), 1200);
@@ -357,14 +389,15 @@ contract ProtocolBurnRouterTest is Test {
         config.protocolFeeBps = 1000;
         MembershipTier other = MembershipTier(factory.createTier(config));
         token.approve(address(other), 1000);
-        other.purchase(1, address(0));
+        other.createMembership(1, address(0), 25);
         vm.warp(1200);
         ProtocolBurnRouter.AdvanceTier[] memory items = new ProtocolBurnRouter.AdvanceTier[](2);
         items[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 12);
         items[1] = ProtocolBurnRouter.AdvanceTier(address(other), 13);
+        if (items[0].tier > items[1].tier) (items[0], items[1]) = (items[1], items[0]);
         (uint256 steps, uint256 released,,) =
             router.advance(items, new ProtocolBurnRouter.Purchase[](0), 1200);
-        assertEq(steps, 1);
+        assertEq(steps, 2, "funding end and expiration both consume work");
         assertEq(released, 2, "return value counts tiers, never sums arbitrary currencies");
         assertTrue(tier.accountingStatus().complete);
         assertTrue(other.accountingStatus().complete);

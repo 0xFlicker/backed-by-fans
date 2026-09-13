@@ -200,7 +200,7 @@ export async function main() {
       functionName,
       args,
       account,
-      gasPrice: 2000000000n,
+      gasPrice: 100_000_000n,
     });
     const hash = await wallet.writeContract(simulation.request);
     const receipt = await client.waitForTransactionReceipt({ hash });

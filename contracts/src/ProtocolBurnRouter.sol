@@ -5,6 +5,7 @@ import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
 import {IProtocolBuybackVault} from "./interfaces/IProtocolBuybackVault.sol";
 import {BuybackTypes} from "./types/BuybackTypes.sol";
+import {MembershipTypes} from "./types/MembershipTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
@@ -26,9 +27,6 @@ contract ProtocolBurnRouter is ReentrancyGuardTransient {
     IProtocolBuybackVault public immutable vault;
     mapping(address asset => BuybackTypes.SourceBucket) public nextSource;
 
-    uint256 public constant MAX_TIERS = 8;
-    uint256 public constant MAX_PURCHASES = 32;
-    uint256 public constant MAX_ACCOUNTING_STEPS = 25;
     error InvalidBatch();
     error UnregisteredTier();
     error DeadlineExpired();
@@ -140,42 +138,37 @@ contract ProtocolBurnRouter is ReentrancyGuardTransient {
     }
 
     function _validateTiers(AdvanceTier[] calldata tiers) private view {
-        if (tiers.length > MAX_TIERS) revert InvalidBatch();
-        uint256 steps;
         for (uint256 i; i < tiers.length; ++i) {
-            if (tiers[i].maxAccountingSteps > MAX_ACCOUNTING_STEPS) revert InvalidBatch();
-            steps += tiers[i].maxAccountingSteps;
             if (!IMembershipFactory(factory).isRegisteredTier(tiers[i].tier)) {
                 revert UnregisteredTier();
             }
-            for (uint256 j; j < i; ++j) {
-                if (tiers[j].tier == tiers[i].tier) revert InvalidBatch();
-            }
+            if (i != 0 && tiers[i - 1].tier >= tiers[i].tier) revert InvalidBatch();
         }
-        if (steps > MAX_ACCOUNTING_STEPS) revert InvalidBatch();
     }
 
     function _validatePurchases(Purchase[] calldata purchases) private view {
-        if (purchases.length > MAX_PURCHASES) revert InvalidBatch();
         for (uint256 i; i < purchases.length; ++i) {
             if (vault.canonicalAsset(purchases[i].asset) != purchases[i].asset) {
                 revert InvalidBatch();
             }
-            for (uint256 j; j < i; ++j) {
-                if (purchases[j].asset == purchases[i].asset) revert InvalidBatch();
-            }
+            if (i != 0 && purchases[i - 1].asset >= purchases[i].asset) revert InvalidBatch();
         }
     }
 
     function _advanceTier(AdvanceTier calldata item) private returns (uint256 steps, bool earned) {
-        uint64 cursor;
-        bool complete;
-        uint256 delta;
-        (steps, cursor, complete, delta) =
+        MembershipTypes.MaintenanceResult memory result =
             IMembershipTier(item.tier).processAccounting(item.maxAccountingSteps);
+        steps = result.processedSteps;
         if (steps > item.maxAccountingSteps) revert InvalidAccountingResult();
-        emit AccountingAdvanced(msg.sender, item.tier, steps, cursor, complete, delta);
-        earned = delta != 0;
+        emit AccountingAdvanced(
+            msg.sender,
+            item.tier,
+            steps,
+            result.accountedThrough,
+            result.complete,
+            result.earnedScaledDelta
+        );
+        earned = result.earnedScaledDelta != 0;
     }
 
     function _releaseTier(address tier) private returns (bool) {

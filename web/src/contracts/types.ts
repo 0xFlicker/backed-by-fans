@@ -113,13 +113,19 @@ export type SupporterCredential = {
   shares: bigint;
   rewardEligible: boolean;
   claimableReward: bigint;
-  refundableGross: bigint;
+  refundableGross?: bigint;
   refund?: RefundQuote;
   referralStatus: ReferralStatus;
   referrer: Address;
 };
 
 export type TierSupporterSnapshot = TierSnapshot & {
+  ownerPage?: ContractFunctionReturnType<
+    typeof membershipTierAbi,
+    "view",
+    "tokensOfOwner"
+  >;
+  ownerOffset?: bigint;
   totalEligibleRewardShares?: bigint;
   capturedTimestamp: bigint;
   wallet?: Address;
@@ -129,6 +135,7 @@ export type TierSupporterSnapshot = TierSnapshot & {
   claimableReferral?: bigint;
   creatorProceeds?: bigint;
   credential?: SupporterCredential;
+  vestingError?: string;
   vesting?: {
     earned: ContractFunctionReturnType<
       typeof membershipTierAbi,

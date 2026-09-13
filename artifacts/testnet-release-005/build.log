@@ -1,0 +1,93 @@
+$ next build --webpack
+▲ Next.js 16.3.3 (webpack)
+✓ Running next.config.ts took 10ms
+
+  Creating an optimized production build ...
+⚠ Compiled with warnings in 5.0s
+
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+Module not found: Can't resolve '@react-native-async-storage/async-storage' in '/private/tmp/bbf-testnet-release-snapshot/web/node_modules/@metamask/sdk/dist/browser/es'
+
+Import trace for requested module:
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+./node_modules/@wagmi/connectors/dist/esm/metaMask.js
+./node_modules/@wagmi/connectors/dist/esm/exports/index.js
+./node_modules/wagmi/dist/esm/exports/connectors.js
+./src/lib/wallet-config.ts
+./src/components/AppProviders.tsx
+
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+Module not found: Can't resolve '@react-native-async-storage/async-storage' in '/private/tmp/bbf-testnet-release-snapshot/web/node_modules/@metamask/sdk/dist/browser/es'
+
+Import trace for requested module:
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+./node_modules/@wagmi/connectors/dist/esm/metaMask.js
+./node_modules/@wagmi/connectors/dist/esm/exports/index.js
+./node_modules/wagmi/dist/esm/exports/connectors.js
+./src/lib/wallet-config.ts
+./src/lib/server-wallet-state.ts
+./src/app/layout.tsx
+
+./node_modules/ox/_esm/tempo/internal/virtualMasterPool.js
+Critical dependency: the request of a dependency is an expression
+
+Import trace for requested module:
+./node_modules/ox/_esm/tempo/internal/virtualMasterPool.js
+./node_modules/ox/_esm/tempo/VirtualMaster.js
+./node_modules/ox/_esm/tempo/index.js
+./node_modules/viem/_esm/tempo/chainConfig.js
+./node_modules/viem/_esm/chains/definitions/tempo.js
+./node_modules/viem/_esm/chains/index.js
+./src/lib/config.ts
+./src/app/layout.tsx
+
+⚠ Compiled with warnings in 2.9s
+
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+Module not found: Can't resolve '@react-native-async-storage/async-storage' in '/private/tmp/bbf-testnet-release-snapshot/web/node_modules/@metamask/sdk/dist/browser/es'
+
+Import trace for requested module:
+./node_modules/@metamask/sdk/dist/browser/es/metamask-sdk.js
+./node_modules/@wagmi/connectors/dist/esm/metaMask.js
+./node_modules/@wagmi/connectors/dist/esm/exports/index.js
+./node_modules/wagmi/dist/esm/exports/connectors.js
+./node_modules/@rainbow-me/rainbowkit/dist/index.js
+./src/components/AppProviders.tsx
+
+✓ Compiled successfully in 8.0s
+  Running TypeScript ...
+  Finished TypeScript in 4.2s ...
+  Collecting page data using 17 workers ...
+  Generating static pages using 17 workers (0/10) ...
+(node:14295) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  Generating static pages using 17 workers (2/10)
+  Generating static pages using 17 workers (4/10)
+  Generating static pages using 17 workers (7/10)
+✓ Generating static pages using 17 workers (10/10) in 795ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /about
+├ ƒ /account
+├ ƒ /api/chains/[chainId]/tiers/[tierAddress]/artwork
+├ ƒ /api/local/buybacks/rehearse
+├ ƒ /chains/[chainId]/protocol
+├ ƒ /chains/[chainId]/tiers/[tierAddress]
+├ ƒ /chains/[chainId]/tiers/[tierAddress]/manage
+├ ƒ /chains/[chainId]/tiers/[tierAddress]/manage/artwork
+├ ƒ /chains/[chainId]/tiers/[tierAddress]/opengraph-image
+├ ƒ /chains/[chainId]/tools/buybacks
+├ ƒ /create
+├ ○ /icon.svg
+├ ○ /llms.txt
+├ ○ /opengraph-image
+├ ƒ /render
+└ ƒ /skill
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

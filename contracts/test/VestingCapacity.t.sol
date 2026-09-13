@@ -40,7 +40,7 @@ contract VestingCapacityTest is Test {
             address(new OnchainMediaStoreFactory()),
             address(this),
             address(asset),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(asset))
         );
         router = ProtocolBurnRouter(factory.burnRouter());
@@ -63,7 +63,7 @@ contract VestingCapacityTest is Test {
     function test_capacityRecoversAllPaymentsAfterYearIdleWithColdCalls() public {
         uint256 members = vm.envOr("BBF_FULL_VESTING_CAPACITY", false) ? 10_000 : 100;
         uint256 paymentsPerMember = 10;
-        uint256 budget = tier.MAX_ACCOUNTING_STEPS();
+        uint256 budget = 25;
         assertEq(budget, 25);
         for (uint256 i; i < members; ++i) {
             address member = _member(i);
@@ -72,7 +72,8 @@ contract VestingCapacityTest is Test {
             asset.approve(address(tier), type(uint256).max);
             // Dense identical ENDs, every allocation active, distinct fixed referrers.
             for (uint256 j; j < paymentsPerMember; ++j) {
-                tier.purchase(1, _referrer(i));
+                if (j == 0) tier.createMembership(1, _referrer(i), 25);
+                else tier.renewMembership(i + 1, 1, _referrer(i), 25);
             }
             vm.stopPrank();
         }
@@ -110,7 +111,7 @@ contract VestingCapacityTest is Test {
             ++calls;
             if (!tier.accountingStatus().complete) vm.warp(block.timestamp + 12);
         }
-        assertEq(totalSteps, members * paymentsPerMember);
+        assertEq(totalSteps, members * (paymentsPerMember + 1));
         assertEq(calls, (totalSteps + budget - 1) / budget);
         assertEq(tier.accountingStatus().scheduledMembers, 0);
         for (uint256 purpose; purpose < 4; ++purpose) {
@@ -132,20 +133,21 @@ contract VestingCapacityTest is Test {
         vm.startPrank(member);
         asset.approve(address(tier), type(uint256).max);
         for (uint256 i; i < payments; ++i) {
-            tier.purchase(1, _referrer(0));
+            if (i == 0) tier.createMembership(1, _referrer(0), 25);
+            else tier.renewMembership(1, 1, _referrer(0), 25);
         }
         vm.stopPrank();
         vm.warp(START + 15 days);
         tier.processAccounting(25);
-        uint256 shares = tier.sharesOf(1);
+        assertGt(tier.sharesOf(1), 0);
         _cold();
         uint256 beforeGas = gasleft();
-        uint256 refunded = tier.refund{gas: 2_000_000}(1, payments * PRICE);
+        uint256 refunded = tier.refund{gas: 2_000_000}(1, tier.ownerOf(1), payments * PRICE, 25);
         uint256 used = beforeGas - gasleft();
         assertLe(used, 2_000_000);
         assertEq(refunded, payments * PRICE - PRICE / 2);
         assertEq(tier.allocationState(1).generation, 1);
-        assertEq(tier.sharesOf(1), shares);
+        assertEq(tier.sharesOf(1), 0);
         assertEq(tier.lifetimeGross(), payments * PRICE);
         assertEq(tier.accountingStatus().scheduledMembers, 0);
         emit log_named_uint("canceled_queue_payments", payments);
@@ -156,7 +158,7 @@ contract VestingCapacityTest is Test {
         _cold();
         uint256 beforeGas = gasleft();
         vm.prank(_member(0));
-        assertGt(tier.claimReward{gas: 2_000_000}(1), 0);
+        assertGt(tier.claimRetiredRewards{gas: 2_000_000}(), 0);
         emit log_named_uint("cold_member_claim_gas", beforeGas - gasleft());
         _cold();
         beforeGas = gasleft();
@@ -173,13 +175,14 @@ contract VestingCapacityTest is Test {
         emit log_named_uint("cold_settled_release_gas", beforeGas - gasleft());
         uint256[] memory ids = new uint256[](1);
         ids[0] = 1;
-        assertEq(tier.synchronizeExpiredMemberships(ids), 1);
+        assertEq(tier.processExpirations(25).retiredCount, 0);
         assertFalse(tier.rewardEligible(1));
         asset.mint(_member(0), PRICE);
         vm.prank(_member(0));
-        assertEq(tier.purchase(1, _referrer(0)), 1);
-        assertTrue(tier.rewardEligible(1));
-        assertEq(tier.refund(1, PRICE), PRICE);
+        uint256 fresh = tier.createMembership(1, _referrer(0), 25);
+        assertGt(fresh, 1);
+        assertTrue(tier.rewardEligible(fresh));
+        assertEq(tier.refund(fresh, tier.ownerOf(fresh), PRICE, 25), PRICE);
         assertGe(asset.balanceOf(address(tier)), tier.totalProtectedLiability());
     }
 

@@ -8,6 +8,7 @@ __pycache__/
 # Generated operator evidence must not enter its own source snapshot.
 /artifacts/protocol-fork/
 /contracts/deployments/split-rehearsal/
+/contracts/deployments/clone-rehearsal/
 /contracts/deployments/vesting-histories/
 /contracts/deployments/curve-calibration/
 /web/test-results-accessibility/

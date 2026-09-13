@@ -300,9 +300,7 @@ export async function exportEvidence(directory: string) {
     "renderer",
     "previewHarness",
     "vestingLedger",
-    "tierCodeStoreA",
-    "tierCodeStoreB",
-    "tierDeployer",
+    "tierImplementation",
     "burnRouter",
     "executorCodeStore",
   ]) {
@@ -325,7 +323,6 @@ export async function exportEvidence(directory: string) {
           : [
                 "buybackVault",
                 "executor",
-                "tierDeployer",
                 "burnRouter",
                 "executorCodeStore",
               ].includes(role)

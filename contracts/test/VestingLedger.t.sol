@@ -37,6 +37,39 @@ contract VestingLedgerTest is Test {
         }
     }
 
+    function test_retirementAtHistoricalBoundaryPreservesFractionAndStopsEarnings() public {
+        harness.fund([uint256(0), 3, 0, 0], 7);
+        vm.warp(VestingFixtures.START + 20);
+        harness.advanceTo(VestingFixtures.START + 3, 0);
+        uint256 credit = 3 * Q / 7 * 3;
+        assertEq(harness.retire(1), credit);
+        assertEq(harness.totalShares(), 0);
+        assertEq(harness.totalGross(), 3);
+        assertEq(harness.claimRetired(), 1);
+        assertEq(harness.retiredCredit(), credit - Q);
+        harness.advance();
+        assertEq(harness.retiredCredit(), credit - Q);
+        assertEq(harness.unassignedMemberFunding(), 3 * Q - credit);
+        assertEq(harness.claimRetired(), 0);
+        assertEq(
+            token.balanceOf(address(harness)) * Q,
+            harness.retiredCredit() + harness.unassignedMemberFunding()
+        );
+    }
+
+    function test_retirementWaitsForFundingTailAtItsBoundary() public {
+        harness.fund([uint256(0), 3, 0, 0], 7);
+        vm.warp(VestingFixtures.START + 20);
+        harness.advanceTo(VestingFixtures.START + 7, 1);
+        assertEq(harness.retire(1), 3 * Q);
+        assertEq(harness.claimRetired(), 3);
+        assertEq(harness.retiredCredit(), 0);
+        assertEq(harness.totalGross(), 3);
+        harness.advance();
+        assertEq(harness.retire(1), 0);
+        assertEq(harness.totalShares(), 0);
+    }
+
     function test_threePeriodsThenClaimsThenNinetyTokenRefund() public {
         harness.fund(VestingFixtures.allocations(VestingFixtures.UNIT), 12 * VestingFixtures.PERIOD);
         vm.warp(VestingFixtures.START + 3 * VestingFixtures.PERIOD);

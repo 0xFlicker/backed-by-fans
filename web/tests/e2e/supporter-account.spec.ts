@@ -1,12 +1,16 @@
+import {
+  createPortfolioTier,
+  expectSingleOwnedPosition,
+} from "./helpers/membership-positions";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import { zeroAddress } from "viem";
 import { membershipTierAbi, usdgAbi } from "../../src/contracts";
 import {
+  anvilEnabled,
   anvilPublicClient,
   connectAnvilWallet,
-  expectReconciled,
   expectSuccessfulReceipt,
   installAnvilWallet,
   requiredAnvilAddress,
@@ -62,16 +66,11 @@ test("@anvil vested-account discovers a burned membership's durable earned claim
         account: member,
         address: tier,
         abi: membershipTierAbi,
-        functionName: "purchase",
-        args: [2n, zeroAddress],
+        functionName: "createMembership",
+        args: [2n, zeroAddress, 25n],
       }),
     );
-    const id = await client.readContract({
-      address: tier,
-      abi: membershipTierAbi,
-      functionName: "tokenOf",
-      args: [member],
-    });
+    const id = await expectSingleOwnedPosition(client, tier, member);
     const end = await client.readContract({
       address: tier,
       abi: membershipTierAbi,
@@ -85,15 +84,15 @@ test("@anvil vested-account discovers a burned membership's durable earned claim
         account: creator,
         address: tier,
         abi: membershipTierAbi,
-        functionName: "synchronizeExpiredMemberships",
-        args: [[id]],
+        functionName: "processExpirations",
+        args: [25n],
       }),
     );
-    const earned = await client.readContract({
+    const [earned] = await client.readContract({
       address: tier,
       abi: membershipTierAbi,
-      functionName: "claimableReward",
-      args: [id],
+      functionName: "claimableRetiredReward",
+      args: [member],
     });
     expect(earned).toBeGreaterThan(0n);
     await installAnvilWallet(page, member);
@@ -105,19 +104,25 @@ test("@anvil vested-account discovers a burned membership's durable earned claim
     const card = page
       .locator(".account-membership-card")
       .filter({ hasText: name });
-    await expect(card).toContainText("Membership ended");
-    await expect(card).toContainText("Rewards ready");
-    await card
-      .getByRole("link", { name: "View membership", exact: true })
-      .click();
-    await expect(page).toHaveURL(
-      new RegExp(`/chains/31337/tiers/${tier}`, "i"),
-    );
+    await expect(card.locator(".account-position")).toHaveCount(0);
+    await expect(card).toContainText("Other rewards");
     await page
-      .locator(".claim-groups")
-      .getByRole("button", { name: "Claim rewards" })
+      .getByRole("region", { name: "Rewards", exact: true })
+      .getByRole("button", { name: "Claim all", exact: true })
       .click();
-    await expectReconciled(page, "Claim rewards");
+    await expect(
+      page.getByRole("status").filter({ hasText: "All rewards claimed." }),
+    ).toBeVisible({ timeout: 45_000 });
+    expect(
+      (
+        await client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "claimableRetiredReward",
+          args: [member],
+        })
+      )[0],
+    ).toBe(0n);
     expect(
       await client.readContract({
         address: tier,
@@ -139,7 +144,7 @@ test("@anvil vested-account discovers a burned membership's durable earned claim
       path,
       JSON.stringify(
         {
-          kind: "local mock payment token; real split graph",
+          kind: "authentic origin payment token on disposable fork; current split graph",
           tier,
           tokenId: String(id),
           earned: String(earned),
@@ -169,7 +174,11 @@ test("keeps account recovery focused on retrying discovery", async ({
       name: "Your account.",
     }),
   ).toBeVisible();
-  await expect(page.getByText(/manage the ones you create/i)).toBeVisible();
+  await expect(
+    page.getByText("Your memberships, creations and earnings.", {
+      exact: true,
+    }),
+  ).toBeVisible();
   const discoveryState = page.locator("[data-read-state='unavailable']");
   await expect(discoveryState).toBeVisible();
   await expect(
@@ -212,4 +221,124 @@ test("keeps the account route keyboard reachable, responsive, and accessible", a
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
+});
+
+test("@anvil pages 101 positions and nine tiers, refreshes transferred positions, and claims all automatically", async ({
+  page,
+}, info) => {
+  test.setTimeout(360_000);
+  test.skip(!anvilEnabled, "Run through scripts/test-web-anvil.sh.");
+  test.skip(
+    info.project.name !== "desktop",
+    "One large stateful portfolio with narrow-screen review.",
+  );
+  const saved = await snapshotAnvil();
+  const member = requiredAnvilAddress("member");
+  const recipient = requiredAnvilAddress("giftRecipient");
+  const token = requiredAnvilAddress("paymentToken");
+  const client = anvilPublicClient();
+  try {
+    const tiers = [];
+    for (let t = 0; t < 9; t++) {
+      const entry = await createPortfolioTier(`Portfolio ${t + 1}`);
+      tiers.push(entry);
+      const count = t === 0 ? 101 : 1;
+      expectSuccessfulReceipt(
+        await sendContract({
+          account: member,
+          address: token,
+          abi: usdgAbi,
+          functionName: "approve",
+          args: [entry.tier, entry.price * BigInt(count)],
+        }),
+      );
+      for (let id = 0; id < count; id++)
+        expectSuccessfulReceipt(
+          await sendContract({
+            account: member,
+            address: entry.tier,
+            abi: membershipTierAbi,
+            functionName: "createMembership",
+            args: [1n, member, 25n],
+          }),
+        );
+    }
+    await rpcRequest("evm_increaseTime", [43_200]);
+    await rpcRequest("evm_mine");
+    await installAnvilWallet(page, member);
+    await page.goto("/account");
+    await page
+      .getByRole("combobox", { name: "Membership network" })
+      .selectOption("31337");
+    await connectAnvilWallet(page, member);
+    const first = tiers[0];
+    const card = page
+      .locator(".account-membership-card")
+      .filter({ hasText: first.name });
+    await expect(card.locator(".account-position")).toHaveCount(100);
+    await expect(
+      page.getByText("More memberships are available below."),
+    ).toBeVisible();
+    await card
+      .getByRole("button", { name: `More memberships in ${first.name}` })
+      .click();
+    await expect(card.locator(".account-position")).toHaveCount(101);
+    const rewards = page.getByRole("region", { name: "Rewards", exact: true });
+    expectSuccessfulReceipt(
+      await sendContract({
+        account: member,
+        address: first.tier,
+        abi: membershipTierAbi,
+        functionName: "transferFrom",
+        args: [member, recipient, 1n],
+      }),
+    );
+    await page.getByRole("button", { name: "Refresh memberships" }).click();
+    await expect(card.locator(".account-position")).toHaveCount(100);
+    const beforeClaim = await client.readContract({
+      address: token,
+      abi: usdgAbi,
+      functionName: "balanceOf",
+      args: [member],
+    });
+    await rewards
+      .getByRole("button", { name: "Claim all", exact: true })
+      .click();
+    await expect(
+      rewards.getByRole("status").filter({
+        hasText: "All rewards claimed. 1 transactions confirmed.",
+      }),
+    ).toBeVisible({ timeout: 90_000 });
+    const afterClaim = await client.readContract({
+      address: token,
+      abi: usdgAbi,
+      functionName: "balanceOf",
+      args: [member],
+    });
+    expect(afterClaim).toBeGreaterThan(beforeClaim);
+    await expect(rewards.getByRole("checkbox")).toHaveCount(0);
+    await page.setViewportSize({ width: 320, height: 844 });
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({
+      path: info.outputPath("portfolio-narrow.png"),
+      fullPage: true,
+    });
+    expect(
+      await client.readContract({
+        address: first.tier,
+        abi: membershipTierAbi,
+        functionName: "ownerOf",
+        args: [1n],
+      }),
+    ).toBe(recipient);
+  } finally {
+    await revertAnvil(saved);
+  }
 });

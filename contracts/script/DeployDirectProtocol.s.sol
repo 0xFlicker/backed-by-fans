@@ -8,7 +8,6 @@ import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
-import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {PonsBuybackExecutor} from "../src/PonsBuybackExecutor.sol";
 import {RendererPreviewHarness} from "../src/RendererPreviewHarness.sol";
@@ -22,7 +21,7 @@ import {IProtocolBuybackVault} from "../src/interfaces/IProtocolBuybackVault.sol
 import {ProtocolLaunchValidation} from "../src/libraries/ProtocolLaunchValidation.sol";
 import {OnchainMediaStoreFactory} from "../src/media/OnchainMediaStoreFactory.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
-import {TierCodeDeployment} from "./TierCodeDeployment.sol";
+import {TierImplementationDeployment} from "./TierImplementationDeployment.sol";
 
 interface IMainnetUSDGDeploymentTarget {
     function paused() external view returns (bool);
@@ -45,7 +44,7 @@ interface IProtocolSafe {
     function getStorageAt(uint256 offset, uint256 length) external view returns (bytes memory);
 }
 
-abstract contract ProtocolDeployment is TierCodeDeployment {
+abstract contract ProtocolDeployment is TierImplementationDeployment {
     error DeploymentInvariantFailed();
     error InvalidOperationalAddress();
     error InvalidPaymentToken(address token);
@@ -90,7 +89,7 @@ abstract contract ProtocolDeployment is TierCodeDeployment {
             MembershipFactory factory
         )
     {
-        MembershipTypes.TierCodeConfig memory tierCode = _ensureTierCodeStores();
+        address implementation = _ensureTierImplementation();
         mediaStoreFactory = new OnchainMediaStoreFactory();
         renderer = new OnchainMetadataRenderer();
         previewHarness = new RendererPreviewHarness();
@@ -101,7 +100,7 @@ abstract contract ProtocolDeployment is TierCodeDeployment {
             address(mediaStoreFactory),
             protocolOwner,
             protocolToken,
-            tierCode,
+            implementation,
             minima
         );
     }
@@ -116,15 +115,14 @@ abstract contract ProtocolDeployment is TierCodeDeployment {
         address protocolToken
     ) internal view {
         _checkVestingLedger();
-        _checkTierCodeStores();
-        MembershipTypes.TierCodeConfig memory tierCode = tierCodeConfiguration();
-        address tierDeployer = factory.deployer();
+        _checkTierImplementation();
+        address implementation = factory.implementation();
         address vault = factory.buybackVault();
         address executor = IProtocolBuybackVault(vault).executor();
         if (
             address(mediaStoreFactory).code.length == 0 || address(renderer).code.length == 0
                 || address(previewHarness).code.length == 0 || address(factory).code.length == 0
-                || tierDeployer.code.length == 0 || vault.code.length == 0
+                || implementation != tierImplementation() || vault.code.length == 0
                 || IProtocolBuybackVault(vault).factory() != address(factory)
                 || IProtocolBuybackVault(vault).protocolToken() != protocolToken
                 || factory.paymentTokenCount() != paymentTokens.length
@@ -133,17 +131,6 @@ abstract contract ProtocolDeployment is TierCodeDeployment {
                 || factory.mediaStoreFactory() != address(mediaStoreFactory)
                 || factory.mediaStoreFactoryRuntimeCodehash() != address(mediaStoreFactory).codehash
                 || factory.pendingOwner() != address(0) || factory.protocolToken() != protocolToken
-                || MembershipTierDeployer(tierDeployer).factory() != address(factory)
-                || MembershipTierDeployer(tierDeployer).creationCodeStoreA() != tierCode.storeA
-                || MembershipTierDeployer(tierDeployer).creationCodeStoreB() != tierCode.storeB
-                || MembershipTierDeployer(tierDeployer).tierCreationCodeLength()
-                    != tierCode.creationCodeLength
-                || MembershipTierDeployer(tierDeployer).tierCreationCodeHash()
-                    != tierCode.creationCodeHash
-                || MembershipTierDeployer(tierDeployer).creationCodeStoreAHash()
-                    != tierCode.storeA.codehash
-                || MembershipTierDeployer(tierDeployer).creationCodeStoreBHash()
-                    != tierCode.storeB.codehash
         ) {
             revert DeploymentInvariantFailed();
         }
@@ -186,7 +173,7 @@ abstract contract ProtocolDeployment is TierCodeDeployment {
         console2.log("Backed By Fans renderer", address(renderer));
         console2.log("Backed By Fans renderer preview harness", address(previewHarness));
         console2.log("Backed By Fans factory", address(factory));
-        console2.log("Backed By Fans tier deployer", factory.deployer());
+        console2.log("Backed By Fans tier deployer", factory.implementation());
         console2.log("Backed By Fans protocol token", factory.protocolToken());
         console2.log("Backed By Fans buyback vault", factory.buybackVault());
     }
@@ -278,7 +265,7 @@ abstract contract RobinhoodDeploymentGuard is ProtocolDeployment {
                 RobinhoodProtocolConfig.mediaStoreFactory(),
                 INITIAL_PROTOCOL_AUTHORITY,
                 configuredProtocolToken(),
-                tierCodeConfiguration(),
+                tierImplementation(),
                 RobinhoodProtocolConfig.initialMinimumPayments()
             )
         );

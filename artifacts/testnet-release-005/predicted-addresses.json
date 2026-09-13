@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "returns": {
+    "renderer": {
+      "internal_type": "address",
+      "value": "0x94DC932dFdde3a394F59271f97603B62530d28c8"
+    },
+    "mediaStoreFactory": {
+      "internal_type": "address",
+      "value": "0x871396021051a27Bd67e6f8Ab73b5071f6aB0B80"
+    },
+    "previewHarness": {
+      "internal_type": "address",
+      "value": "0x1BF436A67b71Ab6153f9B84507D7cC0c83c1F297"
+    },
+    "factory": {
+      "internal_type": "address",
+      "value": "0xE0a9f373cF1B2e56825f68c7050b3E6d81131B59"
+    }
+  },
+  "logs": []
+}

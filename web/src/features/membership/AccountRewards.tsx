@@ -1,415 +1,261 @@
 "use client";
-import { StreamingAmount } from "@/components/StreamingAmount";
-import { readRewardUsdPrices, formatRewardUsd } from "@/lib/reward-usd";
-import { useState } from "react";
-import Link from "next/link";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { simulateContract } from "@wagmi/core";
+import { useRef, useState, type ReactNode } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { getAccount, simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
-import {
-  BaseError,
-  ContractFunctionRevertedError,
-  parseEventLogs,
-  type Address,
-} from "viem";
-import {
-  membershipTierAbi,
-  membershipFactoryAbi,
-  protocolBurnRouterAbi,
-} from "@/contracts";
+import type { Address } from "viem";
+import { membershipTierAbi, membershipFactoryAbi } from "@/contracts";
 import type { ReadyDeployment } from "@/lib/config";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { decodeTransactionError } from "@/lib/transaction-state";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
+import {
+  invalidateMembershipReads,
+  isSuccessfulWriteReceipt,
+} from "@/features/protocol/write-reconciliation";
+import {
+  receiptMembershipMaintenance,
+  receiptSelectedRewards,
+} from "@/features/protocol/payout-reconciliation";
 import { readAccountRewards } from "./account-rewards-read";
-import { receiptAdvance } from "@/features/protocol/buyback-reconciliation";
-
+import {
+  canReduceClaim,
+  claimPrefix,
+  claimUnits,
+  discoverClaimAll,
+  refreshClaimScope,
+  removeClaimed,
+  type ClaimAllScope,
+} from "./claim-all";
 export function AccountRewards({
   deployment,
   wallet,
-  tiers,
-  complete,
-  formatAmount,
+  onRefresh,
+  children,
 }: {
   deployment: ReadyDeployment;
   wallet: Address;
-  tiers: readonly { tier: Address; name: string; paymentToken: Address }[];
-  complete: boolean;
-  formatAmount: (amount: bigint, token: Address) => string;
+  onRefresh?: () => void;
+  children?: ReactNode;
 }) {
   const { chainId, factoryAddress } = deployment;
-  const [page, setPage] = useState(0);
-  const pages = Math.max(1, Math.ceil(tiers.length / 8));
-  const currentPage = Math.min(page, pages - 1);
-  const batch = tiers.slice(currentPage * 8, currentPage * 8 + 8);
-  const addresses = batch.map((item) => item.tier);
   const config = useConfig();
   const account = useHydratedAccount();
   const client = usePublicClient({ chainId });
   const write = useWriteContract();
   const cache = useQueryClient();
-  async function previewClaims() {
-    if (!client) throw new Error("The network is unavailable.");
-    return readAccountRewards(client, wallet, batch);
-  }
-  const preview = useQuery({
-    queryKey: [
-      "account-rewards",
-      chainId,
-      factoryAddress,
-      wallet,
-      ...addresses,
-    ],
-    queryFn: previewClaims,
-    enabled: Boolean(client) && addresses.length > 0,
+  const walletReady =
+    account.chainId === chainId &&
+    account.address?.toLowerCase() === wallet.toLowerCase();
+  const allScope = useRef<ClaimAllScope | null>(null);
+  const [canResumeAll, setCanResumeAll] = useState(false);
+  const [allProgress, setAllProgress] = useState("");
+  const allAction = useMutation({
     retry: false,
-    refetchInterval: 15_000,
-  });
-  const action = useMutation({
-    retry: false,
-    onError: () => {
-      void preview.refetch();
-    },
-    mutationFn: async (advanceTier: Address | undefined) => {
-      if (
-        !client ||
-        account.address?.toLowerCase() !== wallet.toLowerCase() ||
-        account.chainId !== chainId
-      )
+    mutationFn: async () => {
+      if (!client || !walletReady)
         throw new Error("Connect this wallet on the membership network.");
-      const fresh = await previewClaims();
-      if (fresh.blocked?.tier.toLowerCase() !== advanceTier?.toLowerCase()) {
-        await preview.refetch();
-        throw new Error(
-          "Rewards updated. Review the next action before continuing.",
+      const current = allScope.current;
+      if (
+        !current ||
+        current.wallet.toLowerCase() !== wallet.toLowerCase() ||
+        current.chainId !== chainId ||
+        current.factory.toLowerCase() !== factoryAddress.toLowerCase()
+      ) {
+        allScope.current = await discoverClaimAll(
+          client,
+          deployment,
+          wallet,
+          setAllProgress,
         );
       }
-      let hash: `0x${string}`;
-      let router: Address | undefined;
-      if (fresh.blocked) {
-        router = await client.readContract({
-          address: factoryAddress,
-          abi: membershipFactoryAbi,
-          functionName: "burnRouter",
-        });
-        const simulation = await simulateContract(config, {
-          chainId,
-          account: wallet,
-          address: router,
-          abi: protocolBurnRouterAbi,
-          functionName: "advanceAccounting",
-          args: [[{ tier: fresh.blocked.tier, maxAccountingSteps: 25n }]],
-        });
-        await assertSufficientGas(client, wallet, simulation.request);
-        hash = await write.writeContractAsync(simulation.request);
-      } else {
+      const scope = allScope.current!;
+      setCanResumeAll(scope.queue.length > 0);
+      const ensureWallet = () => {
+        const connected = getAccount(config);
         if (
-          !fresh.results.some(
-            (item) => item.reward + item.referral + item.creator > 0n,
-          )
+          connected.address?.toLowerCase() !== wallet.toLowerCase() ||
+          connected.chainId !== chainId
         )
-          throw new Error("No rewards are available to claim.");
-        const simulation = await simulateContract(config, {
-          chainId,
-          account: wallet,
-          address: factoryAddress,
-          abi: membershipFactoryAbi,
-          functionName: "claimEverything",
-          args: [addresses],
-        });
-        await assertSufficientGas(client, wallet, simulation.request);
-        hash = await write.writeContractAsync(simulation.request);
-      }
-      const paid = new Map<Address, bigint>();
-      let cancelled = false;
-      const receipt = await client.waitForTransactionReceipt({
-        hash,
-        onReplaced: (replacement) => {
-          cancelled ||= replacement.reason === "cancelled";
-        },
-      });
-      if (cancelled) throw new Error("Your wallet cancelled this transaction.");
-      if (receipt.status !== "success")
-        throw new Error(
-          "The transaction reverted. Your funds remain available.",
+          throw new Error("Wallet or network changed. Reconnect to resume.");
+      };
+      while (scope.queue.length) {
+        ensureWallet();
+        const previousCount = scope.queue.reduce(
+          (sum, tier) => sum + tier.tokenIds.length,
+          0,
         );
-      if (router) {
-        const outcome = receiptAdvance(receipt, { router, caller: wallet });
-        if (
-          !outcome?.accounting.some(
-            (item) =>
-              item.tier.toLowerCase() === fresh.blocked!.tier.toLowerCase(),
-          )
-        )
-          throw new Error(
-            "The receipt does not confirm this accounting advance.",
+        scope.queue = await refreshClaimScope(client, wallet, scope.queue);
+        scope.removedPositions +=
+          previousCount -
+          scope.queue.reduce((sum, tier) => sum + tier.tokenIds.length, 0);
+        let units = claimUnits(scope.queue);
+        let maintenanceBudget = 25n;
+        while (true) {
+          const batch = claimPrefix(scope.queue, units);
+          let fresh;
+          try {
+            fresh = await readAccountRewards(client, wallet, batch);
+          } catch (error) {
+            if (units > 1 && canReduceClaim(error)) {
+              units = Math.max(1, Math.floor(units / 2));
+              continue;
+            }
+            throw error;
+          }
+          const blocked = fresh.blocked;
+          if (
+            !blocked &&
+            !fresh.results.some(
+              (item) =>
+                item.reward + item.retired + item.referral + item.creator > 0n,
+            )
+          ) {
+            removeClaimed(scope, batch);
+            break;
+          }
+          let request;
+          try {
+            const simulation = blocked
+              ? await simulateContract(config, {
+                  chainId,
+                  account: wallet,
+                  address: blocked.tier,
+                  abi: membershipTierAbi,
+                  functionName: "processAccounting",
+                  args: [maintenanceBudget],
+                })
+              : await simulateContract(config, {
+                  chainId,
+                  account: wallet,
+                  address: factoryAddress,
+                  abi: membershipFactoryAbi,
+                  functionName: "claimEverything",
+                  args: [
+                    batch.map(({ tier, tokenIds }) => ({ tier, tokenIds })),
+                    25n,
+                  ],
+                });
+            request = simulation.request;
+            const [gas, block] = await Promise.all([
+              client.estimateContractGas(request as never),
+              client.getBlock(),
+            ]);
+            if (gas * 5n > block.gasLimit * 4n)
+              throw new Error(
+                "Estimated gas exceeds the transaction gas limit.",
+              );
+          } catch (error) {
+            if (blocked && maintenanceBudget > 1n && canReduceClaim(error)) {
+              maintenanceBudget /= 2n;
+              continue;
+            }
+            if (!blocked && units > 1 && canReduceClaim(error)) {
+              units = Math.max(1, Math.floor(units / 2));
+              continue;
+            }
+            throw error;
+          }
+          await assertSufficientGas(client, wallet, request);
+          ensureWallet();
+          setAllProgress(
+            `${scope.completed} transactions confirmed. ${blocked ? `Updating accounting for ${blocked.name}` : `Claiming ${batch.reduce((n, tier) => n + tier.tokenIds.length, 0)} memberships across ${batch.length} tiers`}. Confirm in your wallet.`,
           );
-      } else {
-        const events = parseEventLogs({
-          abi: membershipFactoryAbi,
-          logs: receipt.logs,
-          eventName: "EverythingClaimed",
-        });
-        if (
-          !events.some(
-            (event) =>
-              event.address.toLowerCase() === factoryAddress.toLowerCase() &&
-              event.args.beneficiary.toLowerCase() === wallet.toLowerCase() &&
-              event.args.tierCount === BigInt(addresses.length),
-          )
-        )
-          throw new Error("The receipt does not confirm these claims.");
-      }
-      if (!router) {
-        for (const event of parseEventLogs({
-          abi: membershipTierAbi,
-          eventName: [
-            "RewardClaimed",
-            "ReferralClaimed",
-            "CreatorProceedsWithdrawn",
-          ],
-          logs: receipt.logs,
-          strict: true,
-        })) {
-          const target = batch.find(
-            (item) => item.tier.toLowerCase() === event.address.toLowerCase(),
-          );
-          if (!target) continue;
-          const recipient =
-            event.eventName === "ReferralClaimed"
-              ? event.args.referrer
-              : event.args.owner;
-          if (recipient.toLowerCase() !== wallet.toLowerCase())
+          // Narrow the generated ABI union for wagmi without casting the request.
+          const hash =
+            request.functionName === "processAccounting"
+              ? await write.writeContractAsync(request)
+              : await write.writeContractAsync(request);
+          let cancelled = false;
+          const receipt = await client.waitForTransactionReceipt({
+            hash,
+            onReplaced: (replacement) => {
+              cancelled ||= replacement.reason === "cancelled";
+            },
+          });
+          if (cancelled || !isSuccessfulWriteReceipt(receipt))
             throw new Error(
-              "The receipt contains a payout to a different wallet.",
+              "This transaction was cancelled or reverted. Resume to claim remaining rewards.",
             );
-          paid.set(
-            target.paymentToken,
-            (paid.get(target.paymentToken) ?? 0n) + event.args.amount,
+          if (blocked) {
+            const progress = receiptMembershipMaintenance(
+              receipt,
+              blocked.tier,
+            );
+            if (
+              !progress ||
+              (progress.processedSteps === 0n && !progress.complete)
+            )
+              throw new Error(
+                "Maintenance did not confirm progress. Refresh before resuming.",
+              );
+          } else {
+            receiptSelectedRewards(receipt, {
+              factory: factoryAddress,
+              owner: wallet,
+              selection: batch,
+            });
+            removeClaimed(scope, batch);
+          }
+          scope.completed++;
+          await Promise.all(
+            batch.map((tier) =>
+              invalidateMembershipReads(cache, receipt, {
+                chainId,
+                tier: tier.tier,
+                owners: [wallet],
+              }),
+            ),
           );
+          onRefresh?.();
+          break;
         }
       }
-      const refresh = await Promise.allSettled([
-        cache.invalidateQueries(
-          { queryKey: ["account-rewards", chainId, factoryAddress, wallet] },
-          { throwOnError: true },
-        ),
-        cache.invalidateQueries(
-          { queryKey: ["account-discovery"] },
-          { throwOnError: true },
-        ),
-        cache.invalidateQueries(
-          { queryKey: ["protocol", chainId] },
-          { throwOnError: true },
-        ),
-      ]);
-      return {
-        paid: [...paid],
-        advanced: Boolean(router),
-        refreshFailed: refresh.some((result) => result.status === "rejected"),
-      };
+      const message = scope.completed
+        ? `All rewards claimed. ${scope.completed} transactions confirmed.`
+        : "No whole rewards are available. Fractional credit remains preserved.";
+      allScope.current = null;
+      setCanResumeAll(false);
+      setAllProgress(
+        message +
+          (scope.removedPositions
+            ? ` ${scope.removedPositions} captured membership${scope.removedPositions === 1 ? "" : "s"} ended or changed owner. Preserved rewards belonging to you were included.`
+            : ""),
+      );
+      return message;
     },
   });
-  const totals = new Map<Address, bigint>();
-  preview.data?.results.forEach((result, index) => {
-    const token = batch[index].paymentToken;
-    const amount = result.reward + result.referral + result.creator;
-    if (amount > 0n) totals.set(token, (totals.get(token) ?? 0n) + amount);
-  });
-  const streamsFor = (token: Address) =>
-    preview.data?.results.flatMap((item, index) =>
-      batch[index].paymentToken === token ? item.streams : [],
-    ) ?? [];
-  const tokens = [...totals.keys()];
-  const usd = useQuery({
-    queryKey: ["account-reward-usd", chainId, factoryAddress, ...tokens],
-    queryFn: () => readRewardUsdPrices(client!, factoryAddress, tokens),
-    enabled:
-      Boolean(client) &&
-      tokens.length > 0 &&
-      (chainId === 31337 || chainId === 4663),
-    staleTime: 30_000,
-    refetchInterval: 30_000,
-    retry: false,
-  });
-  const reverted =
-    action.error instanceof BaseError
-      ? action.error.walk(
-          (cause) => cause instanceof ContractFunctionRevertedError,
-        )
-      : undefined;
-  const failure =
-    reverted instanceof ContractFunctionRevertedError
-      ? reverted.data
-      : undefined;
-  const failedTier =
-    failure?.errorName === "ClaimAccountingBehind" ||
-    failure?.errorName === "ClaimFailed"
-      ? batch.find(
-          (item, index) =>
-            BigInt(index) === failure.args?.[0] &&
-            item.tier.toLowerCase() === String(failure.args?.[1]).toLowerCase(),
-        )
-      : undefined;
-  const blocked = preview.data?.blocked;
-  // Keep polling while hidden so newly earned rewards can appear automatically.
-  // Preserve batch navigation: an empty batch does not mean later batches are empty.
-  if (!blocked && totals.size === 0 && pages === 1 && !action.data) return null;
   return (
-    <section aria-label="Rewards" className="account-rewards protocol-section">
+    <section
+      aria-label="Rewards"
+      className="account-rewards protocol-section"
+      aria-busy={allAction.isPending}
+    >
       <div className="account-rewards-heading">
-        <p className="eyebrow">
-          {totals.size > 0 && !blocked ? "Ready to collect" : "Earnings"}
-        </p>
         <h2 className="font-display">Your rewards</h2>
       </div>
-      <div className="account-reward-balances">
-        {addresses.length === 0 ? (
-          "No rewards found yet."
-        ) : preview.isPending ? (
-          "Checking rewards…"
-        ) : preview.isError ? (
-          <span role="alert">Unable to refresh rewards.</span>
-        ) : totals.size === 0 ? (
-          "All claimed."
-        ) : (
-          [...totals].map(([token]) => (
-            <div className="account-reward-balance" key={token}>
-              <p className="account-reward-amount">
-                {
-                  <StreamingAmount
-                    identity={`${chainId}:${wallet}:${token}`}
-                    streams={streamsFor(token)}
-                    format={(raw) => formatAmount(raw, token)}
-                    refresh={() => preview.refetch()}
-                    active={!preview.isError}
-                  />
-                }
-              </p>
-              <p className="account-reward-usd">
-                {(() => {
-                  const quote = usd.data?.find((item) => item.token === token);
-                  return quote ? (
-                    <StreamingAmount
-                      identity={`${chainId}:${wallet}:${token}:usd`}
-                      streams={streamsFor(token)}
-                      format={(raw) =>
-                        `≈ ${formatRewardUsd(raw, quote.price, navigator.language)}`
-                      }
-                      refresh={() => preview.refetch()}
-                      active={!preview.isError}
-                    />
-                  ) : usd.isError ? (
-                    "USD estimate unavailable"
-                  ) : (
-                    " "
-                  );
-                })()}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-      {blocked && (
-        <p className="small-copy">
-          Advance{" "}
-          <Link href={`/chains/${chainId}/tiers/${blocked.tier}`}>
-            {blocked.name}
-          </Link>{" "}
-          to claim.
-        </p>
-      )}
-      {preview.data && !preview.data.complete && (
-        <p className="small-copy">
-          Partial earnings shown. Advance accounting to update the rest.
-        </p>
-      )}
+      {children}
       <div className="creator-actions">
         <button
           className="button button-dark"
           type="button"
-          disabled={
-            action.isPending ||
-            preview.isError ||
-            (!blocked && totals.size === 0) ||
-            account.chainId !== chainId
-          }
-          onClick={() => action.mutate(blocked?.tier)}
+          disabled={!walletReady || !client || allAction.isPending}
+          onClick={() => allAction.mutate()}
         >
-          {action.isPending
-            ? "Working…"
-            : blocked
-              ? "Advance accounting"
-              : pages > 1
-                ? "Claim this batch"
-                : "Claim everything"}
+          {allAction.isPending
+            ? "Claiming…"
+            : canResumeAll
+              ? "Resume claim all"
+              : "Claim all"}
         </button>
-        <button
-          className="text-button"
-          type="button"
-          disabled={
-            action.isPending || preview.isFetching || addresses.length === 0
-          }
-          onClick={() => {
-            void preview.refetch();
-            void usd.refetch();
-          }}
-        >
-          Refresh
-        </button>
-        {pages > 1 && (
-          <>
-            <button
-              className="text-button"
-              type="button"
-              disabled={action.isPending || currentPage === 0}
-              onClick={() => setPage(currentPage - 1)}
-            >
-              Previous
-            </button>
-            <span>
-              Batch {currentPage + 1} of {pages}
-            </span>
-            <button
-              className="text-button"
-              type="button"
-              disabled={action.isPending || currentPage + 1 === pages}
-              onClick={() => setPage(currentPage + 1)}
-            >
-              Next
-            </button>
-          </>
-        )}
       </div>
-      {!complete && (
-        <p className="small-copy">
-          Check the remaining memberships below to include all rewards.
-        </p>
-      )}
-      {action.error && (
+      {allProgress && <p role="status">{allProgress}</p>}
+      {allAction.error && (
         <p role="alert">
-          {failedTier ? (
-            <>
-              <Link href={`/chains/${chainId}/tiers/${failedTier.tier}`}>
-                {failedTier.name}
-              </Link>
-              {failure?.errorName === "ClaimAccountingBehind"
-                ? " needs an accounting update. Review the refreshed action to continue."
-                : `: ${decodeTransactionError(action.error)}`}
-            </>
-          ) : (
-            decodeTransactionError(action.error)
-          )}
-        </p>
-      )}
-      {action.data && (
-        <p role="status">
-          {action.data.advanced
-            ? "Accounting advanced."
-            : action.data.paid.length
-              ? `Paid ${action.data.paid.map(([token, amount]) => formatAmount(amount, token)).join(", ")}.`
-              : "No rewards were paid."}
-          {action.data.refreshFailed && " Refresh to update the balances."}
+          {decodeTransactionError(allAction.error)}{" "}
+          {canResumeAll
+            ? "Confirmed transactions remain completed. Resume to continue."
+            : "Try Claim all again."}
         </p>
       )}
     </section>

@@ -146,7 +146,7 @@ contract ProtocolSafeForkTest is PonsForkFixture {
             address(new OnchainMediaStoreFactory()),
             address(safe),
             address(token),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(assets)
         );
         bbfVault = ProtocolBuybackVault(payable(bbf.buybackVault()));

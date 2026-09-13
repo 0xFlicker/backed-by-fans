@@ -47,7 +47,7 @@ test("@buyback-settings rehearses repeatedly without changing memberships, vault
     }),
   });
   const before = await state();
-  await page.goto("/tools/buybacks");
+  await page.goto("/chains/31337/tools/buybacks");
   await expect(
     page.getByRole("button", { name: "Connect wallet", exact: true }).first(),
   ).toBeEnabled();

@@ -31,6 +31,7 @@ export async function readCalculator(
       earned: bigint;
       reservedScaled: bigint;
       checkpointsDue: boolean;
+      previewComplete: boolean;
     }
   >();
   for (let offset = 0n; offset < tierCount; offset += 100n) {
@@ -42,7 +43,7 @@ export async function readCalculator(
       blockNumber,
     });
     for (const tier of tiers) {
-      const [paymentToken, earnedHeld, reserves] = await Promise.all([
+      const [paymentToken, preview, reserves] = await Promise.all([
         client.readContract({
           address: tier,
           abi: membershipTierAbi,
@@ -52,7 +53,8 @@ export async function readCalculator(
         client.readContract({
           address: tier,
           abi: membershipTierAbi,
-          functionName: "protocolFeeEarnedHeld",
+          functionName: "previewAccounting",
+          args: [0n, zeroAddress, zeroAddress, 256n],
           blockNumber,
         }),
         client.readContract({
@@ -73,11 +75,15 @@ export async function readCalculator(
         earned: 0n,
         reservedScaled: 0n,
         checkpointsDue: false,
+        previewComplete: true,
       };
-      amounts.earned += earnedHeld;
-      amounts.reservedScaled += reserves.unearnedScaled[3];
+      // Include continuous accrual, not just balances settled by a prior write.
+      amounts.earned += preview.current.protocol;
+      amounts.reservedScaled +=
+        reserves.unearnedScaled[3] - preview.earnedDeltaScaled[3];
+      amounts.previewComplete &&= preview.current.status.complete;
       amounts.checkpointsDue ||=
-        reserves.status.scheduledMembers > 0n &&
+        reserves.status.nextBoundary > 0n &&
         reserves.status.nextBoundary <= state.data.timestamp;
       fees.set(canonical.toLowerCase(), amounts);
     }

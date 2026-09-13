@@ -8,13 +8,6 @@ import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 
 /// @notice Test-only access to stored lifecycle checkpoints.
 contract MembershipTierHarness is MembershipTier {
-    constructor(
-        address factory,
-        IERC20 paymentToken,
-        address renderer,
-        MembershipTypes.TierConfig memory config
-    ) MembershipTier(factory, paymentToken, config) {}
-
     function storedTimeState(uint256 tokenId)
         external
         view

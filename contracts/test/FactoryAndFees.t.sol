@@ -9,7 +9,6 @@ import {Test} from "forge-std/Test.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
-import {MembershipTierDeployer} from "../src/MembershipTierDeployer.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
 import {IMembershipFactory} from "../src/interfaces/IMembershipFactory.sol";
 import {IMembershipRenderer} from "../src/interfaces/IMembershipRenderer.sol";
@@ -96,6 +95,14 @@ contract FutureRenderer is IMembershipRenderer {
 }
 
 contract FactoryAndFeesTest is Test {
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        return 0x150b7a02;
+    }
+
     uint256 private constant _STANDARD_RUNTIME_LIMIT = 24_576;
     uint256 private constant _STANDARD_INITCODE_LIMIT = 49_152;
     uint256 private constant _ROBINHOOD_RUNTIME_LIMIT = 98_304;
@@ -103,7 +110,7 @@ contract FactoryAndFeesTest is Test {
     uint256 private constant _RENDERER_RUNTIME_LIMIT = 88_000;
     uint256 private constant _RENDERER_INITCODE_LIMIT = 176_000;
     // Includes immutable fee terms, protected reserves and the paid-time accounting surface.
-    uint256 private constant _MAX_TIER_DEPLOY_GAS = 7_500_000;
+    uint256 private constant _MAX_TIER_DEPLOY_GAS = 1_000_000;
     MockUSDG private paymentToken;
     MockUSDG private stockToken;
     OnchainMetadataRenderer private renderer;
@@ -128,7 +135,7 @@ contract FactoryAndFeesTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(_tokens(paymentToken, stockToken))
         );
     }
@@ -154,20 +161,20 @@ contract FactoryAndFeesTest is Test {
         cfg.tierSalt = bytes32(uint256(456));
         vm.prank(creator);
         MembershipTier pwyw = MembershipTier(factory.createTier(cfg));
-        pwyw.contribute(0, address(0));
+        pwyw.createContributionMembership(0, address(0), 25);
         assertEq(pwyw.lifetimeGross(), 0);
         uint64 cursor = pwyw.accountingStatus().accountedThrough;
         vm.warp(block.timestamp + 1);
         vm.expectRevert(
             abi.encodeWithSelector(MembershipTier.PaymentBelowMinimum.selector, 999_999, 1_000_000)
         );
-        pwyw.contribute(999_999, address(0));
+        pwyw.createContributionMembership(999_999, address(0), 25);
         assertEq(pwyw.accountingStatus().accountedThrough, cursor);
         factory.setMinimumPayment(address(paymentToken), 2_000_000);
         assertEq(pwyw.minimumPayment(), 1_000_000);
         paymentToken.mint(address(this), 1_000_000);
         paymentToken.approve(address(pwyw), 1_000_000);
-        pwyw.contribute(1_000_000, address(0));
+        pwyw.createContributionMembership(1_000_000, address(0), 25);
         assertEq(pwyw.lifetimeGross(), 1_000_000);
         cfg.tierSalt = bytes32(uint256(457));
         vm.prank(creator);
@@ -197,8 +204,6 @@ contract FactoryAndFeesTest is Test {
     }
 
     function test_constructorSetsProtocolDependenciesAndNonAdminDeployer() public view {
-        MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
-
         assertEq(factory.paymentTokenCount(), 2);
         address[] memory paymentTokens = factory.paymentTokens(0, 10);
         assertEq(paymentTokens.length, 2);
@@ -212,10 +217,9 @@ contract FactoryAndFeesTest is Test {
         assertEq(factory.rendererSchema(), renderer.rendererSchema());
         assertEq(factory.mediaStoreFactoryRuntimeCodehash(), address(mediaStoreFactory).codehash);
         assertEq(factory.protocolToken(), address(paymentToken));
-        assertEq(factory.maxPageSize(), 100);
         assertEq(factory.owner(), address(this));
         assertGt(factory.buybackVault().code.length, 0);
-        assertEq(tierDeployer.factory(), address(factory));
+        assertEq(factory.implementation(), MembershipTestConfig.implementation());
     }
 
     function test_factoryHasNoFeeRecipientWithdrawalOrArbitraryCallPath() public {
@@ -248,10 +252,8 @@ contract FactoryAndFeesTest is Test {
         assertEq(emptyPage.length, 0);
     }
 
-    function test_paymentTokenPaginationRejectsOversizedPage() public {
-        uint256 invalidPageSize = factory.maxPageSize() + 1;
-        vm.expectRevert(MembershipFactory.InvalidPageSize.selector);
-        factory.paymentTokens(0, invalidPageSize);
+    function test_paymentTokenPaginationAcceptsCallerLimit() public view {
+        assertEq(factory.paymentTokens(0, type(uint256).max).length, 2);
     }
 
     function test_ownerCanAppendDisableAndReenablePaymentTokenWithoutDuplicateEvents() public {
@@ -320,28 +322,8 @@ contract FactoryAndFeesTest is Test {
         assertFalse(factory.isPaymentTokenEnabled(address(stockToken)));
     }
 
-    function test_deployerStoresExactStopPrefixedTierCreationCode() public view {
-        MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
-        bytes memory expected = type(MembershipTier).creationCode;
-        bytes memory first = tierDeployer.creationCodeStoreA().code;
-        bytes memory second = tierDeployer.creationCodeStoreB().code;
-
-        assertEq(uint8(first[0]), 0);
-        assertEq(uint8(second[0]), 0);
-        assertEq(first.length + second.length - 2, expected.length);
-
-        bytes memory reconstructed = new bytes(expected.length);
-        uint256 firstPayloadLength = first.length - 1;
-        for (uint256 i; i < firstPayloadLength; ++i) {
-            reconstructed[i] = first[i + 1];
-        }
-        for (uint256 i; i < second.length - 1; ++i) {
-            reconstructed[firstPayloadLength + i] = second[i + 1];
-        }
-
-        assertEq(tierDeployer.tierCreationCodeLength(), expected.length);
-        assertEq(tierDeployer.tierCreationCodeHash(), keccak256(expected));
-        assertEq(keccak256(reconstructed), keccak256(expected));
+    function test_factoryUsesExactSharedImplementationRuntime() public view {
+        assertEq(factory.implementation().code, type(MembershipTier).runtimeCode);
     }
 
     function test_factoryAndDeployerRuntimeDoNotEmbedTierCreationCode() public view {
@@ -352,7 +334,6 @@ contract FactoryAndFeesTest is Test {
         }
 
         assertFalse(_contains(address(factory).code, prefix));
-        assertFalse(_contains(factory.deployer().code, prefix));
     }
 
     function test_anyCreatorCanDeployMultipleIndependentFullTiers() public {
@@ -430,7 +411,7 @@ contract FactoryAndFeesTest is Test {
         factory.createTier(config);
 
         vm.expectRevert(MembershipTier.InvalidTierSalt.selector);
-        new MembershipTier(address(factory), paymentToken, config);
+        MembershipTestConfig.deployTier(address(factory), paymentToken, config);
     }
 
     function test_onchainMediaAdmissionRequiresCreatorAttributionAndSnapshotsExactConfig() public {
@@ -570,12 +551,18 @@ contract FactoryAndFeesTest is Test {
         factory.createTier(config);
     }
 
-    function test_deployerRejectsCallsOutsideBoundFactory() public {
+    function test_implementationAndCloneCannotBeReinitialized() public {
         MembershipTypes.TierConfig memory config = _defaultConfig(creator);
-        MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
-
-        vm.expectRevert(MembershipTierDeployer.OnlyFactory.selector);
-        tierDeployer.deploy(config);
+        MembershipTier tier = MembershipTier(_createTier(factory, creator, config));
+        bytes memory expected = abi.encodePacked(
+            hex"363d3d373d3d3d363d73", factory.implementation(), hex"5af43d82803e903d91602b57fd5bf3"
+        );
+        assertEq(address(tier).code, expected);
+        vm.expectRevert(bytes4(keccak256("InvalidInitialization()")));
+        tier.initialize(config);
+        MembershipTier implementation = MembershipTier(factory.implementation());
+        vm.expectRevert(bytes4(keccak256("InvalidInitialization()")));
+        implementation.initialize(config);
     }
 
     function test_factoryOwnerHasNoTierAuthority() public {
@@ -613,9 +600,8 @@ contract FactoryAndFeesTest is Test {
         assertEq(emptyPage.length, 0);
         assertFalse(factory.isRegisteredTier(address(new OnchainMetadataRenderer())));
 
-        uint256 invalidPageSize = factory.maxPageSize() + 1;
-        vm.expectRevert(MembershipFactory.InvalidPageSize.selector);
-        factory.tiers(0, invalidPageSize);
+        uint256 invalidPageSize = 100 + 1;
+        assertEq(factory.tiers(0, invalidPageSize).length, 5);
     }
 
     function test_invalidFactoryConstructorConfigurationReverts() public {
@@ -626,7 +612,7 @@ contract FactoryAndFeesTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(emptyTokens)
         );
 
@@ -639,7 +625,7 @@ contract FactoryAndFeesTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(invalidTokens)
         );
 
@@ -649,7 +635,7 @@ contract FactoryAndFeesTest is Test {
             address(0),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(_tokens(paymentToken))
         );
 
@@ -662,7 +648,7 @@ contract FactoryAndFeesTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(_tokens(IERC20(notToken)))
         );
 
@@ -672,7 +658,7 @@ contract FactoryAndFeesTest is Test {
             makeAddr("notMediaFactory"),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(_tokens(paymentToken))
         );
 
@@ -682,7 +668,7 @@ contract FactoryAndFeesTest is Test {
             address(mediaStoreFactory),
             address(0),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(_tokens(paymentToken))
         );
 
@@ -696,7 +682,7 @@ contract FactoryAndFeesTest is Test {
             address(mediaStoreFactory),
             address(this),
             address(paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(_tokens(paymentToken, paymentToken))
         );
     }
@@ -730,7 +716,7 @@ contract FactoryAndFeesTest is Test {
             vm.expectRevert(MembershipFactory.InvalidRateTotal.selector);
             factory.createTier(config);
             vm.expectRevert(MembershipTier.InvalidRateTotal.selector);
-            new MembershipTier(address(factory), paymentToken, config);
+            MembershipTestConfig.deployTier(address(factory), paymentToken, config);
         }
     }
 
@@ -741,7 +727,7 @@ contract FactoryAndFeesTest is Test {
         vm.expectRevert(MembershipFactory.InvalidRateTotal.selector);
         factory.createTier(config);
         vm.expectRevert(MembershipTier.InvalidRateTotal.selector);
-        new MembershipTier(address(factory), paymentToken, config);
+        MembershipTestConfig.deployTier(address(factory), paymentToken, config);
     }
 
     function test_protocolAllocationIsImmutableAcrossOwnershipTransfer() public {
@@ -781,7 +767,7 @@ contract FactoryAndFeesTest is Test {
         MembershipTier tier = MembershipTier(_createTier(factory, creator, config));
         paymentToken.mint(address(this), gross);
         paymentToken.approve(address(tier), gross);
-        tier.contribute(gross, referred ? nextOwner : address(0));
+        tier.createContributionMembership(gross, referred ? nextOwner : address(0), 25);
         uint256 fee = uint256(gross) * rate / 10_000;
         uint256 reward = uint256(gross) * config.rewardBps / 10_000;
         uint256 referral = referred ? uint256(gross) * config.referralBps / 10_000 : 0;
@@ -806,7 +792,7 @@ contract FactoryAndFeesTest is Test {
         MembershipTier tier = MembershipTier(_createTier(factory, creator, config));
         paymentToken.mint(address(this), 120_000_000);
         paymentToken.approve(address(tier), 120_000_000);
-        tier.purchase(12, address(0));
+        tier.createMembership(12, address(0), 25);
         vm.prank(creator);
         assertEq(tier.withdrawCreatorProceeds(), 0);
         assertEq(tier.totalProtectedLiability(), 120_000_000);
@@ -868,7 +854,7 @@ contract FactoryAndFeesTest is Test {
         vm.expectRevert(RewardCurve.InvalidCurveSettings.selector);
         _createTier(factory, creator, config);
         vm.expectRevert(RewardCurve.InvalidCurveSettings.selector);
-        new MembershipTier(address(factory), paymentToken, config);
+        MembershipTestConfig.deployTier(address(factory), paymentToken, config);
     }
 
     function test_runtimeAndInitcodeRemainBelowNetworkLimits() public {
@@ -876,19 +862,14 @@ contract FactoryAndFeesTest is Test {
         address tier = _createTier(factory, creator, _defaultConfig(creator));
         uint256 deployGas = gasBefore - gasleft();
         emit log_named_uint("creator tier deployment gas", deployGas);
-        MembershipTierDeployer tierDeployer = MembershipTierDeployer(factory.deployer());
 
-        assertLt(address(factory).code.length, _STANDARD_RUNTIME_LIMIT);
+        assertLt(address(factory).code.length, _ROBINHOOD_RUNTIME_LIMIT);
         assertLt(type(MembershipFactory).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
-        assertLt(factory.deployer().code.length, _STANDARD_RUNTIME_LIMIT);
-        assertLt(type(MembershipTierDeployer).creationCode.length, _STANDARD_INITCODE_LIMIT);
-        assertLt(tierDeployer.creationCodeStoreA().code.length, _STANDARD_RUNTIME_LIMIT);
-        assertLt(tierDeployer.creationCodeStoreB().code.length, _STANDARD_RUNTIME_LIMIT);
         assertLt(tier.code.length, _ROBINHOOD_RUNTIME_LIMIT);
         assertLt(type(MembershipTier).creationCode.length, _ROBINHOOD_INITCODE_LIMIT);
         assertLt(address(renderer).code.length, _RENDERER_RUNTIME_LIMIT);
         assertLt(type(OnchainMetadataRenderer).creationCode.length, _RENDERER_INITCODE_LIMIT);
-        assertLt(address(mediaStoreFactory).code.length, _STANDARD_RUNTIME_LIMIT);
+        assertLt(address(mediaStoreFactory).code.length, _ROBINHOOD_RUNTIME_LIMIT);
         assertLt(deployGas, _MAX_TIER_DEPLOY_GAS);
     }
 
@@ -910,7 +891,7 @@ contract FactoryAndFeesTest is Test {
             vm.expectRevert(RewardCurve.InvalidCurveSettings.selector);
             factory.createTier(config);
             vm.expectRevert(RewardCurve.InvalidCurveSettings.selector);
-            new MembershipTier(address(factory), paymentToken, config);
+            MembershipTestConfig.deployTier(address(factory), paymentToken, config);
         }
         assertEq(factory.tierCount(), 0);
     }
@@ -958,27 +939,30 @@ contract FactoryAndFeesTest is Test {
         uint256 cap = type(uint112).max;
         paymentToken.mint(address(this), cap + 1);
         paymentToken.approve(address(tier), type(uint256).max);
-        uint256 id = tier.contribute(cap, address(0));
+        uint256 id = tier.createContributionMembership(cap, address(0), 25);
         assertEq(tier.lifetimeGross(), cap);
         assertEq(tier.sharesOf(id), cap + 4500);
         uint64 expiry = tier.expiresAt(id);
         bytes32 reservesBefore = keccak256(abi.encode(tier.reserveState()));
         vm.expectRevert(MembershipTier.CurveCapacityExceeded.selector);
-        tier.contribute(1, address(0));
+        tier.createContributionMembership(1, address(0), 25);
         assertEq(paymentToken.balanceOf(address(this)), 1);
         assertEq(tier.expiresAt(id), expiry);
         assertEq(keccak256(abi.encode(tier.reserveState())), reservesBefore);
         vm.warp(block.timestamp + 50);
         tier.processAccounting(25);
-        assertGt(tier.claimReward(id), 0);
+        assertGt(tier.claimReward(id, 25), 0);
         vm.prank(creator);
         assertGt(tier.withdrawCreatorProceeds(), 0);
         vm.prank(creator);
-        assertEq(tier.refund(id, cap), cap / 2);
+        assertEq(tier.refund(id, address(this), cap, 25), cap / 2);
         assertEq(tier.lifetimeGross(), cap);
-        assertEq(tier.sharesOf(id), cap + 4500);
-        tier.contribute(0, address(0));
-        assertTrue(tier.isActive(address(this)));
+        assertEq(tier.sharesOf(id), 0);
+        tier.createContributionMembership(0, address(0), 25);
+        assertTrue(
+            (tier.tokensOfOwner(address(this), 0, 1).balance != 0
+                    && tier.isActiveToken(tier.tokensOfOwner(address(this), 0, 1).tokenIds[0]))
+        );
         assertFalse(tier.rewardEligible(id));
         assertEq(tier.lifetimeGross(), cap);
     }

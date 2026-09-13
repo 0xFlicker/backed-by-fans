@@ -37,7 +37,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
                     media,
                     address(this),
                     address(token),
-                    MembershipTestConfig.tierCode(),
+                    MembershipTestConfig.implementation(),
                     MembershipTestConfig.minimumPayments(assets)
                 )
             )
@@ -130,7 +130,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         uint256 gross = config.pricePerPeriod * 12;
         vm.startPrank(trader);
         assertTrue(IERC20(asset).approve(address(tier), gross));
-        uint256 id = tier.purchase(12, address(0));
+        uint256 id = tier.createMembership(12, address(0), 25);
         vm.stopPrank();
         vm.warp(block.timestamp + 300);
         vm.prank(developer);
@@ -193,7 +193,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         assertEq(quote.fundingScaled[0] + quote.fundingScaled[1] + quote.fundingScaled[2], 0);
         uint256 beforeRefund = IERC20(asset).balanceOf(trader);
         uint256 heldBefore = IERC20(asset).balanceOf(address(tier));
-        tier.refund(id, refund);
+        tier.refund(id, tier.ownerOf(id), refund, 25);
         assertEq(IERC20(asset).balanceOf(trader) - beforeRefund, refund);
         uint256 remainder = IERC20(asset).balanceOf(address(tier));
         assertEq(remainder, heldBefore - refund);

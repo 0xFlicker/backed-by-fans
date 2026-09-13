@@ -228,6 +228,9 @@ export async function rehearseBuybacks(
     gas: 15_000_000n,
     gasPrice,
   });
+  const orderedSettings = input.assets.toSorted((a, b) =>
+    a.asset.toLowerCase().localeCompare(b.asset.toLowerCase()),
+  );
   const setup: Call[] = [
     call(
       vault,
@@ -235,8 +238,8 @@ export async function rehearseBuybacks(
       "setExecutionLimits",
       [
         BigInt(input.globalMinInterval),
-        canonical,
-        input.assets.map((x) => ({
+        orderedSettings.map((x) => x.asset),
+        orderedSettings.map((x) => ({
           minInput: BigInt(x.minInput),
           maxInput: BigInt(x.maxInput),
           minInterval: BigInt(x.minInterval),

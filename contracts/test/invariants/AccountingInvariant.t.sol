@@ -31,6 +31,7 @@ contract AccountingHandler is Test {
     MembershipModel.FundingBook private _funding;
     mapping(uint256 => MembershipModel.Lifecycle) private _lifecycle;
     mapping(uint256 => uint256) private _shares;
+    mapping(uint256 => address) private _owners;
     mapping(uint256 => bool) private _eligible;
     mapping(uint256 => MembershipTypes.ReferralStatus) private _referralStatus;
     mapping(uint256 => address) private _referrer;
@@ -67,10 +68,16 @@ contract AccountingHandler is Test {
         uint64 periods = SafeCast.toUint64(1 + periodsSeed % 2);
         uint256 gross = tier.pricePerPeriod() * periods;
         paymentToken.mint(actor, gross);
-        address choice = _choice(tier.tokenOf(actor), referralSeed);
+        address choice = _choice(
+            (tier.tokensOfOwner(actor, 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(actor, 0, 1).tokenIds[0]),
+            referralSeed
+        );
         _settle();
         vm.prank(actor);
-        uint256 id = tier.purchase(periods, choice);
+        uint256 id = tier.createMembership(periods, choice, 25);
+        _owners[id] = actor;
         if (_referralStatus[id] == MembershipTypes.ReferralStatus.Unset) {
             _referralStatus[id] = choice == address(0)
                 ? MembershipTypes.ReferralStatus.LockedNone
@@ -87,10 +94,10 @@ contract AccountingHandler is Test {
         uint64 periods = SafeCast.toUint64(1 + periodsSeed % 2);
         uint256 gross = tier.pricePerPeriod() * periods;
         paymentToken.mint(payer, gross);
-        uint256 oldId = tier.tokenOf(recipient);
         _settle();
         vm.prank(payer);
-        uint256 id = tier.gift(recipient, periods, _referralStatus[oldId], _referrer[oldId]);
+        uint256 id = tier.giftMembership(recipient, periods, 25);
+        _owners[id] = recipient;
         _payment(id, gross, uint64(periods * tier.periodDuration()));
     }
 
@@ -113,21 +120,33 @@ contract AccountingHandler is Test {
     }
 
     function claimReward(uint256 actorSeed) external {
+        _settle();
         address actor = _actor(actorSeed);
-        uint256 id = tier.tokenOf(actor);
-        if (id == 0) return;
-        MembershipTypes.EarnedBalances memory before = tier.previewAccounting(id, actor, 0).settled;
+        uint256 id =
+            (tier.tokensOfOwner(actor, 0, 1).balance == 0
+                ? 0
+                : tier.tokensOfOwner(actor, 0, 1).tokenIds[0]);
+        if (id == 0) {
+            (uint256 expected,) = tier.claimableRetiredReward(actor);
+            vm.prank(actor);
+            assertEq(tier.claimRetiredRewards(), expected);
+            paid[1] += expected;
+            return;
+        }
+        MembershipTypes.EarnedBalances memory before =
+        tier.previewAccounting(id, address(0), actor, 0).settled;
         vm.prank(actor);
-        uint256 claimed = tier.claimReward(id);
+        uint256 claimed = tier.claimReward(id, 25);
         assertEq(claimed, before.member);
         assertEq(
-            tier.previewAccounting(id, actor, 0).settled.fractionalScaled[1],
+            tier.previewAccounting(id, address(0), actor, 0).settled.fractionalScaled[1],
             before.fractionalScaled[1]
         );
         paid[1] += claimed;
     }
 
     function claimReferral(uint256 actorSeed) external {
+        _settle();
         address actor = _actor(actorSeed);
         uint256 expected = _funding.referralEarnedScaled[actor] / Q - _referralPaid[actor];
         vm.prank(actor);
@@ -148,26 +167,36 @@ contract AccountingHandler is Test {
     function claimAll(uint256 actorSeed, bool batch) external {
         address actor = actorSeed % 5 == 4 ? creator : _actor(actorSeed);
         _settle();
-        uint256 id = tier.tokenOf(actor);
-        MembershipTypes.EarnedBalances memory before = tier.previewAccounting(id, actor, 0).settled;
+        uint256 id =
+            (tier.tokensOfOwner(actor, 0, 1).balance == 0
+                ? 0
+                : tier.tokensOfOwner(actor, 0, 1).tokenIds[0]);
+        MembershipTypes.EarnedBalances memory before =
+        tier.previewAccounting(id, address(0), actor, 0).settled;
+        (uint256 retiredBefore,) = tier.claimableRetiredReward(actor);
         MembershipTypes.ClaimResult memory result;
+        uint256[] memory ids = new uint256[](id == 0 ? 0 : 1);
+        if (id != 0) ids[0] = id;
         vm.prank(actor);
         if (batch) {
-            address[] memory targets = new address[](1);
-            targets[0] = address(tier);
-            result = factory.claimEverything(targets)[0];
+            MembershipTypes.TierClaimRequest[] memory targets =
+                new MembershipTypes.TierClaimRequest[](1);
+            targets[0] = MembershipTypes.TierClaimRequest(address(tier), ids);
+            result = factory.claimEverything(targets, 25)[0];
         } else {
-            result = tier.claimAll();
+            result = tier.claimRewards(ids, 25);
         }
         assertEq(result.creator, actor == creator ? before.creator : 0);
-        assertEq(result.reward, before.member);
+        assertEq(result.liveReward, before.member);
+        assertEq(result.retiredReward, retiredBefore);
         assertEq(result.referral, before.referral);
         assertEq(result.processedSteps, 0);
-        MembershipTypes.EarnedBalances memory after_ = tier.previewAccounting(id, actor, 0).settled;
+        MembershipTypes.EarnedBalances memory after_ =
+        tier.previewAccounting(id, address(0), actor, 0).settled;
         assertEq(after_.fractionalScaled[1], before.fractionalScaled[1]);
         assertEq(after_.fractionalScaled[2], before.fractionalScaled[2]);
         paid[0] += result.creator;
-        paid[1] += result.reward;
+        paid[1] += result.liveReward + result.retiredReward;
         paid[2] += result.referral;
         _referralPaid[actor] += result.referral;
     }
@@ -179,30 +208,29 @@ contract AccountingHandler is Test {
     }
 
     function refund(uint256 actorSeed) external {
+        _settle();
         address actor = _actor(actorSeed);
-        uint256 id = tier.tokenOf(actor);
+        uint256 id =
+            (tier.tokensOfOwner(actor, 0, 1).balance == 0
+                ? 0
+                : tier.tokensOfOwner(actor, 0, 1).tokenIds[0]);
         if (id == 0 || tier.balanceOf(actor) == 0) return;
         _settle();
         uint256 expected = _funding.unusedGross(id, uint64(block.timestamp));
         assertEq(tier.previewRefund(id).grossRefund, expected);
         vm.prank(creator);
-        assertEq(tier.refund(id, expected), expected);
+        assertEq(tier.refund(id, actor, expected, 25), expected);
         assertEq(_funding.cancel(id), expected);
         _lifecycle[id].refundTime(uint64(block.timestamp));
         _eligible[id] = false;
+        _shares[id] = 0;
+        _owners[id] = address(0);
         ghostRefunded += expected;
     }
 
-    function synchronizeExpired(uint256 actorSeed) external {
-        uint256 id = tier.tokenOf(_actor(actorSeed));
-        if (id == 0) return;
+    function synchronizeExpired(uint256) external {
         _settle();
-        bool expected = _lifecycle[id].synchronize(uint64(block.timestamp));
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = id;
-        vm.prank(creator);
-        assertEq(tier.synchronizeExpiredMemberships(ids), expected ? 1 : 0);
-        if (expected) _eligible[id] = false;
+        assertEq(tier.processExpirations(25).retiredCount, 0);
     }
 
     function rejectProtocolWithdrawal() external {
@@ -219,11 +247,21 @@ contract AccountingHandler is Test {
     function _settle() private {
         for (uint256 calls;; ++calls) {
             assertLt(calls, 500, "accounting must make bounded progress");
-            (uint256 steps,, bool complete,) = tier.processAccounting(25);
+            MembershipTypes.MaintenanceResult memory progress = tier.processAccounting(25);
+            uint256 steps = progress.processedSteps;
+            bool complete = progress.complete;
             if (complete) break;
             assertGt(steps, 0);
         }
         _funding.recognize(uint64(block.timestamp));
+        for (uint256 id = 1; id <= _funding.tokenCount; ++id) {
+            if (_owners[id] != address(0) && !_lifecycle[id].active(uint64(block.timestamp))) {
+                _owners[id] = address(0);
+                _shares[id] = 0;
+                _eligible[id] = false;
+                _lifecycle[id].occupied = false;
+            }
+        }
     }
 
     /// @dev Between boundaries, the observed four-purpose derivative must equal
@@ -268,7 +306,10 @@ contract AccountingHandler is Test {
 
     function failedExit(uint256 actorSeed, uint256 exitSeed) external {
         address actor = _actor(actorSeed);
-        uint256 id = tier.tokenOf(actor);
+        uint256 id =
+            (tier.tokensOfOwner(actor, 0, 1).balance == 0
+                ? 0
+                : tier.tokensOfOwner(actor, 0, 1).tokenIds[0]);
         uint256 exit = exitSeed % 5;
         address frozen;
         address caller = actor;
@@ -276,7 +317,7 @@ contract AccountingHandler is Test {
         if (exit == 0) {
             if (id == 0 || tier.claimableReward(id) == 0) return;
             frozen = actor;
-            data = abi.encodeCall(MembershipTier.claimReward, (id));
+            data = abi.encodeCall(MembershipTier.claimReward, (id, 25));
         } else if (exit == 1) {
             if (tier.claimableReferral(actor) == 0) return;
             frozen = actor;
@@ -299,7 +340,9 @@ contract AccountingHandler is Test {
             ) return;
             frozen = actor;
             caller = creator;
-            data = abi.encodeCall(MembershipTier.refund, (id, type(uint256).max));
+            data = abi.encodeCall(
+                MembershipTier.refund, (id, tier.ownerOf(id), type(uint256).max, 25)
+            );
         }
         bytes32 before = _fingerprint();
         paymentToken.setFrozen(frozen, true);
@@ -314,18 +357,21 @@ contract AccountingHandler is Test {
         hash = keccak256(
             abi.encode(
                 tier.reserveState(),
-                tier.previewAccounting(0, address(0), 0).settled,
+                tier.previewAccounting(0, address(0), address(0), 0).settled,
                 tier.totalRewardShares(),
                 tier.occupiedSupply(),
                 paymentToken.balanceOf(address(tier))
             )
         );
         for (uint256 i; i < 4; ++i) {
-            uint256 id = tier.tokenOf(_actors[i]);
+            uint256 id =
+                (tier.tokensOfOwner(_actors[i], 0, 1).balance == 0
+                    ? 0
+                    : tier.tokensOfOwner(_actors[i], 0, 1).tokenIds[0]);
             hash = keccak256(
                 abi.encode(
                     hash,
-                    tier.previewAccounting(id, _actors[i], 0).settled,
+                    tier.previewAccounting(id, address(0), _actors[i], 0).settled,
                     paymentToken.balanceOf(_actors[i])
                 )
             );
@@ -350,18 +396,32 @@ contract AccountingHandler is Test {
         uint256 occupancy;
         for (uint256 i; i < 4; ++i) {
             address actor = _actors[i];
-            uint256 id = tier.tokenOf(actor);
             MembershipTypes.EarnedBalances memory balance =
-            tier.previewAccounting(id, actor, 0).settled;
+            tier.previewAccounting(0, address(0), actor, 0).settled;
             referralCredit += balance.referral * Q + balance.fractionalScaled[2];
             assertEq(
                 balance.referral * Q + balance.fractionalScaled[2],
                 _funding.referralEarnedScaled[actor] - _referralPaid[actor] * Q
             );
-            if (id == 0) continue;
+            (uint256 retired, uint256 fraction) = tier.claimableRetiredReward(actor);
+            memberCredit += retired * Q + fraction;
+        }
+        for (uint256 id = 1; id <= _funding.tokenCount; ++id) {
+            MembershipTypes.EarnedBalances memory balance =
+            tier.previewAccounting(id, address(0), address(0), 0).settled;
             memberCredit += balance.member * Q + balance.fractionalScaled[1];
+            if (_owners[id] == address(0)) {
+                assertFalse(tier.isOccupied(id));
+                assertEq(tier.sharesOf(id), 0);
+                assertEq(balance.member * Q + balance.fractionalScaled[1], 0);
+                continue;
+            }
+            assertEq(tier.ownerOf(id), _owners[id]);
             assertEq(tier.sharesOf(id), _shares[id]);
-            assertEq(tier.rewardEligible(id), _eligible[id]);
+            assertEq(
+                tier.rewardEligible(id),
+                _eligible[id] && _lifecycle[id].active(uint64(block.timestamp))
+            );
             if (_eligible[id]) eligibleSum += _shares[id];
             (uint64 paidTime, uint64 grantTime, uint64 checkpoint) =
                 _lifecycle[id].projected(uint64(block.timestamp));
@@ -386,7 +446,7 @@ contract AccountingHandler is Test {
         );
         assertEq(reserves.status.accountedThrough, _funding.accountedThrough);
         MembershipTypes.EarnedBalances memory global =
-        tier.previewAccounting(0, address(0), 0).settled;
+        tier.previewAccounting(0, address(0), address(0), 0).settled;
         uint256[4] memory remainingEarned = [
             global.creator * Q + global.fractionalScaled[0],
             memberCredit + reserves.indexCarryScaled + reserves.distributionDustScaled,
@@ -431,6 +491,14 @@ contract AccountingHandler is Test {
 }
 
 contract AccountingInvariantTest is StdInvariant, Test {
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        return 0x150b7a02;
+    }
+
     AdversarialERC20 private _paymentToken;
     MembershipFactory private _factory;
     MembershipTier private _tier;
@@ -449,7 +517,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
             address(mediaStoreFactory),
             address(this),
             address(_paymentToken),
-            MembershipTestConfig.tierCode(),
+            MembershipTestConfig.implementation(),
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(_paymentToken))
         );
 
@@ -530,7 +598,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
         MembershipTier bounded = MembershipTier(_factory.createTier(config));
         _paymentToken.mint(address(this), c + 8);
         _paymentToken.approve(address(bounded), type(uint256).max);
-        uint256 id = bounded.contribute(c, address(0xCAFE));
+        uint256 id = bounded.createContributionMembership(c, address(0xCAFE), 25);
         assertEq(bounded.lifetimeGross(), c);
         assertEq(bounded.totalProtectedLiability(), c);
         assertEq(bounded.sharesOf(id), c + c * 9 / 2);
@@ -538,7 +606,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
         bounded.processAccounting(25);
         MembershipTypes.ReserveState memory reserve = bounded.reserveState();
         MembershipTypes.EarnedBalances memory earned =
-        bounded.previewAccounting(id, address(0xCAFE), 0).settled;
+        bounded.previewAccounting(id, address(0), address(0xCAFE), 0).settled;
         uint256 heldScaled =
             (earned.creator + earned.member + earned.referral + earned.protocol) * q;
         for (uint256 i; i < 4; ++i) {
@@ -550,15 +618,15 @@ contract AccountingInvariantTest is StdInvariant, Test {
         // Donations never alter any protected purpose or replenish lifetime capacity.
         assertTrue(_paymentToken.transfer(address(bounded), 7));
         assertEq(_paymentToken.balanceOf(address(bounded)) - bounded.totalProtectedLiability(), 7);
-        uint256 returned = bounded.refund(id, c);
+        uint256 returned = bounded.refund(id, bounded.ownerOf(id), c, 25);
         assertEq(returned, c / 2);
         assertEq(bounded.allocationState(id).generation, 1);
         assertEq(bounded.lifetimeGross(), c);
         vm.expectRevert(RewardCurve.CurveCapacityExceeded.selector);
-        bounded.contribute(1, address(0xCAFE));
+        bounded.createContributionMembership(1, address(0xCAFE), 25);
         assertEq(bounded.allocationState(id).generation, 1);
         uint256 beforeBalance = _paymentToken.balanceOf(address(bounded));
-        bounded.claimReward(id);
+        bounded.claimRetiredRewards();
         bounded.withdrawCreatorProceeds();
         vm.prank(address(0xCAFE));
         bounded.claimReferral();

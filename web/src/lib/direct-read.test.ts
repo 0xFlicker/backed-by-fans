@@ -375,6 +375,7 @@ describe("direct reads", () => {
       tier: tierA,
       tokenId: 7n,
       referrer: factory,
+      beneficiary: factory,
       blockNumber: 12n,
     };
     expect(

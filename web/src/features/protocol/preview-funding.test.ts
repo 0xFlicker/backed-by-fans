@@ -21,7 +21,7 @@ function fixture(incomplete = false) {
       case "canonicalAsset":
         return zeroAddress;
       case "previewAccounting":
-        expect(request.args).toEqual([0n, zeroAddress, 256n]);
+        expect(request.args).toEqual([0n, zeroAddress, zeroAddress, 256n]);
         return {
           asOf: 100n,
           ratesScaled: [0n, 0n, 0n, 0n],

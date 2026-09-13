@@ -21,6 +21,7 @@ case "${1:-}" in
         remappings: [
           "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
           "forge-std/=lib/forge-std/src/",
+          "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
           "@uniswap/universal-router/=external/uniswap/universal-router/",
           "@uniswap/v4-periphery/=external/uniswap/v4-periphery/",
           "@uniswap/v4-core/=external/uniswap/v4-core/",
@@ -60,8 +61,7 @@ case "${1:-}" in
       *OnchainMetadataRenderer:bytecode) printf '0x6002\n' ;;
       *RendererPreviewHarness:bytecode) printf '0x6005\n' ;;
       *MembershipTier:bytecode) printf '0x60076008\n' ;;
-      *ImmutableCodeStore:bytecode) printf '0x6009\n' ;;
-      *ImmutableCodeStore:deployedBytecode) printf '0x00\n' ;;
+      *MembershipTier:deployedBytecode) printf '%s\n' "$MOCK_IMPLEMENTATION_RUNTIME" ;;
       *MembershipFactory:bytecode)
         if [[ -n "${MOCK_FACTORY_BYTECODE_BYTES:-}" ]]; then
           awk -v bytes="$MOCK_FACTORY_BYTECODE_BYTES" \
@@ -83,7 +83,7 @@ case "${1:-}" in
       state_file="$MOCK_LOCAL_STATE"
     fi
     prefix="$(cat "$state_file")"
-    if [[ "$*" == *"ValidateCompletedProtocol"* && "$prefix" != "7" ]]; then
+    if [[ "$*" == *"ValidateCompletedProtocol"* && "$prefix" != "6" ]]; then
       exit 1
     fi
     printf 'Backed By Fans expected media store factory %s\n' "$MOCK_MEDIA_ADDRESS"

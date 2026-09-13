@@ -152,7 +152,7 @@ test("@protocol-fork a compatible authentic token without an approved route rema
       tier = await f.tier("Unrouted membership", asset, 10000, price);
     await f.write(creator, asset, erc20Abi, "transfer", [member, gross]);
     await f.write(member, asset, erc20Abi, "approve", [tier, gross]);
-    await f.write(member, tier, membershipTierAbi, "purchase", [
+    await f.write(member, tier, membershipTierAbi, "createMembership", [
       12n,
       zeroAddress,
     ]);

@@ -1,5 +1,14 @@
 # Robinhood public deployment runbook
 
+## Current feature 005 deployment shape
+
+Feature 005 uses six independently submitted CREATE2 components in order: VestingLedger, media-store factory, renderer, preview harness, locked MembershipTier implementation, and MembershipFactory. The factory directly creates fixed-target ERC-1167 clones; it has no A/B tier stores or tier-deployer contract. Each tier is atomically initialized once and has independent storage. Existing receipt/address tables below are historical evidence and are not pointers to this undeployed revision.
+
+The wrapper retains exact runtime hashes, constructor inputs, native size checks, Safe/chain validation, per-component receipt verification, recovery and source-verification gates. Its schema-9 plans record the shared implementation's initcode hash and length in `tierCreationCode`; component 4 contains its exact address, runtime hash and source artifact. Never resume an older A/B deployment journal against this graph.
+
+For the next authorized testnet release, verify the implementation and factory with the pinned compiler and library mapping. Create a representative tier and confirm the explorer recognizes its 45-byte ERC-1167 runtime and links to the verified implementation. Record recognition as a separate explorer check; bytecode identity alone does not prove an explorer UI recognized a clone. No per-tier source compilation is needed when recognition succeeds. This check is deferred to testnet and is not a prerequisite for the next disposable fork on RPC 18557, chain 31337, web 3110.
+
+
 Current candidate: **memberships before protocol-token launch**. Prepare with an
 explicit zero token; fees accrue and may be collected into the vault, while purchases
 remain unavailable. The existing promoted testnet deployment stays active until a
@@ -45,9 +54,9 @@ mainnet decision.
 The approved deployer is `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027`. The protocol owner is the Safe at `0xeAA4B38A99f766117C1D493a21012fec25f70505`. The canonical CREATE2
 deployer is `0x4e59b44847b379578588920cA78FbF26c0B4956C`.
 
-## Deployment graph
+## Historical deployment graph (before feature 005)
 
-The wrapper evaluates four ordered protocol components:
+The previously promoted wrapper evaluated four ordered protocol components:
 
 1. `OnchainMediaStoreFactory`
 2. `OnchainMetadataRenderer`
@@ -60,7 +69,7 @@ validated and reused the already-correct preview harness at
 not a redundant fourth deployment.
 
 The factory constructor receives the ordered initial token list, media-store factory, protocol
-owner, and protocol token (zero for deferred launch). The default renderer and preview harness are separate direct contracts.
+owner, protocol token (zero for deferred launch), locked tier implementation and initial minimum payments. The default renderer and preview harness are separate direct contracts.
 Every initial token must be listed and enabled after deployment.
 
 Published tiers store immutable payment-token and raw-price terms. Their current owner may change
@@ -70,8 +79,7 @@ renderer registry gate or operator renderer UI.
 
 ## Why the guarded raw CREATE2 wrapper is required
 
-Robinhood admits larger code and initcode than Ethereum's default EIP-3860 envelope, while its Nitro
-sequencer limits transaction data to 95,000 bytes. Foundry's in-process broadcaster rejects the
+Robinhood admits 98,304-byte runtime and 196,608-byte initcode, beyond Ethereum's default envelope. No speculative 95,000-byte transaction-data ceiling is enforced. Foundry's in-process broadcaster rejects the
 reviewed renderer before the Robinhood RPC can evaluate it. `contracts/scripts/deploy-protocol.sh`
 therefore builds with the Robinhood profile, derives exact CREATE2 payloads, rejects oversize
 payloads, rehearses the candidate graph on a chain-`46630` fork, and only then submits the missing
@@ -95,7 +103,7 @@ git diff -- contracts/config/operational-state/46630.json
 ```
 
 `prepare` reads the committed operational state, preserves its payment tokens, Safe, owner and pending
-owner, and writes the explicit protocol token plus the four deterministic component records. It
+owner, and writes the explicit protocol token plus the six deterministic component records, removing obsolete A/B deployment fields. It
 performs build, Solidity-plan parity, public-chain identity, dependency, and runtime checks without
 starting Anvil, loading a signing account, writing a recovery journal, generating web bindings, or
 submitting a transaction. Review and commit the generated manifest with the release source before
@@ -112,8 +120,9 @@ Deployment dry-run and broadcast require committed reviewed source. From `contra
 ./scripts/test-deploy-protocol.sh
 ./scripts/test-manage-payment-tokens.sh
 forge fmt --check src script test
-FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
-FOUNDRY_PROFILE=robinhood forge test \
+linked_manifest="$(bash scripts/build-linked-protocol.sh)"
+linked_mapping="$(jq -er .mapping "$linked_manifest")"
+FOUNDRY_PROFILE=robinhood forge test --libraries "$linked_mapping" \
   --code-size-limit 1000000 \
   --gas-limit 1000000000 \
   -vvv
@@ -134,10 +143,10 @@ code-size and gas envelope, impersonates the approved deployer inside Anvil, and
 candidate graph. It must confirm:
 
 - the exact six manifest tokens, in order, are listed and enabled;
-- all four runtimes and the tier deployer have code;
-- factory owner, pending owner, protocol token, media dependency, renderer schema, and tier-deployer
+- all six component runtimes have the exact planned code, including the locked tier implementation;
+- factory owner, pending owner, protocol token, media dependency, renderer schema, and fixed tier-implementation
   binding match the reviewed operational state; and
-- every payload remains below the Robinhood initcode/runtime and Nitro transaction-data limits.
+- every payload remains below Robinhood’s 196,608-byte initcode and 98,304-byte runtime limits.
 
 This creates no public transaction, public recovery journal, active broadcast pointer, or generated
 address. Set `BBF_ANVIL_PORT` only if the random local port is unavailable.

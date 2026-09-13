@@ -1,3 +1,4 @@
+import { expectSingleOwnedPosition } from "./helpers/membership-positions";
 import { expect, test } from "@playwright/test";
 import { erc20Abi, encodeFunctionData, encodeFunctionResult } from "viem";
 
@@ -132,8 +133,9 @@ for (const scenario of [
       await page.getByRole("radio", { name: /AMD/i }).check();
       await page.getByLabel("Price per period (AMD)").fill("0.05");
       await page.getByRole("button", { name: /^risks$/i }).click();
-      await page.getByRole("checkbox").nth(0).check();
-      await page.getByRole("checkbox").nth(1).check();
+      await page
+        .getByRole("checkbox", { name: /I understand the price, period/ })
+        .check();
       await page.getByRole("button", { name: /^review$/i }).click();
 
       await expect(page.getByText(`${tokenName} (AMD)`)).toBeVisible();
@@ -180,17 +182,12 @@ for (const scenario of [
       await expect(
         page.getByText(shown(rawPrice), { exact: true }).first(),
       ).toBeVisible();
-      const join = page.getByRole("button", { name: "Join this membership" });
+      const join = page.getByRole("button", { name: "New membership" });
       await expect(join).toBeEnabled();
       await join.click();
-      await expectReconciled(page, "Join this membership");
+      await expectReconciled(page, "New membership");
 
-      const tokenId = await client.readContract({
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "tokenOf",
-        args: [member],
-      });
+      const tokenId = await expectSingleOwnedPosition(client, tier, member);
       const firstExpiration = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
@@ -198,9 +195,12 @@ for (const scenario of [
         args: [tokenId],
       });
       await page
-        .getByRole("button", { name: "Renew active membership" })
+        .getByLabel("Membership action")
+        .selectOption(tokenId.toString());
+      await page
+        .getByRole("button", { name: `Renew membership #${tokenId}` })
         .click();
-      await expectReconciled(page, "Renew active membership");
+      await expectReconciled(page, `Renew membership #${tokenId}`);
       const renewedExpiration = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
