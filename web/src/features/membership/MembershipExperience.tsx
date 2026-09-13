@@ -1677,10 +1677,7 @@ export function MembershipExperience({
           isSameAddress(snapshot.credential.owner, snapshot.wallet) && (
             <TransferMembership
               key={snapshot.credential.tokenId.toString()}
-              chainId={expectedChainId}
-              tier={snapshot.address}
               tokenId={snapshot.credential.tokenId}
-              owner={snapshot.wallet}
               expiration={snapshot.credential.expiration}
               asOf={snapshot.capturedTimestamp}
               canOperate={
@@ -1723,62 +1720,6 @@ export function MembershipExperience({
                         : 0n,
                     );
                     return result;
-                  },
-                )
-              }
-              onApprove={(spender) =>
-                perform(
-                  "Update token transfer approval",
-                  tierWrite("approve", [spender, snapshot.credential!.tokenId]),
-                  async (receipt) => {
-                    const proven = parseEventLogs({
-                      abi: membershipTierAbi,
-                      eventName: "Approval",
-                      logs: receipt.logs,
-                      strict: true,
-                    }).some(
-                      (event) =>
-                        isSameAddress(event.address, snapshot.address) &&
-                        event.args.tokenId === snapshot.credential!.tokenId &&
-                        isSameAddress(event.args.owner, snapshot.wallet!) &&
-                        isSameAddress(event.args.approved, spender),
-                    );
-                    return proven
-                      ? client.readContract({
-                          address: snapshot.address,
-                          abi: membershipTierAbi,
-                          functionName: "getApproved",
-                          args: [snapshot.credential!.tokenId],
-                        })
-                      : undefined;
-                  },
-                )
-              }
-              onOperatorApproval={(operator, approved) =>
-                perform(
-                  "Update operator transfer permission",
-                  tierWrite("setApprovalForAll", [operator, approved]),
-                  async (receipt) => {
-                    const proven = parseEventLogs({
-                      abi: membershipTierAbi,
-                      eventName: "ApprovalForAll",
-                      logs: receipt.logs,
-                      strict: true,
-                    }).some(
-                      (event) =>
-                        isSameAddress(event.address, snapshot.address) &&
-                        isSameAddress(event.args.owner, snapshot.wallet!) &&
-                        isSameAddress(event.args.operator, operator) &&
-                        event.args.approved === approved,
-                    );
-                    return proven
-                      ? client.readContract({
-                          address: snapshot.address,
-                          abi: membershipTierAbi,
-                          functionName: "isApprovedForAll",
-                          args: [snapshot.wallet!, operator],
-                        })
-                      : undefined;
                   },
                 )
               }

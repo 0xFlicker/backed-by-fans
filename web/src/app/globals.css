@@ -1583,7 +1583,6 @@ dd {
 .reward-curve-chart {
   width: 100%;
   max-width: 38rem;
-  animation: reward-curve-enter 180ms ease-out;
 }
 .reward-curve-chart text {
   fill: var(--muted-ink);
@@ -1608,21 +1607,7 @@ dd {
   stroke-width: 3;
 }
 
-@keyframes reward-curve-enter {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .reward-curve-chart {
-    animation: none;
-  }
   .reward-curve-presets label {
     transition: none;
   }
@@ -4198,5 +4183,80 @@ dd {
 }
 
 .membership-position-choice p {
+  margin: 0;
+}
+
+.reward-curve-custom > .creator-field {
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  margin-top: 0;
+}
+
+.reward-curve-copy-row {
+  display: grid;
+}
+
+.reward-curve-copy-row > span {
+  grid-area: 1 / 1;
+}
+
+.reward-curve-copy-reserve {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.reward-curve-copy-reserve[data-copy]::before,
+.reward-curve-copy-reserve [data-copy]::before {
+  content: attr(data-copy);
+}
+
+.membership-transfer {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.membership-transfer-intro {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.membership-transfer h2 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.membership-transfer p {
+  margin: 0;
+}
+
+.membership-transfer > .creator-field {
+  margin-top: 0;
+}
+
+.membership-transfer .creator-field > .field-hint {
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.membership-transfer-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  line-height: 1.6;
+}
+
+.membership-transfer-confirmation input {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.3rem;
+}
+
+.membership-transfer > .button {
+  justify-self: start;
   margin: 0;
 }

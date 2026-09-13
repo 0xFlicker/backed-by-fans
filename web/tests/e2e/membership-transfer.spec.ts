@@ -175,12 +175,15 @@ test("@anvil transfers a selected live position while paused with an incomplete 
       fullPage: true,
     });
 
-    await transfer.getByText("NFT transfer approvals", { exact: true }).click();
-    await transfer.getByLabel("Token transfer delegate").fill(recipient);
-    await transfer
-      .getByRole("button", { name: "Approve token transfer", exact: true })
-      .click();
-    await expectReconciled(page, "Update token transfer approval");
+    // External NFT approvals remain a contract capability, outside the member UI.
+    expectSuccessfulReceipt(
+      await sendContract({
+        ...common,
+        account: member,
+        functionName: "approve",
+        args: [recipient, first],
+      }),
+    );
     expect(
       await client.readContract({
         ...common,
