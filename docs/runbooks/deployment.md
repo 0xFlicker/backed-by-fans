@@ -54,9 +54,9 @@ mainnet decision.
 The approved deployer is `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027`. The protocol owner is the Safe at `0xeAA4B38A99f766117C1D493a21012fec25f70505`. The canonical CREATE2
 deployer is `0x4e59b44847b379578588920cA78FbF26c0B4956C`.
 
-## Deployment graph
+## Historical deployment graph (before feature 005)
 
-The wrapper evaluates four ordered protocol components:
+The previously promoted wrapper evaluated four ordered protocol components:
 
 1. `OnchainMediaStoreFactory`
 2. `OnchainMetadataRenderer`
@@ -103,7 +103,7 @@ git diff -- contracts/config/operational-state/46630.json
 ```
 
 `prepare` reads the committed operational state, preserves its payment tokens, Safe, owner and pending
-owner, and writes the explicit protocol token plus the four deterministic component records. It
+owner, and writes the explicit protocol token plus the six deterministic component records, removing obsolete A/B deployment fields. It
 performs build, Solidity-plan parity, public-chain identity, dependency, and runtime checks without
 starting Anvil, loading a signing account, writing a recovery journal, generating web bindings, or
 submitting a transaction. Review and commit the generated manifest with the release source before
@@ -120,8 +120,9 @@ Deployment dry-run and broadcast require committed reviewed source. From `contra
 ./scripts/test-deploy-protocol.sh
 ./scripts/test-manage-payment-tokens.sh
 forge fmt --check src script test
-FOUNDRY_PROFILE=robinhood forge build --ignore-eip-3860
-FOUNDRY_PROFILE=robinhood forge test \
+linked_manifest="$(bash scripts/build-linked-protocol.sh)"
+linked_mapping="$(jq -er .mapping "$linked_manifest")"
+FOUNDRY_PROFILE=robinhood forge test --libraries "$linked_mapping" \
   --code-size-limit 1000000 \
   --gas-limit 1000000000 \
   -vvv
@@ -142,10 +143,10 @@ code-size and gas envelope, impersonates the approved deployer inside Anvil, and
 candidate graph. It must confirm:
 
 - the exact six manifest tokens, in order, are listed and enabled;
-- all four runtimes and the tier deployer have code;
+- all six component runtimes have the exact planned code, including the locked tier implementation;
 - factory owner, pending owner, protocol token, media dependency, renderer schema, and fixed tier-implementation
   binding match the reviewed operational state; and
-- every payload remains below the Robinhood initcode/runtime and Nitro transaction-data limits.
+- every payload remains below Robinhood’s 196,608-byte initcode and 98,304-byte runtime limits.
 
 This creates no public transaction, public recovery journal, active broadcast pointer, or generated
 address. Set `BBF_ANVIL_PORT` only if the random local port is unavailable.

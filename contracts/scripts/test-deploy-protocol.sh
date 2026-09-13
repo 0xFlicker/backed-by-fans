@@ -285,7 +285,7 @@ assert_jq "$operational_state" \
 assert_jq "$operational_state" \
   --arg safe "$MOCK_SAFE_ADDRESS" \
   --arg token "$MOCK_PROTOCOL_TOKEN_ADDRESS" \
-  '.safe.address == $safe and .factory.owner == $safe and .factory.protocolToken == $token and (.factory | has("feeRecipient") | not)'
+  '.safe.address == $safe and .factory.owner == $safe and .factory.protocolToken == $token and (.factory | has("feeRecipient") | not) and (.deployment | has("tierCodeStoreA") or has("tierCodeStoreB") or has("tierDeployer") or has("tierCreationCode") | not)'
 assert_not_contains "$mock_log" "anvil --fork-url"
 assert_not_contains "$mock_log" "cast wallet address"
 assert_not_contains "$mock_log" "cast send"

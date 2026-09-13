@@ -1,0 +1,61 @@
+{
+  "scope": "read-only; no signing or public transactions",
+  "chain": 46630,
+  "block": "118525193",
+  "asOf": "1789273812",
+  "deployer": "0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027",
+  "balanceETH": "11.3659907512291296",
+  "gasPriceWei": "10000000",
+  "safe": {
+    "address": "0xeAA4B38A99f766117C1D493a21012fec25f70505",
+    "owners": [
+      "0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027"
+    ],
+    "threshold": "1"
+  },
+  "tokens": [
+    {
+      "address": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+      "symbol": "USDG",
+      "decimals": 6,
+      "runtimeCodehash": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6"
+    },
+    {
+      "address": "0x71178BAc73cBeb415514eB542a8995b82669778d",
+      "symbol": "AMD",
+      "decimals": 18,
+      "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440"
+    },
+    {
+      "address": "0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93",
+      "symbol": "NFLX",
+      "decimals": 18,
+      "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440"
+    },
+    {
+      "address": "0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0",
+      "symbol": "PLTR",
+      "decimals": 18,
+      "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440"
+    },
+    {
+      "address": "0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02",
+      "symbol": "AMZN",
+      "decimals": 18,
+      "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440"
+    },
+    {
+      "address": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E",
+      "symbol": "TSLA",
+      "decimals": 18,
+      "runtimeCodehash": "0x2f367e6a678e7b30ab613d5963e541e6f4d3ca586de76e2f441fbfeb1a27c440"
+    }
+  ],
+  "protocolToken": "0x0000000000000000000000000000000000000000",
+  "keystorePresent": true,
+  "explorer": {
+    "url": "https://explorer.testnet.chain.robinhood.com",
+    "httpStatus": 200,
+    "proxyType": "master_copy"
+  }
+}

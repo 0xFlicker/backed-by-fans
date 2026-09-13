@@ -1,0 +1,402 @@
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0x753da9b8a3d6ffda3a9059dfcab8ce9c00ffff88531f3e89a66a4d6cd3210aa2
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x7353eC241e622836E24B76B5BC4F506F43b85741 0xb791a2d1e768ac4b1ac8bacb5e063566679fffec6151db59acb58c334446bf75 0x753da9b8a3d6ffda3a9059dfcab8ce9c00ffff88531f3e89a66a4d6cd3210aa2 tier implementation  missing
+
+Protocol deployment: prepared reviewed operational state at contracts/config/operational-state/46630.json
+Protocol deployment: review and commit that file before dry-run or broadcast
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0x753da9b8a3d6ffda3a9059dfcab8ce9c00ffff88531f3e89a66a4d6cd3210aa2
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x7353eC241e622836E24B76B5BC4F506F43b85741 0xb791a2d1e768ac4b1ac8bacb5e063566679fffec6151db59acb58c334446bf75 0x753da9b8a3d6ffda3a9059dfcab8ce9c00ffff88531f3e89a66a4d6cd3210aa2 tier implementation  missing
+
+Protocol deployment: reviewed operational state is already prepared at contracts/config/operational-state/46630.json
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 3333333333333333333333333333333333333333 blob 3333333333333333333333333333333333333333
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                validated
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness validated
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  validated
+
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: renderer already validated at 0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: tier implementation already validated at 0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8
+Protocol deployment: membership factory already validated at 0x25E6e55149A7cAF374572Defe52f58d38438805D
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: archived completed recovery journal at deployments/protocol/46630/candidate-111111111111-promoted.json
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: renderer already validated at 0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: tier implementation already validated at 0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8
+Protocol deployment: membership factory already validated at 0x25E6e55149A7cAF374572Defe52f58d38438805D
+
+
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 4444444444444444444444444444444444444444 blob 5555555555555555555555555555555555555555
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                validated
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness validated
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  validated
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                validated
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                validated
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: recovered dropped submission evidence; run broadcast for a fresh authorized transaction
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: recovered dropped submission evidence; run broadcast for a fresh authorized transaction
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: submitting vesting ledger to the canonical CREATE2 deployer
+Protocol deployment: submitting media store factory to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer to the canonical CREATE2 deployer
+Protocol deployment: submitting renderer preview harness to the canonical CREATE2 deployer
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: recovered dropped submission evidence; run broadcast for a fresh authorized transaction
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                validated
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness validated
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  validated
+
+
+
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                validated
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness validated
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  validated
+
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                missing
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       missing
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  missing
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             missing
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0xa5B7A6ec98BC63a81c281613dBf2222Fdb98710E 0xb457db107b33e4dcfb782681d420cf4596cf2e721daebc4107ae12ff6ae16182 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: prepared reviewed operational state at contracts/config/operational-state/46630.json
+Protocol deployment: review and commit that file before dry-run or broadcast
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                validated
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness missing
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: renderer already validated at 0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: renderer already validated at 0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: submitting tier implementation to the canonical CREATE2 deployer
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+
+
+Protocol deployment: reviewed operational state contracts/config/operational-state/46630.json at 1111111111111111111111111111111111111111 blob 2222222222222222222222222222222222222222
+BBF_RELEASE_FACTORY_RUNTIME_HASH 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70
+
+COMPONENT              EXPECTED ADDRESS                           INITCODE HASH                                                      RUNTIME HASH                                                       PREDECESSOR          STATE
+vesting ledger         0x6d1eC729184fab9B36853AeB845978216eBaD002 0x2da1f83d0ca5cc701e587fa2fcce070884fb67540262ced65d6d52cde467d470 0xc9eb3fb6753222ab8222e9d34a81022c7ce140a75a74d0fd0fc0cf0bf80553cb empty                validated
+media store factory    0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9 0x309c67890bde4c575dc23d2cc3b5c3a3d599e312e980e9b61b5bc8f3cd87c8bb 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 vesting ledger       validated
+renderer               0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d 0xcde7aac41575d8b30bd84f598371d46d266fadb09c9dcfcdd047fd087ef8763e 0xb402172836e61bc2a81ec742b3c546558dee972d8e4a8632bdca8054d3d86931 media store factory  validated
+renderer preview harness 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD 0x833657cddc570dd91a5715fcdb759e6dc72e3670b7506790c97b974b3276926d 0x23a02eea340e46427950b3706ee0d8acd615f8c3747f28e625efbabac567238d renderer             validated
+tier implementation    0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8 0xc27948ef895cf752471748f4055d7170afcecd91b76037c0f8f7757cd1a412bf 0x19c2a97623bf868d88e186a99ac63b78a767e15741ad58c7d603666007bb08e7 renderer preview harness validated
+membership factory     0x25E6e55149A7cAF374572Defe52f58d38438805D 0xe6a1762dc9b7edd79d3dacd89074b56b61b97f616a423dd1b4fbda4590d2a91a 0xe50c219461177ec797b7738e34e7389fc91d4f95e635bb83ac223bd4c8f22c70 tier implementation  missing
+
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: renderer already validated at 0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: tier implementation already validated at 0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+Protocol deployment: exact chain-46630 Anvil-fork raw CREATE2 preflight passed
+Protocol deployment: vesting ledger already validated at 0x6d1eC729184fab9B36853AeB845978216eBaD002
+Protocol deployment: media store factory already validated at 0x5cD5D603C7Ee80D2Afdc99017E7143704bE81fB9
+Protocol deployment: renderer already validated at 0x6d523B3dBA499ABcFA1758dDc02B2a036A3a698d
+Protocol deployment: renderer preview harness already validated at 0x90B89C5dD9e459ac5C6F1e9e5566Be566Adf06DD
+Protocol deployment: tier implementation already validated at 0xD4Ae1bB212288Ed837ef2eCf68D31AeC8f93D9f8
+Protocol deployment: submitting membership factory to the canonical CREATE2 deployer
+
+
+
+
+
+
+deploy-protocol wrapper tests: passed

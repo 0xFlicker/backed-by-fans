@@ -1,0 +1,390 @@
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: /Users/user/Development/backed-by-fans/contracts)
+INFO:Detectors:
+Detector: divide-before-multiply
+VestingLedger._previewDistribute(VestingLedger.PreviewState) (src/libraries/VestingLedger.sol#483-496) performs a multiplication on the result of a division:
+	- quotient = available / work.totalShares (src/libraries/VestingLedger.sol#492)
+	- work.memberLiabilityDelta += quotient * work.totalShares (src/libraries/VestingLedger.sol#494)
+VestingLedger._takeRetired(VestingLedger.State,address) (src/libraries/VestingLedger.sol#1012-1019) performs a multiplication on the result of a division:
+	- amount = self.retiredCreditScaled[beneficiary] / SCALE (src/libraries/VestingLedger.sol#1016)
+	- self.retiredCreditScaled[beneficiary] -= amount * SCALE (src/libraries/VestingLedger.sol#1017)
+VestingLedger._takeMember(VestingLedger.State,uint256) (src/libraries/VestingLedger.sol#1031-1037) performs a multiplication on the result of a division:
+	- amount = member.creditScaled / SCALE (src/libraries/VestingLedger.sol#1034)
+	- member.creditScaled -= amount * SCALE (src/libraries/VestingLedger.sol#1035)
+VestingLedger._takeReferrer(VestingLedger.State,address) (src/libraries/VestingLedger.sol#1043-1052) performs a multiplication on the result of a division:
+	- amount = account.creditScaled / SCALE (src/libraries/VestingLedger.sol#1049)
+	- account.creditScaled -= amount * SCALE (src/libraries/VestingLedger.sol#1050)
+VestingLedger._distribute(VestingLedger.State,uint256) (src/libraries/VestingLedger.sol#1185-1195) performs a multiplication on the result of a division:
+	- quotient = available / self.totalShares (src/libraries/VestingLedger.sol#1191)
+	- self.earnedScaled[1] += quotient * self.totalShares (src/libraries/VestingLedger.sol#1194)
+VestingLedger._activeEarnedAt(VestingLedger.Lot,uint256,uint64) (src/libraries/VestingLedger.sol#1282-1293) performs a multiplication on the result of a division:
+	- allocated / (lot.end - lot.start) * (until - lot.start) (src/libraries/VestingLedger.sol#1292)
+StackEngine._overlay(RendererPrimitives.EngineContext,uint256,uint256,uint256,uint256) (src/renderer/engines/StackEngine.sol#92-179) performs a multiplication on the result of a division:
+	- lineGap = apertureHeight / (lineCount + 1) (src/renderer/engines/StackEngine.sol#101)
+	- y = apertureY + (index + 1) * lineGap (src/renderer/engines/StackEngine.sol#115)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply
+INFO:Detectors:
+Detector: incorrect-equality
+MembershipTier._checkpointTime(uint256) (src/MembershipTier.sol#1196-1205) uses a dangerous strict equality:
+	- paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#1204)
+MembershipTier._processAccounting(uint256) (src/MembershipTier.sol#287-315) uses a dangerous strict equality:
+	- ! funding.complete || ! due || result.processedSteps == maxSteps (src/MembershipTier.sol#300)
+MembershipTier.accountingStatus() (src/MembershipTier.sol#240-261) uses a dangerous strict equality:
+	- result.complete = result.accountedThrough == now_ && (result.nextBoundary == 0 || result.nextBoundary > now_) (src/MembershipTier.sol#259-260)
+MembershipTier.previewRefund(uint256) (src/MembershipTier.sol#839-859) uses a dangerous strict equality:
+	- result.projected = result.projected && _isActiveToken(tokenId) && (status.nextBoundary == 0 || status.nextBoundary > now_) (src/MembershipTier.sol#856-857)
+MembershipTier.timeBalances(uint256) (src/MembershipTier.sol#575-591) uses a dangerous strict equality:
+	- paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#588-589)
+PonsBuybackExecutor._checkSettlement(BuybackTypes.Leg) (src/PonsBuybackExecutor.sol#300-302) uses a dangerous strict equality:
+	- leg.spent == 0 || leg.received == 0 (src/PonsBuybackExecutor.sol#301)
+ProtocolBuybackVault.syncDonation(address) (src/ProtocolBuybackVault.sol#574-588) uses a dangerous strict equality:
+	- amount == 0 (src/ProtocolBuybackVault.sol#580)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+INFO:Detectors:
+Detector: locked-ether
+Contract locking ether found:
+	Contract MembershipTier (src/MembershipTier.sol#41-1392) has payable functions:
+	 - IERC5643.renewSubscription(uint256,uint64) (src/interfaces/IERC5643.sol#8)
+	 - IERC5643.cancelSubscription(uint256) (src/interfaces/IERC5643.sol#10)
+	 - MembershipTier.renewSubscription(uint256,uint64) (src/MembershipTier.sol#470-473)
+	 - MembershipTier.cancelSubscription(uint256) (src/MembershipTier.sol#498-501)
+	But does not have a function to withdraw the ether
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
+INFO:Detectors:
+Detector: reentrancy-no-eth
+Reentrancy in ProtocolBurnRouter._purchaseBatch(ProtocolBurnRouter.Purchase[],uint64) (src/ProtocolBurnRouter.sol#200-222):
+	External calls:
+	- vault.process(item.asset,bucket,state.maxInput,item.revision,deadline) (src/ProtocolBurnRouter.sol#216)
+	State variables written after the call(s):
+	- nextSource[item.asset] = BuybackTypes.SourceBucket((uint256(bucket) + 1) % 2) (src/ProtocolBurnRouter.sol#218)
+	ProtocolBurnRouter.nextSource (src/ProtocolBurnRouter.sol#28) can be used in cross function reentrancies:
+	- ProtocolBurnRouter.nextSource (src/ProtocolBurnRouter.sol#28)
+Reentrancy in ProtocolBuybackVault.recordEarnedFees(uint256) (src/ProtocolBuybackVault.sol#552-571):
+	External calls:
+	- _normalizeReceipt(asset,amount) (src/ProtocolBuybackVault.sol#561)
+		- IWrappedEther(asset).withdraw(amount) (src/ProtocolBuybackVault.sol#599)
+	State variables written after the call(s):
+	- bucket.available += amount (src/ProtocolBuybackVault.sol#568)
+	ProtocolBuybackVault._inventory (src/ProtocolBuybackVault.sol#61-63) can be used in cross function reentrancies:
+	- ProtocolBuybackVault._processingStatus(address,BuybackTypes.SourceBucket,uint256) (src/ProtocolBuybackVault.sol#171-218)
+	- ProtocolBuybackVault.inventory(address,BuybackTypes.SourceBucket) (src/ProtocolBuybackVault.sol#542-549)
+	- bucket.totalReceived += amount (src/ProtocolBuybackVault.sol#569)
+	ProtocolBuybackVault._inventory (src/ProtocolBuybackVault.sol#61-63) can be used in cross function reentrancies:
+	- ProtocolBuybackVault._processingStatus(address,BuybackTypes.SourceBucket,uint256) (src/ProtocolBuybackVault.sol#171-218)
+	- ProtocolBuybackVault.inventory(address,BuybackTypes.SourceBucket) (src/ProtocolBuybackVault.sol#542-549)
+Reentrancy in ProtocolBuybackVault.syncDonation(address) (src/ProtocolBuybackVault.sol#574-588):
+	External calls:
+	- _normalizeReceipt(asset,amount) (src/ProtocolBuybackVault.sol#581)
+		- IWrappedEther(asset).withdraw(amount) (src/ProtocolBuybackVault.sol#599)
+	State variables written after the call(s):
+	- bucket.available += amount (src/ProtocolBuybackVault.sol#585)
+	ProtocolBuybackVault._inventory (src/ProtocolBuybackVault.sol#61-63) can be used in cross function reentrancies:
+	- ProtocolBuybackVault._processingStatus(address,BuybackTypes.SourceBucket,uint256) (src/ProtocolBuybackVault.sol#171-218)
+	- ProtocolBuybackVault.inventory(address,BuybackTypes.SourceBucket) (src/ProtocolBuybackVault.sol#542-549)
+	- bucket.totalReceived += amount (src/ProtocolBuybackVault.sol#586)
+	ProtocolBuybackVault._inventory (src/ProtocolBuybackVault.sol#61-63) can be used in cross function reentrancies:
+	- ProtocolBuybackVault._processingStatus(address,BuybackTypes.SourceBucket,uint256) (src/ProtocolBuybackVault.sol#171-218)
+	- ProtocolBuybackVault.inventory(address,BuybackTypes.SourceBucket) (src/ProtocolBuybackVault.sol#542-549)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+INFO:Detectors:
+Detector: uninitialized-local
+RendererRegistry._validateRenderer(address).observed (src/RendererRegistry.sol#174) is a local variable never initialized
+VestingLedger.encodedClaimPreview(VestingLedger.State,ExpirationSchedule.State,address,uint256[],uint64,uint256,bool).result (src/libraries/VestingLedger.sol#404) is a local variable never initialized
+MembershipTier._applyPayment(uint256,address,address,uint64,uint256).referrer (src/MembershipTier.sol#1092) is a local variable never initialized
+ProtocolBurnRouter.advanceAccounting(ProtocolBurnRouter.AdvanceTier[]).useful (src/ProtocolBurnRouter.sol#109) is a local variable never initialized
+VestingLedger._finish(VestingLedger.State,VestingLedger.Lot,uint256[4]).tails (src/libraries/VestingLedger.sol#1255) is a local variable never initialized
+ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64).useful (src/ProtocolBurnRouter.sol#83) is a local variable never initialized
+ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64).measured (src/ProtocolBurnRouter.sol#92) is a local variable never initialized
+VestingLedger.append(VestingLedger.State,uint256,uint256[4],uint64,uint64,address).gross (src/libraries/VestingLedger.sol#809) is a local variable never initialized
+VestingLedger.encodedPaymentTotals(VestingLedger.State,ExpirationSchedule.State,uint64,uint256).result (src/libraries/VestingLedger.sol#312) is a local variable never initialized
+VestingLedger.encodedRefund(VestingLedger.State,uint256,address,uint64,uint64,uint64).result (src/libraries/VestingLedger.sol#762) is a local variable never initialized
+OnchainMetadataRenderer._buildSVG(MembershipTypes.TokenRenderData,bytes).parts (src/OnchainMetadataRenderer.sol#159) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+INFO:Detectors:
+Detector: unused-return
+MembershipFactory.createTier(MembershipTypes.TierConfig) (src/MembershipFactory.sol#176-259) ignores return value by IOnchainMediaStoreFactory(mediaStoreFactory).validateOnchainMedia(msg.sender,config.media) (src/MembershipFactory.sol#216-217)
+MembershipTier._retire(uint256,uint64) (src/MembershipTier.sol#325-335) ignores return value by _expirations.remove(tokenId) (src/MembershipTier.sol#329)
+MembershipTier.setPresentation(address,MembershipTypes.ArtConfig,MembershipTypes.MediaConfig) (src/MembershipTier.sol#422-467) ignores return value by IOnchainMediaStoreFactory(mediaFactory).validateOnchainMedia(msg.sender,newMedia) (src/MembershipTier.sol#443)
+PonsBuybackExecutor._buyPool(uint256,uint64) (src/PonsBuybackExecutor.sol#189-203) ignores return value by (price,None,None,None) = StateLibrary.getSlot0(IPoolManager(BuybackIntegration.POOL_MANAGER),PoolIdLibrary.toId(key)) (src/PonsBuybackExecutor.sol#199-200)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64) (src/PonsBuybackExecutor.sol#208-268) ignores return value by (allowance,expiry,None) = IAllowanceTransfer(BuybackIntegration.PERMIT2).allowance(address(this),input,BuybackIntegration.ROUTER) (src/PonsBuybackExecutor.sol#249-250)
+ProtocolBuybackVault._validateRoute(address,BuybackTypes.TypedRoute) (src/ProtocolBuybackVault.sol#503-539) ignores return value by (price,None,None,None) = StateLibrary.getSlot0(IPoolManager(BuybackIntegration.POOL_MANAGER),PoolIdLibrary.toId(key)) (src/ProtocolBuybackVault.sol#533-535)
+OnchainMediaStoreFactory.store(bytes,MembershipTypes.MediaMIME) (src/media/OnchainMediaStoreFactory.sol#34-78) ignores return value by CodeStoreReader.readAndValidate(store_,existing.length,existing.digest,existing.runtimeCodehash) (src/media/OnchainMediaStoreFactory.sol#49-51)
+OnchainMediaStoreFactory.store(bytes,MembershipTypes.MediaMIME) (src/media/OnchainMediaStoreFactory.sol#34-78) ignores return value by CodeStoreReader.readAndValidate(store_,payloadLength,digest,runtimeCodehash) (src/media/OnchainMediaStoreFactory.sol#65)
+OnchainMediaStoreFactory.validateOnchainMedia(address,MembershipTypes.MediaConfig) (src/media/OnchainMediaStoreFactory.sol#158-189) ignores return value by CodeStoreReader.readAndValidate(media.store,media.length,media.digest,media.runtimeCodehash) (src/media/OnchainMediaStoreFactory.sol#185-187)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+INFO:Detectors:
+Detector: shadowing-local
+IOnchainMediaStoreFactory.store(bytes,MembershipTypes.MediaMIME).mediaStore (src/interfaces/IOnchainMediaStoreFactory.sol#39) shadows:
+	- IOnchainMediaStoreFactory.mediaStore(address,MembershipTypes.MediaMIME,uint32,bytes32) (src/interfaces/IOnchainMediaStoreFactory.sol#53-58) (function)
+IOnchainMediaStoreFactory.predictStore(address,bytes,MembershipTypes.MediaMIME).mediaStore (src/interfaces/IOnchainMediaStoreFactory.sol#44) shadows:
+	- IOnchainMediaStoreFactory.mediaStore(address,MembershipTypes.MediaMIME,uint32,bytes32) (src/interfaces/IOnchainMediaStoreFactory.sol#53-58) (function)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#local-variable-shadowing
+INFO:Detectors:
+Detector: missing-zero-check
+PonsBuybackExecutor.constructor(address,address).token_ (src/PonsBuybackExecutor.sol#53) lacks a zero-check on :
+		- protocolToken = token_ (src/PonsBuybackExecutor.sol#56)
+		- curve = ProtocolLaunchValidation.validate(token_) (src/PonsBuybackExecutor.sol#57)
+ProtocolBurnRouter.constructor(address,address).factory_ (src/ProtocolBurnRouter.sol#64) lacks a zero-check on :
+		- factory = factory_ (src/ProtocolBurnRouter.sol#65)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
+INFO:Detectors:
+Detector: calls-loop
+MembershipFactory.claimEverything(MembershipTypes.TierClaimRequest[],uint256) (src/MembershipFactory.sol#118-158) has external calls inside a loop: result = IMembershipTier(requests[i_scope_0].tier).claimRewardsFor(msg.sender,requests[i_scope_0].tokenIds,remaining) (src/MembershipFactory.sol#132-155)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64) (src/PonsBuybackExecutor.sol#208-268) has external calls inside a loop: IAllowanceTransfer(BuybackIntegration.PERMIT2).approve(input,BuybackIntegration.ROUTER,SafeCast.toUint160(amount),SafeCast.toUint48(deadline)) (src/PonsBuybackExecutor.sol#228-234)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+PonsBuybackExecutor._routerSwap(PoolKey,bool,uint256,uint64,bool) (src/PonsBuybackExecutor.sol#270-298) has external calls inside a loop: IUniversalRouter(BuybackIntegration.ROUTER).execute{value: amount}(abi.encodePacked(uint8(Commands.V4_SWAP),uint8(Commands.SWEEP)),commands,deadline) (src/PonsBuybackExecutor.sol#295-297)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+		PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64)
+PonsBuybackExecutor._routerSwap(PoolKey,bool,uint256,uint64,bool) (src/PonsBuybackExecutor.sol#270-298) has external calls inside a loop: IUniversalRouter(BuybackIntegration.ROUTER).execute{value: 0}(abi.encodePacked(uint8(Commands.V4_SWAP),uint8(Commands.SWEEP)),commands,deadline) (src/PonsBuybackExecutor.sol#295-297)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+		PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64) (src/PonsBuybackExecutor.sol#208-268) has external calls inside a loop: IUniversalRouter(BuybackIntegration.ROUTER).execute{value: beforeSwap.routerETH}(,new bytes[](0),deadline) (src/PonsBuybackExecutor.sol#240-242)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64) (src/PonsBuybackExecutor.sol#208-268) has external calls inside a loop: IAllowanceTransfer(BuybackIntegration.PERMIT2).approve(input,BuybackIntegration.ROUTER,0,1) (src/PonsBuybackExecutor.sol#248)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64) (src/PonsBuybackExecutor.sol#208-268) has external calls inside a loop: (allowance,expiry,None) = IAllowanceTransfer(BuybackIntegration.PERMIT2).allowance(address(this),input,BuybackIntegration.ROUTER) (src/PonsBuybackExecutor.sol#249-250)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64) (src/PonsBuybackExecutor.sol#208-268) has external calls inside a loop: allowance != 0 || expiry != 1 || IERC20(input).allowance(address(this),BuybackIntegration.PERMIT2) != 0 (src/PonsBuybackExecutor.sol#252-253)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64) (src/PonsBuybackExecutor.sol#208-268) has external calls inside a loop: BuybackIntegration.ROUTER.balance != beforeSwap.routerETH || (input != address(0) && IERC20(input).balanceOf(BuybackIntegration.ROUTER) != beforeSwap.routerInput) || (output != address(0) && IERC20(output).balanceOf(BuybackIntegration.ROUTER) != beforeSwap.routerOutput) (src/PonsBuybackExecutor.sol#257-261)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+PonsBuybackExecutor._swap(address,uint256,PoolKey,uint64) (src/PonsBuybackExecutor.sol#208-268) has external calls inside a loop: beforeSwap = SwapBalances(_balance(input),_balance(output),BuybackIntegration.ROUTER.balance,IERC20(input).balanceOf(BuybackIntegration.ROUTER),IERC20(output).balanceOf(BuybackIntegration.ROUTER)) (src/PonsBuybackExecutor.sol#215-225)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+PonsBuybackExecutor._return(address,uint256) (src/PonsBuybackExecutor.sol#322-329) has external calls inside a loop: (sent,None) = vault.call{value: amount}() (src/PonsBuybackExecutor.sol#324)
+	Calls stack containing the loop:
+		PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64)
+ProtocolBurnRouter._validateTiers(ProtocolBurnRouter.AdvanceTier[]) (src/ProtocolBurnRouter.sol#140-147) has external calls inside a loop: ! IMembershipFactory(factory).isRegisteredTier(tiers[i].tier) (src/ProtocolBurnRouter.sol#142)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64)
+		ProtocolBurnRouter._validate(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[])
+ProtocolBurnRouter._validatePurchases(ProtocolBurnRouter.Purchase[]) (src/ProtocolBurnRouter.sol#149-156) has external calls inside a loop: vault.canonicalAsset(purchases[i].asset) != purchases[i].asset (src/ProtocolBurnRouter.sol#151)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64)
+		ProtocolBurnRouter._validate(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[])
+ProtocolBurnRouter._advanceTier(ProtocolBurnRouter.AdvanceTier) (src/ProtocolBurnRouter.sol#158-172) has external calls inside a loop: result = IMembershipTier(item.tier).processAccounting(item.maxAccountingSteps) (src/ProtocolBurnRouter.sol#159-160)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64)
+ProtocolBurnRouter._releaseTier(address) (src/ProtocolBurnRouter.sol#174-179) has external calls inside a loop: asset = address(IMembershipTier(tier).paymentToken()) (src/ProtocolBurnRouter.sol#175)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64)
+ProtocolBurnRouter._releaseTier(address) (src/ProtocolBurnRouter.sol#174-179) has external calls inside a loop: amount = IMembershipTier(tier).releaseProtocolFees() (src/ProtocolBurnRouter.sol#176)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64)
+ProtocolBurnRouter._purchaseBatch(ProtocolBurnRouter.Purchase[],uint64) (src/ProtocolBurnRouter.sol#200-222) has external calls inside a loop: state = vault.processingStatus(item.asset,bucket) (src/ProtocolBurnRouter.sol#209-210)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64)
+		ProtocolBurnRouter._buyback(ProtocolBurnRouter.Purchase[],uint64)
+ProtocolBurnRouter._purchaseBatch(ProtocolBurnRouter.Purchase[],uint64) (src/ProtocolBurnRouter.sol#200-222) has external calls inside a loop: vault.process(item.asset,bucket,state.maxInput,item.revision,deadline) (src/ProtocolBurnRouter.sol#216)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64)
+		ProtocolBurnRouter._buyback(ProtocolBurnRouter.Purchase[],uint64)
+ProtocolBurnRouter._validateTiers(ProtocolBurnRouter.AdvanceTier[]) (src/ProtocolBurnRouter.sol#140-147) has external calls inside a loop: ! IMembershipFactory(factory).isRegisteredTier(tiers[i].tier) (src/ProtocolBurnRouter.sol#142)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.advanceAccounting(ProtocolBurnRouter.AdvanceTier[])
+ProtocolBurnRouter._advanceTier(ProtocolBurnRouter.AdvanceTier) (src/ProtocolBurnRouter.sol#158-172) has external calls inside a loop: result = IMembershipTier(item.tier).processAccounting(item.maxAccountingSteps) (src/ProtocolBurnRouter.sol#159-160)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.advanceAccounting(ProtocolBurnRouter.AdvanceTier[])
+ProtocolBurnRouter._validatePurchases(ProtocolBurnRouter.Purchase[]) (src/ProtocolBurnRouter.sol#149-156) has external calls inside a loop: vault.canonicalAsset(purchases[i].asset) != purchases[i].asset (src/ProtocolBurnRouter.sol#151)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.buyback(ProtocolBurnRouter.Purchase[],uint64)
+ProtocolBurnRouter._purchaseBatch(ProtocolBurnRouter.Purchase[],uint64) (src/ProtocolBurnRouter.sol#200-222) has external calls inside a loop: state = vault.processingStatus(item.asset,bucket) (src/ProtocolBurnRouter.sol#209-210)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.buyback(ProtocolBurnRouter.Purchase[],uint64)
+		ProtocolBurnRouter._buyback(ProtocolBurnRouter.Purchase[],uint64)
+ProtocolBurnRouter._purchaseBatch(ProtocolBurnRouter.Purchase[],uint64) (src/ProtocolBurnRouter.sol#200-222) has external calls inside a loop: vault.process(item.asset,bucket,state.maxInput,item.revision,deadline) (src/ProtocolBurnRouter.sol#216)
+	Calls stack containing the loop:
+		ProtocolBurnRouter.buyback(ProtocolBurnRouter.Purchase[],uint64)
+		ProtocolBurnRouter._buyback(ProtocolBurnRouter.Purchase[],uint64)
+VestingLedger._previewRetire(VestingLedger.State,ExpirationSchedule.State,VestingLedger.PreviewState,VestingLedger.PreviewRequest) (src/libraries/VestingLedger.sol#498-526) has external calls inside a loop: credit != 0 && IERC721(address(this)).ownerOf(entry.node.tokenId) == request.beneficiary (src/libraries/VestingLedger.sol#516)
+	Calls stack containing the loop:
+		VestingLedger.encodedPaymentTotals(VestingLedger.State,ExpirationSchedule.State,uint64,uint256)
+		VestingLedger._previewAdvance(VestingLedger.State,ExpirationSchedule.State,VestingLedger.PreviewState,VestingLedger.PreviewRequest)
+VestingLedger._previewRetire(VestingLedger.State,ExpirationSchedule.State,VestingLedger.PreviewState,VestingLedger.PreviewRequest) (src/libraries/VestingLedger.sol#498-526) has external calls inside a loop: credit != 0 && IERC721(address(this)).ownerOf(entry.node.tokenId) == request.beneficiary (src/libraries/VestingLedger.sol#516)
+	Calls stack containing the loop:
+		VestingLedger.encodedPreview(VestingLedger.State,ExpirationSchedule.State,uint256,address,address,uint64,uint256)
+		VestingLedger._preview(VestingLedger.State,ExpirationSchedule.State,VestingLedger.PreviewRequest)
+		VestingLedger._previewAdvance(VestingLedger.State,ExpirationSchedule.State,VestingLedger.PreviewState,VestingLedger.PreviewRequest)
+VestingLedger._previewRetire(VestingLedger.State,ExpirationSchedule.State,VestingLedger.PreviewState,VestingLedger.PreviewRequest) (src/libraries/VestingLedger.sol#498-526) has external calls inside a loop: credit != 0 && IERC721(address(this)).ownerOf(entry.node.tokenId) == request.beneficiary (src/libraries/VestingLedger.sol#516)
+	Calls stack containing the loop:
+		VestingLedger.encodedClaimPreview(VestingLedger.State,ExpirationSchedule.State,address,uint256[],uint64,uint256,bool)
+		VestingLedger._previewAdvance(VestingLedger.State,ExpirationSchedule.State,VestingLedger.PreviewState,VestingLedger.PreviewRequest)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
+INFO:Detectors:
+Detector: reentrancy-benign
+Reentrancy in ProtocolBuybackVault._processMarket(ProtocolBuybackVault.ProcessRequest) (src/ProtocolBuybackVault.sol#251-308):
+	External calls:
+	- execution = IPonsBuybackExecutor(executor).execute{value: request.amountIn}(request.asset,request.amountIn,configured,request.deadline) (src/ProtocolBuybackVault.sol#264-267)
+	- execution = IPonsBuybackExecutor(executor).execute{value: 0}(request.asset,request.amountIn,configured,request.deadline) (src/ProtocolBuybackVault.sol#264-267)
+	State variables written after the call(s):
+	- _lastAssetBuyAt[request.asset] = lastBuyAt (src/ProtocolBuybackVault.sol#285)
+	- lastBuyAt = SafeCast.toUint64(block.timestamp) (src/ProtocolBuybackVault.sol#284)
+Reentrancy in MembershipFactory.createTier(MembershipTypes.TierConfig) (src/MembershipFactory.sol#176-259):
+	External calls:
+	- IMembershipTier(tier).initialize(config) (src/MembershipFactory.sol#226)
+	State variables written after the call(s):
+	- _tiers.push(tier) (src/MembershipFactory.sol#231)
+	- isRegisteredTier[tier] = true (src/MembershipFactory.sol#232)
+	- tierForIdentity[identity] = tier (src/MembershipFactory.sol#233)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+INFO:Detectors:
+Detector: reentrancy-events
+Reentrancy in MembershipFactory.createTier(MembershipTypes.TierConfig) (src/MembershipFactory.sol#176-259):
+	External calls:
+	- IMembershipTier(tier).initialize(config) (src/MembershipFactory.sol#226)
+	Event emitted after the call(s):
+	- TierArtConfigured(tier,config.art.engine,config.art.collectionSeed,keccak256(bytes)(abi.encode(config.art)),config.media.store,config.media.digest) (src/MembershipFactory.sol#251-258)
+	- TierCreated(tier,msg.sender,identity,tierIndex,config.name,config.symbol) (src/MembershipFactory.sol#235)
+	- TierMetadataConfigured(tier,config.metadata.description,config.metadata.externalURI) (src/MembershipFactory.sol#247)
+	- TierMinimumPaymentConfigured(tier,minimum) (src/MembershipFactory.sol#248)
+	- TierRendererConfigured(tier,config.renderer) (src/MembershipFactory.sol#250)
+	- TierRewardCurveConfigured(tier,config.startingBoostBps,config.earlySupportGross) (src/MembershipFactory.sol#249)
+	- TierTermsConfigured(tier,config.paymentToken,config.pricePerPeriod,config.periodDuration,config.protocolFeeBps,config.rewardBps,config.referralBps,config.supplyCap,config.maxPrepaidPeriods) (src/MembershipFactory.sol#236-246)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-4
+INFO:Detectors:
+Detector: timestamp
+MembershipTier.rewardEligible(uint256) (src/MembershipTier.sol#216-218) uses timestamp for comparisons
+	Dangerous comparisons:
+	- _isActiveToken(tokenId) && _vesting.members[tokenId].eligible (src/MembershipTier.sol#217)
+MembershipTier.accountingStatus() (src/MembershipTier.sol#240-261) uses timestamp for comparisons
+	Dangerous comparisons:
+	- result.complete = result.accountedThrough == now_ && (result.nextBoundary == 0 || result.nextBoundary > now_) (src/MembershipTier.sol#259-260)
+MembershipTier._processAccounting(uint256) (src/MembershipTier.sol#287-315) uses timestamp for comparisons
+	Dangerous comparisons:
+	- due = expiration.tokenId != 0 && expiration.timestamp <= now_ (src/MembershipTier.sol#294)
+	- ! funding.complete || ! due || result.processedSteps == maxSteps (src/MembershipTier.sol#300)
+MembershipTier._requireLive(uint256) (src/MembershipTier.sol#337-341) uses timestamp for comparisons
+	Dangerous comparisons:
+	- _currentTimestamp() >= expiration (src/MembershipTier.sol#340)
+MembershipTier.isRenewable(uint256) (src/MembershipTier.sol#515-541) uses timestamp for comparisons
+	Dangerous comparisons:
+	- paused || ! _isActiveToken(tokenId) (src/MembershipTier.sol#517)
+	- maxPrepaidPeriods != 0 && uint256(paidSeconds) + periodDuration > uint256(maxPrepaidPeriods) * periodDuration (src/MembershipTier.sol#531-533)
+	- base < timestamp (src/MembershipTier.sol#539)
+	- base + periodDuration <= type()(uint64).max (src/MembershipTier.sol#540)
+MembershipTier.timeBalances(uint256) (src/MembershipTier.sol#575-591) uses timestamp for comparisons
+	Dangerous comparisons:
+	- paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#588-589)
+MembershipTier._claimRewards(address,uint256[],uint256) (src/MembershipTier.sol#822-836) uses timestamp for comparisons
+	Dangerous comparisons:
+	- amount != 0 (src/MembershipTier.sol#835)
+MembershipTier.previewRefund(uint256) (src/MembershipTier.sol#839-859) uses timestamp for comparisons
+	Dangerous comparisons:
+	- result.complete = status.complete && _isActiveToken(tokenId) (src/MembershipTier.sol#855)
+	- result.projected = result.projected && _isActiveToken(tokenId) && (status.nextBoundary == 0 || status.nextBoundary > now_) (src/MembershipTier.sol#856-857)
+MembershipTier._pushExact(address,uint256) (src/MembershipTier.sol#1180-1194) uses timestamp for comparisons
+	Dangerous comparisons:
+	- tierBalanceAfter > tierBalanceBefore || tierBalanceBefore - tierBalanceAfter != amount || recipientBalanceAfter < recipientBalanceBefore || recipientBalanceAfter - recipientBalanceBefore != amount (src/MembershipTier.sol#1188-1190)
+MembershipTier._checkpointTime(uint256) (src/MembershipTier.sol#1196-1205) uses timestamp for comparisons
+	Dangerous comparisons:
+	- paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#1204)
+MembershipTier._timeBalancesAt(MembershipTypes.MembershipState,uint256) (src/MembershipTier.sol#1244-1264) uses timestamp for comparisons
+	Dangerous comparisons:
+	- timestamp <= state.checkpoint || paidSeconds == 0 && grantSeconds == 0 (src/MembershipTier.sol#1251)
+	- elapsed >= totalSeconds (src/MembershipTier.sol#1257)
+	- elapsed < paidSeconds (src/MembershipTier.sol#1259)
+MembershipTier._isActiveToken(uint256) (src/MembershipTier.sol#1274-1277) uses timestamp for comparisons
+	Dangerous comparisons:
+	- _currentTimestamp() < _storedExpiration(state) (src/MembershipTier.sol#1276)
+MembershipTier._currentTimestamp() (src/MembershipTier.sol#1308-1312) uses timestamp for comparisons
+	Dangerous comparisons:
+	- currentTimestamp > type()(uint64).max (src/MembershipTier.sol#1310)
+ProtocolBurnRouter.advance(ProtocolBurnRouter.AdvanceTier[],ProtocolBurnRouter.Purchase[],uint64) (src/ProtocolBurnRouter.sol#71-100) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp > deadline (src/ProtocolBurnRouter.sol#81)
+ProtocolBurnRouter.buyback(ProtocolBurnRouter.Purchase[],uint64) (src/ProtocolBurnRouter.sol#122-133) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp > deadline (src/ProtocolBurnRouter.sol#127)
+ProtocolBuybackVault._processingStatus(address,BuybackTypes.SourceBucket,uint256) (src/ProtocolBuybackVault.sol#171-218) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp < state.nextEligibleAt (src/ProtocolBuybackVault.sol#203)
+ProtocolBuybackVault.process(address,BuybackTypes.SourceBucket,uint256,uint64,uint64) (src/ProtocolBuybackVault.sol#222-244) uses timestamp for comparisons
+	Dangerous comparisons:
+	- deadline < block.timestamp (src/ProtocolBuybackVault.sol#230)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+INFO:Detectors:
+Detector: assembly
+ImmutableCodeStore.constructor(bytes) (src/ImmutableCodeStore.sol#10-20) uses assembly
+	- INLINE ASM (src/ImmutableCodeStore.sol#14-19)
+MembershipFactory.claimEverything(MembershipTypes.TierClaimRequest[],uint256) (src/MembershipFactory.sol#118-158) uses assembly
+	- INLINE ASM (src/MembershipFactory.sol#148-151)
+MembershipFactory._validateRenderer(address,MembershipTypes.ArtConfig,MembershipTypes.MediaConfig) (src/MembershipFactory.sol#372-401) uses assembly
+	- INLINE ASM (src/MembershipFactory.sol#395-397)
+MembershipTier.previewAccounting(uint256,address,address,uint256) (src/MembershipTier.sol#350-362) uses assembly
+	- INLINE ASM (src/MembershipTier.sol#361)
+MembershipTier.previewPaymentTotals(uint256) (src/MembershipTier.sol#364-374) uses assembly
+	- INLINE ASM (src/MembershipTier.sol#373)
+MembershipTier.allocationLots(uint256,uint256,uint256,uint256) (src/MembershipTier.sol#391-401) uses assembly
+	- INLINE ASM (src/MembershipTier.sol#400)
+MembershipTier.previewClaimRewards(address,uint256[],uint256) (src/MembershipTier.sol#792-809) uses assembly
+	- INLINE ASM (src/MembershipTier.sol#808)
+PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64) (src/PonsBuybackExecutor.sol#98-169) uses assembly
+	- INLINE ASM (src/PonsBuybackExecutor.sol#161)
+ProtocolBuybackVault._deployExecutor(address) (src/ProtocolBuybackVault.sol#119-145) uses assembly
+	- INLINE ASM (src/ProtocolBuybackVault.sol#125-130)
+	- INLINE ASM (src/ProtocolBuybackVault.sol#132-134)
+	- INLINE ASM (src/ProtocolBuybackVault.sol#136-142)
+RendererPreviewHarness.preview(bytes,bytes) (src/RendererPreviewHarness.sol#15-32) uses assembly
+	- INLINE ASM (src/RendererPreviewHarness.sol#24-26)
+RendererPreviewHarness._bounded(bytes) (src/RendererPreviewHarness.sol#34-42) uses assembly
+	- INLINE ASM (src/RendererPreviewHarness.sol#39-41)
+RendererRegistry.deployAndRegister(bytes) (src/RendererRegistry.sol#41-69) uses assembly
+	- INLINE ASM (src/RendererRegistry.sol#52-54)
+CodeStoreReader.read(address,uint32,bytes32) (src/media/CodeStoreReader.sol#14-44) uses assembly
+	- INLINE ASM (src/media/CodeStoreReader.sol#23-26)
+	- INLINE ASM (src/media/CodeStoreReader.sol#39-42)
+OnchainMediaStoreFactory.store(bytes,MembershipTypes.MediaMIME) (src/media/OnchainMediaStoreFactory.sol#34-78) uses assembly
+	- INLINE ASM (src/media/OnchainMediaStoreFactory.sol#62-64)
+RendererPrimitives.appendBytes(RendererPrimitives.Buffer,bytes) (src/renderer/RendererPrimitives.sol#106-119) uses assembly
+	- INLINE ASM (src/renderer/RendererPrimitives.sol#115-117)
+RendererPrimitives.finish(RendererPrimitives.Buffer) (src/renderer/RendererPrimitives.sol#121-128) uses assembly
+	- INLINE ASM (src/renderer/RendererPrimitives.sol#124-126)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#assembly-usage
+INFO:Detectors:
+Detector: cyclomatic-complexity
+MembershipFactory.createTier(MembershipTypes.TierConfig) (src/MembershipFactory.sol#176-259) has a high cyclomatic complexity (13).
+PonsBuybackExecutor.execute(address,uint256,BuybackTypes.TypedRoute,uint64) (src/PonsBuybackExecutor.sol#98-169) has a high cyclomatic complexity (16).
+ProtocolBuybackVault._processingStatus(address,BuybackTypes.SourceBucket,uint256) (src/ProtocolBuybackVault.sol#171-218) has a high cyclomatic complexity (13).
+ProtocolBuybackVault._validateRoute(address,BuybackTypes.TypedRoute) (src/ProtocolBuybackVault.sol#503-539) has a high cyclomatic complexity (12).
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#cyclomatic-complexity
+INFO:Detectors:
+Detector: low-level-calls
+Low level call in PonsBuybackExecutor._return(address,uint256) (src/PonsBuybackExecutor.sol#322-329):
+	- (sent,None) = vault.call{value: amount}() (src/PonsBuybackExecutor.sol#324)
+Low level call in RendererPreviewHarness.preview(bytes,bytes) (src/RendererPreviewHarness.sol#15-32):
+	- (success,result) = candidate.call(rendererCallData) (src/RendererPreviewHarness.sol#29)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+INFO:Detectors:
+Detector: naming-convention
+Function IMembershipTier.MAX_LIFETIME_GROSS() (src/interfaces/IMembershipTier.sol#112) is not in mixedCase
+Function IMembershipTier.ACCOUNTING_SCALE() (src/interfaces/IMembershipTier.sol#114) is not in mixedCase
+Function IMembershipTier.NORMAL_BOOST_BPS() (src/interfaces/IMembershipTier.sol#154) is not in mixedCase
+Function IMembershipTier.MIN_ENABLED_BOOST_BPS() (src/interfaces/IMembershipTier.sol#155) is not in mixedCase
+Function IMembershipTier.MAX_BOOST_BPS() (src/interfaces/IMembershipTier.sol#156) is not in mixedCase
+Function IMembershipTier.BOOST_STEP_BPS() (src/interfaces/IMembershipTier.sol#157) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+INFO:Detectors:
+Detector: too-many-digits
+ProtocolBuybackVault.constructor(address,address) (src/ProtocolBuybackVault.sol#89-99) uses literals with too many digits:
+	- creationCode = type()(PonsBuybackExecutor).creationCode (src/ProtocolBuybackVault.sol#94)
+RobinhoodProtocolConfig.initialRenderer() (src/RobinhoodProtocolConfig.sol#78-82) uses literals with too many digits:
+	- create2Address(INITIAL_RENDERER_SALT,keccak256(bytes)(type()(OnchainMetadataRenderer).creationCode)) (src/RobinhoodProtocolConfig.sol#79-81)
+RobinhoodProtocolConfig.mediaStoreFactory() (src/RobinhoodProtocolConfig.sol#84-88) uses literals with too many digits:
+	- create2Address(MEDIA_STORE_FACTORY_SALT,keccak256(bytes)(type()(OnchainMediaStoreFactory).creationCode)) (src/RobinhoodProtocolConfig.sol#85-87)
+ImageValidation._isCriticalChunk(uint32) (src/media/ImageValidation.sol#226-228) uses literals with too many digits:
+	- (chunkType & 0x20000000) == 0 (src/media/ImageValidation.sol#227)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#too-many-digits
+INFO:Detectors:
+Detector: unimplemented-functions
+MembershipFactory (src/MembershipFactory.sol#24-420) does not implement functions:
+	- IMembershipFactory.owner() (src/interfaces/IMembershipFactory.sol#14)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unimplemented-functions
+INFO:Slither:. analyzed (124 contracts with 101 detectors), 121 result(s) found

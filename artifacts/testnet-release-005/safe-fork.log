@@ -1,0 +1,10 @@
+Compiling 28 files with Solc 0.8.36
+Solc 0.8.36 finished in 5.66s
+Compiler run successful!
+2026-09-13T04:40:33.569387Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/user/.foundry/cache/rpc/robinhood-testnet/118530005"
+
+Ran 1 test for test/fork/RobinhoodSafe.t.sol:RobinhoodSafeForkTest
+[PASS] test_createsAndValidatesSafeV150L2WhenExplicitlyEnabled() (gas: 1622960)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 3.10s (3.09s CPU time)
+
+Ran 1 test suite in 3.10s (3.10s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)

@@ -1,0 +1,30 @@
+{
+  "scope": "local compiler input only; not submitted to explorer",
+  "artifact": "src/MembershipTier.sol:MembershipTier",
+  "compiler": {
+    "version": "0.8.36+commit.8a079791"
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "evmVersion": "cancun",
+    "viaIR": false,
+    "libraries": {
+      "src/libraries/VestingLedger.sol": {
+        "VestingLedger": "0xeC7004f51b7dA735a595ADDEAB68e7A339474429"
+      }
+    },
+    "metadata": {
+      "useLiteralContent": false,
+      "bytecodeHash": "ipfs",
+      "appendCBOR": true
+    }
+  },
+  "sourceCount": 54,
+  "standardJsonInputSha256": "e51eae76ac2dccb9bf4fa74d61824f7ad29d0cc7466cb0d0e8f6d77287ff8d9d",
+  "initcodeBytes": 44465,
+  "runtimeBytes": 44251,
+  "localInputFile": "/tmp/bbf-testnet-implementation-standard-input.json"
+}

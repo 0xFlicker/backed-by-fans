@@ -687,7 +687,7 @@ prepare_operational_state() {
     --arg factory_address "${component_addresses[5]}" \
     --arg factory_runtime "${component_runtime_hashes[5]}" \
     '.schemaVersion = 3
-     | del(.factory.feeRecipient)
+     | del(.factory.feeRecipient, .deployment.tierCodeStoreA, .deployment.tierCodeStoreB, .deployment.tierDeployer, .deployment.tierCreationCode)
      | .factory.protocolToken = $protocol_token
      | .deployment.paymentTokens = ($payment_tokens | map({symbol, address, runtimeCodehash, implementation, implementationRuntimeCodehash}))
      | .deployment.vestingLedger = {address: $library_address, runtimeCodehash: $library_runtime}

@@ -1,0 +1,23 @@
+$ vitest run
+
+ RUN  v4.1.11 /Users/user/Development/backed-by-fans/web
+
+(node:55963) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{"level":10,"time":1789273734495,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","msg":"Initialized"}
+{"level":10,"time":1789273734496,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/history","msg":"Initialized"}
+{"level":10,"time":1789273734496,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/expirer","msg":"Initialized"}
+{"level":10,"time":1789273734496,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","msg":"Initialized"}
+{"level":10,"time":1789273734496,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","context":"core/relayer/messages","msg":"Initialized"}
+{"level":10,"time":1789273734496,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","context":"core/relayer/subscription","msg":"Initialized"}
+{"level":20,"time":1789273734496,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","context":"core/relayer/messages","msg":"Successfully Restored records for messages"}
+{"level":10,"time":1789273734496,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/relayer","context":"core/relayer/messages","type":"method","method":"restore","size":0}
+{"level":10,"time":1789273734496,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/pairing","context":"core/pairing/pairing","msg":"Initialized"}
+{"level":10,"time":1789273734497,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","context":"core/pairing","msg":"Initialized"}
+{"level":30,"time":1789273734497,"pid":55971,"hostname":"Flicks-MacBook-Pro-4.local","name":"core","context":"core","msg":"Core Initialization Success"}
+
+ Test Files  112 passed (112)
+      Tests  783 passed (783)
+   Start at  22:28:51
+   Duration  12.33s (transform 4.83s, setup 19.63s, import 55.44s, tests 29.19s, environment 68.68s)
+

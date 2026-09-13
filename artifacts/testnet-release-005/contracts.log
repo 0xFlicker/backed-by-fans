@@ -1,0 +1,896 @@
+No files changed, compilation skipped
+
+Ran 1 test for test/fork/ProtocolExternalFailures.t.sol:ProtocolExternalFailuresForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 8.10ms (0.00ns CPU time)
+
+Ran 6 tests for test/RendererPreviewHarness.t.sol:RendererPreviewHarnessTest
+[PASS] test_callFailureReasonIsBounded() (gas: 146196)
+[PASS] test_createAndCallReturnsRawCandidateResult() (gas: 168831)
+[PASS] test_creationFailureIsReported() (gas: 43137)
+[PASS] test_emptyCallDataIsRejected() (gas: 11257)
+[PASS] test_emptyCreationCodeIsRejected() (gas: 10818)
+[PASS] test_ethCallRehearsalStateCanBeDiscarded() (gas: 335679)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 8.65ms (598.87µs CPU time)
+
+Ran 1 test for test/fork/PonsCompensation.t.sol:PonsCompensationForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 9.41ms (0.00ns CPU time)
+
+Ran 1 test for test/fork/PonsGraduation.t.sol:PonsGraduationForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 1.09ms (0.00ns CPU time)
+
+Ran 1 test for test/fork/PonsLaunch.t.sol:PonsLaunchForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 135.04µs (0.00ns CPU time)
+
+Ran 1 test for test/fork/ProtocolForkDeployment.t.sol:ProtocolForkDeploymentTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 3.81ms (0.00ns CPU time)
+
+Ran 7 tests for test/deployment/CreateSafe.t.sol:CreateSafeScriptTest
+[PASS] test_initializerConfiguresOnlyTheDeployer() (gas: 13563)
+[PASS] test_initializerRejectsUnapprovedOwner() (gas: 10855)
+[PASS] test_mainnetRequiresExactExplicitConfirmation() (gas: 10821)
+[PASS] test_rejectsUnapprovedSafeOwner() (gas: 10261)
+[PASS] test_rejectsUnsupportedChainsBeforeInspectingContracts() (gas: 10174)
+[PASS] test_runEnforcesMainnetConfirmationBeforeCanonicalContractChecks() (gas: 17747)
+[PASS] test_usesReleasedSafeV150L2Deployments() (gas: 9245)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 13.35ms (4.91ms CPU time)
+
+Ran 10 tests for test/RendererRegistry.t.sol:RendererRegistryTest
+[PASS] testAddsCreatorOnlyOnceAcrossMultipleDeployments() (gas: 427451)
+[PASS] testAnotherWalletSavesARegistryCreatedRenderer() (gas: 363674)
+[PASS] testCreatedRendererReturnsToCreatedListAfterUnregistering() (gas: 289488)
+[PASS] testDeploysRegistersAndReturnsActualRenderer() (gas: 277187)
+[PASS] testPaginatesCreatorsAndRenderers() (gas: 661605)
+[PASS] testRegistersExistingRendererAsSaved() (gas: 185124)
+[PASS] testRejectsFailedEmptyOversizedAndDuplicateInputs() (gas: 350746)
+[PASS] testRejectsInvalidRendererAndRollsBackDeployment() (gas: 87615)
+[PASS] testRejectsMissingWrongSchemaUnregisteredAndOversizedPage() (gas: 102878)
+[PASS] testUnregisterUsesSwapAndPopForCurrentLists() (gas: 258568)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 4.65ms (841.00µs CPU time)
+
+Ran 5 tests for test/RefundsAndOwnership.t.sol:AdversarialRefundsTest
+[PASS] test_deliveryCallbackCannotReenterGrantAfterRefundClearsTime() (gas: 542134)
+[PASS] test_failedRefundDeliveryRollsBackCatchUpBurnCreditAndExpirationRemoval() (gas: 1009458)
+[PASS] test_falseRevertingShortTaxedAndFrozenRefundDeliveryIsAtomic() (gas: 2035759)
+[PASS] test_refundNeverPullsFromAFrozenOwnerWithBrokenTransferFrom() (gas: 309307)
+[PASS] test_unfundedNewOwnerCanRefundWithoutAllowance() (gas: 302030)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 21.91ms (3.00ms CPU time)
+
+Ran 2 tests for test/CustomRendererImageInput.t.sol:CustomRendererImageInputTest
+[PASS] test_previewContextPassesBrowserNativeMediaWithoutPreservationRules() (gas: 20247)
+[PASS] test_tierPassesConfiguredOnchainMediaToCustomRenderer() (gas: 1920958)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 24.58ms (6.86ms CPU time)
+
+Ran 12 tests for test/CustomRendererAddress.t.sol:CustomRendererAddressTest
+[PASS] test_canonicalRendererAlsoUsesDirectAddress() (gas: 704154)
+[PASS] test_completePresentationNoOpEmitsNoMetadataRefresh() (gas: 719806)
+[PASS] test_currentOwnerCanReplaceCompletePresentation() (gas: 1312224)
+[PASS] test_invalidReplacementPreservesCurrentRenderer() (gas: 1084350)
+[PASS] test_newOwnerCanKeepMediaStoredByThePreviousOwner() (gas: 1302264)
+[PASS] test_nonContractRendererAddressIsRejected() (gas: 36139)
+[PASS] test_pendingFormerAndNonOwnerCannotReplaceRenderer() (gas: 1010499)
+[PASS] test_presentationRejectsMediaFromAnotherCreatorAndPreservesAllFields() (gas: 1227275)
+[PASS] test_rendererReplacementPreservesMembershipAndEconomicState() (gas: 1301413)
+[PASS] test_rendererReplacementRefreshesAllMintedMetadata() (gas: 1285161)
+[PASS] test_unregisteredCompatibleRendererCreatesTierAndIsExposed() (gas: 11250965)
+[PASS] test_zeroRendererAddressIsRejected() (gas: 32064)
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 16.62ms (3.92ms CPU time)
+
+Ran 1 test for test/fork/DeferredProtocolToken.t.sol:DeferredProtocolTokenForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 2.75ms (0.00ns CPU time)
+
+Ran 18 tests for test/MembershipIdentity.t.sol:MembershipIdentityTest
+[PASS] test_capacityCountsPositionsAndCreationCatchesUpExpiredCapacity() (gas: 652702)
+[PASS] test_contributionsCreateIndependentIdsAndRenewExplicitTarget() (gas: 12275466)
+[PASS] test_eachCreationMintsIndependentSequentialPositionForSameOwner() (gas: 769821)
+[PASS] test_erc5643ContributionRenewalAddsOneFreePeriodToSelectedId() (gas: 11156320)
+[PASS] test_erc5643RequiresOwnerIntegralDurationAndLockedPricedReferral() (gas: 1509164)
+[PASS] test_explicitPurchaseCreatesAndRenewalOnlyExtendsSelectedPosition() (gas: 1867218)
+[PASS] test_grantExtensionTargetsOnlySelectedIdAndExpectedOwner() (gas: 574467)
+[PASS] test_nativeEthIsRejectedByAdaptersAndFallback() (gas: 328879)
+[PASS] test_ownerEnumerationDropsBurnedPositionWithoutLosingSurvivor() (gas: 476498)
+[PASS] test_ownerPageRejectsZeroOwnerAndInvalidPageSize() (gas: 34043)
+[PASS] test_ownerPagesBoundedAt100AndIncludeEveryIndependentPosition() (gas: 23174057)
+[PASS] test_prepaymentLimitAppliesPerPositionAndCreationDoesNotRenew() (gas: 1540197)
+[PASS] test_renewAtAndAfterExpiryRejectsBeforeMaintenanceBurn() (gas: 941970)
+[PASS] test_renewOneSecondBeforeExpiryPreservesIdentity() (gas: 1289388)
+[PASS] test_returnAfterExpiryHasFreshCurveWeightIdentityAndReferral() (gas: 12246639)
+[PASS] test_safeMintRejectsNonReceiverAndRollsBackIdentityAndCapacity() (gas: 646476)
+[PASS] test_selectedRenewalRequiresOwnerAndKeepsLockedReferral() (gas: 1049646)
+[PASS] test_supportsTransferableEnumerableMembershipInterfaces() (gas: 16549)
+Suite result: ok. 18 passed; 0 failed; 0 skipped; finished in 37.39ms (13.40ms CPU time)
+
+Ran 5 tests for test/StandardsInterfaces.t.sol:StandardsInterfacesTest
+[PASS] test_erc5192InterfaceIdMatchesPublishedStandard() (gas: 228)
+[PASS] test_erc5643CancellationPreservesAccountingAtomicityAndRetiresWeight() (gas: 84697549)
+[PASS] test_erc5643InterfaceIdMatchesPublishedStandard() (gas: 305)
+[PASS] test_membershipInterfaceMatchesWebAuthenticityRequirement() (gas: 229)
+[PASS] test_mockUSDGProvidesExpectedERC20Behavior() (gas: 560059)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 44.58ms (40.20ms CPU time)
+
+Ran 12 tests for test/GrantsAndCapacity.t.sol:GrantsAndCapacityTest
+[PASS] test_finalGrantRevocationBurnsAndGiftCreatesIndependentWeight() (gas: 1882780)
+[PASS] test_giftRenewalRejectsOwnerAndReferralMismatchBeforePayment() (gas: 1287661)
+[PASS] test_grantAndRevocationRejectStaleExpectedOwnerWithoutChangingSchedule() (gas: 962347)
+[PASS] test_grantsDoNotCountAgainstPaidPrepaymentLimit() (gas: 961318)
+[PASS] test_onlyCreatorCanGrantOrRevokeWholePeriods() (gas: 330426)
+[PASS] test_pauseStillAllowsGrantRevocationAndPermissionlessMaintenance() (gas: 313071)
+[PASS] test_regrantAfterRevocationAlwaysCreatesANewCredential() (gas: 476974)
+[PASS] test_returningFreeAndGrantedPositionEarnsOnlyNewPaymentWeight() (gas: 11909986)
+[PASS] test_revokeRemovesOnlyRemainingGrantTimeAndPreservesPaidTime() (gas: 997570)
+[PASS] test_revokeWithoutRemainingGrantRevertsWithoutTouchingPaidTime() (gas: 935269)
+[PASS] test_revokingPartiallyConsumedLastGrantBurnsAndReleasesCapacityImmediately() (gas: 507330)
+[PASS] test_zeroRenewalsExtendOnlyTheLivePositionAndExpiredReturnStartsFresh() (gas: 11412584)
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 46.44ms (15.09ms CPU time)
+
+Ran 4 tests for test/e2e/LocalLifecycleEvidence.t.sol:LocalLifecycleEvidenceTest
+[PASS] test_local120TokenTraceClaimsThenRefundsReservedNinety() (gas: 2014316)
+[PASS] test_localCreatorToSupporterLifecycleConservesEveryCustodyBucket() (gas: 3890041)
+[PASS] test_localFixtureExposesUnscaledAndScaledPaymentTokens() (gas: 26672)
+[PASS] test_localFreeGapAndLargeSinglePeriodContributionTrace() (gas: 1724208)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 47.18ms (15.21ms CPU time)
+
+Ran 7 tests for test/DeferredProtocolToken.t.sol:DeferredProtocolTokenTest
+[PASS] test_collectAndRefundBeforeLaunch() (gas: 487310)
+[PASS] test_corruptedExecutorCodeCannotBindOrLoseCollectedFees() (gas: 1632160)
+[PASS] test_failedBindingAtomicThenValidBindingPreservesFundsAndBurns() (gas: 4135799)
+[PASS] test_nativeDonationCannotBeMistakenForUnboundProtocolToken() (gas: 80956)
+[PASS] test_onlyOwnerCanBindAndOnlyFactoryCanCallVault() (gas: 24530)
+[PASS] test_rejectZeroAndEOATokenWithoutChangingBinding() (gas: 49359)
+[PASS] test_routesRequireLaunch() (gas: 21677)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 47.52ms (4.37ms CPU time)
+
+Ran 9 tests for test/CapacityAndPause.t.sol:CapacityAndPauseTest
+[PASS] test_activeOrHeldOccupancyConstrainsSupplyCapLowering() (gas: 30949785)
+[PASS] test_creationRetiresExpiredPositionBeforeReusingCapacityWithNewId() (gas: 489576)
+[PASS] test_expiredPositionReleasesSlotThroughPermissionlessIdempotentMaintenance() (gas: 305583)
+[PASS] test_maintenanceBeforeExpiryDoesNotMutateStoredMembershipTime() (gas: 333883)
+[PASS] test_multiplePositionsInOneWalletConsumeIndependentCapacity() (gas: 31937588)
+[PASS] test_pauseBlocksFixedPriceTimeIncreasesButNotPassiveAccess() (gas: 336880)
+[PASS] test_returningWalletCanLoseReleasedCapacityRace() (gas: 498008)
+[PASS] test_twoStepOwnershipTransferCompletesWhilePaused() (gas: 57172)
+[PASS] test_unpauseRestoresTimeIncreases() (gas: 922218)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 48.51ms (17.36ms CPU time)
+
+Ran 4 tests for test/ProtocolBurnRouter.t.sol:ProtocolBurnRouterSyntheticCooldownTest
+[PASS] test_syntheticCoolingAssetPreservesPreferenceWhileOtherAssetSucceeds() (gas: 249050)
+[PASS] test_syntheticPurchaseCallbackCannotReenterAdvance() (gas: 162571)
+[PASS] test_syntheticPurchaseFailureRollsBackOtherAssetProgress() (gas: 161229)
+[PASS] test_syntheticSuccessiveEligibleBatchesAlternateSources() (gas: 207577)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 975.25µs (647.54µs CPU time)
+
+Ran 13 tests for test/GasAccounting.t.sol:GasAccountingTest
+[PASS] test_gas_advanceAndBurn() (gas: 887620)
+[PASS] test_gas_checkpoint1() (gas: 465572)
+[PASS] test_gas_checkpoint10() (gas: 1586140)
+[PASS] test_gas_checkpoint25() (gas: 2941329)
+[PASS] test_gas_checkpoint25Continuing() (gas: 3481591)
+[PASS] test_gas_checkpoint25Staggered() (gas: 3168467)
+[PASS] test_gas_claim1Continuous() (gas: 452940)
+[PASS] test_gas_claim3Continuous() (gas: 1185729)
+[PASS] test_gas_claim3WithEnds() (gas: 2101019)
+[PASS] test_gas_claim8Continuous() (gas: 3018535)
+[PASS] test_gas_claimNoReferral() (gas: 411571)
+[PASS] test_gas_join() (gas: 1002406)
+[PASS] test_gas_renewal() (gas: 626504)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 58.56ms (14.18ms CPU time)
+
+Ran 1 test for test/invariants/MembershipInvariant.t.sol:FrozenGiftLifecycleTest
+[PASS] test_frozenPrepaidGiftRetiresWithoutPaymentTransferAtNaturalExpiry() (gas: 76018263)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 26.52ms (25.12ms CPU time)
+
+Ran 20 tests for test/ProtocolBurnRouter.t.sol:ProtocolBurnRouterTest
+[PASS] test_acceptsNineTiersAndThirtyThreePurchases() (gas: 6577790)
+[PASS] test_accountingCanProgressWhileBuybacksPaused() (gas: 296650)
+[PASS] test_accountingOnlyPaysNoWorkerAndDoesNotCallVaultOrRelease() (gas: 153842)
+[PASS] test_anyWalletAdvancesReleasesAndBurnsInOneCall() (gas: 399025)
+[PASS] test_deadlineAndUnregisteredTierRejectBeforeAccounting() (gas: 44153)
+[PASS] test_directBurnProcessesBothSourcesAfterDonationBecomesPreferred() (gas: 562168)
+[PASS] test_directBurnProcessesBothSourcesOnceWhenBothAreReady() (gas: 420993)
+[PASS] test_duplicateCurrenciesRejectedAndCallerBudgetAccepted() (gas: 349455)
+[PASS] test_duplicateTiersAndSharedBudgetFailBeforeAnyAccounting() (gas: 11274938)
+[PASS] test_emptyRequestHasNoUsefulWork() (gas: 10262)
+[PASS] test_failedAccountingRollsBackAndDonationCanBurnSeparately() (gas: 214830)
+[PASS] test_failedReleaseRollsBackAndAccountingCanRunSeparately() (gas: 261205)
+[PASS] test_invalidLargeBatchesRejectBeforeAnyWork() (gas: 86400)
+[PASS] test_pausedAndStalePurchasesPreserveDonationPreference() (gas: 516679)
+[PASS] test_requestedBudgetIsMaximumAndEqualTimeProgressCanResumeWithoutEarningAgain() (gas: 2076892)
+[PASS] test_routerCannotAdministerVault() (gas: 16347)
+[PASS] test_secondSameBlockCallHasNoWorkAndCannotDoubleRelease() (gas: 384682)
+[PASS] test_staleRevisionRollsBackAccountingAndRelease() (gas: 292336)
+[PASS] test_twoTiersCanUseExactlyTheSharedBudgetWithoutMixingMoney() (gas: 12083914)
+[PASS] test_zeroBudgetReleasesSettledFundsWithoutMovingCursor() (gas: 249520)
+Suite result: ok. 20 passed; 0 failed; 0 skipped; finished in 16.90ms (7.36ms CPU time)
+
+Ran 10 tests for test/Referrals.t.sol:ReferralsTest
+[PASS] test_explicitNoneLocksAndLaterReplacementFailsAtomically() (gas: 951967)
+[PASS] test_firstPositiveSelfPaymentLocksReferrerAndReservesBeforeEarning() (gas: 1114486)
+[PASS] test_giftRejectsReferralStateChangedAfterPreviewWithoutChargingPayer() (gas: 1380092)
+[PASS] test_giftsNeverLockButUseAnExistingRecipientChoice() (gas: 1659631)
+[PASS] test_lockedAddressAllowsSameChoiceButRejectsReplacement() (gas: 1387235)
+[PASS] test_oneReferrerClaimsIndependentStreamsAtRateAndSuspensionBoundaries() (gas: 1874424)
+[PASS] test_selfGiftCannotBypassSelfPaymentAttribution() (gas: 30876)
+[PASS] test_selfReferralIsAllowed() (gas: 1063425)
+[PASS] test_standardRenewalRequiresExistingChoiceOnPositivePriceTier() (gas: 1308374)
+[PASS] test_zeroPriceStandardRenewalDoesNotInventAttribution() (gas: 10922333)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 49.47ms (14.96ms CPU time)
+
+Ran 13 tests for test/TransferableMemberships.t.sol:TransferableMembershipsTest
+[PASS] test_delayedRetirementCreditsFinalOwnerIncludingPretransferEarnings() (gas: 1076006)
+[PASS] test_everyTransferRouteRejectsAtAndAfterExpiryEvenForApprovedCaller() (gas: 1021137)
+[PASS] test_liveTransferWithMoreThan25FundingAndExpiryEventsDoesNoAccounting() (gas: 27123934)
+[PASS] test_ownerTransferPreservesEntirePositionWithoutSettlingOrPayingSender() (gas: 1528951)
+[PASS] test_ownerWideOperatorTransfersButDoesNotGainRecipientAuthority() (gas: 977077)
+[PASS] test_pausedApprovalAndSafeOperatorTransferIgnoreGrantOnlyExpiryBacklog() (gas: 7639527)
+[PASS] test_pausedLiveTransferWithMoreThan25FundingAndExpiryEventsDoesNoAccounting() (gas: 27146556)
+[PASS] test_safeTransferOverloadsMoveToExistingMemberWithoutMergingPositions() (gas: 2487329)
+[PASS] test_selfTransferClearsTokenApprovalWithoutChangingEconomicsOrEnumeration() (gas: 1934978)
+[PASS] test_tokenApprovedTransferClearsApprovalAndCannotBeReused() (gas: 961658)
+[PASS] test_transferSucceedsOneSecondBeforeExpiration() (gas: 946549)
+[PASS] test_transferToLockedReferrerPreservesChoiceAndFutureFundingBeneficiary() (gas: 1318402)
+[PASS] test_unauthorizedCallerCannotTransferLivePosition() (gas: 935693)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 77.46ms (68.69ms CPU time)
+
+Ran 23 tests for test/deployment/DeploymentScripts.t.sol:DeploymentScriptsTest
+[PASS] test_arbitraryOriginCanOnlyPredeployExactSafeOwnedFactory() (gas: 27144964)
+[PASS] test_completedDeploymentGateRejectsPartialStateAndAcceptsCompleteState() (gas: 28930605)
+[PASS] test_corruptedImplementationIsRejectedByDeployment() (gas: 242027)
+[PASS] test_directFactoryInitcodeFitsRobinhoodProtocolLimit() (gas: 211945)
+[PASS] test_directFactoryInitcodePinsExactChainSpecificPaymentTokenLists() (gas: 57047031)
+[PASS] test_directFactoryTransactionFitsNitroSequencerLimit() (gas: 251208)
+[PASS] test_existingArbitraryRendererRuntimeIsNeverAdopted() (gas: 2742864)
+[PASS] test_existingDeploymentIsValidatedAtEachDirectStep() (gas: 28662320)
+[PASS] test_existingImplementationIsReusedByDeployment() (gas: 338033)
+[PASS] test_factoryCreatesOneImmutableVaultAndTiersPinIt() (gas: 28177003)
+[PASS] test_localDeploymentIsRestrictedToAnvilAndAcceptsItsMockToken() (gas: 71428204)
+[PASS] test_mainnetRequiresExactExplicitConfirmation() (gas: 10769)
+[PASS] test_mainnetRequiresReviewedProxyAndImplementationState() (gas: 57960)
+[PASS] test_publicDeploymentRejectsMissingOrWrongCanonicalTokenSurface() (gas: 454214)
+[PASS] test_publicDeploymentRejectsUnsupportedChains() (gas: 11247)
+[PASS] test_publicDeploymentRequiresExpectedSafeAuthorityConfiguration() (gas: 124524)
+[PASS] test_publicDeploymentRequiresExpectedSafeSingletonAndVersion() (gas: 101670)
+[PASS] test_publicDeploymentUsesDirectCreate2AndChecksAllBindings() (gas: 27194154)
+[PASS] test_publicPlanAcceptsDeferredTokenAndRejectsNoncanonicalLaunchWiring() (gas: 20458)
+[PASS] test_releaseWrapperPlanMatchesSolidityConfig() (gas: 3215)
+[PASS] test_sharedImplementationRuntimeIsExactAndInitializationIsLocked() (gas: 134508)
+[PASS] test_testnetAcceptsOnlyTheExactExternalSixTokenManifest() (gas: 1217380)
+[PASS] test_wholeLinkedCreationGraphFitsNativeReleaseLimits() (gas: 2071891)
+Suite result: ok. 23 passed; 0 failed; 0 skipped; finished in 95.59ms (80.04ms CPU time)
+
+Ran 2 tests for test/RewardCurveCalibration.t.sol:RewardCurveCalibrationTest
+[PASS] test_calibrationLifecycleCashAgainstRationalReport() (gas: 161276984)
+[PASS] test_calibrationMatchesSolidityOutputs() (gas: 45244062)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 91.85ms (90.49ms CPU time)
+
+Ran 12 tests for test/ProtocolBuybackVault.t.sol:ProtocolBuybackVaultTest
+[PASS] testAllowsUnsetTokenAndRejectsImpersonatedConstructorFactory() (gas: 9348647)
+[PASS] testCallbackCannotStealAttributionDuringAtomicTransferAndRecord() (gas: 1352518)
+[PASS] testDonationCannotBeRelabeledOrReceiptReplayed() (gas: 219847)
+[PASS] testFuzzEarnedReceiptsAndDonationsConserveIndependentBuckets(uint128,uint128) (runs: 256, μ: 211548, ~: 212372)
+[PASS] testImmutableIdentityAndEmptyInventory() (gas: 40551)
+[PASS] testNativeDonationsAndZeroSyncAreSeparateFromMembership() (gas: 81390)
+[PASS] testNoWithdrawalUpgradeRecipientOrArbitraryExecutionSurface() (gas: 137955)
+[PASS] testOnlyRegisteredTierCanAttributeMembershipFees() (gas: 321102)
+[PASS] testPreviewReleaseMatchesRealInventoryWithoutWrites() (gas: 166051)
+[PASS] testShortTransferRevertsEntireRelease() (gas: 1192050)
+[PASS] testUnaccountedDonationIsNotAbsorbedIntoAValidEarnedReceipt() (gas: 197347)
+[PASS] testZeroReceiptAndNativePaymentAssetAreRejected() (gas: 235902)
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 93.59ms (91.22ms CPU time)
+
+Ran 1 test for test/fork/ProtocolBuybacks.t.sol:ProtocolBuybacksForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 814.42µs (0.00ns CPU time)
+
+Ran 9 tests for test/BuybackAdministration.t.sol:BuybackAdministrationTest
+[PASS] testFuzz_limitsAcceptFullSizeAndIntervalRange(uint128,uint128,uint64) (runs: 256, μ: 127988, ~: 128393)
+[PASS] test_acceptsThirtyThreeExecutionLimitUpdates() (gas: 5425028)
+[PASS] test_cannotConfigureDirectBurnAsAMarketOrInventAnEmptyTokenRoute() (gas: 532330)
+[PASS] test_cannotDiscardAuthorityOrNominateEOAOrSpoofSafe() (gas: 31586)
+[PASS] test_factoryOwnerIsOnlyConfigurationAuthority() (gas: 120471)
+[PASS] test_limitsRequireRouteAndRejectInvalidBounds() (gas: 110317)
+[PASS] test_pausesDoNotChangeRevisionOrLimits() (gas: 148012)
+[PASS] test_routeAndLimitsChangesAdvanceRevisionWithoutClearingStandingLimits() (gas: 135801)
+[PASS] test_unwrapCallbackCannotReusePreWithdrawalBalances() (gas: 448021)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 196.89ms (167.24ms CPU time)
+
+Ran 9 tests for test/VestingDistribution.t.sol:VestingDistributionTest
+[PASS] test_cancelGasDoesNotGrowWithFutureQueueLength() (gas: 8810239)
+[PASS] test_cancelUsesGenerationPrefixesAndKeepsAllEarnedBeneficiaries() (gas: 916885)
+[PASS] test_emptyVectorAndRealVectorChangeProtectTheirOwnRemainders() (gas: 613397)
+[PASS] test_incompleteEqualTimePreviewKeepsUnprocessedEndpointTailReserved() (gas: 568515)
+[PASS] test_lateJoinProduces225And75WithoutBackfill() (gas: 532708)
+[PASS] test_maximumGrossAndTimeWithLargeWeightConserveEveryScaledUnit() (gas: 1683731)
+[PASS] test_originalReferrersAccrueAtEffectiveBoundaryTimes() (gas: 876920)
+[PASS] test_processingAndClaimsPreserveUnchangedVectorCarryExactly() (gas: 2693276)
+[PASS] test_suspensionAndRestorationExcludeOnlySuspendedInterval() (gas: 527724)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 11.03ms (4.76ms CPU time)
+
+Ran 37 tests for test/ClaimEverything.t.sol:ClaimEverythingTest
+[PASS] test_101PositionsAcrossNineTiersPageAndClaimInBoundedBatches() (gas: 154364282)
+[PASS] test_acceptsNineTiersAndThirtyThreePurchases() (gas: 6577843)
+[PASS] test_accountingCanProgressWhileBuybacksPaused() (gas: 296703)
+[PASS] test_accountingOnlyPaysNoWorkerAndDoesNotCallVaultOrRelease() (gas: 153942)
+[PASS] test_anyWalletAdvancesReleasesAndBurnsInOneCall() (gas: 399319)
+[PASS] test_callbackCannotReenterClaimEverything() (gas: 13121931)
+[PASS] test_claimEverythingSettlesAndPaysCurrentCreatorAcrossTiers() (gas: 12484053)
+[PASS] test_claimRewardsCombinesMemberReferralAndCreator() (gas: 13356711)
+[PASS] test_deadlineAndUnregisteredTierRejectBeforeAccounting() (gas: 44250)
+[PASS] test_depletedBudgetAllowsContinuousSettlementButNotAnotherCheckpoint() (gas: 15910386)
+[PASS] test_directBurnProcessesBothSourcesAfterDonationBecomesPreferred() (gas: 562415)
+[PASS] test_directBurnProcessesBothSourcesOnceWhenBothAreReady() (gas: 421152)
+[PASS] test_directClaimAcceptsAboveFormerPositionAndWorkBounds() (gas: 8063026)
+[PASS] test_directClaimsRejectDuplicateInvalidAndUnownedIdsBeforeAccounting() (gas: 396567)
+[PASS] test_duplicateCurrenciesRejectedAndCallerBudgetAccepted() (gas: 349455)
+[PASS] test_duplicateTiersAndSharedBudgetFailBeforeAnyAccounting() (gas: 11274996)
+[PASS] test_emptyRequestHasNoUsefulWork() (gas: 10240)
+[PASS] test_emptySelectionPaysRetiredReferralAndCreatorWithoutAnNft() (gas: 12344717)
+[PASS] test_factoryAcceptsAboveFormerPositionAndTierBounds() (gas: 120510570)
+[PASS] test_failedAccountingRollsBackAndDonationCanBurnSeparately() (gas: 215028)
+[PASS] test_failedReleaseRollsBackAndAccountingCanRunSeparately() (gas: 261354)
+[PASS] test_invalidLargeBatchesRejectBeforeAnyWork() (gas: 86460)
+[PASS] test_multipleSelectedPositionsDoNotRepeatBeneficiaryCategories() (gas: 14182499)
+[PASS] test_onlyFactoryCanChooseBeneficiary() (gas: 15679)
+[PASS] test_pausedAndStalePurchasesPreserveDonationPreference() (gas: 516680)
+[PASS] test_rejectsDuplicateAndUnregisteredTargets() (gas: 28872)
+[PASS] test_reportsBlockedTierAndRollsBackEarlierClaims() (gas: 27116810)
+[PASS] test_requestedBudgetIsMaximumAndEqualTimeProgressCanResumeWithoutEarningAgain() (gas: 2077352)
+[PASS] test_routerCannotAdministerVault() (gas: 16347)
+[PASS] test_secondSameBlockCallHasNoWorkAndCannotDoubleRelease() (gas: 384758)
+[PASS] test_selectedPositionRetiringDuringClaimPaysRetiredCategoryOnceWhilePaused() (gas: 11915432)
+[PASS] test_selectionTransferredOrBurnedBeforeClaimRollsBackWholeFactoryBatch() (gas: 12992195)
+[PASS] test_staleRevisionRollsBackAccountingAndRelease() (gas: 292462)
+[PASS] test_strangerCannotTakeCreatorOrMemberFunds() (gas: 129865)
+[PASS] test_transferFailureIdentifiesTierAndRollsBackOtherCurrency() (gas: 13497215)
+[PASS] test_twoTiersCanUseExactlyTheSharedBudgetWithoutMixingMoney() (gas: 12084168)
+[PASS] test_zeroBudgetReleasesSettledFundsWithoutMovingCursor() (gas: 249602)
+Suite result: ok. 37 passed; 0 failed; 0 skipped; finished in 178.97ms (166.64ms CPU time)
+
+Ran 20 tests for test/RefundsAndOwnership.t.sol:FixedPriceRefundsAndOwnershipTest
+[PASS] testFuzz_fixedPreviewMatchesSlowTimeModel(uint8,uint64,uint8) (runs: 256, μ: 1062840, ~: 1101560)
+[PASS] test_acceptedOwnershipMovesRefundAuthorityAndAllUnclaimedCreatorEarnings() (gas: 1101583)
+[PASS] test_cancellationAdapterAllowsFullExecutionTimeRefundWithoutCeilings() (gas: 1032596)
+[PASS] test_cancellationRejectsNativeValueBeforeAuthorityCheck() (gas: 926572)
+[PASS] test_creatorCancellationAdapterUsesExecutionTimeOwnerAfterTransfer() (gas: 925296)
+[PASS] test_fixedRefundProratesAllRemainingPaidSecondsAtImmutablePrice() (gas: 1069392)
+[PASS] test_fullyVestedRetirementKeepsEntitlementsAndRejectsFurtherCancellation() (gas: 1080002)
+[PASS] test_giftsFromMultiplePayersRefundOnlyTheRecipient() (gas: 1356855)
+[PASS] test_immediateRefundUsesOnlyThisMembershipReservedFunding() (gas: 867212)
+[PASS] test_memberAndOriginalGiftPayerHaveNoRefundOrCancellationAuthority() (gas: 918761)
+[PASS] test_partialRefundAfterAllClaimsNeedsNoOwnerBalanceOrAllowance() (gas: 1413324)
+[PASS] test_pauseDoesNotBlockCanonicalRefundOrCancellationAdapter() (gas: 1593340)
+[PASS] test_refundPermanentlyRetiresPositionAndReleasesCapacityAndAssociation() (gas: 1608572)
+[PASS] test_refundRejectsExpectedOwnerMismatchWithoutPaymentOrRetirement() (gas: 1061145)
+[PASS] test_refundRejectsPaidTimeAddedAfterPreviewAtomically() (gas: 1981268)
+[PASS] test_sponsorshipRequiresFreshOwnerAndReferralSnapshotsAfterTransfer() (gas: 1494644)
+[PASS] test_transferInvalidatesPinnedRefundRecipientWithoutChangingRefundQuoteEconomics() (gas: 1381569)
+[PASS] test_transferredGiftRefundAndEarnedCreditBelongToCurrentNftOwner() (gas: 1122291)
+[PASS] test_transferredNftAndItsApprovalsNeverConferCreatorRefundOrCancellationAuthority() (gas: 983633)
+[PASS] test_unsolicitedSurplusIsNotRefundFundingOrBeneficiaryCash() (gas: 883956)
+Suite result: ok. 20 passed; 0 failed; 0 skipped; finished in 238.69ms (234.63ms CPU time)
+
+Ran 2 tests for test/ProtocolBurnRouter.t.sol:ProtocolBurnRouterStageFaultTest
+[PASS] testFuzz_successCannotMeanGasStarvedPartialWork(uint32) (runs: 256, μ: 131551, ~: 143367)
+[PASS] test_allStageFaultsRollbackEntireCall() (gas: 72827854)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 259.82ms (259.64ms CPU time)
+
+Ran 9 tests for test/MembershipReceiver.t.sol:MembershipReceiverTest
+[PASS] test_bubbledNestedFailureRollsBackMintPaymentFundingAndIdentity() (gas: 2798879)
+[PASS] test_bubbledNestedFailureRollsBackSafeTransfer() (gas: 2383651)
+[PASS] test_nonReceiverContractRejectsSafeMintAndSafeTransfer() (gas: 1948107)
+[PASS] test_rejectedMintRollsBackForWrongSelectorAndExplicitRevert() (gas: 2740607)
+[PASS] test_safeGiftMintShowsCompletePositionAndCatchesNestedMutationFailures() (gas: 2436035)
+[PASS] test_safeGrantMintShowsScheduledZeroWeightPositionBeforeCallback() (gas: 1732818)
+[PASS] test_safeSelfPurchaseMintAllowsValidOuterCallWithoutNestedGuardFailure() (gas: 2662687)
+[PASS] test_safeTransferBothOverloadsKeepGuardThroughAcceptingCallback() (gas: 3024759)
+[PASS] test_safeTransferRejectionRestoresOwnerEnumerationApprovalAndEconomics() (gas: 2249598)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 16.13ms (7.31ms CPU time)
+
+Ran 7 tests for test/RewardCurve.t.sol:RewardCurveTest
+[PASS] testFuzz_partitionTelescopesAndMatchesIndependentIntegral(uint112,uint112,uint112,uint16,uint112) (runs: 256, μ: 19281, ~: 19286)
+[PASS] test_capacityFailsBeforeAdditionCanOverflow() (gas: 11681)
+[PASS] test_fixedHorizonMustBeWholeSupportedPeriods() (gas: 14594)
+[PASS] test_integratesWholeWindowInsteadOfStartingMultiplier() (gas: 18067)
+[PASS] test_invalidBoostAndHorizonFail() (gas: 15557)
+[PASS] test_maximumNumericProductAndHorizon() (gas: 11762)
+[PASS] test_noneIsExactlyGrossAtBothBounds() (gas: 10263)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 128.70ms (128.62ms CPU time)
+
+Ran 9 tests for test/ClaimsAndWithdrawals.t.sol:AdversarialPaymentsAndExitsTest
+[PASS] test_existingMemberTimeIsCheckpointedBeforeInboundTokenCallback() (gas: 1475391)
+[PASS] test_failedCreatorRewardAndReferralExitsRestoreLiabilities() (gas: 1274575)
+[PASS] test_failedEarnedReleasePreservesAccountingWithoutBlockingPayment() (gas: 1325462)
+[PASS] test_failedRewardAndReferralClaimsDoNotAffectAnotherClaimant() (gas: 2298272)
+[PASS] test_falseRevertingShortTaxedAndFrozenInboundTransfersLeaveNoState() (gas: 722876)
+[PASS] test_frozenFactoryAndVaultDoNotBlockMembershipPayments() (gas: 999687)
+[PASS] test_outgoingCallbackCannotRecursivelyClaimAndOuterClaimPaysOnce() (gas: 1671960)
+[PASS] test_reentrantInboundCallbackCannotDoublePurchase() (gas: 1090588)
+[PASS] test_zeroEarnedClaimsDoNotAttemptFrozenTokenDeliveryOrEmitPayouts() (gas: 1175792)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 80.24ms (2.87ms CPU time)
+
+Ran 7 tests for test/MetadataAndStandards.t.sol:MetadataAndStandardsTest
+[PASS] test_constructorMetadataBoundsAcceptLimitsAndRejectOverflow() (gas: 5029577)
+[PASS] test_isRenewableTurnsTrueAfterReferralChoiceIsLocked() (gas: 976629)
+[PASS] test_lifecycleMutationsEmitPublishedStandardsEvents() (gas: 305266)
+[PASS] test_mutableMetadataSignalsRefreshWithoutChangingImmutableArt() (gas: 629067)
+[PASS] test_standardAdaptersExposeRenewalAndCreatorOnlyCancellation() (gas: 327158)
+[PASS] test_tokenMetadataContainsOneSelfContainedSVGArtwork() (gas: 27084691)
+[PASS] test_tokenMetadataReflectsPassiveExpirationWithStableGeometry() (gas: 35268913)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 284.29ms (260.49ms CPU time)
+
+Ran 10 tests for test/MembershipRetirement.t.sol:MembershipRetirementTest
+[PASS] test_delayedRetirementBurnsAtExpirationAndPreservesFundingHistory() (gas: 914256)
+[PASS] test_differentExpirationsMatchPunctualDelayedAndEveryBatchSize() (gas: 10768136)
+[PASS] test_fundingEndAndRoundingTailFinishBeforeRetirementWithOneStep() (gas: 918340)
+[PASS] test_largeCallerBudgetsAndFailedOversizedWorkPreserveProgress() (gas: 71678204)
+[PASS] test_maintenanceNeverPaysOrCallsAnOwner() (gas: 843930)
+[PASS] test_retiredFractionsCombineAcrossFreshMembershipsBeforeRounding() (gas: 11546254)
+[PASS] test_selectedClaimRetiresThenPaysButAlreadyBurnedSelectionRejects() (gas: 869208)
+[PASS] test_settledRetiredClaimDoesNotRequireCatchUpOrAnNFTWhilePaused() (gas: 6709792)
+[PASS] test_simultaneousGrantOnlyRetirementsPersistOneStepWhilePaused() (gas: 1756684)
+[PASS] test_zeroContributionExpiresWithoutAnyFundingCheckpoints() (gas: 10729331)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 120.56ms (112.06ms CPU time)
+
+Ran 14 tests for test/OnchainMediaStore.t.sol:OnchainMediaStoreTest
+[PASS] testFuzz_textValidationAcceptsPrintableASCII(uint8) (runs: 256, μ: 7524, ~: 7410)
+[PASS] test_creatorPaginationIsBoundedStableAndContainsNoPayloadBytes() (gas: 731890)
+[PASS] test_duplicateUploadReusesOneStoreAndOneCreatorListEntry() (gas: 297058)
+[PASS] test_identicalPayloadIsCreatorScopedAndCannotBeClaimedAcrossCreators() (gas: 577721)
+[PASS] test_occupiedPredictionCannotCorruptRegistryState() (gas: 106663)
+[PASS] test_onchainValidationRejectsUnregisteredAndMismatchedRecords() (gas: 285207)
+[PASS] test_readerRejectsWrongLengthDigestHashAndPrefix() (gas: 293482)
+[PASS] test_rejectsEmptyOversizedAndMismatchedPayloads() (gas: 144637)
+[PASS] test_rejectsJPEGWithUnsafeDimensionsOrMalformedSegments() (gas: 244611)
+[PASS] test_rejectsPNGWithUnsafeDimensionsOrMalformedChunkFraming() (gas: 170093)
+[PASS] test_textValidationAcceptsUTF8AndXMLCharacters() (gas: 20331)
+[PASS] test_textValidationRejectsMalformedUTF8AndForbiddenXMLCharacters() (gas: 48560)
+[PASS] test_validJPEGUsesPredictionAndStoresExactSTOPPrefixedRuntime() (gas: 392956)
+[PASS] test_validPNGCanBeValidatedFromItsTypedNativeConfig() (gas: 267872)
+Suite result: ok. 14 passed; 0 failed; 0 skipped; finished in 36.46ms (36.07ms CPU time)
+
+Ran 6 tests for test/VestingLedger.t.sol:VestingLedgerTest
+[PASS] testFuzz_partialCancellationConservesEveryScaledUnit(uint32,uint32,uint32) (runs: 256, μ: 697542, ~: 725079)
+[PASS] test_allAllocationsZeroAtPurchaseAndExactAtEnd() (gas: 662524)
+[PASS] test_claimKeepsFractionAndFrequencyDoesNotChangeEarnings() (gas: 803354)
+[PASS] test_retirementAtHistoricalBoundaryPreservesFractionAndStopsEarnings() (gas: 537358)
+[PASS] test_retirementWaitsForFundingTailAtItsBoundary() (gas: 527876)
+[PASS] test_threePeriodsThenClaimsThenNinetyTokenRefund() (gas: 888134)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 152.05ms (146.17ms CPU time)
+
+Ran 13 tests for test/vesting/PublicVesting.t.sol:PublicVestingTest
+[PASS] testFuzz_refundProjectionMatchesProcessedFundingAndResidues(uint112,uint8) (runs: 256, μ: 1946796, ~: 1961850)
+[PASS] test_120TokenPurchaseClaimsAndReservedRefund() (gas: 2121825)
+[PASS] test_combinedAdvanceSucceedsOnFractionalEarningThenRejectsIdleRepeat() (gas: 1654614)
+[PASS] test_curveUsesExecutionCursorAndAdjacentPurchasesTelescope() (gas: 2147566)
+[PASS] test_finalVestingIsExactAndOwnershipReceivesUnclaimedCreatorCredit() (gas: 1812637)
+[PASS] test_freeExtensionPreservesEligibleWeightAndNoFundingNode() (gas: 1633699)
+[PASS] test_freeReturnAndGrantHaveNoHistoricalWeight() (gas: 2300216)
+[PASS] test_incompleteMutationRevertsAtomicallyAndPermissionlessProgressPersists() (gas: 19132469)
+[PASS] test_readPagesAreBoundedAndAccessTimestampCanBeNewerThanAccounting() (gas: 1826019)
+[PASS] test_refundProjectionStopsAtAnyPendingGlobalBoundary() (gas: 2401825)
+[PASS] test_refundQuoteTracksClockBeforeNextBoundaryWithoutSettlingCash() (gas: 2011472)
+[PASS] test_standardCancellationUsesSameReservedRefund() (gas: 1749250)
+[PASS] test_waitingFundedHeadProjectsNoEarningAcrossFreeAccess() (gas: 1773984)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 497.69ms (531.14ms CPU time)
+
+Ran 2 tests for test/deployment/VestingLinking.t.sol:VestingLinkingTest
+[PASS] test_preservedLeafDerivesExactConsumerLinkAndRuntime() (gas: 5926476)
+[PASS] test_rejectsExistingWrongRuntime() (gas: 177470)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 131.45ms (131.37ms CPU time)
+
+Ran 8 tests for test/MembershipModel.t.sol:MembershipModelTest
+[PASS] testFuzz_maintenanceFrequencyPreservesScaledConservation(uint8) (runs: 256, μ: 1527014, ~: 1466791)
+[PASS] test_delayedRetirementUsesHistoricalWeightAndFundingTail() (gas: 721784)
+[PASS] test_expiredPendingCannotTransferOrExtendAtBoundary() (gas: 414113)
+[PASS] test_grantOnlyAndZeroContributionRetireAndReleaseOnce() (gas: 197572)
+[PASS] test_multiplePositionsCombineFractionsBeforeClaim() (gas: 1464624)
+[PASS] test_renewBeforeExpiryThenReturnCreatesNewIdentityAtCurrentCurve() (gas: 853541)
+[PASS] test_revokeGrantPreservesPaidTimeAndFullRefundDestroysWeight() (gas: 554813)
+[PASS] test_transferLeavesAccountingUntouchedAndRetiresToFinalOwner() (gas: 756085)
+Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 449.02ms (448.92ms CPU time)
+
+Ran 15 tests for test/ClaimsAndWithdrawals.t.sol:ClaimsAndWithdrawalsTest
+[PASS] test_approvalsCannotClaimAndTransferredSelectionCannotPayFormerOwner() (gas: 1351653)
+[PASS] test_burnedPositionLeavesOnlyOwnerCreditAndRetainsFractionAfterPayout() (gas: 1142890)
+[PASS] test_claimsAndWithdrawalsRemainAvailableWhilePaused() (gas: 1206606)
+[PASS] test_creatorWithdrawalCannotConsumeRewardOrReferralLiabilities() (gas: 1127444)
+[PASS] test_currentOwnerClaimsTransferredPositionWithoutClaimingTheirSibling() (gas: 1977309)
+[PASS] test_currentOwnerReceivesPreexistingCreatorProceedsAfterTwoStepTransfer() (gas: 1016627)
+[PASS] test_delayedRetirementCreditsOnlyFinalOwnerAcrossSuccessiveLiveTransfers() (gas: 1249253)
+[PASS] test_fixedDestinationsClaimAllPaymentLiabilities() (gas: 1228105)
+[PASS] test_fractionalCreditRemainsAfterClaimsAndLaterCashCanAccrue() (gas: 1679058)
+[PASS] test_pausedTransferMovesUnclaimedRewardAuthorityToCurrentOwner() (gas: 1326532)
+[PASS] test_retiredPayoutNeedsNoCatchUpWhenLaterPositionsHaveLargeBacklog() (gas: 6569950)
+[PASS] test_settledBeneficiaryClaimsRemainAvailableButPositionClaimsRequireCatchUp() (gas: 66396181)
+[PASS] test_singlePositionClaimCanRetireItsSelectionAndPaysOwner() (gas: 1094834)
+[PASS] test_tokenApprovalAndOperatorCannotRenewOrClaimEvenForOwnerBeneficiary() (gas: 1374112)
+[PASS] test_twoTokenClaimsAndRefundsRemainIndependent() (gas: 23968960)
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 462.47ms (22.32ms CPU time)
+
+Ran 10 tests for test/MembershipAccountingPreview.t.sol:MembershipAccountingPreviewTest
+[PASS] testFuzz_paymentTotalsMatchWrites(uint8,uint8,uint16) (runs: 256, μ: 1977399, ~: 1916622)
+[PASS] test_batchPreviewCountsRetiredOwnerCreditOnceAndMatchesPayout() (gas: 1565242)
+[PASS] test_batchPreviewUsesOneBudgetAndRejectsInvalidSelection() (gas: 608643)
+[PASS] test_freeExpiryUsesPreviewBudgetAndShowsIncompletePhase() (gas: 586806)
+[PASS] test_paymentRatesFollowFundingAndExpiryBoundariesWhilePaused() (gas: 1906448)
+[PASS] test_paymentTotalsBoundedPausedAndRefunded() (gas: 1725256)
+[PASS] test_paymentTotalsProjectAllBeneficiariesAndMatchMaintenance() (gas: 1862713)
+[PASS] test_previewRetirementPreservesHistoricalEligibilityAndCredit() (gas: 998280)
+[PASS] test_variableDenominatorPreviewMatchesEveryBatchSplit() (gas: 12601396)
+[PASS] test_zeroBudgetDoesNotSkipDueExpiration() (gas: 367351)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 749.05ms (766.54ms CPU time)
+
+Ran 19 tests for test/PonsBuybackExecutor.t.sol:PonsBuybackExecutorTest
+[PASS] testFuzz_partialSpendConservesSourceAndSupply(uint96,uint16) (runs: 256, μ: 407891, ~: 408209)
+[PASS] test_actualPartialFillConsumesOnlySixtyAndPreservesFortyAsOriginalSource() (gas: 371383)
+[PASS] test_atomicConfigurationRejectsCanonicalDuplicatesAndRollsBackAllSettings() (gas: 142418)
+[PASS] test_belowMinimumInventoryIsDeferredWithoutStartingAClock() (gas: 92213)
+[PASS] test_callbackCannotSyncDonationOrStartAnotherSettlement() (gas: 600288)
+[PASS] test_cooldownRejectsBackToBackCallsAndSurvivesAllConfigurationChanges() (gas: 573896)
+[PASS] test_deadlineRevisionAndAmountsAreCheckedAndStandingLimitsNeverExpire() (gas: 564188)
+[PASS] test_feeOnTransferCannotConsumeSourceOrBecomeExecutionFunding() (gas: 1259865)
+[PASS] test_globalIntervalAppliesAcrossCurrenciesButDirectBurnDoesNotConsumeIt() (gas: 2349214)
+[PASS] test_launchPenaltyAndGraduationPendingCannotLeaveConversionOnlySuccess() (gas: 425435)
+[PASS] test_nativeAndWrappedDonationsAreOneInventoryAndShareEligibility() (gas: 963025)
+[PASS] test_noOpVenueCannotProduceConversionOnlySuccessOrLeaveAllowances() (gas: 1348345)
+[PASS] test_oneHundredOriginalUnitsConvertToOneETHWithPointFourResidualInEachSourceBucket() (gas: 15133421)
+[PASS] test_onlyVaultCanExecuteAndThereIsNoCallerRecipient() (gas: 32707)
+[PASS] test_partialDustCannotConsumeCooldownOrChangeAccounting() (gas: 287330)
+[PASS] test_preexistingExecutorBalancesAreNotPurchasedOutputOrBurned() (gas: 368221)
+[PASS] test_priceMovementDoesNotRequireAReplacementAuthorization() (gas: 367407)
+[PASS] test_wrappedEarnedReceiptPreservesUnsynchronizedDonationsAndSharesBucketCooldown() (gas: 13245425)
+[PASS] test_zeroOutputAndNoOpOrExcessBurnCannotConsumeInventoryOrCooldown() (gas: 892077)
+Suite result: ok. 19 passed; 0 failed; 0 skipped; finished in 454.90ms (309.03ms CPU time)
+
+Ran 2 tests for test/VestingCapacity.t.sol:VestingCapacityTest
+[PASS] test_capacityRecoversAllPaymentsAfterYearIdleWithColdCalls() (gas: 413003781)
+[PASS] test_longQueueCancellationDoesNotScanHistory() (gas: 24167597)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 642.08ms (680.21ms CPU time)
+
+Ran 1 test for test/invariants/MembershipInvariant.t.sol:RewardSettlementIndependenceTest
+[PASS] test_settlementFrequencyDoesNotChangePayoutsOrAssignPriorRewardsToNewShares() (gas: 89032208)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 83.76ms (82.37ms CPU time)
+
+Ran 9 tests for test/RefundsAndOwnership.t.sol:ZeroPriceRefundsTest
+[PASS] testFuzz_previewMatchesSlowLotOracleAcrossTimeAndInterleavedGrants(uint96[8],uint64) (runs: 256, μ: 2569752, ~: 2601063)
+[PASS] test_contributionRenewalAndRefundFollowTransferredPositionOwner() (gas: 1176643)
+[PASS] test_mixedZeroAndPositiveLotsRefundInBothOrders() (gas: 1508759)
+[PASS] test_paidTimeConsumptionAdvancesLotsBeforeGrantTime() (gas: 1117671)
+[PASS] test_partialCurrentLotPlusLaterFullLotsUsesCumulativePrefixRange() (gas: 1398656)
+[PASS] test_previewMatchesOracleAtLotBoundaries() (gas: 1568833)
+[PASS] test_prorationRoundsDownInPaymentTokenBaseUnits() (gas: 926130)
+[PASS] test_refundThenRejoinUsesFreshIdentityWithoutOldPrefixesOrWeight() (gas: 2045775)
+[PASS] test_thousandsOfZeroContributionRenewalsDoNotIncreaseRefundExecutionGas() (gas: 54574287)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 1.19s (1.18s CPU time)
+
+Ran 1 test for test/fork/RobinhoodSafe.t.sol:ProtocolSafeForkTest
+[SKIP: skipped: explicit authentic fork opt-in required] setUp() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 3.79ms (0.00ns CPU time)
+
+Ran 1 test for test/fork/RobinhoodSafe.t.sol:RobinhoodSafeForkTest
+[SKIP: set RUN_ROBINHOOD_FORK_TESTS=true] test_createsAndValidatesSafeV150L2WhenExplicitlyEnabled() (gas: 0)
+Suite result: ok. 0 passed; 0 failed; 1 skipped; finished in 132.92µs (18.00µs CPU time)
+
+Ran 39 tests for test/FactoryAndFees.t.sol:FactoryAndFeesTest
+[PASS] testFuzz_protocolAllocationRetainsIndependentFloors(uint128,uint16,bool) (runs: 256, μ: 1677773, ~: 1643452)
+[PASS] test_anyCreatorCanDeployMultipleIndependentFullTiers() (gas: 1379674)
+[PASS] test_constructorSetsProtocolDependenciesAndNonAdminDeployer() (gas: 78288)
+[PASS] test_creatorMustSelfAttributeOfficialTier() (gas: 27531)
+[PASS] test_creatorTierSaltIsOneTimeAndAnchorsImmutableIdentity() (gas: 716789)
+[PASS] test_curveAndRatesStayImmutableAcrossOwnershipAndLaterPublication() (gas: 1380760)
+[PASS] test_curveTermsValidateAtFactoryAndDirectTierAndReadBack() (gas: 904223)
+[PASS] test_directFutureRendererOwnsValidationBeyondFoundingSix() (gas: 932787)
+[PASS] test_directFutureRendererRejectsItsOwnUnsupportedEngine() (gas: 272989)
+[PASS] test_directRendererRejectsWrongSchemaAndEmptyManifest() (gas: 186519)
+[PASS] test_disabledPaymentTokenCannotPublishAndDoesNotConsumeSalt() (gas: 44802)
+[PASS] test_existingTierKeepsItsSelectedTokenAfterDisable() (gas: 715177)
+[PASS] test_factoryAndDeployerRuntimeDoNotEmbedTierCreationCode() (gas: 6611314)
+[PASS] test_factoryHasNoFeeRecipientWithdrawalOrArbitraryCallPath() (gas: 67492)
+[PASS] test_factoryOwnerHasNoTierAuthority() (gas: 710465)
+[PASS] test_factoryRejectsEOASuccessorAndTierOwnershipRemainsTwoStep() (gas: 740317)
+[PASS] test_factoryUsesExactSharedImplementationRuntime() (gas: 104959)
+[PASS] test_fullAllocationProtectsAllGrossFromCreatorWithdrawal() (gas: 1521180)
+[PASS] test_implementationAndCloneCannotBeReinitialized() (gas: 718609)
+[PASS] test_invalidCurveSettingsMatchFactoryAndDirectConstruction() (gas: 1681380)
+[PASS] test_invalidFactoryConstructorConfigurationReverts() (gas: 30537924)
+[PASS] test_invalidTierDurationAndRateTotalRevert() (gas: 732544)
+[PASS] test_lifetimeCapacityRejectsNewPaymentsWithoutBlockingClaimsRefundsOrFreeAccess() (gas: 1932084)
+[PASS] test_minimumAuthorityAndEnablement() (gas: 609002)
+[PASS] test_minimumSnapshotBoundariesAndZeroPWYW() (gas: 3169963)
+[PASS] test_onchainMediaAdmissionRequiresCreatorAttributionAndSnapshotsExactConfig() (gas: 1050391)
+[PASS] test_onchainMediaAdmissionRequiresThePinnedRegistryCode() (gas: 289587)
+[PASS] test_onlyDescriptionAndExternalWebsiteCanChangeAfterPublication() (gas: 764635)
+[PASS] test_onlyOwnerCanChangePaymentTokenStatus() (gas: 15904)
+[PASS] test_ownerCanAppendDisableAndReenablePaymentTokenWithoutDuplicateEvents() (gas: 614790)
+[PASS] test_paymentTokenPaginationAcceptsCallerLimit() (gas: 14530)
+[PASS] test_paymentTokenPaginationIsStableAndBounded() (gas: 22945)
+[PASS] test_protocolAllocationBoundsMatchFactoryAndDirectTier() (gas: 1017314)
+[PASS] test_protocolAllocationIsImmutableAcrossOwnershipTransfer() (gas: 2055969)
+[PASS] test_protocolAllocationRejectsCombinedRateOverflow() (gas: 264516)
+[PASS] test_runtimeAndInitcodeRemainBelowNetworkLimits() (gas: 786214)
+[PASS] test_tierIdentityDoesNotDependOnEconomicOrMutableMetadataInputs() (gas: 21958)
+[PASS] test_tierPaginationIsStableBoundedAndAuthentic() (gas: 13907733)
+[PASS] test_zeroTierSaltRejectedByFactoryAndDirectTierConstruction() (gas: 205637)
+Suite result: ok. 39 passed; 0 failed; 0 skipped; finished in 637.06ms (663.23ms CPU time)
+
+Ran 17 tests for test/PaymentsAndTime.t.sol:PaymentsAndTimeTest
+[PASS] testFuzz_paymentSplitConservesGrossAcrossValidRates(uint96,uint16,uint16,bool) (runs: 256, μ: 11798466, ~: 11775169)
+[PASS] test_activityChangesAtExactExpirationWithoutMutationOrSync() (gas: 965077)
+[PASS] test_allFourAllocationsVestOverServiceAndQueuedRenewalAfterGrant() (gas: 12128627)
+[PASS] test_badPaymentRollsBackCatchUpFundingSharesAndCustody() (gas: 13595353)
+[PASS] test_fixedPricePurchasePullsExactGrossAndAllocatesUnreferredSplit() (gas: 999095)
+[PASS] test_liveRenewalExtendsExpirationAndExpiredReturnCreatesFreshIdentity() (gas: 1846726)
+[PASS] test_loweringPaidLimitPreservesTimeBlocksPaidAddsAndAllowsGrants() (gas: 964756)
+[PASS] test_paidTimeInsertedAheadOfGrantTimeIsConsumedFirst() (gas: 956601)
+[PASS] test_pauseBlocksCanonicalPurchasesGiftsAndStandardRenewal() (gas: 11617948)
+[PASS] test_paymentEventsDistinguishFundingFromCashAndFreeAccess() (gas: 11511936)
+[PASS] test_priceAndLifetimeCapacityBoundsFailBeforeCustodyOrTime() (gas: 10840018)
+[PASS] test_purchaseAndStandardAdapterRequireWholeNonzeroPeriods() (gas: 320267)
+[PASS] test_timeBalanceViewReturnsEffectiveCheckpointWithoutWriting() (gas: 942701)
+[PASS] test_twoFactorySelectedTokensTransferAndAccountInTheirOwnRawUnits() (gas: 19775084)
+[PASS] test_uint64ExpirationCeilingRevertsAtomically() (gas: 120486)
+[PASS] test_zeroPaidLimitIsUnlimited() (gas: 921324)
+[PASS] test_zeroPriceSelfActionAddsOnePeriodWithOrWithoutContribution() (gas: 11319305)
+Suite result: ok. 17 passed; 0 failed; 0 skipped; finished in 2.04s (2.12s CPU time)
+
+Ran 13 tests for test/Rewards.t.sol:RewardsTest
+[PASS] testFuzz_cohortClaimsAndRemainingReserveConserveEveryRewardAllocation(uint96,uint96,uint96) (runs: 256, μ: 12225245, ~: 12235772)
+[PASS] test_denseProcessingAndRepeatedClaimsEqualSparsePayoutPlusFraction() (gas: 26803572)
+[PASS] test_equalTotalDifferentMembersFlushesCarryWithoutReassigningIt() (gas: 12125853)
+[PASS] test_firstPositivePaymentMintsSharesAndReservesRewardsUntilService() (gas: 1017948)
+[PASS] test_giftAssignsSharesAndVestedRewardsToRecipientCredential() (gas: 995525)
+[PASS] test_grantOnlyCredentialGetsNoEarlierRewardBeforeFirstShares() (gas: 1841818)
+[PASS] test_maximumSupportedContributionSettlesRewardWithoutIntermediateOverflow() (gas: 11819660)
+[PASS] test_newSharesReceiveOnlyFundingConsumedAfterTheyJoin() (gas: 1576406)
+[PASS] test_retirementDestroysSharesAndPreservesEarnedOwnerCredit() (gas: 1017227)
+[PASS] test_returningPositionHasFreshWeightAndCannotReceiveHistoricalRewards() (gas: 12366572)
+[PASS] test_scaledDivisionCreditsWholeRemainderWithoutExceedingReserve() (gas: 11344578)
+[PASS] test_trackedThirtyTokenStreamAttributes225And75PlusConcurrentFunding() (gas: 12242450)
+[PASS] test_zeroContributionMintsNoSharesOrReward() (gas: 10955267)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 2.34s (2.29s CPU time)
+
+Ran 1 test for test/VestingHistoryReplay.t.sol:VestingHistoryReplayTest
+[PASS] test_replayIndependentHistories() (gas: 413022586)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 2.29s (2.28s CPU time)
+
+Ran 12 tests for test/VestedAllocations.t.sol:VestedAllocationsTest
+[PASS] testFuzz_fractionalEntitlementIsIndependentOfCheckpointFrequency(uint128,uint16,uint8) (runs: 256, μ: 3951435, ~: 3863519)
+[PASS] testFuzz_varyingLotsAndRefundFundingMatchSlowIntervalOracle(uint96[8],uint16,uint16) (runs: 256, μ: 3005908, ~: 3008477)
+[PASS] test_budgetsAndPagesRejectUnboundedInputs() (gas: 1628796)
+[PASS] test_cancellationRoundingRemainsProtectedAndNeverBecomesEarned() (gas: 1411286)
+[PASS] test_eventsExcludeFreeGapsAndRetainCanceledGenerationAttribution() (gas: 2150984)
+[PASS] test_expiredAndBurnedCredentialsRetainCollectibleEarnings() (gas: 1485818)
+[PASS] test_fullProtocolAllocationRefundAfterReleaseClosesGeneration() (gas: 2160332)
+[PASS] test_grantsAndZeroGrossPaidGapsCannotAccelerateLaterFunding() (gas: 1474657)
+[PASS] test_largeHistoriesKeepViewsAndResetBounded() (gas: 87173377)
+[PASS] test_maximumBatchAndConstantWorkRelease() (gas: 18130771)
+[PASS] test_releaseAndRefundOrderProduceIdenticalFunding() (gas: 3057331)
+[PASS] test_stoppedCollectorStoresReservesUntilAccountingThenReleasesOnlyEarned() (gas: 1940987)
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 3.01s (3.19s CPU time)
+
+Ran 12 tests for test/RendererBudget.t.sol:RendererBudgetTest
+[PASS] test_24KiBPublicTierTokenURIPath() (gas: 31209610)
+[PASS] test_64KiBPublicTierTokenURIPath() (gas: 65312010)
+[PASS] test_80KiBPublicTierTokenURIPath() (gas: 79944208)
+[PASS] test_90KiBAfterimagePublicTierTokenURIPath() (gas: 89198362)
+[PASS] test_90KiBBloomPublicTierTokenURIPath() (gas: 89887789)
+[PASS] test_90KiBChorusPublicTierTokenURIPath() (gas: 90266382)
+[PASS] test_90KiBLoomPublicTierTokenURIPath() (gas: 91198639)
+[PASS] test_90KiBMarqueePublicTierTokenURIPath() (gas: 88927092)
+[PASS] test_90KiBStackPublicTierTokenURIPath() (gas: 89384783)
+[PASS] test_contractArtifactsStayInsideRobinhoodAndProjectLimits() (gas: 138156)
+[PASS] test_lowLevelCodeStoreBoundaryReservesOneSTOPByte() (gas: 6295)
+[PASS] test_noMediaRealFactoryTierMintAndTokenURIPath() (gas: 16306357)
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 2.22s (2.64s CPU time)
+
+Ran 21 tests for test/RendererTotality.t.sol:RendererTotalityTest
+[PASS] testFuzz_admittedEngineInputsAreTotalAndByteDeterministic(uint128,uint256,uint8,uint8,uint8,bool) (runs: 256, μ: 3709434, ~: 3441253)
+[PASS] test_activeAndAfterglowKeepGeometryAndRemainDesirable() (gas: 15085070)
+[PASS] test_allEnginesAreDistinctAndKeepGeometryAcrossStates() (gas: 151274814)
+[PASS] test_creatorTextIsEscapedInEveryDocumentContext() (gas: 8334356)
+[PASS] test_editorialOverlayIsBalancedTopLevelAndPaintedLastForEveryEngine() (gas: 142387132)
+[PASS] test_everySeedDomainComponentChangesGeometry() (gas: 2534401)
+[PASS] test_invalidArtFailsSpecifically() (gas: 167988)
+[PASS] test_invalidPreviewMediaNeverProducesApproximateArt() (gas: 164620)
+[PASS] test_invalidUTF8AndXMLCharactersRejectBeforeRendering() (gas: 54478)
+[PASS] test_metadataPublishesOneSelfContainedArtworkWithoutHTMLOrRemoteLoaders() (gas: 22695598)
+[PASS] test_nativeMediaWorksAcrossEveryEngine() (gas: 17307638)
+[PASS] test_preStoreAndStoredNativeMediaRenderExactlyTheSame() (gas: 5643501)
+[PASS] test_previewAndProductionAreDeterministicForStoredMedia() (gas: 7029871)
+[PASS] test_previewRejectsUnsafePNGAndMalformedJPEGDimensions() (gas: 136516)
+[PASS] test_typographyFocalAndMediaMixControlsChangeRenderedOutput() (gas: 13930919)
+[PASS] test_writeAfterimageGalleryWhenRequested() (gas: 3284)
+[PASS] test_writeBloomGalleryWhenRequested() (gas: 3261)
+[PASS] test_writeChorusGalleryWhenRequested() (gas: 3240)
+[PASS] test_writeLoomGalleryWhenRequested() (gas: 3261)
+[PASS] test_writeMarqueeGalleryWhenRequested() (gas: 3282)
+[PASS] test_writeStackGalleryWhenRequested() (gas: 3325)
+Suite result: ok. 21 passed; 0 failed; 0 skipped; finished in 3.39s (5.12s CPU time)
+
+Ran 4 tests for test/ExpirationSchedule.t.sol:ExpirationScheduleTest
+[PASS] testFuzz_indexedHeapMatchesScan(uint256) (runs: 256, μ: 7138590, ~: 7173459)
+[PASS] test_equalTimeOrderedByTokenAndRemovalPreservesIndex() (gas: 189217)
+[PASS] test_invalidIdentityOrTimestampRejected() (gas: 5014)
+[PASS] test_reschedulingReplacesOneNodeInBothDirections() (gas: 660554)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 3.26s (3.26s CPU time)
+
+Ran 9 tests for test/AccountingPreview.t.sol:AccountingPreviewTest
+[PASS] testFuzz_frontierMatchesExecution(uint256,uint16,uint16) (runs: 256, μ: 20113561, ~: 19206946)
+[PASS] test_continuous120TokenExample() (gas: 1008996)
+[PASS] test_largeHeapReadIsBoundedByBudget() (gas: 235318913)
+[PASS] test_previewAcceptsCallerBudgetAboveFormerCap() (gas: 280349)
+[PASS] test_ratesMatchLaterPreviewAndStopAtBoundary() (gas: 1240701)
+[PASS] test_referralRestartCancellationAndSuspension() (gas: 1551025)
+[PASS] test_unassignedFundingIsNotReportedAsMemberEarnings() (gas: 466195)
+[PASS] test_zeroBudgetAndEmptyHeap() (gas: 152125)
+[PASS] test_zeroBudgetDoesNotCrossBoundary() (gas: 466280)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 3.42s (3.50s CPU time)
+
+Ran 15 tests for test/VestingScheduler.t.sol:VestingSchedulerTest
+[PASS] testFuzz_heapOrderingAndPositionsSurviveEveryPop(uint256,uint8) (runs: 256, μ: 3214312, ~: 2550234)
+[PASS] testFuzz_replacementOrderingAcrossAdjacentLotsAndGaps(uint256,uint8) (runs: 256, μ: 4812330, ~: 3855703)
+[PASS] testFuzz_retirementCreditAndDustAreIdenticalAcrossDelaysAndBatchSplits(uint8) (runs: 256, μ: 4468386, ~: 4465268)
+[PASS] test_allEqualTimeFundingTailsSettleBeforeRetirement() (gas: 982332)
+[PASS] test_cancelAfterRootReplacementCannotReviveOldGeneration() (gas: 949184)
+[PASS] test_equalTimeFutureStartMustFinishBeforeRetirementAndEarnsOnlyAfterIt() (gas: 776352)
+[PASS] test_equalTimeUsesTokenIdAndCursorAloneDoesNotMeanComplete() (gas: 781551)
+[PASS] test_freeTimeCannotCreateFundingAndIdleProgressHasNoEarnedValue() (gas: 46969)
+[PASS] test_futureStartEarnsNothingAndCostsItsOwnStep() (gas: 348502)
+[PASS] test_indexedRemovalInvalidatesOnlyCanceledMember() (gas: 1113444)
+[PASS] test_invalidBudgetAndChronologyFailBeforeProgress() (gas: 333569)
+[PASS] test_oneNodePerMemberAcrossAdjacentAndGappedLots() (gas: 649303)
+[PASS] test_retirementFailureRollsBackAttemptedFundingProgress() (gas: 767439)
+[PASS] test_zeroReferralClaimBeforeAndBetweenStreamsDoesNotBackdateNewEarnings() (gas: 844117)
+[PASS] test_zeroRemainingBudgetIntegratesOnlyBeforeNextFundingBoundary() (gas: 490295)
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 2.85s (3.48s CPU time)
+
+Ran 3 tests for test/MembershipLifecycleGas.t.sol:MembershipLifecycleGasTest
+[PASS] test_equalTimeBacklogMakesBoundedProgressWhilePaused() (gas: 54722804)
+[PASS] test_maximumSelectedClaimAndPreviewParityAtLargePopulation() (gas: 2721548)
+[PASS] test_tenThousandPositionsBoundPreviewStorageReadsAndOwnerPage() (gas: 13323588)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 4.26s (3.27s CPU time)
+
+Ran 1 test for test/invariants/BuybackInvariant.t.sol:BuybackInvariantTest
+[PASS] invariant_rawAssetConservationExactBurnAndProtectedLiabilities() (runs: 256, calls: 128000, reverts: 0)
+
+╭----------------+------------+-------+---------+----------╮
+| Contract       | Selector   | Calls | Reverts | Discards |
++==========================================================+
+| BuybackHandler | checkpoint | 25680 | 0       | 0        |
+|----------------+------------+-------+---------+----------|
+| BuybackHandler | donate     | 25509 | 0       | 0        |
+|----------------+------------+-------+---------+----------|
+| BuybackHandler | process    | 25483 | 0       | 0        |
+|----------------+------------+-------+---------+----------|
+| BuybackHandler | release    | 25595 | 0       | 0        |
+|----------------+------------+-------+---------+----------|
+| BuybackHandler | sync       | 25733 | 0       | 0        |
+╰----------------+------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 55.74s (55.73s CPU time)
+
+Ran 1 test for test/invariants/MembershipInvariant.t.sol:MembershipInvariantTest
+[PASS] invariant_positionsAndScaledCashMatchIndependentModel() (runs: 256, calls: 128000, reverts: 0)
+
+╭-------------------+--------------------------+-------+---------+----------╮
+| Contract          | Selector                 | Calls | Reverts | Discards |
++===========================================================================+
+| MembershipHandler | advance                  | 8442  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | claim                    | 8690  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | claimReferral            | 8494  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | claimRetired             | 8606  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | contribute               | 8497  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | failedInboundTransfer    | 8583  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | failedPausedContribution | 8610  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | grant                    | 8537  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | refund                   | 8472  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | release                  | 8547  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | renew                    | 8501  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | revokeGrant              | 8468  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | setPaused                | 8544  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | transfer                 | 8453  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| MembershipHandler | warp                     | 8556  | 0       | 0        |
+╰-------------------+--------------------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 199.85s (199.84s CPU time)
+
+Ran 4 tests for test/invariants/AccountingInvariant.t.sol:AccountingInvariantTest
+[PASS] invariant_accountingConservationAndProtectedLiabilities() (runs: 256, calls: 128000, reverts: 0)
+
+╭-------------------+--------------------------+-------+---------+----------╮
+| Contract          | Selector                 | Calls | Reverts | Discards |
++===========================================================================+
+| AccountingHandler | advance                  | 8005  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimAll                 | 8012  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimReferral            | 8079  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimReward              | 7907  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | donateToFactory          | 8107  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | donateToTier             | 7933  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | failedExit               | 7934  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | gift                     | 8023  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | purchase                 | 7982  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | refund                   | 8095  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | rejectProtocolWithdrawal | 7916  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | release                  | 7959  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | synchronizeExpired       | 8100  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | tickActiveRates          | 7995  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | warp                     | 7890  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | withdrawCreatorProceeds  | 8063  | 0       | 0        |
+╰-------------------+--------------------------+-------+---------+----------╯
+
+[PASS] invariant_slowIntervalsLifecycleAndEligibilityStayEquivalent() (runs: 256, calls: 128000, reverts: 0)
+
+╭-------------------+--------------------------+-------+---------+----------╮
+| Contract          | Selector                 | Calls | Reverts | Discards |
++===========================================================================+
+| AccountingHandler | advance                  | 8005  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimAll                 | 8012  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimReferral            | 8079  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | claimReward              | 7907  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | donateToFactory          | 8107  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | donateToTier             | 7933  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | failedExit               | 7934  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | gift                     | 8023  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | purchase                 | 7982  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | refund                   | 8095  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | rejectProtocolWithdrawal | 7916  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | release                  | 7959  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | synchronizeExpired       | 8100  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | tickActiveRates          | 7995  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | warp                     | 7890  | 0       | 0        |
+|-------------------+--------------------------+-------+---------+----------|
+| AccountingHandler | withdrawCreatorProceeds  | 8063  | 0       | 0        |
+╰-------------------+--------------------------+-------+---------+----------╯
+
+[PASS] test_capacityAndClockCeilingsPreserveExactCashAndCanceledGeneration() (gas: 2045536)
+[PASS] test_syntheticEmptyVectorProtectsOtherwiseUnreachableMemberFunding() (gas: 1314303)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 548.30s (648.33s CPU time)
+
+Ran 65 test suites in 548.32s (840.86s CPU time): 565 tests passed, 0 failed, 9 skipped (574 total tests)
