@@ -218,3 +218,7 @@ This draft describes the transferable membership lifecycle in the linked contrac
 - [Early-support reward weight](../../contracts/src/libraries/RewardCurve.sol)
 - [Protocol-fee processing and burning](../../contracts/src/ProtocolBuybackVault.sol)
 - [Accounting, fee release, and buyback execution](../../contracts/src/ProtocolBurnRouter.sol)
+
+### Public payment reporting
+
+Each tier exposes a bounded, read-only preview of lifetime payments received, cumulative refunds and payouts, and funds still accruing or already earned. The preview follows the same chronological funding and expiration boundaries as maintenance and reports whether its requested time has been reached. Member earnings include preserved rewards from retired memberships; unassigned funding and rounding reserves are reported separately from beneficiary balances. Protocol payouts represent fees released to the buyback vault, not completed trades or burns. The application groups these figures by payment currency and distinguishes future accrual, earned-but-unclaimed balances, and actual payouts.

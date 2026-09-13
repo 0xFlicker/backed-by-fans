@@ -215,6 +215,29 @@ library MembershipTypes {
         uint256[4] ratesScaled;
     }
 
+    /// @notice Tier-wide payment accounting, projected with a caller-supplied boundary budget.
+    /// @dev Arrays are creator/member/referral/protocol. Earned balances exclude
+    /// unassigned funding and rounding reserves; member balances include retired credit.
+    /// paidRaw[3] is released to the vault, not spent on buybacks.
+    struct PaymentTotals {
+        uint256 grossReceived;
+        uint256 refunded;
+        uint256[4] paidRaw;
+        uint256[4] earnedScaled;
+        uint256[4] unearnedScaled;
+        uint256[4] cancellationScaled;
+        uint256 unassignedMemberScaled;
+        uint256 distributionDustScaled;
+        uint256 indexCarryScaled;
+        /// @notice Per-second allocation rates, zero when accounting is incomplete.
+        /// @dev Member allocation only becomes claimable when hasEligibleMembers is true.
+        uint256[4] allocationRatesScaled;
+        bool hasEligibleMembers;
+        uint64 asOf;
+        uint256 processedSteps;
+        AccountingStatus status;
+    }
+
     struct AllocationState {
         uint256 generation;
         uint256 lotCursor;

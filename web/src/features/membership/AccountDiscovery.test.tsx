@@ -674,3 +674,33 @@ it("replaces earlier ownership pages when a fresh snapshot removes positions", a
   );
   expect(screen.getByRole("link", { name: "Membership #1" })).toBeVisible();
 });
+
+it("drops cached memberships outside an authoritative complete catalog", async () => {
+  const {
+    accountCacheKey,
+    emptyAccountCache,
+    mergeAccountPage,
+    saveAccountCache,
+  } = await import("./account-cache");
+  const obsolete = {
+    ...page.results[0],
+    tier: getAddress("0x9999999999999999999999999999999999999999"),
+    name: "Previous fork membership",
+  };
+  saveAccountCache(
+    window.localStorage,
+    accountCacheKey(46_630, factory, wallet),
+    mergeAccountPage(emptyAccountCache(), {
+      resumeOffset: 1n,
+      complete: true,
+      capturedBlock: 99n,
+      scannedTiers: [obsolete.tier],
+      results: [obsolete],
+    }),
+  );
+  renderSnapshot();
+  expect(screen.getByText("Genesis Fans")).toBeVisible();
+  expect(
+    screen.queryByText("Previous fork membership"),
+  ).not.toBeInTheDocument();
+});

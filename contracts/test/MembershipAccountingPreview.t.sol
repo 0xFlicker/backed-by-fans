@@ -32,6 +32,122 @@ contract MembershipAccountingPreviewTest is Test {
         token.approve(address(tier), type(uint256).max);
     }
 
+    function _assertConservation(MembershipTypes.PaymentTotals memory p) private pure {
+        uint256 accounted = p.refunded * (1 << 128) + p.unassignedMemberScaled
+            + p.distributionDustScaled + p.indexCarryScaled;
+        for (uint256 i; i < 4; ++i) {
+            accounted += p.paidRaw[i] * (1 << 128) + p.earnedScaled[i] + p.unearnedScaled[i]
+            + p.cancellationScaled[i];
+        }
+        assertEq(accounted, p.grossReceived * (1 << 128), "every unit accounted for");
+    }
+
+    function testFuzz_paymentTotalsMatchWrites(uint8 a, uint8 b, uint16 elapsed) public {
+        vm.startPrank(ALICE);
+        tier.createMembership(uint64(bound(a, 1, 12)), BOB, 25);
+        tier.createMembership(uint64(bound(b, 1, 12)), BOB, 25);
+        vm.stopPrank();
+        vm.warp(1_000_000 + bound(elapsed, 0, 1500));
+        MembershipTypes.PaymentTotals memory projected = tier.previewPaymentTotals(256);
+        assertTrue(projected.status.complete);
+        _assertConservation(projected);
+        tier.processAccounting(256);
+        MembershipTypes.PaymentTotals memory settled = tier.previewPaymentTotals(0);
+        projected.processedSteps = 0;
+        assertEq(abi.encode(projected), abi.encode(settled));
+    }
+
+    function test_paymentRatesFollowFundingAndExpiryBoundariesWhilePaused() public {
+        vm.startPrank(ALICE);
+        tier.createMembership(1, BOB, 25);
+        tier.createMembership(2, BOB, 25);
+        vm.stopPrank();
+        tier.setPaused(true);
+        vm.warp(1_000_050);
+        MembershipTypes.PaymentTotals memory first = tier.previewPaymentTotals(25);
+        assertTrue(first.hasEligibleMembers);
+        assertEq(first.status.nextBoundary, 1_000_100);
+        vm.warp(1_000_150);
+        MembershipTypes.PaymentTotals memory next = tier.previewPaymentTotals(25);
+        assertTrue(next.hasEligibleMembers);
+        assertEq(next.status.nextBoundary, 1_000_200);
+        for (uint256 i; i < 4; ++i) {
+            assertGt(next.allocationRatesScaled[i], 0);
+            assertEq(first.allocationRatesScaled[i], next.allocationRatesScaled[i] * 2);
+        }
+        MembershipTypes.PaymentTotals memory incomplete = tier.previewPaymentTotals(0);
+        assertFalse(incomplete.status.complete);
+        for (uint256 i; i < 4; ++i) {
+            assertEq(incomplete.allocationRatesScaled[i], 0);
+        }
+        vm.warp(1_000_200);
+        MembershipTypes.PaymentTotals memory ended = tier.previewPaymentTotals(25);
+        assertTrue(ended.status.complete);
+        assertFalse(ended.hasEligibleMembers);
+        for (uint256 i; i < 4; ++i) {
+            assertEq(ended.allocationRatesScaled[i], 0);
+        }
+    }
+
+    function test_paymentTotalsProjectAllBeneficiariesAndMatchMaintenance() public {
+        vm.startPrank(ALICE);
+        tier.createMembership(1, BOB, 25);
+        tier.createMembership(2, BOB, 25);
+        vm.stopPrank();
+        vm.warp(1_000_150);
+        MembershipTypes.PaymentTotals memory before = tier.previewPaymentTotals(25);
+        assertTrue(before.status.complete);
+        assertGt(before.earnedScaled[0], 0);
+        assertGt(before.earnedScaled[1], 0);
+        assertGt(before.earnedScaled[2], 0);
+        _assertConservation(before);
+        tier.processAccounting(25);
+        MembershipTypes.PaymentTotals memory after_ = tier.previewPaymentTotals(0);
+        assertEq(abi.encode(before.earnedScaled), abi.encode(after_.earnedScaled));
+        assertEq(abi.encode(before.unearnedScaled), abi.encode(after_.unearnedScaled));
+        assertEq(before.distributionDustScaled, after_.distributionDustScaled);
+        assertEq(before.indexCarryScaled, after_.indexCarryScaled);
+        assertEq(before.unassignedMemberScaled, after_.unassignedMemberScaled);
+        _assertConservation(after_);
+        vm.prank(ALICE);
+        uint256 retired = tier.claimRetiredRewards();
+        uint256 creator = tier.withdrawCreatorProceeds();
+        vm.prank(BOB);
+        uint256 referral = tier.claimReferral();
+        after_ = tier.previewPaymentTotals(25);
+        assertEq(after_.paidRaw[0], creator);
+        assertEq(after_.paidRaw[1], retired);
+        assertEq(after_.paidRaw[2], referral);
+        assertEq(after_.grossReceived, 30_000_000);
+        _assertConservation(after_);
+    }
+
+    function test_paymentTotalsBoundedPausedAndRefunded() public {
+        vm.prank(ALICE);
+        uint256 id = tier.createMembership(2, BOB, 25);
+        vm.warp(1_000_050);
+        MembershipTypes.PaymentTotals memory before = tier.previewPaymentTotals(0);
+        _assertConservation(before);
+        uint256 refunded = tier.refund(id, ALICE, type(uint256).max, 25);
+        MembershipTypes.PaymentTotals memory after_ = tier.previewPaymentTotals(25);
+        assertEq(after_.grossReceived, 20_000_000);
+        assertEq(after_.refunded, refunded);
+        assertGt(refunded, 0);
+        _assertConservation(after_);
+        tier.grantMembership(ALICE, 1, 25);
+        tier.grantMembership(ALICE, 1, 25);
+        tier.setPaused(true);
+        vm.warp(1_000_250);
+        before = tier.previewPaymentTotals(1);
+        assertFalse(before.status.complete);
+        assertLe(before.processedSteps, 1);
+        _assertConservation(before);
+        tier.processAccounting(25);
+        after_ = tier.previewPaymentTotals(0);
+        assertTrue(after_.status.complete);
+        _assertConservation(after_);
+    }
+
     function test_previewRetirementPreservesHistoricalEligibilityAndCredit() public {
         vm.prank(ALICE);
         uint256 id = tier.createMembership(1, address(0), 25);

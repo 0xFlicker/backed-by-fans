@@ -19,6 +19,7 @@ import { ReadStateView } from "@/components/ReadState";
 import { ResilientArtworkImage } from "@/components/ResilientArtworkImage";
 import {
   accountCacheKey,
+  emptyAccountCache,
   loadAccountCache,
   mergeAccountPage,
   mergeOwnerPage,
@@ -179,8 +180,16 @@ function HydratedDiscovery({
   }
   const currentCache = useMemo(() => {
     const page = discovery.isPlaceholderData ? undefined : discovery.data;
+    // A complete catalog read is authoritative, including after a disposable fork reset.
+    const previous =
+      page &&
+      page.offset === 0n &&
+      page.nextOffset === null &&
+      page.skipped.length === 0
+        ? emptyAccountCache()
+        : savedCache;
     const base = page
-      ? mergeAccountPage(savedCache, {
+      ? mergeAccountPage(previous, {
           resumeOffset: page.skipped.length ? page.offset : page.scannedTo,
           complete: page.nextOffset === null && page.skipped.length === 0,
           capturedBlock: page.capturedBlock,

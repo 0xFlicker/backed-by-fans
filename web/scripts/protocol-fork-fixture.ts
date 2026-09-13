@@ -138,7 +138,7 @@ async function main() {
       args,
       account,
       value,
-      gasPrice: 2_000_000_000n,
+      gasPrice: 100_000_000n,
     });
     const hash = await wallet.writeContract(simulation.request);
     const receipt = await client.waitForTransactionReceipt({ hash });
@@ -282,7 +282,7 @@ async function main() {
         },
       ],
       account,
-      gasPrice: 2_000_000_000n,
+      gasPrice: 100_000_000n,
     });
     const minimum = ((quote.result as readonly bigint[])[0] * 99n) / 100n;
     if (minimum === 0n)
@@ -366,7 +366,8 @@ async function main() {
     await test.impersonateAccount({ address: account });
     await test.setBalance({ address: account, value: 100n * 10n ** 18n });
   }
-  const purchasedUSDG = await trade(creator, usdPool, 2n * 10n ** 18n);
+  // Acquire enough pool inventory for funded review memberships and both user wallets.
+  const purchasedUSDG = await trade(creator, usdPool, 5n * 10n ** 18n);
   const purchasedAMD = await trade(creator, stockPool, 100_000_000n);
   for (const account of [member, renderProbe]) {
     await transact(creator, usdg, erc20Abi, "transfer", [
@@ -388,7 +389,7 @@ async function main() {
     const hash = await wallet.deployContract({
       abi: compiled.abi,
       bytecode: compiled.bytecode.object,
-      gasPrice: 2_000_000_000n,
+      gasPrice: 100_000_000n,
     });
     const receipt = await client.waitForTransactionReceipt({ hash });
     if (receipt.status !== "success" || !receipt.contractAddress)

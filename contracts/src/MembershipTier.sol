@@ -361,6 +361,18 @@ contract MembershipTier is
         assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
     }
 
+    function previewPaymentTotals(uint256 maxSteps)
+        external
+        view
+        override
+        returns (MembershipTypes.PaymentTotals memory)
+    {
+        bytes memory encoded = VestingLedger.encodedPaymentTotals(
+            _vesting, _expirations, _currentTimestamp(), maxSteps
+        );
+        assembly ("memory-safe") { return(add(encoded, 32), mload(encoded)) }
+    }
+
     function allocationState(uint256 tokenId)
         external
         view

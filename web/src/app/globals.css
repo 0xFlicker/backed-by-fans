@@ -2701,6 +2701,18 @@ dd {
   justify-content: flex-end;
 }
 
+.membership-explorer-link {
+  color: var(--muted-ink);
+  font-size: 0.8125rem;
+  text-underline-offset: 0.2em;
+}
+
+.membership-explorer-link:hover,
+.membership-explorer-link:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
 .membership-share-trigger,
 .share-dialog-native {
   gap: 0.55rem;

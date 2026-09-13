@@ -4171,6 +4171,91 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "maxSteps", internalType: "uint256", type: "uint256" }],
+    name: "previewPaymentTotals",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.PaymentTotals",
+        type: "tuple",
+        components: [
+          { name: "grossReceived", internalType: "uint256", type: "uint256" },
+          { name: "refunded", internalType: "uint256", type: "uint256" },
+          { name: "paidRaw", internalType: "uint256[4]", type: "uint256[4]" },
+          {
+            name: "earnedScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "unearnedScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "cancellationScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "unassignedMemberScaled",
+            internalType: "uint256",
+            type: "uint256",
+          },
+          {
+            name: "distributionDustScaled",
+            internalType: "uint256",
+            type: "uint256",
+          },
+          {
+            name: "indexCarryScaled",
+            internalType: "uint256",
+            type: "uint256",
+          },
+          {
+            name: "allocationRatesScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          { name: "hasEligibleMembers", internalType: "bool", type: "bool" },
+          { name: "asOf", internalType: "uint64", type: "uint64" },
+          { name: "processedSteps", internalType: "uint256", type: "uint256" },
+          {
+            name: "status",
+            internalType: "struct MembershipTypes.AccountingStatus",
+            type: "tuple",
+            components: [
+              {
+                name: "accountedThrough",
+                internalType: "uint64",
+                type: "uint64",
+              },
+              { name: "nextBoundary", internalType: "uint64", type: "uint64" },
+              {
+                name: "scheduledMembers",
+                internalType: "uint256",
+                type: "uint256",
+              },
+              {
+                name: "scheduledExpirations",
+                internalType: "uint256",
+                type: "uint256",
+              },
+              {
+                name: "nextKind",
+                internalType: "enum MembershipTypes.BoundaryKind",
+                type: "uint8",
+              },
+              { name: "complete", internalType: "bool", type: "bool" },
+            ],
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
     name: "previewRefund",
     outputs: [
@@ -11292,6 +11377,15 @@ export const useReadMembershipTierPreviewClaimRewards =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     functionName: "previewClaimRewards",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"previewPaymentTotals"`
+ */
+export const useReadMembershipTierPreviewPaymentTotals =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    functionName: "previewPaymentTotals",
   });
 
 /**

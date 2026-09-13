@@ -1116,6 +1116,17 @@ export function MembershipExperience({
               referrer={account.address}
               tier={snapshot.address}
             />
+            {explorerUrl && (
+              <a
+                className="membership-explorer-link"
+                href={`${explorerUrl}/address/${snapshot.address}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="View contract on block explorer (opens in a new tab)"
+              >
+                View contract <span aria-hidden="true">↗</span>
+              </a>
+            )}
           </div>
 
           <dl className="membership-essentials" aria-label="Membership terms">

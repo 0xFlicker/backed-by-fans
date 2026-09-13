@@ -17,7 +17,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract StandardsInterfacesTest is Test {
     function test_membershipInterfaceMatchesWebAuthenticityRequirement() public pure {
-        assertEq(type(IMembershipTier).interfaceId, bytes4(0xd1b6b944));
+        assertEq(type(IMembershipTier).interfaceId, bytes4(0xaa0af8b7));
     }
 
     function test_erc5643CancellationPreservesAccountingAtomicityAndRetiresWeight() public {

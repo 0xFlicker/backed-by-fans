@@ -98,3 +98,19 @@ Feature 005 remains open. One fixed implementation is deployed separately; the m
 Custom membership mutations accept an explicit accounting budget; factory claims share a caller budget across sorted tier requests by actual consumed steps. All protocol batch/page paths remove arbitrary numeric iteration ceilings. Inputs, economics and native Robinhood limits remain validated. Positive-budget maintenance saves chronological partial progress; atomic mutations revert if catch-up cannot finish. Standard ERC-5643 signatures require separate maintenance for due events. Transfer and settled retired-credit withdrawal do not run catch-up.
 
 Validation includes above-former-cap cases, small/large batch equivalence, locked/atomic clone initialization, independent storage, Claim all interruption/revalidation, and measured before/after gas. Replace only the owned fork/web at RPC 18557, chain 31337 and web 3110 using the existing private RPC/pin. Explorer verification/clone recognition is deferred to the next authorized testnet deployment. Previous evidence does not validate this amendment.
+
+### Fund the disposable review wallets
+
+After a fresh `serve` run, seed the designated user wallets and memberships with:
+
+```sh
+cd web
+BBF_ADMIN_RPC_URL=http://127.0.0.1:18557 bun scripts/seed-protocol-review.ts \
+  ../artifacts/protocol-fork/RUN_ID \
+  0x467172992E0aBa58411d14eC8b174167B0e359a6 \
+  0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027
+```
+
+This adds the second wallet as a one-signature owner of the fork's actual Safe, funds both wallets, creates three 500 USDG / 30-day memberships and one 0.1 WETH / 30-day membership for each wallet, and records receipts in `review-seed.json`. USDG memberships alone fund 300 USDG of protocol fees during the first month. Payment tokens come from real forked liquidity; only native test ETH is assigned. The script refuses non-loopback/non-31337 execution and an already-completed seed.
+
+Fork launches start with a 0.1 gwei base fee and gas price (100,000,000 wei), with Anvil's minimum suggested priority fee disabled. Fork deployment, fixture and local buyback scripts use the same 0.1 gwei gas price. Fees can evolve as blocks are mined; these defaults apply on the next launch and do not reset the currently running review fork.

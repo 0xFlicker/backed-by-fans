@@ -12,6 +12,17 @@ contract AccountingPreviewHarness is VestingSchedulerHarness {
     ExpirationSchedule.State private expirations;
     constructor(uint64 start) VestingSchedulerHarness(start) {}
 
+    function paymentTotals(uint64 through, uint256 steps)
+        external
+        view
+        returns (MembershipTypes.PaymentTotals memory)
+    {
+        return abi.decode(
+            VestingLedger.encodedPaymentTotals(ledger, expirations, through, steps),
+            (MembershipTypes.PaymentTotals)
+        );
+    }
+
     function positionWeight(uint256 member, uint256 shares, bool eligible) external {
         VestingLedger.setWeight(ledger, member, shares, eligible);
         ExpirationSchedule.set(expirations, member, type(uint64).max);
@@ -56,6 +67,21 @@ contract AccountingPreviewTest is Test {
     function setUp() public {
         new LinkedVestingFixture().install();
         h = new AccountingPreviewHarness(START);
+    }
+
+    function test_unassignedFundingIsNotReportedAsMemberEarnings() public {
+        h.fundAllocations(1, [uint256(0), 100, 0, 0], START, 100, address(0));
+        MembershipTypes.PaymentTotals memory active = h.paymentTotals(START + 50, 25);
+        assertFalse(active.hasEligibleMembers);
+        assertEq(active.allocationRatesScaled[1], 1 << 128);
+        MembershipTypes.PaymentTotals memory p = h.paymentTotals(START + 100, 25);
+        assertTrue(p.status.complete);
+        assertEq(p.earnedScaled[1], 0);
+        assertEq(p.unassignedMemberScaled, 100 * (1 << 128));
+        h.process(START + 100, 25);
+        MembershipTypes.PaymentTotals memory stored = h.paymentTotals(START + 100, 0);
+        assertEq(stored.unassignedMemberScaled, p.unassignedMemberScaled);
+        assertEq(stored.earnedScaled[1], 0);
     }
 
     function _compare(uint256 member, address referrer, uint64 through, uint256 budget) private {

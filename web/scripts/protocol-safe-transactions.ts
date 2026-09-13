@@ -171,7 +171,7 @@ export async function executeForkSafePayload(input: {
     functionName: "execTransaction",
     args: [...common, signatures],
     account: relayer,
-    gasPrice: 2000000000n,
+    gasPrice: 100_000_000n,
   });
   if (!simulation.result)
     throw new Error("Safe simulation reported an inner failure");

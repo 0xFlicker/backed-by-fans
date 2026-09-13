@@ -1,0 +1,131 @@
+.flow {
+  min-width: 0;
+}
+.heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+.heading h2 {
+  font-size: clamp(2rem, 3.4vw, 3rem);
+  line-height: 1.05;
+  margin: 0.5rem 0 1rem;
+}
+.heading p {
+  max-width: 38rem;
+}
+.currency {
+  flex: 0 0 9rem;
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+.source {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  text-align: center;
+}
+.source > strong {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1.1;
+}
+.source p {
+  margin: 1rem 0 0;
+  color: var(--muted-ink);
+}
+.source b {
+  color: var(--ink);
+  font-weight: 550;
+}
+.branches {
+  height: 64px;
+  margin-top: 1.5rem;
+}
+.branches svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5px;
+}
+.destinations {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2rem;
+}
+.destination {
+  min-width: 0;
+  padding-top: 1rem;
+  border-top: 2px solid var(--fan-blue);
+}
+.destination:first-child {
+  border-color: var(--ink);
+}
+.destination h3 {
+  font-size: 1.1rem;
+  font-family: var(--font-geist-sans), sans-serif;
+  margin: 0 0 1.5rem;
+}
+.destination dl {
+  display: grid;
+  gap: 1.35rem;
+  margin: 0;
+}
+.destination dl > div {
+  display: grid;
+  gap: 0.35rem;
+}
+.destination dt {
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+}
+.destination dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.destination .paid {
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+.continue {
+  display: inline-block;
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+}
+.note {
+  margin: 2.5rem 0 0;
+  max-width: 48rem;
+}
+@media (max-width: 850px) {
+  .destinations {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 2.5rem;
+  }
+  .branches {
+    display: none;
+  }
+  .source {
+    margin-bottom: 2.5rem;
+  }
+}
+@media (max-width: 500px) {
+  .heading {
+    display: grid;
+    gap: 1rem;
+  }
+  .currency {
+    max-width: 12rem;
+  }
+  .destinations {
+    grid-template-columns: 1fr;
+  }
+  .source {
+    justify-items: start;
+    text-align: left;
+  }
+}

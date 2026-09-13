@@ -255,3 +255,9 @@ These are amendments to feature 005, not a successor feature. Execute in depende
 - [X] T081 Update integration documentation, NatSpec and whitepaper/PDF for fixed clones, caller-bounded work and Claim all; distinguish the next-testnet source/clone-recognition checks from fork validation (FR-016/018–021).
 - [X] T082 Replace the owned existing fork/web with a fresh evidence-scoped graph using the existing private RPC and pinned origin, RPC 18557 / chain 31337 / web 3110; run focused configured lifecycle/Claim all/browser acceptance plus affected tooling/build checks and leave services running (SC-010/011).
 - [X] T083 Preserve earlier evidence, record a new exact source snapshot and amended-scope verification, run speckit-converge for feature 005, and replace its reopened convergence status only when required implementation/validation is complete; keep public explorer acceptance deferred to testnet (FR-021; SC-007–011).
+
+## Phase 10: Public payment flow and funded review fork — same feature 005
+
+- [X] T084 Expose exact, caller-bounded aggregate payment previews and validate conservation, payouts, refunds, retirement, unassigned funds, and preview/write equivalence.
+- [X] T085 Generate contract bindings and add per-currency protocol flow with bounded discovery, partial/error states, live animated amounts, and existing About styling.
+- [X] T086 Replace the fork and webpage, seed funded memberships and both user wallets, restore the Safe signer, and verify the live reporting surface.

@@ -292,10 +292,42 @@ library VestingLedger {
         uint256 rewardIndex;
         uint256 rewardCarry;
         uint256 distributedReward;
+        uint256 memberLiabilityDelta;
+        uint256 unassignedDelta;
+        uint256 dustDelta;
         uint256 retiredScaled;
         bool targetRetired;
         uint64 lastRetiredAt;
         uint256 lastRetiredId;
+    }
+
+    function encodedPaymentTotals(
+        State storage self,
+        ExpirationSchedule.State storage expirations,
+        uint64 through,
+        uint256 maxSteps
+    ) external view returns (bytes memory) {
+        PreviewRequest memory request = PreviewRequest(0, address(0), address(0), through, maxSteps);
+        PreviewState memory work = _previewState(self, expirations, request);
+        MembershipTypes.PaymentTotals memory result;
+        result.processedSteps = _previewAdvance(self, expirations, work, request);
+        result.grossReceived = self.totalGross;
+        result.refunded = self.refundedRaw;
+        result.paidRaw = self.paidRaw;
+        result.cancellationScaled = self.cancellationScaled;
+        for (uint256 i; i < PURPOSES; ++i) {
+            result.unearnedScaled[i] = self.unearnedScaled[i] - work.earned[i];
+            result.earnedScaled[i] =
+                self.earnedScaled[i] + (i == 1 ? work.memberLiabilityDelta : work.earned[i]);
+        }
+        result.unassignedMemberScaled = self.unassigned + work.unassignedDelta;
+        result.distributionDustScaled = self.distributionDust + work.dustDelta;
+        result.indexCarryScaled = work.rewardCarry;
+        result.asOf = through;
+        result.status = _previewStatus(work, through);
+        result.hasEligibleMembers = work.totalShares != 0;
+        if (result.status.complete) result.allocationRatesScaled = work.rates;
+        return abi.encode(result);
     }
 
     function encodedPreview(
@@ -451,9 +483,15 @@ library VestingLedger {
     function _previewDistribute(PreviewState memory work) private pure {
         uint256 amount = work.earned[1] - work.distributedReward;
         work.distributedReward = work.earned[1];
-        if (amount == 0 || work.totalShares == 0) return;
+        if (amount == 0) return;
+        if (work.totalShares == 0) {
+            work.unassignedDelta += amount;
+            return;
+        }
         uint256 available = amount + work.rewardCarry;
-        work.rewardIndex += available / work.totalShares;
+        uint256 quotient = available / work.totalShares;
+        work.rewardIndex += quotient;
+        work.memberLiabilityDelta += quotient * work.totalShares;
         work.rewardCarry = available % work.totalShares;
     }
 
@@ -481,6 +519,7 @@ library VestingLedger {
         }
         if (member.eligible && member.shares != 0) {
             work.totalShares -= member.shares;
+            work.dustDelta += work.rewardCarry;
             work.rewardCarry = 0;
         }
         if (entry.node.tokenId == request.tokenId) work.targetRetired = true;
@@ -869,7 +908,9 @@ library VestingLedger {
             if (
                 account.active == node.isStart
                     || node.timestamp != (node.isStart ? lot.start : lot.end)
-            ) revert AccountingInvariant();
+            ) {
+                revert AccountingInvariant();
+            }
             if (node.isStart) {
                 _scheduleHead(self, node.tokenId, true);
             } else {

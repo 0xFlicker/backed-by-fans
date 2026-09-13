@@ -255,6 +255,13 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
         view
         returns (MembershipTypes.ReferralStatus status, address referrer);
 
+    /// @notice Preview tier-wide payments, payouts and outstanding funding through now.
+    /// @dev Check status.complete before treating the projected balances as current.
+    function previewPaymentTotals(uint256 maxSteps)
+        external
+        view
+        returns (MembershipTypes.PaymentTotals memory);
+
     function sharesOf(uint256 tokenId) external view returns (uint256);
 
     function rewardEligible(uint256 tokenId) external view returns (bool);

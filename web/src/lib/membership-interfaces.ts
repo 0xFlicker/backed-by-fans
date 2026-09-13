@@ -6,5 +6,5 @@ export const membershipInterfaces = [
   { name: "erc5643", id: "0x8c65f84d" },
   { name: "erc4906", id: "0x49064906" },
   // Compiler-derived IMembershipTier ID: rejects obsolete immutable deployments.
-  { name: "membershipPositions", id: "0xd1b6b944" },
+  { name: "membershipPositions", id: "0xaa0af8b7" },
 ] as const;

@@ -17,6 +17,7 @@ import urllib.request
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
+FORK_START_GAS_PRICE = 100_000_000  # 0.1 gwei; Anvil fees may evolve as blocks are mined.
 STATE_ROOT = Path(tempfile.gettempdir()) / "bbf-protocol-fork-runs"
 ORIGIN_CONFIG = json.loads((ROOT / "scripts/protocol-fork/origin.json").read_text())
 PIN = {key: ORIGIN_CONFIG[key] for key in ("chainId", "blockNumber", "blockHash")}
@@ -215,7 +216,7 @@ class Run:
         if self.args.mode == "run":
             self.command("curve-calibration", ["python3", str(ROOT / "scripts/calibrate-membership-lifecycle.py")])
             self.command("contracts", ["forge", "test", *link_args, "--json", "--code-size-limit", "1000000", "--gas-limit", "1000000000"], ROOT / "contracts")
-        node = self.service("anvil", ["anvil", "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--silent"])
+        node = self.service("anvil", ["anvil", "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--gas-price", str(FORK_START_GAS_PRICE), "--base-fee", str(FORK_START_GAS_PRICE), "--disable-min-priority-fee", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--silent"])
         for _ in range(200):
             if node.poll() is not None:
                 raise RuntimeError("Anvil exited before readiness")
@@ -234,7 +235,7 @@ class Run:
         developer = subprocess.check_output(["cast", "wallet", "address", "--private-key", self.env["BBF_CHECKPOINT_DEVELOPER_KEY"]], text=True).strip()
         rpc(self.rpc_url, "anvil_setBalance", [developer, hex(20 * 10**18)])
         deployment = "DeployForkProtocolNoToken" if self.without_token else "DeployForkProtocol"
-        self.command("bootstrap", ["forge", "script", f"script/{deployment}.s.sol:{deployment}", *link_args, "--rpc-url", self.rpc_url, "--broadcast", "--slow", "--code-size-limit", "300000", "--legacy", "--with-gas-price", "2000000000"], ROOT / "contracts")
+        self.command("bootstrap", ["forge", "script", f"script/{deployment}.s.sol:{deployment}", *link_args, "--rpc-url", self.rpc_url, "--broadcast", "--slow", "--code-size-limit", "300000", "--legacy", "--with-gas-price", str(FORK_START_GAS_PRICE)], ROOT / "contracts")
         source = ROOT / "contracts/deployments/protocol-fork" / self.args.run_id / "bootstrap.json"
         shutil.copy2(source, self.evidence / "bootstrap.json")
         if not self.without_token:
@@ -269,7 +270,7 @@ class Run:
 
     def restore_for_review(self):
         """Resume local manual review without discarding wallet balances or deployments."""
-        node = self.service("anvil", ["anvil", "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--load-state", self.restore_state, "--silent"])
+        node = self.service("anvil", ["anvil", "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--gas-price", str(FORK_START_GAS_PRICE), "--base-fee", str(FORK_START_GAS_PRICE), "--disable-min-priority-fee", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--load-state", self.restore_state, "--silent"])
         for _ in range(200):
             if node.poll() is not None:
                 raise RuntimeError("Restored Anvil exited before readiness")

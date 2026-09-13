@@ -16,6 +16,7 @@ import { getDeployment, publicConfig } from "@/lib/config";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { ProcessBuyback } from "./ProcessBuyback";
 import { Burn } from "./Burn";
+import { PaymentFlow } from "./PaymentFlow";
 import { ReleaseTierFees } from "./ReleaseTierFees";
 import {
   readPublicBuybacks,
@@ -173,6 +174,12 @@ export function ProtocolActivity({
               The protocol Safe has paused buybacks. Membership time continues
               to earn fees.
             </p>
+          )}
+          {deployment.status === "ready" && (
+            <PaymentFlow
+              chainId={chainId}
+              factory={deployment.factoryAddress}
+            />
           )}
           <section
             aria-labelledby="inventory-title"

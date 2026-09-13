@@ -136,3 +136,9 @@ Equal-time funding START/END and many expirations; a batch ending in each phase;
 - A transferred locked referral may equal the new owner's address; it stays locked. Transfer does not rewrite original referral liabilities.
 - Existing deployed non-upgradeable contracts do not acquire this behavior. A replacement release is required; deployment and migration are outside this planning run.
 - The three initial clarification answers and subsequent transfer, UI-state, maintenance and accessibility decisions remain binding. Existing pricing, payment assets, time limits and creator authority are dependencies of this lifecycle change; no new economic terms or deployment authority are introduced.
+
+### Protocol reporting and funded review fork amendment
+
+- FR-022: Expose read-only, caller-bounded tier-wide payment reporting: lifetime receipts, refunds, cumulative payouts by purpose, and exact projected earned, unearned, and reserved amounts. Use the existing funding/expiration chronology; report incomplete projections and remain readable while paused. Preserve accounting precision and distinguish member liabilities from unassigned funding and rounding reserves.
+- FR-023: Display the protocol's payment flow across tiers, separately by currency, using the About visual language and plain-language accrued-versus-paid distinctions. Discovery must be bounded and incomplete or failed reads must never appear as authoritative zero/full totals.
+- FR-024: Replace the disposable review fork on RPC 18557 / chain 31337 and webpage 3110 with the reporting implementation, fund both supplied user wallets, restore the designated Safe signer, and seed at least 250 USDG of first-month protocol fees through real membership purchases. Preserve previous deployment evidence.
