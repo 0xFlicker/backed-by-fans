@@ -3,16 +3,15 @@ import { formatMembershipDate } from "./date";
 
 import Link from "next/link";
 import { AccountRewards } from "./AccountRewards";
-import {
-  readAccountRewards,
-  rewardScale,
-  sortClaimSelection,
-} from "./account-rewards-read";
+import { sortClaimSelection } from "./account-rewards-read";
+import { StreamingAmount } from "@/components/StreamingAmount";
+import type { EarningsStream } from "@/lib/streaming-amount";
+import { readAccountRewardStreams } from "./account-reward-streams";
 import { readRewardUsdPrices, formatRewardUsd } from "@/lib/reward-usd";
 import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ArrowClockwiseIcon } from "@phosphor-icons/react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import type { Address } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
 
@@ -20,7 +19,6 @@ import { ReadStateView } from "@/components/ReadState";
 import { ResilientArtworkImage } from "@/components/ResilientArtworkImage";
 import {
   accountCacheKey,
-  emptyAccountCache,
   loadAccountCache,
   mergeAccountPage,
   mergeOwnerPage,
@@ -147,6 +145,7 @@ function HydratedDiscovery({
       discoverAccountPage(client, { deployment, wallet, offset, blockNumber }),
     initialData:
       request === 0 && initialPage?.offset === offset ? initialPage : undefined,
+    placeholderData: keepPreviousData,
     retry: false,
   });
   const paymentTokens = useQuery({
@@ -179,7 +178,7 @@ function HydratedDiscovery({
       : "Payment token unavailable";
   }
   const currentCache = useMemo(() => {
-    const page = discovery.data;
+    const page = discovery.isPlaceholderData ? undefined : discovery.data;
     const base = page
       ? mergeAccountPage(savedCache, {
           resumeOffset: page.skipped.length ? page.offset : page.scannedTo,
@@ -202,7 +201,7 @@ function HydratedDiscovery({
           : cache,
       base,
     );
-  }, [discovery.data, savedCache, ownerPages]);
+  }, [discovery.data, discovery.isPlaceholderData, savedCache, ownerPages]);
   useEffect(() => {
     if (discovery.data)
       saveAccountCache(window.localStorage, cacheKey, currentCache);
@@ -224,11 +223,12 @@ function HydratedDiscovery({
       ]),
   });
   function refresh() {
-    setSavedCache(emptyAccountCache());
+    setSavedCache(currentCache);
     setOwnerPages([]);
     setOffset(0n);
     setBlockNumber(undefined);
     setRequest((value) => value + 1);
+    void earnings.refetch();
   }
   const rewardTiers = sortClaimSelection(
     currentCache.results.map((tier) => ({
@@ -244,9 +244,8 @@ function HydratedDiscovery({
       deployment.factoryAddress,
       wallet,
       rewardTiers.map((tier) => [tier.tier, tier.tokenIds.map(String)]),
-      request,
     ],
-    queryFn: () => readAccountRewards(client, wallet, rewardTiers),
+    queryFn: () => readAccountRewardStreams(client, wallet, rewardTiers),
     enabled: rewardTiers.length > 0,
     refetchInterval: 15_000,
     retry: false,
@@ -267,8 +266,18 @@ function HydratedDiscovery({
     const total =
       result.reward + result.retired + result.referral + result.creator;
     const token = tier.paymentToken.toLowerCase() as Address;
-    if (total > 0n) totals.set(token, (totals.get(token) ?? 0n) + total);
+    if (
+      total > 0n ||
+      result.streams.some((stream) => stream.complete && stream.rate > 0n)
+    )
+      totals.set(token, (totals.get(token) ?? 0n) + total);
   }
+  const streamsFor = (token: Address) =>
+    currentCache.results.flatMap((tier) =>
+      tier.paymentToken.toLowerCase() === token.toLowerCase()
+        ? (rewards.get(tier.tier.toLowerCase())?.streams ?? [])
+        : [],
+    );
   const rewardTokens = [...totals.keys()];
   const usd = useQuery({
     queryKey: [
@@ -306,18 +315,32 @@ function HydratedDiscovery({
           ) : totals.size === 0 ? (
             <p>No rewards to claim yet.</p>
           ) : (
-            [...totals].map(([token, amount]) => {
+            [...totals].map(([token]) => {
               const quote = usd.data?.find(
                 (item) => item.token.toLowerCase() === token,
               );
               return (
                 <div className="account-reward-balance" key={token}>
                   <p className="account-reward-amount">
-                    {claimLabel(amount, token)}
+                    <StreamingAmount
+                      identity={`${deployment.chainId}:${wallet}:${token}:total`}
+                      streams={streamsFor(token)}
+                      format={(raw) => claimLabel(raw, token)}
+                      refresh={() => earnings.refetch()}
+                      active={!earnings.isError}
+                    />
                   </p>
                   {quote && (
                     <p className="account-reward-usd">
-                      ≈ {formatRewardUsd(amount, quote.price)}
+                      <StreamingAmount
+                        identity={`${deployment.chainId}:${wallet}:${token}:usd`}
+                        streams={streamsFor(token)}
+                        format={(raw) =>
+                          `≈ ${formatRewardUsd(raw, quote.price)}`
+                        }
+                        refresh={() => earnings.refetch()}
+                        active={!earnings.isError}
+                      />
                     </p>
                   )}
                 </div>
@@ -351,7 +374,7 @@ function HydratedDiscovery({
       {discovery.isPending && (
         <p role="status">Looking for memberships connected to this wallet.</p>
       )}
-      {(discovery.isError || !discovery.isFetchedAfterMount) &&
+      {(discovery.isError || !discovery.data) &&
         currentCache.results.length > 0 && (
           <p role="status">Refresh to update your memberships.</p>
         )}
@@ -386,8 +409,21 @@ function HydratedDiscovery({
       <ul className="account-tier-list">
         {currentCache.results.map((tier, index) => {
           const current = rewards.get(tier.tier.toLowerCase());
-          const previewAmount = (amount: bigint | undefined) =>
-            amount === undefined ? "—" : claimLabel(amount, tier.paymentToken);
+          const previewAmount = (
+            stream: EarningsStream | undefined,
+            category: string,
+          ) =>
+            stream ? (
+              <StreamingAmount
+                identity={`${deployment.chainId}:${wallet}:${tier.tier}:${category}`}
+                streams={[stream]}
+                format={(raw) => claimLabel(raw, tier.paymentToken)}
+                refresh={() => earnings.refetch()}
+                active={!earnings.isError}
+              />
+            ) : (
+              "—"
+            );
           const viewHref =
             `/chains/${deployment.chainId}/tiers/${tier.tier}` as Route;
           return (
@@ -441,11 +477,7 @@ function HydratedDiscovery({
                           <dl className="account-position-reward">
                             <dt>To claim</dt>
                             <dd>
-                              {previewAmount(
-                                reward
-                                  ? reward.creditScaled / rewardScale
-                                  : undefined,
-                              )}
+                              {previewAmount(reward?.stream, position.tokenId)}
                             </dd>
                           </dl>
                         </li>
@@ -467,41 +499,46 @@ function HydratedDiscovery({
                   )}
                   {((current?.retired ?? 0n) > 0n ||
                     (current?.referral ?? 0n) > 0n ||
+                    (current?.referralStream.rate ?? 0n) > 0n ||
                     tier.creatorOwned) && (
                     <dl className="account-card-balances">
                       {(current?.retired ?? 0n) > 0n && (
                         <div>
                           <dt>Other rewards</dt>
-                          <dd>{previewAmount(current?.retired)}</dd>
+                          <dd>
+                            {previewAmount(current?.retiredStream, "retired")}
+                          </dd>
                         </div>
                       )}
-                      {(current?.referral ?? 0n) > 0n && (
+                      {((current?.referral ?? 0n) > 0n ||
+                        (current?.referralStream.rate ?? 0n) > 0n) && (
                         <div>
                           <dt>Referral earnings</dt>
-                          <dd>{previewAmount(current?.referral)}</dd>
+                          <dd>
+                            {previewAmount(current?.referralStream, "referral")}
+                          </dd>
                         </div>
                       )}
                       {tier.creatorOwned && (
                         <div>
                           <dt>Creator earnings</dt>
-                          <dd>{previewAmount(current?.creator)}</dd>
+                          <dd>
+                            {previewAmount(current?.creatorStream, "creator")}
+                          </dd>
                         </div>
                       )}
                     </dl>
                   )}
-                  <div className="account-tier-actions">
-                    <Link className="button button-dark" href={viewHref}>
-                      View membership
-                    </Link>
-                    {tier.creatorOwned && (
+                  {tier.creatorOwned && (
+                    <div className="account-tier-actions">
                       <Link
                         className="button button-dark"
                         href={`${viewHref}/manage` as Route}
                       >
                         Manage membership
                       </Link>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </article>
             </li>

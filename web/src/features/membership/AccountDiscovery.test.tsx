@@ -33,9 +33,61 @@ const rewardMock = vi.hoisted(() => ({
   referral: 0n,
   retired: 0n,
 }));
-vi.mock("./account-rewards-read", async (original) => ({
-  ...(await original<typeof import("./account-rewards-read")>()),
-  readAccountRewards: rewardMock.preview,
+vi.mock("./account-reward-streams", () => ({
+  readAccountRewardStreams: async (...args: unknown[]) => {
+    const result = await rewardMock.preview(...args);
+    const stream = (raw: bigint) => ({
+      raw,
+      fractional: 0n,
+      rate: 0n,
+      asOf: 100n,
+      nextBoundary: 200n,
+      complete: true,
+    });
+    return {
+      ...result,
+      results: result.results.map(
+        (item: {
+          positions: { tokenId: bigint; creditScaled: bigint }[];
+          retired: bigint;
+          referral: bigint;
+          creator: bigint;
+        }) => {
+          const positions = item.positions.map((position) => ({
+            ...position,
+            stream: stream(position.creditScaled / (1n << 128n)),
+          }));
+          const retiredStream = stream(item.retired),
+            referralStream = stream(item.referral),
+            creatorStream = stream(item.creator);
+          return {
+            ...item,
+            positions,
+            retiredStream,
+            referralStream,
+            creatorStream,
+            streams: [
+              ...positions.map((position) => position.stream),
+              retiredStream,
+              referralStream,
+              creatorStream,
+            ],
+          };
+        },
+      ),
+    };
+  },
+}));
+vi.mock("@/components/StreamingAmount", () => ({
+  StreamingAmount: ({
+    streams,
+    format,
+  }: {
+    streams: { raw: bigint }[];
+    format: (raw: bigint) => string;
+  }) => (
+    <span>{format(streams.reduce((sum, stream) => sum + stream.raw, 0n))}</span>
+  ),
 }));
 vi.mock("./AccountRewards", () => ({
   AccountRewards: ({ children }: { children: import("react").ReactNode }) => (
@@ -389,13 +441,13 @@ describe("account discovery", () => {
   });
 
   it("retains visible snapshot positions and labels them stale when refresh fails", async () => {
-    const { queryClient } = renderSnapshot();
+    const { user } = renderSnapshot();
     vi.mocked(discoverAccountPage).mockRejectedValue(
       new Error("RPC unavailable"),
     );
-    await act(async () => {
-      await queryClient.refetchQueries({ queryKey: ["account-discovery"] });
-    });
+    await user.click(
+      screen.getByRole("button", { name: "Refresh memberships" }),
+    );
     expect(
       await screen.findByText(/No balance or membership value was assumed/),
     ).toBeVisible();
@@ -548,4 +600,77 @@ it("labels incomplete reward previews without implying the total is final", asyn
   expect(
     screen.getByText(/Some rewards are still being checked/),
   ).toBeVisible();
+});
+
+it("keeps cards, artwork and reward totals mounted during a manual refresh", async () => {
+  const { user } = renderSnapshot();
+  expect(await screen.findAllByText("0.08 AMD")).toHaveLength(2);
+  const card = screen.getByRole("article");
+  const artwork = within(card).getByRole("img");
+  const summary = within(
+    screen.getByRole("region", { name: "Rewards" }),
+  ).getByText("0.08 AMD");
+  let finishDiscovery!: (value: AccountDiscoveryPage) => void;
+  vi.mocked(discoverAccountPage).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishDiscovery = resolve;
+      }),
+  );
+  let finishRewards!: (value: unknown) => void;
+  rewardMock.preview.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishRewards = resolve;
+      }),
+  );
+  await user.click(screen.getByRole("button", { name: "Refresh memberships" }));
+  expect(screen.getByRole("article")).toBe(card);
+  expect(within(card).getByRole("img")).toBe(artwork);
+  expect(summary).toBeVisible();
+  expect(screen.queryByText("Checking rewards…")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Looking for memberships/)).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "View membership" }),
+  ).not.toBeInTheDocument();
+  await act(async () => {
+    finishDiscovery({ ...page, capturedBlock: 101n });
+    finishRewards({
+      complete: true,
+      results: [
+        {
+          reward: 90_000n,
+          retired: 0n,
+          referral: 0n,
+          creator: 0n,
+          complete: true,
+          positions: [{ tokenId: 1n, creditScaled: 90_000n * (1n << 128n) }],
+        },
+      ],
+    });
+  });
+  expect(await screen.findAllByText("0.09 AMD")).toHaveLength(2);
+  expect(screen.getByRole("article")).toBe(card);
+  expect(within(card).getByRole("img")).toBe(artwork);
+});
+
+it("replaces earlier ownership pages when a fresh snapshot removes positions", async () => {
+  const { user } = renderSnapshot(partialOwnerPage());
+  await user.click(
+    screen.getByRole("button", { name: "More memberships in Genesis Fans" }),
+  );
+  expect(
+    await screen.findByRole("link", { name: "Membership #2" }),
+  ).toBeVisible();
+  vi.mocked(discoverAccountPage).mockResolvedValueOnce({
+    ...page,
+    capturedBlock: 101n,
+  });
+  await user.click(screen.getByRole("button", { name: "Refresh memberships" }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("link", { name: "Membership #2" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(screen.getByRole("link", { name: "Membership #1" })).toBeVisible();
 });

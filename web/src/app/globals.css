@@ -3138,6 +3138,9 @@ dd {
 }
 
 .account-membership-card {
+  position: relative;
+  isolation: isolate;
+  grid-template-rows: auto 1fr;
   background: var(--paper);
   border: 2px solid var(--strong-line);
   border-radius: var(--radius);
@@ -3149,6 +3152,24 @@ dd {
 .account-card-artwork-link {
   display: block;
   text-decoration: none;
+}
+
+.account-card-artwork-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.account-card-artwork-link:focus-visible::after {
+  outline: 2px solid var(--ink);
+  outline-offset: -4px;
+}
+
+.account-card-copy :is(a, button) {
+  position: relative;
+  z-index: 2;
 }
 
 .account-card-artwork {
@@ -3183,6 +3204,7 @@ dd {
 
 .account-card-copy {
   display: grid;
+  align-content: start;
   gap: 1.25rem;
   min-height: 16rem;
   padding: 1.35rem;
