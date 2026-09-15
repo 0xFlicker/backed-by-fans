@@ -140,13 +140,13 @@ if args.solidity:
     vectors = [(*key, expected) for key, expected in cases.items()]
     words = [word for vector in vectors for word in vector]
     encoded = b''.join(word.to_bytes(32, 'big') for word in [32, len(words), *words])
-    (target / 'cases.bin').write_bytes(encoded)
+    (contracts / 'test/fixtures/reward-curve-cases.bin').write_bytes(encoded)
     lifecycle_words = [word for vector in lifecycle_cases for word in vector]
     (target / 'lifecycle.bin').write_bytes(b''.join(word.to_bytes(32, 'big') for word in [32, len(lifecycle_words), *lifecycle_words]))
     (target / 'cases.json').write_text(json.dumps(vectors, indent=2) + '\n')
     linking = json.loads((contracts / 'out/vesting-leaf/link-manifest.json').read_text())['mapping']
     command = ['forge', 'test', '--libraries', linking, '--match-contract', 'RewardCurveCalibrationTest', '--code-size-limit', '1000000', '--gas-limit', '1000000000', '-vv']
-    result = subprocess.run(command, cwd=contracts, env={**os.environ, 'FOUNDRY_PROFILE': 'robinhood', 'FOUNDRY_TEST': 'test/vesting'}, capture_output=True, text=True)
+    result = subprocess.run(command, cwd=contracts, env={**os.environ, 'FOUNDRY_PROFILE': 'robinhood', 'FOUNDRY_TEST': 'test'}, capture_output=True, text=True)
     output = result.stdout + result.stderr
     (target / 'solidity.log').write_text(output)
     if result.returncode:
