@@ -17,7 +17,7 @@ Record the release-candidate security findings, their protocol context, and the 
 - **Accepted:** The finding requires a change before release.
 - **Risk accepted:** The behavior is intentional and its bounded consequences are documented.
 - **Rejected:** The claimed exploit does not hold under the supported trust model or contract behavior.
-- **Dismissed upstream:** The concern belongs to the external Pons system and is unreachable under the enforced Backed By Fans configuration.
+- **Dismissed upstream:** Excluded from this release decision for the reason recorded in the finding: configuration-based unreachability or external Pons ownership scope.
 
 ---
 
@@ -46,23 +46,29 @@ The intended policy uses maximum batch sizes, global and per-asset cooldowns, an
 
 #### Recommendations
 
-- R1. Use operator-controlled execution during the launch and single-venue phase, with the operator authorizing each buyback's timing, amount, and minimum output.
+- R1. Use operator-controlled execution during the launch and single-venue phase. The trusted operator controls timing, amount, route, and minimum outputs, supplying all policy terms per transaction from off-chain policy. Do not store operator policy on-chain.
 - R2. Submit operator transactions through private order flow where the chain supports it, while retaining a hard minimum-output check as the failure boundary.
-- R3. Preserve the existing route, batch-size, cooldown, revision, pause, settlement, and burn controls in every execution mode.
-- R4. If execution modes are switchable, support `OperatorGuarded`, `PermissionlessGuarded`, and `Paused`; do not provide permissionless execution with a one-unit output floor.
+- R3. Preserve structural route validation, pause, exact settlement, and burn controls in both execution modes. Stored route, batch-size, cooldown, and policy-revision controls apply to permissionless execution; the operator supplies its economic terms off-chain.
+- R4. Ship an on-contract transition between `OperatorGuarded` and `PermissionlessGuarded`, retaining global and per-asset pause controls. Do not provide unguarded permissionless execution.
 - R5. Make the Safe the economic authority for any transition to `PermissionlessGuarded`, including the caller-independent price limits active at that transition.
 - R6. Evaluate the complete route, including payment-asset conversion legs, rather than treating the final Pons pool fee as protection for the entire transaction.
-- R7. Define “barely profitable” as a measurable maximum net extraction after venue fees, flash-liquidity costs, gas, and the portion of fees that returns to the protocol.
+- R7. Report protocol net loss and attacker net profit separately, accounting for venue fees, liquidity costs, gas, and recovered protocol fees. Record the Safe's quantitative acceptance criteria before enabling permissionless execution; do not equate protocol loss with attacker profit.
+- R14. Only the factory-owner Safe may appoint, replace, or revoke the operator and change execution mode. The operator is trusted economic and route authority within the executor's supported typed routes; it gains no withdrawal or governance authority.
+- R15. Permissionless policy expiry and cumulative budgets are optional. Zero expiry means indefinite validity and zero configured budget means unlimited spending under the existing per-transaction limits and cooldowns. A Safe may configure permanent settings without renewal.
 
 #### Decision
 
-`OperatorGuarded` assigns per-transaction economic authority to the configured operator. A transition to `PermissionlessGuarded` assigns economic authority to the Safe, which must authorize the standing caller-independent limits. Findings F1, F2, and F3 are one exploit chain and receive one disposition.
+`OperatorGuarded` assigns per-transaction economic and route authority to the configured trusted operator. Its policy lives entirely off-chain; only authorization, execution mode, and accounting/safety state remain on-chain. A transition to `PermissionlessGuarded` assigns standing economic authority to the Safe, which authorizes the public routes and caller-independent limits. Expiry and finite budgets are optional, not release requirements. Findings F1, F2, and F3 are one exploit chain and receive one disposition.
+
+Unpredictable timing and private submission can reduce ordering exposure, but do not guarantee sandwich prevention. On-chain storage is public, and public transaction submission reveals execution terms before inclusion. Hard output bounds remain the enforceable failure boundary.
 
 #### Acceptance examples
 
 - AE1. **Covers R1-R3.** When the Pons curve or pool is the only protocol-token venue, only the configured operator can initiate a market buyback under its submitted minimum output, and a failed price check leaves inventory and cooldowns unchanged.
 - AE2. **Covers R4-R5.** When governance enables permissionless execution, the same change also activates a caller-independent economic bound; no interval exists where an arbitrary caller can execute with a dust output floor.
 - AE3. **Covers R6-R7.** When a payment token requires conversion before the Pons purchase, the economic analysis includes manipulation of every conversion pool and reports consolidated protocol loss after recovered fees.
+- AE4. **Covers R1, R14.** An authorized operator can execute with a supported transaction-supplied route and positive market-leg minima even when no public route or policy exists. Revocation immediately rejects later operator calls, and the public router cannot bypass operator authorization.
+- AE5. **Covers R15.** A permissionless policy with zero expiry and unlimited budget remains eligible without renewal, subject to its route, price, batch, cooldown, lifecycle, and pause controls.
 
 #### Sources
 

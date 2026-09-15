@@ -22,6 +22,11 @@ export const buybackStatusLabels = [
   "Launch penalty active",
   "Graduation pending",
   "Protocol token has not been deployed",
+  "Market purchases are executed by the authorized operator",
+  "Public price limits needed",
+  "Public price limits expired",
+  "Public spending budget exhausted",
+  "Public policy needs updating",
 ];
 
 export function ProcessBuyback({
@@ -142,18 +147,20 @@ export function ProcessBuyback({
   const explorer = getSupportedChain(chainId).blockExplorers?.default.url;
   return (
     <div className="buyback-action">
-      <button
-        type="button"
-        className="button button-dark"
-        disabled={blocked || action.isPending}
-        onClick={() => action.mutate()}
-      >
-        {action.isPending
-          ? "Processing…"
-          : bucket === 0
-            ? "Process membership fees"
-            : "Process donation"}
-      </button>
+      {status !== 10 && (
+        <button
+          type="button"
+          className="button button-dark"
+          disabled={blocked || action.isPending}
+          onClick={() => action.mutate()}
+        >
+          {action.isPending
+            ? "Processing…"
+            : bucket === 0
+              ? "Process membership fees"
+              : "Process donation"}
+        </button>
+      )}
       <p className="small-copy">
         {!account.isConnected
           ? "Connect a wallet to process. You pay network gas."

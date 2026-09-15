@@ -33,7 +33,32 @@ library BuybackTypes {
         Cooldown,
         LaunchPenalty,
         GraduationPending,
-        TokenNotLaunched
+        TokenNotLaunched,
+        OperatorOnly,
+        NoPolicy,
+        PolicyExpired,
+        BudgetExhausted,
+        StalePolicy
+    }
+
+    enum ExecutionMode {
+        OperatorGuarded,
+        PermissionlessGuarded
+    }
+
+    /// @notice Raw output units per raw offered input unit, rounded upward.
+    struct OutputRate {
+        uint256 numerator;
+        uint256 denominator;
+    }
+
+    struct PermissionlessPolicy {
+        Lifecycle lifecycle;
+        uint64 revision;
+        uint64 expiresAt;
+        bool budgetLimited;
+        uint256 remainingBudget;
+        OutputRate[] rates;
     }
 
     struct ProcessingState {

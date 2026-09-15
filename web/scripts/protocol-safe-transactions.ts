@@ -94,13 +94,17 @@ export async function executeForkSafePayload(input: {
             "setGlobalMinInterval",
             "setBuybacksPaused",
             "setAssetBuybacksPaused",
+            "setOperator",
+            "setExecutionMode",
+            "setPermissionlessPolicy",
           ]
     ).includes(decoded.functionName)
   )
     throw new Error("Unsupported configuration call");
   if (
     decoded.functionName === "setRoute" ||
-    decoded.functionName === "setLimits"
+    decoded.functionName === "setLimits" ||
+    decoded.functionName === "setPermissionlessPolicy"
   ) {
     const revision = await client.readContract({
       address: context.vault,
@@ -215,7 +219,8 @@ export async function executeForkSafePayload(input: {
     throw new Error("Unexpected Safe nonce after execution");
   if (
     decoded.functionName === "setRoute" ||
-    decoded.functionName === "setLimits"
+    decoded.functionName === "setLimits" ||
+    decoded.functionName === "setPermissionlessPolicy"
   ) {
     const revision = await client.readContract({
       address: context.vault,
@@ -284,6 +289,49 @@ export async function executeForkSafePayload(input: {
       }) !== payload.data
     )
       throw new Error("Limits postcondition failed");
+  } else if (decoded.functionName === "setOperator") {
+    const operator = await client.readContract({
+      address: context.vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "operator",
+      blockNumber,
+    });
+    if (operator.toLowerCase() !== decoded.args[0].toLowerCase())
+      throw new Error("Operator postcondition failed");
+  } else if (decoded.functionName === "setExecutionMode") {
+    const mode = await client.readContract({
+      address: context.vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "executionMode",
+      blockNumber,
+    });
+    if (mode !== decoded.args[0])
+      throw new Error("Execution mode postcondition failed");
+  } else if (decoded.functionName === "setPermissionlessPolicy") {
+    const [asset, , , , budget] = decoded.args;
+    const policy = await client.readContract({
+      address: context.vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "permissionlessPolicy",
+      args: [asset],
+      blockNumber,
+    });
+    if (
+      policy.revision.toString() !== payload.expectedRevision ||
+      policy.budgetLimited !== (budget !== 0n) ||
+      encodeFunctionData({
+        abi: protocolBuybackVaultAbi,
+        functionName: "setPermissionlessPolicy",
+        args: [
+          asset,
+          policy.lifecycle,
+          policy.rates,
+          policy.expiresAt,
+          policy.remainingBudget,
+        ],
+      }) !== payload.data
+    )
+      throw new Error("Permissionless policy postcondition failed");
   } else if (decoded.functionName === "setGlobalMinInterval") {
     const interval = await client.readContract({
       address: context.vault,

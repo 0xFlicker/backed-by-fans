@@ -2,6 +2,8 @@ import { percentageBps } from "../src/lib/buyback-settings/calculator";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import type { Pool } from "../src/lib/buyback-policy/model";
 import {
   createPublicClient,
   createWalletClient,
@@ -27,7 +29,11 @@ import {
   iPonsLaunchFactoryAbi,
   iPonsBondingCurveAbi,
 } from "../src/contracts";
-import { readAdminContext, validateAdminRpc } from "./protocol-admin";
+import {
+  readAdminContext,
+  validateAdminRpc,
+  parseRoutePools,
+} from "./protocol-admin";
 import sourceManifest from "../../contracts/external/verification/4663/sources.json" with { type: "json" };
 import { readMarketState, quoteMarket } from "../src/lib/buyback-policy/live";
 import { receiptBuyback } from "../src/features/protocol/buyback-reconciliation";
@@ -43,15 +49,49 @@ const statuses = [
   "Cooldown",
   "LaunchPenalty",
   "GraduationPending",
+  "TokenNotLaunched",
+  "OperatorOnly",
+  "NoPolicy",
+  "PolicyExpired",
+  "BudgetExhausted",
+  "StalePolicy",
 ];
 const errorMessage = (error: unknown) =>
   (error instanceof Error ? error.message : String(error)).replace(
     /https?:\/\/[^\s]+/g,
     "[RPC endpoint]",
   );
+export type OperatorPolicy = {
+  asset: Address;
+  amount: bigint;
+  pools: readonly Pool[];
+};
+
+export function minimumOutputs(
+  quotes: readonly { outputRaw: bigint }[],
+  toleranceBps: number,
+) {
+  if (
+    !Number.isInteger(toleranceBps) ||
+    toleranceBps < 0 ||
+    toleranceBps >= 10000
+  )
+    throw new Error("Explicit output tolerance must be 0–9999 basis points");
+  if (quotes.length === 0)
+    throw new Error("Every market purchase requires quotes");
+  return quotes.map(({ outputRaw }) => {
+    const minimum = (outputRaw * BigInt(10000 - toleranceBps)) / 10000n;
+    if (minimum <= 0n)
+      throw new Error("Quoted minimum output must be positive");
+    return minimum;
+  });
+}
+
 type Options = {
   client: PublicClient;
   wallet: WalletClient;
+  submissionMode?: "public" | "private";
+  operatorClient?: PublicClient;
   account: Address | LocalAccount;
   chainId: number;
   factory: Address;
@@ -61,6 +101,8 @@ type Options = {
   curve: Address;
   assets?: readonly Address[];
   maxGasPercent?: number;
+  operatorPolicies?: readonly OperatorPolicy[];
+  toleranceBps?: number;
   log: (event: Record<string, unknown>) => void;
 };
 type TierCursor = { tier: Address };
@@ -84,6 +126,11 @@ export function createBuybackRunner(options: Options) {
     ponsFactory,
     curve,
   } = options;
+  if (options.submissionMode === "private" && !options.operatorClient)
+    throw new Error(
+      "Private operator execution requires a trusted private RPC client",
+    );
+  const operatorClient = options.operatorClient ?? client;
   let sweep: Sweep | undefined;
   let stopped = false;
   const log = (event: Record<string, unknown>) =>
@@ -104,7 +151,9 @@ export function createBuybackRunner(options: Options) {
   ) {
     let simulation;
     try {
-      simulation = await client.simulateContract({
+      simulation = await (
+        functionName === "processOperator" ? operatorClient : client
+      ).simulateContract({
         address,
         abi,
         functionName,
@@ -256,6 +305,27 @@ export function createBuybackRunner(options: Options) {
     // Lifecycle submissions still use the fatal unresolved-write boundary.
     await progressGraduation();
     const block = await client.getBlock();
+    const executionMode = await client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "executionMode",
+      blockNumber: block.number,
+    });
+    if (executionMode === 0 && options.operatorPolicies?.length) {
+      const operator = await client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "operator",
+        blockNumber: block.number,
+      });
+      if (
+        operator.toLowerCase() !==
+        (typeof account === "string" ? account : account.address).toLowerCase()
+      )
+        throw new Error("Runner signer is not the authorized operator");
+      if (options.toleranceBps === undefined)
+        throw new Error("Operator purchases require explicit output tolerance");
+    }
     const assetMap = new Map<string, Address>();
     const add = (asset: Address) => {
       const canonical =
@@ -265,7 +335,12 @@ export function createBuybackRunner(options: Options) {
           : asset;
       assetMap.set(canonical.toLowerCase(), canonical);
     };
-    [zeroAddress, protocolToken, ...(options.assets ?? [])].forEach(add);
+    [
+      zeroAddress,
+      protocolToken,
+      ...(options.assets ?? []),
+      ...(options.operatorPolicies ?? []).map((policy) => policy.asset),
+    ].forEach(add);
     const count = await client.readContract({
       address: factory,
       abi: membershipFactoryAbi,
@@ -285,7 +360,7 @@ export function createBuybackRunner(options: Options) {
         throw new Error("Incomplete payment-asset page");
       page.forEach(add);
     }
-    for (const asset of [...assetMap.values()]) {
+    for (const asset of executionMode === 0 ? [] : [...assetMap.values()]) {
       try {
         const route = await client.readContract({
           address: vault,
@@ -334,7 +409,23 @@ export function createBuybackRunner(options: Options) {
           amount: state.maxInput,
           available: state.available,
         };
-        if (state.status !== 0 || state.maxInput === 0n) {
+        const directBurn = asset.toLowerCase() === protocolToken.toLowerCase();
+        const operatorPolicy =
+          executionMode === 0 && !directBurn
+            ? options.operatorPolicies?.find(
+                (policy) => policy.asset.toLowerCase() === asset.toLowerCase(),
+              )
+            : undefined;
+        if (executionMode === 0 && !directBurn && !operatorPolicy) {
+          log({
+            action: "process",
+            ...detail,
+            outcome: "pending",
+            reason: "No offchain operator policy supplied",
+          });
+          continue;
+        }
+        if (!operatorPolicy && (state.status !== 0 || state.maxInput === 0n)) {
           log({
             action: "process",
             ...detail,
@@ -343,35 +434,81 @@ export function createBuybackRunner(options: Options) {
           });
           continue;
         }
-        const deadline = (await client.getBlock()).timestamp + 120n;
+        const executionClient = operatorPolicy ? operatorClient : client;
+        const quoteBlock = await executionClient.getBlock();
+        const deadline = quoteBlock.timestamp + 120n;
+        const amount = operatorPolicy
+          ? state.available < operatorPolicy.amount
+            ? state.available
+            : operatorPolicy.amount
+          : state.maxInput;
+        if (amount === 0n) continue;
+        detail.amount = amount;
+        if (operatorPolicy) detail.revision = 0n;
+        let functionName: "process" | "processOperator" = "process";
+        let args: readonly unknown[] = [
+          asset,
+          bucket,
+          amount,
+          state.revision,
+          deadline,
+        ];
+        let ethValue: bigint | undefined;
+        try {
+          if (
+            operatorPolicy ||
+            (options.maxGasPercent !== undefined && !directBurn)
+          ) {
+            const market = await readMarketState(executionClient, {
+              vault,
+              asset,
+              protocolToken,
+              blockNumber: quoteBlock.number,
+              ...(operatorPolicy ? { route: operatorPolicy.pools } : {}),
+            });
+            const quotes = await quoteMarket(executionClient, market, amount);
+            ethValue = quotes.at(-1)!.inputRaw;
+            if (operatorPolicy) {
+              functionName = "processOperator";
+              args = [
+                asset,
+                bucket,
+                amount,
+                { pools: operatorPolicy.pools },
+                minimumOutputs(quotes, options.toleranceBps!),
+                deadline,
+              ];
+            }
+          }
+        } catch (error) {
+          log({
+            action: "process",
+            ...detail,
+            outcome: "quote-unavailable",
+            reason: errorMessage(error),
+          });
+          continue;
+        }
         if (
           options.maxGasPercent !== undefined &&
           asset.toLowerCase() !== protocolToken.toLowerCase()
         ) {
           try {
-            const block = await client.getBlock();
             const gasPrice =
               options.chainId === 31337
                 ? 100_000_000n
-                : await client.getGasPrice();
-            const market = await readMarketState(client, {
-              vault,
-              asset,
-              protocolToken,
-              blockNumber: block.number,
-            });
-            const quotes = await quoteMarket(client, market, state.maxInput);
-            const ethValue = quotes.at(-1)!.inputRaw;
-            const gas = await client.estimateContractGas({
+                : await executionClient.getGasPrice();
+            const gas = await executionClient.estimateContractGas({
               address: vault,
               abi: protocolBuybackVaultAbi,
-              functionName: "process",
-              args: [asset, bucket, state.maxInput, state.revision, deadline],
+              functionName,
+              args,
               account,
-            });
+              ...(options.chainId === 31337 ? { gasPrice } : {}),
+            } as Parameters<typeof client.estimateContractGas>[0]);
             if (
               gas * gasPrice * 10000n >
-              ethValue * percentageBps(options.maxGasPercent)
+              ethValue! * percentageBps(options.maxGasPercent)
             ) {
               log({
                 action: "process",
@@ -394,8 +531,8 @@ export function createBuybackRunner(options: Options) {
         const receipt = await act(
           vault,
           protocolBuybackVaultAbi,
-          "process",
-          [asset, bucket, state.maxInput, state.revision, deadline],
+          functionName,
+          args,
           detail,
         );
         if (receipt) {
@@ -403,8 +540,8 @@ export function createBuybackRunner(options: Options) {
             vault,
             asset,
             bucket,
-            amount: state.maxInput,
-            revision: state.revision,
+            amount,
+            revision: operatorPolicy ? 0n : state.revision,
           });
           if (!burn) {
             stopped = true;
@@ -555,6 +692,10 @@ export async function main() {
   const { values } = parseArgs({
     options: {
       "rpc-url": { type: "string" },
+      "submission-rpc-url": { type: "string" },
+      "submission-mode": { type: "string" },
+      "operator-policy": { type: "string" },
+      "tolerance-bps": { type: "string" },
       factory: { type: "string" },
       once: { type: "boolean" },
       "max-gas-percent": { type: "string", default: "2.5" },
@@ -563,6 +704,55 @@ export async function main() {
   });
   const rpcUrl = values["rpc-url"] ?? "";
   const factory = getAddress(values.factory ?? "");
+  const submissionMode = values["submission-mode"];
+  if (submissionMode !== "public" && submissionMode !== "private")
+    throw new Error("Choose --submission-mode public or private explicitly");
+  const submissionRpc =
+    values["submission-rpc-url"] ??
+    (submissionMode === "public" ? rpcUrl : undefined);
+  if (!submissionRpc)
+    throw new Error(
+      "Private submission requires an explicitly configured --submission-rpc-url; no public fallback is used",
+    );
+  const operatorPolicies: OperatorPolicy[] | undefined = values[
+    "operator-policy"
+  ]
+    ? JSON.parse(await readFile(values["operator-policy"], "utf8")).map(
+        (entry: { asset: string; amount: string; pools: Pool[] }) => {
+          if (
+            !/^[1-9][0-9]*$/.test(entry.amount) ||
+            !Array.isArray(entry.pools) ||
+            entry.pools.length > 2
+          )
+            throw new Error(
+              "Operator policy requires positive raw amount and up to two pools",
+            );
+          const pools = parseRoutePools(entry.pools);
+          const normalized = getAddress(entry.asset);
+          return {
+            asset:
+              normalized.toLowerCase() ===
+              sourceManifest.records.weth.address.toLowerCase()
+                ? zeroAddress
+                : normalized,
+            amount: BigInt(entry.amount),
+            pools,
+          };
+        },
+      )
+    : undefined;
+  if (
+    operatorPolicies &&
+    new Set(operatorPolicies.map((policy) => policy.asset.toLowerCase()))
+      .size !== operatorPolicies.length
+  )
+    throw new Error("Supply only one operator policy per canonical asset");
+  const toleranceBps =
+    values["tolerance-bps"] === undefined
+      ? undefined
+      : Number(values["tolerance-bps"]);
+  if (operatorPolicies?.length)
+    minimumOutputs([{ outputRaw: 10000n }], toleranceBps ?? NaN);
   const maxGasPercent = Number(values["max-gas-percent"]);
   if (
     !Number.isFinite(maxGasPercent) ||
@@ -590,6 +780,13 @@ export async function main() {
     transport: http(rpcUrl, { retryCount: 0 }),
   });
   const context = await readAdminContext(client, chainId, factory);
+  const operatorClient = createPublicClient({
+    chain,
+    transport: http(submissionRpc, { retryCount: 0 }),
+  });
+  const submissionChainId = await operatorClient.getChainId();
+  if (submissionChainId !== chainId)
+    throw new Error("Submission RPC network differs from read RPC network");
   const key = process.env.BBF_RUNNER_PRIVATE_KEY;
   if (!key || !/^0x[0-9a-fA-F]{64}$/.test(key))
     throw new Error("Set the private runtime signer in BBF_RUNNER_PRIVATE_KEY");
@@ -597,7 +794,7 @@ export async function main() {
   const wallet = createWalletClient({
     chain,
     account,
-    transport: http(rpcUrl, { retryCount: 0 }),
+    transport: http(submissionRpc, { retryCount: 0 }),
   });
   const ponsFactory = getAddress(sourceManifest.records.factory.address);
   const launch =
@@ -611,6 +808,8 @@ export async function main() {
         });
   const runner = createBuybackRunner({
     client,
+    operatorClient,
+    submissionMode,
     wallet,
     account,
     chainId,
@@ -620,10 +819,12 @@ export async function main() {
     ponsFactory,
     curve: launch.curve,
     maxGasPercent,
+    operatorPolicies,
+    toleranceBps,
     assets: values.asset?.map((value) => getAddress(value)),
     log: (event) =>
       console.log(
-        JSON.stringify(event, (_, value) =>
+        JSON.stringify({ submissionMode, ...event }, (_, value) =>
           typeof value === "bigint" ? value.toString() : value,
         ),
       ),

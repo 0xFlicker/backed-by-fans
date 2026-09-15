@@ -51,6 +51,7 @@ import {
   type SignatureFile,
 } from "./safe-settings";
 import styles from "./PolicyReview.module.css";
+import { OperatorBuyback } from "./OperatorBuyback";
 
 type Snapshot = Awaited<ReturnType<typeof readCalculator>>;
 type Rehearsal = {
@@ -77,10 +78,10 @@ export function BuybackSettings({ chainId }: { chainId: SupportedChainId }) {
     <>
       <header className="protocol-heading">
         <p className="eyebrow">Protocol operations</p>
-        <h1>Make buybacks work for you.</h1>
+        <h1>Manage buybacks</h1>
         <p>
-          Pick useful batch sizes and spacing across your currencies. Review
-          them together and save once through your Safe.
+          Submit operator purchases or configure public buyback settings through
+          your Safe.
         </p>
         <WalletControl />
       </header>
@@ -121,13 +122,46 @@ function LoadSettings({ chainId }: { chainId: SupportedChainId }) {
         </button>
       )}
       {query.data && (
-        <SettingsEditor
-          key={`${query.data.capturedBlock}-${query.data.data.vault}`}
-          chainId={chainId}
-          snapshot={query.data}
-          refresh={() => query.refetch()}
-        />
+        <button
+          type="button"
+          className="text-button"
+          disabled={query.isFetching}
+          onClick={() => void query.refetch()}
+        >
+          {query.isFetching ? "Refreshing funds…" : "Refresh funds"}
+        </button>
       )}
+      {query.data &&
+        (query.data.data.executionMode === 0 ? (
+          <>
+            <OperatorBuyback
+              chainId={chainId}
+              snapshot={query.data.data}
+              fees={query.data.fees}
+              releaseTiers={query.data.releaseTiers}
+            />
+            <details>
+              <summary>Permissionless buyback settings</summary>
+              <p>
+                These settings govern public execution only. Saving them does
+                not change execution mode.
+              </p>
+              <SettingsEditor
+                key={`${query.data.capturedBlock}-${query.data.data.vault}`}
+                chainId={chainId}
+                snapshot={query.data}
+                refresh={() => query.refetch()}
+              />
+            </details>
+          </>
+        ) : (
+          <SettingsEditor
+            key={`${query.data.capturedBlock}-${query.data.data.vault}`}
+            chainId={chainId}
+            snapshot={query.data}
+            refresh={() => query.refetch()}
+          />
+        ))}
     </>
   );
 }
@@ -269,6 +303,7 @@ function SettingsEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chainId,
+          action: "limits-only",
           factory: snapshot.data.factory,
           vault: snapshot.data.vault,
           capturedBlock: capturedBlock.toString(),
@@ -418,7 +453,9 @@ function SettingsEditor({
       <p className="small-copy">
         {getSupportedChain(chainId).name} · Snapshot block{" "}
         {snapshot.capturedBlock.toString()}. ETH and WETH share one currency.
-        Settings remain in force until changed.
+        {snapshot.data.executionMode === 0
+          ? " Market purchases are controlled by the trusted operator using off-chain policy. Public settings below do not govern those purchases."
+          : " Anyone may execute purchases within the public route and price limits. Policies without expiry remain in force until changed."}
       </p>
       <button
         type="button"
@@ -709,6 +746,25 @@ function SettingsEditor({
               <details>
                 <summary>Current standing settings</summary>
                 <p>
+                  Public output rates:{" "}
+                  {item.data.policy.rates.length
+                    ? item.data.policy.rates
+                        .map((rate) => `${rate.numerator}/${rate.denominator}`)
+                        .join(", ")
+                    : "not configured"}{" "}
+                  (raw output per raw input, in route order). Expiry:{" "}
+                  {item.data.policy.expiresAt === 0n
+                    ? "none"
+                    : new Date(
+                        Number(item.data.policy.expiresAt) * 1000,
+                      ).toLocaleString()}
+                  . Remaining budget:{" "}
+                  {item.data.policy.budgetLimited
+                    ? amount(item.data.policy.remainingBudget)
+                    : "unlimited"}
+                  .
+                </p>
+                <p>
                   {amount(item.data.limits.minInput)} minimum;{" "}
                   {amount(item.data.limits.maxInput)} maximum;{" "}
                   {item.data.limits.minInterval.toString()} seconds between
@@ -941,7 +997,7 @@ function SettingsEditor({
         />
       )}
       <p>
-        <a href={`/chains/${chainId}/protocol`}>Open permissionless buybacks</a>
+        <a href={`/chains/${chainId}/protocol`}>Open protocol activity</a>
       </p>
     </>
   );

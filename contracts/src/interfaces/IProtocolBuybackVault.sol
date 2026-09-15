@@ -5,6 +5,39 @@ import {BuybackTypes} from "../types/BuybackTypes.sol";
 
 /// @notice Immutable custody identity and authenticated receipt of already-earned tier fees.
 interface IProtocolBuybackVault {
+    event OperatorConfigured(address indexed operator);
+    event ExecutionModeConfigured(BuybackTypes.ExecutionMode mode);
+    event PermissionlessPolicyConfigured(
+        address indexed asset, BuybackTypes.PermissionlessPolicy policy
+    );
+
+    function executionMode() external view returns (BuybackTypes.ExecutionMode);
+    function operator() external view returns (address);
+    function setOperator(address operator_) external;
+    function setExecutionMode(BuybackTypes.ExecutionMode mode) external;
+    function permissionlessPolicy(address asset)
+        external
+        view
+        returns (BuybackTypes.PermissionlessPolicy memory);
+    /// @notice Safe-authorized public rates; expiry 0 is indefinite and inputBudget 0 is unlimited.
+    /// @dev Rates cover conversion pools in order, then the final purchase; unwrap is exact 1:1.
+    function setPermissionlessPolicy(
+        address asset,
+        BuybackTypes.Lifecycle lifecycle_,
+        BuybackTypes.OutputRate[] calldata rates,
+        uint64 expiresAt,
+        uint256 inputBudget
+    ) external;
+    /// @notice Operator-only transaction terms; does not read or store standing routes, limits, or policy.
+    /// @dev Positive absolute minimums cover conversion pools in order, then the final purchase.
+    function processOperator(
+        address asset,
+        BuybackTypes.SourceBucket bucket,
+        uint256 amountIn,
+        BuybackTypes.TypedRoute calldata route_,
+        uint256[] calldata minimumOutputs,
+        uint64 deadline
+    ) external;
     event EarnedFeesReceived(address indexed tier, address indexed asset, uint256 amount);
     event DonationRecorded(address indexed asset, uint256 amount);
     event RouteConfigured(

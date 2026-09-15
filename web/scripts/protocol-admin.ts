@@ -128,22 +128,91 @@ export function validateAdminRpc(network: string, rpcUrl: string) {
   return { chainId, rpcUrl };
 }
 
+export function parseRoutePools(value: unknown) {
+  if (!Array.isArray(value) || value.length > 2)
+    throw new Error("A route has at most two pools");
+  return value.map((value) => {
+    const pool = record(value, [
+      "currency0",
+      "currency1",
+      "fee",
+      "tickSpacing",
+      "hooks",
+    ]);
+    const currency0 = address(pool.currency0),
+      currency1 = address(pool.currency1),
+      hooks = address(pool.hooks);
+    if (BigInt(currency0) >= BigInt(currency1))
+      throw new Error("Pool currencies must be ordered");
+    if (hooks !== zeroAddress) throw new Error("Conversion hooks must be zero");
+    return {
+      currency0,
+      currency1,
+      fee: integer(pool.fee, "fee", 0, 1000000),
+      tickSpacing: integer(pool.tickSpacing, "tick spacing", 1, 32767),
+      hooks,
+    };
+  });
+}
+
 export function parseBuybackInput(action: string, value: unknown) {
-  if (!["route", "limits", "interval", "pause", "asset-pause"].includes(action))
+  if (
+    ![
+      "route",
+      "limits",
+      "interval",
+      "pause",
+      "asset-pause",
+      "operator",
+      "mode",
+      "policy",
+    ].includes(action)
+  )
     throw new Error("Unknown buyback action");
   const input = record(
     value,
-    action === "route"
-      ? ["asset", "expectedRevisionRaw", "expectedSafeNonceRaw", "pools"]
-      : action === "limits"
-        ? ["asset", "expectedRevisionRaw", "expectedSafeNonceRaw", "limits"]
-        : action === "interval"
-          ? ["expectedSafeNonceRaw", "minInterval"]
-          : action === "pause"
-            ? ["expectedSafeNonceRaw", "paused"]
-            : ["asset", "expectedSafeNonceRaw", "paused"],
+    action === "operator"
+      ? ["expectedSafeNonceRaw", "operator"]
+      : action === "mode"
+        ? ["expectedSafeNonceRaw", "mode"]
+        : action === "policy"
+          ? [
+              "expectedSafeNonceRaw",
+              "asset",
+              "expectedRevisionRaw",
+              "lifecycle",
+              "rates",
+              "expiresAt",
+              "inputBudget",
+            ]
+          : action === "route"
+            ? ["asset", "expectedRevisionRaw", "expectedSafeNonceRaw", "pools"]
+            : action === "limits"
+              ? [
+                  "asset",
+                  "expectedRevisionRaw",
+                  "expectedSafeNonceRaw",
+                  "limits",
+                ]
+              : action === "interval"
+                ? ["expectedSafeNonceRaw", "minInterval"]
+                : action === "pause"
+                  ? ["expectedSafeNonceRaw", "paused"]
+                  : ["asset", "expectedSafeNonceRaw", "paused"],
   );
   const safeNonce = raw(input.expectedSafeNonceRaw, "Safe nonce", 256);
+  if (action === "operator")
+    return {
+      method: "setOperator" as const,
+      args: [address(input.operator)] as const,
+      safeNonce,
+    };
+  if (action === "mode")
+    return {
+      method: "setExecutionMode" as const,
+      args: [integer(input.mode, "execution mode", 0, 1)] as const,
+      safeNonce,
+    };
   if (action === "pause")
     return {
       method: "setBuybacksPaused" as const,
@@ -165,32 +234,38 @@ export function parseBuybackInput(action: string, value: unknown) {
       asset,
     };
   const revision = raw(input.expectedRevisionRaw, "revision", 64);
-  if (action === "route") {
-    if (!Array.isArray(input.pools) || input.pools.length > 2)
-      throw new Error("A route has at most two pools");
-    const pools = input.pools.map((value) => {
-      const pool = record(value, [
-        "currency0",
-        "currency1",
-        "fee",
-        "tickSpacing",
-        "hooks",
-      ]);
-      const currency0 = address(pool.currency0),
-        currency1 = address(pool.currency1),
-        hooks = address(pool.hooks);
-      if (BigInt(currency0) >= BigInt(currency1))
-        throw new Error("Pool currencies must be ordered");
-      if (hooks !== zeroAddress)
-        throw new Error("Conversion hooks must be zero");
+  if (action === "policy") {
+    if (
+      !Array.isArray(input.rates) ||
+      input.rates.length < 1 ||
+      input.rates.length > 3
+    )
+      throw new Error("Supply one positive rate per market leg");
+    if (input.lifecycle !== 0 && input.lifecycle !== 2)
+      throw new Error("Policy lifecycle must be bonding (0) or pool (2)");
+    const rates = input.rates.map((value) => {
+      const rate = record(value, ["numerator", "denominator"]);
       return {
-        currency0,
-        currency1,
-        fee: integer(pool.fee, "fee", 0, 1000000),
-        tickSpacing: integer(pool.tickSpacing, "tick spacing", 1, 32767),
-        hooks,
+        numerator: raw(rate.numerator, "rate numerator", 256, true),
+        denominator: raw(rate.denominator, "rate denominator", 256, true),
       };
     });
+    return {
+      method: "setPermissionlessPolicy" as const,
+      args: [
+        asset,
+        integer(input.lifecycle, "lifecycle", 0, 2),
+        rates,
+        raw(input.expiresAt, "expiry", 64),
+        raw(input.inputBudget, "input budget", 256),
+      ] as const,
+      safeNonce,
+      asset,
+      revision,
+    };
+  }
+  if (action === "route") {
+    const pools = parseRoutePools(input.pools);
     return {
       method: "setRoute" as const,
       args: [asset, { pools }] as const,
@@ -848,6 +923,25 @@ async function main() {
         args: [asset],
         blockNumber: context.blockNumber,
       }),
+      client.readContract({
+        address: context.vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "executionMode",
+        blockNumber: context.blockNumber,
+      }),
+      client.readContract({
+        address: context.vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "operator",
+        blockNumber: context.blockNumber,
+      }),
+      client.readContract({
+        address: context.vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "permissionlessPolicy",
+        args: [asset],
+        blockNumber: context.blockNumber,
+      }),
     ]);
     console.log(
       json({
@@ -858,13 +952,16 @@ async function main() {
         revision: reads[2],
         globalPaused: reads[3],
         assetPaused: reads[4],
+        executionMode: reads[5],
+        operator: reads[6],
+        permissionlessPolicy: reads[7],
       }),
     );
     return;
   }
   if (args.length !== 5 || args[1] !== "--input" || args[3] !== "--output")
     throw new Error(
-      "prepare <route|limits|interval|pause|asset-pause> --input <json-file> --output <payload-file>",
+      "prepare <route|limits|interval|pause|asset-pause|operator|mode|policy> --input <json-file> --output <payload-file>",
     );
   const input = JSON.parse(await readFile(args[2], "utf8"));
   const payload = await prepareBuybackPayload(client, context, args[0], input);

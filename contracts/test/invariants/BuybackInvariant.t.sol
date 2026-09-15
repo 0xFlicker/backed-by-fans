@@ -157,7 +157,7 @@ contract BuybackHandler is Test {
             a.asset,
             BuybackTypes.SourceBucket(a.bucket),
             a.amount,
-            a.direct ? 0 : 2,
+            a.direct ? 0 : vault.revision(a.asset),
             SafeCast.toUint64(block.timestamp)
         ) {
             assertFalse(a.failure, "fault unexpectedly consumed inventory");
@@ -266,6 +266,16 @@ contract BuybackInvariantTest is StdInvariant, Test {
         vault.setRoute(address(payment), BuybackTypes.TypedRoute(pools));
         vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, 1 ether, 0));
         vault.setLimits(address(payment), BuybackTypes.ExecutionLimits(1, 100, 0));
+        BuybackTypes.OutputRate[] memory nativeRates = new BuybackTypes.OutputRate[](1);
+        nativeRates[0] = BuybackTypes.OutputRate(1, 1e30);
+        vault.setPermissionlessPolicy(address(0), BuybackTypes.Lifecycle.Bonding, nativeRates, 0, 0);
+        BuybackTypes.OutputRate[] memory paymentRates = new BuybackTypes.OutputRate[](2);
+        paymentRates[0] = nativeRates[0];
+        paymentRates[1] = nativeRates[0];
+        vault.setPermissionlessPolicy(
+            address(payment), BuybackTypes.Lifecycle.Bonding, paymentRates, 0, 0
+        );
+        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
         vault.setBuybacksPaused(false);
         address renderer = deployCode("OnchainMetadataRenderer.sol:OnchainMetadataRenderer");
         MembershipTypes.TierConfig memory config =

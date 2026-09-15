@@ -1,7 +1,9 @@
 # Local buyback tools
 
-The current implementation uses standing execution settings. There are no daily
-policies, budgets to refill, price signers or required observation collectors.
+The replacement supports trusted operator execution with entirely off-chain
+policy and public permissionless execution with Safe-authorized standing settings.
+Expiry and cumulative budgets are optional; indefinite, unlimited policies need
+no renewal. See [the contract policy](buyback-policy.md) for mode semantics.
 
 ## Open the calculator
 
@@ -32,16 +34,16 @@ separate ETH and WETH settings.
    The current Safe's actual threshold is used. All selected currencies and the
    global interval are saved atomically in one Safe transaction. Saving settings
    does not buy tokens or reset purchase clocks.
-6. Open the protocol page. Anyone with local ETH for gas can press the eligible
+6. In PermissionlessGuarded with a valid public price policy, open the protocol page. Anyone with local ETH for gas can press the eligible
    **Burn** button at the top of the page. The admin page, backend and Safe signer are unnecessary for
-   that purchase. If no one calls, funds wait.
+   that purchase. In OperatorGuarded, public actions advance accounting and release fees; market buys are performed by the authorized operator. If no one calls, funds wait.
 
 Editing any setting discards its previous rehearsal result. If another Safe
 transaction advances the nonce while you review, use **Refresh approval**, then
 sign again; the calculator draft is retained.
 
 The percentage and timeframe are calculator inputs, not contract authorization
-periods. Settings persist until the Safe changes them. Maximum batch size caps
+periods. Settings persist until the Safe changes them unless an explicit expiry or finite budget was selected. Limit-only saves preserve a valid price policy and its current remaining budget atomically. Route changes require new price authorization. Maximum batch size caps
 one transaction; the cooldown limits how soon another purchase can succeed.
 Minimum size prevents callers occupying a shared cooldown with a dust purchase.
 A closing partial purchase that transitions the real curve to graduation may spend
@@ -54,7 +56,11 @@ The local POST endpoint is `/api/local/buybacks/rehearse`. It accepts only same-
 JSON from a loopback website, uses the server's configured local Anvil RPC, and
 refuses Vercel execution. It verifies the factory/vault relationship and never
 accepts a source RPC URL from the request. Viem `simulateBlocks` sends the proposed
-settings, fee collection and purchases to `eth_simulateV1`. Subsequent simulations
+limits, fee collection and purchases to `eth_simulateV1`. Normal rehearsal keeps
+the captured mode, pause state, policy revision and remaining budget intact. It
+never revives a stale price policy or restores a budget from an older UI snapshot.
+Explicit CLI activation rehearsal is separate and used only when intentionally
+reviewing installation of new public policies and permissionless activation. Subsequent simulations
 replay the accepted purchase sequence from the same snapshot, with explicit block
 timestamps for cooldowns. Gas-rejected purchases are discarded from that sequence.
 There are no child processes, wallet keys, Anvil mutations, or saved simulation
@@ -91,7 +97,7 @@ cd /Users/user/Development/backed-by-fans/web
 bun scripts/run-buybacks.ts \
   --rpc-url http://127.0.0.1:18557 \
   --factory "$BBF_FACTORY_ADDRESS" \
-  --once --max-gas-percent 2.5
+  --once --submission-mode public --max-gas-percent 2.5
 ```
 
 The runner captures a finite membership set, checkpoints/releases earned fees,
@@ -128,3 +134,29 @@ BBF_ADMIN_RPC_URL=http://127.0.0.1:18557 \
 Expected: at least three sequential burns, cooldown spacing, repeatable results,
 gas deferral with measured suggestions, and `sourceUnchanged: true` in `report.json`. For network restart, funding and owner handoff, use
 [the quickstart](../quickstart.md).
+
+
+## Operator execution and private submission
+
+Operator policy must not be sent to the Safe settings calculator or stored as a
+public contract policy. Use the runner's `--operator-policy` JSON input with
+explicit per-asset amounts and typed conversion pools, and `--tolerance-bps` for
+an operator-approved quote tolerance. The runner quotes each market leg and
+submits its positive minimum outputs with the transaction. Native input uses an
+empty conversion-pool array; the final purchase still uses the active Pons venue.
+
+The execution wallet must match `vault.operator()`. The Safe configures that
+identity through the admin `operator` action and changes execution mode through
+`mode`. Public route and price administration remains through `route` and `policy`;
+`policy` accepts optional expiry and input budget, with zero meaning indefinite
+and unlimited respectively. Use CLI validation rather than handwritten ABI data.
+
+Submission mode is required explicitly. `--submission-mode private` additionally
+requires `--submission-rpc-url` pointing to a provider verified to support private
+submission on the chosen chain. The client does not establish provider privacy
+merely from that label and never falls back to public submission. The private
+endpoint must also support market reads, quote calls, gas estimation and
+transaction simulation: operator term-bearing preflight uses that same endpoint,
+not the public read RPC. `public` is
+appropriate for a disposable local fork. Random timing and secret off-chain policy
+alone cannot guarantee protection; transaction minimum outputs are enforced.

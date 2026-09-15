@@ -23,6 +23,10 @@ import {
   readAdminContext,
   prepareBuybackPayload,
 } from "../../../scripts/protocol-admin";
+import {
+  readMarketState,
+  quoteMarket,
+} from "../../../src/lib/buyback-policy/live";
 import { executeForkSafePayload } from "../../../scripts/protocol-safe-transactions";
 import {
   anvilPublicClient,
@@ -244,8 +248,67 @@ export async function forkContext() {
       },
     });
   };
-  const limitsForUSDG = () =>
-    configureLimits(requiredAnvilAddress("paymentToken"), 10_000_000n);
+  // Explicit disposable-fixture authorization, never a production policy recommendation.
+  const authorizePublicPolicy = async (asset: Address, offered: bigint) => {
+    const canonical = await client.readContract({
+      address: bootstrap.buybackVault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "canonicalAsset",
+      args: [asset],
+    });
+    const blockNumber = await client.getBlockNumber();
+    const market = await readMarketState(client, {
+      vault: bootstrap.buybackVault,
+      asset: canonical,
+      protocolToken: bootstrap.protocolToken,
+      blockNumber,
+    });
+    const quote = await quoteMarket(client, market, offered);
+    const rates = quote.map((leg, index) => ({
+      numerator: String(leg.outputRaw * 8000n),
+      // The contract applies a rate to offered input, including closing-curve refunds.
+      denominator: String(
+        (index === 0 ? offered : quote[index - 1].outputRaw) * 10000n,
+      ),
+    }));
+    await safe("policy", {
+      asset: canonical,
+      expectedRevisionRaw: String(
+        await client.readContract({
+          address: bootstrap.buybackVault,
+          abi: protocolBuybackVaultAbi,
+          functionName: "revision",
+          args: [canonical],
+        }),
+      ),
+      lifecycle: market.lifecycle,
+      rates,
+      expiresAt: "0",
+      inputBudget: "0",
+    });
+    receipts.push({
+      kind: "fixture-public-policy",
+      asset: canonical,
+      offered,
+      quote,
+      rates,
+      toleranceBps: 2000,
+      blockNumber,
+    });
+  };
+  const configurePublicBuybacks = async (
+    asset: Address,
+    batch: bigint,
+    minInput = 1n,
+    minInterval = 0n,
+  ) => {
+    await configureLimits(asset, batch, minInput, minInterval);
+    await authorizePublicPolicy(asset, batch);
+    await safe("mode", { mode: 1 });
+    await safe("pause", { paused: false });
+  };
+  const configurePublicUSDG = () =>
+    configurePublicBuybacks(requiredAnvilAddress("paymentToken"), 10_000_000n);
   const retain = async (name: string, data: Record<string, unknown>) => {
     const directory = process.env.BBF_FORK_BROWSER_EVIDENCE;
     if (!directory) throw new Error("Retained evidence required");
@@ -281,8 +344,10 @@ export async function forkContext() {
     write,
     safe,
     tier,
-    limitsForUSDG,
+    configurePublicUSDG,
     configureLimits,
+    configurePublicBuybacks,
+    authorizePublicPolicy,
     signerKeys,
     retain,
     giveProtocolTokens,

@@ -21,11 +21,20 @@ test.describe("@protocol-fork public buyback activity", () => {
       page.getByRole("heading", { level: 1, name: "Protocol activity" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Released fees & burns" }),
+      page.getByRole("heading", { name: "Fees & burns" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Protocol configuration" }),
-    ).toBeVisible();
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Protocol configuration$/ })
+      .click();
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Trading fees$/ })
+      .click();
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Membership funding$/ })
+      .click();
     const safeSnapshot = JSON.parse(
       await readFile(process.env.BBF_FORK_BOOTSTRAP!, "utf8"),
     );
@@ -34,22 +43,22 @@ test.describe("@protocol-fork public buyback activity", () => {
         `${safeSnapshot.safeThreshold} of ${safeSnapshot.safeOwners.length} owners`,
       ),
     ).toBeVisible();
+    await expect(page.getByText(/Earnings through/).last()).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Pons trading compensation" }),
+      page.getByText(/Membership-fee purchases burn immediately/),
     ).toBeVisible();
-    await expect(page.getByText(/Accounting through/).last()).toBeVisible();
-    await expect(page.getByText(/Vesting is not a burn/)).toBeVisible();
     await expect(
-      page.getByText(
-        /Reserved funding earns as paid membership time is consumed/,
-      ),
+      page.getByText(/Reserved funds earn over time and adjust for refunds/),
     ).toBeVisible();
     await expect(
       page.getByText("Reserved protocol funding", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Process membership fees" }).first(),
+      page.getByRole("button", { name: "Advance and burn", exact: true }),
     ).toBeDisabled();
+    await expect(
+      page.getByText(/A trusted operator executes market buybacks/),
+    ).toBeVisible();
     await expect(
       page.getByRole("option", { name: /Local Creator Circle/ }),
     ).toHaveCount(1);
@@ -88,6 +97,10 @@ test.describe("@protocol-fork public buyback activity", () => {
     const page = await context.newPage();
     try {
       await page.goto("/chains/31337/protocol");
+      await page
+        .locator("summary")
+        .filter({ hasText: /^Protocol configuration$/ })
+        .click();
       await expect(
         page.getByRole("heading", { name: "Protocol activity" }),
       ).toBeVisible();
@@ -106,7 +119,9 @@ test.describe("@protocol-fork public buyback activity", () => {
         page.getByText(bootstrap.safe, { exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText(bootstrap.protocolToken, { exact: true }).first(),
+        page
+          .getByRole("group", { name: "Protocol configuration", exact: true })
+          .getByText(bootstrap.protocolToken, { exact: true }),
       ).toBeVisible();
     } finally {
       await context.close();
@@ -149,10 +164,24 @@ test.describe("@protocol-fork public buyback activity", () => {
       });
     });
     await page.goto("/chains/31337/protocol");
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Trading fees$/ })
+      .click();
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Protocol configuration$/ })
+      .click();
+    await page
+      .locator(".protocol-asset")
+      .filter({ has: page.getByRole("heading", { name: "USDG", exact: true }) })
+      .locator("summary")
+      .filter({ hasText: /^Balances & actions$/ })
+      .click();
     await page.getByRole("button", { name: "Refresh activity" }).click();
     await expect(page.getByText(/Pons data is unavailable/)).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Released fees & burns" }),
+      page.getByRole("heading", { name: "Fees & burns" }),
     ).toBeVisible();
     await expect(
       page
@@ -189,6 +218,7 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
     const f = await forkContext(),
       member = requiredAnvilAddress("member"),
       creator = requiredAnvilAddress("creator");
+    await f.safe("pause", { paused: false });
     const tier = await f.tier(
       "Full protocol allocation",
       f.bootstrap.protocolToken,
@@ -205,7 +235,7 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
       tier,
       membershipTierAbi,
       "createMembership",
-      [12n, "0x0000000000000000000000000000000000000000"],
+      [12n, "0x0000000000000000000000000000000000000000", 256n],
     );
     const start = (
       await f.client.getBlock({ blockNumber: purchase.blockNumber })
@@ -232,6 +262,10 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
     const asset = page.locator(".protocol-asset").filter({
       has: page.getByRole("heading", { name: "BBFFORK", exact: true }),
     });
+    await asset
+      .locator("summary")
+      .filter({ hasText: /^Balances & actions$/ })
+      .click();
     const process = asset.getByRole("button", {
       name: "Process membership fees",
     });
@@ -279,7 +313,12 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
       functionName: "balanceOf",
       args: [member],
     });
-    await f.write(creator, tier, membershipTierAbi, "refund", [1n, gross]);
+    await f.write(creator, tier, membershipTierAbi, "refund", [
+      1n,
+      member,
+      gross,
+      256n,
+    ]);
     const afterBalance = await f.client.readContract({
       address: f.bootstrap.protocolToken,
       abi: erc20Abi,

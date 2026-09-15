@@ -289,7 +289,21 @@ export async function installAnvilWallet(
           }
 
           let forwardedParams = params;
-          const transaction = params[0];
+          let transaction = params[0];
+          if (
+            method === "eth_sendTransaction" &&
+            typeof transaction === "object" &&
+            transaction !== null &&
+            !Array.isArray(transaction) &&
+            !("gasPrice" in transaction) &&
+            !("maxFeePerGas" in transaction) &&
+            !("maxPriorityFeePerGas" in transaction)
+          ) {
+            // This local test wallet supplies the review fork's 0.1 gwei fee.
+            // Anvil's implicit tip can exceed its decayed base-fee estimate.
+            transaction = { ...transaction, gasPrice: "0x5f5e100" };
+            forwardedParams = [transaction];
+          }
           if (
             method === "eth_sendTransaction" &&
             typeof transaction === "object" &&
@@ -300,7 +314,10 @@ export async function installAnvilWallet(
             // Model the safety margin browser wallets apply. Anvil otherwise
             // uses its exact same-block estimate, which can be too low when a
             // time checkpoint changes the mined transaction's storage path.
-            const estimate = await forwardRpc("eth_estimateGas", params);
+            const estimate = await forwardRpc(
+              "eth_estimateGas",
+              forwardedParams,
+            );
             const bufferedGas = (BigInt(String(estimate)) * 12n + 9n) / 10n;
             forwardedParams = [
               { ...transaction, gas: `0x${bufferedGas.toString(16)}` },

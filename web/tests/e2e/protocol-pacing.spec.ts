@@ -41,6 +41,7 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
     await f.write(member, tier, membershipTierAbi, "createMembership", [
       12n,
       zeroAddress,
+      256n,
     ]);
     await f.testClient.increaseTime({ seconds: 300 });
     await f.testClient.mine({ blocks: 1 });
@@ -79,8 +80,8 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
       "syncDonation",
       [usdg],
     );
-    await f.configureLimits(usdg, 1_000_000n);
-    await f.configureLimits(weth, batch, minimum, 600n);
+    await f.configurePublicBuybacks(usdg, 1_000_000n);
+    await f.configurePublicBuybacks(weth, batch, minimum, 600n);
     await f.safe("interval", { minInterval: "300" });
     const state = (asset: `0x${string}`, bucket: 0 | 1) =>
       f.client.readContract({
@@ -138,7 +139,7 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
       ]),
     ).rejects.toThrow();
     // Changing settings cannot clear the last-purchase clock.
-    await f.configureLimits(zeroAddress, batch, minimum, 900n);
+    await f.configurePublicBuybacks(zeroAddress, batch, minimum, 900n);
     const updated = await state(weth, 0);
     expect(updated.status).toBe(6);
     expect(updated.nextEligibleAt).toBe(boughtAt + 900n);

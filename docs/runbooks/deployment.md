@@ -11,8 +11,8 @@ For the next authorized testnet release, verify the implementation and factory w
 
 Current candidate: **memberships before protocol-token launch**. Prepare with an
 explicit zero token; fees accrue and may be collected into the vault, while purchases
-remain unavailable. The existing promoted testnet deployment stays active until a
-separately authorized broadcast and website cutover.
+remain unavailable. The previous active testnet pointer has been retired for the guarded release.
+A replacement requires separately authorized broadcast and website cutover.
 
 From `contracts/`, after committing the release source:
 

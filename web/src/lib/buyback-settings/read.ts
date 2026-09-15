@@ -1,4 +1,4 @@
-import { zeroAddress, type PublicClient } from "viem";
+import { zeroAddress, type Address, type PublicClient } from "viem";
 import {
   membershipFactoryAbi,
   membershipTierAbi,
@@ -25,6 +25,7 @@ export async function readCalculator(
     throw new Error(
       "This local review is limited to 1,000 tiers. Use a bounded protocol index before reviewing a larger deployment.",
     );
+  const releaseTiers = new Map<string, Address[]>();
   const fees = new Map<
     string,
     {
@@ -86,9 +87,13 @@ export async function readCalculator(
         reserves.status.nextBoundary > 0n &&
         reserves.status.nextBoundary <= state.data.timestamp;
       fees.set(canonical.toLowerCase(), amounts);
+      if (preview.current.protocol > 0n || !preview.current.status.complete) {
+        const key = canonical.toLowerCase();
+        releaseTiers.set(key, [...(releaseTiers.get(key) ?? []), tier]);
+      }
     }
   }
-  return { ...state, fees };
+  return { ...state, fees, releaseTiers };
 }
 
 export async function estimateAsset(

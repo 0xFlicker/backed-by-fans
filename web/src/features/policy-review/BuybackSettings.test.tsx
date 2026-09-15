@@ -103,6 +103,8 @@ beforeEach(() => {
       vault,
       safe,
       protocolToken: token,
+      executionMode: 1,
+      operator: owner,
       globalMinInterval: 0n,
       owners: [owner],
       assets: [
@@ -110,6 +112,14 @@ beforeEach(() => {
           status: "valid",
           asset: zeroAddress,
           data: {
+            policy: {
+              lifecycle: 0,
+              revision: 0n,
+              expiresAt: 0n,
+              budgetLimited: false,
+              remainingBudget: 0n,
+              rates: [{ numerator: 1n, denominator: 1n }],
+            },
             limits: {
               minInput: 1n,
               maxInput: 1000000000000000000n,
@@ -458,6 +468,7 @@ it("rehearses fresh chain state without discarding the selected draft", async ()
   );
   await screen.findByText("Test response");
   expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    action: "limits-only",
     capturedBlock: "200",
     assets: [{ asset: zeroAddress, maxInput: "400000000000000000" }],
   });
@@ -467,6 +478,11 @@ it("rehearses fresh chain state without discarding the selected draft", async ()
   fireEvent.click(
     screen.getByRole("button", { name: "Rehearse selected settings" }),
   );
+  expect(
+    JSON.parse(fetchMock.mock.calls[0][1].body).assets.every(
+      (asset: Record<string, unknown>) => !("policy" in asset),
+    ),
+  ).toBe(true);
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   expect(JSON.parse(fetchMock.mock.calls[1][1].body).capturedBlock).toBe("250");
   expect(mock.read).toHaveBeenCalledTimes(1);

@@ -189,6 +189,13 @@ export async function verifyProtocolGraph(
     bootstrap.protocolToken,
     "vault token binding",
   );
+  const [executionMode, operator, buybacksPaused] = await Promise.all([
+    read("buybackVault", "executionMode"),
+    read("buybackVault", "operator"),
+    read("buybackVault", "buybacksPaused"),
+  ]);
+  if (Number(executionMode) !== 0 && Number(executionMode) !== 1)
+    throw new Error("Unknown buyback execution mode");
   const executorArtifact = await artifact(targets.executor);
   const executorStoreAddress = (await read(
     "buybackVault",
@@ -253,6 +260,11 @@ export async function verifyProtocolGraph(
   }
   return {
     schemaVersion: 3,
+    buybackAuthority: {
+      executionMode: Number(executionMode),
+      operator,
+      buybacksPaused,
+    },
     minimumPayments,
     tierCreationCode: tier.bytecode.object,
     creationCodeHash: keccak256(tier.bytecode.object),

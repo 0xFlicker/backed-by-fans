@@ -16,6 +16,24 @@ spec.loader.exec_module(lifecycle)
 
 
 class Guards(unittest.TestCase):
+    def test_permissionless_demo_is_an_explicit_parser_opt_in(self):
+        parser = lifecycle.argument_parser()
+        self.assertFalse(parser.parse_args(["serve", "--run-id", "operator"]).permissionless_demo)
+        self.assertTrue(parser.parse_args(["serve", "--run-id", "public", "--permissionless-demo"]).permissionless_demo)
+
+    def test_permissionless_demo_rejects_unrelated_modes_missing_owner_and_no_token(self):
+        for mode, owner, without_token in [("run", "0xowner", False), ("stop", "0xowner", False), ("serve", "", False), ("serve", "0xowner", True)]:
+            with self.subTest(mode=mode, owner=owner, without_token=without_token), patch.dict(os.environ, {"BBF_FORK_OWNER_ADDRESS": owner}, clear=True), patch.object(subprocess, "Popen") as spawn:
+                with self.assertRaisesRegex(ValueError, "--permissionless-demo requires"):
+                    lifecycle.Run(argparse.Namespace(mode=mode, run_id="public", without_token=without_token, permissionless_demo=True))
+                spawn.assert_not_called()
+
+    def test_permissionless_demo_cannot_reconfigure_a_restored_personal_safe(self):
+        with patch.dict(os.environ, {"BBF_FORK_OWNER_ADDRESS": "0xowner", "BBF_FORK_RESTORE_STATE": "/tmp/saved"}, clear=True), patch.object(subprocess, "Popen") as spawn:
+            with self.assertRaisesRegex(ValueError, "fresh deployment before Safe owner handoff"):
+                lifecycle.Run(argparse.Namespace(mode="serve", run_id="public", permissionless_demo=True))
+            spawn.assert_not_called()
+
     def test_restored_clock_cannot_precede_saved_vesting_or_current_time(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory) / "state.json"

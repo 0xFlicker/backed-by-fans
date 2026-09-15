@@ -4,9 +4,9 @@ import { ChainRouteBoundary } from "@/components/ChainRouteBoundary";
 import { parseSupportedChainId } from "@/lib/chains";
 import { BuybackSettings } from "@/features/policy-review/BuybackSettings";
 export const metadata: Metadata = {
-  title: "Configure buybacks",
+  title: "Manage buybacks",
   description:
-    "Calculate and save standing buyback settings across your protocol.",
+    "Review operator purchases and configure public buyback settings.",
 };
 export default async function BuybacksPage({
   params,

@@ -16,6 +16,7 @@ import {
   membershipTierAbi,
 } from "../src/contracts";
 import { rehearseBuybacks, type RehearsalInput } from "./buyback-rehearsal";
+import { readMarketState, quoteMarket } from "../src/lib/buyback-policy/live";
 import { validateAdminRpc } from "./protocol-admin";
 
 const [bootstrapPath, outputDir] = process.argv.slice(2);
@@ -49,6 +50,21 @@ const snapshot = async () => ({
     abi: membershipFactoryAbi,
     functionName: "tierCount",
   }),
+  executionMode: await client.readContract({
+    address: boot.buybackVault,
+    abi: protocolBuybackVaultAbi,
+    functionName: "executionMode",
+  }),
+  operator: await client.readContract({
+    address: boot.buybackVault,
+    abi: protocolBuybackVaultAbi,
+    functionName: "operator",
+  }),
+  paused: await client.readContract({
+    address: boot.buybackVault,
+    abi: protocolBuybackVaultAbi,
+    functionName: "buybacksPaused",
+  }),
   balance: await client.getBalance({ address: demo.owner }),
   tiers: await Promise.all(
     demo.tiers.map(async (t: { address: Address }) => ({
@@ -79,6 +95,12 @@ const snapshot = async () => ({
         functionName: "inventory",
         args: [asset, 0],
       }),
+      policy: await client.readContract({
+        address: boot.buybackVault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "permissionlessPolicy",
+        args: [asset],
+      }),
       revision: await client.readContract({
         address: boot.buybackVault,
         abi: protocolBuybackVaultAbi,
@@ -91,7 +113,7 @@ const snapshot = async () => ({
 await mkdir(outputDir, { recursive: true });
 const before = await snapshot();
 const block = await client.getBlockNumber();
-const input: RehearsalInput = {
+const proposed = {
   chainId: 31337,
   factory: boot.factory,
   vault: boot.buybackVault,
@@ -116,6 +138,41 @@ const input: RehearsalInput = {
         minInterval: "600",
       })),
   ],
+};
+// Fixture-only tolerance, explicitly authorized for this disposable acceptance scenario.
+// Derive meaningful floors from the captured full-route quote; do not use one-unit floors.
+const input: RehearsalInput = {
+  action: "activate-permissionless",
+  ...proposed,
+  assets: await Promise.all(
+    proposed.assets.map(async (asset) => {
+      const market = await readMarketState(client, {
+        vault: boot.buybackVault,
+        asset: asset.asset,
+        protocolToken: boot.protocolToken,
+        blockNumber: block,
+      });
+      if (market.lifecycle !== 0 && market.lifecycle !== 2)
+        throw new Error("Cannot rehearse a graduation-pending market");
+      const quote = await quoteMarket(client, market, BigInt(asset.maxInput));
+      return {
+        ...asset,
+        policy: {
+          lifecycle: market.lifecycle,
+          rates: quote.map((leg, index) => ({
+            numerator: (leg.outputRaw * 8000n).toString(),
+            denominator: (
+              (index === 0
+                ? BigInt(asset.maxInput)
+                : quote[index - 1].outputRaw) * 10000n
+            ).toString(),
+          })),
+          expiresAt: "0",
+          inputBudget: "0",
+        },
+      };
+    }),
+  ),
 };
 const first = await rehearseBuybacks(rpc, input, AbortSignal.timeout(120000));
 assert.ok(first.totals.batches >= 3, "Expected multiple sequential buys");

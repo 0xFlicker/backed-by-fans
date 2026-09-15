@@ -34,6 +34,11 @@ function proofFixture(): Parameters<typeof verifyRetainedProtocolSources>[0] {
   };
   return {
     schemaVersion: 3,
+    buybackAuthority: {
+      executionMode: 0,
+      operator: address,
+      buybacksPaused: true,
+    },
     minimumPayments: [{ token: address, minimum: "1000000" }],
     tierCreationCode,
     creationCodeHash: keccak256(tierCreationCode),

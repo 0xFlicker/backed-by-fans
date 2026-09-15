@@ -110,6 +110,11 @@ export function buybackSkipReason(status: number): string {
     "launch penalty active",
     "graduation pending",
     "protocol token not launched",
+    "market purchases require the authorized operator",
+    "public price limits not configured",
+    "public policy expired",
+    "public spending budget exhausted",
+    "public policy needs updating",
   ];
   return reasons[status] ?? `status ${status}`;
 }

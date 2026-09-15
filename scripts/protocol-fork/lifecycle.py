@@ -98,6 +98,11 @@ class Run:
         if self.without_token and args.mode != "serve":
             raise ValueError("No-token deployment is a manual serve workflow")
         self.env = os.environ.copy()
+        self.permissionless_demo = getattr(args, "permissionless_demo", False)
+        if self.permissionless_demo and (args.mode != "serve" or not self.env.get("BBF_FORK_OWNER_ADDRESS") or self.without_token):
+            raise ValueError("--permissionless-demo requires serve mode, BBF_FORK_OWNER_ADDRESS and a launched token")
+        if self.permissionless_demo and (self.env.get("BBF_FORK_RESTORE_STATE") or self.env.get("BBF_FORK_RESTORE_EVIDENCE")):
+            raise ValueError("--permissionless-demo requires a fresh deployment before Safe owner handoff")
         self.restore_state = self.env.get("BBF_FORK_RESTORE_STATE")
         self.restore_evidence = self.env.get("BBF_FORK_RESTORE_EVIDENCE")
         if self.without_token and (self.restore_state or self.restore_evidence):
@@ -243,9 +248,14 @@ class Run:
         self.command("browser-fixture", ["bun", "scripts/protocol-fork-fixture.ts", str(self.evidence)], ROOT / "web")
         if self.args.mode == "serve" and self.env.get("BBF_FORK_OWNER_ADDRESS"):
             owner = self.env["BBF_FORK_OWNER_ADDRESS"]
-            self.command("owner-handoff", ["bun", "scripts/handoff-fork-safe.ts", str(self.evidence), owner], ROOT / "web")
             self.command("owner-funding", ["bun", "scripts/fund-fork-wallet.ts", owner, str(self.evidence)], ROOT / "web")
-            self.command("buyback-demo", ["bun", "scripts/seed-buyback-demo.ts", str(self.evidence), owner], ROOT / "web")
+            # Only explicit public-demo selection authorizes policies. Default serve
+            # deployments retain OperatorGuarded, including after owner handoff.
+            demo_args = ["bun", "scripts/seed-buyback-demo.ts", str(self.evidence), owner]
+            if self.permissionless_demo:
+                demo_args.append("--permissionless")
+            self.command("buyback-demo", demo_args, ROOT / "web")
+            self.command("owner-handoff", ["bun", "scripts/handoff-fork-safe.ts", str(self.evidence), owner], ROOT / "web")
         self.env.update(json.loads((self.evidence / "browser-environment.json").read_text()))
         self.env["NEXT_PUBLIC_SITE_URL"] = self.web_url
         if self.args.mode == "run":
@@ -364,12 +374,19 @@ class Run:
         print(f"{self.args.run_id}: {self.status}; retained {self.evidence}", flush=True)
 
 
-def main():
+def argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("run", "serve", "stop"))
     parser.add_argument("--run-id", required=True, type=validate_run_id)
     parser.add_argument("--without-token", action="store_true")
-    args = parser.parse_args()
+    parser.add_argument("--permissionless-demo", action="store_true", help="Explicitly authorize public buybacks for a fresh served fixture; requires BBF_FORK_OWNER_ADDRESS. Default deployments remain OperatorGuarded.")
+    return parser
+
+
+def main():
+    args = argument_parser().parse_args()
+    if args.permissionless_demo and args.mode != "serve":
+        raise ValueError("--permissionless-demo requires serve mode")
     if args.mode == "stop":
         stop(args.run_id)
         return

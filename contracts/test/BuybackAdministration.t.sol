@@ -79,6 +79,26 @@ contract BuybackAdministrationTest is Test {
         assertFalse(vault.buybacksPaused());
     }
 
+    function test_launchDefaultsToPausedOperatorModeAndOnlySafeControlsAuthority() public {
+        assertTrue(vault.buybacksPaused());
+        assertEq(
+            uint256(vault.executionMode()), uint256(BuybackTypes.ExecutionMode.OperatorGuarded)
+        );
+        assertEq(vault.operator(), address(0));
+        vm.expectRevert(ProtocolBuybackVault.OnlyProtocolAuthority.selector);
+        vault.setOperator(address(this));
+        vm.expectRevert(ProtocolBuybackVault.OnlyProtocolAuthority.selector);
+        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
+        vm.expectRevert(ProtocolBuybackVault.OnlyProtocolAuthority.selector);
+        vault.setPermissionlessPolicy(
+            address(0), BuybackTypes.Lifecycle.Bonding, new BuybackTypes.OutputRate[](0), 0, 0
+        );
+        vm.startPrank(admin);
+        vault.setOperator(address(this));
+        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
+        assertEq(vault.operator(), address(this));
+    }
+
     function test_unwrapCallbackCannotReusePreWithdrawalBalances() public {
         address weth = BuybackIntegration.WETH;
         vm.etch(weth, address(new ReenteringUnwrapFixture()).code);

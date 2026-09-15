@@ -73,6 +73,10 @@ contract DeferredProtocolTokenForkTest is AuthenticAssetFixture {
         vault.setLimits(
             address(0), BuybackTypes.ExecutionLimits(1, SafeCast.toUint128(released), 0)
         );
+        BuybackTypes.OutputRate[] memory rates = new BuybackTypes.OutputRate[](1);
+        rates[0] = BuybackTypes.OutputRate(1, 1e30);
+        vault.setPermissionlessPolicy(address(0), BuybackTypes.Lifecycle.Bonding, rates, 0, 0);
+        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
         vault.setBuybacksPaused(false);
         vm.warp(block.timestamp + curve.snipeTaxSeconds());
         uint256 supply = token.totalSupply();

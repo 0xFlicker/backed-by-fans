@@ -37,7 +37,7 @@ vi.mock("@/lib/use-hydrated-account", () => ({
 const vault = "0x1111111111111111111111111111111111111111",
   asset = "0x2222222222222222222222222222222222222222";
 const refresh = vi.fn();
-function mount() {
+function mount(status = 0) {
   render(
     <QueryClientProvider
       client={
@@ -50,7 +50,7 @@ function mount() {
         asset={asset}
         protocolTokenSymbol="BBFFORK"
         bucket={0}
-        status={0}
+        status={status}
         amount={100n}
         fresh
         onProcessed={refresh}
@@ -163,4 +163,16 @@ it("does not show burn success for a cancelled replacement", async () => {
     expect(screen.getByRole("alert")).toHaveTextContent("cancelled"),
   );
   expect(refresh).not.toHaveBeenCalled();
+});
+
+it("keeps operator market execution out of public wallet actions", () => {
+  mount(10);
+  expect(
+    screen.queryByRole("button", { name: "Process membership fees" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "Market purchases are executed by the authorized operator",
+    ),
+  ).toBeInTheDocument();
 });

@@ -194,8 +194,10 @@ contract DeploymentScriptsTest is Test {
         vm.chainId(_MAINNET_CHAIN_ID);
         vm.setEnv("PROTOCOL_TOKEN_ADDRESS", vm.toString(address(new MockUSDG())));
         SyntheticPonsBinding.bind(vm.envAddress("PROTOCOL_TOKEN_ADDRESS"));
-        _publicDeployment = new DeployProtocolHarness();
-        _strictDeployment = new DeployProtocol();
+        // Load script artifacts instead of embedding three complete deployment graphs in this test's runtime.
+        _publicDeployment =
+            DeployProtocolHarness(deployCode("DeploymentScripts.t.sol:DeployProtocolHarness"));
+        _strictDeployment = DeployProtocol(deployCode("DeployDirectProtocol.s.sol:DeployProtocol"));
         vm.etch(_publicDeployment.CREATE2_DEPLOYER(), _CREATE2_DEPLOYER_RUNTIME);
         _publicDeployment.ensureVestingLedger();
         _installCanonicalUSDG(_publicDeployment.ROBINHOOD_MAINNET_USDG());
@@ -593,7 +595,8 @@ contract DeploymentScriptsTest is Test {
 
     function test_localDeploymentIsRestrictedToAnvilAndAcceptsItsMockToken() public {
         vm.chainId(_ANVIL_CHAIN_ID);
-        DeployLocalProtocol localDeployment = new DeployLocalProtocol();
+        DeployLocalProtocol localDeployment =
+            DeployLocalProtocol(deployCode("DeployDirectProtocol.s.sol:DeployLocalProtocol"));
         MockUSDG localUSDG = new MockUSDG();
         address protocolOwner = makeAddr("deploymentProtocolOwner");
         address protocolToken = address(new MockUSDG());

@@ -27,6 +27,13 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
     using SafeERC20 for IERC20;
 
+    struct MarketTerms {
+        BuybackTypes.TypedRoute route;
+        uint256[] minimumOutputs;
+        BuybackTypes.OutputRate[] rates;
+        bool permissionless;
+    }
+
     struct ProcessRequest {
         address asset;
         BuybackTypes.SourceBucket bucket;
@@ -49,6 +56,9 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
     bytes32 public immutable executorCreationCodeHash;
     uint256 public override settlementSequence;
     bool public override buybacksPaused = true;
+    BuybackTypes.ExecutionMode public override executionMode;
+    address public override operator;
+    mapping(address asset => BuybackTypes.PermissionlessPolicy) private _policies;
     mapping(address asset => bool) private _assetBuybacksPaused;
     mapping(address asset => uint64) private _revision;
     mapping(address asset => bool) private _hasRoute;
@@ -62,6 +72,8 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         address asset => mapping(BuybackTypes.SourceBucket bucket => BuybackTypes.Inventory)
     ) private _inventory;
 
+    error OnlyOperator();
+    error InvalidPolicy();
     error ExecutorCreationCodeCorrupted();
     error ExecutorDeploymentFailed();
     error ProtocolTokenAlreadyBound();
@@ -184,12 +196,18 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
             state.status = BuybackTypes.Status.NoInventory;
         } else if (asset == protocolToken) {
             state.maxInput = state.available;
+        } else if (executionMode == BuybackTypes.ExecutionMode.OperatorGuarded) {
+            state.status = BuybackTypes.Status.OperatorOnly;
         } else if (!_hasRoute[asset]) {
             state.status = BuybackTypes.Status.NoRoute;
         } else {
             BuybackTypes.ExecutionLimits memory active = _limits[asset];
             state.minInput = active.minInput;
             state.maxInput = Math.min(state.available, active.maxInput);
+            BuybackTypes.PermissionlessPolicy storage policy = _policies[asset];
+            if (policy.budgetLimited) {
+                state.maxInput = Math.min(state.maxInput, policy.remainingBudget);
+            }
             state.nextEligibleAt = Math.max(
                 lastBuyAt == 0 ? 0 : uint256(lastBuyAt) + globalMinInterval,
                 _lastAssetBuyAt[asset] == 0
@@ -198,6 +216,14 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
             );
             if (active.maxInput == 0) {
                 state.status = BuybackTypes.Status.NoLimits;
+            } else if (policy.rates.length == 0) {
+                state.status = BuybackTypes.Status.NoPolicy;
+            } else if (policy.revision != state.revision) {
+                state.status = BuybackTypes.Status.StalePolicy;
+            } else if (policy.expiresAt != 0 && block.timestamp > policy.expiresAt) {
+                state.status = BuybackTypes.Status.PolicyExpired;
+            } else if (policy.budgetLimited && policy.remainingBudget < active.minInput) {
+                state.status = BuybackTypes.Status.BudgetExhausted;
             } else if (state.available < active.minInput) {
                 state.status = BuybackTypes.Status.BelowMinimum;
             } else if (block.timestamp < state.nextEligibleAt) {
@@ -206,6 +232,8 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
                 BuybackTypes.Lifecycle phase = IPonsBuybackExecutor(executor).lifecycle();
                 if (phase == BuybackTypes.Lifecycle.GraduationPending) {
                     state.status = BuybackTypes.Status.GraduationPending;
+                } else if (phase != policy.lifecycle) {
+                    state.status = BuybackTypes.Status.StalePolicy;
                 } else if (
                     phase == BuybackTypes.Lifecycle.Bonding
                         && IPonsBondingCurve(IPonsBuybackExecutor(executor).curve())
@@ -240,17 +268,53 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
             emit DirectBurned(sequence, bucket, asset, amountIn);
             return;
         }
-        _processMarket(ProcessRequest(asset, bucket, amountIn, deadline, sequence));
+        _processMarket(
+            ProcessRequest(asset, bucket, amountIn, deadline, sequence),
+            MarketTerms(_routes[asset], new uint256[](0), _policies[asset].rates, true)
+        );
     }
 
-    // Only process() reaches this helper under nonReentrant. The executor is
+    /// @notice Trusted operator terms exist only in this transaction's calldata.
+    // Operator deadlines intentionally follow the chain timestamp.
+    // forge-lint: disable-next-item(block-timestamp)
+    function processOperator(
+        address asset,
+        BuybackTypes.SourceBucket bucket,
+        uint256 amountIn,
+        BuybackTypes.TypedRoute calldata route_,
+        uint256[] calldata minimumOutputs,
+        uint64 deadline
+    ) external override nonReentrant {
+        if (msg.sender != operator || operator == address(0)) revert OnlyOperator();
+        if (executionMode != BuybackTypes.ExecutionMode.OperatorGuarded) {
+            revert ProcessingUnavailable(BuybackTypes.Status.OperatorOnly);
+        }
+        asset = canonicalAsset(asset);
+        if (deadline < block.timestamp) revert DeadlineExpired();
+        if (buybacksPaused || _assetBuybacksPaused[asset]) {
+            revert ProcessingUnavailable(BuybackTypes.Status.Paused);
+        }
+        _validateRoute(asset, route_);
+        if (amountIn == 0 || amountIn > _inventory[asset][bucket].available) {
+            revert InvalidAmount();
+        }
+        if (minimumOutputs.length != route_.pools.length + 1) revert InvalidPolicy();
+        for (uint256 i; i < minimumOutputs.length; ++i) {
+            if (minimumOutputs[i] == 0) revert InvalidPolicy();
+        }
+        _processMarket(
+            ProcessRequest(asset, bucket, amountIn, deadline, ++settlementSequence),
+            MarketTerms(route_, minimumOutputs, new BuybackTypes.OutputRate[](0), false)
+        );
+    }
+
+    // Only process() and processOperator() reach this helper under nonReentrant. The executor is
     // created here once during token binding; no caller chooses its address.
     // Snapshots enforce exact settlement across the guarded external calls;
     // every other inventory/configuration writer shares the same reentrancy guard.
     // slither-disable-next-line arbitrary-send-eth,reentrancy-balance,reentrancy-eth
-    function _processMarket(ProcessRequest memory request) private {
-        BuybackTypes.TypedRoute memory configured = _routes[request.asset];
-        SettlementSnapshot memory snapshot = _snapshotRoute(request.asset, configured);
+    function _processMarket(ProcessRequest memory request, MarketTerms memory terms) private {
+        SettlementSnapshot memory snapshot = _snapshotRoute(request.asset, terms.route);
         _inventory[request.asset][request.bucket].available -= request.amountIn;
         if (request.asset != address(0)) {
             uint256 beforeExecutor = IERC20(request.asset).balanceOf(executor);
@@ -263,12 +327,19 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         }
         BuybackTypes.Execution memory execution = IPonsBuybackExecutor(executor)
         .execute{value: request.asset == address(0) ? request.amountIn : 0}(
-            request.asset, request.amountIn, configured, request.deadline
+            request.asset,
+            request.amountIn,
+            terms.route,
+            terms.minimumOutputs,
+            terms.rates,
+            request.deadline
         );
         if (
             execution.acquired == 0 || execution.legs.length == 0
                 || execution.legs[0].input != request.asset
-        ) revert InexactSettlement();
+        ) {
+            revert InexactSettlement();
+        }
         _inventory[request.asset][request.bucket].available += request.amountIn;
         uint256 inputSpent = execution.legs[0].spent;
         if (inputSpent > request.amountIn) revert InexactSettlement();
@@ -276,15 +347,22 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         // it transitions out of bonding. Other partial fills cannot consume a
         // cooldown with dust while refunding most of the requested batch.
         if (
-            inputSpent < _limits[request.asset].minInput
+            terms.permissionless && inputSpent < _limits[request.asset].minInput
                 && !(execution.lifecycle == BuybackTypes.Lifecycle.Bonding
                     && IPonsBuybackExecutor(executor).lifecycle()
                         == BuybackTypes.Lifecycle.GraduationPending)
         ) revert InvalidAmount();
+        if (terms.permissionless && _policies[request.asset].budgetLimited) {
+            _policies[request.asset].remainingBudget -= inputSpent;
+        }
         lastBuyAt = SafeCast.toUint64(block.timestamp);
         _lastAssetBuyAt[request.asset] = lastBuyAt;
         _bookLegs(
-            request.bucket, execution.legs, snapshot, request.sequence, _revision[request.asset]
+            request.bucket,
+            execution.legs,
+            snapshot,
+            request.sequence,
+            terms.permissionless ? _revision[request.asset] : 0
         );
         // External venues must not manufacture tokens or destroy unrelated supply.
         if (IERC20(protocolToken).totalSupply() != snapshot.supply) revert InexactSettlement();
@@ -303,7 +381,7 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
             inputSpent,
             execution.acquired,
             execution.lifecycle,
-            _revision[request.asset]
+            terms.permissionless ? _revision[request.asset] : 0
         );
     }
 
@@ -350,7 +428,9 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         if (
             _balance(protocolToken) != balance - amount
                 || IERC20(protocolToken).totalSupply() != supply - amount
-        ) revert InexactSettlement();
+        ) {
+            revert InexactSettlement();
+        }
     }
 
     function _snapshotRoute(address asset, BuybackTypes.TypedRoute memory configured)
@@ -425,6 +505,64 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         return _limits[canonicalAsset(asset)];
     }
 
+    function setOperator(address operator_) external override onlyProtocolAuthority nonReentrant {
+        operator = operator_;
+        emit OperatorConfigured(operator_);
+    }
+
+    function setExecutionMode(BuybackTypes.ExecutionMode mode)
+        external
+        override
+        onlyProtocolAuthority
+        nonReentrant
+    {
+        executionMode = mode;
+        emit ExecutionModeConfigured(mode);
+    }
+
+    function permissionlessPolicy(address asset)
+        external
+        view
+        override
+        returns (BuybackTypes.PermissionlessPolicy memory)
+    {
+        return _policies[canonicalAsset(asset)];
+    }
+
+    /// @notice Zero expiry and zero input budget explicitly authorize indefinite, unlimited execution.
+    // Optional expiry intentionally follows the chain timestamp.
+    // forge-lint: disable-next-item(block-timestamp)
+    function setPermissionlessPolicy(
+        address asset,
+        BuybackTypes.Lifecycle lifecycle_,
+        BuybackTypes.OutputRate[] calldata rates,
+        uint64 expiresAt,
+        uint256 inputBudget
+    ) external override onlyProtocolAuthority nonReentrant {
+        asset = canonicalAsset(asset);
+        if (
+            !_hasRoute[asset] || _limits[asset].maxInput == 0
+                || lifecycle_ == BuybackTypes.Lifecycle.GraduationPending
+                || rates.length != _routes[asset].pools.length + 1
+                || (expiresAt != 0 && expiresAt < block.timestamp)
+        ) revert InvalidPolicy();
+        for (uint256 i; i < rates.length; ++i) {
+            if (rates[i].numerator == 0 || rates[i].denominator == 0) revert InvalidPolicy();
+        }
+        uint64 next = ++_revision[asset];
+        BuybackTypes.PermissionlessPolicy storage policy = _policies[asset];
+        policy.lifecycle = lifecycle_;
+        policy.revision = next;
+        policy.expiresAt = expiresAt;
+        policy.budgetLimited = inputBudget != 0;
+        policy.remainingBudget = inputBudget;
+        delete policy.rates;
+        for (uint256 i; i < rates.length; ++i) {
+            policy.rates.push(rates[i]);
+        }
+        emit PermissionlessPolicyConfigured(asset, policy);
+    }
+
     function setRoute(address asset, BuybackTypes.TypedRoute calldata route_)
         external
         override
@@ -454,7 +592,13 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
             revert InvalidLimits();
         }
         _limits[asset] = limits_;
+        uint64 previous = _revision[asset];
         uint64 next = ++_revision[asset];
+        // Quantity/cooldown changes preserve authorized prices and consumed budgets.
+        // A policy already stale from a route change must not be revived.
+        if (_policies[asset].rates.length != 0 && _policies[asset].revision == previous) {
+            _policies[asset].revision = next;
+        }
         emit LimitsConfigured(asset, next, limits_);
     }
 
@@ -503,7 +647,10 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
     function _validateRoute(address asset, BuybackTypes.TypedRoute calldata route_) private view {
         if (protocolToken == address(0)) revert ProtocolTokenNotLaunched();
         uint256 count = route_.pools.length;
-        if (asset == protocolToken || count > 2 || (asset != address(0) && asset.code.length == 0)) revert InvalidRoute();
+        if (asset == protocolToken || count > 2 || (asset != address(0) && asset.code.length == 0))
+        {
+            revert InvalidRoute();
+        }
         if (asset == address(0) || asset == BuybackIntegration.WETH) {
             if (count != 0) revert InvalidRoute();
             return;
@@ -511,7 +658,9 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         if (
             count == 0
                 || BuybackIntegration.POOL_MANAGER.codehash != BuybackIntegration.POOL_MANAGER_HASH
-        ) revert InvalidRoute();
+        ) {
+            revert InvalidRoute();
+        }
         address currency = asset;
         for (uint256 i; i < count; ++i) {
             PoolKey memory key = route_.pools[i];
@@ -528,7 +677,9 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
                 currency == asset
                     || (i + 1 < count
                         && (currency == address(0) || currency == BuybackIntegration.WETH))
-            ) revert InvalidRoute();
+            ) {
+                revert InvalidRoute();
+            }
             if (currency != address(0) && currency.code.length == 0) revert InvalidRoute();
             (uint160 price,,,) = StateLibrary.getSlot0(
                 IPoolManager(BuybackIntegration.POOL_MANAGER), PoolIdLibrary.toId(key)

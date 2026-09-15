@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 import {BuybackIntegration as Integration} from "../../src/libraries/BuybackIntegration.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {
     IUniversalRouter
@@ -12,6 +13,11 @@ import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol"
 
 contract SyntheticLiquidityBank {
     receive() external payable {}
+
+    function payToken(address token, address recipient, uint256 amount) external {
+        require(msg.sender == Integration.ROUTER);
+        require(IERC20(token).transfer(recipient, amount));
+    }
 
     function pay(address recipient, uint256 amount) external {
         require(msg.sender == Integration.ROUTER);
@@ -44,6 +50,31 @@ contract SyntheticConversionRouter {
         _bank.pay(address(this), uint256(swap.amountIn) * 1e16);
         (bool ok,) = msg.sender.call{value: address(this).balance}("");
         require(ok);
+    }
+}
+
+/// @dev Two distinct synthetic conversion rates, preserving real Permit2 input transfers.
+contract SyntheticTwoLegRouter {
+    SyntheticLiquidityBank private immutable _bank;
+    address private immutable _middle;
+
+    constructor(SyntheticLiquidityBank bank, address middle) {
+        _bank = bank;
+        _middle = middle;
+    }
+
+    function execute(bytes calldata commands, bytes[] calldata inputs, uint256) external payable {
+        if (commands.length == 0) return;
+        (, bytes[] memory actions) = abi.decode(inputs[0], (bytes, bytes[]));
+        IV4Router.ExactInputSingleParams memory swap =
+            abi.decode(actions[0], (IV4Router.ExactInputSingleParams));
+        address input =
+            Currency.unwrap(swap.zeroForOne ? swap.poolKey.currency0 : swap.poolKey.currency1);
+        address output =
+            Currency.unwrap(swap.zeroForOne ? swap.poolKey.currency1 : swap.poolKey.currency0);
+        IAllowanceTransfer(Integration.PERMIT2)
+            .transferFrom(msg.sender, address(_bank), SafeCast.toUint160(swap.amountIn), input);
+        _bank.payToken(output, msg.sender, uint256(swap.amountIn) * (output == _middle ? 2 : 3));
     }
 }
 

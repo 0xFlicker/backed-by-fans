@@ -442,58 +442,73 @@ export async function readBuybackAsset(
   asset: Address,
   blockNumber: bigint,
 ) {
-  const [membership, donation, route, limits, revision, paused, lastBuyAt] =
-    await Promise.all([
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "inventory",
-        args: [asset, 0],
-        blockNumber,
-      }),
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "inventory",
-        args: [asset, 1],
-        blockNumber,
-      }),
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "route",
-        args: [asset],
-        blockNumber,
-      }),
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "limits",
-        args: [asset],
-        blockNumber,
-      }),
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "revision",
-        args: [asset],
-        blockNumber,
-      }),
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "assetBuybacksPaused",
-        args: [asset],
-        blockNumber,
-      }),
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "lastAssetBuyAt",
-        args: [asset],
-        blockNumber,
-      }),
-    ]);
+  const [
+    membership,
+    donation,
+    route,
+    limits,
+    revision,
+    paused,
+    lastBuyAt,
+    policy,
+  ] = await Promise.all([
+    client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "inventory",
+      args: [asset, 0],
+      blockNumber,
+    }),
+    client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "inventory",
+      args: [asset, 1],
+      blockNumber,
+    }),
+    client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "route",
+      args: [asset],
+      blockNumber,
+    }),
+    client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "limits",
+      args: [asset],
+      blockNumber,
+    }),
+    client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "revision",
+      args: [asset],
+      blockNumber,
+    }),
+    client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "assetBuybacksPaused",
+      args: [asset],
+      blockNumber,
+    }),
+    client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "lastAssetBuyAt",
+      args: [asset],
+      blockNumber,
+    }),
+    client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "permissionlessPolicy",
+      args: [asset],
+      blockNumber,
+    }),
+  ]);
   const eligibility = await Promise.allSettled(
     ([0, 1] as const).map((bucket) =>
       client.readContract({
@@ -515,6 +530,7 @@ export async function readBuybackAsset(
     membership,
     donation,
     route,
+    policy,
     limits,
     lastBuyAt,
     revision,
@@ -666,7 +682,26 @@ export async function readPublicBuybacks(
       getAddress(executorToken) !== getAddress(protocolToken)
     )
       throw new Error("Immutable buyback identity mismatch");
-    const [canonicalAssets, globalMinInterval, lastBuyAt] = await Promise.all([
+    const [
+      executionMode,
+      operator,
+      canonicalAssets,
+      globalMinInterval,
+      lastBuyAt,
+    ] = await Promise.all([
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "executionMode",
+        blockNumber,
+      }),
+      client.readContract({
+        address: vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "operator",
+        blockNumber,
+      }),
+
       Promise.all(
         [zeroAddress, protocolToken, ...paymentTokens].map((asset) =>
           client.readContract({
@@ -733,6 +768,8 @@ export async function readPublicBuybacks(
         protocolToken,
         tierCount,
         buybacksPaused,
+        executionMode,
+        operator,
         globalMinInterval,
         lastBuyAt,
         assets,

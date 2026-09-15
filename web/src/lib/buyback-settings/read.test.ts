@@ -75,6 +75,7 @@ it.each([
       checkpointsDue,
     });
     expect(result.fees.has(weth)).toBe(false);
+    expect(result.releaseTiers.get(zeroAddress)).toEqual([tier]);
     expect(readContract).toHaveBeenCalledWith(
       expect.objectContaining({
         functionName: "previewAccounting",
@@ -111,6 +112,14 @@ it("does not mistake native ETH for an unlaunched protocol token", async () => {
         totalBurned: 0n,
       },
       route: { pools: [] },
+      policy: {
+        lifecycle: 0,
+        revision: 0n,
+        expiresAt: 0n,
+        budgetLimited: false,
+        remainingBudget: 0n,
+        rates: [],
+      },
       limits: { minInput: 1n, maxInput: 1n, minInterval: 0n },
       revision: 0n,
       paused: false,
@@ -141,6 +150,8 @@ it("does not mistake native ETH for an unlaunched protocol token", async () => {
     protocolToken: zeroAddress,
     tierCount: 0n,
     buybacksPaused: false,
+    executionMode: 1,
+    operator: zeroAddress,
     globalMinInterval: 0n,
     lastBuyAt: 0n,
     assets: [asset],

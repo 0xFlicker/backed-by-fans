@@ -115,14 +115,15 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
     const expected =
       (afterCost * (await curve("tokenReserve"))) /
       ((await curve("quoteReserve")) + afterCost);
-    const revision = await f.client.readContract({
-      address: b.buybackVault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "revision",
-      args: [zeroAddress],
-    });
+    const currentRevision = (asset: `0x${string}`) =>
+      f.client.readContract({
+        address: b.buybackVault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "revision",
+        args: [asset],
+      });
     const now = (await f.client.getBlock()).timestamp;
-    await f.configureLimits(zeroAddress, offered);
+    await f.configurePublicBuybacks(zeroAddress, offered);
     f.receipts.push({
       kind: "closing-reference",
       quoteReserve: await curve("quoteReserve"),
@@ -140,6 +141,7 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       hash: await wallet.sendTransaction({
         to: b.buybackVault,
         value: offered,
+        gasPrice: 100_000_000n,
       }),
     });
     expect(donation.status).toBe("success");
@@ -165,7 +167,7 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       zeroAddress,
       1,
       offered,
-      revision + 1n,
+      await currentRevision(zeroAddress),
       now + 900n,
     ]);
     const crossing = await inventory(zeroAddress),
@@ -212,11 +214,22 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
     );
     const graduated = await launch();
     expect(graduated.phase).toBe(2);
+    expect(
+      (
+        await f.client.readContract({
+          address: b.buybackVault,
+          abi: protocolBuybackVaultAbi,
+          functionName: "processingStatus",
+          args: [zeroAddress, 1],
+        })
+      ).status,
+    ).toBe(14);
+    await f.authorizePublicPolicy(zeroAddress, 1000000000000n);
     await f.write(trader, b.buybackVault, protocolBuybackVaultAbi, "process", [
       zeroAddress,
       1,
       1000000000000n,
-      revision + 1n,
+      await currentRevision(zeroAddress),
       now + 900n,
     ]);
     const poolBurnInventory = await inventory(b.protocolToken);
@@ -253,7 +266,7 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       membershipTier,
       membershipTierAbi,
       "createMembership",
-      [12n, zeroAddress],
+      [12n, zeroAddress, 256n],
     );
     await f.testClient.increaseTime({ seconds: 300 });
     await f.testClient.mine({ blocks: 1 });
@@ -270,19 +283,13 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       membershipTierAbi,
       "releaseProtocolFees",
     );
-    const wethRevision = await f.client.readContract({
-      address: b.buybackVault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "revision",
-      args: [weth],
-    });
     const poolNow = (await f.client.getBlock()).timestamp;
-    await f.configureLimits(weth, offered);
+    await f.configurePublicBuybacks(weth, offered);
     await f.write(trader, b.buybackVault, protocolBuybackVaultAbi, "process", [
       weth,
       0,
       1000000000000n,
-      wethRevision + 1n,
+      await currentRevision(weth),
       poolNow + 900n,
     ]);
     const poolMembershipInput = await f.client.readContract({
@@ -386,7 +393,10 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
     );
     await f.testClient.increaseTime({ seconds: Number(p.vesting.duration) });
     await f.testClient.mine({ blocks: 1 });
-    const other = p.vesting.protocol;
+    // Beneficiaries are captured when vesting is first funded, after the
+    // initial pre-deposit compensation snapshot used earlier in this test.
+    const other = secondDeposit.vesting.protocol;
+    expect(other).not.toBe(zeroAddress);
     await f.testClient.setBalance({ address: other, value: 10n ** 18n });
     await f.testClient.impersonateAccount({ address: other });
     try {
