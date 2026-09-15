@@ -32,6 +32,9 @@ The mainnet/fork route catalog does not supply those testnet dependencies.
   fork retry passed without changing source or relaxing validation.
 - Full web suite: 803 tests in 113 files passed.
 - Generated contract binding drift check: passed.
+- Deployment-wrapper suite: passed, including interrupted-prefix resume, dropped
+  transaction recovery, nonce-consumed recovery, and confirmed-revert recovery.
+- Clean-room gate: failed on the five existing Fizz headers listed below.
 
 No public transaction was submitted. The manual review RPC on 18557 and web server
 on 3110 were preserved.
