@@ -2,6 +2,7 @@ import { getAddress } from "viem";
 import { describe, expect, it } from "vitest";
 import { robinhood, robinhoodTestnet } from "viem/chains";
 
+import { membershipFactoryAddress } from "@/contracts";
 import { localAnvil } from "@/lib/chains";
 import { buildPublicConfig, getDeployment } from "@/lib/config";
 
@@ -14,12 +15,13 @@ const anvilRenderer = "0x8888888888888888888888888888888888888888";
 const anvilPreviewHarness = "0x9999999999999999999999999999999999999999";
 
 describe("buildPublicConfig", () => {
-  it("does not attach the new lifecycle ABI to an older immutable factory", () => {
+  it("uses the verified generated testnet deployment by default", () => {
     const config = buildPublicConfig({});
 
     expect(getDeployment(config, robinhoodTestnet.id)).toMatchObject({
-      status: "unavailable",
+      status: "ready",
       chainId: robinhoodTestnet.id,
+      factoryAddress: getAddress(membershipFactoryAddress[robinhoodTestnet.id]),
     });
   });
 

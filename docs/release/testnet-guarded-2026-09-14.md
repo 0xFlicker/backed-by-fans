@@ -56,3 +56,19 @@ The wrapper repeats live validation and fork rehearsal before signing and prompt
 for the account password in the terminal. Follow `docs/runbooks/deployment.md` for
 verification, explorer clone recognition, Safe operator configuration, and
 separately authorized website cutover.
+
+## Recovery and preview activation: 2026-09-15
+
+Recovered the existing deployment from source commit `5565f40` in an isolated
+checkout. No contract transaction was sent during recovery. All six live runtimes
+matched and all six sources were confirmed fully verified by the testnet explorer.
+The factory required resubmission with Foundry's `--skip-is-verified-check`: its
+initial already-verified response disagreed with the explorer's missing source
+metadata; the explicit submission completed with `Pass - Verified`.
+
+The normal `resume-verify` wrapper then promoted the recovery journal, wrote the
+official broadcast records, and regenerated Wagmi bindings for factory
+`0xF6F02F771B0424CA83eC8F582E4187B9741EaC05`. These artifacts were brought back to
+the current preview branch. The contract source is unchanged from the deployed
+commit. The protocol token remains deferred; this restores testnet application
+access, not market-buyback activation.
