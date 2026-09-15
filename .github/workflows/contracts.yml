@@ -36,6 +36,15 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install pinned tooling dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
