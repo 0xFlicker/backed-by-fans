@@ -6,6 +6,21 @@ import {
 } from "../../scripts/protocol-fork/preflight";
 
 import { originPin } from "../../scripts/protocol-fork/origin";
+// Web CI has no Foundry output. Keep this true even on developer machines
+// with compiled contracts so local artifacts cannot mask the dependency again.
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const fs = await importOriginal<typeof import("node:fs/promises")>();
+  return {
+    ...fs,
+    readFile: (...args: Parameters<typeof fs.readFile>) => {
+      if (String(args[0]).includes("contracts/out")) {
+        throw new Error("Foundry output is unavailable in web unit tests");
+      }
+      return fs.readFile(...args);
+    },
+  };
+});
+
 const blockHash = originPin.blockHash as `0x${string}`;
 const origin = { blockNumber: BigInt(originPin.blockNumber), blockHash };
 const factory = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e" as const;

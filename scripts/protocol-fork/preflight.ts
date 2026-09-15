@@ -7,6 +7,13 @@ import { fileURLToPath } from "node:url";
 import { configuredOrigin, originPin } from "./origin";
 import { compareRuntime, type ImmutableReferences } from "./verify-runtime";
 import type { Abi, Address, Hex } from "../../web/node_modules/viem";
+import {
+  iPonsLaunchFactoryAbi as factoryAbi,
+  iPonsMemeHookAbi as hookAbi,
+  iPonsBuybackVaultAbi as vaultAbi,
+  iScaledUiAmountAbi as stockAbi,
+  iv4QuoterAbi as quoterAbi,
+} from "../../web/src/contracts";
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 // Reuse the web workspace's pinned dependencies without creating another package/lockfile.
@@ -109,15 +116,6 @@ const safeCodeHashes: Record<string, Hex> = {
   safeFallbackHandler:
     "0x3c6a85bcf7b563daa624b884b4e9a1b9fa5371edde7be945d998071a48f28bbc",
 };
-
-async function artifactAbi(path: string): Promise<Abi> {
-  const artifact = JSON.parse(
-    await readFile(resolve(repoRoot, "contracts/out", path), "utf8"),
-  );
-  if (!Array.isArray(artifact.abi))
-    throw new Error(`Missing compiled ABI: ${path}; run forge build`);
-  return artifact.abi as Abi;
-}
 
 export function validatePreflightEnvironment(
   env: Record<string, string | undefined>,
@@ -226,9 +224,6 @@ export async function runPreflight(
     return finish();
   }
 
-  const factoryAbi = await artifactAbi("IPons.sol/IPonsLaunchFactory.json");
-  const hookAbi = await artifactAbi("IPons.sol/IPonsMemeHook.json");
-  const vaultAbi = await artifactAbi("IPons.sol/IPonsBuybackVault.json");
   const addresses: Record<string, Address> = { ...candidates };
   if (inputs.quoter) addresses.quoter = inputs.quoter;
   async function read(
@@ -494,8 +489,6 @@ export async function runPreflight(
     "Every dependency requires retained compiler input and independent compilation evidence matching historical runtime, with immutable and metadata differences explicitly bounded",
   );
 
-  const stockAbi = await artifactAbi("IERC8056.sol/IScaledUIAmount.json");
-  const quoterAbi = await artifactAbi("IV4Quoter.sol/IV4Quoter.json");
   if (inputs.quoter)
     await read(
       "quoter",

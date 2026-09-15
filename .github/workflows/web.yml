@@ -8,10 +8,12 @@ on:
       - main
     paths:
       - "web/**"
+      - "scripts/protocol-fork/**"
       - ".github/workflows/web.yml"
   pull_request:
     paths:
       - "web/**"
+      - "scripts/protocol-fork/**"
       - ".github/workflows/web.yml"
   workflow_dispatch:
 
