@@ -164,3 +164,10 @@ ETH/conversion, authority and expiry checks and restores its snapshot. Evidence:
 61 focused unit tests, typecheck, lint, and connected-operator desktop/phone
 checks passed. Existing review memberships, signing access and unreleased fees
 remain available for manual verification.
+
+## License gate resolution: 2026-09-15
+
+The earlier Fizz header blocker is resolved. The clean-room gate preserves the
+original headers for exactly five generated test-helper paths while retaining MIT
+requirements elsewhere, archive-import checks, and dependency pins. The gate and
+five regression cases pass. See `testnet-guarded-2026-09-14.md` for deployment status.

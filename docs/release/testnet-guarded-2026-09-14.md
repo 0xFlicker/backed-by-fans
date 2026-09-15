@@ -39,14 +39,20 @@ The mainnet/fork route catalog does not supply those testnet dependencies.
 No public transaction was submitted. The manual review RPC on 18557 and web server
 on 3110 were preserved.
 
-## Remaining release gate
+## License gate resolved: 2026-09-15
 
-The clean-room gate still requires resolution of the five existing Fizz utility
-license headers documented in `contract-security-2026-09-13.md`. They were not
-relabeled or excluded. Functional deployment rehearsal does not clear this gate.
+The clean-room gate now preserves the original headers on exactly five Fizz test
+helpers: `DecimalPrinter.sol` uses `UNLICENSED`; `StringUtils.sol`, `Hevm.sol`,
+`Clamp.sol`, and `PropertiesAsserts.sol` use `Unlicense`. These headers match the
+installed Fizz templates. Local formatting and lint annotations are retained.
+This records test-tool provenance; it does not relicense the helpers.
+All other owned Solidity files must still carry MIT headers. Archive-import and
+pinned-dependency checks remain enforced. The gate and five regression cases pass,
+including rejection of changed helper headers and unexpected non-MIT files.
 
-After resolving the gate and receiving explicit deployment authorization, use the
-existing encrypted Foundry account and `./scripts/deploy-protocol.sh testnet broadcast`
-from `contracts/`. The wrapper repeats live validation and fork rehearsal before signing.
-Follow `docs/runbooks/deployment.md` for verification, explorer clone recognition,
-Safe operator configuration, and separately authorized website cutover.
+Use the existing encrypted Foundry account and
+`./scripts/deploy-protocol.sh testnet broadcast` from `contracts/`.
+The wrapper repeats live validation and fork rehearsal before signing and prompts
+for the account password in the terminal. Follow `docs/runbooks/deployment.md` for
+verification, explorer clone recognition, Safe operator configuration, and
+separately authorized website cutover.
