@@ -4,6 +4,12 @@ import { parseRehearsalInput, rehearseBuybacks } from "./buyback-rehearsal";
 import { encodeEventTopics, encodeAbiParameters, zeroAddress } from "viem";
 import { protocolBuybackVaultAbi } from "../src/contracts";
 const address = "0x1111111111111111111111111111111111111111";
+const policy = () => ({
+  lifecycle: 0 as const,
+  rates: [{ numerator: "1", denominator: "1" }],
+  expiresAt: "0",
+  inputBudget: "0",
+});
 const input = () => ({
   chainId: 31337,
   factory: address,
@@ -11,7 +17,13 @@ const input = () => ({
   capturedBlock: "12",
   globalMinInterval: "60",
   assets: [
-    { asset: address, minInput: "10", maxInput: "100", minInterval: "3600" },
+    {
+      asset: address,
+      minInput: "10",
+      maxInput: "100",
+      minInterval: "3600",
+      policy: policy(),
+    },
   ],
   targetPercent: 50,
   horizonHours: 24,
@@ -24,6 +36,30 @@ describe("bounded settings rehearsal", () => {
       targetPercent: 50,
       globalMinInterval: "60",
     });
+  });
+  it("requires positive output rates and accepts optional expiry and budgets", () => {
+    expect(
+      parseRehearsalInput({ ...input(), action: "activate-permissionless" })
+        .assets[0].policy,
+    ).toEqual(policy());
+    const v = { ...input(), action: "activate-permissionless" };
+    v.assets[0].policy.rates[0].denominator = "0";
+    expect(() => parseRehearsalInput(v)).toThrow();
+    expect(() =>
+      parseRehearsalInput({
+        ...input(),
+        action: "activate-permissionless",
+        assets: [{ ...input().assets[0], policy: undefined }],
+      }),
+    ).toThrow();
+  });
+  it("defaults to limits-only and discards any historical UI policy", () => {
+    const parsed = parseRehearsalInput(input());
+    expect(parsed.action).toBe("limits-only");
+    expect(parsed.assets[0]).not.toHaveProperty("policy");
+    expect(() =>
+      parseRehearsalInput({ ...input(), action: "unknown" }),
+    ).toThrow("Invalid rehearsal action");
   });
   it.each(["0", "-1", "1.5", "1e18", (2n ** 128n).toString()])(
     "rejects an invalid minimum %s",
@@ -58,6 +94,8 @@ const mock = vi.hoisted(() => ({
   simulate: vi.fn(),
   gas: 1n,
   revert: false,
+  policyStatus: 0,
+  remainingBudget: 1000n,
 }));
 vi.mock("viem", async (original) => ({
   ...(await original<typeof import("viem")>()),
@@ -84,7 +122,13 @@ const scenario = () =>
     vault,
     globalMinInterval: "60",
     assets: [
-      { asset: zeroAddress, minInput: "1", maxInput: "400", minInterval: "60" },
+      {
+        asset: zeroAddress,
+        minInput: "1",
+        maxInput: "400",
+        minInterval: "60",
+        policy: policy(),
+      },
     ],
     targetPercent: 100,
     maxGasPercent: 2.5,
@@ -92,6 +136,8 @@ const scenario = () =>
 beforeEach(() => {
   mock.gas = 1n;
   mock.revert = false;
+  mock.policyStatus = 0;
+  mock.remainingBudget = 1000n;
   vi.clearAllMocks();
   mock.read.mockImplementation(async ({ functionName, args }) => {
     switch (functionName) {
@@ -120,6 +166,8 @@ beforeEach(() => {
   // The RPC owns temporary execution state. Every call starts from the same source snapshot.
   mock.simulate.mockImplementation(async ({ blocks }) => {
     let available = 1000n,
+      policyStatus = mock.policyStatus,
+      budget = mock.remainingBudget,
       supply = 1000000n,
       last = 0n,
       sequence = 0n;
@@ -132,10 +180,22 @@ beforeEach(() => {
           let result: unknown;
           let logs: unknown[] = [];
           const bucket = call.args[1];
+          if (call.functionName === "setPermissionlessPolicy") {
+            policyStatus = 0;
+            budget = (call.args[4] as bigint) || 1000n;
+          }
           if (call.functionName === "processingStatus")
             result = {
-              status: block.blockOverrides.time < last + 60n ? 6 : 0,
-              maxInput: available < 400n ? available : 400n,
+              status:
+                policyStatus ||
+                (budget === 0n
+                  ? 13
+                  : block.blockOverrides.time < last + 60n
+                    ? 6
+                    : 0),
+              maxInput: [available, 400n, budget].reduce((a, b) =>
+                a < b ? a : b,
+              ),
               minInput: 1n,
               nextEligibleAt: last + 60n,
               revision: 1n,
@@ -154,6 +214,7 @@ beforeEach(() => {
             if (block.blockOverrides.time < last + 60n)
               throw new Error("Cooldown was not respected");
             available -= amount;
+            budget -= amount;
             supply -= amount * 2n;
             last = block.blockOverrides.time;
             sequence++;
@@ -229,6 +290,11 @@ it("replays successful purchases in order with cooldown timestamps and repeatabl
     account: safe,
   });
   expect(
+    longest.blocks[0].calls.map(
+      (c: { functionName: string }) => c.functionName,
+    ),
+  ).toEqual(["setExecutionLimits"]);
+  expect(
     longest.blocks
       .flatMap((b: { calls: unknown[] }) => b.calls)
       .filter((c: { functionName: string }) => c.functionName === "process"),
@@ -261,4 +327,70 @@ it("honors request cancellation before any RPC work", async () => {
     rehearseBuybacks("http://127.0.0.1:18557", scenario(), controller.signal),
   ).rejects.toThrow();
   expect(mock.simulate).not.toHaveBeenCalled();
+});
+
+it("does not revive a policy made stale by a route change", async () => {
+  mock.policyStatus = 14;
+  const result = await rehearseBuybacks("http://127.0.0.1:18557", {
+    ...scenario(),
+    assets: scenario().assets.map((asset) => ({ ...asset, policy: policy() })),
+  });
+  expect(result.totals.batches).toBe(0);
+  expect(result.rows[0].note).toContain("status 14");
+  expect(
+    mock.simulate.mock.calls
+      .flatMap(([args]) =>
+        args.blocks.flatMap(
+          (block: { calls: { functionName: string }[] }) => block.calls,
+        ),
+      )
+      .some(
+        (call: { functionName: string }) =>
+          call.functionName === "setPermissionlessPolicy",
+      ),
+  ).toBe(false);
+});
+it("uses the budget remaining at the captured block instead of the old UI snapshot", async () => {
+  mock.remainingBudget = 150n;
+  const result = await rehearseBuybacks("http://127.0.0.1:18557", {
+    ...scenario(),
+    assets: scenario().assets.map((asset) => ({
+      ...asset,
+      policy: { ...policy(), inputBudget: "1000" },
+    })),
+  });
+  const burned = result.rows.filter((row) => row.status === "burned");
+  expect(burned).toHaveLength(1);
+  expect(burned[0].inputRaw).toBe("150");
+  expect(result.rows.some((row) => row.note.includes("status 13"))).toBe(true);
+});
+it.each([2, 10])(
+  "preserves captured pause/operator restrictions (status %s)",
+  async (status) => {
+    mock.policyStatus = status;
+    const result = await rehearseBuybacks("http://127.0.0.1:18557", scenario());
+    expect(result.totals.batches).toBe(0);
+    expect(result.rows[0].note).toContain(`status ${status}`);
+  },
+);
+it("installs policies and enables public execution only for explicit activation", async () => {
+  mock.policyStatus = 14;
+  const result = await rehearseBuybacks("http://127.0.0.1:18557", {
+    ...scenario(),
+    action: "activate-permissionless",
+    assets: scenario().assets.map((asset) => ({ ...asset, policy: policy() })),
+  });
+  expect(result.totals.batches).toBe(3);
+  expect(
+    mock.simulate.mock.calls[0][0].blocks[0].calls.slice(0, 4),
+  ).toMatchObject([
+    { functionName: "setExecutionLimits", account: safe },
+    {
+      functionName: "setPermissionlessPolicy",
+      account: safe,
+      args: [zeroAddress, 0, [{ numerator: 1n, denominator: 1n }], 0n, 0n],
+    },
+    { functionName: "setExecutionMode", account: safe, args: [1] },
+    { functionName: "setBuybacksPaused", account: safe, args: [false] },
+  ]);
 });

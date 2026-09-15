@@ -27,6 +27,7 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
         BuybackTypes.TypedRoute memory route;
         vault.setRoute(address(0), route);
         vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, SafeCast.toUint128(offered), 0));
+        _testPolicy(address(0), BuybackTypes.Lifecycle.Bonding);
         vm.deal(address(this), offered);
         (bool sent,) = address(vault).call{value: offered}("");
         assertTrue(sent);
@@ -37,7 +38,11 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
         uint256 supply = token.totalSupply();
         vm.prank(trader);
         vault.process(
-            address(0), BuybackTypes.SourceBucket.Donation, offered, 2, uint64(block.timestamp)
+            address(0),
+            BuybackTypes.SourceBucket.Donation,
+            offered,
+            vault.revision(address(0)),
+            uint64(block.timestamp)
         );
         uint256 spent = vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
         assertGt(spent, 0);
@@ -84,11 +89,19 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
             vault.inventory(address(token), BuybackTypes.SourceBucket.Donation).totalBurned;
         uint256 spentBefore =
             vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
+        _testPolicy(address(0), BuybackTypes.Lifecycle.Pool);
         vm.prank(developer);
         vault.process(
-            address(0), BuybackTypes.SourceBucket.Donation, 1e12, 2, uint64(block.timestamp)
+            address(0),
+            BuybackTypes.SourceBucket.Donation,
+            1e12,
+            vault.revision(address(0)),
+            uint64(block.timestamp)
         );
-        assertEq(vault.revision(address(0)), 2, "graduation needs no new route or limits");
+        assertEq(
+            uint256(vault.permissionlessPolicy(address(0)).lifecycle),
+            uint256(BuybackTypes.Lifecycle.Pool)
+        );
         assertEq(
             vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent
                 - spentBefore,
@@ -118,7 +131,11 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
         );
         uint256 supply = token.totalSupply();
         vault.process(
-            address(0), BuybackTypes.SourceBucket.Donation, offered, 3, uint64(block.timestamp)
+            address(0),
+            BuybackTypes.SourceBucket.Donation,
+            offered,
+            vault.revision(address(0)),
+            uint64(block.timestamp)
         );
         uint256 spent = vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
         assertGt(spent, 0);
@@ -127,9 +144,14 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
         assertEq(vault.lastAssetBuyAt(address(0)), block.timestamp);
         assertLt(token.totalSupply(), supply);
         assertTrue(curve.readyToGraduate() || curve.graduated());
+        uint64 currentRevision = vault.revision(address(0));
         vm.expectRevert();
         vault.process(
-            address(0), BuybackTypes.SourceBucket.Donation, offered, 3, uint64(block.timestamp)
+            address(0),
+            BuybackTypes.SourceBucket.Donation,
+            offered,
+            currentRevision,
+            uint64(block.timestamp)
         );
         assertEq(vault.settlementSequence(), 1);
     }

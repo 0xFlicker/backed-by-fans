@@ -16,7 +16,7 @@ export function TestnetFaucetNotice() {
   const [dismissed, setDismissed] = useState(false);
   const pathname = usePathname();
   const { chainId } = useActiveNetwork();
-  const routeChain = pathname.match(/^\/chains\/(\d+)(?:\/|$)/)?.[1];
+  const routeChain = pathname?.match(/^\/chains\/(\d+)(?:\/|$)/)?.[1];
   const pageChainId = routeChain ? Number(routeChain) : chainId;
 
   if (!hydrated || dismissed || pageChainId !== robinhoodTestnet.id)

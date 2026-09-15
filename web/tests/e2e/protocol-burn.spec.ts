@@ -50,6 +50,34 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
   // Test isolation on the existing local chain, never a nested fork.
   const snapshot = await local.snapshot();
   try {
+    expect(
+      await client.readContract({
+        address: boot.buybackVault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "executionMode",
+      }),
+      "Seeded public-burn fixture must explicitly authorize PermissionlessGuarded",
+    ).toBe(1);
+    expect(
+      await client.readContract({
+        address: boot.buybackVault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "buybacksPaused",
+      }),
+      "Seeded public-burn fixture must explicitly unpause purchases",
+    ).toBe(false);
+    for (const tier of demo.tiers) {
+      const policy = await client.readContract({
+        address: boot.buybackVault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "permissionlessPolicy",
+        args: [tier.paymentToken],
+      });
+      expect(
+        policy.rates.length,
+        "Seeded fixture needs quote-based public rates for every market route",
+      ).toBeGreaterThan(0);
+    }
     const router = await client.readContract({
       address: boot.factory,
       abi: membershipFactoryAbi,
@@ -120,7 +148,8 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
       .locator(".protocol-heading")
       .screenshot({ path: info.outputPath("burn-complete.png") });
 
-    // Make the next purchase ineligible; collection may still progress.
+    // With no due checkpoints, a cooldown leaves the combined action disabled.
+    // Continuous accrual remains available through the accounting action.
     await local.setBalance({ address: boot.safe, value: 10n ** 18n });
     await local.impersonateAccount({ address: boot.safe });
     try {
@@ -134,6 +163,7 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
         abi: protocolBuybackVaultAbi,
         functionName: "setGlobalMinInterval",
         args: [86400n],
+        gasPrice: 100_000_000n,
         account: boot.safe,
       });
       const tx = await wallet.writeContract(request.request);
@@ -144,10 +174,10 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
       await local.stopImpersonatingAccount({ address: boot.safe });
     }
     const afterBurn = await supply();
-    await burn.click();
-    await expect(page.locator(".protocol-burn [role=status]")).toContainText(
-      "Earned fees released",
-      { timeout: 60000 },
+    await page.getByRole("button", { name: "Refresh activity" }).click();
+    await expect(burn).toBeDisabled({ timeout: 30000 });
+    expect(await client.getTransactionCount({ address: caller })).toBe(
+      beforeNonce + 1,
     );
     expect(await supply()).toBe(afterBurn);
     // Once eligible again, donation inventory gets the next shared-cooldown turn.
@@ -159,6 +189,7 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
     const donation = await callerWallet.sendTransaction({
       to: boot.buybackVault,
       value: 10n ** 15n,
+      gasPrice: 100_000_000n,
     });
     await client.waitForTransactionReceipt({ hash: donation });
     const sync = await client.simulateContract({
@@ -167,6 +198,7 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
       functionName: "syncDonation",
       args: ["0x0000000000000000000000000000000000000000"],
       account: caller,
+      gasPrice: 100_000_000n,
     });
     await client.waitForTransactionReceipt({
       hash: await callerWallet.writeContract(sync.request),
@@ -175,6 +207,8 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
       timestamp: (await client.getBlock()).timestamp + 86400n,
     });
     await local.mine({ blocks: 1 });
+    await page.getByRole("button", { name: "Refresh activity" }).click();
+    await expect(burn).toBeEnabled({ timeout: 30000 });
     await burn.click();
     await expect(page.locator(".protocol-burn [role=status]")).toContainText(
       "burned.",

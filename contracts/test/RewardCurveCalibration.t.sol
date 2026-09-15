@@ -110,7 +110,7 @@ contract RewardCurveCalibrationTest is Test {
 
     function test_calibrationMatchesSolidityOutputs() public view {
         uint256[] memory data =
-            abi.decode(vm.readFileBinary("deployments/curve-calibration/cases.bin"), (uint256[]));
+            abi.decode(vm.readFileBinary("test/fixtures/reward-curve-cases.bin"), (uint256[]));
         assertGt(data.length, 0);
         assertEq(data.length % 4, 0);
         for (uint256 i; i < data.length; i += 4) {

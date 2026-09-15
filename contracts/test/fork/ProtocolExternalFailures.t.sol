@@ -206,6 +206,7 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
         route.pools[0] = key;
         vault.setRoute(USDG, route);
         vault.setLimits(USDG, limits);
+        _testPolicy(USDG, BuybackTypes.Lifecycle.Bonding);
         activeRevision = vault.revision(USDG);
         vm.expectRevert();
         _processUSDG(amount);

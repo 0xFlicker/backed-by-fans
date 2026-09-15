@@ -14,21 +14,34 @@ import {
   keccak256,
   toBytes,
   type Address,
+  type Hex,
   type Abi,
   type ContractFunctionArgs,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 import {
   membershipFactoryAbi,
+  protocolBuybackVaultAbi,
   membershipTierAbi,
   iWrappedNativeAbi,
+  iSafeAbi,
 } from "../src/contracts";
-import { validateAdminRpc, readAdminContext } from "./protocol-admin";
+import {
+  validateAdminRpc,
+  readAdminContext,
+  prepareBuybackPayload,
+} from "./protocol-admin";
+import { executeForkSafePayload } from "./protocol-safe-transactions";
+import { readMarketState, quoteMarket } from "../src/lib/buyback-policy/live";
 
-const [evidenceArg, ownerArg] = process.argv.slice(2);
+const [evidenceArg, ownerArg, ...flags] = process.argv.slice(2);
+if (flags.some((flag) => flag !== "--permissionless") || flags.length > 1)
+  throw new Error("Unknown demo option");
+const permissionless = flags.includes("--permissionless");
 if (!evidenceArg || !ownerArg)
   throw new Error(
-    "Usage: seed-buyback-demo.ts EVIDENCE_DIRECTORY WALLET_ADDRESS",
+    "Usage: seed-buyback-demo.ts EVIDENCE_DIRECTORY WALLET_ADDRESS [--permissionless]",
   );
 const evidence = resolve(evidenceArg),
   owner = getAddress(ownerArg);
@@ -52,12 +65,108 @@ const json = (v: unknown) =>
   JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x), 2) +
   "\n";
 const marker = resolve(evidence, "buyback-demo.json");
+const testKey = (value: number) =>
+  `0x${value.toString(16).padStart(64, "0")}` as Hex;
+// Explicit disposable-fork opt-in. Complete this before transferring the Safe to a personal wallet.
+const configurePermissionless = async () => {
+  const context = await readAdminContext(client, 31337, bootstrap.factory);
+  const [owners, threshold] = await Promise.all([
+    client.readContract({
+      address: context.safe,
+      abi: iSafeAbi,
+      functionName: "getOwners",
+    }),
+    client.readContract({
+      address: context.safe,
+      abi: iSafeAbi,
+      functionName: "getThreshold",
+    }),
+  ]);
+  const signerKeys = [40961, 40962, 40963]
+    .map(testKey)
+    .filter((key) =>
+      owners.some(
+        (address) =>
+          address.toLowerCase() ===
+          privateKeyToAccount(key).address.toLowerCase(),
+      ),
+    )
+    .slice(0, Number(threshold));
+  if (signerKeys.length !== Number(threshold))
+    throw new Error(
+      "Permissionless demo setup requires the disposable Safe test keys before owner handoff",
+    );
+  const receipts = [];
+  const safe = async (action: string, input: Record<string, unknown>) => {
+    const current = await readAdminContext(client, 31337, bootstrap.factory);
+    const payload = await prepareBuybackPayload(client, current, action, {
+      ...input,
+      expectedSafeNonceRaw: String(current.safeNonce),
+    });
+    const receipt = await executeForkSafePayload({
+      rpcUrl: rpc,
+      factory: bootstrap.factory,
+      payload,
+      signerKeys,
+      relayerKey: testKey(49153),
+    });
+    receipts.push({ action, payload, receipt });
+  };
+  for (const [asset, batch] of [
+    [zeroAddress, parseEther("0.02")],
+    [getAddress(fixture.assets.usdg), 50_000_000n],
+    [getAddress(fixture.assets.amd), parseEther("0.01")],
+  ] as const) {
+    const revision = () =>
+      client.readContract({
+        address: bootstrap.buybackVault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "revision",
+        args: [asset],
+      });
+    await safe("limits", {
+      asset,
+      expectedRevisionRaw: String(await revision()),
+      limits: { minInput: "1", maxInput: String(batch), minInterval: "0" },
+    });
+    const market = await readMarketState(client, {
+      vault: bootstrap.buybackVault,
+      asset,
+      protocolToken: bootstrap.protocolToken,
+      blockNumber: await client.getBlockNumber(),
+    });
+    const quote = await quoteMarket(client, market, batch);
+    const rates = quote.map((leg, index) => ({
+      numerator: String(leg.outputRaw * 8000n),
+      denominator: String(
+        (index === 0 ? batch : quote[index - 1].outputRaw) * 10000n,
+      ),
+    }));
+    await safe("policy", {
+      asset,
+      expectedRevisionRaw: String(await revision()),
+      lifecycle: market.lifecycle,
+      rates,
+      expiresAt: "0",
+      inputBudget: "0",
+    });
+    receipts.push({ asset, batch, quote, rates, fixtureToleranceBps: 2000 });
+  }
+  await safe("interval", { minInterval: "0" });
+  await safe("mode", { mode: 1 });
+  await safe("pause", { paused: false });
+  await writeFile(
+    resolve(evidence, "buyback-demo-permissionless.json"),
+    json({ fixtureOnly: true, receipts }),
+  );
+};
 let saved:
   | {
       factory: Address;
       owner: Address;
       advanceTo: string;
       completed?: boolean;
+      permissionless?: boolean;
       tiers?: { address: Address; tokenId: string }[];
     }
   | undefined;
@@ -86,6 +195,10 @@ if (saved?.completed) {
         "Demo membership changed; inspect the current fork before reseeding",
       );
   }
+  if (permissionless && !saved.permissionless) {
+    await configurePermissionless();
+    await writeFile(marker, json({ ...saved, permissionless: true }));
+  }
   console.log(
     "Demo already prepared. Memberships, purchases and chain time were left unchanged.",
   );
@@ -112,6 +225,7 @@ const transact = async (
     args,
     account,
     value,
+    gasPrice: 100_000_000n,
   });
   const hash = await wallet.writeContract(simulation.request);
   const receipt = await client.waitForTransactionReceipt({ hash });
@@ -311,7 +425,8 @@ try {
   }
   if ((await client.getBalance({ address: owner })) < parseEther("20"))
     await test.setBalance({ address: owner, value: parseEther("20") });
-  const result = { ...plan, completed: true, tiers };
+  if (permissionless) await configurePermissionless();
+  const result = { ...plan, completed: true, tiers, permissionless };
   await writeFile(marker, json(result));
   console.log(json(result));
 } finally {

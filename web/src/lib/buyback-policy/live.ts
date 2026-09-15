@@ -30,6 +30,8 @@ export async function readMarketState(
     asset: Address;
     protocolToken: Address;
     blockNumber: bigint;
+    /** Explicit operator route; avoids reading stored permissionless policy. */
+    route?: readonly Pool[];
   },
 ) {
   const { vault, asset, protocolToken, blockNumber } = input;
@@ -44,13 +46,15 @@ export async function readMarketState(
       functionName: "executor",
       blockNumber,
     }),
-    client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "route",
-      args: [asset],
-      blockNumber,
-    }),
+    input.route !== undefined
+      ? Promise.resolve({ pools: input.route })
+      : client.readContract({
+          address: vault,
+          abi: protocolBuybackVaultAbi,
+          functionName: "route",
+          args: [asset],
+          blockNumber,
+        }),
   ]);
   const [curve, lifecycle, launch] = await Promise.all([
     client.readContract({

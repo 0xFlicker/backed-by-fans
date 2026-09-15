@@ -287,3 +287,41 @@ it("rejects a wrong RPC chain before fetching addresses or signing context", asy
   expect(client.getBlock).not.toHaveBeenCalled();
   expect(client.readContract).not.toHaveBeenCalled();
 });
+
+describe("guarded buyback administration", () => {
+  it("supports revocation and permissionless activation", () => {
+    expect(
+      parseBuybackInput("operator", {
+        expectedSafeNonceRaw: "7",
+        operator: zeroAddress,
+      }).args,
+    ).toEqual([zeroAddress]);
+    expect(
+      parseBuybackInput("mode", { expectedSafeNonceRaw: "7", mode: 1 }).method,
+    ).toBe("setExecutionMode");
+  });
+  it("allows indefinite policies without lifetime budgets", () => {
+    const input = {
+      expectedSafeNonceRaw: "7",
+      asset: zeroAddress,
+      expectedRevisionRaw: "2",
+      lifecycle: 0,
+      rates: [{ numerator: "3", denominator: "2" }],
+      expiresAt: "0",
+      inputBudget: "0",
+    };
+    expect(parseBuybackInput("policy", input).args).toEqual([
+      zeroAddress,
+      0,
+      [{ numerator: 3n, denominator: 2n }],
+      0n,
+      0n,
+    ]);
+    expect(() =>
+      parseBuybackInput("policy", {
+        ...input,
+        rates: [{ numerator: "0", denominator: "1" }],
+      }),
+    ).toThrow();
+  });
+});

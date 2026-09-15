@@ -46,6 +46,7 @@ for (const kind of ["AMD", "WETH"] as const)
       await f.write(member, tier, membershipTierAbi, "createMembership", [
         12n,
         zeroAddress,
+        256n,
       ]);
       await f.testClient.increaseTime({ seconds: 300 });
       await f.testClient.mine({ blocks: 1 });
@@ -62,7 +63,7 @@ for (const kind of ["AMD", "WETH"] as const)
         });
       const released = await inventory();
       expect(released.available).toBeGreaterThanOrEqual(price * 3n);
-      await f.configureLimits(asset, released.available);
+      await f.configurePublicBuybacks(asset, released.available);
       const status = await f.client.readContract({
         address: f.bootstrap.buybackVault,
         abi: protocolBuybackVaultAbi,
@@ -118,7 +119,12 @@ for (const kind of ["AMD", "WETH"] as const)
         functionName: "balanceOf",
         args: [member],
       });
-      await f.write(creator, tier, membershipTierAbi, "refund", [1n, gross]);
+      await f.write(creator, tier, membershipTierAbi, "refund", [
+        1n,
+        member,
+        gross,
+        256n,
+      ]);
       const afterRefund = await f.client.readContract({
         address: asset,
         abi: erc20Abi,

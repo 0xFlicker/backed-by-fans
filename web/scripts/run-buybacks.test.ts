@@ -9,7 +9,7 @@ import {
   type PublicClient,
   type WalletClient,
 } from "viem";
-import { createBuybackRunner } from "./run-buybacks";
+import { createBuybackRunner, minimumOutputs } from "./run-buybacks";
 import { protocolBuybackVaultAbi } from "../src/contracts";
 
 const address = (id: number) =>
@@ -47,6 +47,8 @@ function fixture(counts = [55n, 1n, 0n]) {
     getBlock: vi.fn(async () => ({ number: 10n, timestamp: 1000n })),
     readContract: vi.fn(async (call: Call): Promise<unknown> => {
       switch (call.functionName) {
+        case "executionMode":
+          return 1;
         case "tierCount":
           return BigInt(captured.length);
         case "tiers":
@@ -155,7 +157,9 @@ function fixture(counts = [55n, 1n, 0n]) {
       return `0x${"1".repeat(64)}`;
     }),
   };
-  const create = () =>
+  const create = (
+    options: Partial<Parameters<typeof createBuybackRunner>[0]> = {},
+  ) =>
     createBuybackRunner({
       client: client as unknown as PublicClient,
       wallet: wallet as unknown as WalletClient,
@@ -168,6 +172,7 @@ function fixture(counts = [55n, 1n, 0n]) {
       curve,
       assets: [asset],
       log: (e) => events.push(e),
+      ...options,
     });
   return {
     client,
@@ -379,4 +384,211 @@ describe("finite fair buyback collection", () => {
       ).length,
     ).toBeGreaterThanOrEqual(3);
   });
+});
+
+describe("operator output terms", () => {
+  it("requires explicit bounded tolerance and positive quotes", () => {
+    expect(
+      minimumOutputs([{ outputRaw: 1000n }, { outputRaw: 2000n }], 50),
+    ).toEqual([995n, 1990n]);
+    expect(() => minimumOutputs([], 50)).toThrow("quotes");
+    expect(() => minimumOutputs([{ outputRaw: 1n }], 50)).toThrow("positive");
+    expect(() => minimumOutputs([{ outputRaw: 1000n }], NaN)).toThrow(
+      "Explicit",
+    );
+    expect(() => minimumOutputs([{ outputRaw: 1000n }], 10000)).toThrow(
+      "Explicit",
+    );
+  });
+});
+
+it("does not discover stored routes or attempt public market purchases in operator mode", async () => {
+  const f = fixture([]);
+  const read = f.client.readContract.getMockImplementation()!;
+  f.client.readContract.mockImplementation(async (call) =>
+    call.functionName === "executionMode" ? 0 : read(call),
+  );
+  await f.create().once();
+  expect(
+    f.client.readContract.mock.calls.some(
+      ([call]) => call.functionName === "route",
+    ),
+  ).toBe(false);
+  expect(
+    f.client.simulateContract.mock.calls.some(
+      ([call]) =>
+        call.functionName === "processOperator" ||
+        call.functionName === "process",
+    ),
+  ).toBe(false);
+  expect(
+    f.events.some(
+      (event) => event.reason === "No offchain operator policy supplied",
+    ),
+  ).toBe(true);
+});
+
+it("quotes every operator request and supplies the offchain route and positive floors", async () => {
+  const f = fixture([]);
+  const read = f.client.readContract.getMockImplementation()!;
+  f.client.readContract.mockImplementation(async (call) => {
+    const market: Record<string, unknown> = {
+      executionMode: 0,
+      operator: caller,
+      executor: caller,
+      curve,
+      lifecycle: 0,
+      quoteReserve: 1000n,
+      tokenReserve: 10000n,
+      feeBps: 100n,
+      creatorTaxBps: 100n,
+      sellableTokens: 9000n,
+      currentSnipeTaxBps: 0n,
+    };
+    if (call.functionName in market) return market[call.functionName];
+    if (
+      call.functionName === "processingStatus" &&
+      call.args?.[0] === zeroAddress
+    )
+      return { status: 10, revision: 7n, available: 100n, maxInput: 0n };
+    return read(call);
+  });
+  f.client.simulateContract.mockRejectedValue(
+    new Error("Execution deliberately rejected by venue"),
+  );
+  await f
+    .create({
+      operatorPolicies: [{ asset: zeroAddress, amount: 100n, pools: [] }],
+      toleranceBps: 50,
+    })
+    .once();
+  const purchases = f.client.simulateContract.mock.calls.filter(
+    ([call]) => call.functionName === "processOperator",
+  );
+  expect(purchases).toHaveLength(2);
+  expect(purchases[0][0].args).toEqual([
+    zeroAddress,
+    0,
+    100n,
+    { pools: [] },
+    [887n],
+    1120n,
+  ]);
+  expect(
+    f.client.readContract.mock.calls.some(
+      ([call]) => call.functionName === "route",
+    ),
+  ).toBe(false);
+  expect(f.wallet.writeContract).not.toHaveBeenCalled();
+});
+
+it("refreshes private quotes after each successful purchase without sending operator terms to read RPC", async () => {
+  const f = fixture([]);
+  let blockNumber = 10n;
+  let lastRequest: Call | undefined;
+  const publicRead = f.client.readContract.getMockImplementation()!;
+  f.client.readContract.mockImplementation(async (call) => {
+    if (call.functionName === "executionMode") return 0;
+    if (call.functionName === "operator") return caller;
+    if (
+      call.functionName === "processingStatus" &&
+      call.args?.[0] === zeroAddress
+    )
+      return { status: 10, revision: 7n, available: 100n, maxInput: 0n };
+    return publicRead(call);
+  });
+  const privateClient = {
+    getBlock: vi.fn(async () => ({
+      number: blockNumber,
+      timestamp: 990n + blockNumber,
+    })),
+    getGasPrice: vi.fn(async () => 1n),
+    estimateContractGas: vi.fn(async () => 1n),
+    readContract: vi.fn(async (call: Call) => {
+      const values: Record<string, unknown> = {
+        executor: caller,
+        curve,
+        lifecycle: 0,
+        getLaunchedToken: { exists: true, curve, pairToken: zeroAddress },
+        quoteReserve: call.blockNumber === 10n ? 1000n : 1100n,
+        tokenReserve: 10000n,
+        feeBps: 100n,
+        creatorTaxBps: 100n,
+        sellableTokens: 9000n,
+        currentSnipeTaxBps: 0n,
+      };
+      if (!(call.functionName in values))
+        throw new Error(`Unexpected private read ${call.functionName}`);
+      return values[call.functionName];
+    }),
+    simulateContract: vi.fn(async (call: Call) => ({ request: call })),
+  };
+  f.wallet.writeContract.mockImplementation(async (request) => {
+    lastRequest = request;
+    return `0x${"1".repeat(64)}`;
+  });
+  f.client.waitForTransactionReceipt.mockImplementation(async () => {
+    const request = lastRequest!;
+    blockNumber++;
+    return {
+      status: "success",
+      blockNumber,
+      logs: [
+        {
+          address: vault,
+          topics: encodeEventTopics({
+            abi: protocolBuybackVaultAbi,
+            eventName: "BuybackBurned",
+            args: {
+              sequence: blockNumber,
+              bucket: request.args![1] as 0 | 1,
+              input: zeroAddress,
+            },
+          }),
+          data: encodeAbiParameters(
+            getAbiItem({
+              abi: protocolBuybackVaultAbi,
+              name: "BuybackBurned",
+            }).inputs.filter((input) => !input.indexed),
+            [100n, 800n, 0, 0n],
+          ),
+        },
+      ],
+    };
+  });
+  await f
+    .create({
+      chainId: 4663,
+      submissionMode: "private",
+      operatorClient: privateClient as unknown as PublicClient,
+      operatorPolicies: [{ asset: zeroAddress, amount: 100n, pools: [] }],
+      toleranceBps: 50,
+      maxGasPercent: 100,
+    })
+    .once();
+  expect(f.wallet.writeContract).toHaveBeenCalledTimes(2);
+  expect(
+    privateClient.readContract.mock.calls
+      .filter(([call]) => call.functionName === "quoteReserve")
+      .map(([call]) => call.blockNumber),
+  ).toEqual([10n, 11n]);
+  const requests = privateClient.simulateContract.mock.calls.map(
+    ([call]) => call,
+  );
+  expect(requests.map((call) => call.args![5])).toEqual([1120n, 1121n]);
+  expect(requests[0].args![4]).not.toEqual(requests[1].args![4]);
+  expect(privateClient.estimateContractGas).toHaveBeenCalledTimes(2);
+  expect(f.client.simulateContract).not.toHaveBeenCalled();
+  expect(
+    f.client.readContract.mock.calls.some(
+      ([call]) =>
+        call.functionName === "quoteReserve" || call.functionName === "route",
+    ),
+  ).toBe(false);
+});
+
+it("fails closed if private operator transport is missing", () => {
+  expect(() => fixture([]).create({ submissionMode: "private" })).toThrow(
+    "trusted private RPC",
+  );
 });

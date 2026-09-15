@@ -78,6 +78,7 @@ async function transact(
     functionName,
     args,
     value,
+    gasPrice: 100_000_000n,
   });
   const wallet = createWalletClient({ chain: anvil, account, transport });
   const hash = await wallet.writeContract(simulation.request);
@@ -133,7 +134,9 @@ if (!owners.some((a) => a.toLowerCase() === wallets[1].toLowerCase())) {
     ownerAddress: wallets[1],
     threshold: 1,
   });
-  const result = await safe.executeTransaction(transaction);
+  const result = await safe.executeTransaction(transaction, {
+    gasPrice: "100000000",
+  });
   const receipt = await client.waitForTransactionReceipt({
     hash: result.hash as `0x${string}`,
   });

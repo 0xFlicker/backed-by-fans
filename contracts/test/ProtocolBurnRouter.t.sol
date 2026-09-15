@@ -80,6 +80,25 @@ contract ProtocolBurnRouterTest is Test {
         p[0] = ProtocolBurnRouter.Purchase(address(token), 0);
     }
 
+    function test_operatorModeSkipsMarketsWhilePublicAccountingReleaseAndDirectBurnWork() public {
+        vm.deal(address(vault), 100);
+        vault.syncDonation(address(0));
+        ProtocolBurnRouter.Purchase[] memory items = new ProtocolBurnRouter.Purchase[](2);
+        items[0] = ProtocolBurnRouter.Purchase(address(0), 0);
+        items[1] = ProtocolBurnRouter.Purchase(address(token), 0);
+        vm.prank(address(0xBEEF));
+        (, uint256 released, uint256 bought, uint256 burned) =
+            router.advance(advanceTiers(), items, 1200);
+        assertEq(released, 1);
+        assertEq(bought, 1);
+        assertEq(burned, 250);
+        assertEq(vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).available, 100);
+        assertEq(
+            uint256(vault.processingStatus(address(0), BuybackTypes.SourceBucket.Donation).status),
+            uint256(BuybackTypes.Status.OperatorOnly)
+        );
+    }
+
     function test_anyWalletAdvancesReleasesAndBurnsInOneCall() public {
         uint256 beforeSupply = token.totalSupply();
         vm.prank(address(0xBEEF));
@@ -262,7 +281,7 @@ contract ProtocolBurnRouterTest is Test {
         );
     }
 
-    function test_duplicateTiersAndSharedBudgetFailBeforeAnyAccounting() public {
+    function test_duplicateAndUnsortedTiersFailBeforeAnyAccounting() public {
         ProtocolBurnRouter.AdvanceTier[] memory items = new ProtocolBurnRouter.AdvanceTier[](2);
         items[0] = ProtocolBurnRouter.AdvanceTier(address(tier), 12);
         items[1] = items[0];
@@ -275,7 +294,9 @@ contract ProtocolBurnRouterTest is Test {
         );
         config.tierSalt = bytes32(uint256(2));
         address other = factory.createTier(config);
-        items[1] = ProtocolBurnRouter.AdvanceTier(other, 51);
+        // CREATE2 addresses change with implementation bytecode; explicitly order descending.
+        items[0] = ProtocolBurnRouter.AdvanceTier(other > address(tier) ? other : address(tier), 12);
+        items[1] = ProtocolBurnRouter.AdvanceTier(other > address(tier) ? address(tier) : other, 51);
         vm.expectRevert(ProtocolBurnRouter.InvalidBatch.selector);
         router.advance(items, new ProtocolBurnRouter.Purchase[](0), 1200);
         assertEq(tier.accountingStatus().accountedThrough, 1000);

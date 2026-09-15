@@ -1,38 +1,58 @@
-# Standing buyback execution settings
+# Guarded buyback execution settings
 
-This replaces the earlier expiring-policy ABI. Redeploy the immutable protocol;
-there is no migration or backward-compatible policy endpoint.
+## Operator execution
 
-`ExecutionLimits` contains `minInput` and `maxInput` (`uint128`, raw input units)
-and `minInterval` (`uint64`, seconds). The Safe configures each canonical currency
-with `setLimits`, and global spacing with `setGlobalMinInterval`. The combined
-`setExecutionLimits(globalInterval, assets, limits)` atomically updates up to 32
-unique canonical currencies. Settings never expire and contain no cumulative
-budget, price rate, reference hash or signature authority.
+The vault starts paused in `OperatorGuarded` (mode 0). The factory-owner Safe
+appoints/revokes `operator` and manages mode and pause controls. A zero operator
+revokes execution authority.
 
-`processingStatus(asset, bucket)` returns status, revision, available inventory,
-maximum eligible input, minimum input and next eligible timestamp. Statuses:
-Ready, NoInventory, Paused, NoRoute, NoLimits, BelowMinimum, Cooldown,
-LaunchPenalty, GraduationPending.
+`processOperator(asset, bucket, amountIn, route, minimumOutputs, deadline)` is
+restricted to that operator and mode. Policy is entirely off-chain. The route and
+all economic terms are calldata, not public-policy storage. Supply one positive
+absolute minimum for each conversion pool and the final Pons purchase; do not
+add an unwrap entry. Existing typed route validation, settlement and burn checks
+remain. Operator execution does not depend on stored public routes or limits.
 
-Anyone calls `process(asset, bucket, amountIn, expectedRevision, deadline)`.
-The vault enforces batch bounds, global and currency cooldowns, supported typed
-routes, exact settlement and actual holder burn with supply reconciliation.
-Settings and route revisions invalidate stale transaction inputs; they do not
-reset clocks. A revert changes no inventory, clock or settlement sequence.
+## Permissionless execution
 
-ETH and the fixed canonical WETH address share settings, pause state, route,
-revision, clocks and inventory getters. WETH received as fees or synchronized
-donations is unwrapped and booked as ETH. Calling both getters does not represent
-two balances. Membership and donation accounting remain distinct and share the
-same currency cooldown. Conversions create no new revenue.
+`PermissionlessGuarded` (mode 1) retains
+`process(asset, bucket, amountIn, expectedRevision, deadline)` for public purchases.
+The Safe sets routes, `ExecutionLimits` (minimum/maximum input and per-asset
+interval), global interval, and `setPermissionlessPolicy` for each canonical asset.
 
-A successful purchase advances the global and canonical-input clocks. An unwrap
-is not a purchase. A partial curve purchase refunds remaining assets to accounted
-inventory. Actual input spent must meet the minimum, except when the authentic
-closing bonding purchase moves to graduation pending. Direct burns of existing
-protocol-token inventory bypass purchase settings and clocks.
+The policy records entry lifecycle, current asset revision, optional expiry and
+budget, and positive numerator/denominator raw-unit output rates for every market
+leg. Rate-derived output floors use each leg's offered input and round upward.
+Partial fills retain that strict absolute floor. Native/WETH unwrap is exact 1:1.
 
-These controls govern size and timing, not a fair-price guarantee. Quotes and gas
-preferences in the admin calculator/runner are execution aids, not permissions
-required from public callers. See [local operations](local-policy-tools.md).
+- `expiresAt = 0`: no expiry; no periodic renewal requirement.
+- `inputBudget = 0`: unlimited budget. An exhausted finite budget remains finite
+  and unavailable; it does not turn into an unlimited budget.
+- A finite budget is shared across membership/donation buckets and native/WETH
+  aliases. Eligible input is capped by remaining budget, and actual input spent
+  is debited only on successful settlement.
+- Route, limit or policy changes advance the asset revision. Limit-only changes
+  atomically preserve a currently valid policy and its actual remaining budget;
+  they never revive a policy already stale from a route change. Policies must match
+  current settings and entry lifecycle. A successful curve-closing purchase may
+  change lifecycle; the next purchase needs the appropriate pool policy.
+- Missing, stale, expired and exhausted policy states fail closed. A mode switch,
+  pause or operator rotation never replenishes budget.
+
+The Safe may atomically batch route/limit/policy setup and mode activation. Even
+when performed separately, public execution remains unavailable until all terms
+are valid. Rates are standing Safe authority, not caller-selected spot quotes or
+independent fair-value guarantees.
+
+## Shared settlement and maintenance
+
+Both paths preserve exact custody accounting, source buckets, refunds, pauses and
+actual holder burn with supply reconciliation. A revert leaves inventory, clocks,
+policy budgets and settlement sequence unchanged. Successful market purchases
+record last-buy timestamps; public cooldowns apply in permissionless mode.
+
+The public router skips market purchases while operator-only execution is active.
+It remains available for accounting, fee release and direct burns. Direct burns
+of existing protocol-token inventory bypass market policies and clocks, while
+preserving global and per-asset pause controls. There is no withdrawal, upgrade,
+generic call, or compatibility endpoint for obsolete policy implementations.

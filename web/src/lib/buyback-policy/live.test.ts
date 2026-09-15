@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { zeroAddress, type PublicClient } from "viem";
-import { quoteMarket, type readMarketState } from "./live";
+import { quoteMarket, readMarketState } from "./live";
 const token = "0x1111111111111111111111111111111111111111";
 const market = (
   sellable = 9000n,
@@ -41,4 +41,43 @@ describe("net bonding quotes", () => {
       "zero output",
     );
   });
+});
+
+it("quotes explicit operator routes without reading the stored public route", async () => {
+  const values: Record<string, unknown> = {
+    executor: token,
+    curve: token,
+    lifecycle: 0,
+    getLaunchedToken: { exists: true, curve: token, pairToken: zeroAddress },
+    quoteReserve: 1000n,
+    tokenReserve: 10000n,
+    feeBps: 100n,
+    creatorTaxBps: 100n,
+    sellableTokens: 9000n,
+    currentSnipeTaxBps: 0n,
+  };
+  const readContract = vi.fn(
+    async ({ functionName }: { functionName: string }) => {
+      if (!(functionName in values))
+        throw new Error(`Unexpected read ${functionName}`);
+      return values[functionName];
+    },
+  );
+  const state = await readMarketState(
+    { readContract } as unknown as PublicClient,
+    {
+      vault: token,
+      asset: zeroAddress,
+      protocolToken: token,
+      blockNumber: 1n,
+      route: [],
+    },
+  );
+  expect(state.route).toEqual([]);
+  expect(
+    readContract.mock.calls.some(([call]) => call.functionName === "route"),
+  ).toBe(false);
+  expect(
+    (await quoteMarket({} as PublicClient, state, 100n))[0].outputRaw,
+  ).toBe(892n);
 });

@@ -43,6 +43,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
             )
         );
         vault = ProtocolBuybackVault(payable(bbf.buybackVault()));
+        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
         vault.setBuybacksPaused(false);
     }
 
@@ -67,6 +68,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         uint256 net = input - input * curve.feeBps() / 10_000;
         uint256 expected = net * curve.tokenReserve() / (curve.quoteReserve() + net);
         vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, SafeCast.toUint128(input), 0));
+        _testPolicy(address(0), BuybackTypes.Lifecycle.Bonding);
         vm.deal(address(this), input);
         (bool sent,) = address(vault).call{value: input}("");
         assertTrue(sent);
@@ -76,7 +78,11 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         uint256 fees = curve.quoteFeeBalance();
         vm.prank(trader);
         vault.process(
-            address(0), BuybackTypes.SourceBucket.Donation, input, 2, uint64(block.timestamp)
+            address(0),
+            BuybackTypes.SourceBucket.Donation,
+            input,
+            vault.revision(address(0)),
+            uint64(block.timestamp)
         );
         assertEq(token.totalSupply(), supply - expected);
         assertEq(vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent, input);
@@ -216,5 +222,16 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         vault.setRoute(asset, route);
         uint128 cap = asset == AMD ? 5e15 : asset == USDG ? 2_400_000 : 1e15;
         vault.setLimits(asset, BuybackTypes.ExecutionLimits(1, cap, 0));
+        _testPolicy(asset, BuybackTypes.Lifecycle.Bonding);
+    }
+
+    /// @dev Explicit permissive fixture rates isolate authentic venue settlement; economic tests use strict rates.
+    function _testPolicy(address asset, BuybackTypes.Lifecycle phase) internal {
+        BuybackTypes.OutputRate[] memory rates =
+            new BuybackTypes.OutputRate[](vault.route(asset).pools.length + 1);
+        for (uint256 i; i < rates.length; ++i) {
+            rates[i] = BuybackTypes.OutputRate(1, 1e30);
+        }
+        vault.setPermissionlessPolicy(asset, phase, rates, 0, 0);
     }
 }

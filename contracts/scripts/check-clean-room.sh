@@ -11,8 +11,16 @@ fi
 
 spdx_failure=0
 while IFS= read -r source_file; do
-  if [[ "$(sed -n '1p' "$source_file")" != '// SPDX-License-Identifier: MIT' ]]; then
-    echo "clean-room gate: missing MIT SPDX header: $source_file" >&2
+  # Fizz ships these test-only helpers with their own headers. Preserve them;
+  # this is an exact-path exception, not a license exemption for the fuzz tree.
+  expected_license="MIT"
+  case "$source_file" in
+    test/fizz/utils/DecimalPrinter.sol) expected_license="UNLICENSED" ;;
+    test/fizz/utils/StringUtils.sol|test/fizz/utils/Hevm.sol|test/fizz/utils/Clamp.sol|test/fizz/utils/PropertiesAsserts.sol)
+      expected_license="Unlicense" ;;
+  esac
+  if [[ "$(sed -n '1p' "$source_file")" != "// SPDX-License-Identifier: $expected_license" ]]; then
+    echo "clean-room gate: expected $expected_license SPDX header: $source_file" >&2
     spdx_failure=1
   fi
 done < <(rg --files src test script -g '*.sol')

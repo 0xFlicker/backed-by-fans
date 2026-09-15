@@ -7,8 +7,8 @@ case "$network" in forknet|testnet|mainnet) ;; *) echo 'Usage: manage-buybacks.s
 case "$action" in
   inspect) [[ $# == 2 || $# == 3 ]] || { echo 'inspect takes at most one asset' >&2; exit 2; } ;;
   prepare)
-    [[ $# == 7 && "${4:-}" == --input && "${6:-}" == --output ]] || { echo 'prepare <route|policy|pause|asset-pause> --input <json-file> --output <payload-file>' >&2; exit 2; }
-    case "$3" in route|policy|pause|asset-pause) ;; *) echo 'Unsupported configuration action' >&2; exit 2 ;; esac ;;
+    [[ $# == 7 && "${4:-}" == --input && "${6:-}" == --output ]] || { echo 'prepare <route|limits|interval|policy|operator|mode|pause|asset-pause> --input <json-file> --output <payload-file>' >&2; exit 2; }
+    case "$3" in route|limits|interval|policy|operator|mode|pause|asset-pause) ;; *) echo 'Unsupported configuration action' >&2; exit 2 ;; esac ;;
   *) echo 'Only inspect and prepare are available; direct submission is unavailable.' >&2; exit 2 ;;
 esac
 source "$script_dir/protocol-admin-common.sh"

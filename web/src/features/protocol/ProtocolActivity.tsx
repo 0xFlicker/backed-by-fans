@@ -131,17 +131,19 @@ export function ProtocolActivity({
         <p>
           Memberships fund the protocol. Earned fees buy and burn its token.
         </p>
-        {deployment.status === "ready" && (
-          <Burn
-            chainId={chainId}
-            factory={deployment.factoryAddress}
-            symbol={protocolTokenSymbol}
-            tokenLaunched={
-              state?.status === "valid" &&
-              state.data.protocolToken !== zeroAddress
-            }
-          />
-        )}
+        {deployment.status === "ready" &&
+          state?.status === "valid" &&
+          state.data.executionMode === 1 && (
+            <Burn
+              chainId={chainId}
+              factory={deployment.factoryAddress}
+              symbol={protocolTokenSymbol}
+              tokenLaunched={
+                state?.status === "valid" &&
+                state.data.protocolToken !== zeroAddress
+              }
+            />
+          )}
         <button
           type="button"
           className="text-button"
@@ -173,6 +175,11 @@ export function ProtocolActivity({
               accumulating.
             </p>
           )}
+          <p className="small-copy">
+            {state.data.executionMode === 0
+              ? "A trusted operator executes market buybacks using off-chain policy. Anyone can release earned fees, advance accounting, and burn protocol-token inventory."
+              : "Anyone can execute market buybacks within the public routes and price limits."}
+          </p>
           {state.data.buybacksPaused && (
             <p className="inline-status" role="status">
               The protocol Safe has paused buybacks. Membership time continues
@@ -365,7 +372,7 @@ export function ProtocolActivity({
                       ))}
                     </div>
                     <details className="technical-details">
-                      <summary>Route & raw data</summary>
+                      <summary>Public route & raw data</summary>
                       <p>
                         Revision {item.data.revision.toString()} ·{" "}
                         {item.data.route.pools.length} conversion pools ·{" "}
@@ -397,6 +404,7 @@ export function ProtocolActivity({
                         {JSON.stringify(
                           {
                             route: item.data.route,
+                            permissionlessPolicy: item.data.policy,
                             membership: item.data.membership,
                             donation: item.data.donation,
                           },

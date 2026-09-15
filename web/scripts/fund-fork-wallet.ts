@@ -79,6 +79,7 @@ const wrap = await client.simulateContract({
   abi: iWrappedNativeAbi,
   functionName: "deposit",
   value: parseEther("1"),
+  gasPrice: 100_000_000n,
 });
 const wrapHash = await wallet.writeContract(wrap.request);
 if (
@@ -102,6 +103,7 @@ for (const asset of [
     abi: erc20Abi,
     functionName: "transfer",
     args: [recipient, asset.amount],
+    gasPrice: 100_000_000n,
   });
   const hash = await wallet.writeContract(transfer.request);
   if ((await client.waitForTransactionReceipt({ hash })).status !== "success")

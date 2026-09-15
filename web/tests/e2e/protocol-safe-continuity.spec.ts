@@ -57,6 +57,7 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
         ...result,
       });
     };
+    await f.configurePublicBuybacks(asset, 1000000n);
     await enable(false);
     await expect(f.tier("Disabled token must reject", asset)).rejects.toThrow();
     await f.safe("pause", { paused: true });
@@ -113,6 +114,8 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
       ],
     });
     await f.safe("asset-pause", { asset, paused: false });
+    expect((await status()).status).toBe(14);
+    await f.authorizePublicPolicy(asset, 1000000n);
     expect((await status()).status).toBe(0);
     const ready = await status();
     expect(ready.status).toBe(0);
@@ -147,11 +150,15 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
     expect(closed.totalSpent).toBe(1000000n);
     expect(supplyAfter).toBeLessThan(supplyBefore);
     await page.goto("/chains/31337/protocol");
+    await page
+      .locator("summary")
+      .filter({ hasText: /^Protocol configuration$/ })
+      .click();
     await expect(
       page.getByText(`${b.safeThreshold} of ${b.safeOwners.length} owners`),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Activity & configuration history" }),
+      page.locator("summary").filter({ hasText: /^Activity history$/ }),
     ).toBeVisible();
     await f.retain("safe-configuration-continuity", {
       tier,

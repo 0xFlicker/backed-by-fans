@@ -155,11 +155,14 @@ test("@protocol-fork a compatible authentic token without an approved route rema
     await f.write(member, tier, membershipTierAbi, "createMembership", [
       12n,
       zeroAddress,
+      256n,
     ]);
     await f.testClient.increaseTime({ seconds: 300 });
     await f.testClient.mine({ blocks: 1 });
     await f.write(member, tier, membershipTierAbi, "processAccounting", [25n]);
     await f.write(member, tier, membershipTierAbi, "releaseProtocolFees");
+    await f.safe("mode", { mode: 1 });
+    await f.safe("pause", { paused: false });
     const pending = await f.client.readContract({
       address: b.buybackVault,
       abi: protocolBuybackVaultAbi,

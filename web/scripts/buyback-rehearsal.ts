@@ -23,6 +23,7 @@ import {
 } from "../src/contracts";
 
 export type RehearsalInput = {
+  action?: "limits-only" | "activate-permissionless";
   chainId: number;
   factory: Address;
   vault: Address;
@@ -33,6 +34,12 @@ export type RehearsalInput = {
     minInput: string;
     maxInput: string;
     minInterval: string;
+    policy?: {
+      lifecycle: 0 | 2;
+      rates: { numerator: string; denominator: string }[];
+      expiresAt: string;
+      inputBudget: string;
+    };
   }[];
   targetPercent: number;
   horizonHours: number;
@@ -64,21 +71,48 @@ export function parseRehearsalInput(value: unknown): RehearsalInput {
     if (typeof n !== "number" || !Number.isFinite(n) || n < min || n > max)
       throw new Error("Invalid target, timeframe or gas threshold");
   }
+  const action = v.action ?? "limits-only";
+  if (action !== "limits-only" && action !== "activate-permissionless")
+    throw new Error("Invalid rehearsal action");
   const assets = v.assets.map((x) => {
     const minInput = raw(x.minInput, 128, true),
       maxInput = raw(x.maxInput, 128, true);
     if (BigInt(minInput) > BigInt(maxInput))
       throw new Error("Minimum batch exceeds maximum batch");
-    return {
+    const asset = {
       asset: getAddress(x.asset),
       minInput,
       maxInput,
       minInterval: raw(x.minInterval, 64),
     };
+    // Ordinary settings saves change only limits. Never replay a UI policy snapshot:
+    // its route revision or remaining budget may predate the captured chain block.
+    if (action === "limits-only") return asset;
+    if (
+      !x.policy ||
+      ![0, 2].includes(x.policy.lifecycle) ||
+      !Array.isArray(x.policy.rates) ||
+      x.policy.rates.length < 1 ||
+      x.policy.rates.length > 3
+    )
+      throw new Error("A public output policy is required for each currency");
+    return {
+      ...asset,
+      policy: {
+        lifecycle: x.policy.lifecycle,
+        rates: x.policy.rates.map((rate) => ({
+          numerator: raw(rate.numerator, 256, true),
+          denominator: raw(rate.denominator, 256, true),
+        })),
+        expiresAt: raw(x.policy.expiresAt, 64),
+        inputBudget: raw(x.policy.inputBudget, 256),
+      },
+    };
   });
   if (new Set(assets.map((x) => x.asset.toLowerCase())).size !== assets.length)
     throw new Error("Duplicate currencies");
   return {
+    action,
     chainId: 31337,
     factory: getAddress(v.factory),
     vault: getAddress(v.vault),
@@ -248,6 +282,38 @@ export async function rehearseBuybacks(
       safe,
     ),
   ];
+  // Activation is a distinct, explicitly requested operation. Normal limits previews
+  // retain the actual policy, spent budget, mode and pause state at captured.number.
+  if (input.action === "activate-permissionless") {
+    for (const x of orderedSettings) {
+      if (!x.policy)
+        throw new Error("Activation requires a policy for every currency");
+      setup.push(
+        call(
+          vault,
+          protocolBuybackVaultAbi,
+          "setPermissionlessPolicy",
+          [
+            x.asset,
+            x.policy.lifecycle,
+            x.policy.rates.map((rate) => ({
+              numerator: BigInt(rate.numerator),
+              denominator: BigInt(rate.denominator),
+            })),
+            BigInt(x.policy.expiresAt),
+            BigInt(x.policy.inputBudget),
+          ],
+          safe,
+        ),
+      );
+    }
+    setup.push(
+      call(vault, protocolBuybackVaultAbi, "setExecutionMode", [1], safe),
+    );
+    setup.push(
+      call(vault, protocolBuybackVaultAbi, "setBuybacksPaused", [false], safe),
+    );
+  }
   const tiers = await client.readContract({
     address: input.factory,
     abi: membershipFactoryAbi,

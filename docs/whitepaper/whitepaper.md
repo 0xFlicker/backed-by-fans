@@ -199,7 +199,7 @@ The protocol token will be made available as a membership payment currency. Crea
 
 The contracts enforce each tier’s fixed economic terms, membership time, reward rules, and payment accounting. Creators remain responsible for their membership benefits and for the controls they retain, including changes to descriptions and artwork, grants, revocations, and refunds. Expiration maintenance is permissionless and does not depend on the creator remaining available.
 
-The protocol also has administrative controls. Its authority manages which payment currencies can be used for new tiers, their minimum positive payments, and buyback settings and pauses. Those controls do not give creators a way to rewrite the fixed economic terms of an existing tier.
+The protocol also has administrative controls. Its authority manages which payment currencies can be used for new tiers, their minimum positive payments, and buyback settings and pauses. At launch, a trusted operator selects buyback routes and execution terms off-chain and submits them with each purchase. The authority can later enable public execution under configured routes, price bounds, batch limits, and cooldowns. Public policies may remain valid indefinitely; expiry and total spending budgets are optional. These controls do not give creators a way to rewrite the fixed economic terms of an existing tier.
 
 Using the protocol also depends on the underlying blockchain and payment currencies. Transactions can require gas and take time to complete. Payment tokens may have restrictions imposed by their own issuers. Smart-contract bugs, unavailable services, and problems with third-party integrations can affect the experience. Buybacks additionally depend on market liquidity and execution conditions.
 

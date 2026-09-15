@@ -26,6 +26,8 @@ async function oneShotRunner(key: `0x${string}`, rpc: string, factory: string) {
       rpc,
       "--factory",
       factory,
+      "--submission-mode",
+      "public",
       "--once",
       "--max-gas-percent",
       "100",
@@ -134,14 +136,14 @@ test("@protocol-fork independently funded callers replace one-shot collection an
       asset = requiredAnvilAddress("paymentToken"),
       member = requiredAnvilAddress("member");
     const tier = await f.tier("Runner replacement", asset);
-    await f.limitsForUSDG();
+    await f.configurePublicUSDG();
     await f.write(member, asset, erc20Abi, "approve", [tier, 120_000_000n]);
     const purchase = await f.write(
       member,
       tier,
       membershipTierAbi,
       "createMembership",
-      [12n, "0x0000000000000000000000000000000000000000"],
+      [12n, "0x0000000000000000000000000000000000000000", 256n],
     );
     const start = (
       await f.client.getBlock({ blockNumber: purchase.blockNumber })

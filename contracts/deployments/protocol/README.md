@@ -4,8 +4,8 @@
 `<chain-id>/candidate.json` before the first public transaction. The file is an append-by-state
 recovery journal for one exact compiler-artifact fingerprint; it is not a deployment address source.
 
-The journal records, in order, the media-store factory, renderer, renderer preview harness, and
-membership factory:
+The schema-9 journal records, in order, VestingLedger, the media-store factory, renderer,
+renderer preview harness, locked tier implementation, and membership factory:
 
 - contract/artifact identity;
 - CREATE2 salt and initcode hash;
@@ -15,10 +15,9 @@ membership factory:
 - mined receipt and observed runtime hash; and
 - Blockscout source-verification state.
 
-Schema 4 also records the exact source commit, normalized Foundry profile, Forge/Solidity versions,
+The journal also records the exact source commit, normalized Foundry profile, Forge/Solidity versions,
 payment-token address/runtime, and the committed operational-state path and Git blob. That reviewed
-record pins bootstrap addresses/runtime hashes plus current Safe, factory, fee-recipient, and full
-renderer-registry state. Governance changes update the committed operational record; they do not
+record pins bootstrap addresses/runtime hashes plus current Safe, factory, fee-recipient, and fixed tier-implementation state. Governance changes update the committed operational record; they do not
 rewrite historical deployment evidence.
 
 A source, compiler, optimizer, metadata, deployer, salt, or expected-address change produces a
@@ -35,10 +34,9 @@ Pending, submitted, failed, incomplete, or mismatched journals are never moved a
 active `run-latest.json` pointer may advance only when its prior contents already have an identical
 timestamped history record.
 
-The release wrapper also rejects any `salt || initcode` payload above Robinhood Nitro's 95,000-byte
-sequencer transaction-data limit before local preflight or signing. Anvil validates the exact chain
-state, order, runtime, gas, and raised EVM code limits, but it does not emulate this sequencer
-admission rule.
+The wrapper enforces Robinhood's 98,304-byte runtime and 196,608-byte initcode
+limits. The local rehearsal validates the exact chain state, component order,
+runtime hashes and gas envelope. There is no speculative 95,000-byte payload cap.
 
 Only a complete, dependency-valid, source-verified journal can produce
 `broadcast/DeployDirectProtocol.s.sol/<chain-id>/run-latest.json`. Wagmi consumes the promoted
