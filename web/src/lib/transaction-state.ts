@@ -169,6 +169,8 @@ export function decodeTransactionError(error: unknown): string {
       (cause) => cause instanceof ContractFunctionRevertedError,
     );
     if (reverted instanceof ContractFunctionRevertedError) {
+      if (reverted.data?.errorName === "SelfReferralNotAllowed")
+        return "You cannot choose your own wallet as the initial referrer. Choose another wallet or no referrer.";
       if (reverted.data?.errorName === "ClaimAccountingBehind")
         return "Membership accounting needs to catch up. Review the refreshed action to continue.";
       if (reverted.data?.errorName === "ClaimFailed") {

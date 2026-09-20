@@ -235,3 +235,14 @@ it("shows up to date and requires explicit settlement for accrual alone", async 
   );
   await waitFor(() => expect(mock.write).toHaveBeenCalledOnce());
 });
+
+vi.mock("@/lib/buyback-module", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/buyback-module")>()),
+  readPonsModule: vi.fn(async () => ({
+    address: "0x00000000000000000000000000000000000000b1",
+    revision: 2n,
+    codeHash: "0x",
+    id: "0x",
+    version: 1n,
+  })),
+}));

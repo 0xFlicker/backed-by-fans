@@ -1,3 +1,4 @@
+import { readPonsModule } from "../src/lib/buyback-module";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import assert from "node:assert/strict";
@@ -12,6 +13,7 @@ import {
 import {
   membershipFactoryAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
   iSafeAbi,
   membershipTierAbi,
 } from "../src/contracts";
@@ -34,6 +36,7 @@ const client = createPublicClient({
 const demo = JSON.parse(
   await readFile(resolve(bootstrapPath, "../buyback-demo.json"), "utf8"),
 );
+const buybackModule = await readPonsModule(client, boot.buybackVault);
 const snapshot = async () => ({
   supply: await client.readContract({
     address: boot.protocolToken,
@@ -51,13 +54,13 @@ const snapshot = async () => ({
     functionName: "tierCount",
   }),
   executionMode: await client.readContract({
-    address: boot.buybackVault,
-    abi: protocolBuybackVaultAbi,
+    address: buybackModule.address,
+    abi: ponsBuybackModuleAbi,
     functionName: "executionMode",
   }),
   operator: await client.readContract({
-    address: boot.buybackVault,
-    abi: protocolBuybackVaultAbi,
+    address: buybackModule.address,
+    abi: ponsBuybackModuleAbi,
     functionName: "operator",
   }),
   paused: await client.readContract({
@@ -96,14 +99,14 @@ const snapshot = async () => ({
         args: [asset, 0],
       }),
       policy: await client.readContract({
-        address: boot.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: buybackModule.address,
+        abi: ponsBuybackModuleAbi,
         functionName: "permissionlessPolicy",
         args: [asset],
       }),
       revision: await client.readContract({
-        address: boot.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: buybackModule.address,
+        abi: ponsBuybackModuleAbi,
         functionName: "revision",
         args: [asset],
       }),

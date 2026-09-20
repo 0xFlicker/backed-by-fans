@@ -42,3 +42,14 @@ it("keeps tiny estimates visible and uses the chosen locale", () => {
     formatRewardUsd(1_230_000n, { numerator: 1n, denominator: 1n }, "de-DE"),
   ).toContain("1,23");
 });
+
+vi.mock("@/lib/buyback-module", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/buyback-module")>()),
+  readPonsModule: vi.fn(async () => ({
+    address: "0x00000000000000000000000000000000000000b1",
+    revision: 2n,
+    codeHash: "0x",
+    id: "0x",
+    version: 1n,
+  })),
+}));

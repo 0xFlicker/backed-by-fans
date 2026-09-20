@@ -17,6 +17,7 @@ import {
   iPonsFeeEscrowAbi,
   iPonsMemeHookAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
   membershipTierAbi,
 } from "../../src/contracts";
 import { readPonsCompensation } from "../../src/features/protocol/pons-read";
@@ -117,8 +118,8 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       ((await curve("quoteReserve")) + afterCost);
     const currentRevision = (asset: `0x${string}`) =>
       f.client.readContract({
-        address: b.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: b.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "revision",
         args: [asset],
       });
@@ -163,13 +164,13 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
       args: [p.creator],
     });
     const openingSupply = await supply();
-    await f.write(trader, b.buybackVault, protocolBuybackVaultAbi, "process", [
-      zeroAddress,
-      1,
-      offered,
-      await currentRevision(zeroAddress),
-      now + 900n,
-    ]);
+    await f.write(
+      trader,
+      b.buybackVault,
+      protocolBuybackVaultAbi,
+      "processPons",
+      [zeroAddress, 1, offered, await currentRevision(zeroAddress), now + 900n],
+    );
     const crossing = await inventory(zeroAddress),
       burnedCross = await inventory(b.protocolToken),
       swept = await launch();
@@ -198,8 +199,8 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
     expect(
       (
         await f.client.readContract({
-          address: b.buybackVault,
-          abi: protocolBuybackVaultAbi,
+          address: b.activeModule,
+          abi: ponsBuybackModuleAbi,
           functionName: "processingStatus",
           args: [zeroAddress, 1],
         })
@@ -217,21 +218,27 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
     expect(
       (
         await f.client.readContract({
-          address: b.buybackVault,
-          abi: protocolBuybackVaultAbi,
+          address: b.activeModule,
+          abi: ponsBuybackModuleAbi,
           functionName: "processingStatus",
           args: [zeroAddress, 1],
         })
       ).status,
     ).toBe(14);
     await f.authorizePublicPolicy(zeroAddress, 1000000000000n);
-    await f.write(trader, b.buybackVault, protocolBuybackVaultAbi, "process", [
-      zeroAddress,
-      1,
-      1000000000000n,
-      await currentRevision(zeroAddress),
-      now + 900n,
-    ]);
+    await f.write(
+      trader,
+      b.buybackVault,
+      protocolBuybackVaultAbi,
+      "processPons",
+      [
+        zeroAddress,
+        1,
+        1000000000000n,
+        await currentRevision(zeroAddress),
+        now + 900n,
+      ],
+    );
     const poolBurnInventory = await inventory(b.protocolToken);
     const afterDonationBurnSupply = await supply();
     expect(poolBurnInventory.totalBurned).toBeGreaterThan(
@@ -285,13 +292,13 @@ test("@protocol-fork crosses graduation, burns through the real pool and reconci
     );
     const poolNow = (await f.client.getBlock()).timestamp;
     await f.configurePublicBuybacks(weth, offered);
-    await f.write(trader, b.buybackVault, protocolBuybackVaultAbi, "process", [
-      weth,
-      0,
-      1000000000000n,
-      await currentRevision(weth),
-      poolNow + 900n,
-    ]);
+    await f.write(
+      trader,
+      b.buybackVault,
+      protocolBuybackVaultAbi,
+      "processPons",
+      [weth, 0, 1000000000000n, await currentRevision(weth), poolNow + 900n],
+    );
     const poolMembershipInput = await f.client.readContract({
       address: b.buybackVault,
       abi: protocolBuybackVaultAbi,

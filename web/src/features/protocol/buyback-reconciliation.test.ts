@@ -138,7 +138,7 @@ export function buybackReceipt(emitter: Address = vault): TransactionReceipt {
   });
   const data = encodeAbiParameters(
     event.inputs.filter((input) => !input.indexed),
-    [60n, 90n, 0, 2n],
+    [60n, 90n, `0x${"0".repeat(64)}`, 2n],
   );
   return {
     status: "success",

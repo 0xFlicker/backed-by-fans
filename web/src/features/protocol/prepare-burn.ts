@@ -1,8 +1,10 @@
+import { readPonsModule } from "@/lib/buyback-module";
 import { zeroAddress, type Address, type PublicClient } from "viem";
 import {
   membershipFactoryAbi,
   membershipTierAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
 } from "@/contracts";
 
 /** Fresh, bounded discovery only. The router rechecks all purchase eligibility at execution. */
@@ -162,11 +164,15 @@ export async function prepareAdvance(
   const unavailableTiers = discovery.filter(
     (item) => item.status === "rejected",
   ).length;
+  const buybackModule =
+    protocolToken === zeroAddress
+      ? undefined
+      : await readPonsModule(client, vault, blockNumber);
   const purchases = await Promise.all(
     (protocolToken === zeroAddress ? [] : assets).map(async (asset) => {
       const revision = await client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
+        address: buybackModule!.address,
+        abi: ponsBuybackModuleAbi,
         functionName: "revision",
         args: [asset],
         blockNumber,

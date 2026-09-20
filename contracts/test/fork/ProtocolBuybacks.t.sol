@@ -2,10 +2,12 @@
 pragma solidity =0.8.36;
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTier} from "../../src/MembershipTier.sol";
+import {PonsBuybackModule} from "../../src/PonsBuybackModule.sol";
 import {ProtocolBuybackVault} from "../../src/ProtocolBuybackVault.sol";
 import {BuybackIntegration as Integration} from "../../src/libraries/BuybackIntegration.sol";
 import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
+import {BuybackTestCalls} from "../helpers/BuybackTestCalls.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {AuthenticAssetFixture} from "./helpers/AuthenticAssetFixture.sol";
 import {ForkTierCodeFixture} from "./helpers/ForkTierCodeFixture.sol";
@@ -18,6 +20,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
 
 contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
+    using BuybackTestCalls for ProtocolBuybackVault;
     ProtocolBuybackVault internal vault;
     MembershipFactory internal bbf;
 
@@ -43,7 +46,8 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
             )
         );
         vault = ProtocolBuybackVault(payable(bbf.buybackVault()));
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
         vault.setBuybacksPaused(false);
     }
 
@@ -53,7 +57,7 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         vault.syncDonation(address(token));
         uint256 supply = token.totalSupply();
         vm.prank(trader);
-        vault.process(
+        vault.processPons(
             address(token), BuybackTypes.SourceBucket.Donation, 700, 0, uint64(block.timestamp)
         );
         assertEq(token.totalSupply(), supply - 700);
@@ -63,11 +67,12 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
 
     function test_bondingBurnUsesOrdinaryFeesWithoutPonsOperator() public {
         BuybackTypes.TypedRoute memory route;
-        vault.setRoute(address(0), route);
+        PonsBuybackModule(payable(address(vault.activeModule()))).setRoute(address(0), route);
         uint256 input = 0.001 ether;
         uint256 net = input - input * curve.feeBps() / 10_000;
         uint256 expected = net * curve.tokenReserve() / (curve.quoteReserve() + net);
-        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, SafeCast.toUint128(input), 0));
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setLimits(address(0), BuybackTypes.ExecutionLimits(1, SafeCast.toUint128(input), 0));
         _testPolicy(address(0), BuybackTypes.Lifecycle.Bonding);
         vm.deal(address(this), input);
         (bool sent,) = address(vault).call{value: input}("");
@@ -77,11 +82,11 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         uint256 supply = token.totalSupply();
         uint256 fees = curve.quoteFeeBalance();
         vm.prank(trader);
-        vault.process(
+        vault.processPons(
             address(0),
             BuybackTypes.SourceBucket.Donation,
             input,
-            vault.revision(address(0)),
+            PonsBuybackModule(payable(address(vault.activeModule()))).revision(address(0)),
             uint64(block.timestamp)
         );
         assertEq(token.totalSupply(), supply - expected);
@@ -156,9 +161,11 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
             hex"", new bytes[](0), block.timestamp
         );
         uint256 supply = token.totalSupply();
-        uint64 revision = asset == address(token) ? 0 : vault.revision(asset);
+        uint64 revision = asset == address(token)
+            ? 0
+            : PonsBuybackModule(payable(address(vault.activeModule()))).revision(asset);
         vm.prank(trader);
-        vault.process(
+        vault.processPons(
             asset, BuybackTypes.SourceBucket.Membership, released, revision, uint64(block.timestamp)
         );
         assertEq(
@@ -181,9 +188,9 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
 
     function _assertAllowancesCleared(address asset) private view {
         if (asset != address(token) && asset != Integration.WETH) {
-            assertEq(IERC20(asset).allowance(vault.executor(), Integration.PERMIT2), 0);
+            assertEq(IERC20(asset).allowance(vault.activeModule(), Integration.PERMIT2), 0);
             (uint160 allowance, uint48 expiration,) = IAllowanceTransfer(Integration.PERMIT2)
-                .allowance(vault.executor(), asset, Integration.ROUTER);
+                .allowance(vault.activeModule(), asset, Integration.ROUTER);
             assertEq(allowance, 0);
             assertEq(expiration, 1);
         }
@@ -219,19 +226,23 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
         } else if (asset == USDG) {
             route.pools[0] = _usdPool();
         }
-        vault.setRoute(asset, route);
+        PonsBuybackModule(payable(address(vault.activeModule()))).setRoute(asset, route);
         uint128 cap = asset == AMD ? 5e15 : asset == USDG ? 2_400_000 : 1e15;
-        vault.setLimits(asset, BuybackTypes.ExecutionLimits(1, cap, 0));
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setLimits(asset, BuybackTypes.ExecutionLimits(1, cap, 0));
         _testPolicy(asset, BuybackTypes.Lifecycle.Bonding);
     }
 
     /// @dev Explicit permissive fixture rates isolate authentic venue settlement; economic tests use strict rates.
     function _testPolicy(address asset, BuybackTypes.Lifecycle phase) internal {
-        BuybackTypes.OutputRate[] memory rates =
-            new BuybackTypes.OutputRate[](vault.route(asset).pools.length + 1);
+        BuybackTypes.OutputRate[] memory rates = new BuybackTypes
+            .OutputRate[](
+            PonsBuybackModule(payable(address(vault.activeModule()))).route(asset).pools.length + 1
+        );
         for (uint256 i; i < rates.length; ++i) {
             rates[i] = BuybackTypes.OutputRate(1, 1e30);
         }
-        vault.setPermissionlessPolicy(asset, phase, rates, 0, 0);
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setPermissionlessPolicy(asset, phase, rates, 0, 0);
     }
 }

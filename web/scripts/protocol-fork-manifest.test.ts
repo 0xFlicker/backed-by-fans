@@ -152,7 +152,7 @@ it("validates the bootstrap export without promoting it to receipt evidence", ()
   for (const key of [
     "vestingLedger",
     "tierImplementation",
-    "executorCodeStore",
+    "activeModuleCodeStore",
     "burnRouter",
     "tierImplementationRuntimeCodehash",
     "vestingLedgerRuntimeCodehash",

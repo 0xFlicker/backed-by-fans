@@ -101,6 +101,21 @@ contract AdvanceMeasurementToken is AdvanceStageFault {
 }
 
 contract AdvanceFaultVault is AdvanceStageFault {
+    function activeModule() external view returns (address) {
+        return address(this);
+    }
+
+    function moduleRevision() external pure returns (uint64) {
+        return 1;
+    }
+
+    function moduleId() external pure returns (bytes32) {
+        return keccak256("BBF.PonsBuyback");
+    }
+
+    function moduleVersion() external pure returns (uint256) {
+        return 1;
+    }
     AdvanceMeasurementToken private immutable _token;
     Fault public purchaseFault;
     uint256 public purchases;
@@ -131,7 +146,9 @@ contract AdvanceFaultVault is AdvanceStageFault {
         state.maxInput = 1;
     }
 
-    function process(address, BuybackTypes.SourceBucket, uint256, uint64, uint64) external {
+    function process(address, BuybackTypes.SourceBucket, uint256, uint64, uint64, bytes calldata)
+        external
+    {
         ++purchases;
         _fault(purchaseFault);
         _token.settle();

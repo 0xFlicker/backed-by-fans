@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {PonsBuybackModule} from "../src/PonsBuybackModule.sol";
+import {BuybackTestCalls} from "./helpers/BuybackTestCalls.sol";
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
@@ -17,6 +20,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract DeferredProtocolTokenTest is Test {
+    using BuybackTestCalls for ProtocolBuybackVault;
     MembershipFactory factory;
     ProtocolBuybackVault vault;
     ProtocolBurnRouter router;
@@ -77,7 +81,7 @@ contract DeferredProtocolTokenTest is Test {
 
     function test_collectAndRefundBeforeLaunch() public {
         assertEq(factory.protocolToken(), address(0));
-        assertEq(vault.executor(), address(0));
+        assertEq(vault.activeModule(), address(0));
         _collect();
         assertEq(asset.balanceOf(address(vault)), 250);
         assertEq(tier.reserveState().unearnedScaled[3] / tier.ACCOUNTING_SCALE(), 750);
@@ -94,25 +98,17 @@ contract DeferredProtocolTokenTest is Test {
         vm.deal(address(vault), 1 ether);
         vault.syncDonation(address(0));
         vault.setBuybacksPaused(false);
-        BuybackTypes.ProcessingState memory state =
-            vault.processingStatus(address(0), BuybackTypes.SourceBucket.Donation);
-        assertEq(uint256(state.status), uint256(BuybackTypes.Status.TokenNotLaunched));
-        assertEq(state.available, 1 ether);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ProtocolBuybackVault.ProcessingUnavailable.selector,
-                BuybackTypes.Status.TokenNotLaunched
-            )
-        );
-        vault.process(address(0), BuybackTypes.SourceBucket.Donation, 1 ether, 0, 1200);
+        assertEq(vault.activeModule(), address(0));
+        assertEq(vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).available, 1 ether);
+        vm.expectRevert(ProtocolBuybackVault.InvalidModule.selector);
+        vault.processPons(address(0), BuybackTypes.SourceBucket.Donation, 1 ether, 0, 1200);
         assertEq(address(vault).balance, 1 ether);
         assertEq(vault.settlementSequence(), 0);
     }
 
-    function test_routesRequireLaunch() public {
-        BuybackTypes.TypedRoute memory route;
-        vm.expectRevert(ProtocolBuybackVault.ProtocolTokenNotLaunched.selector);
-        vault.setRoute(address(0), route);
+    function test_moduleRequiresLaunch() public view {
+        assertEq(vault.activeModule(), address(0));
+        assertEq(vault.moduleRevision(), 0);
     }
 
     function test_onlyOwnerCanBindAndOnlyFactoryCanCallVault() public {
@@ -132,13 +128,13 @@ contract DeferredProtocolTokenTest is Test {
         vm.expectRevert(); // ERC20 with no authentic Pons launch binding.
         factory.bindProtocolToken(address(asset));
         assertEq(factory.protocolToken(), address(0));
-        assertEq(vault.executor(), address(0));
+        assertEq(vault.activeModule(), address(0));
         assertEq(asset.balanceOf(address(vault)), 350);
         SyntheticPonsBinding.bind(address(asset));
         factory.bindProtocolToken(address(asset));
         assertEq(factory.protocolToken(), address(asset));
         assertEq(vault.protocolToken(), address(asset));
-        assertGt(vault.executor().code.length, 0);
+        assertGt(vault.activeModule().code.length, 0);
         assertEq(asset.balanceOf(address(vault)), 350);
         assertEq(
             vault.inventory(address(asset), BuybackTypes.SourceBucket.Membership).available, 250
@@ -147,7 +143,7 @@ contract DeferredProtocolTokenTest is Test {
         assertTrue(vault.buybacksPaused());
         vault.setBuybacksPaused(false);
         uint256 supply = asset.totalSupply();
-        vault.process(address(asset), BuybackTypes.SourceBucket.Membership, 250, 0, 1200);
+        vault.processPons(address(asset), BuybackTypes.SourceBucket.Membership, 250, 0, 1200);
         assertEq(asset.totalSupply(), supply - 250);
         assertEq(asset.balanceOf(address(vault)), 100);
         assertEq(tier.reserveState().unearnedScaled[3] / tier.ACCOUNTING_SCALE(), 750);
@@ -160,11 +156,11 @@ contract DeferredProtocolTokenTest is Test {
     function test_corruptedExecutorCodeCannotBindOrLoseCollectedFees() public {
         _collect();
         SyntheticPonsBinding.bind(address(asset));
-        vm.etch(vault.executorCreationCodeStore(), hex"00");
-        vm.expectRevert(ProtocolBuybackVault.ExecutorCreationCodeCorrupted.selector);
+        vm.etch(vault.moduleCreationCodeStore(), hex"00");
+        vm.expectRevert(ProtocolBuybackVault.ModuleCreationCodeCorrupted.selector);
         factory.bindProtocolToken(address(asset));
         assertEq(factory.protocolToken(), address(0));
-        assertEq(vault.executor(), address(0));
+        assertEq(vault.activeModule(), address(0));
         assertEq(asset.balanceOf(address(vault)), 250);
     }
 
@@ -174,6 +170,6 @@ contract DeferredProtocolTokenTest is Test {
         vm.expectRevert(ProtocolBuybackVault.InvalidAsset.selector);
         factory.bindProtocolToken(address(0xBEEF));
         assertEq(factory.protocolToken(), address(0));
-        assertEq(vault.executor(), address(0));
+        assertEq(vault.activeModule(), address(0));
     }
 }

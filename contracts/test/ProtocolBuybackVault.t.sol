@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {PonsBuybackModule} from "../src/PonsBuybackModule.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Test} from "forge-std/Test.sol";
@@ -69,9 +70,9 @@ contract ProtocolBuybackVaultTest is Test {
 
     function testPreviewReleaseMatchesRealInventoryWithoutWrites() public {
         vm.record();
-        BuybackTypes.ProcessingState memory projected = vault.previewProcessing(
-            address(paymentToken), BuybackTypes.SourceBucket.Membership, 17
-        );
+        BuybackTypes.ProcessingState memory projected = PonsBuybackModule(
+                payable(address(vault.activeModule()))
+            ).previewProcessing(address(paymentToken), BuybackTypes.SourceBucket.Membership, 17);
         (, bytes32[] memory writes) = vm.accesses(address(vault));
         assertEq(writes.length, 0);
         assertEq(_available(BuybackTypes.SourceBucket.Membership), 0);
@@ -80,7 +81,8 @@ contract ProtocolBuybackVaultTest is Test {
         assertEq(
             abi.encode(projected),
             abi.encode(
-                vault.processingStatus(address(paymentToken), BuybackTypes.SourceBucket.Membership)
+                PonsBuybackModule(payable(address(vault.activeModule())))
+                    .processingStatus(address(paymentToken), BuybackTypes.SourceBucket.Membership)
             )
         );
         assertEq(_available(BuybackTypes.SourceBucket.Donation), 0);
@@ -89,7 +91,7 @@ contract ProtocolBuybackVaultTest is Test {
     function testAllowsUnsetTokenAndRejectsImpersonatedConstructorFactory() public {
         ProtocolBuybackVault unbound = registry.deployVault(address(0));
         assertEq(unbound.protocolToken(), address(0));
-        assertEq(unbound.executor(), address(0));
+        assertEq(unbound.activeModule(), address(0));
         vm.expectRevert(ProtocolBuybackVault.InvalidAsset.selector);
         registry.deployVault(address(0xBEEF));
         vm.expectRevert(ProtocolBuybackVault.OnlyFactoryDeployment.selector);

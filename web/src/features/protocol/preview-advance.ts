@@ -1,6 +1,11 @@
 import { earningsStream, type EarningsStream } from "@/lib/streaming-amount";
 import { zeroAddress, type Address, type PublicClient } from "viem";
-import { membershipTierAbi, protocolBuybackVaultAbi } from "@/contracts";
+import { readPonsModule } from "@/lib/buyback-module";
+import {
+  ponsBuybackModuleAbi,
+  membershipTierAbi,
+  protocolBuybackVaultAbi,
+} from "@/contracts";
 import type { AdvanceMode } from "./advance-call";
 
 export type PreviewPlan = {
@@ -79,6 +84,10 @@ export async function previewAdvance(
       });
     }
   }
+  const buybackModule =
+    mode === "accounting" || plan.purchases.length === 0
+      ? undefined
+      : await readPonsModule(client, plan.vault, plan.blockNumber);
   const currencies =
     mode === "accounting"
       ? []
@@ -91,8 +100,8 @@ export async function previewAdvance(
             const states = await Promise.all(
               ([0, 1] as const).map((bucket) =>
                 client.readContract({
-                  address: plan.vault,
-                  abi: protocolBuybackVaultAbi,
+                  address: buybackModule!.address,
+                  abi: ponsBuybackModuleAbi,
                   functionName: "previewProcessing",
                   args: [asset, bucket, bucket === 0 ? additional : 0n],
                   blockNumber: plan.blockNumber,

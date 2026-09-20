@@ -40,12 +40,14 @@ test("@protocol-fork wrong-network membership writes stay disabled until the wal
     const switchNetwork = page.getByRole("button", {
       name: "Switch wallet network",
     });
+    await page.getByLabel("Periods", { exact: true }).fill("1");
     await expect(switchNetwork).toBeVisible();
     await expect(
       page.getByRole("button", { name: "New membership" }),
     ).toBeDisabled();
     await switchNetwork.click();
     await expect(switchNetwork).toHaveCount(0);
+    await page.getByLabel("Periods", { exact: true }).fill("1");
     await expect(
       page.getByRole("button", { name: "New membership" }),
     ).toBeEnabled();

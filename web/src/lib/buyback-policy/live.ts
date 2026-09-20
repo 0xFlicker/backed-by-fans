@@ -1,3 +1,4 @@
+import { readPonsModule } from "../buyback-module";
 import {
   encodeAbiParameters,
   keccak256,
@@ -8,8 +9,7 @@ import {
   type Hex,
 } from "viem";
 import {
-  protocolBuybackVaultAbi,
-  ponsBuybackExecutorAbi,
+  ponsBuybackModuleAbi,
   iPonsBondingCurveAbi,
   iPonsLaunchFactoryAbi,
   iPoolManagerAbi,
@@ -39,33 +39,28 @@ export async function readMarketState(
     throw new Error(
       "Protocol token has not been deployed. Buyback quotes will be available after launch.",
     );
-  const [executor, route] = await Promise.all([
-    client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "executor",
-      blockNumber,
-    }),
+  const buybackModule = await readPonsModule(client, vault, blockNumber);
+  const activeModule = buybackModule.address;
+  const route =
     input.route !== undefined
-      ? Promise.resolve({ pools: input.route })
-      : client.readContract({
-          address: vault,
-          abi: protocolBuybackVaultAbi,
+      ? { pools: input.route }
+      : await client.readContract({
+          address: activeModule,
+          abi: ponsBuybackModuleAbi,
           functionName: "route",
           args: [asset],
           blockNumber,
-        }),
-  ]);
+        });
   const [curve, lifecycle, launch] = await Promise.all([
     client.readContract({
-      address: executor,
-      abi: ponsBuybackExecutorAbi,
+      address: activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "curve",
       blockNumber,
     }),
     client.readContract({
-      address: executor,
-      abi: ponsBuybackExecutorAbi,
+      address: activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "lifecycle",
       blockNumber,
     }),
@@ -156,7 +151,7 @@ export async function readMarketState(
         address: curve,
         abi: iPonsBondingCurveAbi,
         functionName: "currentSnipeTaxBps",
-        args: [executor],
+        args: [activeModule],
         blockNumber,
       }),
     ]);
@@ -190,7 +185,7 @@ export async function readMarketState(
     });
   }
   return {
-    executor,
+    activeModule,
     curve,
     lifecycle,
     route: pools,

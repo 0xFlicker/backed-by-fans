@@ -228,7 +228,7 @@ function protocolClient(
     rendererSchema?: `0x${string}`;
     tokenListed?: boolean;
     protocolToken?: Address;
-    executor?: Address;
+    activeModule?: Address;
     vaultToken?: Address;
   } = {},
 ) {
@@ -269,7 +269,7 @@ function protocolClient(
         buybackVault,
         factory,
         vault: buybackVault,
-        executor: input.executor ?? owner,
+        activeModule: input.activeModule ?? owner,
         protocolToken:
           address === buybackVault
             ? (input.vaultToken ?? input.protocolToken ?? paymentToken)
@@ -332,7 +332,7 @@ describe("protocol dependency reads", () => {
   it("accepts an unbound protocol and preserves released inventory without external token reads", async () => {
     const client = protocolClient({
       protocolToken: zeroAddress,
-      executor: zeroAddress,
+      activeModule: zeroAddress,
     });
     const result = await readPublicBuybacks(client, deployment);
     expect(result.status).toBe("valid");
@@ -353,11 +353,11 @@ describe("protocol dependency reads", () => {
     ).toBe(false);
   });
   it.each([
-    { protocolToken: zeroAddress, executor: owner },
-    { protocolToken: paymentToken, executor: zeroAddress },
+    { protocolToken: zeroAddress, activeModule: owner },
+    { protocolToken: paymentToken, activeModule: zeroAddress },
     {
       protocolToken: zeroAddress,
-      executor: zeroAddress,
+      activeModule: zeroAddress,
       vaultToken: paymentToken,
     },
   ])("rejects mismatched deferred token bindings: %j", async (bindings) => {
@@ -481,3 +481,14 @@ describe("protocol dependency reads", () => {
     expect(client.readContract).not.toHaveBeenCalled();
   });
 });
+
+vi.mock("@/lib/buyback-module", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/buyback-module")>()),
+  readPonsModule: vi.fn(async () => ({
+    address: "0x00000000000000000000000000000000000000b1",
+    revision: 2n,
+    codeHash: "0x",
+    id: "0x",
+    version: 1n,
+  })),
+}));

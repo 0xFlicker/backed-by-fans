@@ -19,6 +19,7 @@ test("@protocol-fork protocol page separates accounting, buybacks and combined e
     "One authentic wallet journey",
   );
   test.setTimeout(180000);
+  page.setDefaultTimeout(15000);
   const snapshot = await snapshotAnvil();
   try {
     const f = await forkContext();
@@ -30,7 +31,10 @@ test("@protocol-fork protocol page separates accounting, buybacks and combined e
     await f.write(member, tier, membershipTierAbi, "createMembership", [
       12n,
       zeroAddress,
+      25n,
     ]);
+    // This snapshot explicitly exercises the public batch UI; review deployments stay guarded.
+    await f.safe("mode", { mode: 1 });
     await f.testClient.increaseTime({ seconds: 350 });
     await f.testClient.mine({ blocks: 1 });
     const supply = () =>
@@ -58,7 +62,7 @@ test("@protocol-fork protocol page separates accounting, buybacks and combined e
     const mode = widget.getByRole("combobox", { name: "Action", exact: true });
     await mode.selectOption("accounting");
     await widget
-      .getByText("Choose a membership instead of automatic selection", {
+      .getByText("Choose membership", {
         exact: true,
       })
       .click();

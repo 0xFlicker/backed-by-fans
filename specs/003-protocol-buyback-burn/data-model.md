@@ -7,14 +7,15 @@ presentation data and never modify these balances. This document describes the n
 
 - `factory`: existing official-tier registry and single authority source.
 - `owner`, `pendingOwner`: existing two-step authority, constrained to validated Safe accounts.
-- `protocolToken`, `buybackVault`, `executor`: immutable deployment identities, discoverable onchain.
+- `buybackVault`: permanent custody and burn identity; `protocolToken` becomes permanent at its one-time binding.
+- `activeModule`, `activeModuleCodeHash`, `moduleRevision`: the vault's current strategy identity and commitment.
 - Existing `mediaStoreFactory`, renderer schema, creator salts and tier identity mappings survive.
 - Payment-token records retain address, listed index and enabled flag. Disablement is not deletion.
 - Remove global `protocolFeeBps`, `feeRecipient` and factory fee-withdrawal records/APIs.
 
-Create the protocol token before constructing the factory/vault; paid membership collection cannot
-begin with an unset or replaceable token. Runtime metadata includes source/creation hash, immutable
-arguments and deployment transaction. Initial fee inventory is zero.
+Membership collection may begin before token binding. Processing remains blocked until binding.
+Runtime metadata includes source/creation hash, immutable arguments and deployment transaction.
+Initial fee inventory is zero.
 
 ## Membership tier and allocation
 
@@ -80,15 +81,16 @@ when not reserved by an active settlement. No withdrawal entity exists.
 
 ## Route and policy
 
-Key: `(vault, inputAsset)` with strictly increasing revision and explicit configuration history.
+Initial Pons strategy key: `(module, inputAsset)` with strictly increasing policy revision and
+explicit configuration history. These strategy fields are not vault storage or a universal module API.
 
 - Typed conversion path: zero to two supported verified exchange legs into native ETH.
 - Pool identities: manager, ordered currencies, fee, tick spacing and hook as applicable.
-- Final Pons lifecycle integration is fixed; protocol token and destination recipient are not configurable.
+- The initial module's Pons lifecycle integration is fixed; protocol token and destination recipient are not configurable.
 - Per-leg positive raw reference numerator/denominator and tolerance.
-- Validity interval, batch cap, finite input budget and spent budget.
+- Validity interval, batch cap, optional finite input budget and spent budget; zero denotes an unlimited budget.
 - Evidence hash and published evidence reference; public Safe transaction provenance.
-- Global and per-asset processing pauses, independent of payment-token onboarding.
+- Vault global pause and module per-asset pauses, independent of payment-token onboarding.
 
 Validation and initial/hard limits are defined once in [buyback policy](contracts/buyback-policy.md).
 Budget is monotonic within a revision. Pause/resume does not reset it. New explicit economic revision
@@ -98,7 +100,8 @@ policy and in-flight expected revisions. Direct protocol-token burns need no mar
 ## Processing settlement
 
 Identity: chain, vault and monotonically increasing settlement sequence, linked to transaction hash.
-Inputs: asset, source bucket, bounded offered input, expected revision, caller deadline.
+Inputs: asset, source bucket, bounded offered input, expected module revision, caller deadline and
+opaque module data. The Pons module's data separately carries its expected policy revision and terms.
 Outputs: actual input consumption, each conversion leg, original/intermediate residuals, protocol
 tokens acquired, protocol tokens burned, lifecycle, source attribution and revision.
 
@@ -106,8 +109,22 @@ State transition is atomic: available → executing → committed, or complete r
 transient reentrancy-protected state, not a durable queue item. Pending inventory remains available
 until an executable transaction settles; there is no per-member buyback job or guaranteed burn date.
 
-Events support independent reconciliation. Current status is computed from active policy, lifecycle,
-inventory and simulation; a revert creates no persistent success/failure record in vault storage.
+Events support independent reconciliation. Strategy status comes from the identified active module,
+its policy, lifecycle, inventory and simulation; a revert creates no persistent success/failure record
+in vault storage. Native custody is always reconciled; new wrapped-native output must be unwrapped
+before returning to vault custody.
+
+## Module replacement and finality
+
+The Safe proposes one candidate and runtime hash with a 48-hour delay. Activation requires a paused
+vault, increments its module revision and leaves it paused. Replacement grants full economic authority
+over exposed inventory; the vault verifies settlement and burn, not price fairness. Pending proposals
+can be cancelled, and a new proposal restarts the delay.
+
+A separate seven-day proposal can permanently freeze replacement of the current module/hash.
+Replacement and freeze proposals are mutually exclusive. Finalization requires a paused vault;
+global pause/unpause and module-owned configuration remain available afterward. A defective frozen
+module can strand inventory. Neither replacement nor freezing changes the protocol token or vault.
 
 ## Launch and external compensation
 
@@ -140,15 +157,15 @@ outlive the fork. Never include real private keys, archive credentials or tempor
 ## Deferred token binding (approved replacement)
 
 The vault address and burn purpose are fixed at deployment. `protocolToken` and
-`executor` are both zero until a one-time Safe-authorized factory call binds a
-validated token and creates its executor atomically. The factory token getter
-reads the vault; there is no duplicate token registry. Both values are nonzero
-after successful binding and cannot be changed again. A mixed pair is invalid.
+`activeModule` are both zero until a one-time Safe-authorized factory call binds a
+validated token and creates the initial Pons module atomically. The factory token getter
+reads the vault; there is no duplicate token registry. The token cannot change after binding;
+the active module can change only through the delayed replacement process until frozen.
+A mixed bound/unbound pair is invalid.
 Existing constructor deployment with a nonzero valid token binds immediately.
 
 Unbound status is `TokenNotLaunched`. Native ETH's zero-address asset identity
 must never be mistaken for the absent protocol token. Collection and inventory
 accounting work before binding; all market and direct-burn processing is blocked.
-Route configuration waits for a bound integration. Historical statements above
-requiring token launch before all membership payments are superseded by this
-section and [the approved scope](deferred-token-launch.md).
+Route configuration waits for a bound integration. See [the approved scope](deferred-token-launch.md)
+and the [release-candidate amendment](../../docs/plans/2026-09-17-release-candidate-audit-remediation.md).

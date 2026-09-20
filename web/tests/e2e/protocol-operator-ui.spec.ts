@@ -9,7 +9,11 @@ import {
   zeroAddress,
 } from "viem";
 import { anvil } from "viem/chains";
-import { protocolBuybackVaultAbi } from "../../src/contracts";
+import {
+  protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
+  membershipTierAbi,
+} from "../../src/contracts";
 import { forkContext } from "./helpers/protocol-fork";
 import {
   installAnvilWallet,
@@ -135,14 +139,14 @@ test("@protocol-fork operator reviews and submits a wallet buyback; stale author
       [usdg],
     );
     const route = await f.client.readContract({
-      address: b.buybackVault,
-      abi: protocolBuybackVaultAbi,
+      address: b.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "route",
       args: [usdg],
     });
     const policy = await f.client.readContract({
-      address: b.buybackVault,
-      abi: protocolBuybackVaultAbi,
+      address: b.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "permissionlessPolicy",
       args: [usdg],
     });
@@ -169,16 +173,16 @@ test("@protocol-fork operator reviews and submits a wallet buyback; stale author
     expect(await supply()).toBeLessThan(beforeConversion);
     expect(
       await f.client.readContract({
-        address: b.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: b.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "permissionlessPolicy",
         args: [usdg],
       }),
     ).toEqual(policy);
     expect(
       await f.client.readContract({
-        address: b.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: b.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "route",
         args: [usdg],
       }),
@@ -219,7 +223,20 @@ test("@protocol-fork operator reviews and submits a wallet buyback; stale author
     expect(await f.client.getTransactionCount({ address: caller })).toBe(
       afterBuy,
     );
-    // Release the real seeded membership earnings on this same page, then buy with them.
+    // Seed this scenario's own paid membership; fresh review fixtures contain an empty tier.
+    const tier = requiredAnvilAddress("tier");
+    const price = await f.client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "pricePerPeriod",
+    });
+    await f.write(caller, usdg, erc20Abi, "approve", [tier, price * 12n]);
+    await f.write(caller, tier, membershipTierAbi, "createMembership", [
+      12n,
+      zeroAddress,
+      256n,
+    ]);
+    // Release its real earnings on this same page, then buy with them.
     await rpcRequest("evm_increaseTime", [86400]);
     await rpcRequest("evm_mine");
     await page.reload();

@@ -278,14 +278,14 @@ export async function exportEvidence(directory: string) {
     );
   const deployments = [];
   const measuredDeployments = [];
-  const executor = await client.readContract({
+  const activeModule = await client.readContract({
     address: bootstrap.buybackVault,
     abi: protocolBuybackVaultAbi,
-    functionName: "executor",
+    functionName: "activeModule",
   });
   const graph = await verifyProtocolGraph(
     client,
-    { ...bootstrap, executor },
+    { ...bootstrap, activeModule },
     resolve(root, "contracts/out"),
   );
   await writeFile(resolve(directory, "protocol-graph.json"), json(graph));
@@ -295,17 +295,17 @@ export async function exportEvidence(directory: string) {
     "curve",
     "factory",
     "buybackVault",
-    "executor",
+    "activeModule",
     "mediaStoreFactory",
     "renderer",
     "previewHarness",
     "vestingLedger",
     "tierImplementation",
     "burnRouter",
-    "executorCodeStore",
+    "activeModuleCodeStore",
   ]) {
     const address = (
-      role === "executor" ? executor : bootstrap[role]
+      role === "activeModule" ? activeModule : bootstrap[role]
     ) as Address;
     const transaction = broadcast.transactions.find(
       (tx) =>
@@ -322,9 +322,9 @@ export async function exportEvidence(directory: string) {
           ? launchReceipt.transactionHash
           : [
                 "buybackVault",
-                "executor",
+                "activeModule",
                 "burnRouter",
-                "executorCodeStore",
+                "activeModuleCodeStore",
               ].includes(role)
             ? broadcast.transactions.find(
                 (tx) =>

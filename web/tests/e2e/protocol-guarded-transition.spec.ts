@@ -8,7 +8,10 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
-import { protocolBuybackVaultAbi } from "../../src/contracts";
+import {
+  protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
+} from "../../src/contracts";
 import {
   readMarketState,
   quoteMarket,
@@ -35,15 +38,15 @@ test("@protocol-fork trusted operator executes offchain terms then Safe enables 
     const operator = privateKeyToAccount(testKey(49153));
     const readPolicy = () =>
       f.client.readContract({
-        address: b.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: b.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "permissionlessPolicy",
         args: [zeroAddress],
       });
     expect(
       await f.client.readContract({
-        address: b.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: b.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "executionMode",
       }),
     ).toBe(0);
@@ -74,8 +77,8 @@ test("@protocol-fork trusted operator executes offchain terms then Safe enables 
       [zeroAddress],
     );
     const state = await f.client.readContract({
-      address: b.buybackVault,
-      abi: protocolBuybackVaultAbi,
+      address: b.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "processingStatus",
       args: [zeroAddress, 1],
     });
@@ -104,7 +107,7 @@ test("@protocol-fork trusted operator executes offchain terms then Safe enables 
         member,
         b.buybackVault,
         protocolBuybackVaultAbi,
-        "processOperator",
+        "processPonsOperator",
         terms,
       ),
     ).rejects.toThrow();
@@ -119,7 +122,7 @@ test("@protocol-fork trusted operator executes offchain terms then Safe enables 
       operator,
       b.buybackVault,
       protocolBuybackVaultAbi,
-      "processOperator",
+      "processPonsOperator",
       terms,
     );
     const afterOperator = await supply();
@@ -130,8 +133,8 @@ test("@protocol-fork trusted operator executes offchain terms then Safe enables 
     expect(publicPolicy.expiresAt).toBe(0n);
     expect(publicPolicy.budgetLimited).toBe(false);
     const ready = await f.client.readContract({
-      address: b.buybackVault,
-      abi: protocolBuybackVaultAbi,
+      address: b.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "processingStatus",
       args: [zeroAddress, 1],
     });
@@ -144,20 +147,26 @@ test("@protocol-fork trusted operator executes offchain terms then Safe enables 
     expect(
       (
         await f.client.readContract({
-          address: b.buybackVault,
-          abi: protocolBuybackVaultAbi,
+          address: b.activeModule,
+          abi: ponsBuybackModuleAbi,
           functionName: "processingStatus",
           args: [zeroAddress, 1],
         })
       ).status,
     ).toBe(0);
-    await f.write(member, b.buybackVault, protocolBuybackVaultAbi, "process", [
-      zeroAddress,
-      1,
-      offered,
-      ready.revision,
-      (await f.client.getBlock()).timestamp + 300n,
-    ]);
+    await f.write(
+      member,
+      b.buybackVault,
+      protocolBuybackVaultAbi,
+      "processPons",
+      [
+        zeroAddress,
+        1,
+        offered,
+        ready.revision,
+        (await f.client.getBlock()).timestamp + 300n,
+      ],
+    );
     expect(await supply()).toBeLessThan(afterOperator);
     await f.retain("operator-to-permissionless", {
       originalPolicy,

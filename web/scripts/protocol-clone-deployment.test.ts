@@ -52,7 +52,7 @@ function proofFixture(): Parameters<typeof verifyRetainedProtocolSources>[0] {
       runtimeCodeHash: keccak256(runtime),
     },
     implementation,
-    executorCodeStore: {
+    activeModuleCodeStore: {
       address,
       creationCode: "0x6001",
       runtime: "0x006001",

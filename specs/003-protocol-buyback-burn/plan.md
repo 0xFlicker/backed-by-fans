@@ -150,33 +150,32 @@ owner renunciation remains disabled. Ordinary Safe signer rotation occurs inside
 selected public Safe under existing deployment policy; a 2-of-3 local fixture is test coverage, not a
 change to the user's public signer policy.
 
-The vault exposes per-asset **earned released** inventory, donation totals, active typed route/policy revision, global and
-per-asset processing pauses. Safe can enable/disable new-tier payment assets independently of routes.
-Neither disablement nor processing pause blocks existing tier payments/claims/refunds.
+The permanent vault exposes custody inventory, global pause and active module
+identity. The single active module owns all operator/mode, route, rate, limit,
+cooldown, budget and per-asset pause state. No delegatecall or withdrawal is
+available. The vault measures settlement and always burns the acquired token;
+module selection grants full economic authority over exposed inventory.
 
-The immutable integration knows Pons and approved exchange contracts; Safe configures pool identities,
-not arbitrary executable addresses or calldata. All recipients are vault/executor custody, approvals
-are exact and cleared, and no `delegatecall`, arbitrary rescue or persistent adapter balance is permitted.
-A constrained executor can be a separate immutable contract to keep code size and custody concerns
-separate; it has no administrative or payout key.
+Safe replacement uses a 48-hour proposal delay, runtime/binding checks and paused
+activation, leaving the vault paused. Optional irreversible replacement freeze
+uses a seven-day proposal with cancellation before finalization. A defective
+frozen module can strand funds; global pause and module-owned settings remain.
+See the current [module policy contract](contracts/buyback-policy.md).
 
-### 3. Use explicit economic policies instead of a fabricated price oracle
+### 3. Keep initial Pons economic policies explicit
 
-Use expiring Safe-approved raw-unit minimum exchange rates for every conversion leg and the final
-protocol-token purchase, together with a finite nonrenewing policy spending budget. Safe publishes
-its reference evidence and fixes rates before ordinary callers execute. Current pool quotes estimate
-execution only; they cannot lower the stored floor. The design and initial bounds are specified in
-[buyback policy](contracts/buyback-policy.md).
-
-This is an administered limit-order policy. It does not promise fair market value, eliminate MEV or
-protect against a Safe choosing bad economics. It prevents callers from supplying their own permissive
-spending rules and bounds exposure under each authorized policy. No fresh privileged signature is
-needed per burn, and no custom TWAP accumulator or unsupported new-token oracle is invented.
+The initial Pons module starts OperatorGuarded, using operator-selected typed
+routes and absolute positive per-leg minima. The Safe can configure
+PermissionlessGuarded policies with actual-spend rates, sizes and cooldowns.
+Expiry and budget are optional; zero means no expiry or unlimited budget.
+Refunds remain in the original source bucket and consume no budget. These are
+administered price bounds, not independent fair-value guarantees. Later modules
+require independent review of their own economic and caller authorization rules.
 
 ### 4. Route atomically through the actual launch lifecycle
 
 The fixed Pons integration reads verified factory/curve state. While bonding it buys through the
-actual ETH curve entrypoint and waits while the executor has a nonzero launch-window penalty.
+actual ETH curve entrypoint and waits while the module has a nonzero launch-window penalty.
 Include ordinary fees and recipient-sensitive behavior in execution estimates.
 After graduation it uses the actual factory-created V4 pool key, including hook. During closed/swept
 but unseeded states it reports pending; public `graduate` and `createGraduatedPool` recovery remain
@@ -283,7 +282,7 @@ specs/003-protocol-buyback-burn/
 
 ```text
 contracts/src/{MembershipFactory,MembershipTier,MembershipTierDeployer,RobinhoodProtocolConfig}.sol
-contracts/src/{ProtocolBuybackVault,PonsBuybackExecutor}.sol       # new
+contracts/src/{ProtocolBuybackVault,PonsBuybackModule}.sol       # new
 contracts/src/types/MembershipTypes.sol
 contracts/src/interfaces/                                       # existing + generated-source integration interfaces
 contracts/script/{DeployDirectProtocol,CreateSafe}.s.sol
@@ -318,8 +317,7 @@ for a launch-only demonstration. Public release, legal assessment and future DAO
 
 ## Complexity Tracking
 
-No constitution violations. A fixed executor is justified by the two venue lifecycles and custody
-isolation; a plugin router registry, custom oracle, upgrade proxy and custom admin application are unnecessary.
+The permanent custody vault and single replaceable full-strategy module separate burn settlement from economic policy; a plugin router registry, custom oracle, upgrade proxy and custom admin application are unnecessary.
 
 
 ## Deferred launch implementation
@@ -328,13 +326,13 @@ Factory deployment accepts a zero token and always creates its fixed vault and
 Burn router. The vault is the single token-binding source of truth; the factory
 getter delegates to it. `factory.bindProtocolToken(address)` is Safe-only and
 calls the factory-only vault binding operation, deploying the existing validated
-executor atomically. Nonzero constructor deployment continues to validate/bind
+initial module atomically at revision 1, with buybacks paused. Nonzero constructor deployment continues to validate/bind
 immediately. An explicit TokenNotLaunched status precedes processing checks;
 route setup waits for binding, while custody/accrual/release remain usable.
 
 The router supports collection-only transactions without calling ERC20 at zero.
 Web dependency verification accepts exactly the legitimate unbound state (both
-token and executor zero with valid factory/vault bindings) and omits token/market
+token and active module zero with valid factory/vault bindings) and omits token/market
 reads, while retaining ordinary membership and fee views. A separately named
 no-token local deployment entrypoint reuses owned Anvil/web lifecycle and prepares
 funded manual memberships without executing the Pons launch branch.

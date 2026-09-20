@@ -4,6 +4,7 @@ import { erc20Abi, zeroAddress } from "viem";
 import {
   membershipTierAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
 } from "../../src/contracts";
 import {
   readAdminContext,
@@ -83,8 +84,8 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
     expect(pending.available).toBeGreaterThan(0n);
     const status = () =>
       f.client.readContract({
-        address: b.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: b.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "processingStatus",
         args: [asset, 0],
       });
@@ -94,8 +95,8 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
     await f.safe("asset-pause", { asset, paused: true });
     expect((await status()).status).toBe(2);
     const oldRevision = await f.client.readContract({
-      address: b.buybackVault,
-      abi: protocolBuybackVaultAbi,
+      address: b.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "revision",
       args: [asset],
     });
@@ -125,7 +126,7 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
       functionName: "totalSupply",
     });
     await expect(
-      f.write(member, b.buybackVault, protocolBuybackVaultAbi, "process", [
+      f.write(member, b.buybackVault, protocolBuybackVaultAbi, "processPons", [
         asset,
         0,
         1000000n,
@@ -133,13 +134,19 @@ test("@protocol-fork Safe changes preserve membership access and ordinary caller
         (await f.client.getBlock()).timestamp + 300n,
       ]),
     ).rejects.toThrow();
-    await f.write(member, b.buybackVault, protocolBuybackVaultAbi, "process", [
-      asset,
-      0,
-      1000000n,
-      ready.revision,
-      (await f.client.getBlock()).timestamp + 300n,
-    ]);
+    await f.write(
+      member,
+      b.buybackVault,
+      protocolBuybackVaultAbi,
+      "processPons",
+      [
+        asset,
+        0,
+        1000000n,
+        ready.revision,
+        (await f.client.getBlock()).timestamp + 300n,
+      ],
+    );
     const closed = await inventory(),
       supplyAfter = await f.client.readContract({
         address: b.protocolToken,

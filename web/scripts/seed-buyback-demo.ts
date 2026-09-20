@@ -1,3 +1,4 @@
+import { readPonsModule } from "../src/lib/buyback-module";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
@@ -22,7 +23,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 import {
   membershipFactoryAbi,
-  protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
   membershipTierAbi,
   iWrappedNativeAbi,
   iSafeAbi,
@@ -112,6 +113,7 @@ const configurePermissionless = async () => {
     });
     receipts.push({ action, payload, receipt });
   };
+  const buybackModule = await readPonsModule(client, bootstrap.buybackVault);
   for (const [asset, batch] of [
     [zeroAddress, parseEther("0.02")],
     [getAddress(fixture.assets.usdg), 50_000_000n],
@@ -119,8 +121,8 @@ const configurePermissionless = async () => {
   ] as const) {
     const revision = () =>
       client.readContract({
-        address: bootstrap.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: buybackModule.address,
+        abi: ponsBuybackModuleAbi,
         functionName: "revision",
         args: [asset],
       });

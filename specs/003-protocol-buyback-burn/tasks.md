@@ -7,6 +7,10 @@
 
 ## Format and paths
 
+The completed executor-era tasks below retain their historical file names and evidence.
+The current full-strategy module architecture and its outstanding clean-candidate release
+gate are specified in the [2026-09-17 remediation plan](../../docs/plans/2026-09-17-release-candidate-audit-remediation.md).
+
 Every task uses `- [ ] Tnnn [P?] [USn?] Description with paths`. Paths are repository-relative to `/Users/user/Development/backed-by-fans`; named new files are implementation destinations, not claims that they already exist. `[P]` identifies independent files within the indicated test group after its prerequisites are complete. It does not waive dependencies or authorize concurrent edits to a shared file.
 
 All seven stories have priority P1. The equal-priority phases below put US4 and US6 before US3 so authentic processing has a launched token and authorized configuration. Story numbers retain their meanings from the spec.

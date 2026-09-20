@@ -9,7 +9,7 @@ import {
   type TransactionReceipt,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { iSafeAbi, protocolBuybackVaultAbi } from "@/contracts";
+import { iSafeAbi, ponsBuybackModuleAbi } from "@/contracts";
 import {
   addOwnerSignatures,
   settingsSafeTransaction,
@@ -31,7 +31,7 @@ const payload: SettingsSafePayload = {
   safeNonce: "3",
   to: "0x3333333333333333333333333333333333333333",
   data: encodeFunctionData({
-    abi: protocolBuybackVaultAbi,
+    abi: ponsBuybackModuleAbi,
     functionName: "setExecutionLimits",
     args: [30n, [asset], [terms]],
   }),

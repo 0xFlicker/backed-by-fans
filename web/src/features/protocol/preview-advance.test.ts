@@ -108,3 +108,14 @@ it("does not enable accounting when no checkpoints or new earnings remain", asyn
     useful: false,
   });
 });
+
+vi.mock("@/lib/buyback-module", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/buyback-module")>()),
+  readPonsModule: vi.fn(async () => ({
+    address: "0x00000000000000000000000000000000000000b1",
+    revision: 2n,
+    codeHash: "0x",
+    id: "0x",
+    version: 1n,
+  })),
+}));

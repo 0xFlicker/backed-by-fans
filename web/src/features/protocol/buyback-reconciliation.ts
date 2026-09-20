@@ -84,7 +84,6 @@ export function receiptBuyback(
       event.eventName === "DirectBurned" &&
       isAddressEqual(event.args.token, input.asset) &&
       event.args.bucket === input.bucket &&
-      input.revision === 0n &&
       event.args.amount === input.amount &&
       event.args.amount > 0n
     ) {

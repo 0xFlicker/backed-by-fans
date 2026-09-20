@@ -48,7 +48,7 @@ contract StandardsInterfacesTest is Test {
         bytes32 stateBefore = _fingerprint(tier);
         vm.expectRevert(
             abi.encodeWithSelector(
-                MembershipTier.AccountingBehind.selector, uint64(1000), uint64(1010)
+                MembershipTier.AccountingBehind.selector, uint64(1010), uint64(1010)
             )
         );
         tier.cancelSubscription(1);

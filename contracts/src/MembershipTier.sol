@@ -50,6 +50,8 @@ contract MembershipTier is
 
     uint16 public override protocolFeeBps;
     uint256 public constant MAX_NAME_BYTES = 100;
+    /// @notice Best-effort checkpoint budget for the fixed-signature ERC-5643 adapters.
+    uint256 public constant ERC5643_ACCOUNTING_STEPS = 25;
     uint256 public constant MAX_SYMBOL_BYTES = 16;
     uint256 public constant MAX_DESCRIPTION_BYTES = 500;
     uint256 public constant MAX_URI_BYTES = 2048;
@@ -121,6 +123,7 @@ contract MembershipTier is
     error CurveCapacityExceeded();
     error PrepaymentLimitExceeded();
     error ReferralChoiceMismatch();
+    error SelfReferralNotAllowed();
     error ReferralChoiceRequired();
     error ReferralStateMismatch();
     error SelfGiftNotAllowed();
@@ -481,7 +484,7 @@ contract MembershipTier is
         uint64 periods = duration / periodDuration;
         if (pricePerPeriod == 0) {
             if (periods != 1) revert InvalidPeriods();
-            _contribute(tokenId, msg.sender, 0, address(0), 0);
+            _contribute(tokenId, msg.sender, 0, address(0), ERC5643_ACCOUNTING_STEPS);
             return;
         }
 
@@ -489,7 +492,15 @@ contract MembershipTier is
         if (referralState.status == MembershipTypes.ReferralStatus.Unset) {
             revert ReferralChoiceRequired();
         }
-        _purchaseFixed(tokenId, msg.sender, msg.sender, periods, true, referralState.referrer, 0);
+        _purchaseFixed(
+            tokenId,
+            msg.sender,
+            msg.sender,
+            periods,
+            true,
+            referralState.referrer,
+            ERC5643_ACCOUNTING_STEPS
+        );
     }
 
     /// @inheritdoc IERC5643
@@ -502,7 +513,7 @@ contract MembershipTier is
 
     function _cancelSubscription(uint256 tokenId) private nonReentrant {
         _checkOwner();
-        _refund(tokenId, _requireLive(tokenId), type(uint256).max, 0);
+        _refund(tokenId, _requireLive(tokenId), type(uint256).max, ERC5643_ACCOUNTING_STEPS);
     }
 
     /// @inheritdoc IERC5643
@@ -1007,7 +1018,7 @@ contract MembershipTier is
         _validateGross(gross);
         bool creating = tokenId == 0;
         tokenId = _prepareTimeIncrease(tokenId, recipient, duration, true);
-        if (selfPayment) _validateReferralChoice(tokenId, referralChoice);
+        if (selfPayment) _validateReferralChoice(tokenId, referralChoice, payer);
         _pullExact(payer, gross);
         _membershipStates[tokenId].paidSeconds += duration;
         _emitTimeUpdate(tokenId, _membershipStates[tokenId]);
@@ -1066,7 +1077,7 @@ contract MembershipTier is
         bool creating = tokenId == 0;
         tokenId = _prepareTimeIncrease(tokenId, payer, periodDuration, true);
         if (gross != 0) {
-            _validateReferralChoice(tokenId, referralChoice);
+            _validateReferralChoice(tokenId, referralChoice, payer);
             _pullExact(payer, gross);
         }
         _membershipStates[tokenId].paidSeconds += periodDuration;
@@ -1125,10 +1136,17 @@ contract MembershipTier is
         if (gross > MAX_LIFETIME_GROSS - _vesting.totalGross) revert CurveCapacityExceeded();
     }
 
-    function _validateReferralChoice(uint256 tokenId, address referralChoice) internal view {
-        if (tokenId == 0) return;
+    function _validateReferralChoice(uint256 tokenId, address referralChoice, address payer)
+        internal
+        view
+    {
         MembershipTypes.ReferralState storage state = _referralStates[tokenId];
-        if (state.status == MembershipTypes.ReferralStatus.Unset) return;
+        if (state.status == MembershipTypes.ReferralStatus.Unset) {
+            if (referralChoice != address(0) && referralChoice == payer) {
+                revert SelfReferralNotAllowed();
+            }
+            return;
+        }
         if (state.status == MembershipTypes.ReferralStatus.LockedNone
                 ? referralChoice != address(0)
                 : referralChoice != state.referrer) {

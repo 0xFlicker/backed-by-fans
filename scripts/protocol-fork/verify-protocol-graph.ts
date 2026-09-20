@@ -32,7 +32,7 @@ const targets = {
   tierImplementation: "MembershipTier.sol/MembershipTier.json",
   buybackVault: "ProtocolBuybackVault.sol/ProtocolBuybackVault.json",
   burnRouter: "ProtocolBurnRouter.sol/ProtocolBurnRouter.json",
-  executor: "PonsBuybackExecutor.sol/PonsBuybackExecutor.json",
+  activeModule: "PonsBuybackModule.sol/PonsBuybackModule.json",
   mediaStoreFactory:
     "OnchainMediaStoreFactory.sol/OnchainMediaStoreFactory.json",
   renderer: "OnchainMetadataRenderer.sol/OnchainMetadataRenderer.json",
@@ -128,7 +128,7 @@ export async function verifyProtocolGraph(
   ][]) {
     const address = bootstrap[role] as Address;
     if (
-      role === "executor" &&
+      role === "activeModule" &&
       address === "0x0000000000000000000000000000000000000000"
     )
       continue;
@@ -180,9 +180,9 @@ export async function verifyProtocolGraph(
     "router vault binding",
   );
   same(
-    await read("buybackVault", "executor"),
-    bootstrap.executor,
-    "vault executor binding",
+    await read("buybackVault", "activeModule"),
+    bootstrap.activeModule,
+    "vault activeModule binding",
   );
   same(
     await read("buybackVault", "protocolToken"),
@@ -190,50 +190,56 @@ export async function verifyProtocolGraph(
     "vault token binding",
   );
   const [executionMode, operator, buybacksPaused] = await Promise.all([
-    read("buybackVault", "executionMode"),
-    read("buybackVault", "operator"),
+    artifacts.activeModule ? read("activeModule", "executionMode") : 0,
+    artifacts.activeModule ? read("activeModule", "operator") : "0x0000000000000000000000000000000000000000",
     read("buybackVault", "buybacksPaused"),
   ]);
   if (Number(executionMode) !== 0 && Number(executionMode) !== 1)
     throw new Error("Unknown buyback execution mode");
-  const executorArtifact = await artifact(targets.executor);
-  const executorStoreAddress = (await read(
+  const activeModuleArtifact = await artifact(targets.activeModule);
+  const activeModuleStoreAddress = (await read(
     "buybackVault",
-    "executorCreationCodeStore",
+    "moduleCreationCodeStore",
   )) as Address;
-  const executorStoreRuntime = await client.getCode({
-    address: executorStoreAddress,
+  const activeModuleStoreRuntime = await client.getCode({
+    address: activeModuleStoreAddress,
   });
   same(
-    executorStoreAddress,
-    bootstrap.executorCodeStore,
-    "executor code store identity",
+    activeModuleStoreAddress,
+    bootstrap.activeModuleCodeStore,
+    "activeModule code store identity",
   );
   same(
-    executorStoreRuntime,
-    `0x00${executorArtifact.bytecode.object.slice(2)}`,
-    "exact executor code store",
+    activeModuleStoreRuntime,
+    `0x00${activeModuleArtifact.bytecode.object.slice(2)}`,
+    "exact activeModule code store",
   );
   same(
-    await read("buybackVault", "executorCreationCodeHash"),
-    keccak256(executorArtifact.bytecode.object),
-    "executor creation hash",
+    await read("buybackVault", "moduleCreationCodeHash"),
+    keccak256(activeModuleArtifact.bytecode.object),
+    "activeModule creation hash",
   );
   same(
-    await read("buybackVault", "executorCreationCodeLength"),
-    (executorArtifact.bytecode.object.length - 2) / 2,
-    "executor creation length",
+    await read("buybackVault", "moduleCreationCodeLength"),
+    (activeModuleArtifact.bytecode.object.length - 2) / 2,
+    "activeModule creation length",
   );
-  if (artifacts.executor) {
+  if (artifacts.activeModule) {
+    same(await read("buybackVault", "moduleRevision"), 1, "bootstrap module revision");
+    same(await read("buybackVault", "activeModuleCodeHash"), keccak256((await client.getCode({address: bootstrap.activeModule as Address}))!), "module runtime commitment");
+    same(await read("buybackVault", "MODULE_REPLACEMENT_DELAY"), 172800, "replacement delay");
+    same(await read("buybackVault", "MODULE_FREEZE_DELAY"), 604800, "freeze delay");
+    same(await read("activeModule", "interfaceVersion"), 1, "module interface version");
+    same(await read("activeModule", "moduleVersion"), 1, "module version");
     same(
-      await read("executor", "vault"),
+      await read("activeModule", "vault"),
       bootstrap.buybackVault,
-      "executor vault binding",
+      "activeModule vault binding",
     );
     same(
-      await read("executor", "protocolToken"),
+      await read("activeModule", "protocolToken"),
       bootstrap.protocolToken,
-      "executor token binding",
+      "activeModule token binding",
     );
   }
   const minimumPayments = [];
@@ -269,11 +275,11 @@ export async function verifyProtocolGraph(
     tierCreationCode: tier.bytecode.object,
     creationCodeHash: keccak256(tier.bytecode.object),
     tierLibraries: tier.metadata.settings.libraries,
-    executorCodeStore: {
-      address: executorStoreAddress,
-      runtime: executorStoreRuntime as Hex,
-      creationCode: executorArtifact.bytecode.object,
-      runtimeCodeHash: keccak256(executorStoreRuntime as Hex),
+    activeModuleCodeStore: {
+      address: activeModuleStoreAddress,
+      runtime: activeModuleStoreRuntime as Hex,
+      creationCode: activeModuleArtifact.bytecode.object,
+      runtimeCodeHash: keccak256(activeModuleStoreRuntime as Hex),
     },
     library: {
       address: ledgerAddress,

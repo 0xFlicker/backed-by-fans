@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {PonsBuybackModule} from "../src/PonsBuybackModule.sol";
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
 
@@ -39,6 +40,7 @@ contract ReenteringUnwrapFixture {
 contract BuybackAdministrationTest is Test {
     MembershipFactory private factory;
     ProtocolBuybackVault private vault;
+    PonsBuybackModule private module;
     MockUSDG private token;
     address private admin = address(0xA11CE);
 
@@ -56,21 +58,22 @@ contract BuybackAdministrationTest is Test {
             MembershipTestConfig.minimumPayments(MembershipTestConfig.paymentTokens(token))
         );
         vault = ProtocolBuybackVault(payable(factory.buybackVault()));
+        module = PonsBuybackModule(payable(vault.activeModule()));
     }
 
     function test_factoryOwnerIsOnlyConfigurationAuthority() public {
         vm.expectRevert();
         vault.setBuybacksPaused(false);
         vm.expectRevert();
-        vault.setAssetBuybacksPaused(address(0), false);
+        module.setAssetBuybacksPaused(address(0), false);
         vm.expectRevert();
-        vault.setRoute(address(0), _ethRoute());
+        module.setRoute(address(0), _ethRoute());
         vm.expectRevert();
-        vault.setLimits(address(0), _limits());
+        module.setLimits(address(0), _limits());
         vm.expectRevert();
-        vault.setGlobalMinInterval(60);
+        module.setGlobalMinInterval(60);
         vm.expectRevert();
-        vault.setExecutionLimits(60, new address[](0), new BuybackTypes.ExecutionLimits[](0));
+        module.setExecutionLimits(60, new address[](0), new BuybackTypes.ExecutionLimits[](0));
         token.mint(address(this), 1e18);
         vm.expectRevert();
         vault.setBuybacksPaused(false);
@@ -82,21 +85,21 @@ contract BuybackAdministrationTest is Test {
     function test_launchDefaultsToPausedOperatorModeAndOnlySafeControlsAuthority() public {
         assertTrue(vault.buybacksPaused());
         assertEq(
-            uint256(vault.executionMode()), uint256(BuybackTypes.ExecutionMode.OperatorGuarded)
+            uint256(module.executionMode()), uint256(BuybackTypes.ExecutionMode.OperatorGuarded)
         );
-        assertEq(vault.operator(), address(0));
+        assertEq(module.operator(), address(0));
         vm.expectRevert(ProtocolBuybackVault.OnlyProtocolAuthority.selector);
-        vault.setOperator(address(this));
+        module.setOperator(address(this));
         vm.expectRevert(ProtocolBuybackVault.OnlyProtocolAuthority.selector);
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
+        module.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
         vm.expectRevert(ProtocolBuybackVault.OnlyProtocolAuthority.selector);
-        vault.setPermissionlessPolicy(
+        module.setPermissionlessPolicy(
             address(0), BuybackTypes.Lifecycle.Bonding, new BuybackTypes.OutputRate[](0), 0, 0
         );
         vm.startPrank(admin);
-        vault.setOperator(address(this));
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
-        assertEq(vault.operator(), address(this));
+        module.setOperator(address(this));
+        module.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
+        assertEq(module.operator(), address(this));
     }
 
     function test_unwrapCallbackCannotReusePreWithdrawalBalances() public {
@@ -135,54 +138,54 @@ contract BuybackAdministrationTest is Test {
             route.pools[0].fee = 100;
             route.pools[0].tickSpacing = 1;
             vm.prank(admin);
-            vault.setRoute(assets[i], route);
+            module.setRoute(assets[i], route);
             limits[i] = _limits();
         }
         vm.prank(admin);
-        vault.setExecutionLimits(60, assets, limits);
+        module.setExecutionLimits(60, assets, limits);
         for (uint256 i; i < assets.length; ++i) {
-            assertEq(vault.revision(assets[i]), 2);
-            assertEq(vault.limits(assets[i]).maxInput, limits[i].maxInput);
+            assertEq(module.revision(assets[i]), 2);
+            assertEq(module.limits(assets[i]).maxInput, limits[i].maxInput);
         }
     }
 
     function test_routeAndLimitsChangesAdvanceRevisionWithoutClearingStandingLimits() public {
         vm.startPrank(admin);
-        vault.setRoute(address(0), _ethRoute());
-        vault.setLimits(address(0), _limits());
-        assertEq(vault.revision(address(0)), 2);
-        vault.setRoute(address(0), _ethRoute());
-        assertEq(vault.revision(address(0)), 3);
-        assertEq(vault.limits(address(0)).maxInput, 0.001 ether);
+        module.setRoute(address(0), _ethRoute());
+        module.setLimits(address(0), _limits());
+        assertEq(module.revision(address(0)), 2);
+        module.setRoute(address(0), _ethRoute());
+        assertEq(module.revision(address(0)), 3);
+        assertEq(module.limits(address(0)).maxInput, 0.001 ether);
     }
 
     function test_pausesDoNotChangeRevisionOrLimits() public {
         vm.startPrank(admin);
-        vault.setRoute(address(0), _ethRoute());
-        vault.setLimits(address(0), _limits());
-        bytes32 beforeLimits = keccak256(abi.encode(vault.limits(address(0))));
-        uint64 beforeRevision = vault.revision(address(0));
+        module.setRoute(address(0), _ethRoute());
+        module.setLimits(address(0), _limits());
+        bytes32 beforeLimits = keccak256(abi.encode(module.limits(address(0))));
+        uint64 beforeRevision = module.revision(address(0));
         vault.setBuybacksPaused(true);
-        vault.setAssetBuybacksPaused(address(0), true);
+        module.setAssetBuybacksPaused(address(0), true);
         vault.setBuybacksPaused(false);
-        vault.setAssetBuybacksPaused(address(0), false);
-        assertEq(keccak256(abi.encode(vault.limits(address(0)))), beforeLimits);
-        assertEq(vault.revision(address(0)), beforeRevision);
+        module.setAssetBuybacksPaused(address(0), false);
+        assertEq(keccak256(abi.encode(module.limits(address(0)))), beforeLimits);
+        assertEq(module.revision(address(0)), beforeRevision);
     }
 
     function test_limitsRequireRouteAndRejectInvalidBounds() public {
         vm.startPrank(admin);
         vm.expectRevert();
-        vault.setLimits(address(0), _limits());
-        vault.setRoute(address(0), _ethRoute());
+        module.setLimits(address(0), _limits());
+        module.setRoute(address(0), _ethRoute());
         for (uint256 i; i < 3; ++i) {
             BuybackTypes.ExecutionLimits memory p = _limits();
             if (i == 0) p.minInput = 0;
             if (i == 1) p.maxInput = 0;
             if (i == 2) p.minInput = p.maxInput + 1;
             vm.expectRevert();
-            vault.setLimits(address(0), p);
-            assertEq(vault.revision(address(0)), 1);
+            module.setLimits(address(0), p);
+            assertEq(module.revision(address(0)), 1);
         }
     }
 
@@ -194,23 +197,23 @@ contract BuybackAdministrationTest is Test {
         minimum = uint128(bound(minimum, 1, type(uint128).max));
         maximum = uint128(bound(maximum, minimum, type(uint128).max));
         vm.startPrank(admin);
-        vault.setRoute(address(0), _ethRoute());
-        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(minimum, maximum, interval));
-        assertEq(vault.limits(address(0)).maxInput, maximum);
-        assertEq(vault.limits(address(0)).minInterval, interval);
+        module.setRoute(address(0), _ethRoute());
+        module.setLimits(address(0), BuybackTypes.ExecutionLimits(minimum, maximum, interval));
+        assertEq(module.limits(address(0)).maxInput, maximum);
+        assertEq(module.limits(address(0)).minInterval, interval);
     }
 
     function test_cannotConfigureDirectBurnAsAMarketOrInventAnEmptyTokenRoute() public {
         vm.startPrank(admin);
         vm.expectRevert();
-        vault.setRoute(address(token), _ethRoute());
+        module.setRoute(address(token), _ethRoute());
         MockUSDG other = new MockUSDG();
         vm.expectRevert();
-        vault.setRoute(address(other), _ethRoute());
+        module.setRoute(address(other), _ethRoute());
         BuybackTypes.TypedRoute memory route = _ethRoute();
         route.pools = new PoolKey[](3);
         vm.expectRevert();
-        vault.setRoute(address(other), route);
+        module.setRoute(address(other), route);
     }
 
     function test_cannotDiscardAuthorityOrNominateEOAOrSpoofSafe() public {

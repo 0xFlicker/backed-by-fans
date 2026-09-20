@@ -4,6 +4,7 @@ import { anvil } from "viem/chains";
 import {
   membershipTierAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
 } from "../../src/contracts";
 import { forkContext } from "./helpers/protocol-fork";
 import { compiledAbi } from "./helpers/pons-pool";
@@ -85,8 +86,8 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
     await f.safe("interval", { minInterval: "300" });
     const state = (asset: `0x${string}`, bucket: 0 | 1) =>
       f.client.readContract({
-        address: b.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: b.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "processingStatus",
         args: [asset, bucket],
       });
@@ -103,7 +104,7 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
     expect(ready.maxInput).toBe(batch);
     const deadline = (await f.client.getBlock()).timestamp + 2000n;
     await expect(
-      f.write(member, b.buybackVault, protocolBuybackVaultAbi, "process", [
+      f.write(member, b.buybackVault, protocolBuybackVaultAbi, "processPons", [
         zeroAddress,
         1,
         minimum - 1n,
@@ -111,16 +112,16 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
         deadline,
       ]),
     ).rejects.toThrow();
-    await f.write(member, b.buybackVault, protocolBuybackVaultAbi, "process", [
-      zeroAddress,
-      1,
-      batch,
-      ready.revision,
-      deadline,
-    ]);
+    await f.write(
+      member,
+      b.buybackVault,
+      protocolBuybackVaultAbi,
+      "processPons",
+      [zeroAddress, 1, batch, ready.revision, deadline],
+    );
     const boughtAt = await f.client.readContract({
-      address: b.buybackVault,
-      abi: protocolBuybackVaultAbi,
+      address: b.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "lastBuyAt",
     });
     const cooling = await state(weth, 0);
@@ -130,7 +131,7 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
     expect(otherCurrency.status).toBe(6);
     expect(otherCurrency.nextEligibleAt).toBe(boughtAt + 300n);
     await expect(
-      f.write(member, b.buybackVault, protocolBuybackVaultAbi, "process", [
+      f.write(member, b.buybackVault, protocolBuybackVaultAbi, "processPons", [
         weth,
         0,
         batch,
@@ -145,8 +146,8 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
     expect(updated.nextEligibleAt).toBe(boughtAt + 900n);
     expect(
       await f.client.readContract({
-        address: b.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: b.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "lastBuyAt",
       }),
     ).toBe(boughtAt);
@@ -156,13 +157,13 @@ test("@protocol-fork ETH and WETH share standing limits and cooldown across fee 
     await f.testClient.mine({ blocks: 1 });
     const eligible = await state(weth, 0);
     expect(eligible.status).toBe(0);
-    await f.write(member, b.buybackVault, protocolBuybackVaultAbi, "process", [
-      weth,
-      0,
-      batch,
-      eligible.revision,
-      deadline,
-    ]);
+    await f.write(
+      member,
+      b.buybackVault,
+      protocolBuybackVaultAbi,
+      "processPons",
+      [weth, 0, batch, eligible.revision, deadline],
+    );
     expect((await inventory(weth, 0)).totalSpent).toBe(batch);
     expect((await inventory(zeroAddress, 1)).totalSpent).toBe(batch);
     expect((await state(zeroAddress, 1)).status).toBe(6);

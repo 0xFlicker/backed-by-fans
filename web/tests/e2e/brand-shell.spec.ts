@@ -1,7 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { buildPublicConfig } from "../../src/lib/config";
 
-test("renders the unavailable catalog at the canonical homepage before public deployment", async ({
+test("renders the configured catalog at the canonical homepage", async ({
   page,
   request,
 }) => {
@@ -20,13 +21,20 @@ test("renders the unavailable catalog at the canonical homepage before public de
       name: "Find a membership worth joining.",
     }),
   ).toBeVisible();
-  await expect(page.getByText("Onchain state unavailable")).toBeVisible();
-  await expect(
-    page.getByText(
-      "Backed By Fans is not deployed on Robinhood Chain Testnet.",
-    ),
-  ).toBeVisible();
-  await expect(page.locator(".catalog-card")).toHaveCount(0);
+  const config = buildPublicConfig({});
+  if (config.deployments[config.defaultChainId]) {
+    await expect(page.getByText(/^\d+ memberships?$/)).toBeVisible();
+    await expect(page.getByText(/^Block \d+$/)).toBeVisible();
+    await expect(page.getByText("Onchain state unavailable")).toHaveCount(0);
+  } else {
+    await expect(page.getByText("Onchain state unavailable")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Backed By Fans is not deployed on Robinhood Chain Testnet.",
+      ),
+    ).toBeVisible();
+    await expect(page.locator(".catalog-card")).toHaveCount(0);
+  }
   await expect(page.getByRole("link", { name: "About" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Backed By Fans home" }),

@@ -737,6 +737,7 @@ test("@anvil reward-curves publishes all presets and confirms execution-time wei
       }
       await page.getByRole("link", { name: "Open membership page" }).click();
       await page.getByLabel("Periods", { exact: true }).fill("2");
+      await page.getByText("Reward details", { exact: true }).click();
       const before = await client.readContract({
         address: tier,
         abi: membershipTierAbi,

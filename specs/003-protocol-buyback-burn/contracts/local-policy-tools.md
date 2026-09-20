@@ -145,7 +145,7 @@ an operator-approved quote tolerance. The runner quotes each market leg and
 submits its positive minimum outputs with the transaction. Native input uses an
 empty conversion-pool array; the final purchase still uses the active Pons venue.
 
-The execution wallet must match `vault.operator()`. The Safe configures that
+The execution wallet must match `PonsBuybackModule(vault.activeModule()).operator()`. The Safe configures that
 identity through the admin `operator` action and changes execution mode through
 `mode`. Public route and price administration remains through `route` and `policy`;
 `policy` accepts optional expiry and input budget, with zero meaning indefinite
@@ -160,3 +160,5 @@ transaction simulation: operator term-bearing preflight uses that same endpoint,
 not the public read RPC. `public` is
 appropriate for a disposable local fork. Random timing and secret off-chain policy
 alone cannot guarantee protection; transaction minimum outputs are enforced.
+
+Module governance actions and mandatory freeze warnings are documented in [buyback-policy.md](buyback-policy.md#safe-transaction-preparation). Policy payloads target the active module; global pause and module governance target the permanent vault.

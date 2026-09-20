@@ -1,5 +1,6 @@
 "use client";
 
+import { readPonsModule } from "@/lib/buyback-module";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
@@ -8,6 +9,7 @@ import {
   membershipTierAbi,
   membershipFactoryAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
 } from "@/contracts";
 import type { SupportedChainId } from "@/lib/chains";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
@@ -97,9 +99,10 @@ export function ReleaseTierFees({
         args: [paymentToken],
         blockNumber: block.number,
       });
+      const buybackModule = await readPonsModule(client, vault, block.number);
       const revision = await client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
+        address: buybackModule!.address,
+        abi: ponsBuybackModuleAbi,
         functionName: "revision",
         args: [asset],
         blockNumber: block.number,

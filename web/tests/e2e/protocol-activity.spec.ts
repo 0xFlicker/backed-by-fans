@@ -54,7 +54,7 @@ test.describe("@protocol-fork public buyback activity", () => {
       page.getByText("Reserved protocol funding", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Advance and burn", exact: true }),
+      page.getByRole("button", { name: "Advance accounting", exact: true }),
     ).toBeDisabled();
     await expect(
       page.getByText(/A trusted operator executes market buybacks/),

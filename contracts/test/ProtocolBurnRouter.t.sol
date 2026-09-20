@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {PonsBuybackModule} from "../src/PonsBuybackModule.sol";
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
@@ -94,7 +95,11 @@ contract ProtocolBurnRouterTest is Test {
         assertEq(burned, 250);
         assertEq(vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).available, 100);
         assertEq(
-            uint256(vault.processingStatus(address(0), BuybackTypes.SourceBucket.Donation).status),
+            uint256(
+                PonsBuybackModule(payable(address(vault.activeModule())))
+                .processingStatus(address(0), BuybackTypes.SourceBucket.Donation)
+                .status
+            ),
             uint256(BuybackTypes.Status.OperatorOnly)
         );
     }
@@ -437,6 +442,21 @@ contract ProtocolBurnRouterTest is Test {
 /// @dev Synthetic router-only fixture: models shared per-asset cooldown and process
 /// failures. It does not execute a venue purchase or prove real vault settlement.
 contract SyntheticRouterCooldownVault {
+    function activeModule() external view returns (address) {
+        return address(this);
+    }
+
+    function moduleRevision() external pure returns (uint64) {
+        return 1;
+    }
+
+    function moduleId() external pure returns (bytes32) {
+        return keccak256("BBF.PonsBuyback");
+    }
+
+    function moduleVersion() external pure returns (uint256) {
+        return 1;
+    }
     address public immutable protocolToken;
     mapping(address asset => uint256) public lastBuyAt;
     mapping(address asset => uint256) public processCount;
@@ -476,9 +496,14 @@ contract SyntheticRouterCooldownVault {
         }
     }
 
-    function process(address asset, BuybackTypes.SourceBucket bucket, uint256, uint64, uint64)
-        external
-    {
+    function process(
+        address asset,
+        BuybackTypes.SourceBucket bucket,
+        uint256,
+        uint64,
+        uint64,
+        bytes calldata
+    ) external {
         if (failPurchases[asset]) revert SyntheticPurchaseFailure();
         lastBuyAt[asset] = block.timestamp;
         lastSource[asset] = bucket;

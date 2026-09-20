@@ -64,6 +64,14 @@ contract MembershipHandler is Test {
         uint256 gross = raw % 100_000_001;
         address referral = referralSeed % 2 == 0 ? address(0) : _actor(referralSeed >> 1);
         paymentToken.mint(owner, gross);
+        if (gross != 0 && referral == owner) {
+            uint256 beforeBalance = paymentToken.balanceOf(owner);
+            vm.prank(owner);
+            vm.expectRevert(MembershipTier.SelfReferralNotAllowed.selector);
+            tier.createContributionMembership(gross, referral, 25);
+            assertEq(paymentToken.balanceOf(owner), beforeBalance);
+            return;
+        }
         vm.prank(owner);
         uint256 id = tier.createContributionMembership(gross, referral, 25);
         assertEq(id, book.createPosition(owner, _now(), _paid(gross, referral)));

@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {PonsBuybackModule} from "../../src/PonsBuybackModule.sol";
+import {ProtocolBurnRouter} from "../../src/ProtocolBurnRouter.sol";
+import {ProtocolBuybackVault} from "../../src/ProtocolBuybackVault.sol";
 import {GraduationPhase} from "../../src/interfaces/external/ILaunchpadV2.sol";
 import {IPonsLaunchFactory, IPonsLauncherToken} from "../../src/interfaces/external/IPons.sol";
 import {BuybackIntegration as Integration} from "../../src/libraries/BuybackIntegration.sol";
 import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
+import {BuybackTestCalls} from "../helpers/BuybackTestCalls.sol";
 import {ProtocolBuybacksForkTest} from "./ProtocolBuybacks.t.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -15,6 +19,48 @@ import {PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
+    using BuybackTestCalls for ProtocolBuybackVault;
+
+    function test_routerFinalFillAppliesRateToActualSpendAndDebitsBudget() public {
+        uint256 offered = _prepareClosingPurchase();
+        uint256 snapshot = vm.snapshotState();
+        _cross(offered);
+        uint256 spent = vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
+        uint256 acquired =
+            vault.inventory(address(token), BuybackTypes.SourceBucket.Donation).totalBurned;
+        assertTrue(vm.revertToState(snapshot));
+        PonsBuybackModule module = PonsBuybackModule(payable(vault.activeModule()));
+        module.setLimits(
+            address(0),
+            BuybackTypes.ExecutionLimits(
+                SafeCast.toUint128(offered), SafeCast.toUint128(offered), 60
+            )
+        );
+        BuybackTypes.OutputRate[] memory rates = new BuybackTypes.OutputRate[](1);
+        rates[0] = BuybackTypes.OutputRate(acquired, spent * 2);
+        assertGt(
+            Math.mulDiv(offered, acquired, spent * 2),
+            acquired,
+            "full-offer floor exceeds closing output"
+        );
+        module.setPermissionlessPolicy(
+            address(0), BuybackTypes.Lifecycle.Bonding, rates, 0, offered
+        );
+        ProtocolBurnRouter.Purchase[] memory purchases = new ProtocolBurnRouter.Purchase[](1);
+        purchases[0] = ProtocolBurnRouter.Purchase(address(0), module.revision(address(0)));
+        (uint256 count, uint256 burned) =
+            ProtocolBurnRouter(bbf.burnRouter()).buyback(purchases, uint64(block.timestamp));
+        assertEq(count, 1);
+        assertEq(burned, acquired);
+        assertEq(module.permissionlessPolicy(address(0)).remainingBudget, offered - spent);
+        assertEq(
+            vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).available,
+            offered - spent
+        );
+        assertEq(module.lastBuyAt(), block.timestamp);
+        assertEq(uint256(module.lifecycle()), uint256(BuybackTypes.Lifecycle.GraduationPending));
+    }
+
     function _prepareClosingPurchase() private returns (uint256 offered) {
         vm.warp(block.timestamp + curve.snipeTaxSeconds());
         uint256 net = curve.graduationThreshold() - curve.realQuoteReserve() - 1e12;
@@ -25,8 +71,9 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
         assertFalse(curve.readyToGraduate());
         offered = 0.001 ether;
         BuybackTypes.TypedRoute memory route;
-        vault.setRoute(address(0), route);
-        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, SafeCast.toUint128(offered), 0));
+        PonsBuybackModule(payable(address(vault.activeModule()))).setRoute(address(0), route);
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setLimits(address(0), BuybackTypes.ExecutionLimits(1, SafeCast.toUint128(offered), 0));
         _testPolicy(address(0), BuybackTypes.Lifecycle.Bonding);
         vm.deal(address(this), offered);
         (bool sent,) = address(vault).call{value: offered}("");
@@ -37,11 +84,11 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
     function _cross(uint256 offered) private {
         uint256 supply = token.totalSupply();
         vm.prank(trader);
-        vault.process(
+        vault.processPons(
             address(0),
             BuybackTypes.SourceBucket.Donation,
             offered,
-            vault.revision(address(0)),
+            PonsBuybackModule(payable(address(vault.activeModule()))).revision(address(0)),
             uint64(block.timestamp)
         );
         uint256 spent = vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
@@ -65,7 +112,11 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
             uint256(PONS.getLaunchedToken(address(token)).phase), uint256(GraduationPhase.Swept)
         );
         assertEq(
-            uint256(vault.processingStatus(address(0), BuybackTypes.SourceBucket.Donation).status),
+            uint256(
+                PonsBuybackModule(payable(address(vault.activeModule())))
+                .processingStatus(address(0), BuybackTypes.SourceBucket.Donation)
+                .status
+            ),
             uint256(BuybackTypes.Status.GraduationPending)
         );
         vm.prank(trader);
@@ -91,15 +142,19 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
             vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
         _testPolicy(address(0), BuybackTypes.Lifecycle.Pool);
         vm.prank(developer);
-        vault.process(
+        vault.processPons(
             address(0),
             BuybackTypes.SourceBucket.Donation,
             1e12,
-            vault.revision(address(0)),
+            PonsBuybackModule(payable(address(vault.activeModule()))).revision(address(0)),
             uint64(block.timestamp)
         );
         assertEq(
-            uint256(vault.permissionlessPolicy(address(0)).lifecycle),
+            uint256(
+                PonsBuybackModule(payable(address(vault.activeModule())))
+                .permissionlessPolicy(address(0))
+                .lifecycle
+            ),
             uint256(BuybackTypes.Lifecycle.Pool)
         );
         assertEq(
@@ -123,30 +178,37 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
 
     function test_authenticClosingPartialFillBelowMinimumAdvancesClockExactlyOnce() public {
         uint256 offered = _prepareClosingPurchase();
-        vault.setLimits(
-            address(0),
-            BuybackTypes.ExecutionLimits(
-                SafeCast.toUint128(offered), SafeCast.toUint128(offered), 60
-            )
-        );
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setLimits(
+                address(0),
+                BuybackTypes.ExecutionLimits(
+                    SafeCast.toUint128(offered), SafeCast.toUint128(offered), 60
+                )
+            );
         uint256 supply = token.totalSupply();
-        vault.process(
+        vault.processPons(
             address(0),
             BuybackTypes.SourceBucket.Donation,
             offered,
-            vault.revision(address(0)),
+            PonsBuybackModule(payable(address(vault.activeModule()))).revision(address(0)),
             uint64(block.timestamp)
         );
         uint256 spent = vault.inventory(address(0), BuybackTypes.SourceBucket.Donation).totalSpent;
         assertGt(spent, 0);
         assertLt(spent, offered);
-        assertEq(vault.lastBuyAt(), block.timestamp);
-        assertEq(vault.lastAssetBuyAt(address(0)), block.timestamp);
+        assertEq(
+            PonsBuybackModule(payable(address(vault.activeModule()))).lastBuyAt(), block.timestamp
+        );
+        assertEq(
+            PonsBuybackModule(payable(address(vault.activeModule()))).lastAssetBuyAt(address(0)),
+            block.timestamp
+        );
         assertLt(token.totalSupply(), supply);
         assertTrue(curve.readyToGraduate() || curve.graduated());
-        uint64 currentRevision = vault.revision(address(0));
+        uint64 currentRevision =
+            PonsBuybackModule(payable(address(vault.activeModule()))).revision(address(0));
         vm.expectRevert();
-        vault.process(
+        vault.processPons(
             address(0),
             BuybackTypes.SourceBucket.Donation,
             offered,
@@ -191,7 +253,11 @@ contract PonsGraduationForkTest is ProtocolBuybacksForkTest {
             uint256(GraduationPhase.NotGraduated)
         );
         assertEq(
-            uint256(vault.processingStatus(address(0), BuybackTypes.SourceBucket.Donation).status),
+            uint256(
+                PonsBuybackModule(payable(address(vault.activeModule())))
+                .processingStatus(address(0), BuybackTypes.SourceBucket.Donation)
+                .status
+            ),
             uint256(BuybackTypes.Status.GraduationPending)
         );
         vm.clearMockedCalls();

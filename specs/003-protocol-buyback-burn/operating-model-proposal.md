@@ -13,7 +13,7 @@ typed route, positive minimum output for each market leg, and deadline in each
 transaction. No operator economic policy is stored on-chain. Existing public
 routes, limits, cooldowns and rate policies are not prerequisites for this path.
 
-The operator controls route selection within the executor's supported route
+The operator controls route selection within the Pons module's supported route
 constraints. It cannot withdraw inventory or redirect purchased tokens. Exact
 settlement, refunds, pauses and supply-verified burning remain enforced. Each
 conversion and the final Pons purchase must meet its supplied output minimum;

@@ -151,6 +151,20 @@ export async function revertAnvil(snapshot: string) {
   } finally {
     scenarioSnapshots.delete(snapshot);
     expect(await rpcRequest<boolean>("evm_revert", [snapshot])).toBe(true);
+    // Anvil snapshots restore chain state, not impersonation. Restore the fixture's
+    // unlocked wallets after scenarios that temporarily stop impersonating them.
+    for (const key of [
+      "creator",
+      "member",
+      "giftRecipient",
+      "newOwner",
+      "freshWallet",
+    ] as const) {
+      if (anvilEnvironment[key])
+        await rpcRequest("anvil_impersonateAccount", [
+          requiredAnvilAddress(key),
+        ]);
+    }
   }
 }
 
@@ -187,6 +201,8 @@ export async function sendContract(input: {
       to: input.address,
       data,
       gas: `0x${gas.toString(16)}`,
+      // Match the disposable fork's 0.1 gwei legacy-fee configuration.
+      gasPrice: "0x5f5e100",
     },
   ]);
   return client.waitForTransactionReceipt({ hash });

@@ -12,7 +12,8 @@ import {
   type Address,
   type PublicClient,
 } from "viem";
-import { protocolBuybackVaultAbi } from "@/contracts";
+import { readPonsModule, ponsExecutionData } from "@/lib/buyback-module";
+import { ponsBuybackModuleAbi, protocolBuybackVaultAbi } from "@/contracts";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { decodeTransactionError } from "@/lib/transaction-state";
@@ -109,15 +110,24 @@ export function OperatorBuyback({
   async function assertOperator() {
     if (!client || !account.address || account.chainId !== chainId)
       throw new Error("Connect the operator wallet on this network.");
+    const buybackModule = await readPonsModule(client, snapshot.vault);
+    if (
+      buybackModule.address.toLowerCase() !==
+        snapshot.activeModule.toLowerCase() ||
+      buybackModule.revision !== snapshot.moduleRevision
+    )
+      throw new Error(
+        "The active buyback module changed. Refresh and review again.",
+      );
     const [operator, mode] = await Promise.all([
       client.readContract({
-        address: snapshot.vault,
-        abi: protocolBuybackVaultAbi,
+        address: snapshot.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "operator",
       }),
       client.readContract({
-        address: snapshot.vault,
-        abi: protocolBuybackVaultAbi,
+        address: snapshot.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "executionMode",
       }),
     ]);
@@ -223,14 +233,14 @@ export function OperatorBuyback({
         asset,
         bucket,
         raw,
-        { pools: route.pools },
-        minima,
+        snapshot.moduleRevision,
         deadline,
+        ponsExecutionData(0n, { pools: route.pools }, minima),
       ] as const;
       await simulateContract(config, {
         address: snapshot.vault,
         abi: protocolBuybackVaultAbi,
-        functionName: "processOperator",
+        functionName: "process",
         args,
         account: signer,
         chainId,
@@ -240,7 +250,7 @@ export function OperatorBuyback({
         client!.estimateContractGas({
           address: snapshot.vault,
           abi: protocolBuybackVaultAbi,
-          functionName: "processOperator",
+          functionName: "process",
           args,
           account: signer,
           ...localFee,
@@ -291,7 +301,7 @@ export function OperatorBuyback({
       const simulation = await simulateContract(config, {
         address: snapshot.vault,
         abi: protocolBuybackVaultAbi,
-        functionName: "processOperator",
+        functionName: "process",
         args: quote.args,
         account: signer,
         chainId,
@@ -315,7 +325,7 @@ export function OperatorBuyback({
         asset: quote.args[0],
         bucket: quote.args[1],
         amount: quote.args[2],
-        revision: 0n,
+        revision: quote.args[3],
       });
       if (!result)
         throw new Error(

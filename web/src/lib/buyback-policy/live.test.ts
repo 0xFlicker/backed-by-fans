@@ -5,7 +5,7 @@ const token = "0x1111111111111111111111111111111111111111";
 const market = (
   sellable = 9000n,
 ): Awaited<ReturnType<typeof readMarketState>> => ({
-  executor: token,
+  activeModule: token,
   curve: token,
   lifecycle: 0,
   route: [],
@@ -45,7 +45,7 @@ describe("net bonding quotes", () => {
 
 it("quotes explicit operator routes without reading the stored public route", async () => {
   const values: Record<string, unknown> = {
-    executor: token,
+    activeModule: token,
     curve: token,
     lifecycle: 0,
     getLaunchedToken: { exists: true, curve: token, pairToken: zeroAddress },
@@ -81,3 +81,14 @@ it("quotes explicit operator routes without reading the stored public route", as
     (await quoteMarket({} as PublicClient, state, 100n))[0].outputRaw,
   ).toBe(892n);
 });
+
+vi.mock("@/lib/buyback-module", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/buyback-module")>()),
+  readPonsModule: vi.fn(async () => ({
+    address: "0x00000000000000000000000000000000000000b1",
+    revision: 2n,
+    codeHash: "0x",
+    id: "0x",
+    version: 1n,
+  })),
+}));

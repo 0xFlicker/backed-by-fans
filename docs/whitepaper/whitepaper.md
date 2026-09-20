@@ -167,6 +167,8 @@ A creator can also dedicate a portion of membership payments to referrals.
 
 A membership records its referral choice on its first qualifying positive payment by its owner. That choice can be a referrer or no referrer and stays locked to that token ID. It remains unchanged through renewal and transfer, including a transfer to the recorded referrer. A fresh position has its own referral choice.
 
+Newly locking a referral to the paying owner is rejected. Transferring a membership to its already-locked referrer does not change the referral or prevent renewal.
+
 A gift creating a new membership leaves its referral choice unset, even if the recipient owns another membership with a locked referrer. A gift renewing an existing position follows that position’s recorded choice without replacing it. Zero contributions and complimentary grants do not lock a referral. When no referrer applies, the creator receives the unused referral portion.
 
 Referral rewards follow the same time-based model as other earnings. A referrer earns their allocation while the referred membership’s funded time is used and can claim the earned amount in that tier’s payment currency.
@@ -181,7 +183,7 @@ Membership lists identify each position by its chain, tier, and token ID. The ap
 
 Claim all discovers the wallet’s memberships and tier balances, then simulates and estimates transactions to choose batches that fit the network. Larger portfolios can require additional wallet confirmations. A rejected transaction leaves confirmed batches completed, and pressing Claim all again claims the remaining rewards. Execution verifies ownership again; the application rechecks captured positions after maintenance and transfers without adding newly received memberships to an ongoing claim. Retired, referral, and creator balances are counted once per tier in each transaction, including for wallets with no remaining NFTs.
 
-Callers choose the accounting work budget for each maintenance or membership transaction. Contracts impose no fixed step, selection, or page maximum. Each funding start, funding end, or membership retirement counts as one step. Calls save completed progress, so anyone can continue a large backlog through repeated transactions, including while paused. “Complete” means caught up through that transaction’s timestamp; newly elapsed time can create more work.
+Callers choose the accounting work budget for each maintenance or membership transaction. Custom methods impose no fixed step, selection, or page maximum. Standard ERC-5643 renewal and cancellation instead attempt up to 25 checkpoints; larger backlogs require standalone maintenance, and a failed adapter call rolls back all work. Each funding start, funding end, or membership retirement counts as one step. Calls save completed progress, so anyone can continue a large backlog through repeated transactions, including while paused. “Complete” means caught up through that transaction’s timestamp; newly elapsed time can create more work.
 
 Purchases, renewals, gifts, contributions, grants, revocations, and refunds all maintain the expiration schedule. Changes to time, weight, or funding require accounting catch-up first. Complimentary and zero-contribution memberships also have expiration entries. If an atomic operation cannot finish its required catch-up, it reverts; explicit maintenance is the route that saves partial progress. Transfers, approvals, and already-settled retired withdrawals do not have this prerequisite.
 
@@ -201,6 +203,12 @@ The contracts enforce each tier’s fixed economic terms, membership time, rewar
 
 The protocol also has administrative controls. Its authority manages which payment currencies can be used for new tiers, their minimum positive payments, and buyback settings and pauses. At launch, a trusted operator selects buyback routes and execution terms off-chain and submits them with each purchase. The authority can later enable public execution under configured routes, price bounds, batch limits, and cooldowns. Public policies may remain valid indefinitely; expiry and total spending budgets are optional. These controls do not give creators a way to rewrite the fixed economic terms of an existing tier.
 
+The fee vault remains permanent and always burns the protocol tokens acquired by a successful buyback. A separate strategy module controls execution, prices, routes and caller authorization. The vault checks balances and the burn; it does not guarantee a fair price. Selecting a module therefore grants it economic authority over the buyback funds made available to it.
+
+The protocol Safe can replace that module after a 48-hour proposal delay. Activation requires paused buybacks and leaves them paused while the new module is configured and reviewed. The Safe can also propose permanently disabling replacement, with a seven-day review period and cancellation available before finalization. Finalizing is irreversible: a defective frozen module may strand buyback funds. Global pause remains available, and the module's own settings and authorities can still change.
+
+In the initial Pons module, operator minimum outputs are absolute. Public execution uses minimum exchange rates applied to the amount actually spent, including partial fills. Returned input remains available for a later buyback and does not consume a finite policy budget.
+
 Using the protocol also depends on the underlying blockchain and payment currencies. Transactions can require gas and take time to complete. Payment tokens may have restrictions imposed by their own issuers. Smart-contract bugs, unavailable services, and problems with third-party integrations can affect the experience. Buybacks additionally depend on market liquidity and execution conditions.
 
 Balances that depend on newly earned rewards may need accounting catch-up before a claim. Already-settled retired balances remain independently claimable. Integrations must distinguish stored accounting, a complete projection, and current ownership.
@@ -216,7 +224,8 @@ This draft describes the transferable membership lifecycle in the linked contrac
 - [Time-based earnings and reward accounting](../../contracts/src/libraries/VestingLedger.sol)
 - [Independent expiration scheduling](../../contracts/src/libraries/ExpirationSchedule.sol)
 - [Early-support reward weight](../../contracts/src/libraries/RewardCurve.sol)
-- [Protocol-fee processing and burning](../../contracts/src/ProtocolBuybackVault.sol)
+- [Protocol-fee custody, module governance, and burning](../../contracts/src/ProtocolBuybackVault.sol)
+- [Initial Pons buyback strategy and price policy](../../contracts/src/PonsBuybackModule.sol)
 - [Accounting, fee release, and buyback execution](../../contracts/src/ProtocolBurnRouter.sol)
 
 ### Public payment reporting

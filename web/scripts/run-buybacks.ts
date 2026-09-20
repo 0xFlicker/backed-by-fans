@@ -1,3 +1,4 @@
+import { readPonsModule, ponsExecutionData } from "../src/lib/buyback-module";
 import { percentageBps } from "../src/lib/buyback-settings/calculator";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -26,6 +27,7 @@ import {
   protocolBurnRouterAbi,
   membershipTierAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
   iPonsLaunchFactoryAbi,
   iPonsBondingCurveAbi,
 } from "../src/contracts";
@@ -148,12 +150,11 @@ export function createBuybackRunner(options: Options) {
     functionName: string,
     args: readonly unknown[] = [],
     detail: Record<string, unknown> = {},
+    simulationClient: PublicClient = client,
   ) {
     let simulation;
     try {
-      simulation = await (
-        functionName === "processOperator" ? operatorClient : client
-      ).simulateContract({
+      simulation = await simulationClient.simulateContract({
         address,
         abi,
         functionName,
@@ -305,16 +306,17 @@ export function createBuybackRunner(options: Options) {
     // Lifecycle submissions still use the fatal unresolved-write boundary.
     await progressGraduation();
     const block = await client.getBlock();
+    const buybackModule = await readPonsModule(client, vault, block.number);
     const executionMode = await client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
+      address: buybackModule.address,
+      abi: ponsBuybackModuleAbi,
       functionName: "executionMode",
       blockNumber: block.number,
     });
     if (executionMode === 0 && options.operatorPolicies?.length) {
       const operator = await client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
+        address: buybackModule.address,
+        abi: ponsBuybackModuleAbi,
         functionName: "operator",
         blockNumber: block.number,
       });
@@ -363,8 +365,8 @@ export function createBuybackRunner(options: Options) {
     for (const asset of executionMode === 0 ? [] : [...assetMap.values()]) {
       try {
         const route = await client.readContract({
-          address: vault,
-          abi: protocolBuybackVaultAbi,
+          address: buybackModule.address,
+          abi: ponsBuybackModuleAbi,
           functionName: "route",
           args: [asset],
           blockNumber: block.number,
@@ -387,8 +389,8 @@ export function createBuybackRunner(options: Options) {
         let state;
         try {
           state = await client.readContract({
-            address: vault,
-            abi: protocolBuybackVaultAbi,
+            address: buybackModule.address,
+            abi: ponsBuybackModuleAbi,
             functionName: "processingStatus",
             args: [asset, bucket],
           });
@@ -445,13 +447,14 @@ export function createBuybackRunner(options: Options) {
         if (amount === 0n) continue;
         detail.amount = amount;
         if (operatorPolicy) detail.revision = 0n;
-        let functionName: "process" | "processOperator" = "process";
+        const functionName = "process";
         let args: readonly unknown[] = [
           asset,
           bucket,
           amount,
-          state.revision,
+          buybackModule.revision,
           deadline,
+          ponsExecutionData(state.revision),
         ];
         let ethValue: bigint | undefined;
         try {
@@ -469,14 +472,17 @@ export function createBuybackRunner(options: Options) {
             const quotes = await quoteMarket(executionClient, market, amount);
             ethValue = quotes.at(-1)!.inputRaw;
             if (operatorPolicy) {
-              functionName = "processOperator";
               args = [
                 asset,
                 bucket,
                 amount,
-                { pools: operatorPolicy.pools },
-                minimumOutputs(quotes, options.toleranceBps!),
+                buybackModule.revision,
                 deadline,
+                ponsExecutionData(
+                  0n,
+                  { pools: operatorPolicy.pools },
+                  minimumOutputs(quotes, options.toleranceBps!),
+                ),
               ];
             }
           }
@@ -534,6 +540,7 @@ export function createBuybackRunner(options: Options) {
           functionName,
           args,
           detail,
+          executionClient,
         );
         if (receipt) {
           const burn = receiptBuyback(receipt, {
@@ -541,7 +548,7 @@ export function createBuybackRunner(options: Options) {
             asset,
             bucket,
             amount,
-            revision: operatorPolicy ? 0n : state.revision,
+            revision: buybackModule.revision,
           });
           if (!burn) {
             stopped = true;

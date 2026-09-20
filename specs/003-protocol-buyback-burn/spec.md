@@ -712,9 +712,10 @@ token has not been deployed, rather than reject the membership deployment.
 
 The current factory Safe may bind a validated Pons protocol token exactly once.
 A failed validation leaves the protocol unbound and funds unchanged. Once bound,
-the token and executor cannot be replaced. The vault address and exclusive burn
-purpose stay fixed from deployment; there is no general initialization, withdrawal
-or upgrade authority. Binding retains the existing chain-specific Pons validation.
+the token cannot be replaced. The vault address and exclusive burn purpose stay fixed
+from deployment; there is no general initialization, withdrawal or vault upgrade
+authority. Strategy replacement follows the approved amendment below. Binding
+retains the existing chain-specific Pons validation.
 Until the Safe binds a valid token, fees may remain pending indefinitely.
 
 Deliver a separate local Anvil entrypoint that deploys the membership protocol
@@ -722,3 +723,25 @@ without launching a token, funds the user's wallet and prepares memberships for
 manual validation. Preserve the existing full-launch deployment path. A public
 testnet deployment is an explicitly separate follow-up, not authorized by this
 local implementation.
+
+## Approved release-candidate amendment — 2026-09-17
+
+The [remediation plan](../../docs/plans/2026-09-17-release-candidate-audit-remediation.md)
+replaces the fixed executor with one full-strategy module. The permanent vault owns
+custody, source accounting, a global pause and measured burn enforcement. Caller
+authorization, routes, prices, budgets, cooldowns and strategy status belong to the
+active module. Integrations identify its ID/version and runtime commitment before
+interpreting its views or encoding execution data.
+
+The factory Safe may propose a module replacement with a 48-hour delay. Activation
+requires paused buybacks, increments the module revision and leaves buybacks paused
+for separate configuration and review. A cancellable seven-day proposal may instead
+permanently disable replacement. Freezing retains global pause and module-owned
+configuration; a defective frozen module can strand inventory. Module selection
+grants full economic authority over exposed funds even though the vault requires
+measured acquisition and burn.
+
+The initial Pons module applies permissionless final-curve rates to actual spend;
+OperatorGuarded explicit minima remain absolute. New paid self-referrals are rejected,
+and ERC-5643 renewal/cancellation use a 25-step accounting budget with atomic failure
+and explicit maintenance/retry when that budget is insufficient.

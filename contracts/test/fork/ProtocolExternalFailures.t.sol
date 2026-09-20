@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {PonsBuybackModule} from "../../src/PonsBuybackModule.sol";
+import {ProtocolBuybackVault} from "../../src/ProtocolBuybackVault.sol";
+import {BuybackTestCalls} from "../helpers/BuybackTestCalls.sol";
 
 import {MembershipTier} from "../../src/MembershipTier.sol";
 import {ProtocolBurnRouter} from "../../src/ProtocolBurnRouter.sol";
@@ -16,6 +19,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 /// @notice Injected failures roll back each attempted transaction; separate accounting remains available.
 contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
+    using BuybackTestCalls for ProtocolBuybackVault;
     uint64 private activeRevision;
 
     function test_combinedAdvanceRollsBackReleaseAndTradeFailuresAndAccountingCanProceed() public {
@@ -67,12 +71,14 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
 
         _memberLimits(USDG);
         tiers[0].maxAccountingSteps = 0;
-        purchases[0] = ProtocolBurnRouter.Purchase(USDG, vault.revision(USDG));
+        purchases[0] = ProtocolBurnRouter.Purchase(
+            USDG, PonsBuybackModule(payable(address(vault.activeModule()))).revision(USDG)
+        );
         // The release destination is unaffected; only delivery to the executor
         // is faulted. The failed trade must roll back the preceding release.
         vm.mockCallRevert(
             USDG,
-            abi.encodeWithSelector(IERC20.transfer.selector, vault.executor()),
+            abi.encodeWithSelector(IERC20.transfer.selector, vault.activeModule()),
             abi.encodeWithSignature("InjectedExecutorDeliveryFailure()")
         );
         vm.prank(trader);
@@ -95,12 +101,12 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
 
     function _repairLimits() private {
         _memberLimits(USDG);
-        activeRevision = vault.revision(USDG);
+        activeRevision = PonsBuybackModule(payable(address(vault.activeModule()))).revision(USDG);
     }
 
     function _processUSDG(uint256 amount) private {
         vm.prank(trader);
-        vault.process(
+        vault.processPons(
             USDG,
             BuybackTypes.SourceBucket.Donation,
             amount,
@@ -115,7 +121,7 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
         vault.syncDonation(address(token));
         uint256 supply = token.totalSupply();
         vm.prank(trader);
-        vault.process(
+        vault.processPons(
             address(token), BuybackTypes.SourceBucket.Donation, 123, 0, uint64(block.timestamp)
         );
         assertEq(token.totalSupply(), supply - 123);
@@ -127,7 +133,7 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
         uint256 amount = _pendingUSDG();
         vm.mockCallRevert(
             USDG,
-            abi.encodeCall(IERC20.transfer, (vault.executor(), amount)),
+            abi.encodeCall(IERC20.transfer, (vault.activeModule(), amount)),
             abi.encodeWithSignature("InjectedIssuerFreeze()")
         );
         for (uint256 i; i < 3; ++i) {
@@ -182,9 +188,12 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
     function test_realPriceMovementNeedsNoReplacementAuthorization() public {
         uint256 amount = _pendingUSDG();
         _buy(trader, 0.05 ether);
-        uint64 beforeRevision = vault.revision(USDG);
+        uint64 beforeRevision =
+            PonsBuybackModule(payable(address(vault.activeModule()))).revision(USDG);
         _processUSDG(amount);
-        assertEq(vault.revision(USDG), beforeRevision);
+        assertEq(
+            PonsBuybackModule(payable(address(vault.activeModule()))).revision(USDG), beforeRevision
+        );
         assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, 0);
     }
 
@@ -200,14 +209,15 @@ contract ProtocolExternalFailuresForkTest is ProtocolBuybacksForkTest {
             ),
             0
         );
-        BuybackTypes.ExecutionLimits memory limits = vault.limits(USDG);
+        BuybackTypes.ExecutionLimits memory limits =
+            PonsBuybackModule(payable(address(vault.activeModule()))).limits(USDG);
         BuybackTypes.TypedRoute memory route;
         route.pools = new PoolKey[](1);
         route.pools[0] = key;
-        vault.setRoute(USDG, route);
-        vault.setLimits(USDG, limits);
+        PonsBuybackModule(payable(address(vault.activeModule()))).setRoute(USDG, route);
+        PonsBuybackModule(payable(address(vault.activeModule()))).setLimits(USDG, limits);
         _testPolicy(USDG, BuybackTypes.Lifecycle.Bonding);
-        activeRevision = vault.revision(USDG);
+        activeRevision = PonsBuybackModule(payable(address(vault.activeModule()))).revision(USDG);
         vm.expectRevert();
         _processUSDG(amount);
         assertEq(vault.inventory(USDG, BuybackTypes.SourceBucket.Donation).available, amount);

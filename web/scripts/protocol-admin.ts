@@ -19,13 +19,15 @@ import {
 } from "viem";
 import * as bindings from "../src/contracts";
 import { compareRuntime } from "../../scripts/protocol-fork/verify-runtime";
+import { readPonsModule } from "../src/lib/buyback-module";
 import sourceManifest from "../../contracts/external/verification/4663/sources.json" with { type: "json" };
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const {
   membershipFactoryAbi,
   protocolBuybackVaultAbi,
-  ponsBuybackExecutorAbi,
+  ponsBuybackModuleAbi,
+  iBuybackModuleAbi,
   iSafeAbi,
   ierc165Abi,
   iScaledUiAmountAbi,
@@ -40,6 +42,8 @@ export type AdminContext = {
   safeNonce: bigint;
   factory: Address;
   vault: Address;
+  activeModule: Address;
+  moduleCodeHash: Hex;
   protocolToken: Address;
   factoryCodeHash: Hex;
   vaultCodeHash: Hex;
@@ -442,53 +446,54 @@ export async function readAdminContext(
     }),
   ]);
   const canonicalSingleton = sourceManifest.records.safeSingleton.address;
-  const executor = await client.readContract({
+  const activeModule = await client.readContract({
     address: vault,
     abi: protocolBuybackVaultAbi,
-    functionName: "executor",
+    functionName: "activeModule",
     blockNumber,
   });
   if (protocolToken === zeroAddress) {
-    if (executor !== zeroAddress)
-      throw new Error("Unbound token has an executor");
+    if (activeModule !== zeroAddress)
+      throw new Error("Unbound token has an activeModule");
   } else {
-    const [executorVault, executorToken, executorCurve] = await Promise.all([
-      client.readContract({
-        address: executor,
-        abi: ponsBuybackExecutorAbi,
-        functionName: "vault",
-        blockNumber,
-      }),
-      client.readContract({
-        address: executor,
-        abi: ponsBuybackExecutorAbi,
-        functionName: "protocolToken",
-        blockNumber,
-      }),
-      client.readContract({
-        address: executor,
-        abi: ponsBuybackExecutorAbi,
-        functionName: "curve",
-        blockNumber,
-      }),
-      runtimeIdentity(client, executor, "PonsBuybackExecutor", blockNumber),
-    ]);
-    const launched = await client.readContract({
-      address: getAddress(sourceManifest.records.factory.address),
-      abi: bindings.iPonsLaunchFactoryAbi,
-      functionName: "getLaunchedToken",
-      args: [protocolToken],
-      blockNumber,
-    });
+    const [boundVault, boundToken, interfaceVersion, committedHash, code] =
+      await Promise.all([
+        client.readContract({
+          address: activeModule,
+          abi: iBuybackModuleAbi,
+          functionName: "vault",
+          blockNumber,
+        }),
+        client.readContract({
+          address: activeModule,
+          abi: iBuybackModuleAbi,
+          functionName: "protocolToken",
+          blockNumber,
+        }),
+        client.readContract({
+          address: activeModule,
+          abi: iBuybackModuleAbi,
+          functionName: "interfaceVersion",
+          blockNumber,
+        }),
+        client.readContract({
+          address: vault,
+          abi: protocolBuybackVaultAbi,
+          functionName: "activeModuleCodeHash",
+          blockNumber,
+        }),
+        client.getBytecode({ address: activeModule, blockNumber }),
+      ]);
     if (
-      getAddress(executorVault) !== getAddress(vault) ||
-      getAddress(executorToken) !== getAddress(protocolToken) ||
-      !launched.exists ||
-      launched.pairToken !== zeroAddress ||
-      getAddress(launched.curve) !== getAddress(executorCurve)
+      getAddress(boundVault) !== getAddress(vault) ||
+      getAddress(boundToken) !== getAddress(protocolToken) ||
+      interfaceVersion !== 1n ||
+      !code ||
+      keccak256(code) !== committedHash
     )
-      throw new Error("Invalid executor or Pons launch identity");
+      throw new Error("Invalid module binding or runtime commitment");
   }
+
   const handler = sourceManifest.records.safeFallbackHandler.address;
   if (
     getAddress(vaultFactory) !== getAddress(factory) ||
@@ -528,6 +533,13 @@ export async function readAdminContext(
     safeNonce,
     factory,
     vault,
+    activeModule,
+    moduleCodeHash: await client.readContract({
+      address: vault,
+      abi: protocolBuybackVaultAbi,
+      functionName: "activeModuleCodeHash",
+      blockNumber,
+    }),
     protocolToken,
     factoryCodeHash,
     vaultCodeHash,
@@ -561,19 +573,131 @@ function envelope(
   };
 }
 
+export const MODULE_FREEZE_WARNING =
+  "Finalizing permanently disables module replacement. A defective frozen module can strand buyback inventory. Global pause remains available; module-owned configuration and authorities remain mutable.";
+const moduleActions = {
+  "module-propose": "proposeBuybackModule",
+  "module-cancel": "cancelBuybackModule",
+  "module-activate": "activateBuybackModule",
+  "module-freeze-propose": "proposeModuleReplacementFreeze",
+  "module-freeze-cancel": "cancelModuleReplacementFreeze",
+  "module-freeze-finalize": "finalizeModuleReplacementFreeze",
+} as const;
+export async function prepareModulePayload(
+  client: PublicClient,
+  context: AdminContext,
+  action: keyof typeof moduleActions,
+  value: unknown,
+) {
+  const input = record(value, [
+    "expectedSafeNonceRaw",
+    "expectedModuleRevisionRaw",
+    ...(action === "module-propose" ? ["candidate"] : []),
+  ]);
+  if (raw(input.expectedSafeNonceRaw, "Safe nonce", 256) !== context.safeNonce)
+    throw new Error("Stale Safe nonce");
+  const revision = await client.readContract({
+    address: context.vault,
+    abi: protocolBuybackVaultAbi,
+    functionName: "moduleRevision",
+    blockNumber: context.blockNumber,
+  });
+  if (raw(input.expectedModuleRevisionRaw, "module revision", 64) !== revision)
+    throw new Error("Stale module revision");
+  const call =
+    action === "module-propose"
+      ? {
+          abi: protocolBuybackVaultAbi,
+          functionName: "proposeBuybackModule" as const,
+          args: [address(input.candidate)] as const,
+        }
+      : {
+          abi: protocolBuybackVaultAbi,
+          functionName: moduleActions[action] as Exclude<
+            (typeof moduleActions)[keyof typeof moduleActions],
+            "proposeBuybackModule"
+          >,
+        };
+  await client.simulateContract({
+    ...call,
+    address: context.vault,
+    account: context.safe,
+    blockNumber: context.blockNumber,
+  });
+  const data = encodeFunctionData(call);
+  const read = (
+    functionName:
+      | "pendingModule"
+      | "pendingModuleCodeHash"
+      | "moduleActivationAt"
+      | "freezeModule"
+      | "freezeModuleCodeHash"
+      | "moduleFreezeAt"
+      | "moduleReplacementFrozen",
+  ) =>
+    client.readContract({
+      address: context.vault,
+      abi: protocolBuybackVaultAbi,
+      functionName,
+      blockNumber: context.blockNumber,
+    });
+  const candidate =
+    action === "module-propose" ? address(input.candidate) : undefined;
+  const candidateCode = candidate
+    ? await client.getBytecode({
+        address: candidate,
+        blockNumber: context.blockNumber,
+      })
+    : undefined;
+  if (candidate && !candidateCode)
+    throw new Error("Candidate has no runtime code");
+  return {
+    ...envelope(context, context.vault, data, context.vaultCodeHash),
+    decoded: decodeFunctionData({ abi: protocolBuybackVaultAbi, data }),
+    expectedModuleRevision: revision.toString(),
+    moduleReview: {
+      activeModule: context.activeModule,
+      activeCodeHash: context.moduleCodeHash,
+      candidate,
+      candidateCodeHash: candidateCode ? keccak256(candidateCode) : undefined,
+      pendingModule: await read("pendingModule"),
+      pendingCodeHash: await read("pendingModuleCodeHash"),
+      activationAt: await read("moduleActivationAt"),
+      freezeModule: await read("freezeModule"),
+      freezeCodeHash: await read("freezeModuleCodeHash"),
+      freezeAt: await read("moduleFreezeAt"),
+      frozen: await read("moduleReplacementFrozen"),
+      replacementDelaySeconds: 172800,
+      freezeDelaySeconds: 604800,
+      warning: MODULE_FREEZE_WARNING,
+      economicAuthority:
+        "The selected module controls buyback prices, authorization, routes and exposed inventory economics. The vault guarantees settlement and burn, not a fair price.",
+      activation:
+        "Activation requires a paused vault and leaves it paused. Configure and review the module before unpausing.",
+    },
+  };
+}
+
 export async function prepareBuybackPayload(
   client: PublicClient,
   context: AdminContext,
   action: string,
   input: unknown,
 ) {
+  if (Object.hasOwn(moduleActions, action))
+    return prepareModulePayload(
+      client,
+      context,
+      action as keyof typeof moduleActions,
+      input,
+    );
   const parsed = parseBuybackInput(action, input);
   if (parsed.safeNonce !== context.safeNonce)
     throw new Error("Stale Safe nonce");
   if (parsed.revision !== undefined) {
     const current = await client.readContract({
-      address: context.vault,
-      abi: protocolBuybackVaultAbi,
+      address: context.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "revision",
       args: [parsed.asset!],
       blockNumber: context.blockNumber,
@@ -582,21 +706,33 @@ export async function prepareBuybackPayload(
   }
   // The generated union preserves each method's exact ABI. Correlation across
   // this union is carried by encodeFunctionData and the canonical simulation.
+  if (parsed.method !== "setBuybacksPaused")
+    await readPonsModule(client, context.vault, context.blockNumber);
+  const target =
+    parsed.method === "setBuybacksPaused"
+      ? context.vault
+      : context.activeModule;
+  const abi = [...protocolBuybackVaultAbi, ...ponsBuybackModuleAbi] as const;
   const call = {
-    abi: protocolBuybackVaultAbi,
+    abi,
     functionName: parsed.method,
     args: parsed.args,
   };
   const data = encodeFunctionData(call);
   await client.simulateContract({
     ...call,
-    address: context.vault,
+    address: target,
     account: context.safe,
     blockNumber: context.blockNumber,
   });
   return {
-    ...envelope(context, context.vault, data, context.vaultCodeHash),
-    decoded: decodeFunctionData({ abi: protocolBuybackVaultAbi, data }),
+    ...envelope(
+      context,
+      target,
+      data,
+      target === context.vault ? context.vaultCodeHash : context.moduleCodeHash,
+    ),
+    decoded: decodeFunctionData({ abi, data }),
     previousRevision: parsed.revision?.toString() ?? null,
     expectedRevision:
       parsed.revision !== undefined ? (parsed.revision + 1n).toString() : null,
@@ -890,22 +1026,22 @@ async function main() {
     const asset = args.length ? address(args[0]) : zeroAddress;
     const reads = await Promise.all([
       client.readContract({
-        address: context.vault,
-        abi: protocolBuybackVaultAbi,
+        address: context.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "route",
         args: [asset],
         blockNumber: context.blockNumber,
       }),
       client.readContract({
-        address: context.vault,
-        abi: protocolBuybackVaultAbi,
+        address: context.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "limits",
         args: [asset],
         blockNumber: context.blockNumber,
       }),
       client.readContract({
-        address: context.vault,
-        abi: protocolBuybackVaultAbi,
+        address: context.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "revision",
         args: [asset],
         blockNumber: context.blockNumber,
@@ -917,27 +1053,27 @@ async function main() {
         blockNumber: context.blockNumber,
       }),
       client.readContract({
-        address: context.vault,
-        abi: protocolBuybackVaultAbi,
+        address: context.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "assetBuybacksPaused",
         args: [asset],
         blockNumber: context.blockNumber,
       }),
       client.readContract({
-        address: context.vault,
-        abi: protocolBuybackVaultAbi,
+        address: context.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "executionMode",
         blockNumber: context.blockNumber,
       }),
       client.readContract({
-        address: context.vault,
-        abi: protocolBuybackVaultAbi,
+        address: context.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "operator",
         blockNumber: context.blockNumber,
       }),
       client.readContract({
-        address: context.vault,
-        abi: protocolBuybackVaultAbi,
+        address: context.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "permissionlessPolicy",
         args: [asset],
         blockNumber: context.blockNumber,
@@ -961,7 +1097,7 @@ async function main() {
   }
   if (args.length !== 5 || args[1] !== "--input" || args[3] !== "--output")
     throw new Error(
-      "prepare <route|limits|interval|pause|asset-pause|operator|mode|policy> --input <json-file> --output <payload-file>",
+      "prepare <route|limits|interval|pause|asset-pause|operator|mode|policy|module-propose|module-cancel|module-activate|module-freeze-propose|module-freeze-cancel|module-freeze-finalize> --input <json-file> --output <payload-file>",
     );
   const input = JSON.parse(await readFile(args[2], "utf8"));
   const payload = await prepareBuybackPayload(client, context, args[0], input);

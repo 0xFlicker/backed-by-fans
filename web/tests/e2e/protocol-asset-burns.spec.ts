@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { erc20Abi, zeroAddress } from "viem";
 import {
+  ponsBuybackModuleAbi,
   membershipTierAbi,
   protocolBuybackVaultAbi,
 } from "../../src/contracts";
@@ -65,8 +66,12 @@ for (const kind of ["AMD", "WETH"] as const)
       expect(released.available).toBeGreaterThanOrEqual(price * 3n);
       await f.configurePublicBuybacks(asset, released.available);
       const status = await f.client.readContract({
-        address: f.bootstrap.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: await f.client.readContract({
+          address: f.bootstrap.buybackVault,
+          abi: protocolBuybackVaultAbi,
+          functionName: "activeModule",
+        }),
+        abi: ponsBuybackModuleAbi,
         functionName: "processingStatus",
         args: [asset, 0],
       });
@@ -79,7 +84,7 @@ for (const kind of ["AMD", "WETH"] as const)
         member,
         f.bootstrap.buybackVault,
         protocolBuybackVaultAbi,
-        "process",
+        "processPons",
         [
           asset,
           0,

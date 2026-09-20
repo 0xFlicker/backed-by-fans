@@ -394,3 +394,14 @@ it("installs policies and enables public execution only for explicit activation"
     { functionName: "setBuybacksPaused", account: safe, args: [false] },
   ]);
 });
+
+vi.mock("@/lib/buyback-module", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/buyback-module")>()),
+  readPonsModule: vi.fn(async () => ({
+    address: "0x00000000000000000000000000000000000000b1",
+    revision: 2n,
+    codeHash: "0x",
+    id: "0x",
+    version: 1n,
+  })),
+}));

@@ -101,6 +101,8 @@ beforeEach(() => {
       timestamp: 1000n,
       factory,
       vault,
+      activeModule: "0x00000000000000000000000000000000000000b1",
+      moduleRevision: 2n,
       safe,
       protocolToken: token,
       executionMode: 1,
@@ -139,9 +141,12 @@ beforeEach(() => {
   });
   mock.contract.mockImplementation(
     async ({ functionName }) =>
-      ({ nonce: 0n, owner: safe, buybackVault: vault })[
-        functionName as "nonce"
-      ],
+      ({
+        nonce: 0n,
+        owner: safe,
+        buybackVault: vault,
+        activeModule: "0x00000000000000000000000000000000000000b1",
+      })[functionName as "nonce"],
   );
   mock.safe.mockResolvedValue({
     owners: [owner],
@@ -411,9 +416,12 @@ it("refreshes a stale Safe nonce, clears old signatures, and permits signing the
   expect(mock.write).not.toHaveBeenCalled();
   mock.contract.mockImplementation(
     async ({ functionName }) =>
-      ({ nonce: 1n, owner: safe, buybackVault: vault })[
-        functionName as "nonce"
-      ],
+      ({
+        nonce: 1n,
+        owner: safe,
+        buybackVault: vault,
+        activeModule: "0x00000000000000000000000000000000000000b1",
+      })[functionName as "nonce"],
   );
   let finishRefresh!: (value: unknown) => void;
   mock.safe.mockImplementationOnce(

@@ -13,6 +13,7 @@ import {
 } from "viem";
 import { anvil } from "viem/chains";
 import {
+  ponsBuybackModuleAbi,
   membershipFactoryAbi,
   membershipTierAbi,
   protocolBurnRouterAbi,
@@ -52,8 +53,12 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
   try {
     expect(
       await client.readContract({
-        address: boot.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: await client.readContract({
+          address: boot.buybackVault,
+          abi: protocolBuybackVaultAbi,
+          functionName: "activeModule",
+        }),
+        abi: ponsBuybackModuleAbi,
         functionName: "executionMode",
       }),
       "Seeded public-burn fixture must explicitly authorize PermissionlessGuarded",
@@ -68,8 +73,12 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
     ).toBe(false);
     for (const tier of demo.tiers) {
       const policy = await client.readContract({
-        address: boot.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: await client.readContract({
+          address: boot.buybackVault,
+          abi: protocolBuybackVaultAbi,
+          functionName: "activeModule",
+        }),
+        abi: ponsBuybackModuleAbi,
         functionName: "permissionlessPolicy",
         args: [tier.paymentToken],
       });
@@ -159,8 +168,12 @@ test("@protocol-burn one click collects fees and burns with one ordinary wallet 
         account: boot.safe as Address,
       });
       const request = await client.simulateContract({
-        address: boot.buybackVault,
-        abi: protocolBuybackVaultAbi,
+        address: await client.readContract({
+          address: boot.buybackVault,
+          abi: protocolBuybackVaultAbi,
+          functionName: "activeModule",
+        }),
+        abi: ponsBuybackModuleAbi,
         functionName: "setGlobalMinInterval",
         args: [86400n],
         gasPrice: 100_000_000n,

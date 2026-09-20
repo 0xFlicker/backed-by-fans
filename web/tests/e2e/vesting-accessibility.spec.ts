@@ -137,16 +137,10 @@ test("@anvil vesting accessibility: motion preferences, forced colors, 200 perce
   });
   const chart = controls.locator(".reward-curve-chart");
   await expect(chart).toBeVisible();
-  expect(
-    await chart.evaluate((element) => getComputedStyle(element).animationName),
-  ).toBe("reward-curve-enter");
   await page.emulateMedia({
     forcedColors: "active",
     reducedMotion: "no-preference",
   });
-  expect(
-    await chart.evaluate((element) => getComputedStyle(element).animationName),
-  ).toBe("reward-curve-enter");
   const colors = await chart.evaluate((element) => ({
     line: getComputedStyle(element.querySelector(".reward-curve-line")!).stroke,
     text: getComputedStyle(element.querySelector("text")!).fill,

@@ -1,3 +1,4 @@
+import { ponsExecutionData } from "../src/lib/buyback-module";
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -121,7 +122,7 @@ function fixture(counts = [55n, 1n, 0n]) {
                   [
                     lastWrite.args![2] as bigint,
                     lastWrite.args![2] as bigint,
-                    0,
+                    `0x${"0".repeat(64)}`,
                     2n,
                   ],
                 ),
@@ -417,8 +418,7 @@ it("does not discover stored routes or attempt public market purchases in operat
   expect(
     f.client.simulateContract.mock.calls.some(
       ([call]) =>
-        call.functionName === "processOperator" ||
-        call.functionName === "process",
+        call.functionName === "process" || call.functionName === "process",
     ),
   ).toBe(false);
   expect(
@@ -435,7 +435,7 @@ it("quotes every operator request and supplies the offchain route and positive f
     const market: Record<string, unknown> = {
       executionMode: 0,
       operator: caller,
-      executor: caller,
+      activeModule: caller,
       curve,
       lifecycle: 0,
       quoteReserve: 1000n,
@@ -463,16 +463,16 @@ it("quotes every operator request and supplies the offchain route and positive f
     })
     .once();
   const purchases = f.client.simulateContract.mock.calls.filter(
-    ([call]) => call.functionName === "processOperator",
+    ([call]) => call.functionName === "process",
   );
   expect(purchases).toHaveLength(2);
   expect(purchases[0][0].args).toEqual([
     zeroAddress,
     0,
     100n,
-    { pools: [] },
-    [887n],
+    2n,
     1120n,
+    ponsExecutionData(0n, { pools: [] }, [887n]),
   ]);
   expect(
     f.client.readContract.mock.calls.some(
@@ -506,7 +506,7 @@ it("refreshes private quotes after each successful purchase without sending oper
     estimateContractGas: vi.fn(async () => 1n),
     readContract: vi.fn(async (call: Call) => {
       const values: Record<string, unknown> = {
-        executor: caller,
+        activeModule: caller,
         curve,
         lifecycle: 0,
         getLaunchedToken: { exists: true, curve, pairToken: zeroAddress },
@@ -550,7 +550,7 @@ it("refreshes private quotes after each successful purchase without sending oper
               abi: protocolBuybackVaultAbi,
               name: "BuybackBurned",
             }).inputs.filter((input) => !input.indexed),
-            [100n, 800n, 0, 0n],
+            [100n, 800n, `0x${"0".repeat(64)}`, 2n],
           ),
         },
       ],
@@ -575,8 +575,8 @@ it("refreshes private quotes after each successful purchase without sending oper
   const requests = privateClient.simulateContract.mock.calls.map(
     ([call]) => call,
   );
-  expect(requests.map((call) => call.args![5])).toEqual([1120n, 1121n]);
-  expect(requests[0].args![4]).not.toEqual(requests[1].args![4]);
+  expect(requests.map((call) => call.args![4])).toEqual([1120n, 1121n]);
+  expect(requests[0].args![5]).not.toEqual(requests[1].args![5]);
   expect(privateClient.estimateContractGas).toHaveBeenCalledTimes(2);
   expect(f.client.simulateContract).not.toHaveBeenCalled();
   expect(
@@ -592,3 +592,14 @@ it("fails closed if private operator transport is missing", () => {
     "trusted private RPC",
   );
 });
+
+vi.mock("@/lib/buyback-module", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/buyback-module")>()),
+  readPonsModule: vi.fn(async () => ({
+    address: "0x00000000000000000000000000000000000000b1",
+    revision: 2n,
+    codeHash: "0x",
+    id: "0x",
+    version: 1n,
+  })),
+}));

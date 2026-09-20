@@ -49,12 +49,12 @@ export function verifyRetainedProtocolSources(
   )
     throw new Error("Retained library deployment identity differs");
   if (
-    proof.executorCodeStore.runtime !==
-      `0x00${proof.executorCodeStore.creationCode.slice(2)}` ||
-    keccak256(proof.executorCodeStore.runtime) !==
-      proof.executorCodeStore.runtimeCodeHash
+    proof.activeModuleCodeStore.runtime !==
+      `0x00${proof.activeModuleCodeStore.creationCode.slice(2)}` ||
+    keccak256(proof.activeModuleCodeStore.runtime) !==
+      proof.activeModuleCodeStore.runtimeCodeHash
   )
-    throw new Error("Retained executor code store differs");
+    throw new Error("Retained activeModule code store differs");
   if (keccak256(proof.tierCreationCode) !== proof.creationCodeHash)
     throw new Error("Tier creation source hash differs");
   if (

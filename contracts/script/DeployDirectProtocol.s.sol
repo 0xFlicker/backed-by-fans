@@ -9,7 +9,7 @@ import {console2} from "forge-std/console2.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
-import {PonsBuybackExecutor} from "../src/PonsBuybackExecutor.sol";
+import {PonsBuybackModule} from "../src/PonsBuybackModule.sol";
 import {RendererPreviewHarness} from "../src/RendererPreviewHarness.sol";
 import {RobinhoodProtocolConfig} from "../src/RobinhoodProtocolConfig.sol";
 import {
@@ -118,7 +118,7 @@ abstract contract ProtocolDeployment is TierImplementationDeployment {
         _checkTierImplementation();
         address implementation = factory.implementation();
         address vault = factory.buybackVault();
-        address executor = IProtocolBuybackVault(vault).executor();
+        address activeModule = IProtocolBuybackVault(vault).activeModule();
         if (
             address(mediaStoreFactory).code.length == 0 || address(renderer).code.length == 0
                 || address(previewHarness).code.length == 0 || address(factory).code.length == 0
@@ -136,10 +136,11 @@ abstract contract ProtocolDeployment is TierImplementationDeployment {
         }
 
         if (protocolToken == address(0)) {
-            if (executor != address(0)) revert DeploymentInvariantFailed();
+            if (activeModule != address(0)) revert DeploymentInvariantFailed();
         } else if (
-            executor.code.length == 0 || PonsBuybackExecutor(payable(executor)).vault() != vault
-                || PonsBuybackExecutor(payable(executor)).protocolToken() != protocolToken
+            activeModule.code.length == 0
+                || PonsBuybackModule(payable(activeModule)).vault() != vault
+                || PonsBuybackModule(payable(activeModule)).protocolToken() != protocolToken
         ) {
             revert DeploymentInvariantFailed();
         }

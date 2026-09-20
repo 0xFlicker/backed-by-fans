@@ -46,7 +46,7 @@ library BuybackTypes {
         PermissionlessGuarded
     }
 
-    /// @notice Raw output units per raw offered input unit, rounded upward.
+    /// @notice Raw output units per raw actual input spent, rounded upward.
     struct OutputRate {
         uint256 numerator;
         uint256 denominator;

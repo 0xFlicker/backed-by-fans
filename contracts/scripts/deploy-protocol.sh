@@ -952,17 +952,17 @@ validate_factory_dependencies() {
   observed="$(printf '%s' "$output" | jq -er '.[0]')"
   require_address_match "factory protocol token" "$observed" "$protocol_token"
 
-  local vault executor
+  local vault activeModule
   output="$(rpc_call_json "$target_rpc" "factory buyback vault" "$factory" "buybackVault()(address)")"
   vault="$(printf '%s' "$output" | jq -er '.[0]')"
-  output="$(rpc_call_json "$target_rpc" "vault executor" "$vault" "executor()(address)")"
-  executor="$(printf '%s' "$output" | jq -er '.[0]')"
+  output="$(rpc_call_json "$target_rpc" "vault activeModule" "$vault" "activeModule()(address)")"
+  activeModule="$(printf '%s' "$output" | jq -er '.[0]')"
   local target
   local dependencies=("$vault")
   if [[ "$(lowercase "$protocol_token")" == "0x0000000000000000000000000000000000000000" ]]; then
-    require_address_match "unbound executor" "$executor" "$protocol_token"
+    require_address_match "unbound activeModule" "$activeModule" "$protocol_token"
   else
-    dependencies+=("$executor")
+    dependencies+=("$activeModule")
   fi
   for target in "${dependencies[@]}"; do
     output="$(rpc_code "$target_rpc" "buyback dependency" "$target")"
@@ -973,8 +973,8 @@ validate_factory_dependencies() {
   output="$(rpc_call_json "$target_rpc" "vault factory" "$vault" "factory()(address)")"
   require_address_match "vault factory" "$(printf '%s' "$output" | jq -er '.[0]')" "$factory"
   if [[ "$(lowercase "$protocol_token")" != "0x0000000000000000000000000000000000000000" ]]; then
-    output="$(rpc_call_json "$target_rpc" "executor vault" "$executor" "vault()(address)")"
-    require_address_match "executor vault" "$(printf '%s' "$output" | jq -er '.[0]')" "$vault"
+    output="$(rpc_call_json "$target_rpc" "activeModule vault" "$activeModule" "vault()(address)")"
+    require_address_match "activeModule vault" "$(printf '%s' "$output" | jq -er '.[0]')" "$vault"
   fi
 
   output="$(rpc_call_json "$target_rpc" "factory tier implementation" "$factory" "implementation()(address)")"

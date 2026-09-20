@@ -2,12 +2,13 @@
 pragma solidity =0.8.36;
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
-import {PonsBuybackExecutor} from "../src/PonsBuybackExecutor.sol";
+import {PonsBuybackModule} from "../src/PonsBuybackModule.sol";
 import {ProtocolBuybackVault} from "../src/ProtocolBuybackVault.sol";
-import {IPonsBuybackExecutor} from "../src/interfaces/IPonsBuybackExecutor.sol";
+import {IPonsBuybackModule} from "../src/interfaces/IPonsBuybackModule.sol";
 import {BuybackIntegration as Integration} from "../src/libraries/BuybackIntegration.sol";
 import {BuybackTypes} from "../src/types/BuybackTypes.sol";
 import {MembershipTypes} from "../src/types/MembershipTypes.sol";
+import {BuybackTestCalls} from "./helpers/BuybackTestCalls.sol";
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {MembershipTestConfig} from "./helpers/MembershipTestConfig.sol";
 import {
@@ -27,7 +28,9 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {Test} from "forge-std/Test.sol";
 
 /// @notice Synthetic faults complement, and never replace, authentic venue tests.
-contract PonsBuybackExecutorTest is Test {
+contract PonsBuybackModuleTest is Test {
+    using BuybackTestCalls for ProtocolBuybackVault;
+
     function onERC721Received(address, address, uint256, bytes calldata)
         external
         pure
@@ -42,6 +45,7 @@ contract PonsBuybackExecutorTest is Test {
     FaultBondingCurve internal curve;
     MembershipFactory internal factory;
     ProtocolBuybackVault internal vault;
+    PonsBuybackModule internal module;
     uint64 internal activeRevision;
     BuybackTypes.SourceBucket internal constant DONATION = BuybackTypes.SourceBucket.Donation;
 
@@ -70,27 +74,28 @@ contract PonsBuybackExecutorTest is Test {
             )
         );
         vault = ProtocolBuybackVault(payable(factory.buybackVault()));
-        vault.setRoute(address(0), BuybackTypes.TypedRoute(new PoolKey[](0)));
+        module = PonsBuybackModule(payable(vault.activeModule()));
+        module.setRoute(address(0), BuybackTypes.TypedRoute(new PoolKey[](0)));
         _limits(1, 100, 0);
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
+        module.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
         vault.setBuybacksPaused(false);
         _fund(1000);
     }
 
     function _limits(uint128 minimum, uint128 maximum, uint64 interval) internal {
-        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(minimum, maximum, interval));
+        module.setLimits(address(0), BuybackTypes.ExecutionLimits(minimum, maximum, interval));
         _allowPolicy(address(0));
-        activeRevision = vault.revision(address(0));
+        activeRevision = module.revision(address(0));
     }
 
     /// @dev Explicit permissive test policy isolates settlement regressions; economic bounds have separate tests.
     function _allowPolicy(address asset) internal {
         BuybackTypes.OutputRate[] memory rates =
-            new BuybackTypes.OutputRate[](vault.route(asset).pools.length + 1);
+            new BuybackTypes.OutputRate[](module.route(asset).pools.length + 1);
         for (uint256 i; i < rates.length; ++i) {
             rates[i] = BuybackTypes.OutputRate(1, 1e30);
         }
-        vault.setPermissionlessPolicy(asset, BuybackTypes.Lifecycle.Bonding, rates, 0, 0);
+        module.setPermissionlessPolicy(asset, BuybackTypes.Lifecycle.Bonding, rates, 0, 0);
     }
 
     function _fund(uint256 amount) internal {
@@ -101,7 +106,7 @@ contract PonsBuybackExecutorTest is Test {
     }
 
     function _process(uint256 amount) internal {
-        vault.process(address(0), DONATION, amount, activeRevision, uint64(block.timestamp));
+        vault.processPons(address(0), DONATION, amount, activeRevision, uint64(block.timestamp));
     }
 
     function test_oneHundredOriginalUnitsConvertToOneETHWithPointFourResidualInEachSourceBucket()
@@ -135,8 +140,8 @@ contract PonsBuybackExecutorTest is Test {
         pools[0] = PoolKey(
             Currency.wrap(address(0)), Currency.wrap(address(payment)), 100, 1, IHooks(address(0))
         );
-        vault.setRoute(address(payment), BuybackTypes.TypedRoute(pools));
-        vault.setLimits(address(payment), BuybackTypes.ExecutionLimits(1, 100, 0));
+        module.setRoute(address(payment), BuybackTypes.TypedRoute(pools));
+        module.setLimits(address(payment), BuybackTypes.ExecutionLimits(1, 100, 0));
         _allowPolicy(address(payment));
         curve.configure(6000, 1, 1, 0);
         uint256 supply = token.totalSupply();
@@ -145,7 +150,7 @@ contract PonsBuybackExecutorTest is Test {
             _book.convert(address(payment), address(0), b, 100, 1 ether);
             _book.convert(address(0), address(token), b, 0.6 ether, 0.6 ether);
             _book.burn(address(token), b, 0.6 ether);
-            vault.process(address(payment), BuybackTypes.SourceBucket(b), 100, 3, 1900);
+            vault.processPons(address(payment), BuybackTypes.SourceBucket(b), 100, 3, 1900);
             BuybackTypes.Inventory memory original =
                 vault.inventory(address(payment), BuybackTypes.SourceBucket(b));
             assertEq(original.available, _book.available(address(payment), b));
@@ -165,18 +170,23 @@ contract PonsBuybackExecutorTest is Test {
         assertEq(vault.inventory(address(payment), DONATION).totalSpent, 100);
         assertEq(token.totalSupply(), supply - 1.2 ether);
         assertEq(address(vault).balance, 0.8 ether + 1000);
-        assertEq(payment.allowance(vault.executor(), Integration.PERMIT2), 0);
+        assertEq(payment.allowance(vault.activeModule(), Integration.PERMIT2), 0);
     }
 
     function test_onlyVaultCanExecuteAndThereIsNoCallerRecipient() public {
         BuybackTypes.TypedRoute memory route;
-        IPonsBuybackExecutor executor = IPonsBuybackExecutor(vault.executor());
-        vm.expectRevert(PonsBuybackExecutor.OnlyVault.selector);
+        IPonsBuybackModule executor = IPonsBuybackModule(vault.activeModule());
+        vm.expectRevert(PonsBuybackModule.OnlyVault.selector);
         executor.execute(
-            address(0), 100, route, new uint256[](0), new BuybackTypes.OutputRate[](0), 1900
+            address(this),
+            address(0),
+            DONATION,
+            100,
+            1900,
+            abi.encode(uint64(0), route, new uint256[](0))
         );
         vm.deal(address(this), 1);
-        (bool sent,) = vault.executor().call{value: 1}("");
+        (bool sent,) = vault.activeModule().call{value: 1}("");
         assertFalse(sent);
     }
 
@@ -196,7 +206,7 @@ contract PonsBuybackExecutorTest is Test {
         uint256 supply = token.totalSupply();
         _process(100);
         assertEq(token.totalSupply(), supply - 99);
-        assertEq(vault.lastBuyAt(), 1000);
+        assertEq(module.lastBuyAt(), 1000);
         assertEq(vault.inventory(address(0), DONATION).totalSpent, 100);
     }
 
@@ -213,49 +223,49 @@ contract PonsBuybackExecutorTest is Test {
             uint256 supply = token.totalSupply();
             vm.expectRevert(
                 mode == 0
-                    ? PonsBuybackExecutor.InexactSettlement.selector
+                    ? PonsBuybackModule.InexactSettlement.selector
                     : ProtocolBuybackVault.InexactSettlement.selector
             );
             _process(100);
             assertEq(vault.inventory(address(0), DONATION).totalSpent, 0);
             assertEq(token.totalSupply(), supply);
             assertEq(address(vault).balance, 1000);
-            assertEq(vault.lastBuyAt(), 0);
-            assertEq(vault.lastAssetBuyAt(address(0)), 0);
+            assertEq(module.lastBuyAt(), 0);
+            assertEq(module.lastAssetBuyAt(address(0)), 0);
         }
     }
 
     function test_cooldownRejectsBackToBackCallsAndSurvivesAllConfigurationChanges() public {
         _limits(50, 100, 60);
-        vault.setGlobalMinInterval(30);
+        module.setGlobalMinInterval(30);
         _process(100);
         vault.setBuybacksPaused(true);
-        vault.setAssetBuybacksPaused(address(0), true);
+        module.setAssetBuybacksPaused(address(0), true);
         vault.setBuybacksPaused(false);
-        vault.setAssetBuybacksPaused(address(0), false);
-        vault.setRoute(address(0), BuybackTypes.TypedRoute(new PoolKey[](0)));
+        module.setAssetBuybacksPaused(address(0), false);
+        module.setRoute(address(0), BuybackTypes.TypedRoute(new PoolKey[](0)));
         _limits(50, 100, 60);
-        vault.setGlobalMinInterval(30);
-        assertEq(vault.lastBuyAt(), 1000);
-        assertEq(vault.lastAssetBuyAt(address(0)), 1000);
+        module.setGlobalMinInterval(30);
+        assertEq(module.lastBuyAt(), 1000);
+        assertEq(module.lastAssetBuyAt(address(0)), 1000);
         vm.warp(1059);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ProtocolBuybackVault.ProcessingUnavailable.selector, BuybackTypes.Status.Cooldown
+                PonsBuybackModule.ProcessingUnavailable.selector, BuybackTypes.Status.Cooldown
             )
         );
         _process(100);
-        assertEq(vault.processingStatus(address(0), DONATION).nextEligibleAt, 1060);
+        assertEq(module.processingStatus(address(0), DONATION).nextEligibleAt, 1060);
         vm.warp(1060);
         _process(100);
-        assertEq(vault.lastBuyAt(), 1060);
+        assertEq(module.lastBuyAt(), 1060);
     }
 
     function test_deadlineRevisionAndAmountsAreCheckedAndStandingLimitsNeverExpire() public {
         vm.expectRevert(ProtocolBuybackVault.StaleRevision.selector);
-        vault.process(address(0), DONATION, 100, 1, 1900);
-        vm.expectRevert(ProtocolBuybackVault.DeadlineExpired.selector);
-        vault.process(address(0), DONATION, 100, 3, 999);
+        vault.processPons(address(0), DONATION, 100, 1, 1900);
+        vm.expectRevert(PonsBuybackModule.DeadlineExpired.selector);
+        vault.processPons(address(0), DONATION, 100, 3, 999);
         vm.expectRevert(ProtocolBuybackVault.InvalidAmount.selector);
         _process(101);
         vm.expectRevert(ProtocolBuybackVault.InvalidAmount.selector);
@@ -272,15 +282,14 @@ contract PonsBuybackExecutorTest is Test {
         curve.setLifecycle(1, false, false);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ProtocolBuybackVault.ProcessingUnavailable.selector,
-                BuybackTypes.Status.LaunchPenalty
+                PonsBuybackModule.ProcessingUnavailable.selector, BuybackTypes.Status.LaunchPenalty
             )
         );
         _process(100);
         curve.setLifecycle(0, true, false);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ProtocolBuybackVault.ProcessingUnavailable.selector,
+                PonsBuybackModule.ProcessingUnavailable.selector,
                 BuybackTypes.Status.GraduationPending
             )
         );
@@ -294,7 +303,20 @@ contract PonsBuybackExecutorTest is Test {
         _process(100);
         assertFalse(curve.callbackSucceeded());
         curve.setCallback(
-            address(vault), abi.encodeCall(vault.process, (address(0), DONATION, 100, 3, 1900))
+            address(vault),
+            abi.encodeCall(
+                vault.process,
+                (
+                    address(0),
+                    DONATION,
+                    100,
+                    uint64(1),
+                    uint64(1900),
+                    abi.encode(
+                        uint64(3), BuybackTypes.TypedRoute(new PoolKey[](0)), new uint256[](0)
+                    )
+                )
+            )
         );
         _process(100);
         assertFalse(curve.callbackSucceeded());
@@ -302,12 +324,12 @@ contract PonsBuybackExecutorTest is Test {
     }
 
     function test_preexistingExecutorBalancesAreNotPurchasedOutputOrBurned() public {
-        vm.deal(vault.executor(), 7);
-        token.mint(vault.executor(), 9);
+        vm.deal(vault.activeModule(), 7);
+        token.mint(vault.activeModule(), 9);
         uint256 supply = token.totalSupply();
         _process(100);
-        assertEq(vault.executor().balance, 7);
-        assertEq(token.balanceOf(vault.executor()), 9);
+        assertEq(vault.activeModule().balance, 7);
+        assertEq(token.balanceOf(vault.activeModule()), 9);
         assertEq(token.totalSupply(), supply - 100);
         assertEq(vault.inventory(address(token), DONATION).totalBurned, 100);
     }
@@ -327,8 +349,8 @@ contract PonsBuybackExecutorTest is Test {
         pools[0] = PoolKey(
             Currency.wrap(address(0)), Currency.wrap(address(asset)), 100, 1, IHooks(address(0))
         );
-        vault.setRoute(address(asset), BuybackTypes.TypedRoute(pools));
-        vault.setLimits(address(asset), BuybackTypes.ExecutionLimits(1, 100, 0));
+        module.setRoute(address(asset), BuybackTypes.TypedRoute(pools));
+        module.setLimits(address(asset), BuybackTypes.ExecutionLimits(1, 100, 0));
         _allowPolicy(address(asset));
     }
 
@@ -336,7 +358,7 @@ contract PonsBuybackExecutorTest is Test {
         AdversarialERC20 asset = _faultAsset();
         asset.setTransferBehavior(AdversarialERC20.Behavior.TaxedTransfer);
         vm.expectRevert(ProtocolBuybackVault.InexactSettlement.selector);
-        vault.process(address(asset), DONATION, 100, 3, 1900);
+        vault.processPons(address(asset), DONATION, 100, 3, 1900);
         assertEq(asset.balanceOf(address(vault)), 1000);
         assertEq(asset.totalSupply(), 1000);
         assertEq(vault.inventory(address(asset), DONATION).totalSpent, 0);
@@ -348,12 +370,12 @@ contract PonsBuybackExecutorTest is Test {
         vm.mockCall(
             Integration.ROUTER, abi.encodeWithSignature("execute(bytes,bytes[],uint256)"), hex""
         );
-        vm.expectRevert(PonsBuybackExecutor.InexactSettlement.selector);
-        vault.process(address(asset), DONATION, 100, 3, 1900);
+        vm.expectRevert(PonsBuybackModule.InexactSettlement.selector);
+        vault.processPons(address(asset), DONATION, 100, 3, 1900);
         assertEq(asset.balanceOf(address(vault)), 1000);
         assertEq(vault.inventory(address(asset), DONATION).totalSpent, 0);
-        assertEq(asset.balanceOf(vault.executor()), 0);
-        assertEq(asset.allowance(vault.executor(), Integration.PERMIT2), 0);
+        assertEq(asset.balanceOf(vault.activeModule()), 0);
+        assertEq(asset.allowance(vault.activeModule(), Integration.PERMIT2), 0);
     }
 
     function test_partialDustCannotConsumeCooldownOrChangeAccounting() public {
@@ -362,8 +384,8 @@ contract PonsBuybackExecutorTest is Test {
         uint256 supply = token.totalSupply();
         vm.expectRevert(ProtocolBuybackVault.InvalidAmount.selector);
         _process(100);
-        assertEq(vault.lastBuyAt(), 0);
-        assertEq(vault.lastAssetBuyAt(address(0)), 0);
+        assertEq(module.lastBuyAt(), 0);
+        assertEq(module.lastAssetBuyAt(address(0)), 0);
         assertEq(vault.settlementSequence(), 0);
         assertEq(vault.inventory(address(0), DONATION).available, 1000);
         assertEq(token.totalSupply(), supply);
@@ -372,18 +394,17 @@ contract PonsBuybackExecutorTest is Test {
     function test_belowMinimumInventoryIsDeferredWithoutStartingAClock() public {
         _limits(1001, 2000, 60);
         assertEq(
-            uint256(vault.processingStatus(address(0), DONATION).status),
+            uint256(module.processingStatus(address(0), DONATION).status),
             uint256(BuybackTypes.Status.BelowMinimum)
         );
-        assertEq(vault.processingStatus(address(0), DONATION).minInput, 1001);
+        assertEq(module.processingStatus(address(0), DONATION).minInput, 1001);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ProtocolBuybackVault.ProcessingUnavailable.selector,
-                BuybackTypes.Status.BelowMinimum
+                PonsBuybackModule.ProcessingUnavailable.selector, BuybackTypes.Status.BelowMinimum
             )
         );
         _process(1000);
-        assertEq(vault.lastBuyAt(), 0);
+        assertEq(module.lastBuyAt(), 0);
     }
 
     function _installSyntheticWrappedImplementation() private {
@@ -409,14 +430,14 @@ contract PonsBuybackExecutorTest is Test {
         assertEq(vault.inventory(address(0), DONATION).available, 1100);
         assertEq(vault.inventory(address(0), DONATION).totalReceived, 1100);
         assertEq(vault.syncDonation(address(0)), 0);
-        vault.setLimits(Integration.WETH, BuybackTypes.ExecutionLimits(50, 100, 60));
+        module.setLimits(Integration.WETH, BuybackTypes.ExecutionLimits(50, 100, 60));
         _allowPolicy(Integration.WETH);
-        activeRevision = vault.revision(Integration.WETH);
-        vault.process(Integration.WETH, DONATION, 100, activeRevision, uint64(block.timestamp));
-        assertEq(vault.lastAssetBuyAt(Integration.WETH), 1000);
-        assertEq(vault.lastAssetBuyAt(address(0)), 1000);
+        activeRevision = module.revision(Integration.WETH);
+        vault.processPons(Integration.WETH, DONATION, 100, activeRevision, uint64(block.timestamp));
+        assertEq(module.lastAssetBuyAt(Integration.WETH), 1000);
+        assertEq(module.lastAssetBuyAt(address(0)), 1000);
         assertEq(
-            uint256(vault.processingStatus(address(0), DONATION).status),
+            uint256(module.processingStatus(address(0), DONATION).status),
             uint256(BuybackTypes.Status.Cooldown)
         );
         assertEq(vault.inventory(Integration.WETH, DONATION).available, 1000);
@@ -457,7 +478,7 @@ contract PonsBuybackExecutorTest is Test {
         assertEq(vault.syncDonation(address(0)), 10);
         assertEq(vault.inventory(address(0), DONATION).available, 1040);
         _limits(50, 100, 60);
-        vault.process(
+        vault.processPons(
             Integration.WETH,
             BuybackTypes.SourceBucket.Membership,
             100,
@@ -466,7 +487,7 @@ contract PonsBuybackExecutorTest is Test {
         );
         vm.expectRevert(
             abi.encodeWithSelector(
-                ProtocolBuybackVault.ProcessingUnavailable.selector, BuybackTypes.Status.Cooldown
+                PonsBuybackModule.ProcessingUnavailable.selector, BuybackTypes.Status.Cooldown
             )
         );
         _process(100);
@@ -483,31 +504,31 @@ contract PonsBuybackExecutorTest is Test {
         pools[0] = PoolKey(
             Currency.wrap(address(0)), Currency.wrap(address(payment)), 100, 1, IHooks(address(0))
         );
-        vault.setRoute(address(payment), BuybackTypes.TypedRoute(pools));
-        vault.setLimits(address(payment), BuybackTypes.ExecutionLimits(1, 100, 0));
+        module.setRoute(address(payment), BuybackTypes.TypedRoute(pools));
+        module.setLimits(address(payment), BuybackTypes.ExecutionLimits(1, 100, 0));
         _allowPolicy(address(payment));
-        vault.setGlobalMinInterval(60);
+        module.setGlobalMinInterval(60);
         _process(100);
         vm.warp(1010);
         token.mint(address(vault), 5);
         vault.syncDonation(address(token));
-        vault.process(address(token), DONATION, 5, 0, uint64(block.timestamp));
-        assertEq(vault.lastBuyAt(), 1000);
+        vault.processPons(address(token), DONATION, 5, 0, uint64(block.timestamp));
+        assertEq(module.lastBuyAt(), 1000);
         assertEq(
-            uint256(vault.processingStatus(address(payment), DONATION).status),
+            uint256(module.processingStatus(address(payment), DONATION).status),
             uint256(BuybackTypes.Status.Cooldown)
         );
         vm.expectRevert(
             abi.encodeWithSelector(
-                ProtocolBuybackVault.ProcessingUnavailable.selector, BuybackTypes.Status.Cooldown
+                PonsBuybackModule.ProcessingUnavailable.selector, BuybackTypes.Status.Cooldown
             )
         );
-        vault.process(address(payment), DONATION, 100, 3, uint64(block.timestamp));
+        vault.processPons(address(payment), DONATION, 100, 3, uint64(block.timestamp));
         vm.warp(1060);
-        vault.process(address(payment), DONATION, 100, 3, uint64(block.timestamp));
-        assertEq(vault.lastBuyAt(), 1060);
-        assertEq(vault.lastAssetBuyAt(address(0)), 1000);
-        assertEq(vault.lastAssetBuyAt(address(payment)), 1060);
+        vault.processPons(address(payment), DONATION, 100, 3, uint64(block.timestamp));
+        assertEq(module.lastBuyAt(), 1060);
+        assertEq(module.lastAssetBuyAt(address(0)), 1000);
+        assertEq(module.lastAssetBuyAt(address(payment)), 1060);
     }
 
     function test_atomicConfigurationRejectsCanonicalDuplicatesAndRollsBackAllSettings() public {
@@ -516,19 +537,19 @@ contract PonsBuybackExecutorTest is Test {
         BuybackTypes.ExecutionLimits[] memory settings = new BuybackTypes.ExecutionLimits[](2);
         settings[0] = BuybackTypes.ExecutionLimits(10, 50, 60);
         settings[1] = settings[0];
-        uint64 beforeRevision = vault.revision(address(0));
-        vm.expectRevert(ProtocolBuybackVault.InvalidLimits.selector);
-        vault.setExecutionLimits(100, assets, settings);
-        assertEq(vault.revision(address(0)), beforeRevision);
-        assertEq(vault.globalMinInterval(), 0);
-        assertEq(vault.limits(address(0)).maxInput, 100);
+        uint64 beforeRevision = module.revision(address(0));
+        vm.expectRevert(PonsBuybackModule.InvalidLimits.selector);
+        module.setExecutionLimits(100, assets, settings);
+        assertEq(module.revision(address(0)), beforeRevision);
+        assertEq(module.globalMinInterval(), 0);
+        assertEq(module.limits(address(0)).maxInput, 100);
         assets = new address[](1);
         settings = new BuybackTypes.ExecutionLimits[](1);
         settings[0] = BuybackTypes.ExecutionLimits(10, 50, 60);
-        vault.setExecutionLimits(100, assets, settings);
-        assertEq(vault.globalMinInterval(), 100);
-        assertEq(vault.limits(address(0)).maxInput, 50);
-        assertEq(vault.revision(address(0)), beforeRevision + 1);
+        module.setExecutionLimits(100, assets, settings);
+        assertEq(module.globalMinInterval(), 100);
+        assertEq(module.limits(address(0)).maxInput, 50);
+        assertEq(module.revision(address(0)), beforeRevision + 1);
     }
 
     function testFuzz_partialSpendConservesSourceAndSupply(uint96 offered, uint16 fillBps) public {
@@ -549,13 +570,13 @@ contract PonsBuybackExecutorTest is Test {
     function _operatorPurchase(uint256 amount, uint256 minimum) internal {
         uint256[] memory minima = new uint256[](1);
         minima[0] = minimum;
-        vault.processOperator(
+        vault.process(
             address(0),
             DONATION,
             amount,
-            BuybackTypes.TypedRoute(new PoolKey[](0)),
-            minima,
-            uint64(block.timestamp)
+            uint64(1),
+            uint64(block.timestamp),
+            abi.encode(uint64(0), BuybackTypes.TypedRoute(new PoolKey[](0)), minima)
         );
     }
 
@@ -564,64 +585,53 @@ contract PonsBuybackExecutorTest is Test {
     {
         BuybackTypes.OutputRate[] memory rates = new BuybackTypes.OutputRate[](1);
         rates[0] = BuybackTypes.OutputRate(numerator, denominator);
-        vault.setPermissionlessPolicy(
+        module.setPermissionlessPolicy(
             address(0), BuybackTypes.Lifecycle.Bonding, rates, expiry, budget
         );
-        activeRevision = vault.revision(address(0));
+        activeRevision = module.revision(address(0));
     }
 
     function test_operatorUsesOnlyTransactionTermsAndRevocationIsImmediate() public {
-        vault.setOperator(address(this));
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
+        module.setOperator(address(this));
+        module.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
         _limits(500, 600, 1000);
-        vault.setGlobalMinInterval(1000);
-        bytes32 policyBefore = keccak256(abi.encode(vault.permissionlessPolicy(address(0))));
+        module.setGlobalMinInterval(1000);
+        bytes32 policyBefore = keccak256(abi.encode(module.permissionlessPolicy(address(0))));
         _operatorPurchase(100, 100);
         _operatorPurchase(100, 100);
         assertEq(vault.inventory(address(0), DONATION).totalSpent, 200);
-        assertEq(keccak256(abi.encode(vault.permissionlessPolicy(address(0)))), policyBefore);
-        vault.setOperator(address(0xBEEF));
-        vm.expectRevert(ProtocolBuybackVault.OnlyOperator.selector);
+        assertEq(keccak256(abi.encode(module.permissionlessPolicy(address(0)))), policyBefore);
+        module.setOperator(address(0xBEEF));
+        vm.expectRevert(PonsBuybackModule.OnlyOperator.selector);
         _operatorPurchase(100, 100);
-        vault.setOperator(address(0));
+        module.setOperator(address(0));
         vm.prank(address(0xBEEF));
-        vm.expectRevert(ProtocolBuybackVault.OnlyOperator.selector);
+        vm.expectRevert(PonsBuybackModule.OnlyOperator.selector);
         _operatorPurchase(100, 100);
     }
 
     function test_operatorCannotBypassPauseOrSubmitMissingOutputCoverage() public {
-        vault.setOperator(address(this));
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
-        vm.expectRevert(ProtocolBuybackVault.InvalidPolicy.selector);
+        module.setOperator(address(this));
+        module.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
+        vm.expectRevert(PonsBuybackModule.InvalidPolicy.selector);
         _operatorPurchase(100, 0);
-        vm.expectRevert(ProtocolBuybackVault.InvalidPolicy.selector);
-        vault.processOperator(
-            address(0),
-            DONATION,
-            100,
-            BuybackTypes.TypedRoute(new PoolKey[](0)),
-            new uint256[](0),
-            1900
-        );
+        vm.expectRevert(PonsBuybackModule.InvalidPolicy.selector);
+        vault.processPons(address(0), DONATION, 100, 0, 1900);
         vault.setBuybacksPaused(true);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ProtocolBuybackVault.ProcessingUnavailable.selector, BuybackTypes.Status.Paused
-            )
-        );
+        vm.expectRevert(ProtocolBuybackVault.BuybacksArePaused.selector);
         _operatorPurchase(100, 100);
         assertEq(vault.settlementSequence(), 0);
     }
 
     function test_operatorAbsoluteMinimumRejectsPartialFillAndRollsBack() public {
-        vault.setOperator(address(this));
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
+        module.setOperator(address(this));
+        module.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
         curve.configure(6000, 1, 1, 0);
         uint256 supply = token.totalSupply();
-        vm.expectRevert(PonsBuybackExecutor.InexactSettlement.selector);
+        vm.expectRevert(PonsBuybackModule.InexactSettlement.selector);
         _operatorPurchase(100, 61);
         assertEq(vault.inventory(address(0), DONATION).available, 1000);
-        assertEq(vault.lastBuyAt(), 0);
+        assertEq(module.lastBuyAt(), 0);
         assertEq(vault.settlementSequence(), 0);
         assertEq(token.totalSupply(), supply);
         _operatorPurchase(100, 60);
@@ -631,7 +641,7 @@ contract PonsBuybackExecutorTest is Test {
     function test_permissionlessRatesRoundUpAndCannotBeWeakenedByCaller() public {
         _publicPolicy(2, 3, 0, 0);
         curve.configure(10_000, 2, 3, 0);
-        vm.expectRevert(PonsBuybackExecutor.InexactSettlement.selector);
+        vm.expectRevert(PonsBuybackModule.InexactSettlement.selector);
         _process(100); // Floor(100 * 2 / 3) = 66, authorized ceiling = 67.
         assertEq(vault.settlementSequence(), 0);
         curve.configure(10_000, 1, 1, 0);
@@ -640,29 +650,46 @@ contract PonsBuybackExecutorTest is Test {
         assertEq(vault.inventory(address(0), DONATION).totalSpent, 100);
     }
 
+    function test_permissionlessPartialFillUsesActualSpendAndRejectsBadRate() public {
+        _publicPolicy(1, 1, 0, 100);
+        curve.configure(6000, 1, 1, 1);
+        uint256 supply = token.totalSupply();
+        vm.expectRevert(PonsBuybackModule.InexactSettlement.selector);
+        _process(100);
+        assertEq(vault.inventory(address(0), DONATION).available, 1000);
+        assertEq(module.permissionlessPolicy(address(0)).remainingBudget, 100);
+        assertEq(module.lastBuyAt(), 0);
+        assertEq(token.totalSupply(), supply);
+        curve.configure(6000, 1, 1, 0);
+        _process(100);
+        assertEq(vault.inventory(address(0), DONATION).totalSpent, 60);
+        assertEq(module.permissionlessPolicy(address(0)).remainingBudget, 40);
+        assertEq(token.totalSupply(), supply - 60);
+    }
+
     function test_permissionlessBudgetDebitsActualSpendAndSurvivesModeChanges() public {
         _publicPolicy(1, 100, 0, 100);
         curve.configure(6000, 1, 1, 0);
         _process(100);
-        assertEq(vault.permissionlessPolicy(address(0)).remainingBudget, 40);
-        assertEq(vault.processingStatus(Integration.WETH, DONATION).maxInput, 40);
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
-        vault.setOperator(address(0xBEEF));
+        assertEq(module.permissionlessPolicy(address(0)).remainingBudget, 40);
+        assertEq(module.processingStatus(Integration.WETH, DONATION).maxInput, 40);
+        module.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
+        module.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
+        module.setOperator(address(0xBEEF));
         vault.setBuybacksPaused(true);
         vault.setBuybacksPaused(false);
-        assertEq(vault.permissionlessPolicy(address(0)).remainingBudget, 40);
-        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, 80, 0));
-        activeRevision = vault.revision(address(0));
-        assertEq(vault.permissionlessPolicy(address(0)).revision, activeRevision);
-        assertEq(vault.permissionlessPolicy(address(0)).remainingBudget, 40);
+        assertEq(module.permissionlessPolicy(address(0)).remainingBudget, 40);
+        module.setLimits(address(0), BuybackTypes.ExecutionLimits(1, 80, 0));
+        activeRevision = module.revision(address(0));
+        assertEq(module.permissionlessPolicy(address(0)).revision, activeRevision);
+        assertEq(module.permissionlessPolicy(address(0)).remainingBudget, 40);
         curve.configure(10_000, 1, 1, 0);
         _process(40);
         assertEq(
-            uint256(vault.processingStatus(address(0), DONATION).status),
+            uint256(module.processingStatus(address(0), DONATION).status),
             uint256(BuybackTypes.Status.BudgetExhausted)
         );
-        assertEq(vault.permissionlessPolicy(address(0)).remainingBudget, 0);
+        assertEq(module.permissionlessPolicy(address(0)).remainingBudget, 0);
     }
 
     function test_expiryIsOptionalAndRouteChangesRequireFreshPublicPolicy() public {
@@ -671,23 +698,23 @@ contract PonsBuybackExecutorTest is Test {
         _process(100);
         vm.warp(1101);
         assertEq(
-            uint256(vault.processingStatus(address(0), DONATION).status),
+            uint256(module.processingStatus(address(0), DONATION).status),
             uint256(BuybackTypes.Status.PolicyExpired)
         );
         _publicPolicy(1, 1, 0, 0);
         vm.warp(1101 + 100 * 365 days);
         _process(100);
-        vault.setRoute(address(0), BuybackTypes.TypedRoute(new PoolKey[](0)));
+        module.setRoute(address(0), BuybackTypes.TypedRoute(new PoolKey[](0)));
         assertEq(
-            uint256(vault.processingStatus(address(0), DONATION).status),
+            uint256(module.processingStatus(address(0), DONATION).status),
             uint256(BuybackTypes.Status.StalePolicy)
         );
-        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, 80, 0));
+        module.setLimits(address(0), BuybackTypes.ExecutionLimits(1, 80, 0));
         assertEq(
-            uint256(vault.processingStatus(address(0), DONATION).status),
+            uint256(module.processingStatus(address(0), DONATION).status),
             uint256(BuybackTypes.Status.StalePolicy)
         );
-        assertFalse(vault.permissionlessPolicy(address(0)).budgetLimited);
+        assertFalse(module.permissionlessPolicy(address(0)).budgetLimited);
     }
 
     function test_operatorRouteDoesNotRequireOrOverwriteStoredPublicRoute() public {
@@ -702,23 +729,33 @@ contract PonsBuybackExecutorTest is Test {
         uint256[] memory minima = new uint256[](2);
         minima[0] = 1 ether;
         minima[1] = 1 ether;
-        vault.setOperator(address(this));
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
+        module.setOperator(address(this));
+        module.setExecutionMode(BuybackTypes.ExecutionMode.OperatorGuarded);
         minima[0] = 1 ether + 1;
-        vm.expectRevert(PonsBuybackExecutor.InexactSettlement.selector);
-        vault.processOperator(
-            address(asset), DONATION, 100, BuybackTypes.TypedRoute(pools), minima, 1900
+        vm.expectRevert(PonsBuybackModule.InexactSettlement.selector);
+        vault.process(
+            address(asset),
+            DONATION,
+            100,
+            uint64(1),
+            1900,
+            abi.encode(uint64(0), BuybackTypes.TypedRoute(pools), minima)
         );
         assertEq(vault.inventory(address(asset), DONATION).available, 100);
-        assertEq(asset.allowance(vault.executor(), Integration.PERMIT2), 0);
+        assertEq(asset.allowance(vault.activeModule(), Integration.PERMIT2), 0);
         assertEq(vault.settlementSequence(), 0);
         minima[0] = 1 ether;
-        vault.processOperator(
-            address(asset), DONATION, 100, BuybackTypes.TypedRoute(pools), minima, 1900
+        vault.process(
+            address(asset),
+            DONATION,
+            100,
+            uint64(1),
+            1900,
+            abi.encode(uint64(0), BuybackTypes.TypedRoute(pools), minima)
         );
-        assertEq(vault.route(address(asset)).pools.length, 0);
-        assertEq(vault.permissionlessPolicy(address(asset)).rates.length, 0);
-        assertEq(vault.limits(address(asset)).maxInput, 0);
+        assertEq(module.route(address(asset)).pools.length, 0);
+        assertEq(module.permissionlessPolicy(address(asset)).rates.length, 0);
+        assertEq(module.limits(address(asset)).maxInput, 0);
         assertEq(vault.inventory(address(asset), DONATION).totalSpent, 100);
     }
 
@@ -755,8 +792,8 @@ contract PonsBuybackExecutorTest is Test {
         PoolKey[] memory pools = new PoolKey[](2);
         pools[0] = _conversionKey(address(asset), address(middle));
         pools[1] = _conversionKey(address(middle), Integration.WETH);
-        vault.setRoute(address(asset), BuybackTypes.TypedRoute(pools));
-        vault.setLimits(address(asset), BuybackTypes.ExecutionLimits(1, 100, 0));
+        module.setRoute(address(asset), BuybackTypes.TypedRoute(pools));
+        module.setLimits(address(asset), BuybackTypes.ExecutionLimits(1, 100, 0));
         BuybackTypes.OutputRate[] memory rates = new BuybackTypes.OutputRate[](3);
         rates[0] = BuybackTypes.OutputRate(2, 1);
         rates[1] = BuybackTypes.OutputRate(3, 1);
@@ -764,31 +801,33 @@ contract PonsBuybackExecutorTest is Test {
         uint256 supply = token.totalSupply();
         for (uint256 i; i < 3; ++i) {
             ++rates[i].numerator;
-            vault.setPermissionlessPolicy(
+            module.setPermissionlessPolicy(
                 address(asset), BuybackTypes.Lifecycle.Bonding, rates, 0, 100
             );
-            uint64 currentRevision = vault.revision(address(asset));
-            vm.expectRevert(PonsBuybackExecutor.InexactSettlement.selector);
-            vault.process(address(asset), DONATION, 100, currentRevision, 1900);
+            uint64 currentRevision = module.revision(address(asset));
+            vm.expectRevert(PonsBuybackModule.InexactSettlement.selector);
+            vault.processPons(address(asset), DONATION, 100, currentRevision, 1900);
             assertEq(vault.inventory(address(asset), DONATION).available, 100);
             assertEq(vault.inventory(address(middle), DONATION).available, 0);
             assertEq(vault.inventory(address(0), DONATION).available, 1000);
-            assertEq(vault.permissionlessPolicy(address(asset)).remainingBudget, 100);
-            assertEq(vault.lastBuyAt(), 0);
+            assertEq(module.permissionlessPolicy(address(asset)).remainingBudget, 100);
+            assertEq(module.lastBuyAt(), 0);
             assertEq(vault.settlementSequence(), 0);
-            assertEq(asset.allowance(vault.executor(), Integration.PERMIT2), 0);
-            assertEq(middle.allowance(vault.executor(), Integration.PERMIT2), 0);
+            assertEq(asset.allowance(vault.activeModule(), Integration.PERMIT2), 0);
+            assertEq(middle.allowance(vault.activeModule(), Integration.PERMIT2), 0);
             assertEq(token.totalSupply(), supply);
             --rates[i].numerator;
         }
-        vault.setPermissionlessPolicy(address(asset), BuybackTypes.Lifecycle.Bonding, rates, 0, 100);
-        vault.process(address(asset), DONATION, 100, vault.revision(address(asset)), 1900);
+        module.setPermissionlessPolicy(
+            address(asset), BuybackTypes.Lifecycle.Bonding, rates, 0, 100
+        );
+        vault.processPons(address(asset), DONATION, 100, module.revision(address(asset)), 1900);
         assertEq(vault.inventory(address(asset), DONATION).totalSpent, 100);
         assertEq(vault.inventory(address(middle), DONATION).totalConvertedIn, 200);
         assertEq(vault.inventory(address(middle), DONATION).totalSpent, 200);
         assertEq(vault.inventory(address(0), DONATION).totalConvertedIn, 600);
         assertEq(vault.inventory(address(token), DONATION).totalBurned, 600);
-        assertEq(vault.permissionlessPolicy(address(asset)).remainingBudget, 0);
+        assertEq(module.permissionlessPolicy(address(asset)).remainingBudget, 0);
     }
 
     function test_nativeBudgetIsSharedByMembershipDonationAndWrappedAlias() public {
@@ -817,10 +856,11 @@ contract PonsBuybackExecutorTest is Test {
         _publicPolicy(1, 1, 0, 150);
         _process(100);
         assertEq(
-            vault.processingStatus(Integration.WETH, BuybackTypes.SourceBucket.Membership).maxInput,
+            module.processingStatus(Integration.WETH, BuybackTypes.SourceBucket.Membership)
+            .maxInput,
             50
         );
-        vault.process(
+        vault.processPons(
             Integration.WETH, BuybackTypes.SourceBucket.Membership, 50, activeRevision, 1900
         );
         assertEq(vault.inventory(address(0), DONATION).available, 900);
@@ -830,17 +870,17 @@ contract PonsBuybackExecutorTest is Test {
         for (uint256 b; b < 2; ++b) {
             assertEq(
                 uint256(
-                    vault.processingStatus(Integration.WETH, BuybackTypes.SourceBucket(b)).status
+                    module.processingStatus(Integration.WETH, BuybackTypes.SourceBucket(b)).status
                 ),
                 uint256(BuybackTypes.Status.BudgetExhausted)
             );
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    ProtocolBuybackVault.ProcessingUnavailable.selector,
+                    PonsBuybackModule.ProcessingUnavailable.selector,
                     BuybackTypes.Status.BudgetExhausted
                 )
             );
-            vault.process(
+            vault.processPons(
                 b == 0 ? address(0) : Integration.WETH,
                 BuybackTypes.SourceBucket(b),
                 1,

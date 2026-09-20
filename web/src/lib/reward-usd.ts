@@ -1,5 +1,6 @@
+import { readPonsModule } from "@/lib/buyback-module";
 import { zeroAddress, type Address, type PublicClient } from "viem";
-import { membershipFactoryAbi, protocolBuybackVaultAbi } from "@/contracts";
+import { membershipFactoryAbi, ponsBuybackModuleAbi } from "@/contracts";
 import { readPoolMarginal } from "./buyback-policy/live";
 import { fraction } from "./buyback-policy/math";
 import manifest from "../../../contracts/external/verification/4663/sources.json";
@@ -20,12 +21,13 @@ export async function readRewardUsdPrices(
     functionName: "buybackVault",
     blockNumber,
   });
+  const buybackModule = await readPonsModule(client, vault, blockNumber);
   async function nativePrice(token: Address) {
     if (token === zeroAddress || token.toLowerCase() === weth)
       return fraction(1n, 1n);
     const route = await client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
+      address: buybackModule!.address,
+      abi: ponsBuybackModuleAbi,
       functionName: "route",
       args: [token],
       blockNumber,

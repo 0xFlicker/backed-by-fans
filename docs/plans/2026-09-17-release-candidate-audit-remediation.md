@@ -1,6 +1,6 @@
 ---
 date: 2026-09-17
-status: draft
+status: operator-verification
 source_report: backed-by-fans-pashov-ai-audit-report-20260917-104827.md
 source_commit: 57826b7
 scope: contracts release candidate
@@ -536,6 +536,114 @@ bun run typecheck
 bun run test
 bun run build
 ```
+
+## Implementation and retained verification
+
+The working implementation removes the fixed executor and its selectors. The
+permanent vault now calls `IBuybackModule`; the initial `PonsBuybackModule` owns
+all strategy configuration. Generated bindings, keeper/admin/Safe tools,
+deployment verification and browser callers use the new module boundary.
+No production compatibility endpoint is retained.
+
+| Workstream | Implemented evidence |
+| --- | --- |
+| F1 | `Referrals.t.sol` covers rejected initial self-referrals, grant renewal, zero-gross contributions, and renewal after transfer to the locked referrer. Both accounting and membership invariant handlers exercise rejection. |
+| Module boundary | `BuybackModules.t.sol` covers delayed rotation, cancellation, interface/code commitments, alternate fixed-price authorization/encoding, irreversible freeze and retained processing/pause. Fault fuzzing checks atomic native/ERC-20 rollback for fabricated output, residual funds, supply mutation and reentrancy. |
+| F2 / L31 / L34 | Pons module tests reject an insufficient actual-spend rate and preserve absolute operator minima. `PonsGraduationForkTest.test_routerFinalFillAppliesRateToActualSpendAndDebitsBudget` passes against the pinned real Pons graph, including router maxInput, refund, budget, cooldown and closing lifecycle. |
+| F3 / L09 | All twelve 0/1/25/26 adapter cases pass. Measured cold 25-checkpoint gas: fixed renewal 3,264,002; contribution renewal 2,947,702; cancellation 3,251,569. Atomic failure and maintenance/retry preserve current-owner refund semantics. |
+| Integration | Module identity is checked before strategy interpretation. Safe governance payloads include code commitments, delays and irreversible-freeze consequences. Operator simulations retain their private RPC, and receipts reconcile against module revision. |
+| Documentation | Feature 005 adapter guidance, buyback interface/policy/architecture, integration guidance and whitepaper are updated. Historical audit reports and old evidence remain historical. The disposition register above classifies all F1–F3 and L01–L48, including rejected L24. |
+
+The final full web unit run passed 813 tests across 115 files, including the
+generated-selector regression and wallet-read changes; all 49 enabled
+pinned-mainnet-fork contract tests passed. The separately gated Robinhood
+testnet Safe test was not
+part of that mainnet-origin run. A disposable Safe governance rehearsal is
+provided in `web/scripts/module-governance-rehearsal.ts`; it restores its snapshot
+before manual fixtures are seeded.
+
+The complete contract run passed 604 tests (nine separately gated tests skipped).
+After the final settlement change, all 90 affected buyback/router tests passed,
+including the buyback invariants, and the 49 enabled pinned-fork tests passed
+again. Slither 0.11.6 passed `--fail-high` with zero high findings; the remaining
+40 medium, 61 low and 34 informational detector results are not a zero-warning
+claim. Narrow annotations cover the non-reentrant, balance-checked settlement,
+burn and wrapped-native call sites, rather than excluding a detector globally.
+
+Independent Grok review identified a wrapped-native/native accounting alias in
+the new settlement boundary. The fix always snapshots native custody and pins
+declared raw wrapped-native custody to its opening balance. The new regression
+covers both zero surplus and pre-existing unaccounted native surplus. A separate
+core/integration review and a follow-up of this fix returned no actionable
+findings. These were read-only reviews, not independent test executions.
+
+The deployment-wrapper matrix, generated-binding check, formatter, linter,
+production web build and typecheck passed. General browser acceptance passed 88
+tests before an obsolete no-testnet-deployment assertion was corrected; the
+entire 18-test homepage/brand suite then passed across desktop, tablet and phone.
+The local fork CLI's 17 lifecycle/guard tests passed. The authentic browser
+fixture now explicitly supplies the configured 0.1 gwei legacy gas price.
+
+Authentic browser follow-up also corrected a wallet-client query that could
+remain failed after switching from the wrong network. Wallet RPC reads now wait
+for the selected network, and the real wagmi/viem network-switch browser case
+passes. The 26 membership component tests, final typecheck, lint and formatting
+checks pass. Browser fixtures now respect self-referral rejection and automatic
+retirement rather than expecting obsolete positions or checkpoint state.
+
+Retained logs and reviews are under
+`artifacts/protocol-fork/rc-remediation-20260917-02/verification/`.
+The first fresh-fork preflight attempt is retained as run `-01`; it exposed an
+accidental rename of the external Pons `graduationExecutor` selector. Restoring
+that selector and adding the generated-ABI check allowed run `-02` to pass.
+Run `-02` verifies and retains the current linked runtime/dependency graph in
+`protocol-graph.json`. The Safe replacement/freeze rehearsal passes and restores
+its snapshot before manual fixtures are seeded.
+
+These working-tree results do not authorize public deployment or public Safe
+execution. The full clean-checkout verification of an exact candidate commit
+remains a release closure requirement; split working-tree checks do not replace
+that requirement. Operator handoff evidence follows.
+
+## Operator verification handoff
+
+Run `rc-remediation-20260917-02` is running for manual operator verification.
+The origin is Robinhood mainnet block 58,083,838; the disposable execution chain
+is 31337. No public transactions were sent.
+
+- Web: `http://localhost:3110/chains/31337/protocol`
+- Operator controls: `http://localhost:3110/chains/31337/tools/buybacks`
+- RPC: `http://127.0.0.1:18557`
+- First wallet: `0x467172992E0aBa58411d14eC8b174167B0e359a6`
+- Second wallet: `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027`
+
+Each wallet has four real local-fork memberships (three USDG and one WETH),
+1,000 USDG, 1 WETH and approximately 10 ETH remaining. Their combined first-month
+protocol allocation is 300 USDG plus 0.02 WETH, vesting over membership time.
+The second wallet is the configured operator and an owner of the threshold-one
+Safe. The module remains OperatorGuarded, revision 1, unpaused, with replacement
+unfrozen. Automated mutation tests and snapshot restores finished before this
+seed; manual review state is retained.
+
+All 64 authentic desktop browser cases have a passing retained result across
+the original run and focused reruns. `browser-acceptance.json` maps each case to
+its latest report; this is not a single uninterrupted green browser run.
+The Safe rehearsal retains nine successful receipts, four exact delay checks,
+six expected custom-error rejections, and verified restoration in
+`module-governance-rehearsal.json`.
+
+All nine deployment receipts succeeded. The largest exact signed transaction
+was 69,656 bytes and the largest receipt used 20,146,929 gas; see
+`deployment-measurements.json`. These are local rehearsal measurements.
+`operator-readiness.json` records actual wallet balances, all eight owners,
+Safe authority, mode, revision and module runtime commitment.
+`operator-browser.json` and `operator-*.png` retain the loaded live payment flow,
+fee balances, operator address and governance identity, with no page errors.
+`handoff-source.json` fingerprints the final uncommitted source tree.
+
+All handoff files are under
+`artifacts/protocol-fork/rc-remediation-20260917-02/`. Human operator approval
+and the clean-checkout candidate-commit gate remain outstanding.
 
 ## Release closure
 

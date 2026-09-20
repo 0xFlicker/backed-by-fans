@@ -16,6 +16,7 @@ import {
   iSafeAbi,
   membershipFactoryAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
 } from "../src/contracts";
 import { readAdminContext, validateAdminRpc } from "./protocol-admin";
 
@@ -36,6 +37,7 @@ type PreparedPayload = {
   refundReceiver: Hex;
   previousRevision?: string | null;
   expectedRevision?: string | null;
+  expectedModuleRevision?: string;
 };
 
 /// Local harness only. viem owns signing, simulation, submission and receipt/replacement handling.
@@ -75,20 +77,40 @@ export async function executeForkSafePayload(input: {
   )
     throw new Error("Stale or forbidden Safe payload");
   const registry = payload.to.toLowerCase() === context.factory.toLowerCase();
-  if (!registry && payload.to.toLowerCase() !== context.vault.toLowerCase())
+  const moduleTarget =
+    payload.to.toLowerCase() === context.activeModule.toLowerCase();
+  if (
+    !registry &&
+    !moduleTarget &&
+    payload.to.toLowerCase() !== context.vault.toLowerCase()
+  )
     throw new Error("Unrecognized Safe target");
   if (
     payload.targetCodeHash !==
-    (registry ? context.factoryCodeHash : context.vaultCodeHash)
+    (registry
+      ? context.factoryCodeHash
+      : moduleTarget
+        ? context.moduleCodeHash
+        : context.vaultCodeHash)
   )
     throw new Error("Target code changed");
-  const abi = registry ? membershipFactoryAbi : protocolBuybackVaultAbi;
+  const abi = registry
+    ? membershipFactoryAbi
+    : moduleTarget
+      ? ponsBuybackModuleAbi
+      : protocolBuybackVaultAbi;
   const decoded = decodeFunctionData({ abi, data: payload.data });
   if (
     !(
       registry
         ? ["setPaymentTokenEnabled", "setMinimumPayment"]
         : [
+            "proposeBuybackModule",
+            "cancelBuybackModule",
+            "activateBuybackModule",
+            "proposeModuleReplacementFreeze",
+            "cancelModuleReplacementFreeze",
+            "finalizeModuleReplacementFreeze",
             "setRoute",
             "setLimits",
             "setGlobalMinInterval",
@@ -107,8 +129,8 @@ export async function executeForkSafePayload(input: {
     decoded.functionName === "setPermissionlessPolicy"
   ) {
     const revision = await client.readContract({
-      address: context.vault,
-      abi: protocolBuybackVaultAbi,
+      address: context.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "revision",
       args: [decoded.args[0]],
       blockNumber: context.blockNumber,
@@ -119,6 +141,26 @@ export async function executeForkSafePayload(input: {
     )
       throw new Error("Stale configuration revision");
   }
+  const governance = [
+    "proposeBuybackModule",
+    "cancelBuybackModule",
+    "activateBuybackModule",
+    "proposeModuleReplacementFreeze",
+    "cancelModuleReplacementFreeze",
+    "finalizeModuleReplacementFreeze",
+  ].includes(decoded.functionName);
+  if (
+    governance &&
+    (
+      await client.readContract({
+        address: context.vault,
+        abi: protocolBuybackVaultAbi,
+        functionName: "moduleRevision",
+        blockNumber: context.blockNumber,
+      })
+    ).toString() !== payload.expectedModuleRevision
+  )
+    throw new Error("Stale module governance revision");
   const threshold = await client.readContract({
     address: context.safe,
     abi: iSafeAbi,
@@ -223,8 +265,8 @@ export async function executeForkSafePayload(input: {
     decoded.functionName === "setPermissionlessPolicy"
   ) {
     const revision = await client.readContract({
-      address: context.vault,
-      abi: protocolBuybackVaultAbi,
+      address: context.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "revision",
       args: [decoded.args[0]],
       blockNumber,
@@ -258,15 +300,15 @@ export async function executeForkSafePayload(input: {
   } else if (decoded.functionName === "setRoute") {
     const [asset] = decoded.args;
     const route = await client.readContract({
-      address: context.vault,
-      abi: protocolBuybackVaultAbi,
+      address: context.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "route",
       args: [asset],
       blockNumber,
     });
     if (
       encodeFunctionData({
-        abi: protocolBuybackVaultAbi,
+        abi: ponsBuybackModuleAbi,
         functionName: "setRoute",
         args: [asset, route],
       }) !== payload.data
@@ -275,15 +317,15 @@ export async function executeForkSafePayload(input: {
   } else if (decoded.functionName === "setLimits") {
     const [asset] = decoded.args;
     const limits = await client.readContract({
-      address: context.vault,
-      abi: protocolBuybackVaultAbi,
+      address: context.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "limits",
       args: [asset],
       blockNumber,
     });
     if (
       encodeFunctionData({
-        abi: protocolBuybackVaultAbi,
+        abi: ponsBuybackModuleAbi,
         functionName: "setLimits",
         args: [asset, limits],
       }) !== payload.data
@@ -291,8 +333,8 @@ export async function executeForkSafePayload(input: {
       throw new Error("Limits postcondition failed");
   } else if (decoded.functionName === "setOperator") {
     const operator = await client.readContract({
-      address: context.vault,
-      abi: protocolBuybackVaultAbi,
+      address: context.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "operator",
       blockNumber,
     });
@@ -300,8 +342,8 @@ export async function executeForkSafePayload(input: {
       throw new Error("Operator postcondition failed");
   } else if (decoded.functionName === "setExecutionMode") {
     const mode = await client.readContract({
-      address: context.vault,
-      abi: protocolBuybackVaultAbi,
+      address: context.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "executionMode",
       blockNumber,
     });
@@ -310,8 +352,8 @@ export async function executeForkSafePayload(input: {
   } else if (decoded.functionName === "setPermissionlessPolicy") {
     const [asset, , , , budget] = decoded.args;
     const policy = await client.readContract({
-      address: context.vault,
-      abi: protocolBuybackVaultAbi,
+      address: context.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "permissionlessPolicy",
       args: [asset],
       blockNumber,
@@ -320,7 +362,7 @@ export async function executeForkSafePayload(input: {
       policy.revision.toString() !== payload.expectedRevision ||
       policy.budgetLimited !== (budget !== 0n) ||
       encodeFunctionData({
-        abi: protocolBuybackVaultAbi,
+        abi: ponsBuybackModuleAbi,
         functionName: "setPermissionlessPolicy",
         args: [
           asset,
@@ -334,8 +376,8 @@ export async function executeForkSafePayload(input: {
       throw new Error("Permissionless policy postcondition failed");
   } else if (decoded.functionName === "setGlobalMinInterval") {
     const interval = await client.readContract({
-      address: context.vault,
-      abi: protocolBuybackVaultAbi,
+      address: context.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "globalMinInterval",
       blockNumber,
     });
@@ -354,8 +396,8 @@ export async function executeForkSafePayload(input: {
   } else if (decoded.functionName === "setAssetBuybacksPaused") {
     if (
       (await client.readContract({
-        address: context.vault,
-        abi: protocolBuybackVaultAbi,
+        address: context.activeModule,
+        abi: ponsBuybackModuleAbi,
         functionName: "assetBuybacksPaused",
         args: [decoded.args[0]],
         blockNumber,
@@ -363,6 +405,57 @@ export async function executeForkSafePayload(input: {
     )
       throw new Error("Asset pause postcondition failed");
   }
+  if (governance) {
+    const read = (
+      functionName:
+        | "moduleRevision"
+        | "moduleReplacementFrozen"
+        | "pendingModule"
+        | "moduleFreezeAt"
+        | "buybacksPaused",
+    ) =>
+      client.readContract({
+        address: context.vault,
+        abi: protocolBuybackVaultAbi,
+        functionName,
+        blockNumber,
+      });
+    if (
+      decoded.functionName === "proposeBuybackModule" &&
+      (await read("pendingModule")) !== decoded.args[0]
+    )
+      throw new Error("Module proposal postcondition failed");
+    if (
+      decoded.functionName === "cancelBuybackModule" &&
+      (await read("pendingModule")) !== zeroAddress
+    )
+      throw new Error("Module cancellation postcondition failed");
+    if (
+      decoded.functionName === "activateBuybackModule" &&
+      ((await read("moduleRevision")) !==
+        BigInt(payload.expectedModuleRevision!) + 1n ||
+        (await read("buybacksPaused")) !== true ||
+        (await read("pendingModule")) !== zeroAddress)
+    )
+      throw new Error("Module activation postcondition failed");
+    if (
+      decoded.functionName === "proposeModuleReplacementFreeze" &&
+      (await read("moduleFreezeAt")) === 0n
+    )
+      throw new Error("Freeze proposal postcondition failed");
+    if (
+      decoded.functionName === "cancelModuleReplacementFreeze" &&
+      (await read("moduleFreezeAt")) !== 0n
+    )
+      throw new Error("Freeze cancellation postcondition failed");
+    if (
+      decoded.functionName === "finalizeModuleReplacementFreeze" &&
+      ((await read("moduleReplacementFrozen")) !== true ||
+        (await read("buybacksPaused")) !== true)
+    )
+      throw new Error("Freeze finalization postcondition failed");
+  }
+
   return {
     hash,
     safeTransactionHash,

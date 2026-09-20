@@ -79,7 +79,21 @@ for (const kind of ["WETH", "protocol-token"] as const)
       const card = page
         .locator(".account-membership-card")
         .filter({ hasText: name });
-      await expect(card).toContainText("Membership active");
+      await expect(
+        card.getByRole("link", { name: `Membership #${tokenId}`, exact: true }),
+      ).toHaveAttribute(
+        "href",
+        `/chains/31337/tiers/${tier}?tokenId=${tokenId}`,
+      );
+      await expect(card.getByText(/^Expires /)).toBeVisible();
+      expect(
+        await f.client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "isActiveToken",
+          args: [tokenId],
+        }),
+      ).toBe(true);
       await expect(
         card.getByRole("link", { name: `View ${name}` }),
       ).toBeVisible();

@@ -56,7 +56,7 @@ test("@protocol-unbound memberships and fee collection work before token launch"
       await client.readContract({
         address: boot.buybackVault,
         abi: protocolBuybackVaultAbi,
-        functionName: "executor",
+        functionName: "activeModule",
       }),
     ).toBe(zeroAddress);
     for (const tier of demo.tiers) {

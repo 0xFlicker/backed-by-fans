@@ -5,17 +5,23 @@ import { publicActions, type PublicClient } from "viem";
 import { useConnectorClient } from "wagmi";
 
 import type { SupportedChainId } from "@/lib/chains";
+import { useHydratedAccount } from "@/lib/use-hydrated-account";
 
 export function useWalletPublicClient(chainId: SupportedChainId) {
-  const connectorClient = useConnectorClient({ chainId });
+  const account = useHydratedAccount();
+  const walletReady = account.isConnected && account.chainId === chainId;
+  const connectorClient = useConnectorClient({
+    chainId,
+    query: { enabled: walletReady },
+  });
 
   return useMemo(
     () =>
-      connectorClient.data
+      walletReady && connectorClient.data
         ? (connectorClient.data.extend(
             publicActions,
           ) as unknown as PublicClient)
         : undefined,
-    [connectorClient.data],
+    [connectorClient.data, walletReady],
   );
 }

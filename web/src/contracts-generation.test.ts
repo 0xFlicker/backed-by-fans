@@ -24,7 +24,7 @@ import {
   membershipFactoryAbi,
   membershipTierAbi,
   protocolBuybackVaultAbi,
-  ponsBuybackExecutorAbi,
+  ponsBuybackModuleAbi,
 } from "@/contracts";
 
 const temporaryProjects: string[] = [];
@@ -128,24 +128,28 @@ describe("generated MembershipFactory ABI", () => {
   });
 });
 
-it("generates executable vault and executor surfaces without a custody escape", () => {
+it("generates executable vault and activeModule surfaces without a custody escape", () => {
   const names = (abi: readonly { type: string; name?: string }[]) =>
     abi.filter((item) => item.type === "function").map((item) => item.name);
   expect(names(protocolBuybackVaultAbi)).toEqual(
     expect.arrayContaining([
       "process",
-      "processingStatus",
+      "moduleRevision",
+      "proposeBuybackModule",
+      "finalizeModuleReplacementFreeze",
       "inventory",
-      "executor",
+      "activeModule",
     ]),
   );
-  expect(names(ponsBuybackExecutorAbi)).toEqual(
+  expect(names(ponsBuybackModuleAbi)).toEqual(
     expect.arrayContaining([
       "execute",
       "lifecycle",
       "vault",
       "protocolToken",
       "curve",
+      "processingStatus",
+      "setPermissionlessPolicy",
     ]),
   );
   for (const name of [
@@ -153,7 +157,7 @@ it("generates executable vault and executor surfaces without a custody escape", 
     "rescue",
     "upgradeTo",
     "setProtocolToken",
-    "setExecutor",
+    "setModule",
   ])
     expect(names(protocolBuybackVaultAbi)).not.toContain(name);
 });

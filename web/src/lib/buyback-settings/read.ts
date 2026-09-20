@@ -1,3 +1,4 @@
+import { ponsExecutionData } from "../buyback-module";
 import { zeroAddress, type Address, type PublicClient } from "viem";
 import {
   membershipFactoryAbi,
@@ -146,8 +147,9 @@ export async function estimateAsset(
           asset.asset,
           bucket,
           eligibility.data.maxInput,
-          eligibility.data.revision,
+          snapshot.moduleRevision,
           snapshot.timestamp + 120n,
+          ponsExecutionData(eligibility.data.revision),
         ],
         account: snapshot.owners[0],
         blockNumber,

@@ -125,8 +125,8 @@ contract DeployForkProtocol is ProtocolDeployment {
         vm.serializeAddress(object, "burnRouter", result.factory.burnRouter());
         vm.serializeAddress(
             object,
-            "executorCodeStore",
-            ProtocolBuybackVault(payable(result.factory.buybackVault())).executorCreationCodeStore()
+            "activeModuleCodeStore",
+            ProtocolBuybackVault(payable(result.factory.buybackVault())).moduleCreationCodeStore()
         );
         vm.serializeAddress(object, "buybackVault", result.factory.buybackVault());
         vm.serializeAddress(object, "mediaStoreFactory", address(result.mediaStoreFactory));

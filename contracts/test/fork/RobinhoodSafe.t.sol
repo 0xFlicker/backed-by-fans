@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {PonsBuybackModule} from "../../src/PonsBuybackModule.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {ForkTierCodeFixture} from "./helpers/ForkTierCodeFixture.sol";
 
@@ -291,42 +292,65 @@ contract ProtocolSafeForkTest is PonsForkFixture {
             PoolKey(Currency.wrap(address(0)), Currency.wrap(USDG), 100, 1, IHooks(address(0)));
         assertTrue(
             _execute(
-                safe, address(bbfVault), abi.encodeCall(bbfVault.setRoute, (AMD, path)), 0xA000
-            )
-        );
-        assertEq(bbfVault.revision(AMD), 1);
-        BuybackTypes.ExecutionLimits memory terms = BuybackTypes.ExecutionLimits(1, 1e14, 60);
-        assertTrue(
-            _execute(
-                safe, address(bbfVault), abi.encodeCall(bbfVault.setLimits, (AMD, terms)), 0xA000
-            )
-        );
-        assertEq(bbfVault.revision(AMD), 2);
-        assertEq(bbfVault.limits(AMD).maxInput, 1e14);
-        terms.minInput = terms.maxInput + 1;
-        assertFalse(
-            _execute(
-                safe, address(bbfVault), abi.encodeCall(bbfVault.setLimits, (AMD, terms)), 0xA000
-            )
-        );
-        assertEq(bbfVault.revision(AMD), 2);
-        path.pools[0].hooks = IHooks(PONS.memeHook());
-        assertFalse(
-            _execute(
-                safe, address(bbfVault), abi.encodeCall(bbfVault.setRoute, (AMD, path)), 0xA000
-            )
-        );
-        assertEq(bbfVault.revision(AMD), 2);
-        assertTrue(
-            _execute(
                 safe,
-                address(bbfVault),
-                abi.encodeCall(bbfVault.setAssetBuybacksPaused, (AMD, true)),
+                bbfVault.activeModule(),
+                abi.encodeCall(
+                    PonsBuybackModule(payable(bbfVault.activeModule())).setRoute, (AMD, path)
+                ),
                 0xA000
             )
         );
-        assertTrue(bbfVault.assetBuybacksPaused(AMD));
-        assertEq(bbfVault.limits(AMD).maxInput, 1e14);
+        assertEq(PonsBuybackModule(payable(bbfVault.activeModule())).revision(AMD), 1);
+        BuybackTypes.ExecutionLimits memory terms = BuybackTypes.ExecutionLimits(1, 1e14, 60);
+        assertTrue(
+            _execute(
+                safe,
+                bbfVault.activeModule(),
+                abi.encodeCall(
+                    PonsBuybackModule(payable(bbfVault.activeModule())).setLimits, (AMD, terms)
+                ),
+                0xA000
+            )
+        );
+        assertEq(PonsBuybackModule(payable(bbfVault.activeModule())).revision(AMD), 2);
+        assertEq(PonsBuybackModule(payable(bbfVault.activeModule())).limits(AMD).maxInput, 1e14);
+        terms.minInput = terms.maxInput + 1;
+        assertFalse(
+            _execute(
+                safe,
+                bbfVault.activeModule(),
+                abi.encodeCall(
+                    PonsBuybackModule(payable(bbfVault.activeModule())).setLimits, (AMD, terms)
+                ),
+                0xA000
+            )
+        );
+        assertEq(PonsBuybackModule(payable(bbfVault.activeModule())).revision(AMD), 2);
+        path.pools[0].hooks = IHooks(PONS.memeHook());
+        assertFalse(
+            _execute(
+                safe,
+                bbfVault.activeModule(),
+                abi.encodeCall(
+                    PonsBuybackModule(payable(bbfVault.activeModule())).setRoute, (AMD, path)
+                ),
+                0xA000
+            )
+        );
+        assertEq(PonsBuybackModule(payable(bbfVault.activeModule())).revision(AMD), 2);
+        assertTrue(
+            _execute(
+                safe,
+                bbfVault.activeModule(),
+                abi.encodeCall(
+                    PonsBuybackModule(payable(bbfVault.activeModule())).setAssetBuybacksPaused,
+                    (AMD, true)
+                ),
+                0xA000
+            )
+        );
+        assertTrue(PonsBuybackModule(payable(bbfVault.activeModule())).assetBuybacksPaused(AMD));
+        assertEq(PonsBuybackModule(payable(bbfVault.activeModule())).limits(AMD).maxInput, 1e14);
     }
 
     function _createSafe(uint256 keyBase, uint256 salt) private returns (ISafe) {

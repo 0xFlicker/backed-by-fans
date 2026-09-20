@@ -75,6 +75,12 @@ contract AccountingHandler is Test {
             referralSeed
         );
         _settle();
+        if (choice == actor) {
+            vm.expectRevert(MembershipTier.SelfReferralNotAllowed.selector);
+            vm.prank(actor);
+            tier.createMembership(periods, choice, 25);
+            return;
+        }
         vm.prank(actor);
         uint256 id = tier.createMembership(periods, choice, 25);
         _owners[id] = actor;

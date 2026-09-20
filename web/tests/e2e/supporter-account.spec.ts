@@ -259,7 +259,7 @@ test("@anvil pages 101 positions and nine tiers, refreshes transferred positions
             address: entry.tier,
             abi: membershipTierAbi,
             functionName: "createMembership",
-            args: [1n, member, 25n],
+            args: [1n, zeroAddress, 25n],
           }),
         );
     }

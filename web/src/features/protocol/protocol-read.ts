@@ -1,3 +1,4 @@
+import { readPonsModule } from "@/lib/buyback-module";
 import {
   erc20Abi,
   getAddress,
@@ -11,7 +12,7 @@ import {
   onchainMetadataRendererAbi,
   membershipFactoryAbi,
   protocolBuybackVaultAbi,
-  ponsBuybackExecutorAbi,
+  ponsBuybackModuleAbi,
   iSafeAbi,
 } from "@/contracts";
 import { readTokenDisplay } from "@/lib/payment-token-read";
@@ -173,7 +174,7 @@ export async function readProtocolDependencies(
     const failedChecks: string[] = [];
     // A historical fee-recipient factory must never authenticate tiers for the
     // current custody model. These immutable reciprocal bindings identify it.
-    const [vaultFactory, vaultToken, executor] = await Promise.all([
+    const [vaultFactory, vaultToken, activeModule] = await Promise.all([
       client.readContract({
         address: vault,
         abi: protocolBuybackVaultAbi,
@@ -189,35 +190,35 @@ export async function readProtocolDependencies(
       client.readContract({
         address: vault,
         abi: protocolBuybackVaultAbi,
-        functionName: "executor",
+        functionName: "activeModule",
         blockNumber: capturedBlock,
       }),
     ]);
-    const [executorVault, executorToken] =
-      executor === zeroAddress
+    const [activeModuleVault, activeModuleToken] =
+      activeModule === zeroAddress
         ? [zeroAddress, zeroAddress]
         : await Promise.all([
             client.readContract({
-              address: executor,
-              abi: ponsBuybackExecutorAbi,
+              address: activeModule,
+              abi: ponsBuybackModuleAbi,
               functionName: "vault",
               blockNumber: capturedBlock,
             }),
             client.readContract({
-              address: executor,
-              abi: ponsBuybackExecutorAbi,
+              address: activeModule,
+              abi: ponsBuybackModuleAbi,
               functionName: "protocolToken",
               blockNumber: capturedBlock,
             }),
           ]);
     if (
       vault === zeroAddress ||
-      (protocolToken === zeroAddress) !== (executor === zeroAddress) ||
+      (protocolToken === zeroAddress) !== (activeModule === zeroAddress) ||
       getAddress(vaultFactory) !== getAddress(deployment.factoryAddress) ||
       getAddress(vaultToken) !== getAddress(protocolToken) ||
-      (executor !== zeroAddress &&
-        getAddress(executorVault) !== getAddress(vault)) ||
-      getAddress(executorToken) !== getAddress(protocolToken)
+      (activeModule !== zeroAddress &&
+        getAddress(activeModuleVault) !== getAddress(vault)) ||
+      getAddress(activeModuleToken) !== getAddress(protocolToken)
     )
       failedChecks.push("buyback protocol version and immutable custody");
     if (rendererSchema !== membershipRendererSchema) {
@@ -442,6 +443,9 @@ export async function readBuybackAsset(
   asset: Address,
   blockNumber: bigint,
 ) {
+  const buybackModule = await readPonsModule(client, vault, blockNumber).catch(
+    () => undefined,
+  );
   const [
     membership,
     donation,
@@ -466,58 +470,79 @@ export async function readBuybackAsset(
       args: [asset, 1],
       blockNumber,
     }),
-    client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "route",
-      args: [asset],
-      blockNumber,
-    }),
-    client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "limits",
-      args: [asset],
-      blockNumber,
-    }),
-    client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "revision",
-      args: [asset],
-      blockNumber,
-    }),
-    client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "assetBuybacksPaused",
-      args: [asset],
-      blockNumber,
-    }),
-    client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "lastAssetBuyAt",
-      args: [asset],
-      blockNumber,
-    }),
-    client.readContract({
-      address: vault,
-      abi: protocolBuybackVaultAbi,
-      functionName: "permissionlessPolicy",
-      args: [asset],
-      blockNumber,
-    }),
+    buybackModule
+      ? client.readContract({
+          address: buybackModule!.address,
+          abi: ponsBuybackModuleAbi,
+          functionName: "route",
+          args: [asset],
+          blockNumber,
+        })
+      : Promise.resolve({ pools: [] }),
+    buybackModule
+      ? client.readContract({
+          address: buybackModule!.address,
+          abi: ponsBuybackModuleAbi,
+          functionName: "limits",
+          args: [asset],
+          blockNumber,
+        })
+      : Promise.resolve({ minInput: 0n, maxInput: 0n, minInterval: 0n }),
+    buybackModule
+      ? client.readContract({
+          address: buybackModule!.address,
+          abi: ponsBuybackModuleAbi,
+          functionName: "revision",
+          args: [asset],
+          blockNumber,
+        })
+      : Promise.resolve(0n),
+    buybackModule
+      ? client.readContract({
+          address: buybackModule!.address,
+          abi: ponsBuybackModuleAbi,
+          functionName: "assetBuybacksPaused",
+          args: [asset],
+          blockNumber,
+        })
+      : Promise.resolve(false),
+    buybackModule
+      ? client.readContract({
+          address: buybackModule!.address,
+          abi: ponsBuybackModuleAbi,
+          functionName: "lastAssetBuyAt",
+          args: [asset],
+          blockNumber,
+        })
+      : Promise.resolve(0n),
+    buybackModule
+      ? client.readContract({
+          address: buybackModule!.address,
+          abi: ponsBuybackModuleAbi,
+          functionName: "permissionlessPolicy",
+          args: [asset],
+          blockNumber,
+        })
+      : Promise.resolve({
+          lifecycle: 0,
+          revision: 0n,
+          expiresAt: 0n,
+          budgetLimited: false,
+          remainingBudget: 0n,
+          rates: [],
+        }),
   ]);
   const eligibility = await Promise.allSettled(
     ([0, 1] as const).map((bucket) =>
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "processingStatus",
-        args: [asset, bucket],
-        blockNumber,
-      }),
+      buybackModule
+        ? client.readContract({
+            address: buybackModule.address,
+            abi: ponsBuybackModuleAbi,
+            functionName: "processingStatus",
+            args: [asset, bucket],
+            blockNumber,
+          })
+        : Promise.reject(new Error("Buyback module interface unavailable")),
     ),
   );
   const metadata =
@@ -613,7 +638,7 @@ export async function readPublicBuybacks(
     const [
       vaultFactory,
       vaultToken,
-      executor,
+      activeModule,
       buybacksPaused,
       owners,
       threshold,
@@ -633,7 +658,7 @@ export async function readPublicBuybacks(
       client.readContract({
         address: vault,
         abi: protocolBuybackVaultAbi,
-        functionName: "executor",
+        functionName: "activeModule",
         blockNumber,
       }),
       client.readContract({
@@ -655,33 +680,37 @@ export async function readPublicBuybacks(
         blockNumber,
       }),
     ]);
-    const [executorVault, executorToken] =
-      executor === zeroAddress
+    const [activeModuleVault, activeModuleToken] =
+      activeModule === zeroAddress
         ? [zeroAddress, zeroAddress]
         : await Promise.all([
             client.readContract({
-              address: executor,
-              abi: ponsBuybackExecutorAbi,
+              address: activeModule,
+              abi: ponsBuybackModuleAbi,
               functionName: "vault",
               blockNumber,
             }),
             client.readContract({
-              address: executor,
-              abi: ponsBuybackExecutorAbi,
+              address: activeModule,
+              abi: ponsBuybackModuleAbi,
               functionName: "protocolToken",
               blockNumber,
             }),
           ]);
     if (
       vault === zeroAddress ||
-      (protocolToken === zeroAddress) !== (executor === zeroAddress) ||
+      (protocolToken === zeroAddress) !== (activeModule === zeroAddress) ||
       getAddress(vaultFactory) !== getAddress(factory) ||
       getAddress(vaultToken) !== getAddress(protocolToken) ||
-      (executor !== zeroAddress &&
-        getAddress(executorVault) !== getAddress(vault)) ||
-      getAddress(executorToken) !== getAddress(protocolToken)
+      (activeModule !== zeroAddress &&
+        getAddress(activeModuleVault) !== getAddress(vault)) ||
+      getAddress(activeModuleToken) !== getAddress(protocolToken)
     )
       throw new Error("Immutable buyback identity mismatch");
+    const buybackModule =
+      protocolToken === zeroAddress
+        ? undefined
+        : await readPonsModule(client, vault, blockNumber);
     const [
       executionMode,
       operator,
@@ -689,18 +718,22 @@ export async function readPublicBuybacks(
       globalMinInterval,
       lastBuyAt,
     ] = await Promise.all([
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "executionMode",
-        blockNumber,
-      }),
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "operator",
-        blockNumber,
-      }),
+      buybackModule
+        ? client.readContract({
+            address: activeModule,
+            abi: ponsBuybackModuleAbi,
+            functionName: "executionMode",
+            blockNumber,
+          })
+        : Promise.resolve(0),
+      buybackModule
+        ? client.readContract({
+            address: activeModule,
+            abi: ponsBuybackModuleAbi,
+            functionName: "operator",
+            blockNumber,
+          })
+        : Promise.resolve(zeroAddress),
 
       Promise.all(
         [zeroAddress, protocolToken, ...paymentTokens].map((asset) =>
@@ -713,18 +746,22 @@ export async function readPublicBuybacks(
           }),
         ),
       ),
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "globalMinInterval",
-        blockNumber,
-      }),
-      client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
-        functionName: "lastBuyAt",
-        blockNumber,
-      }),
+      buybackModule
+        ? client.readContract({
+            address: activeModule,
+            abi: ponsBuybackModuleAbi,
+            functionName: "globalMinInterval",
+            blockNumber,
+          })
+        : Promise.resolve(0n),
+      buybackModule
+        ? client.readContract({
+            address: activeModule,
+            abi: ponsBuybackModuleAbi,
+            functionName: "lastBuyAt",
+            blockNumber,
+          })
+        : Promise.resolve(0n),
     ]);
     const assetMap = new Map(
       canonicalAssets.map((asset) => [asset.toLowerCase(), asset]),
@@ -764,7 +801,10 @@ export async function readPublicBuybacks(
         owners,
         threshold,
         vault,
-        executor,
+        activeModule,
+        moduleRevision: buybackModule?.revision ?? 0n,
+        moduleCodeHash:
+          buybackModule?.codeHash ?? (`0x${"0".repeat(64)}` as `0x${string}`),
         protocolToken,
         tierCount,
         buybacksPaused,

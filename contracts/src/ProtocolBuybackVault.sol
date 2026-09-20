@@ -1,98 +1,75 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
-
+import {ImmutableCodeStore} from "./ImmutableCodeStore.sol";
+import {IWrappedEther, PonsBuybackModule} from "./PonsBuybackModule.sol";
+import {IBuybackModule} from "./interfaces/IBuybackModule.sol";
+import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
+import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
+import {IProtocolBuybackVault} from "./interfaces/IProtocolBuybackVault.sol";
+import {BuybackIntegration} from "./libraries/BuybackIntegration.sol";
+import {BuybackTypes} from "./types/BuybackTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import {ImmutableCodeStore} from "./ImmutableCodeStore.sol";
-import {IWrappedEther, PonsBuybackExecutor} from "./PonsBuybackExecutor.sol";
-import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
-import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
-import {IPonsBuybackExecutor} from "./interfaces/IPonsBuybackExecutor.sol";
-import {IProtocolBuybackVault} from "./interfaces/IProtocolBuybackVault.sol";
-import {IPonsBondingCurve, IPonsLauncherToken} from "./interfaces/external/IPons.sol";
-import {BuybackIntegration} from "./libraries/BuybackIntegration.sol";
-import {BuybackTypes} from "./types/BuybackTypes.sol";
-import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
-import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
-import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
-import {PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
-import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+interface IBurnableProtocolToken {
+    function burn(uint256 amount) external;
+}
 
-/// @notice Dedicated fee custody with separate earned-membership and donation accounting.
-/// @dev The factory creates this vault once. There is no owner, withdrawal, upgrade or generic call.
+/// @notice Permanent custody, source accounting and mandatory burn settlement.
+/// @dev Strategy modules have economic authority, never delegatecall or custody authority.
 contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
     using SafeERC20 for IERC20;
-
-    struct MarketTerms {
-        BuybackTypes.TypedRoute route;
-        uint256[] minimumOutputs;
-        BuybackTypes.OutputRate[] rates;
-        bool permissionless;
-    }
-
-    struct ProcessRequest {
-        address asset;
-        BuybackTypes.SourceBucket bucket;
-        uint256 amountIn;
-        uint64 deadline;
-        uint256 sequence;
-    }
+    uint256 public constant MODULE_REPLACEMENT_DELAY = 48 hours;
+    uint256 public constant MODULE_FREEZE_DELAY = 7 days;
+    address public immutable override factory;
+    address public override protocolToken;
+    address public override activeModule;
+    bytes32 public override activeModuleCodeHash;
+    uint64 public override moduleRevision;
+    address public immutable moduleCreationCodeStore;
+    uint256 public immutable moduleCreationCodeLength;
+    bytes32 public immutable moduleCreationCodeHash;
+    uint256 public override settlementSequence;
+    bool public override buybacksPaused = true;
+    bool public override moduleReplacementFrozen;
+    address public pendingModule;
+    bytes32 public pendingModuleCodeHash;
+    uint256 public moduleActivationAt;
+    address public freezeModule;
+    bytes32 public freezeModuleCodeHash;
+    uint256 public moduleFreezeAt;
 
     struct SettlementSnapshot {
         address[] assets;
         uint256[] expected;
+        uint256[] moduleBalances;
         uint256 count;
         uint256 supply;
+        uint256 wrappedBalance;
     }
-    address public immutable override factory;
-    address public override protocolToken;
-    address public override executor;
-    address public immutable executorCreationCodeStore;
-    uint256 public immutable executorCreationCodeLength;
-    bytes32 public immutable executorCreationCodeHash;
-    uint256 public override settlementSequence;
-    bool public override buybacksPaused = true;
-    BuybackTypes.ExecutionMode public override executionMode;
-    address public override operator;
-    mapping(address asset => BuybackTypes.PermissionlessPolicy) private _policies;
-    mapping(address asset => bool) private _assetBuybacksPaused;
-    mapping(address asset => uint64) private _revision;
-    mapping(address asset => bool) private _hasRoute;
-    mapping(address asset => BuybackTypes.TypedRoute) private _routes;
-    mapping(address asset => BuybackTypes.ExecutionLimits) private _limits;
-    uint64 public override globalMinInterval;
-    uint64 public override lastBuyAt;
-    mapping(address asset => uint64) private _lastAssetBuyAt;
-
-    mapping(
-        address asset => mapping(BuybackTypes.SourceBucket bucket => BuybackTypes.Inventory)
-    ) private _inventory;
-
-    error OnlyOperator();
-    error InvalidPolicy();
-    error ExecutorCreationCodeCorrupted();
-    error ExecutorDeploymentFailed();
+    mapping(address => mapping(BuybackTypes.SourceBucket => BuybackTypes.Inventory)) private
+        _inventory;
+    error OnlyProtocolAuthority();
+    error InvalidModule();
+    error ModuleReplacementFrozen();
+    error PendingGovernanceAction();
+    error DelayNotElapsed();
+    error BuybacksMustBePaused();
+    error BuybacksArePaused();
+    error StaleRevision();
+    error DeadlineExpired();
+    error InvalidAmount();
+    error ModuleCreationCodeCorrupted();
+    error ModuleDeploymentFailed();
     error ProtocolTokenAlreadyBound();
-    error ProtocolTokenNotLaunched();
     error InvalidAddress();
     error InvalidAsset();
     error OnlyFactoryDeployment();
     error OnlyRegisteredTier();
     error InsufficientBacking();
     error ZeroAmount();
-    error OnlyProtocolAuthority();
-    error InvalidRoute();
-    error InvalidLimits();
-    error ProcessingUnavailable(BuybackTypes.Status status);
-    error StaleRevision();
-    error InvalidAmount();
-    error DeadlineExpired();
     error InexactSettlement();
-
     modifier onlyProtocolAuthority() {
         if (msg.sender != IMembershipFactory(factory).owner()) revert OnlyProtocolAuthority();
         _;
@@ -100,17 +77,16 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
 
     constructor(address factory_, address protocolToken_) {
         if (factory_ == address(0)) revert InvalidAddress();
-        // The factory is still constructing, so checking its runtime length here is incorrect.
         if (msg.sender != factory_) revert OnlyFactoryDeployment();
         factory = factory_;
-        bytes memory creationCode = type(PonsBuybackExecutor).creationCode;
-        executorCreationCodeStore = address(new ImmutableCodeStore(creationCode));
-        executorCreationCodeLength = creationCode.length;
-        executorCreationCodeHash = keccak256(creationCode);
+        bytes memory creationCode = type(PonsBuybackModule).creationCode;
+        moduleCreationCodeStore = address(new ImmutableCodeStore(creationCode));
+        moduleCreationCodeLength = creationCode.length;
+        moduleCreationCodeHash = keccak256(creationCode);
         if (protocolToken_ != address(0)) _bindProtocolToken(protocolToken_);
     }
+    receive() external payable {}
 
-    /// @inheritdoc IProtocolBuybackVault
     function bindProtocolToken(address token) external override nonReentrant {
         if (msg.sender != factory) revert OnlyFactoryDeployment();
         _bindProtocolToken(token);
@@ -120,17 +96,240 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         if (protocolToken != address(0)) revert ProtocolTokenAlreadyBound();
         if (token == address(0)) revert InvalidAddress();
         if (token.code.length == 0) revert InvalidAsset();
-        // Constructor validation must succeed before either binding becomes visible.
-        address deployedExecutor = _deployExecutor(token);
         protocolToken = token;
-        executor = deployedExecutor;
-        emit ProtocolTokenBound(token, deployedExecutor);
+        address initialModule = _deployModule(token);
+        _validateModule(initialModule, initialModule.codehash);
+        activeModule = initialModule;
+        activeModuleCodeHash = initialModule.codehash;
+        moduleRevision = 1;
+        emit ProtocolTokenBound(token, initialModule);
+        emit BuybackModuleActivated(initialModule, activeModuleCodeHash, 1);
     }
 
-    /// @dev Keep creation code out of vault runtime, matching the tier deployer's code-store pattern.
-    function _deployExecutor(address token) private returns (address deployed) {
-        address store = executorCreationCodeStore;
-        uint256 length = executorCreationCodeLength;
+    function _validateModule(address candidate, bytes32 expectedHash) private view {
+        if (candidate.code.length == 0 || candidate.codehash != expectedHash) {
+            revert InvalidModule();
+        }
+        IBuybackModule module = IBuybackModule(candidate);
+        if (
+            module.vault() != address(this) || module.protocolToken() != protocolToken
+                || module.interfaceVersion() != 1 || module.moduleId() == bytes32(0)
+                || module.moduleVersion() == 0
+        ) revert InvalidModule();
+    }
+
+    function proposeBuybackModule(address candidate)
+        external
+        override
+        onlyProtocolAuthority
+        nonReentrant
+    {
+        if (moduleReplacementFrozen) revert ModuleReplacementFrozen();
+        if (moduleFreezeAt != 0) revert PendingGovernanceAction();
+        if (protocolToken == address(0)) revert InvalidModule();
+        _validateModule(candidate, candidate.codehash);
+        pendingModule = candidate;
+        pendingModuleCodeHash = candidate.codehash;
+        moduleActivationAt = block.timestamp + MODULE_REPLACEMENT_DELAY;
+        emit BuybackModuleProposed(candidate, pendingModuleCodeHash, moduleActivationAt);
+    }
+
+    function cancelBuybackModule() external override onlyProtocolAuthority nonReentrant {
+        if (moduleReplacementFrozen) revert ModuleReplacementFrozen();
+        delete pendingModule;
+        delete pendingModuleCodeHash;
+        delete moduleActivationAt;
+        emit BuybackModuleCancelled();
+    }
+
+    // Governance delays and execution eligibility intentionally use chain time.
+    // forge-lint: disable-next-item(block-timestamp)
+    function activateBuybackModule() external override onlyProtocolAuthority nonReentrant {
+        if (moduleReplacementFrozen) revert ModuleReplacementFrozen();
+        if (!buybacksPaused) revert BuybacksMustBePaused();
+        if (pendingModule == address(0) || block.timestamp < moduleActivationAt) {
+            revert DelayNotElapsed();
+        }
+        _validateModule(pendingModule, pendingModuleCodeHash);
+        activeModule = pendingModule;
+        activeModuleCodeHash = pendingModuleCodeHash;
+        ++moduleRevision;
+        delete pendingModule;
+        delete pendingModuleCodeHash;
+        delete moduleActivationAt;
+        emit BuybackModuleActivated(activeModule, activeModuleCodeHash, moduleRevision);
+    }
+
+    function proposeModuleReplacementFreeze() external override onlyProtocolAuthority nonReentrant {
+        if (moduleReplacementFrozen) revert ModuleReplacementFrozen();
+        if (pendingModule != address(0)) revert PendingGovernanceAction();
+        _validateModule(activeModule, activeModuleCodeHash);
+        freezeModule = activeModule;
+        freezeModuleCodeHash = activeModuleCodeHash;
+        moduleFreezeAt = block.timestamp + MODULE_FREEZE_DELAY;
+        emit ModuleReplacementFreezeProposed(freezeModule, freezeModuleCodeHash, moduleFreezeAt);
+    }
+
+    function cancelModuleReplacementFreeze() external override onlyProtocolAuthority nonReentrant {
+        if (moduleReplacementFrozen) revert ModuleReplacementFrozen();
+        delete freezeModule;
+        delete freezeModuleCodeHash;
+        delete moduleFreezeAt;
+        emit ModuleReplacementFreezeCancelled();
+    }
+
+    // Governance delays and execution eligibility intentionally use chain time.
+    // forge-lint: disable-next-item(block-timestamp)
+    function finalizeModuleReplacementFreeze()
+        external
+        override
+        onlyProtocolAuthority
+        nonReentrant
+    {
+        if (moduleReplacementFrozen) revert ModuleReplacementFrozen();
+        if (!buybacksPaused) revert BuybacksMustBePaused();
+        if (pendingModule != address(0)) revert PendingGovernanceAction();
+        if (moduleFreezeAt == 0 || block.timestamp < moduleFreezeAt) revert DelayNotElapsed();
+        if (activeModule != freezeModule || activeModuleCodeHash != freezeModuleCodeHash) {
+            revert InvalidModule();
+        }
+        _validateModule(activeModule, freezeModuleCodeHash);
+        moduleReplacementFrozen = true;
+        delete freezeModule;
+        delete freezeModuleCodeHash;
+        delete moduleFreezeAt;
+        emit ModuleReplacementFinalized(activeModule, activeModuleCodeHash, moduleRevision);
+    }
+
+    // Governance delays and execution eligibility intentionally use chain time.
+    // forge-lint: disable-next-item(block-timestamp)
+    function process(
+        address asset,
+        BuybackTypes.SourceBucket bucket,
+        uint256 amountIn,
+        uint64 expectedModuleRevision,
+        uint64 deadline,
+        bytes calldata data
+    ) external override nonReentrant {
+        asset = canonicalAsset(asset);
+        if (buybacksPaused) revert BuybacksArePaused();
+        if (deadline < block.timestamp) revert DeadlineExpired();
+        _validateModule(activeModule, activeModuleCodeHash);
+        if (expectedModuleRevision != moduleRevision) revert StaleRevision();
+        if (amountIn == 0 || amountIn > _inventory[asset][bucket].available) {
+            revert InvalidAmount();
+        }
+        uint256 sequence = ++settlementSequence;
+        if (asset == protocolToken) {
+            _burn(bucket, amountIn);
+            emit DirectBurned(sequence, bucket, asset, amountIn);
+            return;
+        }
+        _settle(asset, bucket, amountIn, deadline, data, sequence);
+    }
+
+    // Only nonReentrant process() reaches settlement. The recipient is the
+    // delayed, authority-selected module whose runtime/bindings were checked.
+    // Before/after balances are intentional postconditions, not stale quotes;
+    // callbacks cannot mutate custody, governance or settlement state.
+    // slither-disable-next-line arbitrary-send-eth,reentrancy-eth,reentrancy-balance
+    function _settle(
+        address asset,
+        BuybackTypes.SourceBucket bucket,
+        uint256 amountIn,
+        uint64 deadline,
+        bytes calldata data,
+        uint256 sequence
+    ) private {
+        SettlementSnapshot memory snapshot = _snapshotAssets(asset, data);
+        if (asset != address(0)) {
+            IERC20(asset).safeTransfer(activeModule, amountIn);
+            if (
+                _balance(asset) != snapshot.expected[0] - amountIn
+                    || _moduleBalance(asset) != snapshot.moduleBalances[0] + amountIn
+            ) revert InexactSettlement();
+        }
+        IBuybackModule.Result memory result = IBuybackModule(activeModule)
+        .execute{value: asset == address(0) ? amountIn : 0}(
+            msg.sender, asset, bucket, amountIn, deadline, data
+        );
+        if (
+            activeModule.codehash != activeModuleCodeHash || result.legs.length == 0
+                || result.legs[0].input != asset
+        ) revert InexactSettlement();
+        uint256 closingInput = _balance(asset);
+        if (closingInput >= snapshot.expected[0]) revert InexactSettlement();
+        uint256 spent = snapshot.expected[0] - closingInput;
+        uint256 tokenIndex = _assetIndex(snapshot, protocolToken);
+        uint256 closingToken = _balance(protocolToken);
+        if (closingToken <= snapshot.expected[tokenIndex]) revert InexactSettlement();
+        uint256 acquired = closingToken - snapshot.expected[tokenIndex];
+        if (
+            spent > amountIn || result.legs[0].spent != spent || result.acquired != acquired
+                || IERC20(protocolToken).totalSupply() != snapshot.supply
+        ) revert InexactSettlement();
+        _bookLegs(bucket, result.legs, snapshot, sequence, moduleRevision);
+        _burn(bucket, acquired);
+        snapshot.expected[tokenIndex] -= acquired;
+        for (uint256 i; i < snapshot.count; ++i) {
+            if (
+                _balance(snapshot.assets[i]) != snapshot.expected[i]
+                    || (snapshot.assets[i] == BuybackIntegration.WETH
+                        && snapshot.expected[i] != snapshot.wrappedBalance)
+                    || _balance(snapshot.assets[i]) < _accounted(snapshot.assets[i])
+                    || _moduleBalance(snapshot.assets[i]) != snapshot.moduleBalances[i]
+            ) revert InexactSettlement();
+        }
+        emit BuybackBurned(sequence, bucket, asset, spent, acquired, result.context, moduleRevision);
+    }
+
+    function _assetIndex(SettlementSnapshot memory snapshot, address asset)
+        private
+        pure
+        returns (uint256)
+    {
+        for (uint256 i; i < snapshot.count; ++i) {
+            if (snapshot.assets[i] == asset) return i;
+        }
+        revert InexactSettlement();
+    }
+
+    function _snapshotAssets(address asset, bytes calldata data)
+        private
+        view
+        returns (SettlementSnapshot memory snapshot)
+    {
+        address[] memory tracked = IBuybackModule(activeModule).trackedAssets(asset, data);
+        snapshot.assets = new address[](tracked.length + 3);
+        snapshot.expected = new uint256[](snapshot.assets.length);
+        snapshot.moduleBalances = new uint256[](snapshot.assets.length);
+        snapshot.count = _snapshot(snapshot.assets, snapshot.expected, 0, asset);
+        snapshot.count =
+            _snapshot(snapshot.assets, snapshot.expected, snapshot.count, protocolToken);
+        // WETH legs share the native inventory key. Always measure that key,
+        // and require wrapped custody to remain unchanged: modules must unwrap
+        // any new WETH before returning it, even when native surplus exists.
+        snapshot.count = _snapshot(snapshot.assets, snapshot.expected, snapshot.count, address(0));
+        for (uint256 i; i < tracked.length; ++i) {
+            snapshot.count =
+                _snapshot(snapshot.assets, snapshot.expected, snapshot.count, tracked[i]);
+        }
+        for (uint256 i; i < snapshot.count; ++i) {
+            snapshot.moduleBalances[i] = _moduleBalance(snapshot.assets[i]);
+            if (snapshot.assets[i] == BuybackIntegration.WETH) {
+                snapshot.wrappedBalance = snapshot.expected[i];
+            }
+        }
+        snapshot.supply = IERC20(protocolToken).totalSupply();
+    }
+
+    function _moduleBalance(address asset) private view returns (uint256) {
+        return asset == address(0) ? activeModule.balance : IERC20(asset).balanceOf(activeModule);
+    }
+
+    function _deployModule(address token) private returns (address deployed) {
+        address store = moduleCreationCodeStore;
+        uint256 length = moduleCreationCodeLength;
         bytes memory args = abi.encode(address(this), token);
         bytes memory initCode = new bytes(length + args.length);
         bytes32 reconstructedHash;
@@ -140,7 +339,7 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
             reconstructedHash := keccak256(data, length)
             mcopy(add(data, length), add(args, 0x20), mload(args))
         }
-        if (reconstructedHash != executorCreationCodeHash) revert ExecutorCreationCodeCorrupted();
+        if (reconstructedHash != moduleCreationCodeHash) revert ModuleCreationCodeCorrupted();
         assembly ("memory-safe") {
             deployed := create(0, add(initCode, 0x20), mload(initCode))
         }
@@ -152,237 +351,8 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
                     revert(pointer, returndatasize())
                 }
             }
-            revert ExecutorDeploymentFailed();
+            revert ModuleDeploymentFailed();
         }
-    }
-
-    receive() external payable {}
-
-    // Cooldown eligibility intentionally follows the chain timestamp.
-    // forge-lint: disable-next-item(block-timestamp)
-    function processingStatus(address asset, BuybackTypes.SourceBucket bucket)
-        public
-        view
-        override
-        returns (BuybackTypes.ProcessingState memory state)
-    {
-        return _processingStatus(asset, bucket, 0);
-    }
-
-    function previewProcessing(address asset, BuybackTypes.SourceBucket bucket, uint256 additional)
-        external
-        view
-        override
-        returns (BuybackTypes.ProcessingState memory)
-    {
-        return _processingStatus(asset, bucket, additional);
-    }
-
-    // Eligibility uses the same clock and policy for preview and execution.
-    // forge-lint: disable-next-item(block-timestamp)
-    function _processingStatus(address asset, BuybackTypes.SourceBucket bucket, uint256 additional)
-        private
-        view
-        returns (BuybackTypes.ProcessingState memory state)
-    {
-        asset = canonicalAsset(asset);
-        state.available = _inventory[asset][bucket].available + additional;
-        state.revision = asset == protocolToken ? 0 : _revision[asset];
-        if (protocolToken == address(0)) {
-            state.status = BuybackTypes.Status.TokenNotLaunched;
-        } else if (buybacksPaused || _assetBuybacksPaused[asset]) {
-            state.status = BuybackTypes.Status.Paused;
-        } else if (state.available == 0) {
-            state.status = BuybackTypes.Status.NoInventory;
-        } else if (asset == protocolToken) {
-            state.maxInput = state.available;
-        } else if (executionMode == BuybackTypes.ExecutionMode.OperatorGuarded) {
-            state.status = BuybackTypes.Status.OperatorOnly;
-        } else if (!_hasRoute[asset]) {
-            state.status = BuybackTypes.Status.NoRoute;
-        } else {
-            BuybackTypes.ExecutionLimits memory active = _limits[asset];
-            state.minInput = active.minInput;
-            state.maxInput = Math.min(state.available, active.maxInput);
-            BuybackTypes.PermissionlessPolicy storage policy = _policies[asset];
-            if (policy.budgetLimited) {
-                state.maxInput = Math.min(state.maxInput, policy.remainingBudget);
-            }
-            state.nextEligibleAt = Math.max(
-                lastBuyAt == 0 ? 0 : uint256(lastBuyAt) + globalMinInterval,
-                _lastAssetBuyAt[asset] == 0
-                    ? 0
-                    : uint256(_lastAssetBuyAt[asset]) + active.minInterval
-            );
-            if (active.maxInput == 0) {
-                state.status = BuybackTypes.Status.NoLimits;
-            } else if (policy.rates.length == 0) {
-                state.status = BuybackTypes.Status.NoPolicy;
-            } else if (policy.revision != state.revision) {
-                state.status = BuybackTypes.Status.StalePolicy;
-            } else if (policy.expiresAt != 0 && block.timestamp > policy.expiresAt) {
-                state.status = BuybackTypes.Status.PolicyExpired;
-            } else if (policy.budgetLimited && policy.remainingBudget < active.minInput) {
-                state.status = BuybackTypes.Status.BudgetExhausted;
-            } else if (state.available < active.minInput) {
-                state.status = BuybackTypes.Status.BelowMinimum;
-            } else if (block.timestamp < state.nextEligibleAt) {
-                state.status = BuybackTypes.Status.Cooldown;
-            } else {
-                BuybackTypes.Lifecycle phase = IPonsBuybackExecutor(executor).lifecycle();
-                if (phase == BuybackTypes.Lifecycle.GraduationPending) {
-                    state.status = BuybackTypes.Status.GraduationPending;
-                } else if (phase != policy.lifecycle) {
-                    state.status = BuybackTypes.Status.StalePolicy;
-                } else if (
-                    phase == BuybackTypes.Lifecycle.Bonding
-                        && IPonsBondingCurve(IPonsBuybackExecutor(executor).curve())
-                                .currentSnipeTaxBps(executor) != 0
-                ) {
-                    state.status = BuybackTypes.Status.LaunchPenalty;
-                }
-            }
-        }
-    }
-
-    // Caller deadlines intentionally follow the chain timestamp.
-    // forge-lint: disable-next-item(block-timestamp)
-    function process(
-        address asset,
-        BuybackTypes.SourceBucket bucket,
-        uint256 amountIn,
-        uint64 expectedRevision,
-        uint64 deadline
-    ) external override nonReentrant {
-        asset = canonicalAsset(asset);
-        if (deadline < block.timestamp) revert DeadlineExpired();
-        BuybackTypes.ProcessingState memory state = processingStatus(asset, bucket);
-        if (state.revision != expectedRevision) revert StaleRevision();
-        if (state.status != BuybackTypes.Status.Ready) revert ProcessingUnavailable(state.status);
-        if (amountIn == 0 || amountIn < state.minInput || amountIn > state.maxInput) {
-            revert InvalidAmount();
-        }
-        uint256 sequence = ++settlementSequence;
-        if (asset == protocolToken) {
-            _burn(bucket, amountIn);
-            emit DirectBurned(sequence, bucket, asset, amountIn);
-            return;
-        }
-        _processMarket(
-            ProcessRequest(asset, bucket, amountIn, deadline, sequence),
-            MarketTerms(_routes[asset], new uint256[](0), _policies[asset].rates, true)
-        );
-    }
-
-    /// @notice Trusted operator terms exist only in this transaction's calldata.
-    // Operator deadlines intentionally follow the chain timestamp.
-    // forge-lint: disable-next-item(block-timestamp)
-    function processOperator(
-        address asset,
-        BuybackTypes.SourceBucket bucket,
-        uint256 amountIn,
-        BuybackTypes.TypedRoute calldata route_,
-        uint256[] calldata minimumOutputs,
-        uint64 deadline
-    ) external override nonReentrant {
-        if (msg.sender != operator || operator == address(0)) revert OnlyOperator();
-        if (executionMode != BuybackTypes.ExecutionMode.OperatorGuarded) {
-            revert ProcessingUnavailable(BuybackTypes.Status.OperatorOnly);
-        }
-        asset = canonicalAsset(asset);
-        if (deadline < block.timestamp) revert DeadlineExpired();
-        if (buybacksPaused || _assetBuybacksPaused[asset]) {
-            revert ProcessingUnavailable(BuybackTypes.Status.Paused);
-        }
-        _validateRoute(asset, route_);
-        if (amountIn == 0 || amountIn > _inventory[asset][bucket].available) {
-            revert InvalidAmount();
-        }
-        if (minimumOutputs.length != route_.pools.length + 1) revert InvalidPolicy();
-        for (uint256 i; i < minimumOutputs.length; ++i) {
-            if (minimumOutputs[i] == 0) revert InvalidPolicy();
-        }
-        _processMarket(
-            ProcessRequest(asset, bucket, amountIn, deadline, ++settlementSequence),
-            MarketTerms(route_, minimumOutputs, new BuybackTypes.OutputRate[](0), false)
-        );
-    }
-
-    // Only process() and processOperator() reach this helper under nonReentrant. The executor is
-    // created here once during token binding; no caller chooses its address.
-    // Snapshots enforce exact settlement across the guarded external calls;
-    // every other inventory/configuration writer shares the same reentrancy guard.
-    // slither-disable-next-line arbitrary-send-eth,reentrancy-balance,reentrancy-eth
-    function _processMarket(ProcessRequest memory request, MarketTerms memory terms) private {
-        SettlementSnapshot memory snapshot = _snapshotRoute(request.asset, terms.route);
-        _inventory[request.asset][request.bucket].available -= request.amountIn;
-        if (request.asset != address(0)) {
-            uint256 beforeExecutor = IERC20(request.asset).balanceOf(executor);
-            IERC20(request.asset).safeTransfer(executor, request.amountIn);
-            if (
-                _balance(request.asset) != snapshot.expected[0] - request.amountIn
-                    || IERC20(request.asset).balanceOf(executor)
-                        != beforeExecutor + request.amountIn
-            ) revert InexactSettlement();
-        }
-        BuybackTypes.Execution memory execution = IPonsBuybackExecutor(executor)
-        .execute{value: request.asset == address(0) ? request.amountIn : 0}(
-            request.asset,
-            request.amountIn,
-            terms.route,
-            terms.minimumOutputs,
-            terms.rates,
-            request.deadline
-        );
-        if (
-            execution.acquired == 0 || execution.legs.length == 0
-                || execution.legs[0].input != request.asset
-        ) {
-            revert InexactSettlement();
-        }
-        _inventory[request.asset][request.bucket].available += request.amountIn;
-        uint256 inputSpent = execution.legs[0].spent;
-        if (inputSpent > request.amountIn) revert InexactSettlement();
-        // A curve-filling purchase may spend less than the minimum once, because
-        // it transitions out of bonding. Other partial fills cannot consume a
-        // cooldown with dust while refunding most of the requested batch.
-        if (
-            terms.permissionless && inputSpent < _limits[request.asset].minInput
-                && !(execution.lifecycle == BuybackTypes.Lifecycle.Bonding
-                    && IPonsBuybackExecutor(executor).lifecycle()
-                        == BuybackTypes.Lifecycle.GraduationPending)
-        ) revert InvalidAmount();
-        if (terms.permissionless && _policies[request.asset].budgetLimited) {
-            _policies[request.asset].remainingBudget -= inputSpent;
-        }
-        lastBuyAt = SafeCast.toUint64(block.timestamp);
-        _lastAssetBuyAt[request.asset] = lastBuyAt;
-        _bookLegs(
-            request.bucket,
-            execution.legs,
-            snapshot,
-            request.sequence,
-            terms.permissionless ? _revision[request.asset] : 0
-        );
-        // External venues must not manufacture tokens or destroy unrelated supply.
-        if (IERC20(protocolToken).totalSupply() != snapshot.supply) revert InexactSettlement();
-        _burn(request.bucket, execution.acquired);
-        for (uint256 i; i < snapshot.count; ++i) {
-            if (snapshot.assets[i] == protocolToken) snapshot.expected[i] -= execution.acquired;
-            if (
-                _balance(snapshot.assets[i]) != snapshot.expected[i]
-                    || _balance(snapshot.assets[i]) < _accounted(snapshot.assets[i])
-            ) revert InexactSettlement();
-        }
-        emit BuybackBurned(
-            request.sequence,
-            request.bucket,
-            request.asset,
-            inputSpent,
-            execution.acquired,
-            execution.lifecycle,
-            terms.permissionless ? _revision[request.asset] : 0
-        );
     }
 
     function _bookLegs(
@@ -394,6 +364,8 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
     ) private {
         for (uint256 i; i < legs.length; ++i) {
             BuybackTypes.Leg memory leg = legs[i];
+            _assetIndex(snapshot, leg.input);
+            _assetIndex(snapshot, leg.output);
             address canonicalInput = canonicalAsset(leg.input);
             address canonicalOutput = canonicalAsset(leg.output);
             if (canonicalInput != canonicalOutput) {
@@ -414,8 +386,7 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         }
     }
 
-    // Called only inside nonReentrant process(). Both balance and supply deltas
-    // must prove destruction; callbacks cannot start a second settlement.
+    // Only nonReentrant process() reaches this exact before/after burn check.
     // slither-disable-next-line reentrancy-balance
     function _burn(BuybackTypes.SourceBucket bucket, uint256 amount) private {
         uint256 balance = _balance(protocolToken);
@@ -424,41 +395,13 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         _inventory[protocolToken][bucket].available -= amount;
         _inventory[protocolToken][bucket].totalSpent += amount;
         _inventory[protocolToken][bucket].totalBurned += amount;
-        IPonsLauncherToken(protocolToken).burn(amount);
+        IBurnableProtocolToken(protocolToken).burn(amount);
         if (
             _balance(protocolToken) != balance - amount
                 || IERC20(protocolToken).totalSupply() != supply - amount
         ) {
             revert InexactSettlement();
         }
-    }
-
-    function _snapshotRoute(address asset, BuybackTypes.TypedRoute memory configured)
-        private
-        view
-        returns (SettlementSnapshot memory snapshot)
-    {
-        snapshot.assets = new address[](configured.pools.length + 4);
-        snapshot.expected = new uint256[](snapshot.assets.length);
-        snapshot.count = _snapshot(snapshot.assets, snapshot.expected, 0, asset);
-        for (uint256 i; i < configured.pools.length; ++i) {
-            snapshot.count = _snapshot(
-                snapshot.assets,
-                snapshot.expected,
-                snapshot.count,
-                Currency.unwrap(configured.pools[i].currency0)
-            );
-            snapshot.count = _snapshot(
-                snapshot.assets,
-                snapshot.expected,
-                snapshot.count,
-                Currency.unwrap(configured.pools[i].currency1)
-            );
-        }
-        snapshot.count = _snapshot(snapshot.assets, snapshot.expected, snapshot.count, address(0));
-        snapshot.count =
-            _snapshot(snapshot.assets, snapshot.expected, snapshot.count, protocolToken);
-        snapshot.supply = IERC20(protocolToken).totalSupply();
     }
 
     function _snapshot(
@@ -480,216 +423,11 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         return asset == BuybackIntegration.WETH ? address(0) : asset;
     }
 
-    function revision(address asset) external view override returns (uint64) {
-        return _revision[canonicalAsset(asset)];
-    }
-
-    function assetBuybacksPaused(address asset) external view override returns (bool) {
-        return _assetBuybacksPaused[canonicalAsset(asset)];
-    }
-
-    function lastAssetBuyAt(address asset) external view override returns (uint64) {
-        return _lastAssetBuyAt[canonicalAsset(asset)];
-    }
-
-    function route(address asset) external view override returns (BuybackTypes.TypedRoute memory) {
-        return _routes[canonicalAsset(asset)];
-    }
-
-    function limits(address asset)
-        external
-        view
-        override
-        returns (BuybackTypes.ExecutionLimits memory)
-    {
-        return _limits[canonicalAsset(asset)];
-    }
-
-    function setOperator(address operator_) external override onlyProtocolAuthority nonReentrant {
-        operator = operator_;
-        emit OperatorConfigured(operator_);
-    }
-
-    function setExecutionMode(BuybackTypes.ExecutionMode mode)
-        external
-        override
-        onlyProtocolAuthority
-        nonReentrant
-    {
-        executionMode = mode;
-        emit ExecutionModeConfigured(mode);
-    }
-
-    function permissionlessPolicy(address asset)
-        external
-        view
-        override
-        returns (BuybackTypes.PermissionlessPolicy memory)
-    {
-        return _policies[canonicalAsset(asset)];
-    }
-
-    /// @notice Zero expiry and zero input budget explicitly authorize indefinite, unlimited execution.
-    // Optional expiry intentionally follows the chain timestamp.
-    // forge-lint: disable-next-item(block-timestamp)
-    function setPermissionlessPolicy(
-        address asset,
-        BuybackTypes.Lifecycle lifecycle_,
-        BuybackTypes.OutputRate[] calldata rates,
-        uint64 expiresAt,
-        uint256 inputBudget
-    ) external override onlyProtocolAuthority nonReentrant {
-        asset = canonicalAsset(asset);
-        if (
-            !_hasRoute[asset] || _limits[asset].maxInput == 0
-                || lifecycle_ == BuybackTypes.Lifecycle.GraduationPending
-                || rates.length != _routes[asset].pools.length + 1
-                || (expiresAt != 0 && expiresAt < block.timestamp)
-        ) revert InvalidPolicy();
-        for (uint256 i; i < rates.length; ++i) {
-            if (rates[i].numerator == 0 || rates[i].denominator == 0) revert InvalidPolicy();
-        }
-        uint64 next = ++_revision[asset];
-        BuybackTypes.PermissionlessPolicy storage policy = _policies[asset];
-        policy.lifecycle = lifecycle_;
-        policy.revision = next;
-        policy.expiresAt = expiresAt;
-        policy.budgetLimited = inputBudget != 0;
-        policy.remainingBudget = inputBudget;
-        delete policy.rates;
-        for (uint256 i; i < rates.length; ++i) {
-            policy.rates.push(rates[i]);
-        }
-        emit PermissionlessPolicyConfigured(asset, policy);
-    }
-
-    function setRoute(address asset, BuybackTypes.TypedRoute calldata route_)
-        external
-        override
-        onlyProtocolAuthority
-        nonReentrant
-    {
-        asset = canonicalAsset(asset);
-        _validateRoute(asset, route_);
-        _routes[asset] = route_;
-        _hasRoute[asset] = true;
-        uint64 next = ++_revision[asset];
-        emit RouteConfigured(asset, next, route_);
-    }
-
-    function setLimits(address asset, BuybackTypes.ExecutionLimits calldata limits_)
-        external
-        override
-        onlyProtocolAuthority
-        nonReentrant
-    {
-        _setLimits(asset, limits_);
-    }
-
-    function _setLimits(address asset, BuybackTypes.ExecutionLimits calldata limits_) private {
-        asset = canonicalAsset(asset);
-        if (!_hasRoute[asset] || limits_.minInput == 0 || limits_.maxInput < limits_.minInput) {
-            revert InvalidLimits();
-        }
-        _limits[asset] = limits_;
-        uint64 previous = _revision[asset];
-        uint64 next = ++_revision[asset];
-        // Quantity/cooldown changes preserve authorized prices and consumed budgets.
-        // A policy already stale from a route change must not be revived.
-        if (_policies[asset].rates.length != 0 && _policies[asset].revision == previous) {
-            _policies[asset].revision = next;
-        }
-        emit LimitsConfigured(asset, next, limits_);
-    }
-
-    function setExecutionLimits(
-        uint64 globalInterval,
-        address[] calldata assets,
-        BuybackTypes.ExecutionLimits[] calldata limits_
-    ) external override onlyProtocolAuthority nonReentrant {
-        if (assets.length != limits_.length) revert InvalidLimits();
-        for (uint256 i; i < assets.length; ++i) {
-            if (i != 0 && canonicalAsset(assets[i - 1]) >= canonicalAsset(assets[i])) {
-                revert InvalidLimits();
-            }
-            _setLimits(assets[i], limits_[i]);
-        }
-        globalMinInterval = globalInterval;
-        emit GlobalIntervalConfigured(globalInterval);
-    }
-
-    function setGlobalMinInterval(uint64 minInterval)
-        external
-        override
-        onlyProtocolAuthority
-        nonReentrant
-    {
-        globalMinInterval = minInterval;
-        emit GlobalIntervalConfigured(minInterval);
-    }
-
     function setBuybacksPaused(bool paused) external override onlyProtocolAuthority nonReentrant {
         buybacksPaused = paused;
         emit BuybacksPaused(paused);
     }
 
-    function setAssetBuybacksPaused(address asset, bool paused)
-        external
-        override
-        onlyProtocolAuthority
-        nonReentrant
-    {
-        asset = canonicalAsset(asset);
-        _assetBuybacksPaused[asset] = paused;
-        emit AssetBuybacksPaused(asset, paused);
-    }
-
-    function _validateRoute(address asset, BuybackTypes.TypedRoute calldata route_) private view {
-        if (protocolToken == address(0)) revert ProtocolTokenNotLaunched();
-        uint256 count = route_.pools.length;
-        if (asset == protocolToken || count > 2 || (asset != address(0) && asset.code.length == 0))
-        {
-            revert InvalidRoute();
-        }
-        if (asset == address(0) || asset == BuybackIntegration.WETH) {
-            if (count != 0) revert InvalidRoute();
-            return;
-        }
-        if (
-            count == 0
-                || BuybackIntegration.POOL_MANAGER.codehash != BuybackIntegration.POOL_MANAGER_HASH
-        ) {
-            revert InvalidRoute();
-        }
-        address currency = asset;
-        for (uint256 i; i < count; ++i) {
-            PoolKey memory key = route_.pools[i];
-            address currency0 = Currency.unwrap(key.currency0);
-            address currency1 = Currency.unwrap(key.currency1);
-            if (
-                currency0 >= currency1 || key.fee > 1_000_000 || key.tickSpacing <= 0
-                    || key.tickSpacing > 32_767 || address(key.hooks) != address(0)
-                    || currency0 == protocolToken || currency1 == protocolToken
-                    || (currency0 != currency && currency1 != currency)
-            ) revert InvalidRoute();
-            currency = currency == currency0 ? currency1 : currency0;
-            if (
-                currency == asset
-                    || (i + 1 < count
-                        && (currency == address(0) || currency == BuybackIntegration.WETH))
-            ) {
-                revert InvalidRoute();
-            }
-            if (currency != address(0) && currency.code.length == 0) revert InvalidRoute();
-            (uint160 price,,,) = StateLibrary.getSlot0(
-                IPoolManager(BuybackIntegration.POOL_MANAGER), PoolIdLibrary.toId(key)
-            );
-            if (price == 0) revert InvalidRoute();
-        }
-        if (currency != address(0) && currency != BuybackIntegration.WETH) revert InvalidRoute();
-    }
-
-    /// @inheritdoc IProtocolBuybackVault
     function inventory(address asset, BuybackTypes.SourceBucket bucket)
         external
         view
@@ -699,7 +437,6 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         return _inventory[canonicalAsset(asset)][bucket];
     }
 
-    /// @inheritdoc IProtocolBuybackVault
     function recordEarnedFees(uint256 amount) external override nonReentrant {
         if (!IMembershipFactory(factory).isRegisteredTier(msg.sender)) revert OnlyRegisteredTier();
         if (amount == 0) revert ZeroAmount();
@@ -721,7 +458,6 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         emit EarnedFeesReceived(msg.sender, asset, amount);
     }
 
-    /// @inheritdoc IProtocolBuybackVault
     function syncDonation(address asset) external override nonReentrant returns (uint256 amount) {
         if (asset != address(0) && asset.code.length == 0) revert InvalidAsset();
         uint256 backed = _balance(asset);
@@ -738,10 +474,7 @@ contract ProtocolBuybackVault is ReentrancyGuard, IProtocolBuybackVault {
         emit DonationRecorded(asset, amount);
     }
 
-    // Normalize only this receipt, preserving any unrelated unsynchronized WETH.
-    // Both callers hold nonReentrant and receive() is empty. These deliberately
-    // captured balances assert exact unwrap deltas; they are not reused inventory.
-    // A callback attempting syncDonation/recordEarnedFees/process cannot enter.
+    // All callers are nonReentrant; these snapshots prove exact WETH unwrap.
     // slither-disable-next-line reentrancy-balance
     function _normalizeReceipt(address asset, uint256 amount) private {
         if (asset != BuybackIntegration.WETH) return;

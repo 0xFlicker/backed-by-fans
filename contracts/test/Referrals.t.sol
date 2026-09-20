@@ -111,14 +111,64 @@ contract ReferralsTest is Test {
         assertEq(tier.claimableReferral(replacement), 0);
     }
 
-    function test_selfReferralIsAllowed() public {
+    function test_newSelfReferralRevertsWithoutChangingPaymentOrSupply() public {
+        uint256 balance = paymentToken.balanceOf(member);
         vm.prank(member);
-        uint256 tokenId = tier.createMembership(1, member, 25);
+        vm.expectRevert(MembershipTier.SelfReferralNotAllowed.selector);
+        tier.createMembership(1, member, 25);
+        assertEq(paymentToken.balanceOf(member), balance);
+        assertEq(paymentToken.balanceOf(address(tier)), 0);
+        assertEq(tier.totalMinted(), 0);
+        assertEq(tier.totalRewardShares(), 0);
+        assertEq(tier.lifetimeGross(), 0);
+    }
 
-        (, address lockedReferrer) = tier.referralOf(tokenId);
-        assertEq(lockedReferrer, member);
-        _vest(_PERIOD);
-        assertEq(tier.claimableReferral(member), 100_000);
+    function test_grantedUnsetReferralRejectsSelfAtFirstPaidRenewal() public {
+        uint256 id = tier.grantMembership(member, 1, 25);
+        uint64 expiration = tier.expiresAt(id);
+        uint256 balance = paymentToken.balanceOf(member);
+        vm.prank(member);
+        vm.expectRevert(MembershipTier.SelfReferralNotAllowed.selector);
+        tier.renewMembership(id, 1, member, 25);
+        assertEq(tier.expiresAt(id), expiration);
+        assertEq(paymentToken.balanceOf(member), balance);
+        (MembershipTypes.ReferralStatus status,) = tier.referralOf(id);
+        assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.Unset));
+    }
+
+    function test_transferringToLockedReferrerPreservesRenewal() public {
+        vm.prank(member);
+        uint256 id = tier.createMembership(1, referrer, 25);
+        vm.prank(member);
+        tier.transferFrom(member, referrer, id);
+        paymentToken.mint(referrer, 100_000_000);
+        vm.startPrank(referrer);
+        paymentToken.approve(address(tier), type(uint256).max);
+        tier.renewMembership(id, 1, referrer, 25);
+        vm.stopPrank();
+        assertEq(tier.expiresAt(id), _START + 2 * _PERIOD);
+        (, address locked) = tier.referralOf(id);
+        assertEq(locked, referrer);
+    }
+
+    function test_contributionRejectsPositiveSelfReferralButPreservesZeroGross() public {
+        MembershipTypes.TierConfig memory config = MembershipTestConfig.defaultConfig(
+            address(this), address(renderer), address(paymentToken)
+        );
+        config.pricePerPeriod = 0;
+        MembershipTier contributions = MembershipTestConfig.deployTier(
+            SyntheticVaultBinding.bind(address(this), address(paymentToken)), paymentToken, config
+        );
+        vm.startPrank(member);
+        paymentToken.approve(address(contributions), type(uint256).max);
+        vm.expectRevert(MembershipTier.SelfReferralNotAllowed.selector);
+        contributions.createContributionMembership(10_000_000, member, 25);
+        assertEq(contributions.totalMinted(), 0);
+        assertEq(paymentToken.balanceOf(address(contributions)), 0);
+        uint256 id = contributions.createContributionMembership(0, member, 25);
+        vm.stopPrank();
+        (MembershipTypes.ReferralStatus status,) = contributions.referralOf(id);
+        assertEq(uint256(status), uint256(MembershipTypes.ReferralStatus.Unset));
     }
 
     function test_giftsNeverLockButUseAnExistingRecipientChoice() public {

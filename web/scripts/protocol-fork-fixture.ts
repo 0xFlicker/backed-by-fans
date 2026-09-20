@@ -95,14 +95,14 @@ async function main() {
   const vaultArtifact = await artifact(
     "ProtocolBuybackVault.sol/ProtocolBuybackVault.json",
   );
-  const executor = (await client.readContract({
+  const activeModule = (await client.readContract({
     address: bootstrap.buybackVault,
     abi: vaultArtifact.abi,
-    functionName: "executor",
+    functionName: "activeModule",
   })) as Address;
   await verifyProtocolGraph(
     client,
-    { ...bootstrap, executor },
+    { ...bootstrap, activeModule },
     resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/out"),
   );
   const test = createTestClient({

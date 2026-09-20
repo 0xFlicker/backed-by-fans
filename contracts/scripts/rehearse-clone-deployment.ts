@@ -216,18 +216,18 @@ async function main() {
     ),
     burnRouter: await readFactory("burnRouter"),
     buybackVault: await readFactory("buybackVault"),
-    executor: zeroAddress,
+    activeModule: zeroAddress,
     protocolToken: zeroAddress,
     safe: account,
-    executorCodeStore: zeroAddress as Address,
+    activeModuleCodeStore: zeroAddress as Address,
   };
   const vaultArtifact = await artifact(
     "ProtocolBuybackVault.sol/ProtocolBuybackVault.json",
   );
-  bootstrap.executorCodeStore = (await client.readContract({
+  bootstrap.activeModuleCodeStore = (await client.readContract({
     address: bootstrap.buybackVault,
     abi: vaultArtifact.abi,
-    functionName: "executorCreationCodeStore",
+    functionName: "moduleCreationCodeStore",
   })) as Address;
   const graph = await verifyProtocolGraph(
     client,

@@ -11,6 +11,7 @@ import {
   iPonsBondingCurveAbi,
   membershipTierAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
 } from "../../src/contracts";
 import {
   readAdminContext,
@@ -164,15 +165,15 @@ test("@protocol-fork a compatible authentic token without an approved route rema
     await f.safe("mode", { mode: 1 });
     await f.safe("pause", { paused: false });
     const pending = await f.client.readContract({
-      address: b.buybackVault,
-      abi: protocolBuybackVaultAbi,
+      address: b.activeModule,
+      abi: ponsBuybackModuleAbi,
       functionName: "processingStatus",
       args: [asset, 0],
     });
     expect(pending.status).toBe(3);
     expect(pending.available).toBeGreaterThan(0n);
     await expect(
-      f.write(member, b.buybackVault, protocolBuybackVaultAbi, "process", [
+      f.write(member, b.buybackVault, protocolBuybackVaultAbi, "processPons", [
         asset,
         0,
         pending.available,
@@ -193,13 +194,19 @@ test("@protocol-fork a compatible authentic token without an approved route rema
       abi: erc20Abi,
       functionName: "totalSupply",
     });
-    await f.write(member, b.buybackVault, protocolBuybackVaultAbi, "process", [
-      b.protocolToken,
-      1,
-      123n,
-      0n,
-      (await f.client.getBlock()).timestamp + 300n,
-    ]);
+    await f.write(
+      member,
+      b.buybackVault,
+      protocolBuybackVaultAbi,
+      "processPons",
+      [
+        b.protocolToken,
+        1,
+        123n,
+        0n,
+        (await f.client.getBlock()).timestamp + 300n,
+      ],
+    );
     const supplyAfter = await f.client.readContract({
       address: b.protocolToken,
       abi: erc20Abi,

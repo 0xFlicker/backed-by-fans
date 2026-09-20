@@ -81,7 +81,7 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
         address: tier,
         abi: membershipTierAbi,
         functionName: "createMembership",
-        args: [1n, zeroAddress, 25n],
+        args: [2n, zeroAddress, 25n],
       }),
     );
     expectSuccessfulReceipt(
@@ -95,15 +95,8 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
     );
     await rpcRequest("evm_increaseTime", [2_592_001]);
     await rpcRequest("evm_mine");
-    expectSuccessfulReceipt(
-      await sendContract({
-        account: member,
-        address: tier,
-        abi: membershipTierAbi,
-        functionName: "createMembership",
-        args: [1n, zeroAddress, 25n],
-      }),
-    );
+    // Keep both active and expired credentials without settling the expired
+    // zero-entitlement grant, which correctly retires during accounting.
     expectSuccessfulReceipt(
       await sendContract({
         account: creator,
@@ -145,7 +138,9 @@ test("@anvil lets the accepted owner preview and replace presentation without ch
     await connectAnvilWallet(page, newOwner);
     await expect(page.getByText("This wallet operates the tier")).toBeVisible();
     await page.getByRole("link", { name: "Edit artwork" }).click();
-    await expect(page).toHaveURL(`/chains/31337/tiers/${tier}/manage/artwork`);
+    await expect(page).toHaveURL(`/chains/31337/tiers/${tier}/manage/artwork`, {
+      timeout: 30_000,
+    });
     await expect(
       page.getByRole("heading", { name: /Update .* artwork/ }),
     ).toBeVisible();

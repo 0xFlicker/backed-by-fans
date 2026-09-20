@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
+import { getAbiItem } from "viem";
 import {
   runPreflight,
   validatePreflightEnvironment,
@@ -49,6 +50,17 @@ function client() {
 }
 
 describe("strict fork preflight", () => {
+  it("uses selectors present in the generated dependency interfaces", async () => {
+    const rpc = client();
+    await runPreflight(rpc, origin, {});
+    for (const [request] of rpc.readContract.mock.calls) {
+      expect(
+        getAbiItem({ abi: request.abi, name: request.functionName }),
+        request.functionName,
+      ).toBeDefined();
+    }
+  });
+
   it("requires a nonzero official quote along a correctly connected route", async () => {
     const rpc = client();
     const originalRead = rpc.readContract.getMockImplementation()!;

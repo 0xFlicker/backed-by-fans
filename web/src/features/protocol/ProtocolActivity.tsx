@@ -493,12 +493,15 @@ export function ProtocolActivity({
               <dd>
                 <AddressValue value={state.data.vault} chainId={chainId} />
               </dd>
-              <dt>Executor</dt>
+              <dt>Module</dt>
               <dd>
-                {state.data.executor === zeroAddress ? (
+                {state.data.activeModule === zeroAddress ? (
                   "Not deployed"
                 ) : (
-                  <AddressValue value={state.data.executor} chainId={chainId} />
+                  <AddressValue
+                    value={state.data.activeModule}
+                    chainId={chainId}
+                  />
                 )}
               </dd>
             </dl>

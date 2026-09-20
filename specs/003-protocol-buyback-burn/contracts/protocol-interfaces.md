@@ -27,42 +27,47 @@ refund/top-up outputs but calculate top-up after reserve contribution; emit prot
 funding components. The current ERC721 owner requirement does not apply to fee collection from expired
 or synchronized historical member IDs. No payment directly releases unearned fees.
 
-## Vault public surface
+## Vault and module public surfaces
 
-| Proposed call | Authority | Contract outcome |
-| --- | --- | --- |
-| `recordEarnedFees(uint256 amount)` | Registered tier only | Derive calling tier's payment asset; record backed exact transfer of earned fees atomically with release |
-| `syncDonation(address asset)` | Anyone | Credit only unaccounted backing balance as donation; no source relabeling or custody movement |
-| `inventory(address asset, SourceBucket bucket)` | Read | Available raw amount and cumulative attributable accounting |
-| `process(address asset, SourceBucket bucket, uint256 amountIn, uint64 expectedRevision, uint64 deadline)` | Anyone | One bounded atomic conversion/purchase/burn or complete revert |
-| `processingStatus(address asset, SourceBucket bucket)` | Read | Non-market eligibility, current revision, available inventory, pause/policy/lifecycle conditions |
-| `route(address asset)` / `policy(address asset)` | Read | Typed route, per-leg floors, validity, budget consumed, evidence hash |
-| `setRoute(address asset, TypedRoute route)` | Factory's current Safe | Validate supported pool identities, increment revision, invalidate old policy |
-| `setPolicy(address asset, ExecutionPolicy policy)` | Factory's current Safe | Validate hard bounds, authorize explicit new revision/budget, emit complete policy identity |
-| `setBuybacksPaused(bool paused)` | Factory's current Safe | Global processing control, preserving accounting/revision/budget |
-| `setAssetBuybacksPaused(address asset, bool paused)` | Factory's current Safe | Per-asset processing control, independent of onboarding |
+The current implemented selectors come from generated Foundry bindings. The
+permanent vault exposes `recordEarnedFees(uint256)`, `syncDonation(address)`,
+`inventory(address,SourceBucket)`, `setBuybacksPaused(bool)`, and
+`process(address,SourceBucket,uint256,uint64,uint64,bytes)`. Processing takes
+module revision, deadline and opaque module data; it always ends in a measured
+burn. Direct token burns use the current module revision and enforce the global
+pause. Source buckets remain Membership and Donation; WETH custody is normalized
+to native inventory. There is no caller-selected terminal recipient.
 
-`SourceBucket` has exactly `Membership` and `Donation`. Zero asset is native ETH vault inventory only;
-zero address is never accepted as a tier ERC-20 payment asset. Direct protocol-token processing has no
-route requirement; use revision zero and enforce the explicit direct-burn branch's pause/balance checks.
-No caller recipient, generic router payload, custom arbitrary target or refund address is accepted.
+`activeModule`, `activeModuleCodeHash`, `moduleRevision`, pending governance
+commitments and `moduleReplacementFrozen` expose module identity and replacement
+state. The Safe alone proposes/cancels/activates a replacement with a 48-hour
+delay, or proposes/cancels/finalizes irreversible replacement freeze with a
+seven-day delay. Activation and finalization require paused buybacks. Activation
+leaves the vault paused. Full selectors, commitment semantics, economic trust and
+freeze consequences are specified in [buyback-policy.md](buyback-policy.md).
 
-`processingStatus` must not promise that an external swap will succeed; market estimates/simulation
-remain potentially stale. Do not convert missing RPC data into a benign contract status.
+The active `IBuybackModule` provides versioned introspection, `trackedAssets`
+and a vault-only `execute(caller,asset,bucket,amount,deadline,data)` result with
+legs, acquired amount and opaque context. The vault checks actual balances,
+unchanged pre-burn supply and final burn itself. It uses normal calls, never
+delegatecall. Undeclared intermediate assets and price fairness remain module
+review responsibilities.
 
-## Fixed execution boundary
+The initial Pons module owns `processingStatus`, `route`, `limits`, `revision`,
+`permissionlessPolicy`, operator/mode configuration, pauses, rates, budgets and
+cooldowns. Integrations validate ID/version/runtime before using those methods.
+Pons v1 data encodes `(policyRevision,TypedRoute,uint256[] minimumOutputs)`.
+Operator mode uses explicit absolute minima; permissionless mode uses stored
+actual-spend rates. Missing RPC reads are not benign status values.
 
-The immutable executor exposes a typed vault-only execution entrypoint returning measured consumption,
-leg outputs and residuals. Its constructor fixes protocol token, Pons factory, verified exchange/router
-and WETH wiring; validates code and relationships. Deployment uses one fixed supported implementation.
-Safe route updates change validated pools and policies, not code or arbitrary target addresses.
+## Initial Pons strategy execution
 
-The executor internally encodes exact-input swaps with fixed recipients and refunds. It takes only the
-currently reserved vault budget. Verify exact transfer into/out of executor; return all unused assets
-in the same transaction. Reentrancy guard, callback sender/context checks and exact balance postconditions
-apply across all legs. Disable command-level partial failure. No funds may persist in executor/router
-as the result of a completed settlement. Clear ERC-20 and Permit2 allowances after execution where used;
-a retained authorization is a failed postcondition even if current balances are zero.
+The module validates its fixed native-ETH Pons launch and venue dependencies,
+encodes exact-input routes, returns unused assets, and clears ERC-20/Permit2
+approvals. Callback context checks and exact balance baselines prevent residual
+input/output after settlement. It can be replaced through the vault's delayed
+process until replacement is permanently frozen. Its own mutable authorities
+are unaffected by that freeze.
 
 Curve entrypoint: verified `buy(uint256 quoteIn,uint256 minTokensOut,address recipient)` payable.
 Use actual recipient-sensitive launch tax; wait while penalty is nonzero. Ordinary fees remain.
@@ -89,9 +94,9 @@ Provide events for:
 - `PolicyConfigured`: asset, revision, limits, expiry, per-leg rate identity and evidence hash.
 - Global and per-asset pause changes.
 - `ConversionSettled`: settlement sequence, source bucket, input/output assets, actual consumption,
-  output and residual, route revision.
+  output, and module revision.
 - `BuybackBurned`: settlement sequence, source bucket, input attribution, purchased amount, burned
-  amount, actual lifecycle, protocol token and revision.
+  amount, module-defined bytes32 context and module revision.
 - `DirectBurned`: asset/protocol token, source bucket and amount.
 
 Do not derive cumulative member fee receipts from bare balances or conversion outputs. Event ordering

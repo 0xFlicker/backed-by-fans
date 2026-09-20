@@ -3,11 +3,13 @@ pragma solidity =0.8.36;
 
 import {IMembershipFactory} from "./interfaces/IMembershipFactory.sol";
 import {IMembershipTier} from "./interfaces/IMembershipTier.sol";
+import {IPonsBuybackModule} from "./interfaces/IPonsBuybackModule.sol";
 import {IProtocolBuybackVault} from "./interfaces/IProtocolBuybackVault.sol";
 import {BuybackTypes} from "./types/BuybackTypes.sol";
 import {MembershipTypes} from "./types/MembershipTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 /// @notice Permissionless bounded accounting, earned-fund release and buybacks.
 /// @dev No funds, approvals, administrator, arbitrary user calldata or worker entitlements.
@@ -206,14 +208,32 @@ contract ProtocolBurnRouter is ReentrancyGuardTransient {
             uint256 first = uint256(nextSource[item.asset]);
             for (uint256 b; b < 2; ++b) {
                 BuybackTypes.SourceBucket bucket = BuybackTypes.SourceBucket((first + b) % 2);
+                if (vault.activeModule() == address(0)) {
+                    emit PurchaseSkipped(item.asset, bucket, BuybackTypes.Status.TokenNotLaunched);
+                    continue;
+                }
+                if (
+                    IPonsBuybackModule(vault.activeModule()).moduleId()
+                            != keccak256("BBF.PonsBuyback")
+                        || IPonsBuybackModule(vault.activeModule()).moduleVersion() != 1
+                ) revert InvalidBatch();
                 BuybackTypes.ProcessingState memory state =
-                    vault.processingStatus(item.asset, bucket);
+                    IPonsBuybackModule(vault.activeModule()).processingStatus(item.asset, bucket);
                 if (state.revision != item.revision) revert StaleRevision();
                 if (state.status != BuybackTypes.Status.Ready) {
                     emit PurchaseSkipped(item.asset, bucket, state.status);
                     continue;
                 }
-                vault.process(item.asset, bucket, state.maxInput, item.revision, deadline);
+                vault.process(
+                    item.asset,
+                    bucket,
+                    state.maxInput,
+                    vault.moduleRevision(),
+                    deadline,
+                    abi.encode(
+                        item.revision, BuybackTypes.TypedRoute(new PoolKey[](0)), new uint256[](0)
+                    )
+                );
                 ++count;
                 nextSource[item.asset] = BuybackTypes.SourceBucket((uint256(bucket) + 1) % 2);
                 emit PurchaseCompleted(msg.sender, item.asset, bucket);

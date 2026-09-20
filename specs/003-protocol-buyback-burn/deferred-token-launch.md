@@ -15,15 +15,22 @@ access retain their existing behavior. Unearned fees remain reserved for refunds
 
 The current factory Safe calls `bindProtocolToken(address)` on the factory after
 a valid Pons token has been launched on the same chain. Binding validates the
-launch and deploys the fixed executor atomically. The factory and vault report
+launch and deploys the initial Pons strategy module atomically. The factory and vault report
 the same token. An invalid token or failed dependency validation leaves the
 protocol unbound with all inventory unchanged. A successful binding cannot be
 repeated or replaced, including by the Safe.
 
+Only token binding is one-time. Strategy-module replacement follows the
+[release-candidate amendment](../../docs/plans/2026-09-17-release-candidate-audit-remediation.md):
+a 48-hour Safe proposal and paused activation, or an optional seven-day irreversible
+replacement freeze. The vault's custody and burn purpose remain permanent.
+
 After binding, configure routes, standing sizes/intervals and resume buybacks
 through the existing Safe authority. Activation alone does not spend accumulated
-fees or change membership terms. A funded ordinary caller can then process
-eligible inventory. Pauses and custody restrictions continue to apply.
+fees or change membership terms. Fresh deployments are OperatorGuarded; only the
+configured operator can execute market buybacks until the Safe explicitly selects
+permissionless policy. Anyone can release fees and burn direct protocol-token
+inventory while unpaused. Pauses and custody restrictions continue to apply.
 
 The Safe selects the eventual token. Before binding, supporters cannot inspect
 its final identity; disclose that pending choice. If no valid token is bound,

@@ -89,7 +89,7 @@ beforeEach(() => {
         }),
         data: encodeAbiParameters(
           event.inputs.filter((input) => !input.indexed),
-          [60n, 2342737926990313551770n, 0, 2n],
+          [60n, 2342737926990313551770n, `0x${"0".repeat(64)}`, 2n],
         ),
       },
     ],
@@ -176,3 +176,14 @@ it("keeps operator market execution out of public wallet actions", () => {
     ),
   ).toBeInTheDocument();
 });
+
+vi.mock("@/lib/buyback-module", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/buyback-module")>()),
+  readPonsModule: vi.fn(async () => ({
+    address: "0x00000000000000000000000000000000000000b1",
+    revision: 2n,
+    codeHash: "0x",
+    id: "0x",
+    version: 1n,
+  })),
+}));

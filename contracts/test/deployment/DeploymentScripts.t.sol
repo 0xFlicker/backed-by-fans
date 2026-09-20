@@ -94,7 +94,7 @@ contract DeploymentScriptsTest is Test {
             "MembershipTier.sol:MembershipTier",
             "MembershipFactory.sol:MembershipFactory",
             "ProtocolBuybackVault.sol:ProtocolBuybackVault",
-            "PonsBuybackExecutor.sol:PonsBuybackExecutor",
+            "PonsBuybackModule.sol:PonsBuybackModule",
             "ProtocolBurnRouter.sol:ProtocolBurnRouter",
             "OnchainMediaStoreFactory.sol:OnchainMediaStoreFactory",
             "OnchainMetadataRenderer.sol:OnchainMetadataRenderer",

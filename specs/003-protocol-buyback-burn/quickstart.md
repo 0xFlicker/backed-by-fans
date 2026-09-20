@@ -78,7 +78,7 @@ new addresses, then `/chains/31337/protocol`.
 Expected: **Protocol token has not been deployed**, visible earned/unearned fees,
 and **Collect fees**. Collection releases only earned funds to the vault and
 reports no burn. Membership creation, payments and refunds remain usable. The
-factory token and vault executor getters both return the zero address. A successful
+factory token and vault `activeModule` getters both return the zero address. A successful
 collection leaves the vault's settlement sequence unchanged.
 
 The no-token entrypoint is fresh-deployment-only; it refuses restore parameters
@@ -350,14 +350,19 @@ Delete superseded dumps when no longer needed; this creates no automatic cache.
 
 ### Burn from the protocol page
 
-At the top of `/chains/31337/protocol`, connect any funded wallet on the local
-network and press **Burn**. The page discovers current earned fees and currency
+When the Safe has explicitly selected permissionless execution, connect any funded
+wallet at `/chains/31337/protocol` and press **Burn**. Fresh deployments remain
+OperatorGuarded: use the authorized operator wallet at `/chains/31337/tools/buybacks`
+for market buybacks. Public fee collection and direct protocol-token burns remain
+available through their detailed controls. The public batch discovers current earned fees and currency
 settings when clicked, simulates the batch, then requests **one wallet
 transaction**. No protocol Safe signature is needed.
 
 The factory's immutable `burnRouter()` collects fees from registered memberships,
 releases them to the vault, and processes eligible buybacks/direct burns. The
-vault rechecks size limits, cooldowns, pauses and revisions at execution. A failed
+vault rechecks its global pause and module revision, then measures settlement and burn.
+The active Pons module rechecks caller authority, size limits, cooldowns, per-asset
+pauses and policy revisions at execution. A failed
 currency does not discard another currency's successful work. Membership fees
 and donations alternate first opportunity after successful purchases so a shared
 cooldown cannot continually favor membership fees.

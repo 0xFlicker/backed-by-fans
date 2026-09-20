@@ -194,9 +194,13 @@ for (const scenario of [
         functionName: "expiresAt",
         args: [tokenId],
       });
-      await page
-        .getByLabel("Membership action")
-        .selectOption(tokenId.toString());
+      await expect(
+        page.getByRole("heading", {
+          name: `Renew membership #${tokenId}`,
+          exact: true,
+        }),
+      ).toBeVisible();
+      await page.getByLabel("Periods", { exact: true }).fill("1");
       await page
         .getByRole("button", { name: `Renew membership #${tokenId}` })
         .click();
@@ -303,6 +307,9 @@ for (const scenario of [
       const stockInventory = page.locator(".protocol-asset").filter({
         has: page.getByRole("heading", { name: "AMD", exact: true }),
       });
+      await stockInventory
+        .getByText("Balances & actions", { exact: true })
+        .click();
       await expect(
         stockInventory
           .getByRole("row")
@@ -367,8 +374,19 @@ for (const scenario of [
           functionName: "timeBalances",
           args: [tokenId],
         });
-      expect([paidSeconds, grantSeconds]).toEqual([0n, 0n]);
-      expect(effectiveCheckpoint).toBeGreaterThan(0n);
+      expect([paidSeconds, grantSeconds, effectiveCheckpoint]).toEqual([
+        0n,
+        0n,
+        0n,
+      ]);
+      await expect(
+        client.readContract({
+          address: tier,
+          abi: membershipTierAbi,
+          functionName: "isOccupied",
+          args: [tokenId],
+        }),
+      ).resolves.toBe(false);
     } finally {
       await revertAnvil(snapshot);
     }

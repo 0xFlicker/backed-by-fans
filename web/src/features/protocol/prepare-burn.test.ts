@@ -128,3 +128,14 @@ it("does not prepare purchases before protocol token binding", async () => {
   );
   expect((await prepareAdvance(f.client, addr(1))).purchases).toEqual([]);
 });
+
+vi.mock("@/lib/buyback-module", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/buyback-module")>()),
+  readPonsModule: vi.fn(async () => ({
+    address: "0x00000000000000000000000000000000000000b1",
+    revision: 2n,
+    codeHash: "0x",
+    id: "0x",
+    version: 1n,
+  })),
+}));

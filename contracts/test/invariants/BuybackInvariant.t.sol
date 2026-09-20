@@ -2,10 +2,12 @@
 pragma solidity =0.8.36;
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTier} from "../../src/MembershipTier.sol";
+import {PonsBuybackModule} from "../../src/PonsBuybackModule.sol";
 import {ProtocolBuybackVault} from "../../src/ProtocolBuybackVault.sol";
 import {BuybackIntegration as Integration} from "../../src/libraries/BuybackIntegration.sol";
 import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
+import {BuybackTestCalls} from "../helpers/BuybackTestCalls.sol";
 import {LinkedVestingFixture} from "../helpers/LinkedVestingFixture.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {SyntheticConversionBinding} from "../helpers/SyntheticConversionBinding.sol";
@@ -23,6 +25,7 @@ import {Test} from "forge-std/Test.sol";
 import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
 
 contract BuybackHandler is Test {
+    using BuybackTestCalls for ProtocolBuybackVault;
     using BuybackModel for BuybackModel.Book;
     ProtocolBuybackVault public immutable vault;
     MembershipTier public immutable tier;
@@ -157,8 +160,18 @@ contract BuybackHandler is Test {
             a.asset,
             BuybackTypes.SourceBucket(a.bucket),
             a.amount,
-            a.direct ? 0 : vault.revision(a.asset),
-            SafeCast.toUint64(block.timestamp)
+            vault.moduleRevision(),
+            SafeCast.toUint64(block.timestamp),
+            abi.encode(
+                uint64(
+                    a.direct
+                        ? 0
+                        : PonsBuybackModule(payable(address(vault.activeModule())))
+                            .revision(a.asset)
+                ),
+                BuybackTypes.TypedRoute(new PoolKey[](0)),
+                new uint256[](0)
+            )
         ) {
             assertFalse(a.failure, "fault unexpectedly consumed inventory");
             if (a.direct) {
@@ -217,18 +230,19 @@ contract BuybackHandler is Test {
         if (elapsed > 1200) elapsed = 1200;
         assertApproxEqAbs(tier.creatorProceeds(), elapsed * 240 / 1200, 1);
         assertEq(tier.totalProtectedLiability(), 1200 - released);
-        assertEq(token.balanceOf(vault.executor()), 0);
-        assertEq(address(vault.executor()).balance, 0);
-        assertEq(payment.balanceOf(vault.executor()), 0);
-        assertEq(payment.allowance(vault.executor(), Integration.PERMIT2), 0);
+        assertEq(token.balanceOf(vault.activeModule()), 0);
+        assertEq(address(vault.activeModule()).balance, 0);
+        assertEq(payment.balanceOf(vault.activeModule()), 0);
+        assertEq(payment.allowance(vault.activeModule(), Integration.PERMIT2), 0);
         (uint160 allowance,,) = IAllowanceTransfer(Integration.PERMIT2)
-            .allowance(vault.executor(), address(payment), Integration.ROUTER);
+            .allowance(vault.activeModule(), address(payment), Integration.ROUTER);
         assertEq(allowance, 0);
     }
 }
 
 /// @notice Stateful synthetic fault suite, never classified as authentic venue evidence.
 contract BuybackInvariantTest is StdInvariant, Test {
+    using BuybackTestCalls for ProtocolBuybackVault;
     BuybackHandler private _handler;
 
     function setUp() public {
@@ -258,24 +272,31 @@ contract BuybackInvariantTest is StdInvariant, Test {
             )
         );
         ProtocolBuybackVault vault = ProtocolBuybackVault(payable(factory.buybackVault()));
-        vault.setRoute(address(0), BuybackTypes.TypedRoute(new PoolKey[](0)));
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setRoute(address(0), BuybackTypes.TypedRoute(new PoolKey[](0)));
         PoolKey[] memory pools = new PoolKey[](1);
         pools[0] = PoolKey(
             Currency.wrap(address(0)), Currency.wrap(address(payment)), 100, 1, IHooks(address(0))
         );
-        vault.setRoute(address(payment), BuybackTypes.TypedRoute(pools));
-        vault.setLimits(address(0), BuybackTypes.ExecutionLimits(1, 1 ether, 0));
-        vault.setLimits(address(payment), BuybackTypes.ExecutionLimits(1, 100, 0));
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setRoute(address(payment), BuybackTypes.TypedRoute(pools));
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setLimits(address(0), BuybackTypes.ExecutionLimits(1, 1 ether, 0));
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setLimits(address(payment), BuybackTypes.ExecutionLimits(1, 100, 0));
         BuybackTypes.OutputRate[] memory nativeRates = new BuybackTypes.OutputRate[](1);
         nativeRates[0] = BuybackTypes.OutputRate(1, 1e30);
-        vault.setPermissionlessPolicy(address(0), BuybackTypes.Lifecycle.Bonding, nativeRates, 0, 0);
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setPermissionlessPolicy(address(0), BuybackTypes.Lifecycle.Bonding, nativeRates, 0, 0);
         BuybackTypes.OutputRate[] memory paymentRates = new BuybackTypes.OutputRate[](2);
         paymentRates[0] = nativeRates[0];
         paymentRates[1] = nativeRates[0];
-        vault.setPermissionlessPolicy(
-            address(payment), BuybackTypes.Lifecycle.Bonding, paymentRates, 0, 0
-        );
-        vault.setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setPermissionlessPolicy(
+                address(payment), BuybackTypes.Lifecycle.Bonding, paymentRates, 0, 0
+            );
+        PonsBuybackModule(payable(address(vault.activeModule())))
+            .setExecutionMode(BuybackTypes.ExecutionMode.PermissionlessGuarded);
         vault.setBuybacksPaused(false);
         address renderer = deployCode("OnchainMetadataRenderer.sol:OnchainMetadataRenderer");
         MembershipTypes.TierConfig memory config =

@@ -5,7 +5,8 @@ import { simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 import { formatUnits, type Address } from "viem";
 import { formatRawTokenAmount, tokenMultiplierScale } from "@/lib/token-amount";
-import { protocolBuybackVaultAbi } from "@/contracts";
+import { readPonsModule, ponsExecutionData } from "@/lib/buyback-module";
+import { ponsBuybackModuleAbi, protocolBuybackVaultAbi } from "@/contracts";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { decodeTransactionError } from "@/lib/transaction-state";
@@ -63,9 +64,10 @@ export function ProcessBuyback({
         throw new Error(
           "Connect a wallet on this network and refresh the protocol state.",
         );
+      const buybackModule = await readPonsModule(client, vault);
       const current = await client.readContract({
-        address: vault,
-        abi: protocolBuybackVaultAbi,
+        address: buybackModule.address,
+        abi: ponsBuybackModuleAbi,
         functionName: "processingStatus",
         args: [asset, bucket],
       });
@@ -78,7 +80,14 @@ export function ProcessBuyback({
         address: vault,
         abi: protocolBuybackVaultAbi,
         functionName: "process",
-        args: [asset, bucket, current.maxInput, current.revision, now + 120n],
+        args: [
+          asset,
+          bucket,
+          current.maxInput,
+          buybackModule.revision,
+          now + 120n,
+          ponsExecutionData(current.revision),
+        ],
         chainId,
         account: account.address,
         ...(chainId === 31337 ? { gasPrice: 2_000_000_000n } : {}),
@@ -101,7 +110,7 @@ export function ProcessBuyback({
         asset,
         bucket,
         amount: current.maxInput,
-        revision: current.revision,
+        revision: buybackModule.revision,
       });
       if (!result)
         throw new Error(

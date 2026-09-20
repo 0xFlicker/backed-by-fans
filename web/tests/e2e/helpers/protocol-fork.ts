@@ -1,3 +1,7 @@
+import {
+  readPonsModule,
+  ponsExecutionData,
+} from "../../../src/lib/buyback-module";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
@@ -18,6 +22,7 @@ import { anvil } from "viem/chains";
 import {
   membershipFactoryAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
 } from "../../../src/contracts";
 import {
   readAdminContext,
@@ -51,6 +56,8 @@ export async function forkContext() {
     factory: Address;
     protocolToken: Address;
     buybackVault: Address;
+    activeModule: Address;
+    moduleRevision: bigint;
     safe: Address;
     curve: Address;
     ponsFactory: Address;
@@ -62,6 +69,9 @@ export async function forkContext() {
     client = anvilPublicClient();
   if ((await client.getChainId()) !== 31337)
     throw new Error("Local fork required");
+  const buybackModule = await readPonsModule(client, bootstrap.buybackVault);
+  bootstrap.activeModule = buybackModule.address;
+  bootstrap.moduleRevision = buybackModule.revision;
   const testClient = createTestClient({
     chain: anvil,
     mode: "anvil",
@@ -76,6 +86,33 @@ export async function forkContext() {
     args: readonly unknown[] = [],
     value = 0n,
   ) => {
+    if (functionName === "processPons") {
+      const [asset, bucket, amount, revision, deadline] = args;
+      args = [
+        asset,
+        bucket,
+        amount,
+        buybackModule.revision,
+        deadline,
+        ponsExecutionData(revision as bigint),
+      ];
+      functionName = "process";
+    } else if (functionName === "processPonsOperator") {
+      const [asset, bucket, amount, route, minima, deadline] = args;
+      args = [
+        asset,
+        bucket,
+        amount,
+        buybackModule.revision,
+        deadline,
+        ponsExecutionData(
+          0n,
+          route as Parameters<typeof ponsExecutionData>[1],
+          minima as bigint[],
+        ),
+      ];
+      functionName = "process";
+    }
     const wallet = createWalletClient({
       chain: anvil,
       account,
@@ -235,8 +272,8 @@ export async function forkContext() {
       asset,
       expectedRevisionRaw: String(
         await client.readContract({
-          address: bootstrap.buybackVault,
-          abi: protocolBuybackVaultAbi,
+          address: bootstrap.activeModule,
+          abi: ponsBuybackModuleAbi,
           functionName: "revision",
           args: [asset],
         }),
@@ -275,8 +312,8 @@ export async function forkContext() {
       asset: canonical,
       expectedRevisionRaw: String(
         await client.readContract({
-          address: bootstrap.buybackVault,
-          abi: protocolBuybackVaultAbi,
+          address: bootstrap.activeModule,
+          abi: ponsBuybackModuleAbi,
           functionName: "revision",
           args: [canonical],
         }),

@@ -1,3 +1,4 @@
+import { readPonsModule, ponsExecutionData } from "../src/lib/buyback-module";
 import { percentageBps } from "../src/lib/buyback-settings/calculator";
 import {
   createPublicClient,
@@ -19,6 +20,7 @@ import {
   protocolBurnRouterAbi,
   membershipTierAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
   iSafeAbi,
 } from "../src/contracts";
 
@@ -147,7 +149,7 @@ type Call = {
   gasPrice: bigint;
 };
 type Processing = ContractFunctionReturnType<
-  typeof protocolBuybackVaultAbi,
+  typeof ponsBuybackModuleAbi,
   "view",
   "processingStatus"
 >;
@@ -192,6 +194,7 @@ export async function rehearseBuybacks(
   ]);
   if (!isAddressEqual(vault, input.vault))
     throw new Error("Factory and vault do not match");
+  const buybackModule = await readPonsModule(client, vault, captured.number);
   const [gasPrice, owners, protocolToken, tierCount] = await Promise.all([
     client.getGasPrice(),
     client.readContract({
@@ -267,8 +270,8 @@ export async function rehearseBuybacks(
   );
   const setup: Call[] = [
     call(
-      vault,
-      protocolBuybackVaultAbi,
+      buybackModule.address,
+      ponsBuybackModuleAbi,
       "setExecutionLimits",
       [
         BigInt(input.globalMinInterval),
@@ -290,8 +293,8 @@ export async function rehearseBuybacks(
         throw new Error("Activation requires a policy for every currency");
       setup.push(
         call(
-          vault,
-          protocolBuybackVaultAbi,
+          buybackModule.address,
+          ponsBuybackModuleAbi,
           "setPermissionlessPolicy",
           [
             x.asset,
@@ -308,7 +311,13 @@ export async function rehearseBuybacks(
       );
     }
     setup.push(
-      call(vault, protocolBuybackVaultAbi, "setExecutionMode", [1], safe),
+      call(
+        buybackModule.address,
+        ponsBuybackModuleAbi,
+        "setExecutionMode",
+        [1],
+        safe,
+      ),
     );
     setup.push(
       call(vault, protocolBuybackVaultAbi, "setBuybacksPaused", [false], safe),
@@ -449,7 +458,7 @@ export async function rehearseBuybacks(
     for (const target of targets) {
       if (target.done || target.remaining === 0n || time > until) continue;
       const read = await replay([
-        call(vault, protocolBuybackVaultAbi, "processingStatus", [
+        call(buybackModule.address, ponsBuybackModuleAbi, "processingStatus", [
           target.asset,
           target.bucket,
         ]),
@@ -490,8 +499,9 @@ export async function rehearseBuybacks(
         target.asset,
         target.bucket,
         amount,
-        state.revision,
+        buybackModule.revision,
         time + 120n,
+        ponsExecutionData(state.revision),
       ]);
       const attempt = await replay([
         process,

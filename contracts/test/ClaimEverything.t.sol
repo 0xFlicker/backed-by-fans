@@ -403,7 +403,7 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
             token.approve(address(tiers[t]), type(uint256).max);
             uint256 count = t == 0 ? 101 : 1;
             for (uint256 j; j < count; ++j) {
-                tiers[t].createMembership(1, address(this), 25);
+                tiers[t].createMembership(1, address(0), 25);
             }
         }
         MembershipTypes.PositionPage memory first = tiers[0].tokensOfOwner(address(this), 0, 100);

@@ -1,3 +1,6 @@
+vi.mock("../src/lib/buyback-module", () => ({
+  readPonsModule: vi.fn(async () => ({})),
+}));
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -8,7 +11,7 @@ import {
   zeroAddress,
   type PublicClient,
 } from "viem";
-import { protocolBuybackVaultAbi } from "../src/contracts";
+import { ponsBuybackModuleAbi } from "../src/contracts";
 import {
   parseBuybackInput,
   prepareBuybackPayload,
@@ -25,6 +28,8 @@ const context: AdminContext = {
   safe: asset,
   safeNonce: 7n,
   factory: asset,
+  activeModule: "0x2222222222222222222222222222222222222222",
+  moduleCodeHash: "0x1234",
   vault: asset,
   protocolToken: asset,
   factoryCodeHash: `0x${"1".repeat(64)}`,
@@ -155,10 +160,10 @@ describe("buyback administration payloads", () => {
       value: "0",
       previousRevision: "2",
       expectedRevision: "3",
-      to: asset,
+      to: context.activeModule,
     });
     const decoded = decodeFunctionData({
-      abi: protocolBuybackVaultAbi,
+      abi: ponsBuybackModuleAbi,
       data: payload.data,
     });
     expect(decoded.functionName).toBe("setLimits");

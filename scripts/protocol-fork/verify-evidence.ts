@@ -350,7 +350,7 @@ const requirements: Record<string, Requirement> = {
   "External creator controls": { contracts: ["PonsCompensationForkTest"] },
   "Adversarial execution": {
     contracts: [
-      "PonsBuybackExecutorTest",
+      "PonsBuybackModuleTest",
       "ProtocolBuybackVaultTest",
       "BuybackInvariantTest",
     ],
@@ -446,7 +446,7 @@ export async function verifyEvidence(
       }),
     ),
     { role: "vestingLedger", ...protocolGraph.library },
-    { role: "executorCodeStore", ...protocolGraph.executorCodeStore },
+    { role: "activeModuleCodeStore", ...protocolGraph.activeModuleCodeStore },
   ]) {
     const deployment = manifest.deployments.find(
       (row: { role: string }) => row.role === record.role,
@@ -471,7 +471,7 @@ export async function verifyEvidence(
     "vestingLedger",
     "tierImplementation",
     "burnRouter",
-    "executorCodeStore",
+    "activeModuleCodeStore",
   ]) {
     assert(
       manifest.deployments.some((row: { role: string }) => row.role === role),

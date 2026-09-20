@@ -1,9 +1,114 @@
 import {
-  createUseReadContract,
   createUseWriteContract,
   createUseSimulateContract,
+  createUseReadContract,
   createUseWatchContractEvent,
 } from "wagmi/codegen";
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IBurnableProtocolToken
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const iBurnableProtocolTokenAbi = [
+  {
+    type: "function",
+    inputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
+    name: "burn",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IBuybackModule
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const iBuybackModuleAbi = [
+  {
+    type: "function",
+    inputs: [
+      { name: "caller", internalType: "address", type: "address" },
+      { name: "asset", internalType: "address", type: "address" },
+      {
+        name: "bucket",
+        internalType: "enum BuybackTypes.SourceBucket",
+        type: "uint8",
+      },
+      { name: "amount", internalType: "uint256", type: "uint256" },
+      { name: "deadline", internalType: "uint64", type: "uint64" },
+      { name: "data", internalType: "bytes", type: "bytes" },
+    ],
+    name: "execute",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct IBuybackModule.Result",
+        type: "tuple",
+        components: [
+          {
+            name: "legs",
+            internalType: "struct BuybackTypes.Leg[]",
+            type: "tuple[]",
+            components: [
+              { name: "input", internalType: "address", type: "address" },
+              { name: "output", internalType: "address", type: "address" },
+              { name: "spent", internalType: "uint256", type: "uint256" },
+              { name: "received", internalType: "uint256", type: "uint256" },
+            ],
+          },
+          { name: "acquired", internalType: "uint256", type: "uint256" },
+          { name: "context", internalType: "bytes32", type: "bytes32" },
+        ],
+      },
+    ],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "interfaceVersion",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "moduleId",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "moduleVersion",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "protocolToken",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      { name: "data", internalType: "bytes", type: "bytes" },
+    ],
+    name: "trackedAssets",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "vault",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // IERC165
@@ -3274,6 +3379,13 @@ export const membershipTierAbi = [
   {
     type: "function",
     inputs: [],
+    name: "ERC5643_ACCOUNTING_STEPS",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
     name: "MAX_BOOST_BPS",
     outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
     stateMutability: "view",
@@ -5839,6 +5951,7 @@ export const membershipTierAbi = [
     name: "SafeERC20FailedOperation",
   },
   { type: "error", inputs: [], name: "SelfGiftNotAllowed" },
+  { type: "error", inputs: [], name: "SelfReferralNotAllowed" },
   { type: "error", inputs: [], name: "SupplyCapBelowOccupancy" },
   { type: "error", inputs: [], name: "TierPaused" },
   { type: "error", inputs: [], name: "TimestampOverflow" },
@@ -6746,10 +6859,10 @@ export const onchainMetadataRendererConfig = {
 } as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// PonsBuybackExecutor
+// PonsBuybackModule
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export const ponsBuybackExecutorAbi = [
+export const ponsBuybackModuleAbi = [
   {
     type: "constructor",
     inputs: [
@@ -6761,6 +6874,20 @@ export const ponsBuybackExecutorAbi = [
   { type: "receive", stateMutability: "payable" },
   {
     type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "assetBuybacksPaused",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "canonicalAsset",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
     inputs: [],
     name: "curve",
     outputs: [{ name: "", internalType: "address", type: "address" }],
@@ -6769,10 +6896,9 @@ export const ponsBuybackExecutorAbi = [
   {
     type: "function",
     inputs: [
-      { name: "asset", internalType: "address", type: "address" },
-      { name: "amount", internalType: "uint256", type: "uint256" },
+      { name: "policyRevision", internalType: "uint64", type: "uint64" },
       {
-        name: "route",
+        name: "selectedRoute",
         internalType: "struct BuybackTypes.TypedRoute",
         type: "tuple",
         components: [
@@ -6795,29 +6921,32 @@ export const ponsBuybackExecutorAbi = [
         ],
       },
       { name: "minimumOutputs", internalType: "uint256[]", type: "uint256[]" },
+    ],
+    name: "encodeExecutionData",
+    outputs: [{ name: "", internalType: "bytes", type: "bytes" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "caller", internalType: "address", type: "address" },
+      { name: "asset", internalType: "address", type: "address" },
       {
-        name: "rates",
-        internalType: "struct BuybackTypes.OutputRate[]",
-        type: "tuple[]",
-        components: [
-          { name: "numerator", internalType: "uint256", type: "uint256" },
-          { name: "denominator", internalType: "uint256", type: "uint256" },
-        ],
+        name: "bucket",
+        internalType: "enum BuybackTypes.SourceBucket",
+        type: "uint8",
       },
+      { name: "amount", internalType: "uint256", type: "uint256" },
       { name: "deadline", internalType: "uint64", type: "uint64" },
+      { name: "data", internalType: "bytes", type: "bytes" },
     ],
     name: "execute",
     outputs: [
       {
-        name: "result",
-        internalType: "struct BuybackTypes.Execution",
+        name: "settled",
+        internalType: "struct IBuybackModule.Result",
         type: "tuple",
         components: [
-          {
-            name: "lifecycle",
-            internalType: "enum BuybackTypes.Lifecycle",
-            type: "uint8",
-          },
           {
             name: "legs",
             internalType: "struct BuybackTypes.Leg[]",
@@ -6830,10 +6959,52 @@ export const ponsBuybackExecutorAbi = [
             ],
           },
           { name: "acquired", internalType: "uint256", type: "uint256" },
+          { name: "context", internalType: "bytes32", type: "bytes32" },
         ],
       },
     ],
     stateMutability: "payable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "executionMode",
+    outputs: [
+      {
+        name: "",
+        internalType: "enum BuybackTypes.ExecutionMode",
+        type: "uint8",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "globalMinInterval",
+    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "interfaceVersion",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "lastAssetBuyAt",
+    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "lastBuyAt",
+    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    stateMutability: "view",
   },
   {
     type: "function",
@@ -6846,9 +7017,327 @@ export const ponsBuybackExecutorAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "limits",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct BuybackTypes.ExecutionLimits",
+        type: "tuple",
+        components: [
+          { name: "minInput", internalType: "uint128", type: "uint128" },
+          { name: "maxInput", internalType: "uint128", type: "uint128" },
+          { name: "minInterval", internalType: "uint64", type: "uint64" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "moduleId",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "moduleVersion",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "operator",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "permissionlessPolicy",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct BuybackTypes.PermissionlessPolicy",
+        type: "tuple",
+        components: [
+          {
+            name: "lifecycle",
+            internalType: "enum BuybackTypes.Lifecycle",
+            type: "uint8",
+          },
+          { name: "revision", internalType: "uint64", type: "uint64" },
+          { name: "expiresAt", internalType: "uint64", type: "uint64" },
+          { name: "budgetLimited", internalType: "bool", type: "bool" },
+          { name: "remainingBudget", internalType: "uint256", type: "uint256" },
+          {
+            name: "rates",
+            internalType: "struct BuybackTypes.OutputRate[]",
+            type: "tuple[]",
+            components: [
+              { name: "numerator", internalType: "uint256", type: "uint256" },
+              { name: "denominator", internalType: "uint256", type: "uint256" },
+            ],
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      {
+        name: "bucket",
+        internalType: "enum BuybackTypes.SourceBucket",
+        type: "uint8",
+      },
+      { name: "additional", internalType: "uint256", type: "uint256" },
+    ],
+    name: "previewProcessing",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct BuybackTypes.ProcessingState",
+        type: "tuple",
+        components: [
+          {
+            name: "status",
+            internalType: "enum BuybackTypes.Status",
+            type: "uint8",
+          },
+          { name: "revision", internalType: "uint64", type: "uint64" },
+          { name: "available", internalType: "uint256", type: "uint256" },
+          { name: "maxInput", internalType: "uint256", type: "uint256" },
+          { name: "minInput", internalType: "uint256", type: "uint256" },
+          { name: "nextEligibleAt", internalType: "uint256", type: "uint256" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      {
+        name: "bucket",
+        internalType: "enum BuybackTypes.SourceBucket",
+        type: "uint8",
+      },
+    ],
+    name: "processingStatus",
+    outputs: [
+      {
+        name: "state",
+        internalType: "struct BuybackTypes.ProcessingState",
+        type: "tuple",
+        components: [
+          {
+            name: "status",
+            internalType: "enum BuybackTypes.Status",
+            type: "uint8",
+          },
+          { name: "revision", internalType: "uint64", type: "uint64" },
+          { name: "available", internalType: "uint256", type: "uint256" },
+          { name: "maxInput", internalType: "uint256", type: "uint256" },
+          { name: "minInput", internalType: "uint256", type: "uint256" },
+          { name: "nextEligibleAt", internalType: "uint256", type: "uint256" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [],
     name: "protocolToken",
     outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "revision",
+    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "asset", internalType: "address", type: "address" }],
+    name: "route",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct BuybackTypes.TypedRoute",
+        type: "tuple",
+        components: [
+          {
+            name: "pools",
+            internalType: "struct PoolKey[]",
+            type: "tuple[]",
+            components: [
+              { name: "currency0", internalType: "Currency", type: "address" },
+              { name: "currency1", internalType: "Currency", type: "address" },
+              { name: "fee", internalType: "uint24", type: "uint24" },
+              { name: "tickSpacing", internalType: "int24", type: "int24" },
+              {
+                name: "hooks",
+                internalType: "contract IHooks",
+                type: "address",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      { name: "paused", internalType: "bool", type: "bool" },
+    ],
+    name: "setAssetBuybacksPaused",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "globalInterval", internalType: "uint64", type: "uint64" },
+      { name: "assets", internalType: "address[]", type: "address[]" },
+      {
+        name: "limits_",
+        internalType: "struct BuybackTypes.ExecutionLimits[]",
+        type: "tuple[]",
+        components: [
+          { name: "minInput", internalType: "uint128", type: "uint128" },
+          { name: "maxInput", internalType: "uint128", type: "uint128" },
+          { name: "minInterval", internalType: "uint64", type: "uint64" },
+        ],
+      },
+    ],
+    name: "setExecutionLimits",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      {
+        name: "mode",
+        internalType: "enum BuybackTypes.ExecutionMode",
+        type: "uint8",
+      },
+    ],
+    name: "setExecutionMode",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "minInterval", internalType: "uint64", type: "uint64" }],
+    name: "setGlobalMinInterval",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      {
+        name: "limits_",
+        internalType: "struct BuybackTypes.ExecutionLimits",
+        type: "tuple",
+        components: [
+          { name: "minInput", internalType: "uint128", type: "uint128" },
+          { name: "maxInput", internalType: "uint128", type: "uint128" },
+          { name: "minInterval", internalType: "uint64", type: "uint64" },
+        ],
+      },
+    ],
+    name: "setLimits",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "operator_", internalType: "address", type: "address" }],
+    name: "setOperator",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      {
+        name: "lifecycle_",
+        internalType: "enum BuybackTypes.Lifecycle",
+        type: "uint8",
+      },
+      {
+        name: "rates",
+        internalType: "struct BuybackTypes.OutputRate[]",
+        type: "tuple[]",
+        components: [
+          { name: "numerator", internalType: "uint256", type: "uint256" },
+          { name: "denominator", internalType: "uint256", type: "uint256" },
+        ],
+      },
+      { name: "expiresAt", internalType: "uint64", type: "uint64" },
+      { name: "inputBudget", internalType: "uint256", type: "uint256" },
+    ],
+    name: "setPermissionlessPolicy",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      {
+        name: "route_",
+        internalType: "struct BuybackTypes.TypedRoute",
+        type: "tuple",
+        components: [
+          {
+            name: "pools",
+            internalType: "struct PoolKey[]",
+            type: "tuple[]",
+            components: [
+              { name: "currency0", internalType: "Currency", type: "address" },
+              { name: "currency1", internalType: "Currency", type: "address" },
+              { name: "fee", internalType: "uint24", type: "uint24" },
+              { name: "tickSpacing", internalType: "int24", type: "int24" },
+              {
+                name: "hooks",
+                internalType: "contract IHooks",
+                type: "address",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    name: "setRoute",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "asset", internalType: "address", type: "address" },
+      { name: "data", internalType: "bytes", type: "bytes" },
+    ],
+    name: "trackedAssets",
+    outputs: [{ name: "assets", internalType: "address[]", type: "address[]" }],
     stateMutability: "view",
   },
   {
@@ -6858,13 +7347,197 @@ export const ponsBuybackExecutorAbi = [
     outputs: [{ name: "", internalType: "address", type: "address" }],
     stateMutability: "view",
   },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "asset",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      { name: "paused", internalType: "bool", type: "bool", indexed: false },
+    ],
+    name: "AssetBuybacksPaused",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "mode",
+        internalType: "enum BuybackTypes.ExecutionMode",
+        type: "uint8",
+        indexed: false,
+      },
+    ],
+    name: "ExecutionModeConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "minInterval",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+    ],
+    name: "GlobalIntervalConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "asset",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "revision",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: true,
+      },
+      {
+        name: "limits",
+        internalType: "struct BuybackTypes.ExecutionLimits",
+        type: "tuple",
+        components: [
+          { name: "minInput", internalType: "uint128", type: "uint128" },
+          { name: "maxInput", internalType: "uint128", type: "uint128" },
+          { name: "minInterval", internalType: "uint64", type: "uint64" },
+        ],
+        indexed: false,
+      },
+    ],
+    name: "LimitsConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "operator",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "OperatorConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "asset",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "policy",
+        internalType: "struct BuybackTypes.PermissionlessPolicy",
+        type: "tuple",
+        components: [
+          {
+            name: "lifecycle",
+            internalType: "enum BuybackTypes.Lifecycle",
+            type: "uint8",
+          },
+          { name: "revision", internalType: "uint64", type: "uint64" },
+          { name: "expiresAt", internalType: "uint64", type: "uint64" },
+          { name: "budgetLimited", internalType: "bool", type: "bool" },
+          { name: "remainingBudget", internalType: "uint256", type: "uint256" },
+          {
+            name: "rates",
+            internalType: "struct BuybackTypes.OutputRate[]",
+            type: "tuple[]",
+            components: [
+              { name: "numerator", internalType: "uint256", type: "uint256" },
+              { name: "denominator", internalType: "uint256", type: "uint256" },
+            ],
+          },
+        ],
+        indexed: false,
+      },
+    ],
+    name: "PermissionlessPolicyConfigured",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "asset",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "revision",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: true,
+      },
+      {
+        name: "route",
+        internalType: "struct BuybackTypes.TypedRoute",
+        type: "tuple",
+        components: [
+          {
+            name: "pools",
+            internalType: "struct PoolKey[]",
+            type: "tuple[]",
+            components: [
+              { name: "currency0", internalType: "Currency", type: "address" },
+              { name: "currency1", internalType: "Currency", type: "address" },
+              { name: "fee", internalType: "uint24", type: "uint24" },
+              { name: "tickSpacing", internalType: "int24", type: "int24" },
+              {
+                name: "hooks",
+                internalType: "contract IHooks",
+                type: "address",
+              },
+            ],
+          },
+        ],
+        indexed: false,
+      },
+    ],
+    name: "RouteConfigured",
+  },
+  { type: "error", inputs: [], name: "DeadlineExpired" },
   { type: "error", inputs: [], name: "GraduationPending" },
   { type: "error", inputs: [], name: "InexactSettlement" },
+  { type: "error", inputs: [], name: "InvalidAmount" },
   { type: "error", inputs: [], name: "InvalidDependency" },
   { type: "error", inputs: [], name: "InvalidExecution" },
+  { type: "error", inputs: [], name: "InvalidLimits" },
+  { type: "error", inputs: [], name: "InvalidPolicy" },
   { type: "error", inputs: [], name: "InvalidProtocolLaunch" },
+  { type: "error", inputs: [], name: "InvalidRoute" },
   { type: "error", inputs: [], name: "LaunchPenalty" },
+  { type: "error", inputs: [], name: "OnlyOperator" },
+  { type: "error", inputs: [], name: "OnlyProtocolAuthority" },
   { type: "error", inputs: [], name: "OnlyVault" },
+  {
+    type: "error",
+    inputs: [
+      {
+        name: "status",
+        internalType: "enum BuybackTypes.Status",
+        type: "uint8",
+      },
+    ],
+    name: "ProcessingUnavailable",
+  },
+  { type: "error", inputs: [], name: "ProtocolTokenNotLaunched" },
   { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
   {
     type: "error",
@@ -6879,6 +7552,7 @@ export const ponsBuybackExecutorAbi = [
     inputs: [{ name: "token", internalType: "address", type: "address" }],
     name: "SafeERC20FailedOperation",
   },
+  { type: "error", inputs: [], name: "StaleRevision" },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7185,9 +7859,37 @@ export const protocolBuybackVaultAbi = [
   { type: "receive", stateMutability: "payable" },
   {
     type: "function",
-    inputs: [{ name: "asset", internalType: "address", type: "address" }],
-    name: "assetBuybacksPaused",
-    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    inputs: [],
+    name: "MODULE_FREEZE_DELAY",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "MODULE_REPLACEMENT_DELAY",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "activateBuybackModule",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "activeModule",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "activeModuleCodeHash",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
     stateMutability: "view",
   },
   {
@@ -7206,51 +7908,24 @@ export const protocolBuybackVaultAbi = [
   },
   {
     type: "function",
+    inputs: [],
+    name: "cancelBuybackModule",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "cancelModuleReplacementFreeze",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     inputs: [{ name: "asset", internalType: "address", type: "address" }],
     name: "canonicalAsset",
     outputs: [{ name: "", internalType: "address", type: "address" }],
     stateMutability: "pure",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "executionMode",
-    outputs: [
-      {
-        name: "",
-        internalType: "enum BuybackTypes.ExecutionMode",
-        type: "uint8",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "executor",
-    outputs: [{ name: "", internalType: "address", type: "address" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "executorCreationCodeHash",
-    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "executorCreationCodeLength",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [],
-    name: "executorCreationCodeStore",
-    outputs: [{ name: "", internalType: "address", type: "address" }],
-    stateMutability: "view",
   },
   {
     type: "function",
@@ -7262,8 +7937,22 @@ export const protocolBuybackVaultAbi = [
   {
     type: "function",
     inputs: [],
-    name: "globalMinInterval",
-    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    name: "finalizeModuleReplacementFreeze",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "freezeModule",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "freezeModuleCodeHash",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
     stateMutability: "view",
   },
   {
@@ -7299,107 +7988,65 @@ export const protocolBuybackVaultAbi = [
   },
   {
     type: "function",
-    inputs: [{ name: "asset", internalType: "address", type: "address" }],
-    name: "lastAssetBuyAt",
-    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    inputs: [],
+    name: "moduleActivationAt",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
   {
     type: "function",
     inputs: [],
-    name: "lastBuyAt",
-    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [{ name: "asset", internalType: "address", type: "address" }],
-    name: "limits",
-    outputs: [
-      {
-        name: "",
-        internalType: "struct BuybackTypes.ExecutionLimits",
-        type: "tuple",
-        components: [
-          { name: "minInput", internalType: "uint128", type: "uint128" },
-          { name: "maxInput", internalType: "uint128", type: "uint128" },
-          { name: "minInterval", internalType: "uint64", type: "uint64" },
-        ],
-      },
-    ],
+    name: "moduleCreationCodeHash",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
     stateMutability: "view",
   },
   {
     type: "function",
     inputs: [],
-    name: "operator",
+    name: "moduleCreationCodeLength",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "moduleCreationCodeStore",
     outputs: [{ name: "", internalType: "address", type: "address" }],
     stateMutability: "view",
   },
   {
     type: "function",
-    inputs: [{ name: "asset", internalType: "address", type: "address" }],
-    name: "permissionlessPolicy",
-    outputs: [
-      {
-        name: "",
-        internalType: "struct BuybackTypes.PermissionlessPolicy",
-        type: "tuple",
-        components: [
-          {
-            name: "lifecycle",
-            internalType: "enum BuybackTypes.Lifecycle",
-            type: "uint8",
-          },
-          { name: "revision", internalType: "uint64", type: "uint64" },
-          { name: "expiresAt", internalType: "uint64", type: "uint64" },
-          { name: "budgetLimited", internalType: "bool", type: "bool" },
-          { name: "remainingBudget", internalType: "uint256", type: "uint256" },
-          {
-            name: "rates",
-            internalType: "struct BuybackTypes.OutputRate[]",
-            type: "tuple[]",
-            components: [
-              { name: "numerator", internalType: "uint256", type: "uint256" },
-              { name: "denominator", internalType: "uint256", type: "uint256" },
-            ],
-          },
-        ],
-      },
-    ],
+    inputs: [],
+    name: "moduleFreezeAt",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
   {
     type: "function",
-    inputs: [
-      { name: "asset", internalType: "address", type: "address" },
-      {
-        name: "bucket",
-        internalType: "enum BuybackTypes.SourceBucket",
-        type: "uint8",
-      },
-      { name: "additional", internalType: "uint256", type: "uint256" },
-    ],
-    name: "previewProcessing",
-    outputs: [
-      {
-        name: "",
-        internalType: "struct BuybackTypes.ProcessingState",
-        type: "tuple",
-        components: [
-          {
-            name: "status",
-            internalType: "enum BuybackTypes.Status",
-            type: "uint8",
-          },
-          { name: "revision", internalType: "uint64", type: "uint64" },
-          { name: "available", internalType: "uint256", type: "uint256" },
-          { name: "maxInput", internalType: "uint256", type: "uint256" },
-          { name: "minInput", internalType: "uint256", type: "uint256" },
-          { name: "nextEligibleAt", internalType: "uint256", type: "uint256" },
-        ],
-      },
-    ],
+    inputs: [],
+    name: "moduleReplacementFrozen",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "moduleRevision",
+    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "pendingModule",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "pendingModuleCodeHash",
+    outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
     stateMutability: "view",
   },
   {
@@ -7412,8 +8059,13 @@ export const protocolBuybackVaultAbi = [
         type: "uint8",
       },
       { name: "amountIn", internalType: "uint256", type: "uint256" },
-      { name: "expectedRevision", internalType: "uint64", type: "uint64" },
+      {
+        name: "expectedModuleRevision",
+        internalType: "uint64",
+        type: "uint64",
+      },
       { name: "deadline", internalType: "uint64", type: "uint64" },
+      { name: "data", internalType: "bytes", type: "bytes" },
     ],
     name: "process",
     outputs: [],
@@ -7421,75 +8073,17 @@ export const protocolBuybackVaultAbi = [
   },
   {
     type: "function",
-    inputs: [
-      { name: "asset", internalType: "address", type: "address" },
-      {
-        name: "bucket",
-        internalType: "enum BuybackTypes.SourceBucket",
-        type: "uint8",
-      },
-      { name: "amountIn", internalType: "uint256", type: "uint256" },
-      {
-        name: "route_",
-        internalType: "struct BuybackTypes.TypedRoute",
-        type: "tuple",
-        components: [
-          {
-            name: "pools",
-            internalType: "struct PoolKey[]",
-            type: "tuple[]",
-            components: [
-              { name: "currency0", internalType: "Currency", type: "address" },
-              { name: "currency1", internalType: "Currency", type: "address" },
-              { name: "fee", internalType: "uint24", type: "uint24" },
-              { name: "tickSpacing", internalType: "int24", type: "int24" },
-              {
-                name: "hooks",
-                internalType: "contract IHooks",
-                type: "address",
-              },
-            ],
-          },
-        ],
-      },
-      { name: "minimumOutputs", internalType: "uint256[]", type: "uint256[]" },
-      { name: "deadline", internalType: "uint64", type: "uint64" },
-    ],
-    name: "processOperator",
+    inputs: [{ name: "candidate", internalType: "address", type: "address" }],
+    name: "proposeBuybackModule",
     outputs: [],
     stateMutability: "nonpayable",
   },
   {
     type: "function",
-    inputs: [
-      { name: "asset", internalType: "address", type: "address" },
-      {
-        name: "bucket",
-        internalType: "enum BuybackTypes.SourceBucket",
-        type: "uint8",
-      },
-    ],
-    name: "processingStatus",
-    outputs: [
-      {
-        name: "state",
-        internalType: "struct BuybackTypes.ProcessingState",
-        type: "tuple",
-        components: [
-          {
-            name: "status",
-            internalType: "enum BuybackTypes.Status",
-            type: "uint8",
-          },
-          { name: "revision", internalType: "uint64", type: "uint64" },
-          { name: "available", internalType: "uint256", type: "uint256" },
-          { name: "maxInput", internalType: "uint256", type: "uint256" },
-          { name: "minInput", internalType: "uint256", type: "uint256" },
-          { name: "nextEligibleAt", internalType: "uint256", type: "uint256" },
-        ],
-      },
-    ],
-    stateMutability: "view",
+    inputs: [],
+    name: "proposeModuleReplacementFreeze",
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -7507,179 +8101,8 @@ export const protocolBuybackVaultAbi = [
   },
   {
     type: "function",
-    inputs: [{ name: "asset", internalType: "address", type: "address" }],
-    name: "revision",
-    outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [{ name: "asset", internalType: "address", type: "address" }],
-    name: "route",
-    outputs: [
-      {
-        name: "",
-        internalType: "struct BuybackTypes.TypedRoute",
-        type: "tuple",
-        components: [
-          {
-            name: "pools",
-            internalType: "struct PoolKey[]",
-            type: "tuple[]",
-            components: [
-              { name: "currency0", internalType: "Currency", type: "address" },
-              { name: "currency1", internalType: "Currency", type: "address" },
-              { name: "fee", internalType: "uint24", type: "uint24" },
-              { name: "tickSpacing", internalType: "int24", type: "int24" },
-              {
-                name: "hooks",
-                internalType: "contract IHooks",
-                type: "address",
-              },
-            ],
-          },
-        ],
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "asset", internalType: "address", type: "address" },
-      { name: "paused", internalType: "bool", type: "bool" },
-    ],
-    name: "setAssetBuybacksPaused",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     inputs: [{ name: "paused", internalType: "bool", type: "bool" }],
     name: "setBuybacksPaused",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "globalInterval", internalType: "uint64", type: "uint64" },
-      { name: "assets", internalType: "address[]", type: "address[]" },
-      {
-        name: "limits_",
-        internalType: "struct BuybackTypes.ExecutionLimits[]",
-        type: "tuple[]",
-        components: [
-          { name: "minInput", internalType: "uint128", type: "uint128" },
-          { name: "maxInput", internalType: "uint128", type: "uint128" },
-          { name: "minInterval", internalType: "uint64", type: "uint64" },
-        ],
-      },
-    ],
-    name: "setExecutionLimits",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [
-      {
-        name: "mode",
-        internalType: "enum BuybackTypes.ExecutionMode",
-        type: "uint8",
-      },
-    ],
-    name: "setExecutionMode",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [{ name: "minInterval", internalType: "uint64", type: "uint64" }],
-    name: "setGlobalMinInterval",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "asset", internalType: "address", type: "address" },
-      {
-        name: "limits_",
-        internalType: "struct BuybackTypes.ExecutionLimits",
-        type: "tuple",
-        components: [
-          { name: "minInput", internalType: "uint128", type: "uint128" },
-          { name: "maxInput", internalType: "uint128", type: "uint128" },
-          { name: "minInterval", internalType: "uint64", type: "uint64" },
-        ],
-      },
-    ],
-    name: "setLimits",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [{ name: "operator_", internalType: "address", type: "address" }],
-    name: "setOperator",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "asset", internalType: "address", type: "address" },
-      {
-        name: "lifecycle_",
-        internalType: "enum BuybackTypes.Lifecycle",
-        type: "uint8",
-      },
-      {
-        name: "rates",
-        internalType: "struct BuybackTypes.OutputRate[]",
-        type: "tuple[]",
-        components: [
-          { name: "numerator", internalType: "uint256", type: "uint256" },
-          { name: "denominator", internalType: "uint256", type: "uint256" },
-        ],
-      },
-      { name: "expiresAt", internalType: "uint64", type: "uint64" },
-      { name: "inputBudget", internalType: "uint256", type: "uint256" },
-    ],
-    name: "setPermissionlessPolicy",
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    inputs: [
-      { name: "asset", internalType: "address", type: "address" },
-      {
-        name: "route_",
-        internalType: "struct BuybackTypes.TypedRoute",
-        type: "tuple",
-        components: [
-          {
-            name: "pools",
-            internalType: "struct PoolKey[]",
-            type: "tuple[]",
-            components: [
-              { name: "currency0", internalType: "Currency", type: "address" },
-              { name: "currency1", internalType: "Currency", type: "address" },
-              { name: "fee", internalType: "uint24", type: "uint24" },
-              { name: "tickSpacing", internalType: "int24", type: "int24" },
-              {
-                name: "hooks",
-                internalType: "contract IHooks",
-                type: "address",
-              },
-            ],
-          },
-        ],
-      },
-    ],
-    name: "setRoute",
     outputs: [],
     stateMutability: "nonpayable",
   },
@@ -7696,20 +8119,6 @@ export const protocolBuybackVaultAbi = [
     name: "syncDonation",
     outputs: [{ name: "amount", internalType: "uint256", type: "uint256" }],
     stateMutability: "nonpayable",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "asset",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      { name: "paused", internalType: "bool", type: "bool", indexed: false },
-    ],
-    name: "AssetBuybacksPaused",
   },
   {
     type: "event",
@@ -7746,9 +8155,9 @@ export const protocolBuybackVaultAbi = [
         indexed: false,
       },
       {
-        name: "lifecycle",
-        internalType: "enum BuybackTypes.Lifecycle",
-        type: "uint8",
+        name: "context",
+        internalType: "bytes32",
+        type: "bytes32",
         indexed: false,
       },
       {
@@ -7759,6 +8168,62 @@ export const protocolBuybackVaultAbi = [
       },
     ],
     name: "BuybackBurned",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "module",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "codeHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+      {
+        name: "revision",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+    ],
+    name: "BuybackModuleActivated",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [],
+    name: "BuybackModuleCancelled",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "module",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "codeHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+      {
+        name: "activationAt",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "BuybackModuleProposed",
   },
   {
     type: "event",
@@ -7892,108 +8357,56 @@ export const protocolBuybackVaultAbi = [
     anonymous: false,
     inputs: [
       {
-        name: "mode",
-        internalType: "enum BuybackTypes.ExecutionMode",
-        type: "uint8",
-        indexed: false,
-      },
-    ],
-    name: "ExecutionModeConfigured",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "minInterval",
-        internalType: "uint64",
-        type: "uint64",
-        indexed: false,
-      },
-    ],
-    name: "GlobalIntervalConfigured",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "asset",
+        name: "module",
         internalType: "address",
         type: "address",
         indexed: true,
+      },
+      {
+        name: "codeHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
       },
       {
         name: "revision",
         internalType: "uint64",
         type: "uint64",
-        indexed: true,
-      },
-      {
-        name: "limits",
-        internalType: "struct BuybackTypes.ExecutionLimits",
-        type: "tuple",
-        components: [
-          { name: "minInput", internalType: "uint128", type: "uint128" },
-          { name: "maxInput", internalType: "uint128", type: "uint128" },
-          { name: "minInterval", internalType: "uint64", type: "uint64" },
-        ],
         indexed: false,
       },
     ],
-    name: "LimitsConfigured",
+    name: "ModuleReplacementFinalized",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [],
+    name: "ModuleReplacementFreezeCancelled",
   },
   {
     type: "event",
     anonymous: false,
     inputs: [
       {
-        name: "operator",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-    ],
-    name: "OperatorConfigured",
-  },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "asset",
+        name: "module",
         internalType: "address",
         type: "address",
         indexed: true,
       },
       {
-        name: "policy",
-        internalType: "struct BuybackTypes.PermissionlessPolicy",
-        type: "tuple",
-        components: [
-          {
-            name: "lifecycle",
-            internalType: "enum BuybackTypes.Lifecycle",
-            type: "uint8",
-          },
-          { name: "revision", internalType: "uint64", type: "uint64" },
-          { name: "expiresAt", internalType: "uint64", type: "uint64" },
-          { name: "budgetLimited", internalType: "bool", type: "bool" },
-          { name: "remainingBudget", internalType: "uint256", type: "uint256" },
-          {
-            name: "rates",
-            internalType: "struct BuybackTypes.OutputRate[]",
-            type: "tuple[]",
-            components: [
-              { name: "numerator", internalType: "uint256", type: "uint256" },
-              { name: "denominator", internalType: "uint256", type: "uint256" },
-            ],
-          },
-        ],
+        name: "codeHash",
+        internalType: "bytes32",
+        type: "bytes32",
+        indexed: false,
+      },
+      {
+        name: "finalizeAt",
+        internalType: "uint256",
+        type: "uint256",
         indexed: false,
       },
     ],
-    name: "PermissionlessPolicyConfigured",
+    name: "ModuleReplacementFreezeProposed",
   },
   {
     type: "event",
@@ -8006,7 +8419,7 @@ export const protocolBuybackVaultAbi = [
         indexed: true,
       },
       {
-        name: "executor",
+        name: "module",
         internalType: "address",
         type: "address",
         indexed: true,
@@ -8014,86 +8427,25 @@ export const protocolBuybackVaultAbi = [
     ],
     name: "ProtocolTokenBound",
   },
-  {
-    type: "event",
-    anonymous: false,
-    inputs: [
-      {
-        name: "asset",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "revision",
-        internalType: "uint64",
-        type: "uint64",
-        indexed: true,
-      },
-      {
-        name: "route",
-        internalType: "struct BuybackTypes.TypedRoute",
-        type: "tuple",
-        components: [
-          {
-            name: "pools",
-            internalType: "struct PoolKey[]",
-            type: "tuple[]",
-            components: [
-              { name: "currency0", internalType: "Currency", type: "address" },
-              { name: "currency1", internalType: "Currency", type: "address" },
-              { name: "fee", internalType: "uint24", type: "uint24" },
-              { name: "tickSpacing", internalType: "int24", type: "int24" },
-              {
-                name: "hooks",
-                internalType: "contract IHooks",
-                type: "address",
-              },
-            ],
-          },
-        ],
-        indexed: false,
-      },
-    ],
-    name: "RouteConfigured",
-  },
+  { type: "error", inputs: [], name: "BuybacksArePaused" },
+  { type: "error", inputs: [], name: "BuybacksMustBePaused" },
   { type: "error", inputs: [], name: "DeadlineExpired" },
-  { type: "error", inputs: [], name: "ExecutorCreationCodeCorrupted" },
-  { type: "error", inputs: [], name: "ExecutorDeploymentFailed" },
+  { type: "error", inputs: [], name: "DelayNotElapsed" },
   { type: "error", inputs: [], name: "InexactSettlement" },
   { type: "error", inputs: [], name: "InsufficientBacking" },
   { type: "error", inputs: [], name: "InvalidAddress" },
   { type: "error", inputs: [], name: "InvalidAmount" },
   { type: "error", inputs: [], name: "InvalidAsset" },
-  { type: "error", inputs: [], name: "InvalidLimits" },
-  { type: "error", inputs: [], name: "InvalidPolicy" },
-  { type: "error", inputs: [], name: "InvalidRoute" },
+  { type: "error", inputs: [], name: "InvalidModule" },
+  { type: "error", inputs: [], name: "ModuleCreationCodeCorrupted" },
+  { type: "error", inputs: [], name: "ModuleDeploymentFailed" },
+  { type: "error", inputs: [], name: "ModuleReplacementFrozen" },
   { type: "error", inputs: [], name: "OnlyFactoryDeployment" },
-  { type: "error", inputs: [], name: "OnlyOperator" },
   { type: "error", inputs: [], name: "OnlyProtocolAuthority" },
   { type: "error", inputs: [], name: "OnlyRegisteredTier" },
-  {
-    type: "error",
-    inputs: [
-      {
-        name: "status",
-        internalType: "enum BuybackTypes.Status",
-        type: "uint8",
-      },
-    ],
-    name: "ProcessingUnavailable",
-  },
+  { type: "error", inputs: [], name: "PendingGovernanceAction" },
   { type: "error", inputs: [], name: "ProtocolTokenAlreadyBound" },
-  { type: "error", inputs: [], name: "ProtocolTokenNotLaunched" },
   { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
-  {
-    type: "error",
-    inputs: [
-      { name: "bits", internalType: "uint8", type: "uint8" },
-      { name: "value", internalType: "uint256", type: "uint256" },
-    ],
-    name: "SafeCastOverflowedUintDowncast",
-  },
   {
     type: "error",
     inputs: [{ name: "token", internalType: "address", type: "address" }],
@@ -8554,6 +8906,127 @@ export const usdgAbi = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // React
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iBurnableProtocolTokenAbi}__
+ */
+export const useWriteIBurnableProtocolToken =
+  /*#__PURE__*/ createUseWriteContract({ abi: iBurnableProtocolTokenAbi });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iBurnableProtocolTokenAbi}__ and `functionName` set to `"burn"`
+ */
+export const useWriteIBurnableProtocolTokenBurn =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iBurnableProtocolTokenAbi,
+    functionName: "burn",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iBurnableProtocolTokenAbi}__
+ */
+export const useSimulateIBurnableProtocolToken =
+  /*#__PURE__*/ createUseSimulateContract({ abi: iBurnableProtocolTokenAbi });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iBurnableProtocolTokenAbi}__ and `functionName` set to `"burn"`
+ */
+export const useSimulateIBurnableProtocolTokenBurn =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iBurnableProtocolTokenAbi,
+    functionName: "burn",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iBuybackModuleAbi}__
+ */
+export const useReadIBuybackModule = /*#__PURE__*/ createUseReadContract({
+  abi: iBuybackModuleAbi,
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iBuybackModuleAbi}__ and `functionName` set to `"interfaceVersion"`
+ */
+export const useReadIBuybackModuleInterfaceVersion =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iBuybackModuleAbi,
+    functionName: "interfaceVersion",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iBuybackModuleAbi}__ and `functionName` set to `"moduleId"`
+ */
+export const useReadIBuybackModuleModuleId =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iBuybackModuleAbi,
+    functionName: "moduleId",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iBuybackModuleAbi}__ and `functionName` set to `"moduleVersion"`
+ */
+export const useReadIBuybackModuleModuleVersion =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iBuybackModuleAbi,
+    functionName: "moduleVersion",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iBuybackModuleAbi}__ and `functionName` set to `"protocolToken"`
+ */
+export const useReadIBuybackModuleProtocolToken =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iBuybackModuleAbi,
+    functionName: "protocolToken",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iBuybackModuleAbi}__ and `functionName` set to `"trackedAssets"`
+ */
+export const useReadIBuybackModuleTrackedAssets =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iBuybackModuleAbi,
+    functionName: "trackedAssets",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iBuybackModuleAbi}__ and `functionName` set to `"vault"`
+ */
+export const useReadIBuybackModuleVault = /*#__PURE__*/ createUseReadContract({
+  abi: iBuybackModuleAbi,
+  functionName: "vault",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iBuybackModuleAbi}__
+ */
+export const useWriteIBuybackModule = /*#__PURE__*/ createUseWriteContract({
+  abi: iBuybackModuleAbi,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iBuybackModuleAbi}__ and `functionName` set to `"execute"`
+ */
+export const useWriteIBuybackModuleExecute =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iBuybackModuleAbi,
+    functionName: "execute",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iBuybackModuleAbi}__
+ */
+export const useSimulateIBuybackModule =
+  /*#__PURE__*/ createUseSimulateContract({ abi: iBuybackModuleAbi });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iBuybackModuleAbi}__ and `functionName` set to `"execute"`
+ */
+export const useSimulateIBuybackModuleExecute =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iBuybackModuleAbi,
+    functionName: "execute",
+  });
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc165Abi}__
@@ -11468,6 +11941,18 @@ export const useReadMembershipTierBoostStepBps =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"ERC5643_ACCOUNTING_STEPS"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useReadMembershipTierErc5643AccountingSteps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "ERC5643_ACCOUNTING_STEPS",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"MAX_BOOST_BPS"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -13905,77 +14390,452 @@ export const useReadOnchainMetadataRendererValidateConfiguration =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackExecutorAbi}__
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__
  */
-export const useReadPonsBuybackExecutor = /*#__PURE__*/ createUseReadContract({
-  abi: ponsBuybackExecutorAbi,
+export const useReadPonsBuybackModule = /*#__PURE__*/ createUseReadContract({
+  abi: ponsBuybackModuleAbi,
 });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackExecutorAbi}__ and `functionName` set to `"curve"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"assetBuybacksPaused"`
  */
-export const useReadPonsBuybackExecutorCurve =
+export const useReadPonsBuybackModuleAssetBuybacksPaused =
   /*#__PURE__*/ createUseReadContract({
-    abi: ponsBuybackExecutorAbi,
+    abi: ponsBuybackModuleAbi,
+    functionName: "assetBuybacksPaused",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"canonicalAsset"`
+ */
+export const useReadPonsBuybackModuleCanonicalAsset =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "canonicalAsset",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"curve"`
+ */
+export const useReadPonsBuybackModuleCurve =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
     functionName: "curve",
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackExecutorAbi}__ and `functionName` set to `"lifecycle"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"encodeExecutionData"`
  */
-export const useReadPonsBuybackExecutorLifecycle =
+export const useReadPonsBuybackModuleEncodeExecutionData =
   /*#__PURE__*/ createUseReadContract({
-    abi: ponsBuybackExecutorAbi,
+    abi: ponsBuybackModuleAbi,
+    functionName: "encodeExecutionData",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"executionMode"`
+ */
+export const useReadPonsBuybackModuleExecutionMode =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "executionMode",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"globalMinInterval"`
+ */
+export const useReadPonsBuybackModuleGlobalMinInterval =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "globalMinInterval",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"interfaceVersion"`
+ */
+export const useReadPonsBuybackModuleInterfaceVersion =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "interfaceVersion",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"lastAssetBuyAt"`
+ */
+export const useReadPonsBuybackModuleLastAssetBuyAt =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "lastAssetBuyAt",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"lastBuyAt"`
+ */
+export const useReadPonsBuybackModuleLastBuyAt =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "lastBuyAt",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"lifecycle"`
+ */
+export const useReadPonsBuybackModuleLifecycle =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
     functionName: "lifecycle",
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackExecutorAbi}__ and `functionName` set to `"protocolToken"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"limits"`
  */
-export const useReadPonsBuybackExecutorProtocolToken =
+export const useReadPonsBuybackModuleLimits =
   /*#__PURE__*/ createUseReadContract({
-    abi: ponsBuybackExecutorAbi,
+    abi: ponsBuybackModuleAbi,
+    functionName: "limits",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"moduleId"`
+ */
+export const useReadPonsBuybackModuleModuleId =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "moduleId",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"moduleVersion"`
+ */
+export const useReadPonsBuybackModuleModuleVersion =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "moduleVersion",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"operator"`
+ */
+export const useReadPonsBuybackModuleOperator =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "operator",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"permissionlessPolicy"`
+ */
+export const useReadPonsBuybackModulePermissionlessPolicy =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "permissionlessPolicy",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"previewProcessing"`
+ */
+export const useReadPonsBuybackModulePreviewProcessing =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "previewProcessing",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"processingStatus"`
+ */
+export const useReadPonsBuybackModuleProcessingStatus =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "processingStatus",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"protocolToken"`
+ */
+export const useReadPonsBuybackModuleProtocolToken =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
     functionName: "protocolToken",
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackExecutorAbi}__ and `functionName` set to `"vault"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"revision"`
  */
-export const useReadPonsBuybackExecutorVault =
+export const useReadPonsBuybackModuleRevision =
   /*#__PURE__*/ createUseReadContract({
-    abi: ponsBuybackExecutorAbi,
+    abi: ponsBuybackModuleAbi,
+    functionName: "revision",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"route"`
+ */
+export const useReadPonsBuybackModuleRoute =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "route",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"trackedAssets"`
+ */
+export const useReadPonsBuybackModuleTrackedAssets =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "trackedAssets",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"vault"`
+ */
+export const useReadPonsBuybackModuleVault =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ponsBuybackModuleAbi,
     functionName: "vault",
   });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackExecutorAbi}__
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__
  */
-export const useWritePonsBuybackExecutor = /*#__PURE__*/ createUseWriteContract(
-  { abi: ponsBuybackExecutorAbi },
-);
+export const useWritePonsBuybackModule = /*#__PURE__*/ createUseWriteContract({
+  abi: ponsBuybackModuleAbi,
+});
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackExecutorAbi}__ and `functionName` set to `"execute"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"execute"`
  */
-export const useWritePonsBuybackExecutorExecute =
+export const useWritePonsBuybackModuleExecute =
   /*#__PURE__*/ createUseWriteContract({
-    abi: ponsBuybackExecutorAbi,
+    abi: ponsBuybackModuleAbi,
     functionName: "execute",
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackExecutorAbi}__
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setAssetBuybacksPaused"`
  */
-export const useSimulatePonsBuybackExecutor =
-  /*#__PURE__*/ createUseSimulateContract({ abi: ponsBuybackExecutorAbi });
+export const useWritePonsBuybackModuleSetAssetBuybacksPaused =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setAssetBuybacksPaused",
+  });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackExecutorAbi}__ and `functionName` set to `"execute"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setExecutionLimits"`
  */
-export const useSimulatePonsBuybackExecutorExecute =
+export const useWritePonsBuybackModuleSetExecutionLimits =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setExecutionLimits",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setExecutionMode"`
+ */
+export const useWritePonsBuybackModuleSetExecutionMode =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setExecutionMode",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setGlobalMinInterval"`
+ */
+export const useWritePonsBuybackModuleSetGlobalMinInterval =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setGlobalMinInterval",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setLimits"`
+ */
+export const useWritePonsBuybackModuleSetLimits =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setLimits",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setOperator"`
+ */
+export const useWritePonsBuybackModuleSetOperator =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setOperator",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setPermissionlessPolicy"`
+ */
+export const useWritePonsBuybackModuleSetPermissionlessPolicy =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setPermissionlessPolicy",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setRoute"`
+ */
+export const useWritePonsBuybackModuleSetRoute =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setRoute",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__
+ */
+export const useSimulatePonsBuybackModule =
+  /*#__PURE__*/ createUseSimulateContract({ abi: ponsBuybackModuleAbi });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"execute"`
+ */
+export const useSimulatePonsBuybackModuleExecute =
   /*#__PURE__*/ createUseSimulateContract({
-    abi: ponsBuybackExecutorAbi,
+    abi: ponsBuybackModuleAbi,
     functionName: "execute",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setAssetBuybacksPaused"`
+ */
+export const useSimulatePonsBuybackModuleSetAssetBuybacksPaused =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setAssetBuybacksPaused",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setExecutionLimits"`
+ */
+export const useSimulatePonsBuybackModuleSetExecutionLimits =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setExecutionLimits",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setExecutionMode"`
+ */
+export const useSimulatePonsBuybackModuleSetExecutionMode =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setExecutionMode",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setGlobalMinInterval"`
+ */
+export const useSimulatePonsBuybackModuleSetGlobalMinInterval =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setGlobalMinInterval",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setLimits"`
+ */
+export const useSimulatePonsBuybackModuleSetLimits =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setLimits",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setOperator"`
+ */
+export const useSimulatePonsBuybackModuleSetOperator =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setOperator",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setPermissionlessPolicy"`
+ */
+export const useSimulatePonsBuybackModuleSetPermissionlessPolicy =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setPermissionlessPolicy",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `functionName` set to `"setRoute"`
+ */
+export const useSimulatePonsBuybackModuleSetRoute =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ponsBuybackModuleAbi,
+    functionName: "setRoute",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ponsBuybackModuleAbi}__
+ */
+export const useWatchPonsBuybackModuleEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({ abi: ponsBuybackModuleAbi });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `eventName` set to `"AssetBuybacksPaused"`
+ */
+export const useWatchPonsBuybackModuleAssetBuybacksPausedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ponsBuybackModuleAbi,
+    eventName: "AssetBuybacksPaused",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `eventName` set to `"ExecutionModeConfigured"`
+ */
+export const useWatchPonsBuybackModuleExecutionModeConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ponsBuybackModuleAbi,
+    eventName: "ExecutionModeConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `eventName` set to `"GlobalIntervalConfigured"`
+ */
+export const useWatchPonsBuybackModuleGlobalIntervalConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ponsBuybackModuleAbi,
+    eventName: "GlobalIntervalConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `eventName` set to `"LimitsConfigured"`
+ */
+export const useWatchPonsBuybackModuleLimitsConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ponsBuybackModuleAbi,
+    eventName: "LimitsConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `eventName` set to `"OperatorConfigured"`
+ */
+export const useWatchPonsBuybackModuleOperatorConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ponsBuybackModuleAbi,
+    eventName: "OperatorConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `eventName` set to `"PermissionlessPolicyConfigured"`
+ */
+export const useWatchPonsBuybackModulePermissionlessPolicyConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ponsBuybackModuleAbi,
+    eventName: "PermissionlessPolicyConfigured",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ponsBuybackModuleAbi}__ and `eventName` set to `"RouteConfigured"`
+ */
+export const useWatchPonsBuybackModuleRouteConfiguredEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ponsBuybackModuleAbi,
+    eventName: "RouteConfigured",
   });
 
 /**
@@ -14138,12 +14998,39 @@ export const useReadProtocolBuybackVault = /*#__PURE__*/ createUseReadContract({
 });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"assetBuybacksPaused"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"MODULE_FREEZE_DELAY"`
  */
-export const useReadProtocolBuybackVaultAssetBuybacksPaused =
+export const useReadProtocolBuybackVaultModuleFreezeDelay =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "assetBuybacksPaused",
+    functionName: "MODULE_FREEZE_DELAY",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"MODULE_REPLACEMENT_DELAY"`
+ */
+export const useReadProtocolBuybackVaultModuleReplacementDelay =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "MODULE_REPLACEMENT_DELAY",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"activeModule"`
+ */
+export const useReadProtocolBuybackVaultActiveModule =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "activeModule",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"activeModuleCodeHash"`
+ */
+export const useReadProtocolBuybackVaultActiveModuleCodeHash =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "activeModuleCodeHash",
   });
 
 /**
@@ -14165,51 +15052,6 @@ export const useReadProtocolBuybackVaultCanonicalAsset =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"executionMode"`
- */
-export const useReadProtocolBuybackVaultExecutionMode =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "executionMode",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"executor"`
- */
-export const useReadProtocolBuybackVaultExecutor =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "executor",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"executorCreationCodeHash"`
- */
-export const useReadProtocolBuybackVaultExecutorCreationCodeHash =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "executorCreationCodeHash",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"executorCreationCodeLength"`
- */
-export const useReadProtocolBuybackVaultExecutorCreationCodeLength =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "executorCreationCodeLength",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"executorCreationCodeStore"`
- */
-export const useReadProtocolBuybackVaultExecutorCreationCodeStore =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "executorCreationCodeStore",
-  });
-
-/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"factory"`
  */
 export const useReadProtocolBuybackVaultFactory =
@@ -14219,12 +15061,21 @@ export const useReadProtocolBuybackVaultFactory =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"globalMinInterval"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"freezeModule"`
  */
-export const useReadProtocolBuybackVaultGlobalMinInterval =
+export const useReadProtocolBuybackVaultFreezeModule =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "globalMinInterval",
+    functionName: "freezeModule",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"freezeModuleCodeHash"`
+ */
+export const useReadProtocolBuybackVaultFreezeModuleCodeHash =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "freezeModuleCodeHash",
   });
 
 /**
@@ -14237,66 +15088,84 @@ export const useReadProtocolBuybackVaultInventory =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"lastAssetBuyAt"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"moduleActivationAt"`
  */
-export const useReadProtocolBuybackVaultLastAssetBuyAt =
+export const useReadProtocolBuybackVaultModuleActivationAt =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "lastAssetBuyAt",
+    functionName: "moduleActivationAt",
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"lastBuyAt"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"moduleCreationCodeHash"`
  */
-export const useReadProtocolBuybackVaultLastBuyAt =
+export const useReadProtocolBuybackVaultModuleCreationCodeHash =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "lastBuyAt",
+    functionName: "moduleCreationCodeHash",
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"limits"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"moduleCreationCodeLength"`
  */
-export const useReadProtocolBuybackVaultLimits =
+export const useReadProtocolBuybackVaultModuleCreationCodeLength =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "limits",
+    functionName: "moduleCreationCodeLength",
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"operator"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"moduleCreationCodeStore"`
  */
-export const useReadProtocolBuybackVaultOperator =
+export const useReadProtocolBuybackVaultModuleCreationCodeStore =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "operator",
+    functionName: "moduleCreationCodeStore",
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"permissionlessPolicy"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"moduleFreezeAt"`
  */
-export const useReadProtocolBuybackVaultPermissionlessPolicy =
+export const useReadProtocolBuybackVaultModuleFreezeAt =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "permissionlessPolicy",
+    functionName: "moduleFreezeAt",
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"previewProcessing"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"moduleReplacementFrozen"`
  */
-export const useReadProtocolBuybackVaultPreviewProcessing =
+export const useReadProtocolBuybackVaultModuleReplacementFrozen =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "previewProcessing",
+    functionName: "moduleReplacementFrozen",
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"processingStatus"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"moduleRevision"`
  */
-export const useReadProtocolBuybackVaultProcessingStatus =
+export const useReadProtocolBuybackVaultModuleRevision =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "processingStatus",
+    functionName: "moduleRevision",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"pendingModule"`
+ */
+export const useReadProtocolBuybackVaultPendingModule =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "pendingModule",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"pendingModuleCodeHash"`
+ */
+export const useReadProtocolBuybackVaultPendingModuleCodeHash =
+  /*#__PURE__*/ createUseReadContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "pendingModuleCodeHash",
   });
 
 /**
@@ -14306,24 +15175,6 @@ export const useReadProtocolBuybackVaultProtocolToken =
   /*#__PURE__*/ createUseReadContract({
     abi: protocolBuybackVaultAbi,
     functionName: "protocolToken",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"revision"`
- */
-export const useReadProtocolBuybackVaultRevision =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "revision",
-  });
-
-/**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"route"`
- */
-export const useReadProtocolBuybackVaultRoute =
-  /*#__PURE__*/ createUseReadContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "route",
   });
 
 /**
@@ -14342,12 +15193,48 @@ export const useWriteProtocolBuybackVault =
   /*#__PURE__*/ createUseWriteContract({ abi: protocolBuybackVaultAbi });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"activateBuybackModule"`
+ */
+export const useWriteProtocolBuybackVaultActivateBuybackModule =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "activateBuybackModule",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"bindProtocolToken"`
  */
 export const useWriteProtocolBuybackVaultBindProtocolToken =
   /*#__PURE__*/ createUseWriteContract({
     abi: protocolBuybackVaultAbi,
     functionName: "bindProtocolToken",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"cancelBuybackModule"`
+ */
+export const useWriteProtocolBuybackVaultCancelBuybackModule =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "cancelBuybackModule",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"cancelModuleReplacementFreeze"`
+ */
+export const useWriteProtocolBuybackVaultCancelModuleReplacementFreeze =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "cancelModuleReplacementFreeze",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"finalizeModuleReplacementFreeze"`
+ */
+export const useWriteProtocolBuybackVaultFinalizeModuleReplacementFreeze =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "finalizeModuleReplacementFreeze",
   });
 
 /**
@@ -14360,12 +15247,21 @@ export const useWriteProtocolBuybackVaultProcess =
   });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"processOperator"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"proposeBuybackModule"`
  */
-export const useWriteProtocolBuybackVaultProcessOperator =
+export const useWriteProtocolBuybackVaultProposeBuybackModule =
   /*#__PURE__*/ createUseWriteContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "processOperator",
+    functionName: "proposeBuybackModule",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"proposeModuleReplacementFreeze"`
+ */
+export const useWriteProtocolBuybackVaultProposeModuleReplacementFreeze =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "proposeModuleReplacementFreeze",
   });
 
 /**
@@ -14378,84 +15274,12 @@ export const useWriteProtocolBuybackVaultRecordEarnedFees =
   });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setAssetBuybacksPaused"`
- */
-export const useWriteProtocolBuybackVaultSetAssetBuybacksPaused =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setAssetBuybacksPaused",
-  });
-
-/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setBuybacksPaused"`
  */
 export const useWriteProtocolBuybackVaultSetBuybacksPaused =
   /*#__PURE__*/ createUseWriteContract({
     abi: protocolBuybackVaultAbi,
     functionName: "setBuybacksPaused",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setExecutionLimits"`
- */
-export const useWriteProtocolBuybackVaultSetExecutionLimits =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setExecutionLimits",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setExecutionMode"`
- */
-export const useWriteProtocolBuybackVaultSetExecutionMode =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setExecutionMode",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setGlobalMinInterval"`
- */
-export const useWriteProtocolBuybackVaultSetGlobalMinInterval =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setGlobalMinInterval",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setLimits"`
- */
-export const useWriteProtocolBuybackVaultSetLimits =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setLimits",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setOperator"`
- */
-export const useWriteProtocolBuybackVaultSetOperator =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setOperator",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setPermissionlessPolicy"`
- */
-export const useWriteProtocolBuybackVaultSetPermissionlessPolicy =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setPermissionlessPolicy",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setRoute"`
- */
-export const useWriteProtocolBuybackVaultSetRoute =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setRoute",
   });
 
 /**
@@ -14474,12 +15298,48 @@ export const useSimulateProtocolBuybackVault =
   /*#__PURE__*/ createUseSimulateContract({ abi: protocolBuybackVaultAbi });
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"activateBuybackModule"`
+ */
+export const useSimulateProtocolBuybackVaultActivateBuybackModule =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "activateBuybackModule",
+  });
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"bindProtocolToken"`
  */
 export const useSimulateProtocolBuybackVaultBindProtocolToken =
   /*#__PURE__*/ createUseSimulateContract({
     abi: protocolBuybackVaultAbi,
     functionName: "bindProtocolToken",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"cancelBuybackModule"`
+ */
+export const useSimulateProtocolBuybackVaultCancelBuybackModule =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "cancelBuybackModule",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"cancelModuleReplacementFreeze"`
+ */
+export const useSimulateProtocolBuybackVaultCancelModuleReplacementFreeze =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "cancelModuleReplacementFreeze",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"finalizeModuleReplacementFreeze"`
+ */
+export const useSimulateProtocolBuybackVaultFinalizeModuleReplacementFreeze =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "finalizeModuleReplacementFreeze",
   });
 
 /**
@@ -14492,12 +15352,21 @@ export const useSimulateProtocolBuybackVaultProcess =
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"processOperator"`
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"proposeBuybackModule"`
  */
-export const useSimulateProtocolBuybackVaultProcessOperator =
+export const useSimulateProtocolBuybackVaultProposeBuybackModule =
   /*#__PURE__*/ createUseSimulateContract({
     abi: protocolBuybackVaultAbi,
-    functionName: "processOperator",
+    functionName: "proposeBuybackModule",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"proposeModuleReplacementFreeze"`
+ */
+export const useSimulateProtocolBuybackVaultProposeModuleReplacementFreeze =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: protocolBuybackVaultAbi,
+    functionName: "proposeModuleReplacementFreeze",
   });
 
 /**
@@ -14510,84 +15379,12 @@ export const useSimulateProtocolBuybackVaultRecordEarnedFees =
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setAssetBuybacksPaused"`
- */
-export const useSimulateProtocolBuybackVaultSetAssetBuybacksPaused =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setAssetBuybacksPaused",
-  });
-
-/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setBuybacksPaused"`
  */
 export const useSimulateProtocolBuybackVaultSetBuybacksPaused =
   /*#__PURE__*/ createUseSimulateContract({
     abi: protocolBuybackVaultAbi,
     functionName: "setBuybacksPaused",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setExecutionLimits"`
- */
-export const useSimulateProtocolBuybackVaultSetExecutionLimits =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setExecutionLimits",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setExecutionMode"`
- */
-export const useSimulateProtocolBuybackVaultSetExecutionMode =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setExecutionMode",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setGlobalMinInterval"`
- */
-export const useSimulateProtocolBuybackVaultSetGlobalMinInterval =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setGlobalMinInterval",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setLimits"`
- */
-export const useSimulateProtocolBuybackVaultSetLimits =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setLimits",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setOperator"`
- */
-export const useSimulateProtocolBuybackVaultSetOperator =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setOperator",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setPermissionlessPolicy"`
- */
-export const useSimulateProtocolBuybackVaultSetPermissionlessPolicy =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setPermissionlessPolicy",
-  });
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `functionName` set to `"setRoute"`
- */
-export const useSimulateProtocolBuybackVaultSetRoute =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: protocolBuybackVaultAbi,
-    functionName: "setRoute",
   });
 
 /**
@@ -14606,21 +15403,39 @@ export const useWatchProtocolBuybackVaultEvent =
   /*#__PURE__*/ createUseWatchContractEvent({ abi: protocolBuybackVaultAbi });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"AssetBuybacksPaused"`
- */
-export const useWatchProtocolBuybackVaultAssetBuybacksPausedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: protocolBuybackVaultAbi,
-    eventName: "AssetBuybacksPaused",
-  });
-
-/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"BuybackBurned"`
  */
 export const useWatchProtocolBuybackVaultBuybackBurnedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBuybackVaultAbi,
     eventName: "BuybackBurned",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"BuybackModuleActivated"`
+ */
+export const useWatchProtocolBuybackVaultBuybackModuleActivatedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBuybackVaultAbi,
+    eventName: "BuybackModuleActivated",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"BuybackModuleCancelled"`
+ */
+export const useWatchProtocolBuybackVaultBuybackModuleCancelledEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBuybackVaultAbi,
+    eventName: "BuybackModuleCancelled",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"BuybackModuleProposed"`
+ */
+export const useWatchProtocolBuybackVaultBuybackModuleProposedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: protocolBuybackVaultAbi,
+    eventName: "BuybackModuleProposed",
   });
 
 /**
@@ -14669,48 +15484,30 @@ export const useWatchProtocolBuybackVaultEarnedFeesReceivedEvent =
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"ExecutionModeConfigured"`
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"ModuleReplacementFinalized"`
  */
-export const useWatchProtocolBuybackVaultExecutionModeConfiguredEvent =
+export const useWatchProtocolBuybackVaultModuleReplacementFinalizedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBuybackVaultAbi,
-    eventName: "ExecutionModeConfigured",
+    eventName: "ModuleReplacementFinalized",
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"GlobalIntervalConfigured"`
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"ModuleReplacementFreezeCancelled"`
  */
-export const useWatchProtocolBuybackVaultGlobalIntervalConfiguredEvent =
+export const useWatchProtocolBuybackVaultModuleReplacementFreezeCancelledEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBuybackVaultAbi,
-    eventName: "GlobalIntervalConfigured",
+    eventName: "ModuleReplacementFreezeCancelled",
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"LimitsConfigured"`
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"ModuleReplacementFreezeProposed"`
  */
-export const useWatchProtocolBuybackVaultLimitsConfiguredEvent =
+export const useWatchProtocolBuybackVaultModuleReplacementFreezeProposedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBuybackVaultAbi,
-    eventName: "LimitsConfigured",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"OperatorConfigured"`
- */
-export const useWatchProtocolBuybackVaultOperatorConfiguredEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: protocolBuybackVaultAbi,
-    eventName: "OperatorConfigured",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"PermissionlessPolicyConfigured"`
- */
-export const useWatchProtocolBuybackVaultPermissionlessPolicyConfiguredEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: protocolBuybackVaultAbi,
-    eventName: "PermissionlessPolicyConfigured",
+    eventName: "ModuleReplacementFreezeProposed",
   });
 
 /**
@@ -14720,15 +15517,6 @@ export const useWatchProtocolBuybackVaultProtocolTokenBoundEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: protocolBuybackVaultAbi,
     eventName: "ProtocolTokenBound",
-  });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link protocolBuybackVaultAbi}__ and `eventName` set to `"RouteConfigured"`
- */
-export const useWatchProtocolBuybackVaultRouteConfiguredEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: protocolBuybackVaultAbi,
-    eventName: "RouteConfigured",
   });
 
 /**

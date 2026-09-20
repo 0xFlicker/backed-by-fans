@@ -25,6 +25,7 @@ import {
   iSafeAbi,
   membershipFactoryAbi,
   protocolBuybackVaultAbi,
+  ponsBuybackModuleAbi,
 } from "@/contracts";
 import { WalletControl } from "@/components/WalletControl";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
@@ -85,8 +86,105 @@ export function BuybackSettings({ chainId }: { chainId: SupportedChainId }) {
         </p>
         <WalletControl />
       </header>
+      <ModuleGovernance chainId={chainId} />
       <LoadSettings key={chainId} chainId={chainId} />
     </>
+  );
+}
+function ModuleGovernance({ chainId }: { chainId: SupportedChainId }) {
+  const client = usePublicClient({ chainId });
+  const state = useQuery({
+    queryKey: ["protocol", chainId, "module-governance"],
+    enabled: Boolean(client),
+    queryFn: async () => {
+      const blockNumber = await client!.getBlockNumber();
+      const deployment = getDeployment(publicConfig, chainId);
+      if (deployment.status !== "ready")
+        throw new Error("Protocol is not deployed.");
+      const vault = await client!.readContract({
+        address: deployment.factoryAddress,
+        abi: membershipFactoryAbi,
+        functionName: "buybackVault",
+        blockNumber,
+      });
+      const read = (
+        functionName:
+          | "activeModule"
+          | "moduleRevision"
+          | "moduleReplacementFrozen"
+          | "moduleActivationAt"
+          | "moduleFreezeAt",
+      ) =>
+        client!.readContract({
+          address: vault,
+          abi: protocolBuybackVaultAbi,
+          functionName,
+          blockNumber,
+        });
+      const [module, revision, frozen, activationAt, freezeAt] =
+        await Promise.all([
+          read("activeModule"),
+          read("moduleRevision"),
+          read("moduleReplacementFrozen"),
+          read("moduleActivationAt"),
+          read("moduleFreezeAt"),
+        ]);
+      return {
+        module: String(module),
+        revision: String(revision),
+        frozen: frozen === true,
+        activationAt: Number(activationAt),
+        freezeAt: Number(freezeAt),
+      };
+    },
+  });
+  return (
+    <details>
+      <summary>Buyback module governance</summary>
+      <p>
+        The selected module controls prices, routes and who can spend buyback
+        funds. The vault checks settlement and burns the acquired protocol
+        tokens; it cannot guarantee a fair price.
+      </p>
+      {state.data && (
+        <>
+          <p>
+            Active module: <code>{state.data.module}</code> · revision{" "}
+            {state.data.revision}
+          </p>
+          <p>
+            {state.data.frozen
+              ? "Module replacement is permanently disabled."
+              : "Module replacement requires a 48-hour delay. Activation requires paused buybacks and leaves them paused for configuration and review."}
+          </p>
+          {state.data.activationAt > 0 && (
+            <p>
+              Replacement eligible:{" "}
+              {new Date(state.data.activationAt * 1000).toISOString()}
+            </p>
+          )}
+          {state.data.freezeAt > 0 && (
+            <p>
+              Freeze eligible:{" "}
+              {new Date(state.data.freezeAt * 1000).toISOString()}
+            </p>
+          )}
+        </>
+      )}
+      {state.error && (
+        <p role="alert">Module governance state could not be read.</p>
+      )}
+      <p>
+        A replacement freeze has a seven-day review period and can be cancelled
+        before finalization. Finalizing is irreversible: a defective frozen
+        module can strand buyback funds. Global pause remains available, and the
+        module’s own configuration and authorities remain mutable.
+      </p>
+      <p>
+        Prepare and review these governance transactions with the protocol
+        administration tool before signing through the Safe.
+      </p>
+    </details>
   );
 }
 function LoadSettings({ chainId }: { chainId: SupportedChainId }) {
@@ -285,7 +383,7 @@ function SettingsEditor({
       limits,
       globalMinInterval,
       data: encodeFunctionData({
-        abi: protocolBuybackVaultAbi,
+        abi: ponsBuybackModuleAbi,
         functionName: "setExecutionLimits",
         args: [globalMinInterval, rows.map((row) => row.asset), limits],
       }),
@@ -1043,7 +1141,7 @@ function PublishSettings({
         chainId,
         safe: snapshot.data.safe,
         safeNonce: nonce.toString(),
-        to: snapshot.data.vault,
+        to: snapshot.data.activeModule,
         data: review.data,
         value: "0",
         operation: 0,
@@ -1072,22 +1170,29 @@ function PublishSettings({
           "Connect your wallet on the selected network and wait for Safe checks.",
         );
       const { payload } = approval.data;
-      const [safe, factoryOwner, factoryVault] = await Promise.all([
-        readSafeApproval(client as PublicClient, payload),
-        client.readContract({
-          address: snapshot.data.factory,
-          abi: membershipFactoryAbi,
-          functionName: "owner",
-        }),
-        client.readContract({
-          address: snapshot.data.factory,
-          abi: membershipFactoryAbi,
-          functionName: "buybackVault",
-        }),
-      ]);
+      const [safe, factoryOwner, factoryVault, activeModule] =
+        await Promise.all([
+          readSafeApproval(client as PublicClient, payload),
+          client.readContract({
+            address: snapshot.data.factory,
+            abi: membershipFactoryAbi,
+            functionName: "owner",
+          }),
+          client.readContract({
+            address: snapshot.data.factory,
+            abi: membershipFactoryAbi,
+            functionName: "buybackVault",
+          }),
+          client.readContract({
+            address: snapshot.data.vault,
+            abi: protocolBuybackVaultAbi,
+            functionName: "activeModule",
+          }),
+        ]);
       if (
         factoryOwner.toLowerCase() !== payload.safe.toLowerCase() ||
-        factoryVault.toLowerCase() !== payload.to.toLowerCase()
+        factoryVault.toLowerCase() !== snapshot.data.vault.toLowerCase() ||
+        activeModule.toLowerCase() !== payload.to.toLowerCase()
       )
         throw new Error("Protocol authority changed. Refresh the calculator.");
       if (safe.hash !== approval.data.safe.hash)

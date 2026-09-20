@@ -14,7 +14,7 @@ import {
   type PublicClient,
   type TransactionReceipt,
 } from "viem";
-import { iSafeAbi, protocolBuybackVaultAbi } from "@/contracts";
+import { iSafeAbi, ponsBuybackModuleAbi } from "@/contracts";
 
 /** Exact, reviewed settings envelope. No transaction lifecycle lives here. */
 export type SettingsSafePayload = {
@@ -230,7 +230,7 @@ export async function verifySettingsReceipt(
       "The receipt does not confirm Safe inner execution success. The settings have not been verified.",
     );
   const decoded = decodeFunctionData({
-    abi: protocolBuybackVaultAbi,
+    abi: ponsBuybackModuleAbi,
     data: payload.data,
   });
   if (decoded.functionName !== "setExecutionLimits")
@@ -239,7 +239,7 @@ export async function verifySettingsReceipt(
   const [actualGlobal, actualLimits, nonce] = await Promise.all([
     client.readContract({
       address: payload.to,
-      abi: protocolBuybackVaultAbi,
+      abi: ponsBuybackModuleAbi,
       functionName: "globalMinInterval",
       blockNumber: receipt.blockNumber,
     }),
@@ -247,7 +247,7 @@ export async function verifySettingsReceipt(
       assets.map((asset) =>
         client.readContract({
           address: payload.to,
-          abi: protocolBuybackVaultAbi,
+          abi: ponsBuybackModuleAbi,
           functionName: "limits",
           args: [asset],
           blockNumber: receipt.blockNumber,
@@ -265,7 +265,7 @@ export async function verifySettingsReceipt(
     actualGlobal !== globalInterval ||
     nonce !== BigInt(payload.safeNonce) + 1n ||
     encodeFunctionData({
-      abi: protocolBuybackVaultAbi,
+      abi: ponsBuybackModuleAbi,
       functionName: "setExecutionLimits",
       args: [actualGlobal, assets, actualLimits],
     }).toLowerCase() !== payload.data.toLowerCase()
