@@ -106,6 +106,8 @@ const snapshotData = {
   supplyCap: 0n,
   occupiedSupply: 0n,
   maxPrepaidPeriods: 0n,
+  creatorRetentionBps: 0,
+  periodicEnabled: false,
   paused: false,
   renderer,
   protocolDependencies,
@@ -181,7 +183,11 @@ describe("supporter direct reads", () => {
         sharesOf: 60n,
         claimableReward: 70n,
         rewardEligible: true,
-        previewRefund: { recipient: owner, grossRefund: 100n, complete: true },
+        refillEnrollment: {
+          authorizingOwner: zeroAddress,
+          targetSeconds: 0n,
+          pendingReferralChoice: zeroAddress,
+        },
       };
       if (!(String(request.functionName) in values))
         throw new Error(`Unexpected ${request.functionName}`);
@@ -322,7 +328,9 @@ describe("supporter direct reads", () => {
       },
     });
     expect(
-      f.requests.some((request) => request.functionName === "previewRefund"),
+      f.requests.some(
+        (request) => request.functionName === "previewCancellation",
+      ),
     ).toBe(false);
   });
 });

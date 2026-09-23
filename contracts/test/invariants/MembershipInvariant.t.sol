@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "../helpers/CancellationAssertions.sol";
 import {LinkedVestingFixture} from "../helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
 
@@ -57,37 +58,78 @@ contract MembershipHandler is Test {
     }
 
     function contribute(uint256 seed, uint256 raw, uint256 referralSeed) external {
+        uint256 price = tier.pricePerPeriod();
         if (tier.paused()) return;
         _settle(25);
         if (book.occupied == tier.supplyCap()) return;
         address owner = _actor(seed);
-        uint256 gross = raw % 100_000_001;
+        uint256 gross = price == 0 ? raw % 100_000_001 : price;
         address referral = referralSeed % 2 == 0 ? address(0) : _actor(referralSeed >> 1);
         paymentToken.mint(owner, gross);
         if (gross != 0 && referral == owner) {
             uint256 beforeBalance = paymentToken.balanceOf(owner);
             vm.prank(owner);
             vm.expectRevert(MembershipTier.SelfReferralNotAllowed.selector);
-            tier.createContributionMembership(gross, referral, 25);
+            if (price == 0) tier.createContributionMembership(gross, referral, 25);
+            else tier.createMembership(1, referral, 25);
             assertEq(paymentToken.balanceOf(owner), beforeBalance);
             return;
         }
         vm.prank(owner);
-        uint256 id = tier.createContributionMembership(gross, referral, 25);
+        uint256 id = price == 0
+            ? tier.createContributionMembership(gross, referral, 25)
+            : tier.createMembership(1, referral, 25);
         assertEq(id, book.createPosition(owner, _now(), _paid(gross, referral)));
     }
 
     function renew(uint256 seed, uint256 raw) external {
+        uint256 price = tier.pricePerPeriod();
         if (tier.paused()) return;
         uint256 id = _liveId(seed);
         if (id == 0) return;
         _settle(25);
-        uint256 gross = raw % 100_000_001;
+        uint256 gross = price == 0 ? raw % 100_000_001 : price;
         MembershipModel.Position storage position = book.positions[id];
         paymentToken.mint(position.owner, gross);
         vm.prank(position.owner);
-        tier.renewContributionMembership(id, gross, position.referrer, 25);
+        if (price == 0) tier.renewContributionMembership(id, gross, position.referrer, 25);
+        else tier.renewMembership(id, 1, position.referrer, 25);
         book.increasePosition(id, _now(), _paid(gross, position.referrer));
+    }
+
+    function periodicRefill(uint256 seed, uint256 targetSeed, uint256 allowanceSeed) external {
+        uint256 price = tier.pricePerPeriod();
+        if (!tier.periodicEnabled() || tier.paused()) return;
+        uint256 id = _liveId(seed);
+        if (id == 0) return;
+        _settle(25);
+        MembershipModel.Position storage position = book.positions[id];
+        uint64 target = (1 + targetSeed % 60).toUint64();
+        vm.prank(position.owner);
+        tier.setRefillTarget(id, target, position.referrer);
+        paymentToken.mint(position.owner, 3 * price);
+        uint256 allowed = allowanceSeed % 4;
+        vm.prank(position.owner);
+        paymentToken.approve(address(tier), allowed * price);
+        (uint64 paid, uint64 granted,) = position.time.projected(_now());
+        uint256 remaining = uint256(paid) + granted;
+        uint256 expected = target > remaining
+            ? (target - remaining + tier.periodDuration() - 1) / tier.periodDuration()
+            : 0;
+        if (expected > 3) expected = 3;
+        if (expected > allowed) expected = allowed;
+        MembershipTypes.RefillResult memory result = tier.refillMembership(id, 3, 25);
+        assertEq(result.periods, expected);
+        if (expected != 0) {
+            MembershipModel.PositionIncrease memory increase =
+                _paid(expected * price, position.referrer);
+            increase.paidSeconds = (expected * tier.periodDuration()).toUint64();
+            book.increasePosition(id, _now(), increase);
+        }
+        vm.startPrank(position.owner);
+        tier.stopRefill(id);
+        paymentToken.approve(address(tier), type(uint256).max);
+        vm.stopPrank();
     }
 
     function grant(uint256 seed, uint256 periodsSeed) external {
@@ -129,8 +171,8 @@ contract MembershipHandler is Test {
         address owner = book.positions[id].owner;
         uint256 expected = book.refundPosition(id, _now());
         uint256 beforeBalance = paymentToken.balanceOf(owner);
-        vm.prank(creator);
-        assertEq(tier.refund(id, owner, type(uint256).max, 25), expected);
+        vm.prank(owner);
+        assertEq(cancelPayout(tier, id, owner, 0, 25), expected);
         assertEq(paymentToken.balanceOf(owner) - beforeBalance, expected);
     }
 
@@ -196,24 +238,27 @@ contract MembershipHandler is Test {
     }
 
     function failedPausedContribution(uint256 seed) external {
+        uint256 price = tier.pricePerPeriod();
         bool paused = tier.paused();
         vm.prank(creator);
         tier.setPaused(true);
         bytes32 beforeState = _fingerprint();
         vm.prank(_actor(seed));
         vm.expectRevert(MembershipTier.TierPaused.selector);
-        tier.createContributionMembership(0, address(0), 25);
+        if (price == 0) tier.createContributionMembership(0, address(0), 25);
+        else tier.createMembership(1, address(0), 25);
         assertEq(_fingerprint(), beforeState);
         vm.prank(creator);
         tier.setPaused(paused);
     }
 
     function failedInboundTransfer(uint256 seed, uint256 failureSeed) external {
+        uint256 price = tier.pricePerPeriod();
         if (tier.paused()) return;
         _settle(25);
         if (book.occupied == tier.supplyCap()) return;
         address owner = _actor(seed);
-        paymentToken.mint(owner, 100);
+        paymentToken.mint(owner, price == 0 ? 100 : price);
         paymentToken.setTransferFromBehavior(
             failureSeed % 2 == 0
                 ? AdversarialERC20.Behavior.ReturnFalse
@@ -223,7 +268,8 @@ contract MembershipHandler is Test {
         uint256 balance = paymentToken.balanceOf(owner);
         vm.prank(owner);
         vm.expectRevert();
-        tier.createContributionMembership(100, address(0), 25);
+        if (price == 0) tier.createContributionMembership(100, address(0), 25);
+        else tier.createMembership(1, address(0), 25);
         paymentToken.setTransferFromBehavior(AdversarialERC20.Behavior.Normal);
         assertEq(_fingerprint(), beforeState);
         assertEq(paymentToken.balanceOf(owner), balance);
@@ -367,6 +413,10 @@ contract MembershipInvariantTest is StdInvariant, Test {
     MembershipTier private _tier;
     MembershipHandler private _handler;
 
+    function _fixed() internal pure virtual returns (bool) {
+        return false;
+    }
+
     function setUp() public {
         new LinkedVestingFixture().install();
         _paymentToken = new AdversarialERC20();
@@ -385,7 +435,8 @@ contract MembershipInvariantTest is StdInvariant, Test {
 
         MembershipTypes.TierConfig memory config =
             MembershipTestConfig.defaultConfig(creator, address(renderer), address(_paymentToken));
-        config.pricePerPeriod = 0;
+        config.pricePerPeriod = _fixed() ? 1000 : 0;
+        config.periodicEnabled = _fixed();
         config.supplyCap = 8;
         config.periodDuration = 10;
         config.startingBoostBps = 30_000;
@@ -402,7 +453,7 @@ contract MembershipInvariantTest is StdInvariant, Test {
         ];
         _handler = new MembershipHandler(_paymentToken, _factory, _tier, creator, actors);
 
-        bytes4[] memory selectors = new bytes4[](15);
+        bytes4[] memory selectors = new bytes4[](16);
         selectors[0] = MembershipHandler.contribute.selector;
         selectors[1] = MembershipHandler.renew.selector;
         selectors[2] = MembershipHandler.grant.selector;
@@ -418,6 +469,7 @@ contract MembershipInvariantTest is StdInvariant, Test {
         selectors[12] = MembershipHandler.release.selector;
         selectors[13] = MembershipHandler.failedPausedContribution.selector;
         selectors[14] = MembershipHandler.failedInboundTransfer.selector;
+        selectors[15] = MembershipHandler.periodicRefill.selector;
         targetContract(address(_handler));
         targetSelector(FuzzSelector({addr: address(_handler), selectors: selectors}));
     }
@@ -546,20 +598,31 @@ contract FrozenGiftLifecycleTest is Test {
         address recipient,
         uint256 tokenId
     ) private {
-        MembershipTypes.RefundPreview memory quote = tier.previewRefund(tokenId);
+        MembershipTypes.CancellationPreview memory quote =
+            tier.previewCancellation(tokenId, uint64(block.timestamp + 1), 25);
         token.setFrozen(recipient, true);
 
         uint256 tierBalance = token.balanceOf(address(tier));
         uint256 creatorProceeds = tier.creatorProceeds();
         bytes32 reserves = keccak256(abi.encode(tier.reserveState()));
+        vm.prank(recipient);
         vm.expectRevert(AdversarialERC20.AccountFrozen.selector);
-        tier.refund(tokenId, recipient, type(uint256).max, 25);
+        cancelPayout(tier, tokenId, recipient, 0, 25);
 
-        assertEq(abi.encode(tier.previewRefund(tokenId)), abi.encode(quote));
+        assertEq(
+            abi.encode(tier.previewCancellation(tokenId, uint64(block.timestamp + 1), 25)),
+            abi.encode(quote)
+        );
         assertEq(token.balanceOf(address(tier)), tierBalance);
         assertEq(tier.creatorProceeds(), creatorProceeds);
         assertEq(keccak256(abi.encode(tier.reserveState())), reserves);
         assertTrue(tier.isOccupied(tokenId));
         assertEq(tier.occupiedSupply(), 1);
+    }
+}
+
+contract MembershipFixedInvariantTest is MembershipInvariantTest {
+    function _fixed() internal pure override returns (bool) {
+        return true;
     }
 }

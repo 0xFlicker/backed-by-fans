@@ -113,10 +113,10 @@ for (const kind of ["AMD", "WETH"] as const)
       const preview = await f.client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "previewRefund",
-        args: [1n],
+        functionName: "previewCancellation",
+        args: [1n, (await f.client.getBlock()).timestamp + 1n, 25n],
       });
-      expect(preview.fundingScaled[3]).toBe(preview.grossRefund * (1n << 128n));
+      expect(preview.fundingScaled[3]).toBe(preview.ownerRefund * (1n << 128n));
       expect(preview.fundingScaled.slice(0, 3)).toEqual([0n, 0n, 0n]);
       const beforeRefund = await f.client.readContract({
         address: asset,
@@ -124,10 +124,11 @@ for (const kind of ["AMD", "WETH"] as const)
         functionName: "balanceOf",
         args: [member],
       });
-      await f.write(creator, tier, membershipTierAbi, "refund", [
+      await f.write(member, tier, membershipTierAbi, "cancelMembership", [
         1n,
         member,
-        gross,
+        0n,
+        (await f.client.getBlock()).timestamp + 120n,
         256n,
       ]);
       const afterRefund = await f.client.readContract({

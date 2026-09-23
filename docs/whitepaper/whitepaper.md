@@ -8,7 +8,7 @@
 
 Backed By Fans lets creators offer memberships on their own terms. Fans pay for membership time and receive a transferable NFT that carries the membership and its accumulated reward weight. Creators decide what belonging means, from access to a private community to recognition of support for their work.
 
-A membership is a prepaid subscription that fans renew manually. Each payment creates a membership or adds time to a selected live membership. As that time is used, the payment is earned by the creator and, where enabled, shared with members and a referrer. A portion goes to the protocol, exclusively to buy and burn the protocol token.
+A membership is a prepaid subscription. Fans can renew manually or, on eligible tiers, authorize periodic refills from their own wallet. Each payment creates a membership or adds time to a selected live membership. As that time is used, the payment is earned by the creator and, where enabled, shared with members and a referrer. A portion goes to the protocol, exclusively to buy and burn the protocol token.
 
 This connects payment to an ongoing membership. Paying for several months does not make the entire payment immediately available to the creator or reward recipients. It funds the months ahead, with value earned throughout that period.
 
@@ -40,7 +40,7 @@ Creators can update a tier’s description, website, and NFT artwork. These upda
 
 Creators can also change membership capacity and the amount of time fans may prepay. Capacity counts membership positions, so two NFTs owned by one wallet occupy two places. A capacity reduction cannot go below the number of occupied places, and a new prepayment limit does not remove time already purchased.
 
-A creator may pause new membership time additions, give complimentary time, revoke unused complimentary time, or refund unused paid time. Pausing does not stop the membership clock or undo earnings. Live transfers, approvals, maintenance, and claims remain available while paused. Revoking complimentary time preserves any remaining paid time; if no time remains, the position is retired.
+A creator may pause new membership time additions, give complimentary time, revoke unused complimentary time, or lower the creator share on cancellation. Pausing does not stop the membership clock or undo earnings. Live transfers, approvals, maintenance, and claims remain available while paused. Revoking complimentary time preserves any remaining paid time; if no time remains, the position is retired.
 
 Tier ownership can be transferred to a new owner. The new owner takes over these responsibilities and controls while the tier’s permanent terms remain in place.
 
@@ -48,11 +48,31 @@ Tier ownership can be transferred to a new owner. The new owner takes over these
 
 Joining creates a new membership NFT with its own token ID. A wallet can own several independent memberships in the same tier, each with its own time, reward weight, earnings, and referral choice. Creating another membership always creates another ID; it does not merge with an existing position.
 
-Fans choose when to renew. There are no automatic recurring charges. Renewal selects an existing token ID and extends it before its membership expires. New paid time follows its remaining paid time, and paid time is used before complimentary time. At or after expiration, that ID cannot be renewed. Returning requires a new membership, subject to the tier’s capacity and terms.
+Fans choose manual renewal or explicitly authorize a remaining-time target for periodic refill. Renewal selects an existing token ID and extends it before its membership expires. New paid time follows its remaining paid time, and paid time is used before complimentary time. At or after expiration, that ID cannot be renewed. Returning requires a new membership, subject to the tier’s capacity and terms.
 
 A tier can also accept contributions instead of setting a fixed price. In that model, creating or renewing a selected membership adds one period. A fan can contribute zero or choose a positive amount that meets the tier’s minimum. A zero contribution adds time but funds no rewards or creator earnings and issues no reward weight.
 
 Fixed-price gifts can create a new position for another wallet or fund a renewal of a selected live position. The membership receives the time and reward weight, regardless of who paid. Creators can similarly create a complimentary membership or add grant time to a selected live position. Complimentary time has no payment allocation or new reward weight. Gifts and grants must distinguish creation from extension.
+
+### Optional periodic refill
+
+A creator can enable periodic refill when publishing a positive fixed-price tier or later. Enablement is permanent, but it enrolls nobody and moves no funds. Contribution-priced and free tiers do not support it. Only the current NFT owner can enroll a live position, change its target or stop it; an approved NFT operator cannot give this spending consent.
+
+The owner chooses a positive target for total remaining time, including paid and complimentary time. A separate payment-token allowance authorizes the tier to collect funds from that owner's wallet. Anyone can submit a refill transaction while the membership remains live. Someone must submit and pay for that transaction: a funded wallet and allowance alone do not schedule execution or guarantee continuity.
+
+Refill buys whole periods toward the target. With a thirty-day period, a seven-day target and six days remaining buys one period, leaving 36 days. A 45-day target with ten days remaining buys two periods, leaving 70 days. At or above the target, nothing is due. The purchase is bounded by the caller's period limit, available balance, tier allowance, paid-time capacity and numeric limits. If only one whole period is affordable, only one is purchased; less than one affordable period produces no charge. The new payment uses the ordinary allocation, referral and reward-curve rules.
+
+Coverage estimates are shared, not reserved. At a price of 20, a balance of 55 covers 2.75 equivalent periods, while an allowance of 40 permits at most two whole periods. Several positions can show the same available funds; execution rechecks what remains. A pending referral choice locks on the first successful paid purchase. If a manual payment locks a choice first, refill uses that locked choice.
+
+Stopping refill preserves existing time and weight. Revoking allowance blocks collection but leaves enrollment configured; restoring allowance can resume collection for a still-live position. Pausing likewise blocks payments while allowing target changes, stopping, allowance revocation and cancellation. Transfers, cancellation, retirement and successful removal of nonzero complimentary time clear enrollment. After a transfer or grant revocation, the current holder must explicitly enroll again. No stored reason is needed for the ordinary “Periodic refill off” state; transaction history records the action.
+
+Refill must complete strictly before expiration. At expiration, even a funded, approved and enrolled position cannot buy more time or recover its former identity. Mandatory accounting and claims never collect refill payments. A failed payment rolls back its own attempted accounting catch-up; separate maintenance can still save progress for other positions.
+
+### Paid-time limits
+
+Let N be the tier's maximum prepaid periods and D its period duration. For a finite limit, every paid addition must leave remaining paid time strictly below (N + 1) × D. This rule applies to manual creation and renewal, sponsorships, contribution payments and periodic refill; complimentary time does not consume paid capacity. N = 0 means unlimited, subject to ordinary numeric and expiration bounds.
+
+For N = 1 and a thirty-day period, 29 remaining paid days plus a new thirty-day period gives 59 days and is allowed. Exactly 60 days is rejected. The same exclusive limit applies for every positive N. Newly configured refill targets may be no greater than N × D, although buying whole periods can leave a fractional-period overhang above that target. Lowering the cap never erases purchased time or an existing enrollment target: it blocks additions until a whole period fits. Raising the cap can make that unchanged target refillable again.
 
 ### Moving a live membership
 
@@ -60,7 +80,7 @@ A transfer moves the entire membership position to its new owner. Its token ID k
 
 The new owner gains membership access and the authority to claim its rewards and renew it. The former owner loses those rights. Original payment records remain historical evidence of who funded the position; they do not give a former owner or payer authority over it.
 
-An owner can approve another address to transfer an NFT, or approve an operator for their NFTs. Those approvals authorize transfers only. They do not authorize owner-only renewal, reward claims, or creator actions. A token-specific approval clears when the NFT transfers. A person may still sponsor a renewal under the same rules available to any payer.
+An owner can approve another address to transfer an NFT, or approve an operator for their NFTs. Those approvals authorize transfers and member cancellation. They do not authorize owner-only renewal, refill enrollment, reward claims, or creator actions. A token-specific approval and refill enrollment clear when the NFT transfers, including a self-transfer. A person may still sponsor a renewal under the same rules available to any payer.
 
 Live transfers do not settle rewards or run accounting maintenance. A backlog of funding or expiration checkpoints cannot block an otherwise valid transfer, including while the tier is paused. The transfer leaves the position’s stored accounting and schedules unchanged and checks expiration directly against the transaction’s timestamp.
 
@@ -117,15 +137,17 @@ If the membership has no recorded referrer, the referral portion goes to the cre
 
 *Figure 2. All four allocations accrue over paid time. Earned protocol fees are released for separate buyback and burn execution.*
 
-### Refunds
+### Member cancellation
 
-A creator can refund unused paid time. The refund is funded by the payment’s remaining unearned allocations. Already earned creator proceeds, rewards, and protocol fees are not taken back.
+The current NFT owner or its currently approved token or operator-wide delegate can cancel a live membership, including while the tier is paused. Creator authority alone does not authorize cancellation. The payout always goes to the current NFT owner, including when another wallet originally paid or gifted the membership.
 
-In the thirty-day example, a refund after fifteen days would return approximately 50 units and cancel the rest of the funded period. The exact amount follows the payment currency’s smallest units and the contract’s rounding rules.
+At tier creation, the creator explicitly selects a retention percentage between zero and 100%. The creator can only lower this percentage later, including after a transfer of creator authority. Lower terms immediately apply to existing positions. For unused gross funding G and retention B in basis points, the owner receives floor(G × (10,000 − B) / 10,000); the creator earns the remainder. At zero retention the owner receives all unused gross funding, and at 100% the owner can still exit with no payout. Retained proceeds enter ordinary withdrawable creator earnings without another allocation split.
 
-A refund clears the membership’s remaining paid and complimentary time and permanently retires the position. Its NFT is burned, its weight is destroyed, and its occupied place is released. Rewards already earned, including fractions, remain separately claimable by the current NFT owner.
+In the thirty-day example, cancellation after fifteen days leaves approximately 50 units of unused funding. At 30% retention, approximately 35 units return to the owner and 15 become creator earnings. Exact amounts follow the currency's smallest units and rounding rules. Already earned creator proceeds, rewards and protocol fees are preserved; fractional cancellation reserves remain reserved and are not paid out twice. Lifetime gross never decreases.
 
-Only the tier’s current creator authority can initiate a refund or subscription cancellation. The refund is paid to the current NFT owner, including when another wallet originally paid, gifted, or previously owned the membership. NFT ownership and transfer approval alone do not authorize a refund. A fan can stop renewing, but cannot unilaterally demand an onchain refund for unused time.
+Cancellation clears all paid and complimentary time, burns the NFT, destroys its weight and releases its occupied place exactly once. Earned member credit, including fractions, remains claimable by the final owner. It never purchases more time. Grant revocation is separate: the creator can revoke unconsumed complimentary time, preserving paid time, but a successful nonzero revocation stops periodic refill and requires the holder to enroll again.
+
+The native cancellation action protects the reviewed owner, a minimum owner refund and a deadline no later than the instant before expiration. Its bounded preview reports the current estimate separately from a conservative minimum at that deadline, including scheduled rate changes. Incomplete previews require accounting maintenance before review. If terms, ownership or timing violate the submitted bounds, the entire cancellation reverts. The ERC-5643 adapter uses the same owner/operator cancellation rules with a zero minimum and its fixed accounting budget; it is not the protected native quote flow.
 
 ## Sharing membership rewards
 
@@ -185,7 +207,7 @@ Claim all discovers the wallet’s memberships and tier balances, then simulates
 
 Callers choose the accounting work budget for each maintenance or membership transaction. Custom methods impose no fixed step, selection, or page maximum. Standard ERC-5643 renewal and cancellation instead attempt up to 25 checkpoints; larger backlogs require standalone maintenance, and a failed adapter call rolls back all work. Each funding start, funding end, or membership retirement counts as one step. Calls save completed progress, so anyone can continue a large backlog through repeated transactions, including while paused. “Complete” means caught up through that transaction’s timestamp; newly elapsed time can create more work.
 
-Purchases, renewals, gifts, contributions, grants, revocations, and refunds all maintain the expiration schedule. Changes to time, weight, or funding require accounting catch-up first. Complimentary and zero-contribution memberships also have expiration entries. If an atomic operation cannot finish its required catch-up, it reverts; explicit maintenance is the route that saves partial progress. Transfers, approvals, and already-settled retired withdrawals do not have this prerequisite.
+Purchases, refills, renewals, gifts, contributions, grants, revocations, and cancellations all maintain the expiration schedule. Changes to time, weight, or funding require accounting catch-up first. Complimentary and zero-contribution memberships also have expiration entries. If an atomic operation cannot finish its required catch-up, it reverts; explicit maintenance is the route that saves partial progress. Transfers, approvals, refill configuration and already-settled retired withdrawals do not have this prerequisite.
 
 Previews report their timestamp, progress, and completeness using a caller-selected work budget. A complete preview does not guarantee that a later transaction has enough gas or work budget. Unavailable or incomplete reads must not be presented as zero rewards or proof that a wallet has no membership.
 
@@ -199,7 +221,7 @@ The protocol token will be made available as a membership payment currency. Crea
 
 ## Responsibilities and limits
 
-The contracts enforce each tier’s fixed economic terms, membership time, reward rules, and payment accounting. Creators remain responsible for their membership benefits and for the controls they retain, including changes to descriptions and artwork, grants, revocations, and refunds. Expiration maintenance is permissionless and does not depend on the creator remaining available.
+The contracts enforce each tier’s fixed economic terms, membership time, reward rules, and payment accounting. Creators remain responsible for their membership benefits and for the controls they retain, including changes to descriptions and artwork, grants, revocations, and reductions to their cancellation share. Expiration maintenance is permissionless and does not depend on the creator remaining available.
 
 The protocol also has administrative controls. Its authority manages which payment currencies can be used for new tiers, their minimum positive payments, and buyback settings and pauses. At launch, a trusted operator selects buyback routes and execution terms off-chain and submits them with each purchase. The authority can later enable public execution under configured routes, price bounds, batch limits, and cooldowns. Public policies may remain valid indefinitely; expiry and total spending budgets are optional. These controls do not give creators a way to rewrite the fixed economic terms of an existing tier.
 
@@ -217,7 +239,7 @@ Balances that depend on newly earned rewards may need accounting catch-up before
 
 ## Contract references
 
-This draft describes the transferable membership lifecycle in the linked contract sources and the [feature specification](../../specs/005-transferable-memberships/spec.md). It does not establish the deployment or launch status of a particular network.
+This draft describes the transferable membership lifecycle, member cancellation and periodic refill in the linked contract sources and the [transfer](../../specs/005-transferable-memberships/spec.md) and [cancellation/refill](../../specs/006-member-cancellation-refill/spec.md) specifications. It does not establish the deployment or launch status of a particular network.
 
 - [Membership terms, time, NFTs, and claims](../../contracts/src/MembershipTier.sol)
 - [Tier creation and payment-currency configuration](../../contracts/src/MembershipFactory.sol)

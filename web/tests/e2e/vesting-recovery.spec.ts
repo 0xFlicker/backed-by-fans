@@ -1,3 +1,7 @@
+import {
+  openMemberCancellation,
+  reviewMemberCancellation,
+} from "./helpers/cancellation";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { getAddress, zeroAddress } from "viem";
@@ -199,12 +203,15 @@ for (const operation of ["renewal", "refund", "maintenance"] as const) {
           }),
         ).toBeGreaterThan(expiry);
       } else if (operation === "refund") {
+        await openMemberCancellation(page, tier, id);
+        await reviewMemberCancellation(page);
         await page
-          .getByLabel("Membership token", { exact: true })
-          .fill(id.toString());
-        await page.getByRole("button", { name: "Read refund preview" }).click();
-        await page.getByRole("button", { name: "Refund unused time" }).click();
-        await expectReconciled(page, `Refund membership #${id}`);
+          .getByRole("button", {
+            name: `Cancel membership #${id}`,
+            exact: true,
+          })
+          .click();
+        await expectReconciled(page, `Cancel membership #${id}`);
         expect(
           await client.readContract({
             address: tier,

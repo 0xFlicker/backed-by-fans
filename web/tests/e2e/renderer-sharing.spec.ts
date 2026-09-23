@@ -76,6 +76,10 @@ test.describe("@anvil renderer sharing through memberships", () => {
       await page
         .getByRole("checkbox", { name: /I understand the price, period/ })
         .check();
+      await page.getByRole("button", { name: /^capacity$/i }).click();
+      await page
+        .getByLabel("Creator share when a member cancels (%)", { exact: true })
+        .fill("0");
       await page.getByRole("button", { name: /^review$/i }).click();
       await page
         .getByRole("button", { name: "Publish this membership" })

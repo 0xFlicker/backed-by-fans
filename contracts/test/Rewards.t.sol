@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticVaultBinding} from "./helpers/SyntheticVaultBinding.sol";
@@ -320,7 +321,8 @@ contract RewardsTest is Test {
         uint256 carry = target.reserveState().indexCarryScaled;
         uint256 originalCredit = _credit(target, first, firstMember);
         assertGt(carry, 0);
-        target.refund(first, target.ownerOf(first), 7, 25);
+        vm.prank(firstMember);
+        cancelPayout(target, first, firstMember, 4, 25);
         _contribution(target, payer, 7);
         assertEq(target.totalRewardShares(), 14);
         assertEq(target.reserveState().indexCarryScaled, 0);

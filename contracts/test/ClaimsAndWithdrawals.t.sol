@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
@@ -175,9 +176,12 @@ contract ClaimsAndWithdrawalsTest is Test {
         assertEq(secondTier.claimableReward(secondTokenId), secondRewardBefore);
         assertEq(secondTier.claimableReferral(secondReferrer), secondReferralBefore);
 
-        uint256 refundAmount = secondTier.previewRefund(secondTokenId).grossRefund;
+        uint256 refundAmount =
+            secondTier.previewCancellation(secondTokenId, uint64(block.timestamp + 1), 25)
+        .ownerRefund;
         uint256 firstTokenBalanceBefore = paymentToken.balanceOf(address(tier));
-        secondTier.refund(secondTokenId, secondMember, refundAmount, 25);
+        vm.prank(secondMember);
+        cancelPayout(secondTier, secondTokenId, secondMember, refundAmount, 25);
 
         assertEq(paymentToken.balanceOf(address(tier)), firstTokenBalanceBefore);
         assertEq(tier.creatorProceeds(), 0);

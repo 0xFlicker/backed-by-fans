@@ -76,8 +76,21 @@ contract VestingLedgerHarness {
     function refund() external returns (uint256 amount) {
         require(msg.sender == beneficiary, "unauthorized");
         advance();
-        (amount,,) = VestingLedger.cancelFunding(_state, 1);
+        (amount,,) = VestingLedger.cancelFunding(_state, 1, 0);
         if (amount != 0) token.safeTransfer(beneficiary, amount);
+    }
+
+    function cancel(uint16 retentionBps) external returns (uint256 paid, uint256 retained) {
+        require(msg.sender == beneficiary, "unauthorized");
+        advance();
+        (uint256 gross,,) = VestingLedger.cancelFunding(_state, 1, retentionBps);
+        paid = gross * (10_000 - retentionBps) / 10_000;
+        retained = gross - paid;
+        if (paid != 0) token.safeTransfer(beneficiary, paid);
+    }
+
+    function cancellationTotals() external view returns (uint256 refunded, uint256 retained) {
+        return (_state.refundedRaw, _state.creatorCancellationProceedsRaw);
     }
 
     function earned(uint256 purpose) external view returns (uint256) {

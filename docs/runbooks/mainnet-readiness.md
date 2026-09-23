@@ -13,7 +13,7 @@ from a green local test.
 | --- | --- | --- |
 | Testnet payment tokens | OPEN | Verify the external USDG, AMD, NFLX, PLTR, AMZN, and TSLA launch manifest, then complete the live product pilot using faucet-accessible assets. |
 | Public testnet deployment and source verification | BLOCKED | Replacement expired-sync factory deployment, checked-in Foundry broadcast, generated Wagmi address, exact source pages, and independent operator verification. |
-| Public testnet lifecycle | BLOCKED | Replacement factory deployment, creator tier, payment, allocation, claim, refund, natural expiry, owner batch sync/burn, accrued claim while burned, same-ID rejoin, creator ownership transfer, child verification, and production web build. |
+| Public testnet lifecycle | BLOCKED | Replacement factory deployment, creator tier, payment, allocation, claim, owner/operator cancellation, natural expiry, permissionless retirement/burn, accrued claims after burn, fresh-ID rejoin, creator ownership transfer, child verification, and production web build. |
 | Unassisted public testnet creator/supporter pilot | BLOCKED | Completed [pilot record](../pilots/testnet-pilot.md), participant consent, issues/disposition. |
 | Brand and name launch readiness | BLOCKED | Every item in the [brand checklist](../brand/backed-by-fans-launch-readiness.md) has professional evidence. |
 | Artifact freeze | OPEN | Signed commit, source/dependency digests, standard JSON, compiler/build settings, web build digest. Depends on resolved pilot/reviews. |

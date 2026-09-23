@@ -38,3 +38,7 @@ transaction delivery.
 
 Public settings remain under a separate disclosure. Editing those settings does
 not activate permissionless execution; mode changes remain Safe-controlled.
+
+### Local historical-state retention
+
+Both fresh and restored forks use `--prune-history 256`. This retains at most 256 historical states in memory and disables Anvil's persisted historical-state cache, preventing long-running interval-mined review forks from filling the host disk. Current state, mined transactions and receipt evidence remain available; older state calls must refresh at a recent block. Snapshot/revert and receipt export are verified separately. Do not enable unlimited persisted states for manual review.

@@ -10,18 +10,18 @@ acceptance.
 ## Tier ownership
 
 The current tier owner controls pause, supply cap, maximum prepaid periods,
-metadata, the renderer, grants/revocations, creator withdrawals, refunds, and
-refund top-ups. Acceptance immediately moves all of those responsibilities and
-all existing creator proceeds. It does not move credential ownership, reward
-shares, locked referrals, or protected liabilities.
+metadata, renderer, grants/revocations, creator withdrawals, decreasing cancellation
+retention and one-way periodic capability enablement. Acceptance transfers these
+controls and earned creator proceeds. It does not move NFT ownership, member
+credit, referral attribution or protected liabilities, and cannot raise retention.
 
-Before acceptance, record refund exposure and ensure the next owner understands
-that a refund can require an exact top-up in the tier's payment token. Exercise
-preview and allowance checks using a non-production rehearsal. The operational sequence is: pause and
-wait for confirmation, preview from confirmed paused state, execute the bounded
-`refund` with the previewed ceilings, wait for confirmation, and only then
-unpause. Do not use the unbounded ERC-5643 cancellation adapter for routine
-refunds.
+Record current cancellation terms and earned/unearned balances before acceptance.
+Cancellation is initiated by the NFT owner or approved operator, pays the current
+NFT owner and credits the retained share to earned creator proceeds. It needs no
+creator top-up or pause. Use the native owner/minimum/deadline protections when
+operating an NFT the creator separately owns or is approved for. Grant revocation
+is distinct: removing nonzero gifted time stops refill enrollment but preserves
+paid time. The live NFT holder can explicitly enroll again.
 
 ## Factory ownership
 

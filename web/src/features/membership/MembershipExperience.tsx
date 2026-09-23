@@ -8,10 +8,16 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { applyRefillAllowance } from "./refill-allowance";
+import { PeriodicRefill } from "./PeriodicRefill";
+import { readPeriodicRefill } from "./periodic-refill-read";
+import { MemberCancellation } from "./MemberCancellation";
+import { readCancellation } from "./cancellation-read";
 import { TransferMembership } from "./TransferMembership";
 import { simulateContract } from "@wagmi/core";
 import {
   erc20Abi,
+  encodeFunctionData,
   formatEther,
   parseEventLogs,
   getAddress,
@@ -47,6 +53,7 @@ import {
   membershipPaymentCall,
 } from "@/features/membership/state";
 import {
+  receiptMembershipCancellation,
   receiptMembershipMaintenance,
   receiptRetiredReward,
   receiptProvesPayment,
@@ -393,8 +400,8 @@ export function MembershipExperience({
     snapshot.occupiedSupply >= snapshot.supplyCap;
   const exceedsPrepaymentLimit =
     snapshot.maxPrepaidPeriods !== 0n &&
-    (snapshot.credential?.paidSeconds ?? 0n) + selfPreview.duration >
-      snapshot.maxPrepaidPeriods * snapshot.periodDuration;
+    (snapshot.credential?.paidSeconds ?? 0n) + selfPreview.duration >=
+      (snapshot.maxPrepaidPeriods + 1n) * snapshot.periodDuration;
 
   const normalizedGift = isAddress(giftRecipient.trim())
     ? getAddress(giftRecipient.trim())
@@ -470,8 +477,8 @@ export function MembershipExperience({
     giftPreview !== undefined &&
     giftState.data !== undefined &&
     snapshot.maxPrepaidPeriods !== 0n &&
-    giftState.data.paidSeconds + giftPreview.duration >
-      snapshot.maxPrepaidPeriods * snapshot.periodDuration;
+    giftState.data.paidSeconds + giftPreview.duration >=
+      (snapshot.maxPrepaidPeriods + 1n) * snapshot.periodDuration;
 
   function tierWrite(
     functionName:
@@ -487,6 +494,10 @@ export function MembershipExperience({
       | "claimRewards"
       | "processAccounting"
       | "claimRetiredRewards"
+      | "cancelMembership"
+      | "setRefillTarget"
+      | "stopRefill"
+      | "refillMembership"
       | "safeTransferFrom"
       | "approve"
       | "setApprovalForAll",
@@ -508,8 +519,8 @@ export function MembershipExperience({
     };
   }
 
-  function approval(amount: bigint) {
-    if (amount === 0n) return undefined;
+  function approval(amount: bigint, includeZero = false) {
+    if (amount === 0n && !includeZero) return undefined;
     return async (): Promise<SendWrite> => {
       if (!account.address)
         throw new Error("Connect the paying wallet before approval.");
@@ -1267,6 +1278,14 @@ export function MembershipExperience({
                 <dt>Membership through</dt>
                 <dd>{formatMembershipDate(selfPreview.resultingExpiration)}</dd>
               </div>
+              <div className="payment-preview-cancellation">
+                <dt>On cancellation</dt>
+                <dd>
+                  Owner receives {(10000 - snapshot.creatorRetentionBps) / 100}%
+                  of unused funding; creator keeps{" "}
+                  {snapshot.creatorRetentionBps / 100}%.
+                </dd>
+              </div>
             </dl>
             <details className="technical-details reward-preview-details">
               <summary>Reward details</summary>
@@ -1683,6 +1702,286 @@ export function MembershipExperience({
           </details>
         )}
 
+        {snapshot.wallet && snapshot.periodicEnabled && (
+          <PeriodicRefill
+            key={`refill:${expectedChainId}:${snapshot.address}:${account.address}:${account.chainId}`}
+            initialTokenId={snapshot.credential?.tokenId}
+            chainTimestamp={snapshot.capturedTimestamp}
+            periodicEnabled={snapshot.periodicEnabled}
+            paused={snapshot.paused}
+            price={snapshot.pricePerPeriod}
+            periodDuration={snapshot.periodDuration}
+            maxPrepaidPeriods={snapshot.maxPrepaidPeriods}
+            canOperate={
+              Boolean(
+                account.address &&
+                isSameAddress(snapshot.wallet, account.address),
+              ) &&
+              fresh &&
+              guard.enabled &&
+              walletReady &&
+              (snapshot.walletEthBalance ?? 0n) > 0n
+            }
+            pending={isTransactionInFlight(transaction.phase)}
+            paymentLabel={paymentLabel}
+            onReview={(tokenId) =>
+              readPeriodicRefill(
+                client,
+                snapshot.address,
+                tokenId,
+                (1n << 64n) - 1n,
+                account.address!,
+              )
+            }
+            walletAllowance={snapshot.allowance}
+            onAllowance={async (amount) => {
+              if (!account.address)
+                throw new Error("Connect the paying wallet.");
+              const allowance = await client.readContract({
+                address: snapshot.paymentToken,
+                abi: erc20Abi,
+                functionName: "allowance",
+                args: [account.address, snapshot.address],
+              });
+              return applyRefillAllowance(allowance, amount, async (step) => {
+                let confirmed = false;
+                await perform(
+                  step === 0n ? "Revoke tier allowance" : "Set tier allowance",
+                  approval(step, true)!,
+                  async (receipt) => {
+                    const actual = await client.readContract({
+                      address: snapshot.paymentToken,
+                      abi: erc20Abi,
+                      functionName: "allowance",
+                      args: [account.address!, snapshot.address],
+                      blockNumber: receipt.blockNumber,
+                    });
+                    if (actual !== step) return undefined;
+                    confirmed = true;
+                    await onRefresh();
+                    return { allowance: actual };
+                  },
+                );
+                return confirmed;
+              });
+            }}
+            onTarget={async (tokenId, seconds, referral) => {
+              let confirmed = false;
+              await perform(
+                `Set refill target for #${tokenId}`,
+                tierWrite("setRefillTarget", [tokenId, seconds, referral]),
+                async (receipt) => {
+                  const enrollment = await client.readContract({
+                    address: snapshot.address,
+                    abi: membershipTierAbi,
+                    functionName: "refillEnrollment",
+                    args: [tokenId],
+                    blockNumber: receipt.blockNumber,
+                  });
+                  confirmed =
+                    isSameAddress(
+                      enrollment.authorizingOwner,
+                      account.address!,
+                    ) &&
+                    enrollment.targetSeconds === seconds &&
+                    isSameAddress(enrollment.pendingReferralChoice, referral);
+                  if (!confirmed) return undefined;
+                  await onRefresh();
+                  return enrollment;
+                },
+              );
+              return confirmed;
+            }}
+            onStop={async (tokenId) => {
+              let confirmed = false;
+              await perform(
+                `Stop refill for #${tokenId}`,
+                tierWrite("stopRefill", [tokenId]),
+                async (receipt) => {
+                  const enrollment = await client.readContract({
+                    address: snapshot.address,
+                    abi: membershipTierAbi,
+                    functionName: "refillEnrollment",
+                    args: [tokenId],
+                    blockNumber: receipt.blockNumber,
+                  });
+                  confirmed =
+                    enrollment.authorizingOwner === zeroAddress &&
+                    enrollment.targetSeconds === 0n;
+                  if (!confirmed) return undefined;
+                  await onRefresh();
+                  return enrollment;
+                },
+              );
+              return confirmed;
+            }}
+            onRefill={async (quote) => {
+              let outcome: { periods: bigint; gross: bigint } | undefined;
+              await perform(
+                `Refill membership #${quote.tokenId}`,
+                async () => {
+                  const current = (
+                    await readPeriodicRefill(
+                      client,
+                      snapshot.address,
+                      quote.tokenId,
+                      quote.periods,
+                      account.address!,
+                    )
+                  ).quote;
+                  if (
+                    !isSameAddress(current.owner, quote.owner) ||
+                    current.enrollment.targetSeconds !==
+                      quote.enrollment.targetSeconds ||
+                    !isSameAddress(
+                      current.enrollment.authorizingOwner,
+                      quote.enrollment.authorizingOwner,
+                    ) ||
+                    !isSameAddress(
+                      current.effectiveReferral,
+                      quote.effectiveReferral,
+                    )
+                  ) {
+                    throw new Error(
+                      "Membership ownership or refill terms changed. Review again.",
+                    );
+                  }
+                  return tierWrite("refillMembership", [
+                    quote.tokenId,
+                    quote.periods,
+                    25n,
+                  ])();
+                },
+                async (receipt) => {
+                  const executed = await client.getTransaction({
+                    hash: receipt.transactionHash,
+                  });
+                  if (
+                    !executed.to ||
+                    !isSameAddress(executed.to, snapshot.address) ||
+                    !isSameAddress(executed.from, account.address!) ||
+                    executed.input !==
+                      encodeFunctionData({
+                        abi: membershipTierAbi,
+                        functionName: "refillMembership",
+                        args: [quote.tokenId, quote.periods, 25n],
+                      })
+                  )
+                    return undefined;
+                  let confirmedOutcome: { periods: bigint; gross: bigint };
+                  const events = parseEventLogs({
+                    abi: membershipTierAbi,
+                    eventName: "MembershipRefilled",
+                    logs: receipt.logs,
+                  }).filter((event) =>
+                    isSameAddress(event.address, snapshot.address),
+                  );
+                  const event = events.find(
+                    (entry) => entry.args.tokenId === quote.tokenId,
+                  );
+                  if (event) {
+                    if (
+                      !isSameAddress(event.args.owner, quote.owner) ||
+                      !isSameAddress(event.args.executor, account.address!) ||
+                      event.args.periods === 0n ||
+                      event.args.periods > quote.periods ||
+                      event.args.gross !==
+                        event.args.periods * snapshot.pricePerPeriod
+                    )
+                      return undefined;
+                    confirmedOutcome = {
+                      periods: event.args.periods,
+                      gross: event.args.gross,
+                    };
+                  } else {
+                    confirmedOutcome = { periods: 0n, gross: 0n };
+                  }
+                  const after = await client.readContract({
+                    address: snapshot.address,
+                    abi: membershipTierAbi,
+                    functionName: "previewRefill",
+                    args: [quote.tokenId, quote.periods],
+                    blockNumber: receipt.blockNumber,
+                  });
+                  if (event && after.expiration !== event.args.expiration)
+                    return undefined;
+                  await onRefresh();
+                  outcome = confirmedOutcome;
+                  return outcome;
+                },
+              );
+              return outcome;
+            }}
+          />
+        )}
+
+        {snapshot.wallet && (
+          <MemberCancellation
+            key={`${expectedChainId}:${snapshot.address}:${account.address}:${account.chainId}`}
+            initialTokenId={snapshot.credential?.tokenId}
+            chainTimestamp={snapshot.capturedTimestamp}
+            canOperate={
+              Boolean(
+                account.address &&
+                isSameAddress(snapshot.wallet, account.address),
+              ) &&
+              fresh &&
+              guard.enabled &&
+              walletReady &&
+              (snapshot.walletEthBalance ?? 0n) > 0n
+            }
+            pending={isTransactionInFlight(transaction.phase)}
+            paymentLabel={paymentLabel}
+            onReview={(tokenId) =>
+              readCancellation(
+                client,
+                snapshot.address,
+                tokenId,
+                account.address!,
+              )
+            }
+            onCancel={async (quote) => {
+              let outcome: ReturnType<typeof receiptMembershipCancellation>;
+              await perform(
+                `Cancel membership #${quote.tokenId}`,
+                tierWrite("cancelMembership", [
+                  quote.tokenId,
+                  quote.owner,
+                  quote.minOwnerRefund,
+                  quote.deadline,
+                  25n,
+                ]),
+                async (receipt) => {
+                  const canceled = receiptMembershipCancellation(receipt, {
+                    tier: snapshot.address,
+                    tokenId: quote.tokenId,
+                    recipient: quote.owner,
+                    operator: account.address!,
+                    minOwnerRefund: quote.minOwnerRefund,
+                  });
+                  if (!canceled) return undefined;
+                  const ended = await client.readContract({
+                    address: snapshot.address,
+                    abi: membershipTierAbi,
+                    functionName: "previewCancellation",
+                    args: [quote.tokenId, quote.deadline, 0n],
+                    blockNumber: receipt.blockNumber,
+                  });
+                  if (ended.lifecycle !== 2) return undefined;
+                  outcome = canceled;
+                  await onRefresh(
+                    snapshot.credential?.tokenId === quote.tokenId
+                      ? 0n
+                      : undefined,
+                  );
+                  return ended;
+                },
+              );
+              return outcome;
+            }}
+          />
+        )}
+
         {snapshot.credential &&
           snapshot.wallet &&
           isSameAddress(snapshot.credential.owner, snapshot.wallet) && (
@@ -1808,6 +2107,15 @@ export function MembershipExperience({
                     <dt>Membership through</dt>
                     <dd>
                       {formatMembershipDate(giftPreview.resultingExpiration)}
+                    </dd>
+                  </div>
+                  <div className="payment-preview-cancellation">
+                    <dt>On cancellation</dt>
+                    <dd>
+                      Membership owner receives{" "}
+                      {(10000 - snapshot.creatorRetentionBps) / 100}% of unused
+                      funding; creator keeps{" "}
+                      {snapshot.creatorRetentionBps / 100}%.
                     </dd>
                   </div>
                 </dl>

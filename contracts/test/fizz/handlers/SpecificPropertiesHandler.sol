@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.2 <0.9.0;
+import {cancelPayout} from "../../helpers/CancellationAssertions.sol";
 
 import "../Base.sol";
 import {Properties} from "../Properties.sol";
@@ -106,8 +107,8 @@ abstract contract SpecificPropertiesHandler is Properties {
         uint256 mintedBefore = target.totalMinted();
         uint256 supplyBefore = target.totalSupply();
         uint256 occupiedBefore = target.occupiedSupply();
-        vm.prank(creator);
-        uint256 amount = target.refund(tokenId, owner, type(uint256).max, 64);
+        vm.prank(owner);
+        uint256 amount = cancelPayout(target, tokenId, owner, 0, 64);
         ++ghosts.retiredCountByTier[address(target)];
         MembershipTypes.PaymentTotals memory afterTotals = target.previewPaymentTotals(0);
         property_refundAccounting(
@@ -144,8 +145,8 @@ abstract contract SpecificPropertiesHandler is Properties {
         }
         vm.stopPrank();
         ++ghosts.mintedCountByTier[address(target)];
-        vm.prank(creator);
-        target.refund(tokenId, actor, type(uint256).max, 64);
+        vm.prank(actor);
+        cancelPayout(target, tokenId, actor, 0, 64);
         ++ghosts.retiredCountByTier[address(target)];
         property_purchaseRefundRoundTrip(balanceBefore, 0, paymentToken.balanceOf(actor));
         _syncSpecificGhosts(target);
@@ -170,8 +171,8 @@ abstract contract SpecificPropertiesHandler is Properties {
             uint256(giftStatus),
             giftReferrer
         );
-        vm.prank(creator);
-        uint256 refund = fixedTier.refund(tokenId, recipient, type(uint256).max, 64);
+        vm.prank(recipient);
+        uint256 refund = cancelPayout(fixedTier, tokenId, recipient, 0, 64);
         ++ghosts.retiredCountByTier[address(fixedTier)];
         uint256 recipientAfter = paymentToken.balanceOf(recipient);
         property_giftRefundRoundTrip(
@@ -203,8 +204,8 @@ abstract contract SpecificPropertiesHandler is Properties {
             }
             vm.stopPrank();
             ++ghosts.mintedCountByTier[address(target)];
-            vm.prank(creator);
-            target.refund(tokenId, actor, type(uint256).max, 64);
+            vm.prank(actor);
+            cancelPayout(target, tokenId, actor, 0, 64);
             ++ghosts.retiredCountByTier[address(target)];
             _syncSpecificGhosts(target);
         }
@@ -366,22 +367,26 @@ abstract contract SpecificPropertiesHandler is Properties {
     function membershipTier_refundFromPreview(bool contribution, uint256 seed) public {
         MembershipTier target = _specificTier(contribution);
         (uint256 tokenId,) = _specificLiveToken(target, seed);
-        if (tokenId == 0) return;
-        MembershipTypes.RefundPreview memory quote = target.previewRefund(tokenId);
-        if (!quote.complete && !quote.projected) return;
+        // The test clock must leave a future live quote deadline.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (tokenId == 0 || target.expiresAt(tokenId) <= block.timestamp + 1) return;
+        MembershipTypes.CancellationPreview memory quote =
+            target.previewCancellation(tokenId, uint64(block.timestamp + 1), 25);
+        if (!quote.complete && !quote.quoteAvailable) return;
         uint256 funded;
         for (uint256 i; i < 4; ++i) {
             funded += quote.fundingScaled[i];
         }
-        uint256 recipientBefore = paymentToken.balanceOf(quote.recipient);
-        vm.prank(creator);
-        uint256 actual = target.refund(tokenId, quote.recipient, quote.grossRefund, 64);
+        uint256 recipientBefore = paymentToken.balanceOf(quote.owner);
+        vm.prank(quote.owner);
+        uint256 actual = cancelPayout(target, tokenId, quote.owner, quote.ownerRefund, 64);
         property_refundPreviewMatches(
-            quote.grossRefund,
+            quote.ownerRefund,
             actual,
             funded,
+            quote.creatorRetained,
             target.ACCOUNTING_SCALE(),
-            paymentToken.balanceOf(quote.recipient) - recipientBefore
+            paymentToken.balanceOf(quote.owner) - recipientBefore
         );
         _syncSpecificGhosts(target);
     }
@@ -720,9 +725,14 @@ abstract contract SpecificPropertiesHandler is Properties {
             address(target).call(abi.encodeCall(target.claimRewards, (ids, uint256(64))));
         (bool feeReleaseSuccess,) =
             address(target).call(abi.encodeCall(target.releaseProtocolFees, ()));
-        vm.prank(creator);
+        vm.prank(actor);
         (bool refundSuccess,) = address(target)
-            .call(abi.encodeCall(target.refund, (tokenId, actor, type(uint256).max, uint256(64))));
+            .call(
+                abi.encodeCall(
+                    target.cancelMembership,
+                    (tokenId, actor, 0, uint64(block.timestamp), uint256(64))
+                )
+            );
         if (refundSuccess) ++ghosts.retiredCountByTier[address(target)];
         vm.prank(creator);
         target.setPaused(false);

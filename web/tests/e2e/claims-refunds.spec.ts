@@ -1,3 +1,7 @@
+import {
+  openMemberCancellation,
+  reviewMemberCancellation,
+} from "./helpers/cancellation";
 import { hasLiveOwnedPosition } from "./helpers/membership-positions";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -263,7 +267,7 @@ test.describe("configured Anvil claims and refunds", () => {
     }
   });
 
-  test("@anvil previews and executes the creator's exact gross refund", async ({
+  test("@anvil previews and executes the member cancellation", async ({
     page,
   }, testInfo) => {
     test.setTimeout(90_000);
@@ -283,53 +287,42 @@ test.describe("configured Anvil claims and refunds", () => {
       await page.goto(`/chains/31337/tiers/${tier}/manage`);
       await connectAnvilWallet(page, creator);
 
-      const readRefundPreview = page.getByRole("button", {
-        name: "Read refund preview",
-      });
-      await page.getByLabel("Membership token", { exact: true }).fill("1");
-      await expect(readRefundPreview).toBeDisabled();
       await page.getByRole("button", { name: "Pause time increases" }).click();
       await expectReconciled(page, "Pause tier");
-      await expect(readRefundPreview).toBeEnabled();
-      await readRefundPreview.click();
-      const { grossRefund } = await client.readContract({
+      await openMemberCancellation(page, tier, 1n);
+      await reviewMemberCancellation(page);
+      const { ownerRefund: grossRefund } = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "previewRefund",
-        args: [1n],
+        functionName: "previewCancellation",
+        args: [1n, (await client.getBlock()).timestamp + 1n, 25n],
       });
       const components = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "previewRefund",
-        args: [1n],
+        functionName: "previewCancellation",
+        args: [1n, (await client.getBlock()).timestamp + 1n, 25n],
       });
       expect(components.fundingScaled[3]).toBeGreaterThan(0n);
       expect(
         components.fundingScaled.reduce((sum, amount) => sum + amount, 0n),
-      ).toBe(components.grossRefund * (1n << 128n));
+      ).toBe(components.ownerRefund * (1n << 128n));
       const refundPreview = page.locator(".refund-preview[aria-live]");
 
       // The quote is pinned to its own block; interval mining may have moved
       // the direct read forward. Receipt amounts are covered by the partial
       // refund journey below; do not compare quotes from different blocks.
       expect(grossRefund).toBeGreaterThan(0n);
-      await expect(refundPreview).toContainText(
-        "Reserved unused membership payments",
-      );
+      await expect(refundPreview).toContainText("Minimum refund");
 
       const refund = page.getByRole("button", {
-        name: "Refund unused time",
+        name: "Cancel membership #1",
+        exact: true,
       });
       await expect(refund).toBeEnabled();
       await refund.click();
-      await expectReconciled(page, "Refund membership #1");
+      await expectReconciled(page, "Cancel membership #1");
       await expect(refundPreview).toHaveCount(0);
-      await page
-        .getByRole("button", { name: "Unpause time increases" })
-        .click();
-      await expectReconciled(page, "Unpause tier");
-
       const tokenId = 1n;
       expect(
         await client.readContract({
@@ -355,7 +348,7 @@ test.describe("configured Anvil claims and refunds", () => {
     }
   });
 
-  test("@anvil invalidates the preview when the tier is unpaused elsewhere", async ({
+  test("@anvil keeps owner cancellation available when the tier is unpaused elsewhere", async ({
     page,
   }, testInfo) => {
     test.setTimeout(90_000);
@@ -375,8 +368,8 @@ test.describe("configured Anvil claims and refunds", () => {
 
       await page.getByRole("button", { name: "Pause time increases" }).click();
       await expectReconciled(page, "Pause tier");
-      await page.getByLabel("Membership token", { exact: true }).fill("1");
-      await page.getByRole("button", { name: "Read refund preview" }).click();
+      await openMemberCancellation(page, tier, 1n);
+      await reviewMemberCancellation(page);
 
       const refundPreview = page.locator(".refund-preview[aria-live]");
       await expect(refundPreview).toBeVisible();
@@ -391,17 +384,13 @@ test.describe("configured Anvil claims and refunds", () => {
       );
 
       const refund = page.getByRole("button", {
-        name: "Refund unused time",
+        name: "Cancel membership #1",
+        exact: true,
       });
       await expect(refund).toBeEnabled();
       await refund.click();
-      await expect(
-        page.getByText(
-          "The tier is no longer paused. Pause it again and read a new refund preview.",
-        ),
-      ).toBeVisible();
+      await expectReconciled(page, "Cancel membership #1");
       await expect(refundPreview).toHaveCount(0);
-      await expect(refund).toBeDisabled();
     } finally {
       await revertAnvil(snapshot);
     }
@@ -454,6 +443,10 @@ for (const variablePrice of [false, true]) {
       await page
         .getByRole("checkbox", { name: /I understand the price, period/ })
         .check();
+      await page.getByRole("button", { name: /^capacity$/i }).click();
+      await page
+        .getByLabel("Creator share when a member cancels (%)", { exact: true })
+        .fill("0");
       await page.getByRole("button", { name: /^review$/i }).click();
       await page
         .getByRole("button", { name: "Publish this membership" })
@@ -523,28 +516,15 @@ for (const variablePrice of [false, true]) {
       await page.goto(`/chains/31337/tiers/${tier}/manage`);
       await page.getByRole("button", { name: "Pause time increases" }).click();
       await expectReconciled(page, "Pause tier");
-      await page.getByLabel("Membership token", { exact: true }).fill("1");
-      const preview = page.getByRole("button", { name: "Read refund preview" });
-      const refund = page.getByRole("button", { name: "Refund unused time" });
-      await preview.click();
-      await expect(refund).toBeEnabled();
+      await openMemberCancellation(page, tier, 1n);
+      const refund = page.getByRole("button", {
+        name: "Cancel membership #1",
+        exact: true,
+      });
       await rpcRequest("evm_setNextBlockTimestamp", [
         Number(start + (variablePrice ? period / 4n : 3n * period)),
       ]);
       await rpcRequest("evm_mine");
-      if (!variablePrice) {
-        await refund.click();
-        await expect(
-          page.getByText(
-            "Advance membership accounting and read a fresh refund preview before continuing.",
-          ),
-        ).toBeVisible();
-        await preview.click();
-        await expect(page.locator(".refund-preview[aria-live]")).toContainText(
-          "Historical funding estimate",
-        );
-        await expect(refund).toBeDisabled();
-      }
       // Permissionless compatible-client recovery. Website combined advance
       // has its own later task; no auto-signing or browser polling is added.
       expectSuccessfulReceipt(
@@ -628,20 +608,20 @@ for (const variablePrice of [false, true]) {
           args: [creator, tier],
         }),
       ).toBe(0n);
-      await preview.click();
+      await reviewMemberCancellation(page);
       await expect(refund).toBeEnabled();
       const funding = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "previewRefund",
-        args: [1n],
+        functionName: "previewCancellation",
+        args: [1n, (await client.getBlock()).timestamp + 1n, 25n],
       });
-      expect(funding.projected || funding.complete).toBe(true);
+      expect(funding.quoteAvailable || funding.complete).toBe(true);
       expect(funding.fundingScaled.reduce((sum, part) => sum + part, 0n)).toBe(
-        funding.grossRefund * (1n << 128n),
+        funding.ownerRefund * (1n << 128n),
       );
       await expect(page.locator(".refund-preview[aria-live]")).toContainText(
-        "Reserved unused membership payments",
+        "Minimum refund",
       );
       await expect(
         page.getByRole("button", { name: /approve.*refund|top.?up/i }),
@@ -658,8 +638,14 @@ for (const variablePrice of [false, true]) {
         // proved by AdversarialRefundsTest; this verifies the browser retry UX.
         const selector = encodeFunctionData({
           abi: membershipTierAbi,
-          functionName: "refund",
-          args: [1n, funding.recipient, funding.grossRefund, 25n],
+          functionName: "cancelMembership",
+          args: [
+            1n,
+            funding.owner,
+            funding.minOwnerRefund,
+            funding.deadline,
+            25n,
+          ],
         }).slice(0, 10);
         await page.route(`${requiredAnvilRpc()}/`, async (route) => {
           const payload = route.request().postDataJSON();
@@ -718,15 +704,15 @@ for (const variablePrice of [false, true]) {
           }),
         ).toBe(memberBalance);
         await page.unroute(`${requiredAnvilRpc()}/`);
-        await preview.click();
+        await reviewMemberCancellation(page);
         await expect(refund).toBeEnabled();
       }
       await refund.click();
-      await expectReconciled(page, "Refund membership #1");
+      await expectReconciled(page, "Cancel membership #1");
       const events = await client.getContractEvents({
         address: tier,
         abi: membershipTierAbi,
-        eventName: "MembershipRefunded",
+        eventName: "MembershipCanceled",
         fromBlock: firstBlock,
         toBlock: "latest",
       });
@@ -734,7 +720,7 @@ for (const variablePrice of [false, true]) {
       const event = events[0];
       const actual = parseEventLogs({
         abi: membershipTierAbi,
-        eventName: "MembershipRefunded",
+        eventName: "MembershipCanceled",
         logs: (
           await client.getTransactionReceipt({ hash: event.transactionHash })
         ).logs,
@@ -746,9 +732,9 @@ for (const variablePrice of [false, true]) {
         ? (120_000_000n * (period - (execution - start))) / period + 60_000_000n
         : (120_000_000n * (12n * period - (execution - start))) /
           (12n * period);
-      expect(actual.grossRefund).toBe(expectedGross);
-      expect(actual.grossRefund).toBeLessThanOrEqual(funding.grossRefund);
-      expect(actual.recipient.toLowerCase()).toBe(member.toLowerCase());
+      expect(actual.ownerRefund).toBe(expectedGross);
+      expect(actual.ownerRefund).toBeLessThanOrEqual(funding.ownerRefund);
+      expect(actual.owner.toLowerCase()).toBe(member.toLowerCase());
       expect(
         (await client.readContract({
           address: token,
@@ -756,12 +742,10 @@ for (const variablePrice of [false, true]) {
           functionName: "balanceOf",
           args: [member],
         })) - memberBalance,
-      ).toBe(actual.grossRefund);
+      ).toBe(actual.ownerRefund);
       await expect(
-        page
-          .getByRole("status")
-          .filter({ hasText: "The membership is permanently retired." }),
-      ).toContainText(usdgDisplay(actual.grossRefund));
+        page.getByRole("status").filter({ hasText: "Canceled membership #1." }),
+      ).toContainText(usdgDisplay(actual.ownerRefund));
       expect(
         await client.readContract({
           address: tier,
@@ -886,6 +870,10 @@ test("@anvil vested-claims pays all beneficiaries after ownership transfer with 
     await page
       .getByRole("checkbox", { name: /I understand the price, period/ })
       .check();
+    await page.getByRole("button", { name: /^capacity$/i }).click();
+    await page
+      .getByLabel("Creator share when a member cancels (%)", { exact: true })
+      .fill("0");
     await page.getByRole("button", { name: /^review$/i }).click();
     await page.getByRole("button", { name: "Publish this membership" }).click();
     await expect(

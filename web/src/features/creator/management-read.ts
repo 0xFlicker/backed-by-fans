@@ -1,30 +1,10 @@
 import type { Address, PublicClient } from "viem";
 
 import { membershipTierAbi } from "@/contracts";
-import type { TierManagementSnapshot, RefundQuote } from "@/contracts/types";
+import type { TierManagementSnapshot } from "@/contracts/types";
 import type { ReadyDeployment } from "@/lib/config";
 import { readTierSnapshotState } from "@/lib/direct-read";
 import { classifyReadError, type ReadState } from "@/lib/read-state";
-
-export function isCurrentRefundQuote(quote: RefundQuote) {
-  return (
-    (quote.complete || quote.projected) &&
-    quote.fundingAsOf === quote.accessAsOf
-  );
-}
-
-export async function readRefundFunding(
-  client: PublicClient,
-  input: { tier: Address; tokenId: bigint; blockNumber: bigint },
-) {
-  return client.readContract({
-    address: input.tier,
-    abi: membershipTierAbi,
-    functionName: "previewRefund",
-    args: [input.tokenId],
-    blockNumber: input.blockNumber,
-  });
-}
 
 export async function readTierManagementState(
   client: PublicClient,

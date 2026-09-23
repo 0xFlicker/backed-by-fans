@@ -131,6 +131,15 @@ export function PaymentFlow({
           <div className={styles.source}>
             <span>Membership payments received</span>
             <strong>{amount("gross", selected.gross)}</strong>
+            {selected.creatorCancellationProceeds > 0n && (
+              <p>
+                {amount(
+                  "cancellation-retained",
+                  selected.creatorCancellationProceeds,
+                )}{" "}
+                retained from cancellations, included in creator earnings.
+              </p>
+            )}
             {selected.refunded > 0n && (
               <span className="small-copy">
                 {amount("refunded", selected.refunded)} refunded

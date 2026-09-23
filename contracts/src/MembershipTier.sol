@@ -44,7 +44,6 @@ contract MembershipTier is
     ReentrancyGuardTransient,
     IMembershipTier
 {
-    using SafeCast for uint256;
     using ExpirationSchedule for ExpirationSchedule.State;
     using SafeERC20 for IERC20;
 
@@ -85,6 +84,8 @@ contract MembershipTier is
 
     uint64 public override supplyCap;
     uint64 public override maxPrepaidPeriods;
+    uint16 public override creatorRetentionBps;
+    bool public override periodicEnabled;
     uint64 public override occupiedSupply;
     uint256 public override totalMinted;
     bool public override paused;
@@ -97,6 +98,15 @@ contract MembershipTier is
 
     mapping(uint256 tokenId => MembershipTypes.MembershipState state) internal _membershipStates;
     mapping(uint256 tokenId => MembershipTypes.ReferralState state) private _referralStates;
+    mapping(uint256 tokenId => MembershipTypes.RefillEnrollment enrollment) private
+        _refillEnrollments;
+    error InvalidRefillTarget();
+    error PeriodicRefillDisabled();
+    error RefillNotEnrolled();
+    error RefillNoLongerAvailable();
+    error InvalidCreatorRetention();
+    error InvalidCancellationDeadline();
+    error MinimumRefundNotMet(uint256 actual, uint256 minimum);
     error CapacityReached();
     error MembershipExpired(uint256 tokenId, uint64 expiration);
     error MembershipOwnerMismatch(uint256 tokenId, address expectedOwner, address actualOwner);
@@ -117,7 +127,6 @@ contract MembershipTier is
     error IncorrectPricingMode();
     error NativeValueRejected();
     error NoGrantTime();
-    error GrossRefundLimitExceeded(uint256 required, uint256 maximum);
     error OwnershipRenunciationDisabled();
     error AccountingBehind(uint64 accountedThrough, uint64 nextBoundary);
     error CurveCapacityExceeded();
@@ -155,12 +164,14 @@ contract MembershipTier is
         if (config.renderer.code.length == 0) revert InvalidAddress();
         if (config.tierSalt == bytes32(0)) revert InvalidTierSalt();
         if (config.periodDuration == 0) revert InvalidPeriodDuration();
+        if (config.creatorRetentionBps > _BPS_DENOMINATOR) revert InvalidCreatorRetention();
+        if (config.periodicEnabled && config.pricePerPeriod == 0) revert IncorrectPricingMode();
         VestingLedger.validateCurve(
             config.startingBoostBps, config.earlySupportGross, config.pricePerPeriod
         );
         startingBoostBps = config.startingBoostBps;
         earlySupportGross = config.earlySupportGross;
-        VestingLedger.initialize(_vesting, block.timestamp.toUint64());
+        VestingLedger.initialize(_vesting, SafeCast.toUint64(block.timestamp));
         if (
             config.protocolFeeBps < 100 || config.protocolFeeBps > _BPS_DENOMINATOR
                 || uint256(config.rewardBps) + config.referralBps + config.protocolFeeBps
@@ -189,6 +200,8 @@ contract MembershipTier is
         referralBps = config.referralBps;
         supplyCap = config.supplyCap;
         maxPrepaidPeriods = config.maxPrepaidPeriods;
+        creatorRetentionBps = config.creatorRetentionBps;
+        periodicEnabled = config.periodicEnabled;
         description = config.metadata.description;
         externalURI = config.metadata.externalURI;
         _art = config.art;
@@ -205,11 +218,11 @@ contract MembershipTier is
         quote.sharesAdded = VestingLedger.quoteShares(
             quote.grossBefore, gross, startingBoostBps, earlySupportGross
         );
-        quote.grossAfter = (uint256(quote.grossBefore) + gross).toUint112();
+        quote.grossAfter = SafeCast.toUint112(uint256(quote.grossBefore) + gross);
     }
 
     function lifetimeGross() public view override returns (uint112) {
-        return _vesting.totalGross.toUint112();
+        return SafeCast.toUint112(_vesting.totalGross);
     }
 
     function sharesOf(uint256 tokenId) public view override returns (uint256) {
@@ -327,6 +340,7 @@ contract MembershipTier is
 
     function _retire(uint256 tokenId, uint64 effectiveAt) private {
         address beneficiary = _requireOwned(tokenId);
+        _clearRefill(tokenId);
         uint256 shares = _vesting.members[tokenId].shares;
         uint256 credit = VestingLedger.retireMember(_vesting, tokenId, beneficiary);
         _expirations.remove(tokenId);
@@ -504,16 +518,14 @@ contract MembershipTier is
     }
 
     /// @inheritdoc IERC5643
-    /// @dev Creator-authorized ERC-5643 cancellation uses the same reserved-funding path
-    ///      without a caller-selected gross ceiling.
+    /// @dev Owner/operator cancellation with the standard accounting budget and zero minimum.
     function cancelSubscription(uint256 tokenId) external payable override {
         if (msg.value != 0) revert NativeValueRejected();
         _cancelSubscription(tokenId);
     }
 
     function _cancelSubscription(uint256 tokenId) private nonReentrant {
-        _checkOwner();
-        _refund(tokenId, _requireLive(tokenId), type(uint256).max, ERC5643_ACCOUNTING_STEPS);
+        _cancelMembership(tokenId, _requireLive(tokenId), 0, ERC5643_ACCOUNTING_STEPS);
     }
 
     /// @inheritdoc IERC5643
@@ -541,7 +553,7 @@ contract MembershipTier is
         if (
             maxPrepaidPeriods != 0
                 && uint256(paidSeconds) + periodDuration
-                    > uint256(maxPrepaidPeriods) * periodDuration
+                    >= (uint256(maxPrepaidPeriods) + 1) * periodDuration
         ) {
             return false;
         }
@@ -846,39 +858,6 @@ contract MembershipTier is
         if (amount != 0) _pushExact(beneficiary, amount);
     }
 
-    /// @inheritdoc IMembershipTier
-    function previewRefund(uint256 tokenId)
-        external
-        view
-        override
-        returns (MembershipTypes.RefundPreview memory)
-    {
-        address recipient = _requireOwned(tokenId);
-        uint64 now_ = _currentTimestamp();
-        (uint64 paidSeconds, uint64 grantSeconds,) =
-            _timeBalancesAt(_membershipStates[tokenId], now_);
-        bytes memory encoded = VestingLedger.encodedRefund(
-            _vesting, tokenId, recipient, paidSeconds, grantSeconds, now_
-        );
-        MembershipTypes.RefundPreview memory result =
-            abi.decode(encoded, (MembershipTypes.RefundPreview));
-        MembershipTypes.AccountingStatus memory status = accountingStatus();
-        result.complete = status.complete && _isActiveToken(tokenId);
-        result.projected = result.projected && _isActiveToken(tokenId)
-            && (status.nextBoundary == 0 || status.nextBoundary > now_);
-        return result;
-    }
-
-    /// @inheritdoc IMembershipTier
-    function refund(
-        uint256 tokenId,
-        address expectedOwner,
-        uint256 maxGrossRefund,
-        uint256 maxAccountingSteps
-    ) external override onlyOwner nonReentrant returns (uint256 grossRefund) {
-        return _refund(tokenId, expectedOwner, maxGrossRefund, maxAccountingSteps);
-    }
-
     function grantMembership(address recipient, uint64 periods, uint256 maxAccountingSteps)
         external
         override
@@ -926,6 +905,7 @@ contract MembershipTier is
         MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
         revokedSeconds = state.grantSeconds;
         if (revokedSeconds == 0) revert NoGrantTime();
+        _clearRefill(tokenId);
         state.grantSeconds = 0;
         _emitTimeUpdate(tokenId, state);
         if (state.paidSeconds == 0) _retire(tokenId, _currentTimestamp());
@@ -1028,35 +1008,314 @@ contract MembershipTier is
         return tokenId;
     }
 
-    function _refund(
+    function enablePeriodicRefill() external override onlyOwner {
+        if (pricePerPeriod == 0) revert IncorrectPricingMode();
+        if (periodicEnabled) return;
+        periodicEnabled = true;
+        emit PeriodicRefillEnabled();
+    }
+
+    function setRefillTarget(uint256 tokenId, uint64 targetSeconds, address referralChoice)
+        external
+        override
+        nonReentrant
+    {
+        address beneficiary = _requireLive(tokenId);
+        if (beneficiary != msg.sender) revert TokenOwnerOnly();
+        if (pricePerPeriod == 0) revert IncorrectPricingMode();
+        if (!periodicEnabled) revert PeriodicRefillDisabled();
+        if (
+            targetSeconds == 0 || targetSeconds > type(uint64).max - _currentTimestamp()
+                || (maxPrepaidPeriods != 0
+                    && uint256(targetSeconds) > uint256(maxPrepaidPeriods) * periodDuration)
+        ) {
+            revert InvalidRefillTarget();
+        }
+        _validateReferralChoice(tokenId, referralChoice, beneficiary);
+        _refillEnrollments[tokenId] =
+            MembershipTypes.RefillEnrollment(beneficiary, targetSeconds, referralChoice);
+        emit RefillTargetSet(tokenId, beneficiary, targetSeconds, referralChoice);
+    }
+
+    function stopRefill(uint256 tokenId) external override nonReentrant {
+        if (_requireOwned(tokenId) != msg.sender) revert TokenOwnerOnly();
+        _clearRefill(tokenId);
+    }
+
+    function _clearRefill(uint256 tokenId) private {
+        address authorizer = _refillEnrollments[tokenId].authorizingOwner;
+        if (authorizer == address(0)) return;
+        delete _refillEnrollments[tokenId];
+        emit RefillStopped(tokenId, authorizer);
+    }
+
+    function refillEnrollment(uint256 tokenId)
+        external
+        view
+        override
+        returns (MembershipTypes.RefillEnrollment memory)
+    {
+        return _refillEnrollments[tokenId];
+    }
+
+    function previewRefill(uint256 tokenId, uint256 maxPeriods)
+        external
+        view
+        override
+        returns (MembershipTypes.RefillPreview memory)
+    {
+        return _previewRefill(tokenId, maxPeriods);
+    }
+
+    function _previewRefill(uint256 tokenId, uint256 maxPeriods)
+        private
+        view
+        returns (MembershipTypes.RefillPreview memory quote)
+    {
+        if (maxPeriods == 0) revert InvalidPeriods();
+        _requireKnownToken(tokenId);
+        quote.tokenId = tokenId;
+        quote.asOf = _currentTimestamp();
+        quote.accounting = accountingStatus();
+        quote.owner = _ownerOf(tokenId);
+        quote.enrollment = _refillEnrollments[tokenId];
+        if (quote.owner == address(0)) {
+            quote.lifecycle = MembershipTypes.MembershipLifecycle.Retired;
+            quote.reason = MembershipTypes.RefillReason.Retired;
+            return quote;
+        }
+        quote.expiration = _storedExpiration(_membershipStates[tokenId]);
+        quote.resultingExpiration = quote.expiration;
+        (quote.paidSeconds, quote.grantSeconds,) =
+            _timeBalancesAt(_membershipStates[tokenId], quote.asOf);
+        if (quote.asOf >= quote.expiration) {
+            quote.lifecycle = MembershipTypes.MembershipLifecycle.ExpiredPending;
+            quote.reason = MembershipTypes.RefillReason.Expired;
+            return quote;
+        }
+        MembershipTypes.ReferralState storage referral = _referralStates[tokenId];
+        quote.effectiveReferral = referral.status == MembershipTypes.ReferralStatus.Unset
+            ? quote.enrollment.pendingReferralChoice
+            : referral.referrer;
+        if (!periodicEnabled) {
+            quote.reason = MembershipTypes.RefillReason.Disabled;
+            return quote;
+        }
+        quote.balance = paymentToken.balanceOf(quote.owner);
+        quote.allowance = paymentToken.allowance(quote.owner, address(this));
+        if (quote.enrollment.authorizingOwner != quote.owner || quote.enrollment.targetSeconds == 0)
+        {
+            quote.reason = MembershipTypes.RefillReason.NotEnrolled;
+            return quote;
+        }
+        if (paused) {
+            quote.reason = MembershipTypes.RefillReason.Paused;
+            return quote;
+        }
+        uint256 remaining = uint256(quote.paidSeconds) + quote.grantSeconds;
+        if (remaining >= quote.enrollment.targetSeconds) {
+            quote.reason = MembershipTypes.RefillReason.AtTarget;
+            return quote;
+        }
+        uint256 deficit = quote.enrollment.targetSeconds - remaining;
+        quote.desiredPeriods = (deficit - 1) / periodDuration + 1;
+        uint256 periods = Math.min(quote.desiredPeriods, maxPeriods);
+        uint256 paidHeadroom = type(uint64).max - quote.paidSeconds;
+        if (maxPrepaidPeriods != 0) {
+            uint256 limit = (uint256(maxPrepaidPeriods) + 1) * periodDuration - 1;
+            if (limit <= quote.paidSeconds || limit - quote.paidSeconds < periodDuration) {
+                quote.reason = MembershipTypes.RefillReason.PaidTimeLimit;
+                return quote;
+            }
+            paidHeadroom = Math.min(paidHeadroom, limit - quote.paidSeconds);
+        }
+        periods = Math.min(periods, paidHeadroom / periodDuration);
+        periods = Math.min(periods, (type(uint64).max - quote.expiration) / periodDuration);
+        periods = Math.min(periods, (MAX_LIFETIME_GROSS - lifetimeGross()) / pricePerPeriod);
+        if (periods == 0) {
+            quote.reason = MembershipTypes.RefillReason.NumericLimit;
+            return quote;
+        }
+        uint256 affordable = quote.balance / pricePerPeriod;
+        if (affordable == 0) {
+            quote.reason = MembershipTypes.RefillReason.InsufficientBalance;
+            return quote;
+        }
+        periods = Math.min(periods, affordable);
+        uint256 allowed = quote.allowance / pricePerPeriod;
+        if (allowed == 0) {
+            quote.reason = MembershipTypes.RefillReason.InsufficientAllowance;
+            return quote;
+        }
+        quote.periods = Math.min(periods, allowed);
+        quote.gross = quote.periods * pricePerPeriod;
+        quote.resultingExpiration =
+            uint64(uint256(quote.expiration) + quote.periods * periodDuration);
+    }
+
+    function _requireRefillAvailable(MembershipTypes.RefillPreview memory quote) private pure {
+        if (quote.reason == MembershipTypes.RefillReason.Disabled) revert PeriodicRefillDisabled();
+        if (quote.reason == MembershipTypes.RefillReason.NotEnrolled) revert RefillNotEnrolled();
+        if (quote.reason == MembershipTypes.RefillReason.Paused) revert TierPaused();
+        if (
+            quote.reason == MembershipTypes.RefillReason.Expired
+                || quote.reason == MembershipTypes.RefillReason.Retired
+        ) {
+            revert MembershipExpired(quote.tokenId, quote.expiration);
+        }
+    }
+
+    function refillMembership(uint256 tokenId, uint256 maxPeriods, uint256 maxAccountingSteps)
+        external
+        override
+        nonReentrant
+        returns (MembershipTypes.RefillResult memory result)
+    {
+        if (maxAccountingSteps == 0) revert InvalidAccountingSteps();
+        MembershipTypes.RefillPreview memory quote = _previewRefill(tokenId, maxPeriods);
+        _requireRefillAvailable(quote);
+        if (quote.periods == 0) {
+            return MembershipTypes.RefillResult(quote.reason, 0, 0, quote.expiration);
+        }
+        _catchUp(maxAccountingSteps);
+        // Catch-up cannot charge. Recheck the owner, stored consent and all limits
+        // before entering the same fixed-purchase path used by manual renewal.
+        quote = _previewRefill(tokenId, maxPeriods);
+        _requireRefillAvailable(quote);
+        if (quote.periods == 0) revert RefillNoLongerAvailable();
+        _purchaseFixed(
+            tokenId,
+            quote.owner,
+            quote.owner,
+            uint64(quote.periods),
+            true,
+            quote.effectiveReferral,
+            0
+        );
+        result = MembershipTypes.RefillResult(
+            MembershipTypes.RefillReason.Ready,
+            quote.periods,
+            quote.gross,
+            _storedExpiration(_membershipStates[tokenId])
+        );
+        emit MembershipRefilled(
+            tokenId, quote.owner, msg.sender, result.periods, result.gross, result.expiration
+        );
+    }
+
+    function previewCancellation(uint256 tokenId, uint64 deadline, uint256 maxAccountingSteps)
+        external
+        view
+        override
+        returns (MembershipTypes.CancellationPreview memory result)
+    {
+        _requireKnownToken(tokenId);
+        result.tokenId = tokenId;
+        result.owner = _ownerOf(tokenId);
+        result.asOf = _currentTimestamp();
+        result.accountedThrough = _vesting.accountedThrough;
+        result.deadline = deadline;
+        result.creatorRetentionBps = creatorRetentionBps;
+        if (result.owner == address(0)) {
+            result.lifecycle = MembershipTypes.MembershipLifecycle.Retired;
+            result.unavailableReason = MembershipTypes.CancellationUnavailableReason.Retired;
+            return result;
+        }
+        uint64 expiry = _storedExpiration(_membershipStates[tokenId]);
+        if (result.asOf >= expiry) {
+            result.lifecycle = MembershipTypes.MembershipLifecycle.ExpiredPending;
+            result.unavailableReason = MembershipTypes.CancellationUnavailableReason.Expired;
+            return result;
+        }
+        if (deadline <= result.asOf || deadline >= expiry) revert InvalidCancellationDeadline();
+        result.cancellationEligible = true;
+        (result.paidSeconds, result.grantSeconds,) =
+            _timeBalancesAt(_membershipStates[tokenId], result.asOf);
+        bytes memory encoded =
+            VestingLedger.encodedCancellation(_vesting, _expirations, result, maxAccountingSteps);
+        return abi.decode(encoded, (MembershipTypes.CancellationPreview));
+    }
+
+    function cancelMembership(
         uint256 tokenId,
         address expectedOwner,
-        uint256 maxGrossRefund,
+        uint256 minOwnerRefund,
+        uint64 deadline,
         uint256 maxAccountingSteps
-    ) internal returns (uint256 grossRefund) {
+    ) external override nonReentrant returns (uint256 ownerRefund, uint256 creatorRetained) {
         _requireExpectedOwner(tokenId, expectedOwner);
-        _catchUp(maxAccountingSteps);
-        _requireExpectedOwner(tokenId, expectedOwner);
-        address recipient = expectedOwner;
-        _checkpointTime(tokenId);
-        MembershipTypes.MembershipState storage state = _membershipStates[tokenId];
-        uint64 paidSeconds = state.paidSeconds;
-        uint64 grantSeconds = state.grantSeconds;
-        uint256 generation = _vesting.funding[tokenId].generation;
-        uint256[4] memory funding;
-        uint256[4] memory residues;
-        (grossRefund, funding, residues) = VestingLedger.cancelFunding(_vesting, tokenId);
-        if (grossRefund > maxGrossRefund) {
-            revert GrossRefundLimitExceeded(grossRefund, maxGrossRefund);
+        if (
+            _currentTimestamp() > deadline
+                || deadline >= _storedExpiration(_membershipStates[tokenId])
+        ) {
+            revert InvalidCancellationDeadline();
         }
-        state.paidSeconds = 0;
-        state.grantSeconds = 0;
-        _emitTimeUpdate(tokenId, state);
+        if (maxAccountingSteps == 0) revert InvalidAccountingSteps();
+        return _cancelMembership(tokenId, expectedOwner, minOwnerRefund, maxAccountingSteps);
+    }
+
+    function _cancelMembership(
+        uint256 tokenId,
+        address expectedOwner,
+        uint256 minimum,
+        uint256 maxSteps
+    ) private returns (uint256 ownerRefund, uint256 creatorRetained) {
+        _requireExpectedOwner(tokenId, expectedOwner);
+        _checkAuthorized(expectedOwner, msg.sender, tokenId);
+        _catchUp(maxSteps);
+        _requireExpectedOwner(tokenId, expectedOwner);
+        _checkAuthorized(expectedOwner, msg.sender, tokenId);
+        _checkpointTime(tokenId);
+        MembershipTypes.CancellationPreview memory settlement;
+        settlement.owner = expectedOwner;
+        settlement.paidSeconds = _membershipStates[tokenId].paidSeconds;
+        settlement.grantSeconds = _membershipStates[tokenId].grantSeconds;
+        settlement.generation = _vesting.funding[tokenId].generation;
+        settlement.creatorRetentionBps = creatorRetentionBps;
+        (settlement.canceledGross, settlement.fundingScaled, settlement.cancellationScaled) =
+            VestingLedger.cancelFunding(_vesting, tokenId, settlement.creatorRetentionBps);
+        ownerRefund = settlement.canceledGross * (_BPS_DENOMINATOR - settlement.creatorRetentionBps)
+            / _BPS_DENOMINATOR;
+        creatorRetained = settlement.canceledGross - ownerRefund;
+        if (ownerRefund < minimum) revert MinimumRefundNotMet(ownerRefund, minimum);
+        _membershipStates[tokenId].paidSeconds = 0;
+        _membershipStates[tokenId].grantSeconds = 0;
+        emit SubscriptionUpdate(tokenId, 0);
+        emit MembershipTimeUpdated(tokenId, 0, 0, 0);
+        emit MetadataUpdate(tokenId);
         _retire(tokenId, _currentTimestamp());
-        if (grossRefund != 0) _pushExact(recipient, grossRefund);
-        emit RefundFunded(tokenId, generation, grossRefund, funding);
-        emit FundingGenerationCanceled(tokenId, generation, residues);
-        emit MembershipRefunded(tokenId, recipient, grossRefund, paidSeconds, grantSeconds);
+        if (ownerRefund != 0) _pushExact(expectedOwner, ownerRefund);
+        emit CancellationFunded(
+            tokenId,
+            settlement.generation,
+            settlement.canceledGross,
+            ownerRefund,
+            creatorRetained,
+            settlement.fundingScaled
+        );
+        emit FundingGenerationCanceled(
+            tokenId, settlement.generation, settlement.cancellationScaled
+        );
+        emit MembershipCanceled(
+            tokenId,
+            expectedOwner,
+            msg.sender,
+            settlement.generation,
+            settlement.canceledGross,
+            ownerRefund,
+            creatorRetained,
+            settlement.creatorRetentionBps,
+            settlement.paidSeconds,
+            settlement.grantSeconds
+        );
+    }
+
+    function setCreatorRetentionBps(uint16 nextBps) external override onlyOwner {
+        uint16 previous = creatorRetentionBps;
+        if (nextBps > previous) revert InvalidCreatorRetention();
+        if (nextBps == previous) return;
+        creatorRetentionBps = nextBps;
+        emit CreatorRetentionUpdated(previous, nextBps);
     }
 
     function _contribute(
@@ -1121,10 +1380,10 @@ contract MembershipTier is
             emit RewardEligibilityUpdated(tokenId, true, shares, totalRewardShares());
         }
         emit SharesIssued(tokenId, issued, shares, totalRewardShares());
-        uint64 duration = (uint256(periods) * periodDuration).toUint64();
-        uint64 start = (uint256(_currentTimestamp()) + _membershipStates[tokenId].paidSeconds
-                - duration)
-        .toUint64();
+        uint64 duration = SafeCast.toUint64(uint256(periods) * periodDuration);
+        uint64 start = SafeCast.toUint64(
+            uint256(_currentTimestamp()) + _membershipStates[tokenId].paidSeconds - duration
+        );
         VestingLedger.append(_vesting, tokenId, allocations, start, duration, referrer);
         emit PaymentProcessed(payer, recipient, tokenId, gross, periods);
         emit PaymentAllocated(
@@ -1241,7 +1500,7 @@ contract MembershipTier is
         if (
             paid && maxPrepaidPeriods != 0
                 && uint256(state.paidSeconds) + duration
-                    > uint256(maxPrepaidPeriods) * periodDuration
+                    >= (uint256(maxPrepaidPeriods) + 1) * periodDuration
         ) {
             revert PrepaymentLimitExceeded();
         }
@@ -1275,10 +1534,10 @@ contract MembershipTier is
         if (elapsed >= totalSeconds) return (0, 0, true);
 
         if (elapsed < paidSeconds) {
-            return (paidSeconds - elapsed.toUint64(), grantSeconds, true);
+            return (paidSeconds - SafeCast.toUint64(elapsed), grantSeconds, true);
         }
 
-        return (0, grantSeconds - (elapsed - paidSeconds).toUint64(), true);
+        return (0, grantSeconds - SafeCast.toUint64(elapsed - paidSeconds), true);
     }
 
     function _storedExpiration(MembershipTypes.MembershipState storage state)
@@ -1298,7 +1557,7 @@ contract MembershipTier is
         if (periods == 0) revert InvalidPeriods();
         uint256 calculatedDuration = uint256(periods) * periodDuration;
         if (calculatedDuration > type(uint64).max) revert DurationOverflow();
-        duration = calculatedDuration.toUint64();
+        duration = SafeCast.toUint64(calculatedDuration);
     }
 
     function _ensureExpirationCapacity(
@@ -1326,7 +1585,7 @@ contract MembershipTier is
     function _currentTimestamp() internal view returns (uint64 timestamp) {
         uint256 currentTimestamp = block.timestamp;
         if (currentTimestamp > type(uint64).max) revert TimestampOverflow();
-        timestamp = currentTimestamp.toUint64();
+        timestamp = SafeCast.toUint64(currentTimestamp);
     }
 
     function _validateMetadata(
@@ -1394,6 +1653,7 @@ contract MembershipTier is
 
     function _transferLive(address from, address to, uint256 tokenId) private {
         _requireLive(tokenId);
+        _clearRefill(tokenId);
         super.transferFrom(from, to, tokenId);
     }
 

@@ -1,11 +1,7 @@
-import { getAddress, zeroAddress, type PublicClient } from "viem";
-import { describe, expect, it, vi } from "vitest";
-import {
-  readRefundFunding,
-  isCurrentRefundQuote,
-} from "@/features/creator/management-read";
+import { getAddress, zeroAddress } from "viem";
+import { describe, expect, it } from "vitest";
 
-import type { TierManagementSnapshot, RefundQuote } from "@/contracts/types";
+import type { TierManagementSnapshot } from "@/contracts/types";
 import {
   managementPermissions,
   parseTokenId,
@@ -23,62 +19,7 @@ const base = {
 } as TierManagementSnapshot;
 
 describe("creator management constraints", () => {
-  it("distinguishes settled/current projected refunds from historical or mismatched-time estimates", () => {
-    const quote: RefundQuote = {
-      recipient: owner,
-      paidSeconds: 90n,
-      grantSeconds: 0n,
-      accessAsOf: 110n,
-      accountingAsOf: 100n,
-      fundingAsOf: 110n,
-      projected: true,
-      complete: false,
-      grossRefund: 90n,
-      fundingScaled: [80n, 5n, 3n, 2n],
-      cancellationScaled: [0n, 0n, 0n, 0n],
-      generation: 0n,
-    };
-    expect(isCurrentRefundQuote(quote)).toBe(true);
-    expect(isCurrentRefundQuote({ ...quote, projected: false })).toBe(false);
-    expect(isCurrentRefundQuote({ ...quote, fundingAsOf: 100n })).toBe(false);
-    expect(
-      isCurrentRefundQuote({
-        ...quote,
-        projected: false,
-        complete: true,
-        accountingAsOf: 110n,
-      }),
-    ).toBe(true);
-  });
-  it("reads all refund funding components from one pinned contract response", async () => {
-    const readContract = vi
-      .fn()
-      .mockResolvedValue({ grossRefund: 90n, complete: true });
-    const client = { readContract } as unknown as PublicClient;
-    expect(
-      await readRefundFunding(client, {
-        tier: owner,
-        tokenId: 12n,
-        blockNumber: 50n,
-      }),
-    ).toEqual({ grossRefund: 90n, complete: true });
-    expect(readContract).toHaveBeenCalledWith(
-      expect.objectContaining({
-        functionName: "previewRefund",
-        args: [12n],
-        blockNumber: 50n,
-      }),
-    );
-    readContract.mockRejectedValueOnce(new Error("RPC unavailable"));
-    await expect(
-      readRefundFunding(client, {
-        tier: owner,
-        tokenId: 12n,
-        blockNumber: 50n,
-      }),
-    ).rejects.toThrow("RPC unavailable");
-  });
-  it("keeps revoke, refund, and owner operations available while grants pause", () => {
+  it("keeps grant revocation and owner operations available while grants pause", () => {
     expect(managementPermissions(base, owner)).toMatchObject({
       isOwner: true,
       canGrant: false,

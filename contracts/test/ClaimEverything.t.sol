@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
@@ -488,7 +489,7 @@ contract ClaimEverythingTest is ProtocolBurnRouterTest {
         factory.claimEverything(batch, 25);
         assertEq(token.balanceOf(address(this)), beforeBalance);
         assertEq(tier.accountingStatus().accountedThrough, cursor);
-        second.refund(first, address(this), 1000, 25);
+        cancelPayout(second, first, address(this), 500, 25);
         batch[1].tokenIds = _ids(first);
         vm.expectRevert();
         factory.claimEverything(batch, 25);

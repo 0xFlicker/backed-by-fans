@@ -169,6 +169,30 @@ export function decodeTransactionError(error: unknown): string {
       (cause) => cause instanceof ContractFunctionRevertedError,
     );
     if (reverted instanceof ContractFunctionRevertedError) {
+      if (reverted.data?.errorName === "InvalidTokenId")
+        return "This membership ID has not been issued.";
+      if (reverted.data?.errorName === "ERC721InsufficientApproval")
+        return "Your wallet is not approved to act on this membership. Check its current owner and approvals.";
+      if (reverted.data?.errorName === "InvalidCancellationDeadline")
+        return "The cancellation deadline is no longer usable. Review cancellation again.";
+      if (reverted.data?.errorName === "MinimumRefundNotMet")
+        return "The refund is below your approved minimum. Review cancellation again.";
+      if (reverted.data?.errorName === "MembershipOwnerMismatch")
+        return "This membership has changed owners. Refresh and review the current position.";
+      if (reverted.data?.errorName === "InvalidCreatorRetention")
+        return "The creator share must be between 0% and its current value.";
+      if (reverted.data?.errorName === "InvalidRefillTarget")
+        return "Choose a positive refill target within the tier’s current limit.";
+      if (reverted.data?.errorName === "RefillNotEnrolled")
+        return "Periodic refill is off. The current owner must enroll this membership.";
+      if (reverted.data?.errorName === "PeriodicRefillDisabled")
+        return "Periodic refill is not available for this tier.";
+      if (reverted.data?.errorName === "RefillNoLongerAvailable")
+        return "Refill readiness changed. Review the membership again.";
+      if (reverted.data?.errorName === "MembershipExpired")
+        return "This membership has expired. It cannot be refilled or canceled.";
+      if (reverted.data?.errorName === "TokenOwnerOnly")
+        return "Only the current membership owner can change refill enrollment.";
       if (reverted.data?.errorName === "SelfReferralNotAllowed")
         return "You cannot choose your own wallet as the initial referrer. Choose another wallet or no referrer.";
       if (reverted.data?.errorName === "ClaimAccountingBehind")

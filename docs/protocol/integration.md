@@ -124,9 +124,9 @@ An expired unburned NFT cannot transfer, regardless of approval or maintenance
 progress. Prefer safe transfer so recipient-contract acceptance is checked;
 receiver rejection reverts the whole transaction.
 
-ERC-721 `approve` and `setApprovalForAll` authorize transfers only. They grant
-no owner-only claim or renewal rights and no creator refund, cancellation or
-grant authority. Approvals remain usable while paused; token approval clears
+ERC-721 `approve` and `setApprovalForAll` authorize transfers and member
+cancellation. They grant no owner-only claim, renewal, refill enrollment or
+creator grant authority. Approvals remain usable while paused; token approval clears
 on transfer and burn. An approved address may sponsor time under the same
 independent gifting rules as any other payer. Keep NFT approvals distinct from
 the ERC-20 allowance authorizing membership payments.
@@ -218,28 +218,48 @@ Claims, creator withdrawals and protocol-fee release remain available while
 paused. Payments use the tier's immutable ERC-20 and exact-transfer checks.
 A failed payout reverts atomically and leaves the liability intact.
 
-## Creator refunds and grant revocation
+## Member cancellation and creator grant revocation
 
-Only the current tier `owner()` can initiate
-`refund(tokenId, expectedOwner, maxGrossRefund)`. The NFT owner receives the
-refund even if someone else originally paid. NFT ownership and approvals do
-not authorize refunds. Validate the live target and expected owner, catch up,
-cancel its remaining funded and grant time, and permanently retire the position.
-The refund comes from unused funding; already-earned liabilities survive.
-If the computed gross exceeds the ceiling or the exact payout fails, the entire
-operation reverts. There is no creator top-up parameter.
+The current live NFT owner or approved token/owner-wide operator can call
+`cancelMembership(tokenId, expectedOwner, minOwnerRefund, deadline, maxAccountingSteps)`.
+Creator authority alone is insufficient. Current decreasing creator retention
+splits unused gross: the owner receives `floor(G * (10000 - B) / 10000)` and the
+creator earns the remainder. Earned allocations and protected fractions survive.
+Cancel all paid/grant time and permanently retire atomically, paying only the
+current owner. Zero-payout exits remain valid at 100% retention. There is no
+creator top-up or pause requirement.
 
-`revokeGrantTime(tokenId, expectedOwner)` is also creator-only. It removes
-remaining grant time while preserving remaining paid time. A surviving position
-keeps its shares; removing its last time retires it immediately. Both operations
-remain available while paused and maintain expiration scheduling.
+Read `previewCancellation(tokenId, deadline, maxAccountingSteps)` at a pinned
+block. The first-party deadline is chain time plus 120 seconds, clipped to
+expiration minus one second. Inspect `cancellationEligible`, `complete` and
+`quoteAvailable`; distinguish current `ownerRefund` from deadline-projected
+`minOwnerRefund`. Scheduled rate boundaries count toward the bounded projection.
+Known expired/retired positions report unavailable status before checking the
+obsolete deadline; unknown IDs error. No future live deadline means no protected
+quote. Submit the displayed owner/minimum/deadline; stale ownership, a missed
+deadline, insufficient refund or failed delivery reverts all state. Deadline
+equality is allowed, expiration equality is not. Advance standalone accounting
+when the mutation cannot catch up within its supplied budget.
 
-`previewRefund(tokenId)` returns the current `recipient`, remaining time,
-`grossRefund`, funding/cancellation allocations and timestamps. Inspect
-`complete`, `projected`, `accountingAsOf` and `fundingAsOf`; an incomplete quote
-is not a definitive executable refund. Expired pending tokens cannot be
-refunded or extended: process their expiration. Refresh ownership and simulate
-the exact owner-pinned refund before submission.
+`revokeGrantTime(tokenId, expectedOwner, maxAccountingSteps)` remains creator-only
+and available while paused. It removes remaining granted time and preserves paid
+time. Removing nonzero granted time stops periodic refill enrollment; a live
+holder must explicitly enroll again. Failed or zero-time removal preserves intent.
+Removing the last time retires the position immediately.
+
+## Periodic refill and paid-time limits
+
+Only positive fixed-price tiers accept `periodicEnabled` at creation or the creator's one-way `enablePeriodicRefill()`. Enabling does not enroll or charge any member. The current live NFT owner alone calls `setRefillTarget(tokenId, targetSeconds, referralChoice)` or `stopRefill(tokenId)`; NFT approvals do not authorize either action. Configuration is allowed while paused, performs no accounting catch-up and transfers no funds.
+
+Read `refillEnrollment(tokenId)` and `previewRefill(tokenId, maxPeriods)` at one pinned block. The preview reports lifecycle, owner, enrollment, paid/granted time, target shortfall, current owner balance/allowance, desired and collectible whole periods, gross, resulting expiration, effective referral and accounting status. Treat read errors as unavailable, never fabricated zero coverage. An absent enrollment is simply “Periodic refill off”; grant revocation details remain in transaction history. Existing locked referral terms override a pending enrollment choice.
+
+Anyone can call `refillMembership(tokenId, maxPeriods, maxAccountingSteps)` with positive bounds. For period D, target T and remaining paid plus grant time R, desired periods are `ceil(max(T - R, 0) / D)`. Execution caps that by the caller limit, `balance / price`, `allowance / price`, paid-time capacity, gross headroom and expiration headroom. It charges only the current authorizing owner's wallet and uses the ordinary purchase path. Expected zero-work cases return no purchase; a rejected exact transfer reverts the entire attempt, including attempted catch-up. Accounting, claims and cancellation never call refill. Standalone maintenance remains independently available.
+
+Success emits `MembershipRefilled` with owner, executor, periods, gross and new expiration alongside ordinary purchase/time events. Verify the successful supplied receipt and exact call before treating absence of this event as no-work. Do not infer receipt success from balances or add a second wallet receipt lifecycle.
+
+For finite maximum prepaid periods N, all paid-addition paths enforce `remainingPaid + addedPaid < (N + 1) * D`; grants do not consume that capacity. N=1, D=30 days: 29 + 30 = 59 days passes, 60 days fails. The exclusive bound also applies to contribution, gift and manual paths. New targets are bounded by `N * D`; existing targets survive cap changes. N=0 is unlimited, with normal numeric/expiration bounds. Whole-period rounding may leave less than one extra period above the target.
+
+Refill is forbidden at or after expiration. Transfer (including self-transfer), any retirement and successful nonzero grant revocation clear enrollment; failed or zero-time revocation preserves it. Stopping preserves paid time. Pausing and allowance revocation leave enrollment configured: unpause/restored allowance can resume only still-live positions. A recipient must explicitly enroll after transfer. Finite and unlimited ERC-20 allowance choices must be explicit; reset nonzero allowance to zero before setting a different nonzero amount where required. No funds are reserved among a wallet's positions. No scheduler, keeper guarantee, embedded NFT wallet or delegated recurring payer is provided.
 
 ## Current views, projections and historical evidence
 
@@ -290,10 +310,10 @@ and adds it with zero gross. `isRenewable` returns false for an extant expired
 or paused position and other supported renewal limits; it is not a promise
 that accounting or payment simulation will succeed.
 
-`cancelSubscription(tokenId)` remains creator-only and uses the full-refund
-retirement path. Its standard signature has no expected-owner or gross ceiling;
-it pays the execution-time NFT owner. Applications should use the explicit
-owner-pinned `refund` for their confirmations. Both subscription writes reject
+`cancelSubscription(tokenId)` uses the same owner/operator cancellation and
+retention settlement, with a zero refund minimum and the fixed 25-step accounting
+budget. Its signature lacks expected-owner/deadline/minimum protections; use
+`cancelMembership` for first-party confirmations. Both subscription writes reject
 native value.
 
 Use the successful supplied receipt's mint `Transfer` and lifecycle events to
@@ -303,7 +323,8 @@ owner, historical `effectiveAt`, removed shares and exact moved credit;
 `RetiredRewardClaimed` records whole-unit payouts. `AccountingProgress`
 includes retired count. Standard `Transfer`, `Approval` and `ApprovalForAll`
 events cover NFT movement and authority. Funding/payment events preserve payer,
-lot and referral provenance; `MembershipRefunded` records cancellation payout.
+lot and referral provenance; `MembershipCanceled` records canceled gross, actual owner payout, creator-retained
+proceeds, terms, owner and operator.
 
 After transfer, refresh ownership pages, access, position rewards and affected
 beneficiary views. After maintenance or cancellation, refresh capacity and

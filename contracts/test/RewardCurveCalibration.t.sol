@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 
 import {MembershipTier} from "../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
@@ -55,7 +56,8 @@ contract RewardCurveCalibrationTest is Test {
             vm.warp(1010);
             if (refund) {
                 tier.setPaused(true);
-                assertEq(tier.refund(idB, tier.ownerOf(idB), type(uint256).max, 25), data[i + 3]);
+                vm.prank(b);
+                assertEq(cancelPayout(tier, idB, b, 0, 25), data[i + 3]);
                 tier.setPaused(false);
             } else {
                 uint256[] memory ids = new uint256[](1);

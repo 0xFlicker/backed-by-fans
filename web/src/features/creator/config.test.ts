@@ -40,6 +40,7 @@ const paymentToken: AcceptedPaymentToken = {
 };
 const validCreatorForm: CreatorForm = {
   ...defaultCreatorForm,
+  creatorRetentionPercent: "0",
   name: "Creator membership",
   symbol: "FANS",
   paymentToken: paymentTokenAddress,
@@ -67,6 +68,27 @@ function evaluate(
 }
 
 describe("creator tier configuration", () => {
+  it("enables periodic capability only with a positive fixed price", () => {
+    expect(
+      evaluate({ ...validCreatorForm, periodicEnabled: true }).config
+        ?.periodicEnabled,
+    ).toBe(true);
+    expect(
+      evaluate({
+        ...validCreatorForm,
+        periodicEnabled: true,
+        displayedPrice: "0",
+      }).errors.periodicEnabled,
+    ).toBeDefined();
+    expect(
+      evaluate({
+        ...validCreatorForm,
+        periodicEnabled: false,
+        displayedPrice: "0",
+      }).config?.periodicEnabled,
+    ).toBe(false);
+  });
+
   it("enforces the published currency floor per period and snapshots the reviewed minimum", () => {
     const token = { ...paymentToken, minimumPayment: 1_000_000n };
     expect(
@@ -270,6 +292,8 @@ describe("creator tier configuration", () => {
       referralBps: 100,
       supplyCap: 0n,
       maxPrepaidPeriods: 12n,
+      creatorRetentionBps: 0,
+      periodicEnabled: false,
       tierSalt: creative.tierSalt,
       renderer,
       art: creative.art,

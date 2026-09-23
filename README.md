@@ -40,7 +40,8 @@ audit, independent review, deployment, or brand clearance.
 The gate includes randomized independent contract models and a disposable
 Anvil-backed production browser flow. The latter verifies configured reads,
 creator deployment and administration, join/renew/gift payments, fixed-wallet
-claims, exact refunds, two-step ownership, blocked-destination preservation,
+claims, owner/operator cancellation with decreasing creator retention, owner-authorized
+periodic refill before expiration, two-step ownership, blocked-destination preservation,
 actual RPC-loss handling, and uncertain-transaction reconciliation without a
 wallet secret:
 

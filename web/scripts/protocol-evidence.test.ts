@@ -92,12 +92,14 @@ describe("retained fork artifact export", () => {
           address: tier,
           topics: encodeEventTopics({
             abi: membershipTierAbi,
-            eventName: "MembershipRefunded",
-            args: { tokenId: 1n, recipient: zeroAddress },
+            eventName: "MembershipCanceled",
+            args: { tokenId: 1n, owner: zeroAddress, operator: zeroAddress },
           }),
           data: encodeAbiParameters(
-            parseAbiParameters("uint256,uint64,uint64"),
-            [89n, 900n, 0n],
+            parseAbiParameters(
+              "uint256,uint256,uint256,uint256,uint16,uint64,uint64",
+            ),
+            [0n, 89n, 89n, 0n, 0, 900n, 0n],
           ),
         },
       ],
@@ -108,7 +110,13 @@ describe("retained fork artifact export", () => {
       preview: {
         complete: true,
         generation: "0",
-        grossRefund: "90",
+        cancellationEligible: true,
+        quoteAvailable: true,
+        canceledGross: "90",
+        ownerRefund: "90",
+        minOwnerRefund: "89",
+        creatorRetained: "0",
+        creatorRetentionBps: 0,
         fundingScaled: ["0", "0", "0", String(90n * (1n << 128n))],
       },
       refundAccounting: {
@@ -121,26 +129,20 @@ describe("retained fork artifact export", () => {
       },
     };
     expect(() => reconcileVestedRefund(value)).not.toThrow();
-    const projected = {
-      ...value,
-      preview: {
-        ...value.preview,
-        complete: false,
-        projected: true,
-        fundingAsOf: "301",
-        accessAsOf: "301",
-        accountingAsOf: "300",
-      },
-    };
-    expect(() => reconcileVestedRefund(projected)).not.toThrow();
     for (const preview of [
-      { ...projected.preview, projected: false },
-      { ...projected.preview, fundingAsOf: "300" },
-      { ...projected.preview, accountingAsOf: "302" },
+      { ...value.preview, complete: false },
+      { ...value.preview, quoteAvailable: false },
+      { ...value.preview, cancellationEligible: false },
     ])
-      expect(() => reconcileVestedRefund({ ...projected, preview })).toThrow(
+      expect(() => reconcileVestedRefund({ ...value, preview })).toThrow(
         "reserved protocol cash",
       );
+    expect(() =>
+      reconcileVestedRefund({
+        ...value,
+        preview: { ...value.preview, minOwnerRefund: "90" },
+      }),
+    ).toThrow("received cash");
     expect(() => reconcileVestedRefund({ ...value, receipts: [] })).toThrow(
       "refund receipt",
     );
@@ -288,6 +290,8 @@ describe("retained fork artifact export", () => {
     try {
       await mkdir(join(directory, "nested"));
       await writeFile(join(directory, "nested/receipt.json"), "{}");
+      await writeFile(join(directory, ".DS_Store"), "Finder metadata");
+      await writeFile(join(directory, "nested/.DS_Store"), "mutable metadata");
       expect(await publicFiles(directory)).toEqual([
         join(directory, "nested/receipt.json"),
       ]);

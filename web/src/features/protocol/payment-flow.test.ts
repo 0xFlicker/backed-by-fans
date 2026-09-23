@@ -52,6 +52,7 @@ function fixture() {
             return {
               grossReceived: 100n,
               refunded: 5n,
+              creatorCancellationProceeds: 0n,
               paidRaw: [10n, 2n, 1n, 1n],
               earnedScaled: [20n * scale, 3n * scale, 2n * scale, 1n * scale],
               unearnedScaled: [50n * scale, 2n * scale, 1n * scale, 1n * scale],
@@ -96,6 +97,7 @@ it("pins pages to one block, respects caller budgets, and keeps currencies separ
   expect(totals[0]).toMatchObject({
     gross: 200n,
     refunded: 10n,
+    creatorCancellationProceeds: 0n,
     complete: false,
     paid: [20n, 4n, 2n, 2n],
     earned: [40n * scale, 6n * scale, 4n * scale, 2n * scale],

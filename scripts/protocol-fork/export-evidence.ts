@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import type { Address, Hex, Log } from "../../web/node_modules/viem";
 import { captureSourceSnapshot } from "./preflight";
 import { verifyProtocolGraph } from "./verify-protocol-graph";
+import { reconcileMembershipBranch } from "./membership-evidence";
 import {
   iPonsLaunchFactoryAbi,
   iSafeAbi,
@@ -51,6 +52,7 @@ const pending = () => ({
 export async function publicFiles(directory: string): Promise<string[]> {
   const result: string[] = [];
   for (const item of await readdir(directory, { withFileTypes: true })) {
+    if (item.name === ".DS_Store") continue;
     if (item.isSymbolicLink())
       throw new Error("Evidence must not contain symbolic links");
     const path = resolve(directory, item.name);
@@ -203,6 +205,7 @@ export async function exportEvidence(directory: string) {
       !path.endsWith("/manifest.json"),
   )) {
     const value = JSON.parse(await readFile(path, "utf8"));
+    if (path.includes("/branches/")) reconcileMembershipBranch(value);
     if (path.includes("/broadcast/") && path.endsWith("/run-latest.json"))
       broadcast = value;
     for (const receipt of extractReceipts(value))

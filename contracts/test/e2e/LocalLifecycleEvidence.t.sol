@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "../helpers/CancellationAssertions.sol";
 import {LinkedVestingFixture} from "../helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
 
@@ -192,12 +193,13 @@ contract LocalLifecycleEvidenceTest is Test {
 
         vm.warp(_START + 15 days);
         tier.processAccounting(25);
-        MembershipTypes.RefundPreview memory refundPreview = tier.previewRefund(memberToken);
+        MembershipTypes.CancellationPreview memory refundPreview =
+            tier.previewCancellation(memberToken, uint64(block.timestamp + 1), 25);
         assertTrue(refundPreview.complete);
-        assertEq(refundPreview.grossRefund, 15_000_000);
-        vm.prank(nextCreator);
-        uint256 refundPaid = tier.refund(memberToken, member, refundPreview.grossRefund, 25);
-        assertEq(refundPaid, refundPreview.grossRefund);
+        assertEq(refundPreview.ownerRefund, 15_000_000);
+        vm.prank(member);
+        uint256 refundPaid = cancelPayout(tier, memberToken, member, refundPreview.ownerRefund, 25);
+        assertEq(refundPaid, refundPreview.ownerRefund);
         assertFalse(
             (tier.tokensOfOwner(member, 0, 1).balance != 0
                     && tier.isActiveToken(tier.tokensOfOwner(member, 0, 1).tokenIds[0]))
@@ -308,8 +310,8 @@ contract LocalLifecycleEvidenceTest is Test {
         assertEq(memberCash, cash.member);
         assertEq(referralCash, cash.referral);
         assertEq(protocolCash, cash.protocol);
-        vm.prank(creator);
-        uint256 refunded = target.refund(id, member, 90_000_000, 25);
+        vm.prank(member);
+        uint256 refunded = cancelPayout(target, id, member, 90_000_000, 25);
         assertEq(refunded, 90_000_000);
         uint256 remainder = paymentToken.balanceOf(address(target));
         assertEq(

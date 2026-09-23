@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   encodeAbiParameters,
@@ -161,6 +168,8 @@ const snapshot: TierSupporterSnapshot = {
   supplyCap: 100n,
   occupiedSupply: 3n,
   maxPrepaidPeriods: 12n,
+  creatorRetentionBps: 0,
+  periodicEnabled: false,
   paused: false,
   capturedTimestamp: 2_000_000_000n,
   wallet,
@@ -197,8 +206,12 @@ function credential(
     shares: 10_000_000n,
     rewardEligible: true,
     claimableReward: 2_000_000n,
-    refundableGross: 10_000_000n,
 
+    refillEnrollment: {
+      authorizingOwner: zeroAddress,
+      targetSeconds: 0n,
+      pendingReferralChoice: zeroAddress,
+    },
     referralStatus: "locked-none" as const,
     referrer: zeroAddress,
     ...overrides,
@@ -385,7 +398,7 @@ describe("supporter membership experience", () => {
         sharesOf: held.shares,
         claimableReward: held.claimableReward,
         rewardEligible: held.rewardEligible,
-        previewRefund: { grossRefund: held.refundableGross },
+        refillEnrollment: held.refillEnrollment,
       };
       if (!(functionName in results))
         throw new Error(`Unexpected read ${functionName}`);
@@ -803,6 +816,24 @@ describe("supporter membership experience", () => {
       screen.getByRole("button", { name: "Renew membership #1" }),
     ).toBeDisabled();
   });
+
+  it.each([true, false])(
+    "uses the exclusive paid-time cap (exact boundary: %s)",
+    async (exact) => {
+      renderExperience({
+        ...snapshot,
+        maxPrepaidPeriods: 1n,
+        credential: credential({
+          paidSeconds: snapshot.periodDuration - (exact ? 0n : 1n),
+        }),
+      });
+      const button = screen.getByRole("button", {
+        name: "Renew membership #1",
+      });
+      if (exact) expect(button).toBeDisabled();
+      else await waitFor(() => expect(button).toBeEnabled());
+    },
+  );
 
   it("displays a scaled token and its scheduled change without changing raw terms", () => {
     const scaled = {

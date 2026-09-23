@@ -1,3 +1,7 @@
+import {
+  openMemberCancellation,
+  reviewMemberCancellation,
+} from "./helpers/cancellation";
 import { expectSingleOwnedPosition } from "./helpers/membership-positions";
 import { expect, test } from "@playwright/test";
 import { erc20Abi, encodeFunctionData, encodeFunctionResult } from "viem";
@@ -136,6 +140,10 @@ for (const scenario of [
       await page
         .getByRole("checkbox", { name: /I understand the price, period/ })
         .check();
+      await page.getByRole("button", { name: /^capacity$/i }).click();
+      await page
+        .getByLabel("Creator share when a member cancels (%)", { exact: true })
+        .fill("0");
       await page.getByRole("button", { name: /^review$/i }).click();
 
       await expect(page.getByText(`${tokenName} (AMD)`)).toBeVisible();
@@ -338,15 +346,13 @@ for (const scenario of [
       ).toBeVisible();
       await page.getByRole("button", { name: "Pause time increases" }).click();
       await expectReconciled(page, "Pause tier");
-      await page
-        .getByLabel("Membership token", { exact: true })
-        .fill(tokenId.toString());
-      await page.getByRole("button", { name: "Read refund preview" }).click();
-      const { grossRefund } = await client.readContract({
+      await openMemberCancellation(page, tier, tokenId);
+      await reviewMemberCancellation(page);
+      const { ownerRefund: grossRefund } = await client.readContract({
         address: tier,
         abi: membershipTierAbi,
-        functionName: "previewRefund",
-        args: [tokenId],
+        functionName: "previewCancellation",
+        args: [tokenId, (await client.getBlock()).timestamp + 1n, 25n],
       });
       const refundPreview = page.locator(".refund-preview[aria-live]");
       const display = (raw: bigint) =>
@@ -357,8 +363,8 @@ for (const scenario of [
         })} AMD`;
       await expect(refundPreview).toContainText(display(grossRefund));
 
-      await page.getByRole("button", { name: "Refund unused time" }).click();
-      await expectReconciled(page, `Refund membership #${tokenId}`);
+      await page.getByRole("button", { name: /^Cancel membership #/ }).click();
+      await expectReconciled(page, `Cancel membership #${tokenId}`);
       await expect(
         client.readContract({
           address: tier,

@@ -121,6 +121,7 @@ export function aggregatePaymentFlow(pages: PaymentFlowPage[]) {
       token: AcceptedPaymentToken;
       gross: bigint;
       refunded: bigint;
+      creatorCancellationProceeds: bigint;
       paid: bigint[];
       earned: bigint[];
       pending: bigint[];
@@ -148,6 +149,7 @@ export function aggregatePaymentFlow(pages: PaymentFlowPage[]) {
         token,
         gross: 0n,
         refunded: 0n,
+        creatorCancellationProceeds: 0n,
         paid: [0n, 0n, 0n, 0n],
         earned: [0n, 0n, 0n, 0n],
         pending: [0n, 0n, 0n, 0n],
@@ -162,6 +164,8 @@ export function aggregatePaymentFlow(pages: PaymentFlowPage[]) {
       };
       value.gross += result.totals.grossReceived;
       value.refunded += result.totals.refunded;
+      value.creatorCancellationProceeds +=
+        result.totals.creatorCancellationProceeds;
       value.complete &&= result.totals.status.complete;
       const boundary = result.totals.status.nextBoundary;
       if (

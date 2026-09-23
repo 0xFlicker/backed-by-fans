@@ -97,6 +97,7 @@ contract ERC5643AdaptersTest is Test {
         vm.cool(address(token));
         if (due > 25) {
             vm.expectRevert();
+            vm.prank(RECIPIENT);
             tier.cancelSubscription(target);
             assertEq(tier.ownerOf(target), RECIPIENT);
             assertEq(token.balanceOf(RECIPIENT), beforeBalance);
@@ -104,6 +105,7 @@ contract ERC5643AdaptersTest is Test {
             assertEq(tier.processAccounting(25).processedSteps, 25);
         }
         uint256 beforeGas = gasleft();
+        vm.prank(RECIPIENT);
         tier.cancelSubscription(target);
         uint256 used = beforeGas - gasleft();
         assertLt(used, 30_000_000, "Robinhood cold adapter budget");

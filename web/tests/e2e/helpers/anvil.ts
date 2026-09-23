@@ -209,7 +209,10 @@ export async function sendContract(input: {
 }
 
 export function expectSuccessfulReceipt(receipt: TransactionReceipt) {
-  expect(receipt.status).toBe("success");
+  expect(
+    receipt.status,
+    `Transaction ${receipt.transactionHash}, gas used ${receipt.gasUsed}`,
+  ).toBe("success");
 }
 
 export async function installAnvilWallet(
@@ -334,7 +337,8 @@ export async function installAnvilWallet(
               "eth_estimateGas",
               forwardedParams,
             );
-            const bufferedGas = (BigInt(String(estimate)) * 12n + 9n) / 10n;
+            const bufferedGas =
+              (BigInt(String(estimate)) * 12n + 9n) / 10n + 500_000n;
             forwardedParams = [
               { ...transaction, gas: `0x${bufferedGas.toString(16)}` },
             ];

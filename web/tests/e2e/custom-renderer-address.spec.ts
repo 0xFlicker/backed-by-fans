@@ -84,6 +84,10 @@ test("@anvil copies and reuses a direct renderer", async ({
     await page
       .getByRole("checkbox", { name: /I understand the price, period/ })
       .check();
+    await page.getByRole("button", { name: /^capacity$/i }).click();
+    await page
+      .getByLabel("Creator share when a member cancels (%)", { exact: true })
+      .fill("0");
     await page.getByRole("button", { name: /^review$/i }).click();
 
     const publish = page.getByRole("button", {

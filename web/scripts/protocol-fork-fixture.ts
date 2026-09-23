@@ -450,6 +450,8 @@ async function main() {
     earlySupportGross: 10_000_000_000n,
     supplyCap: 0n,
     maxPrepaidPeriods: 12n,
+    creatorRetentionBps: 0,
+    periodicEnabled: false,
     metadata: {
       description: "A creator membership on the authentic disposable fork.",
       externalURI: "",

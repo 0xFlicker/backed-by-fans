@@ -272,6 +272,8 @@ describe("direct reads", () => {
         complete: false,
       },
       1n,
+      0,
+      false,
     ];
     const multicall = vi
       .fn()
@@ -325,7 +327,7 @@ describe("direct reads", () => {
     );
     expect(incomplete).toMatchObject({
       status: "partial",
-      missing: ["minimumPayment"],
+      missing: ["periodicEnabled"],
     });
   });
 

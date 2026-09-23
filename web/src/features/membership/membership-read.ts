@@ -85,12 +85,22 @@ export async function readMembershipPosition(
       { ...common, functionName: "sharesOf" },
       { ...common, functionName: "claimableReward" },
       { ...common, functionName: "rewardEligible" },
+      { ...common, functionName: "refillEnrollment" },
     ],
     input.blockNumber,
     input.batched ?? false,
   );
-  const [owner, active, occupied, time, referral, shares, reward, eligible] =
-    values;
+  const [
+    owner,
+    active,
+    occupied,
+    time,
+    referral,
+    shares,
+    reward,
+    eligible,
+    enrollment,
+  ] = values;
   if (!isSameAddress(owner as Address, input.owner)) {
     throw new Error("This membership's owner changed. Refresh your selection.");
   }
@@ -107,6 +117,7 @@ export async function readMembershipPosition(
     grantSeconds,
     shares: shares as bigint,
     rewardEligible: eligible as boolean,
+    refillEnrollment: enrollment as SupporterCredential["refillEnrollment"],
     claimableReward: reward as bigint,
     referralStatus: referralStatus(status),
     referrer,

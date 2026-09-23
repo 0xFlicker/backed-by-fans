@@ -252,6 +252,8 @@ async function main() {
     earlySupportGross: 10_000_000n,
     supplyCap: 0n,
     maxPrepaidPeriods: 128n,
+    creatorRetentionBps: 0,
+    periodicEnabled: false,
     metadata: { description: "Local verification", externalURI: "" },
     art: {
       engine: 0,

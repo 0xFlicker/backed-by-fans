@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
 
@@ -69,9 +70,10 @@ contract VestedAllocationsTest is Test {
             3_000_000
         );
         assertEq(tier.releaseProtocolFees(), 0);
-        MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
+        MembershipTypes.CancellationPreview memory quote =
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
         assertTrue(quote.complete);
-        assertEq(quote.grossRefund, 90_000_000);
+        assertEq(quote.ownerRefund, 90_000_000);
         assertEq(quote.fundingScaled[0], 81_000_000 * Q);
         assertEq(quote.fundingScaled[3], 9_000_000 * Q);
         assertEq(tier.totalProtectedLiability(), asset.balanceOf(address(tier)));
@@ -84,7 +86,7 @@ contract VestedAllocationsTest is Test {
         tier.renewContributionMembership(1, 100, address(0), 25);
         vm.warp(1150);
         tier.processAccounting(25);
-        assertEq(tier.refund(1, tier.ownerOf(1), 50, 25), 50);
+        assertEq(cancelPayout(tier, 1, tier.ownerOf(1), 50, 25), 50);
         tier.createContributionMembership(80, address(0), 25);
         vm.warp(1200);
         tier.processAccounting(25);
@@ -161,7 +163,7 @@ contract VestedAllocationsTest is Test {
         tier.processAccounting(25);
         // The scaled per-second rate is rounded down; the END supplies its tail.
         assertEq(tier.releaseProtocolFees(), 34);
-        assertEq(tier.refund(id, tier.ownerOf(id), 85, 25), 85);
+        assertEq(cancelPayout(tier, id, tier.ownerOf(id), 85, 25), 85);
         assertEq(tier.protocolFeeEarnedHeld(), 0);
         assertEq(tier.allocationState(id).generation, 1);
         assertEq(tier.lifetimeGross(), 120);
@@ -233,7 +235,7 @@ contract VestedAllocationsTest is Test {
         MembershipTier tier = _tier(10_000, 1);
         uint256 id = tier.createMembership(1, address(0), 25);
         vm.warp(1050);
-        assertEq(tier.refund(id, tier.ownerOf(id), 0, 25), 0);
+        assertEq(cancelPayout(tier, id, tier.ownerOf(id), 0, 25), 0);
         uint256 earned = Q / PERIOD * 50;
         assertEq(
             tier.previewAccounting(id, address(0), address(0), 0).settled.fractionalScaled[3],
@@ -257,8 +259,8 @@ contract VestedAllocationsTest is Test {
         vm.warp(1350);
         a.processAccounting(25);
         uint256 releasedA = a.releaseProtocolFees();
-        assertEq(a.refund(1, a.ownerOf(1), 85, 25), 85);
-        assertEq(b.refund(1, b.ownerOf(1), 85, 25), 85);
+        assertEq(cancelPayout(a, 1, a.ownerOf(1), 85, 25), 85);
+        assertEq(cancelPayout(b, 1, b.ownerOf(1), 85, 25), 85);
         assertEq(b.releaseProtocolFees(), releasedA);
         assertEq(
             abi.encode(a.previewAccounting(1, address(0), address(0), 0).settled),
@@ -324,6 +326,16 @@ contract VestedAllocationsTest is Test {
         emit log_named_uint("aggregate release gas", releaseGas);
     }
 
+    function test_varyingLotsAtLastLiveSecond() public {
+        uint96[8] memory amounts = [uint96(2), 3, 5, 7, 11, 13, 17, 19];
+        testFuzz_varyingLotsAndRefundFundingMatchSlowIntervalOracle(amounts, 100, 799);
+    }
+
+    function test_varyingLotsAtExactExpiry() public {
+        uint96[8] memory amounts = [uint96(2), 3, 5, 7, 11, 13, 17, 19];
+        testFuzz_varyingLotsAndRefundFundingMatchSlowIntervalOracle(amounts, 100, 800);
+    }
+
     function testFuzz_varyingLotsAndRefundFundingMatchSlowIntervalOracle(
         uint96[8] memory amounts,
         uint16 rate,
@@ -356,31 +368,46 @@ contract VestedAllocationsTest is Test {
         vm.warp(1000 + consumed);
         tier.processAccounting(25);
         MembershipTypes.AllocationState memory state = tier.allocationState(1);
-        MembershipTypes.RefundPreview memory quote;
-        if (consumed < 8 * PERIOD) {
-            quote = tier.previewRefund(1);
+        MembershipTypes.CancellationPreview memory quote;
+        bool lastLiveSecond = consumed + 1 == 8 * PERIOD;
+        if (lastLiveSecond) {
+            vm.expectRevert(MembershipTier.InvalidCancellationDeadline.selector);
+            tier.previewCancellation(1, uint64(block.timestamp + 1), 25);
         } else {
-            vm.expectRevert(abi.encodeWithSignature("ERC721NonexistentToken(uint256)", 1));
-            tier.previewRefund(1);
+            quote = tier.previewCancellation(1, uint64(block.timestamp + 1), 25);
+            assertEq(quote.ownerRefund, grossRefund);
+            if (consumed == 8 * PERIOD) {
+                assertFalse(quote.cancellationEligible);
+                assertEq(
+                    uint256(quote.lifecycle), uint256(MembershipTypes.MembershipLifecycle.Retired)
+                );
+            }
         }
-        assertEq(quote.grossRefund, grossRefund);
+        assertEq(state.refundableGross, grossRefund);
         uint256 remaining = grossRefund * Q;
+        uint256[4] memory expectedCancellation;
         for (uint256 purpose; purpose < 4; ++purpose) {
             assertEq(state.allocatedScaled[purpose], allocated[purpose]);
             assertEq(state.earnedScaled[purpose], earned[purpose]);
             uint256 unearned = allocated[purpose] - earned[purpose];
             uint256 taken = remaining < unearned ? remaining : unearned;
-            assertEq(quote.fundingScaled[purpose], taken);
-            assertEq(quote.cancellationScaled[purpose], unearned - taken);
+            expectedCancellation[purpose] = unearned - taken;
+            if (!lastLiveSecond) {
+                assertEq(quote.fundingScaled[purpose], taken);
+                assertEq(quote.cancellationScaled[purpose], expectedCancellation[purpose]);
+            }
             remaining -= taken;
         }
         assertEq(remaining, 0);
         if (consumed < 8 * PERIOD) {
-            assertEq(tier.refund(1, address(this), grossRefund, 25), grossRefund);
+            assertEq(cancelPayout(tier, 1, address(this), grossRefund, 25), grossRefund);
         } else {
             assertEq(grossRefund, 0);
             assertEq(tier.balanceOf(address(this)), 0);
         }
+        assertEq(
+            abi.encode(tier.reserveState().cancellationScaled), abi.encode(expectedCancellation)
+        );
         uint256 released = tier.releaseProtocolFees();
         assertEq(released, earned[3] / Q);
         assertEq(asset.balanceOf(address(tier)) + grossRefund + released, totalGross);
@@ -405,7 +432,7 @@ contract VestedAllocationsTest is Test {
         assertLt(manyLotView, oneLotView + 50_000);
         vm.cool(address(tier));
         before = gasleft();
-        tier.refund(1, tier.ownerOf(1), type(uint256).max, 25);
+        cancelPayout(tier, 1, tier.ownerOf(1), 0, 25);
         uint256 refundGas = before - gasleft();
         assertLt(refundGas, 1_000_000); // Includes permanent burn and owner enumeration removal.
         before = gasleft();

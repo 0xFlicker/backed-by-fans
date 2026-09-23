@@ -8,6 +8,7 @@ import {BuybackIntegration as Integration} from "../../src/libraries/BuybackInte
 import {BuybackTypes} from "../../src/types/BuybackTypes.sol";
 import {MembershipTypes} from "../../src/types/MembershipTypes.sol";
 import {BuybackTestCalls} from "../helpers/BuybackTestCalls.sol";
+import {cancelPayout} from "../helpers/CancellationAssertions.sol";
 import {MembershipTestConfig} from "../helpers/MembershipTestConfig.sol";
 import {AuthenticAssetFixture} from "./helpers/AuthenticAssetFixture.sol";
 import {ForkTierCodeFixture} from "./helpers/ForkTierCodeFixture.sol";
@@ -199,14 +200,17 @@ contract ProtocolBuybacksForkTest is AuthenticAssetFixture {
     function _assertReservedRefund(MembershipTier tier, address asset, uint256 id, uint256 expected)
         private
     {
-        MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
-        uint256 refund = quote.grossRefund;
+        MembershipTypes.CancellationPreview memory quote =
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
+        uint256 refund = quote.ownerRefund;
         assertEq(refund, expected);
         assertEq(quote.fundingScaled[3], refund * tier.ACCOUNTING_SCALE());
         assertEq(quote.fundingScaled[0] + quote.fundingScaled[1] + quote.fundingScaled[2], 0);
         uint256 beforeRefund = IERC20(asset).balanceOf(trader);
         uint256 heldBefore = IERC20(asset).balanceOf(address(tier));
-        tier.refund(id, tier.ownerOf(id), refund, 25);
+        assertEq(quote.owner, trader);
+        vm.prank(trader);
+        cancelPayout(tier, id, trader, refund, 25);
         assertEq(IERC20(asset).balanceOf(trader) - beforeRefund, refund);
         uint256 remainder = IERC20(asset).balanceOf(address(tier));
         assertEq(remainder, heldBefore - refund);

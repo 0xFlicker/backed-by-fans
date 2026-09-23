@@ -210,6 +210,8 @@ export async function forkContext() {
       earlySupportGross: 0n,
       supplyCap: 0n,
       maxPrepaidPeriods: 12n,
+      creatorRetentionBps: 0,
+      periodicEnabled: false,
       metadata: {
         description: "Authentic fork acceptance scenario",
         externalURI: "",

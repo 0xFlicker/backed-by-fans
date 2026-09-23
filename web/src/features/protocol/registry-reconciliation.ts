@@ -500,6 +500,8 @@ async function matchesLaunchTerms(
     referralBps,
     supplyCap,
     maxPrepaidPeriods,
+    creatorRetentionBps,
+    periodicEnabled,
     description,
     externalURI,
     art,
@@ -600,6 +602,18 @@ async function matchesLaunchTerms(
     client.readContract({
       address: tier,
       abi: membershipTierAbi,
+      functionName: "creatorRetentionBps",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
+      functionName: "periodicEnabled",
+      blockNumber,
+    }),
+    client.readContract({
+      address: tier,
+      abi: membershipTierAbi,
       functionName: "description",
       blockNumber,
     }),
@@ -653,6 +667,8 @@ async function matchesLaunchTerms(
     earlySupportGross === config.earlySupportGross &&
     supplyCap === config.supplyCap &&
     maxPrepaidPeriods === config.maxPrepaidPeriods &&
+    creatorRetentionBps === config.creatorRetentionBps &&
+    periodicEnabled === config.periodicEnabled &&
     description === config.metadata.description &&
     externalURI === config.metadata.externalURI &&
     sameRecord(art, config.art, artFields) &&

@@ -1,3 +1,7 @@
+import {
+  openMemberCancellation,
+  reviewMemberCancellation,
+} from "./helpers/cancellation";
 import { expectSingleOwnedPosition } from "./helpers/membership-positions";
 import { expect, test } from "@playwright/test";
 import { zeroAddress } from "viem";
@@ -122,29 +126,26 @@ test("@anvil operates every mutable tier control and completes two-step ownershi
       }),
     ).resolves.toBe(0n);
 
-    const readRefundPreview = page.getByRole("button", {
-      name: "Read refund preview",
-    });
-    await page.getByLabel("Membership token", { exact: true }).fill("1");
-    await expect(readRefundPreview).toBeDisabled();
     await page.getByRole("button", { name: "Pause time increases" }).click();
     await expectReconciled(page, "Pause tier");
-    await expect(readRefundPreview).toBeEnabled();
-    await readRefundPreview.click();
-    const { grossRefund } = await client.readContract({
+    await openMemberCancellation(page, configuredTier, 1n);
+    await reviewMemberCancellation(page);
+    const { ownerRefund: grossRefund } = await client.readContract({
       address: configuredTier,
       abi: membershipTierAbi,
-      functionName: "previewRefund",
-      args: [1n],
+      functionName: "previewCancellation",
+      args: [1n, (await client.getBlock()).timestamp + 1n, 25n],
     });
     const refundPreview = page.locator(".refund-preview[aria-live]");
     await expect(
-      refundPreview.getByText("Gross refund").locator(".."),
+      refundPreview.getByText("Estimated refund").locator(".."),
     ).toContainText(usdgDisplay(grossRefund));
 
-    await page.getByRole("button", { name: "Refund unused time" }).click();
-    await expectReconciled(page, "Refund membership #1");
+    await page.getByRole("button", { name: /^Cancel membership #/ }).click();
+    await expectReconciled(page, "Cancel membership #1");
     await expect(refundPreview).toHaveCount(0);
+    await page.goto(`/chains/31337/tiers/${configuredTier}/manage`);
+    await switchAnvilAccount(page, creator);
     await page.getByRole("button", { name: "Unpause time increases" }).click();
     await expectReconciled(page, "Unpause tier");
 

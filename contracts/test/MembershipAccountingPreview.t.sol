@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 
 import {MembershipTier} from "../src/MembershipTier.sol";
 import {OnchainMetadataRenderer} from "../src/OnchainMetadataRenderer.sol";
@@ -128,7 +129,8 @@ contract MembershipAccountingPreviewTest is Test {
         vm.warp(1_000_050);
         MembershipTypes.PaymentTotals memory before = tier.previewPaymentTotals(0);
         _assertConservation(before);
-        uint256 refunded = tier.refund(id, ALICE, type(uint256).max, 25);
+        vm.prank(ALICE);
+        uint256 refunded = cancelPayout(tier, id, ALICE, 0, 25);
         MembershipTypes.PaymentTotals memory after_ = tier.previewPaymentTotals(25);
         assertEq(after_.grossReceived, 20_000_000);
         assertEq(after_.refunded, refunded);

@@ -66,6 +66,8 @@ library MembershipTestConfig {
             earlySupportGross: 0,
             supplyCap: 0,
             maxPrepaidPeriods: 12,
+            creatorRetentionBps: 0,
+            periodicEnabled: false,
             metadata: MembershipTypes.TierMetadata({
                 description: "Independent creator membership",
                 externalURI: "https://example.com/membership"

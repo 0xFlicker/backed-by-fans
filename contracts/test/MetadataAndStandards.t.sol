@@ -161,9 +161,9 @@ contract MetadataAndStandardsTest is Test {
         assertEq(_countLogs(syncLogs, keccak256("Transfer(address,address,uint256)")), 1);
     }
 
-    function test_standardAdaptersExposeRenewalAndCreatorOnlyCancellation() public {
+    function test_standardAdaptersExposeRenewalAndMemberCancellation() public {
         uint256 tokenId = tier.grantMembership(member, 1, 25);
-        uint64 expiration = tier.expiresAt(tokenId);
+        assertGt(tier.expiresAt(tokenId), block.timestamp);
 
         assertTrue(tier.supportsInterface(type(IERC721).interfaceId));
         assertFalse(tier.supportsInterface(0xb45a3c0e));
@@ -176,10 +176,9 @@ contract MetadataAndStandardsTest is Test {
         tier.renewSubscription(tokenId, _PERIOD);
 
         vm.prank(member);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, member));
         tier.cancelSubscription(tokenId);
 
-        assertEq(tier.expiresAt(tokenId), expiration);
+        assertEq(tier.balanceOf(member), 0);
         assertEq(address(tier).balance, 0);
     }
 

@@ -1,14 +1,42 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.2 <0.9.0;
+import {cancelPayout} from "../../helpers/CancellationAssertions.sol";
 
 import "../Base.sol";
 import {Properties} from "../Properties.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @notice High-signal membership lifecycle actions plus raw edge-case wrappers.
 abstract contract MembershipTierHandler is Properties {
+    function membershipTier_setRefillTarget_clamped(uint256 seed, uint64 duration) public asActor {
+        uint256 id = _liveOwnedToken(fixedTier, actor, seed);
+        if (id == 0) return;
+        uint256 maximum = uint256(fixedTier.maxPrepaidPeriods()) * fixedTier.periodDuration();
+        if (maximum == 0) maximum = 30 * fixedTier.periodDuration();
+        address choice = _lockedReferrer(fixedTier, id, address(0), fixedTier.pricePerPeriod());
+        fixedTier.setRefillTarget(id, SafeCast.toUint64(1 + uint256(duration) % maximum), choice);
+    }
+
+    function membershipTier_stopRefill_clamped(uint256 seed) public asActor {
+        uint256 id = _ownedToken(fixedTier, actor, seed);
+        if (id != 0) fixedTier.stopRefill(id);
+    }
+
+    function membershipTier_refill_clamped(uint256 seed, uint256 periods, uint256 steps)
+        public
+        asActor
+    {
+        (uint256 id, address owner) = _liveToken(fixedTier, seed);
+        if (id == 0) return;
+        snapshotBefore(fixedTier, id, actor, owner);
+        fixedTier.refillMembership(id, 1 + periods % 12, 1 + steps % 64);
+        _syncTierGhosts(fixedTier);
+        snapshotAfter(fixedTier, id, actor, owner);
+    }
+
     function membershipTier_cancelSubscription_clamped(bool contribution, uint256 seed) public {
         MembershipTier target = _tier(contribution);
-        (uint256 tokenId,) = _liveToken(target, seed);
+        uint256 tokenId = _liveOwnedToken(target, actor, seed);
         if (tokenId == 0) return;
         membershipTier_cancelSubscription(contribution, tokenId);
     }
@@ -250,7 +278,7 @@ abstract contract MembershipTierHandler is Properties {
         target.expiresAt(tokenId);
         target.isRenewable(tokenId);
         target.previewClaimRewards(actor, tokenIds, 64);
-        target.previewRefund(tokenId);
+        target.previewCancellation(tokenId, uint64(block.timestamp + 1), 25);
         target.tokenURI(tokenId);
     }
 
@@ -276,9 +304,9 @@ abstract contract MembershipTierHandler is Properties {
                 _membershipTier_grantMembership(target, toActor(account), 1 + amount % 3, 64);
             }
         } else if (selector == 3) {
-            (uint256 tokenId, address owner) = _liveToken(target, seed);
+            uint256 tokenId = _liveOwnedToken(target, actor, seed);
             if (tokenId != 0) {
-                _membershipTier_refund(target, tokenId, owner, type(uint256).max, 64);
+                _membershipTier_cancel(target, tokenId, actor, 64);
             }
         } else if (selector == 4) {
             (uint256 tokenId, address owner) = _liveToken(target, seed);
@@ -300,10 +328,7 @@ abstract contract MembershipTierHandler is Properties {
         }
     }
 
-    function membershipTier_cancelSubscription(bool contribution, uint256 tokenId)
-        public
-        asCreator
-    {
+    function membershipTier_cancelSubscription(bool contribution, uint256 tokenId) public asActor {
         MembershipTier target = _tier(contribution);
         snapshotBefore(target, tokenId, actor, address(0));
         target.cancelSubscription(tokenId);
@@ -517,17 +542,16 @@ abstract contract MembershipTierHandler is Properties {
         snapshotAfter(target, tokenId, recipient, creator);
     }
 
-    function _membershipTier_refund(
+    function _membershipTier_cancel(
         MembershipTier target,
         uint256 tokenId,
         address expectedOwner,
-        uint256 maxGrossRefund,
         uint256 maxAccountingSteps
-    ) internal asCreator {
-        snapshotBefore(target, tokenId, expectedOwner, creator);
-        target.refund(tokenId, expectedOwner, maxGrossRefund, maxAccountingSteps);
+    ) internal asActor {
+        snapshotBefore(target, tokenId, expectedOwner, actor);
+        cancelPayout(target, tokenId, expectedOwner, 0, maxAccountingSteps);
         _syncTierGhosts(target);
-        snapshotAfter(target, tokenId, expectedOwner, creator);
+        snapshotAfter(target, tokenId, expectedOwner, actor);
     }
 
     function _membershipTier_revokeGrantTime(

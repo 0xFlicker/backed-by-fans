@@ -34,10 +34,10 @@ export type TierMediaConfig = ContractFunctionReturnType<
   "mediaConfig"
 >;
 
-export type RefundQuote = ContractFunctionReturnType<
+export type CancellationQuote = ContractFunctionReturnType<
   typeof membershipTierAbi,
   "view",
-  "previewRefund"
+  "previewCancellation"
 >;
 
 export type TierSummary = {
@@ -81,6 +81,8 @@ export type TierSnapshot = TierSummary & {
   supplyCap: bigint;
   occupiedSupply: bigint;
   maxPrepaidPeriods: bigint;
+  creatorRetentionBps: number;
+  periodicEnabled: boolean;
   paymentToken: Address;
   paymentTokenState?: AcceptedPaymentToken;
   factory: Address;
@@ -113,8 +115,7 @@ export type SupporterCredential = {
   shares: bigint;
   rewardEligible: boolean;
   claimableReward: bigint;
-  refundableGross?: bigint;
-  refund?: RefundQuote;
+  refillEnrollment: RefillEnrollment;
   referralStatus: ReferralStatus;
   referrer: Address;
 };
@@ -170,3 +171,19 @@ export type CatalogPage = {
   addresses: Address[];
   nextOffset: bigint | null;
 };
+
+export type RefillQuote = ContractFunctionReturnType<
+  typeof membershipTierAbi,
+  "view",
+  "previewRefill"
+>;
+export type RefillEnrollment = ContractFunctionReturnType<
+  typeof membershipTierAbi,
+  "view",
+  "refillEnrollment"
+>;
+export type RefillResult = ContractFunctionReturnType<
+  typeof membershipTierAbi,
+  "nonpayable",
+  "refillMembership"
+>;

@@ -305,6 +305,8 @@ try {
             earlySupportGross: 0n,
             supplyCap: 0n,
             maxPrepaidPeriods: 12n,
+            creatorRetentionBps: 0,
+            periodicEnabled: false,
             metadata: {
               description: "Local buyback testing membership.",
               externalURI: "",

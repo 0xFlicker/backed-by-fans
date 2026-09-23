@@ -1,4 +1,4 @@
-import { readFile, writeFile, realpath } from "node:fs/promises";
+import { readFile, writeFile, realpath, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { resolve, relative, isAbsolute } from "node:path";
@@ -18,6 +18,7 @@ import {
 } from "../../web/src/contracts";
 import { extractReceipts } from "./export-evidence";
 import { verifyRetainedProtocolSources } from "./verify-sources";
+import { reconcileMembershipBranch } from "./membership-evidence";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const require = createRequire(resolve(root, "web/package.json"));
@@ -106,12 +107,11 @@ export function reconcileVestedRefund(value: Json) {
     "Missing refund funding purposes",
   );
   assert(
-    (preview.complete === true ||
-      (preview.projected === true &&
-        n(preview.fundingAsOf) === n(preview.accessAsOf) &&
-        n(preview.fundingAsOf) >= n(preview.accountingAsOf))) &&
+    preview.complete === true &&
+      preview.cancellationEligible === true &&
+      preview.quoteAvailable === true &&
       funding.slice(0, 3).every((amount) => n(amount) === 0n) &&
-      n(funding[3]) === n(preview.grossRefund) * (1n << 128n),
+      n(funding[3]) === n(preview.canceledGross) * (1n << 128n),
     "Refund is not funded by reserved protocol cash",
   );
   const events = extractReceipts(value.receipts)
@@ -132,13 +132,14 @@ export function reconcileVestedRefund(value: Json) {
     0n,
   );
   const refunds = events.filter(
-    (event) => event.eventName === "MembershipRefunded",
+    (event) => event.eventName === "MembershipCanceled",
   );
   assert(refunds.length === 1, "Missing unique refund receipt");
-  const refund = refunds[0].args.grossRefund;
+  const refund = refunds[0].args.ownerRefund;
   assert(
     refund > 0n &&
-      refund <= n(preview.grossRefund) &&
+      refund <= n(preview.ownerRefund) &&
+      refund >= n(preview.minOwnerRefund) &&
       refund === n(accounting.after) - n(accounting.before),
     "Refund receipt differs from received cash",
   );
@@ -249,8 +250,8 @@ const requirements: Record<string, Requirement> = {
     contracts: ["MembershipInvariantTest"],
     browser: [
       "every mutable tier control",
-      "expired NFT",
-      "exact gross refund",
+      "permissionless paused batches retire memberships",
+      "previews and executes the member cancellation",
       "supporter payment and gifting story",
     ],
   },
@@ -267,7 +268,7 @@ const requirements: Record<string, Requirement> = {
   },
   "Accrual lifecycle": {
     contracts: ["PublicVestingTest", "MembershipInvariantTest"],
-    browser: ["expired NFT"],
+    browser: ["permissionless paused batches retire memberships"],
   },
   "Refund and release race": {
     contracts: [
@@ -526,15 +527,21 @@ export async function verifyEvidence(
   const browser = await read("browser/report.json"),
     cases = browserCases(browser);
   for (const name of [
+    "holder enrolls, a third wallet refills whole periods",
+    "approved operator cancels a transferred membership while paused",
+    "refill then cancellation settles the added funding",
+    "cancellation then refill cannot charge or revive",
+    "shared coverage, a competing refill, and paused allowance controls",
+    "grant revocation and transfer clear refill consent",
     "reward-curves publishes all presets",
-    "vesting-lifecycle distinguishes free access",
+    "free renewal preserves a live position and a return starts fresh",
     "vested-refund mixed free and paid periods",
     "vested-refund checkpoint recovery after claims",
     "vested-claims pays all beneficiaries",
     "vested-account discovers a burned membership",
-    "vesting-recovery resumes purchase",
-    "vesting-recovery resumes refund",
-    "vesting-recovery resumes sync",
+    "resumes renewal through bounded permissionless expiration maintenance",
+    "resumes refund through bounded permissionless expiration maintenance",
+    "resumes maintenance through bounded permissionless expiration maintenance",
     "vesting accessibility: keyboard presets",
     "vesting accessibility: motion preferences",
   ]) {
@@ -549,6 +556,28 @@ export async function verifyEvidence(
       `Required vesting/curve browser journey absent/failed/skipped: ${name}`,
     );
   }
+  const membershipCounts = {
+    enrollments: 0,
+    stops: 0,
+    refills: 0,
+    cancellations: 0,
+    retirements: 0,
+  };
+  for (const file of await readdir(resolve(directory, "browser/branches"))) {
+    if (!file.endsWith(".json")) continue;
+    const path = await ownedArtifact(directory, `browser/branches/${file}`);
+    const counts = reconcileMembershipBranch(
+      JSON.parse(await readFile(path, "utf8")),
+    );
+    for (const key of Object.keys(
+      membershipCounts,
+    ) as (keyof typeof membershipCounts)[])
+      membershipCounts[key] += counts[key];
+  }
+  assert(
+    Object.values(membershipCounts).every((count) => count > 0),
+    "Missing membership enrollment/refill/stop/cancellation/retirement receipt evidence",
+  );
   const webUnit = await read("web-unit.json");
   assert(
     webUnit.success === true && webUnit.numFailedTests === 0,

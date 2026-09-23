@@ -25,6 +25,8 @@ export type CreatorForm = {
   earlySupportWindow: string;
   supplyCap: string;
   maxPrepaidPeriods: string;
+  creatorRetentionPercent: string;
+  periodicEnabled: boolean;
 };
 
 export type TierConfig = TierPublicationConfig;
@@ -67,6 +69,8 @@ export const defaultCreatorForm: CreatorForm = {
   earlySupportWindow: "",
   supplyCap: "0",
   maxPrepaidPeriods: "12",
+  creatorRetentionPercent: "",
+  periodicEnabled: false,
 };
 
 function byteLength(value: string) {
@@ -135,6 +139,13 @@ export function evaluateCreatorForm(
   paymentToken?: AcceptedPaymentToken,
 ): CreatorFormResult {
   const errors: CreatorFormResult["errors"] = {};
+  const creatorRetentionBps =
+    form.creatorRetentionPercent.trim() === ""
+      ? undefined
+      : parsePercentToBps(form.creatorRetentionPercent);
+  if (creatorRetentionBps === undefined)
+    errors.creatorRetentionPercent =
+      "Choose the creator share of unused funding, from 0% to 100%.";
   const name = form.name.trim();
   const symbol = form.symbol.trim();
   const description = form.description.trim();
@@ -193,6 +204,9 @@ export function evaluateCreatorForm(
           : "Enter a valid payment amount.";
     }
   }
+
+  if (form.periodicEnabled && pricePerPeriod === 0n)
+    errors.periodicEnabled = "Periodic refill requires a positive fixed price.";
 
   const periodDays = parseWholeUint64(form.periodDays);
   const periodDuration = periodDays && periodDays * secondsPerDay;
@@ -341,7 +355,8 @@ export function evaluateCreatorForm(
     rewardBps === undefined ||
     referralBps === undefined ||
     supplyCap === undefined ||
-    maxPrepaidPeriods === undefined
+    maxPrepaidPeriods === undefined ||
+    creatorRetentionBps === undefined
   ) {
     return { errors, split, curve, warnings, creativeError };
   }
@@ -368,6 +383,8 @@ export function evaluateCreatorForm(
       earlySupportGross,
       supplyCap,
       maxPrepaidPeriods,
+      creatorRetentionBps,
+      periodicEnabled: form.periodicEnabled,
       metadata: { description, externalURI },
       art: creative.art,
       media: creative.media,

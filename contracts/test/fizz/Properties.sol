@@ -516,11 +516,12 @@ abstract contract Properties is PropertiesAsserts, Snapshots {
         uint256 previewAmount,
         uint256 actualAmount,
         uint256 fundedScaled,
+        uint256 creatorRetained,
         uint256 scale,
         uint256 recipientDelta
     ) internal {
         eq(actualAmount, previewAmount, "SP-13 refund amount");
-        eq(fundedScaled, previewAmount * scale, "SP-13 scaled funding");
+        eq(fundedScaled, (previewAmount + creatorRetained) * scale, "SP-13 scaled funding");
         eq(recipientDelta, previewAmount, "SP-13 recipient delta");
     }
 
@@ -830,7 +831,7 @@ abstract contract Properties is PropertiesAsserts, Snapshots {
         uint256 periodDuration
     ) internal {
         if (maximumPeriods != 0) {
-            lte(paidSeconds, maximumPeriods * periodDuration, "SP-38 prepaid limit");
+            lt(paidSeconds, (maximumPeriods + 1) * periodDuration, "SP-38 exclusive prepaid limit");
         }
     }
 

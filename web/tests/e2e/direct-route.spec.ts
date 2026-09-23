@@ -52,6 +52,10 @@ test("renders complete creator setup while unavailable writes fail closed", asyn
   await page.getByLabel("Membership name").fill("Creator membership");
   await page.getByLabel("Symbol").fill("FANS");
   await page.getByLabel("Membership network").selectOption("4663");
+  await page.getByRole("button", { name: /^capacity$/i }).click();
+  await page
+    .getByLabel("Creator share when a member cancels (%)", { exact: true })
+    .fill("0");
   await page.getByRole("button", { name: /^review$/i }).click();
   await expect(
     page.getByText("Backed By Fans is not deployed on Robinhood Chain.", {

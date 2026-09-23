@@ -143,6 +143,11 @@ describe("creator setup component", () => {
     activeClient.getBalance.mockResolvedValue(0n);
     const user = userEvent.setup();
     renderWizard();
+    await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.type(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+      "0",
+    );
     await user.click(screen.getByRole("button", { name: /^review$/i }));
     expect(
       await screen.findByText(/Add ETH on .* before publishing/),
@@ -358,12 +363,22 @@ describe("creator setup component", () => {
       "aria-hidden",
       "true",
     );
+    await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.type(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+      "0",
+    );
     await user.click(screen.getByRole("button", { name: /^review$/i }));
     expect(screen.getByText(/starts at 2.37×/i)).toBeVisible();
     expect(screen.getByText(/731 purchased periods/i)).toBeVisible();
     await user.click(screen.getByRole("button", { name: /^support split$/i }));
     await user.clear(screen.getByLabelText("Starting boost (×)"));
     await user.type(screen.getByLabelText("Starting boost (×)"), "1.5");
+    await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.type(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+      "0",
+    );
     await user.click(screen.getByRole("button", { name: /^review$/i }));
     expect(screen.getByText("Custom.")).toBeVisible();
     expect(screen.getByText(/731 purchased periods/i)).toBeVisible();
@@ -445,7 +460,11 @@ describe("creator setup component", () => {
     );
     walletAddress = creator;
     const savedDraftKey = persistUnsignedStudioDraft(window.localStorage, {
-      terms: { ...defaultCreatorForm, protocolPercent: "12.34" },
+      terms: {
+        ...defaultCreatorForm,
+        creatorRetentionPercent: "0",
+        protocolPercent: "12.34",
+      },
       scope: {
         chainId: 46_630,
         factory: getAddress("0x1111111111111111111111111111111111111111"),
@@ -622,6 +641,11 @@ describe("creator setup component", () => {
     await user.click(screen.getByRole("button", { name: /^risks$/i }));
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
+    await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.type(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+      "0",
+    );
     await user.click(screen.getByRole("button", { name: /^review$/i }));
 
     const publish = screen.getByRole("button", {
@@ -751,6 +775,11 @@ describe("creator setup component", () => {
     await user.click(screen.getByRole("button", { name: /^risks$/i }));
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
+    await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.type(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+      "0",
+    );
     await user.click(screen.getByRole("button", { name: /^review$/i }));
 
     const publish = screen.getByRole("button", {
@@ -865,6 +894,11 @@ describe("creator setup component", () => {
     expect(
       screen.getByText("Gifted memberships count toward your capacity."),
     ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.type(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+      "0",
+    );
     await user.click(screen.getByRole("button", { name: /^review$/i }));
 
     const queue = screen.getByRole("region", { name: /publish queue/i });

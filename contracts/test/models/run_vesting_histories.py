@@ -23,11 +23,11 @@ from vesting_reference import (
     scaled_entitlements, vector_change_count,
 )
 
-SCHEMA = 2
+SCHEMA = 3
 INITIAL_CASH = 10**18
 OPS = ("create", "renew", "free_create", "free_renew", "grant_create", "grant_add",
        "revoke", "refund", "transfer", "member_claim", "retired_claim", "referral_claim",
-       "creator_claim", "release", "owner", "gift_create", "gift_renew", "pause", "maintain")
+       "creator_claim", "release", "owner", "gift_create", "gift_renew", "pause", "maintain", "enroll", "refill", "stop", "refill_blocked")
 REFERRERS = ("r0", "r1")
 
 
@@ -42,6 +42,7 @@ class Position:
     referrer: int | None = None
     generation: int = 0
     claimed: int = 0
+    target: int = 0
 
     @property
     def key(self):
@@ -50,6 +51,7 @@ class Position:
 
 class History:
     def __init__(self, seed: int):
+        self.retention_bps = (0, 3000, 10000)[seed % 3]
         self.seed = seed
         self.rng = random.Random(seed)
         self.price = 1000 if (seed // 4) % 2 else 0
@@ -86,7 +88,7 @@ class History:
         self.retired[p.owner] += earned
         self.coverage["fractional_retirement"] += int(earned % SCALE != 0)
         p.alive = False
-        p.paid = p.grant = p.shares = 0
+        p.paid = p.grant = p.shares = p.target = 0
         self.cohort()
         self.coverage["retirement"] += 1
 
@@ -143,7 +145,9 @@ class History:
             op = 4 if op == 2 else 5
         if op in (15, 16) and not self.price:
             op = 0 if op == 15 else 1
-        token_ops = (1, 3, 5, 6, 7, 8, 9, 16)
+        if op >= 19 and not self.price:
+            op = 18
+        token_ops = (1, 3, 5, 6, 7, 8, 9, 16, 19, 20, 21, 22)
         live = [p for p in self.positions if p.alive and (op != 6 or p.grant)]
         if op in token_ops:
             choices = [p for p in live if target is None or p.token_id == target]
@@ -169,12 +173,12 @@ class History:
                 p = self.create(target)
             p.grant += arg * 10
         elif op == 6:
-            p.grant = 0
+            p.grant = p.target = 0
             if p.paid == 0:
                 self.retire(p)
         elif op == 7:
             before = self.economic_state().refunded
-            self.lots = [replace(lot, canceled_at=self.now)
+            self.lots = [replace(lot, canceled_at=self.now, retention_bps=self.retention_bps)
                          if lot.member == p.key else lot for lot in self.lots]
             self.cash[p.owner] += self.economic_state().refunded - before
             p.generation += 1
@@ -182,6 +186,7 @@ class History:
         elif op == 8:
             arg = (p.owner + 1 + self.rng.randrange(2)) % 3
             p.owner = arg
+            p.target = 0
             self.coverage["transfer_with_unclaimed_credit"] += int(self.economic_state().members.get(p.key, 0) > p.claimed * SCALE)
         elif op == 9:
             amount = (self.economic_state().members.get(p.key, 0) - p.claimed * SCALE) // SCALE
@@ -207,6 +212,19 @@ class History:
                 self.creator_cash[self.owner] += amount
         elif op == 14:
             self.owner = 1 - self.owner
+        elif op == 19:
+            arg = arg or self.rng.randint(1, 60)
+            p.target = arg
+        elif op == 20:
+            arg = arg or self.rng.randint(1, 3)
+            if p.target:
+                periods = min(arg, max(0, (p.target - p.paid - p.grant + 9) // 10))
+                if periods:
+                    self.pay(p, periods, False)
+        elif op == 21:
+            p.target = 0
+        elif op == 22:
+            pass  # Insufficient allowance returns no work; intent and economics stay unchanged.
         elif op != 18:
             raise AssertionError(op)
         self.coverage[OPS[op]] += 1
@@ -235,7 +253,7 @@ class History:
                        result.members.get(p.key, 0) - p.claimed * SCALE if p.alive else 0,
                        p.claimed, 2 if p.alive and p.referrer is not None else 0,
                        p.referrer + 1 if p.alive and p.referrer is not None else 0,
-                       p.generation, lots]
+                       p.generation, lots, p.target]
         if min(vector) < 0:
             raise AssertionError(f"negative state: {self.seed} {self.now}")
         return vector
@@ -275,6 +293,9 @@ def generate(seed: int, actions: int) -> History:
         (15, 1, 2, 1), (16, 6, 1, 1),
     ):
         h.step(op, target, arg, elapsed)
+    if h.price:
+        for op, target, arg in ((19, 6, 60), (20, 6, 2), (22, 6, 1), (21, 6, 0)):
+            h.step(op, target, arg, 0)
     while len(h.rows) < actions:
         h.step(h.rng.randrange(len(OPS)), elapsed=35 if len(h.rows) % 17 == 0 else None)
     h.validate_oracle()

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { membershipFactoryAbi, membershipTierAbi } from "@/contracts";
 import {
   receiptSelectedRewards,
-  receiptMembershipRefund,
+  receiptMembershipCancellation,
   receiptProvesPayment,
   receiptReferralClaim,
   receiptRewardClaim,
@@ -193,43 +193,54 @@ describe("payout receipt reconciliation", () => {
     const refund = {
       address: tier,
       data: encodeAbiParameters(
-        [{ type: "uint256" }, { type: "uint64" }, { type: "uint64" }],
-        [10n, 2n, 0n],
+        [
+          { type: "uint256" },
+          { type: "uint256" },
+          { type: "uint256" },
+          { type: "uint256" },
+          { type: "uint16" },
+          { type: "uint64" },
+          { type: "uint64" },
+        ],
+        [0n, 10n, 10n, 0n, 0, 2n, 0n],
       ),
       topics: encodeEventTopics({
         abi: membershipTierAbi,
-        eventName: "MembershipRefunded",
-        args: { tokenId: 4n, recipient: owner },
+        eventName: "MembershipCanceled",
+        args: { tokenId: 4n, owner, operator: owner },
       }),
     } as Log;
     const receipt = { status: "success" as const, logs: [refund] };
 
     expect(
-      receiptMembershipRefund(receipt, {
+      receiptMembershipCancellation(receipt, {
         tier,
         tokenId: 4n,
         recipient: owner,
-        maxGrossRefund: 10n,
+        minOwnerRefund: 10n,
+        operator: owner,
       }),
     ).toMatchObject({
-      grossRefund: 10n,
+      ownerRefund: 10n,
       canceledPaidSeconds: 2n,
       canceledGrantSeconds: 0n,
     });
     expect(
-      receiptMembershipRefund(receipt, {
+      receiptMembershipCancellation(receipt, {
         tier,
         tokenId: 5n,
         recipient: owner,
-        maxGrossRefund: 10n,
+        minOwnerRefund: 10n,
+        operator: owner,
       }),
     ).toBeUndefined();
     expect(
-      receiptMembershipRefund(receipt, {
+      receiptMembershipCancellation(receipt, {
         tier,
         tokenId: 4n,
         recipient: owner,
-        maxGrossRefund: 9n,
+        minOwnerRefund: 11n,
+        operator: owner,
       }),
     ).toBeUndefined();
   });

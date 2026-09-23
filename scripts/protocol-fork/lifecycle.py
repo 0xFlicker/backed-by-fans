@@ -18,6 +18,9 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 FORK_START_GAS_PRICE = 100_000_000  # 0.1 gwei; Anvil fees may evolve as blocks are mined.
+# Bound live historical state and disable Anvil's persisted chainstate cache.
+# Receipts/blocks remain available for evidence; old state reads require a new snapshot.
+ANVIL_HISTORY_ARGS = ["--prune-history", "256"]
 STATE_ROOT = Path(tempfile.gettempdir()) / "bbf-protocol-fork-runs"
 ORIGIN_CONFIG = json.loads((ROOT / "scripts/protocol-fork/origin.json").read_text())
 PIN = {key: ORIGIN_CONFIG[key] for key in ("chainId", "blockNumber", "blockHash")}
@@ -221,7 +224,7 @@ class Run:
         if self.args.mode == "run":
             self.command("curve-calibration", ["python3", str(ROOT / "scripts/calibrate-membership-lifecycle.py")])
             self.command("contracts", ["forge", "test", *link_args, "--json", "--code-size-limit", "1000000", "--gas-limit", "1000000000"], ROOT / "contracts")
-        node = self.service("anvil", ["anvil", "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--gas-price", str(FORK_START_GAS_PRICE), "--base-fee", str(FORK_START_GAS_PRICE), "--disable-min-priority-fee", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--silent"])
+        node = self.service("anvil", ["anvil", *ANVIL_HISTORY_ARGS, "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--gas-price", str(FORK_START_GAS_PRICE), "--base-fee", str(FORK_START_GAS_PRICE), "--disable-min-priority-fee", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--silent"])
         for _ in range(200):
             if node.poll() is not None:
                 raise RuntimeError("Anvil exited before readiness")
@@ -280,7 +283,7 @@ class Run:
 
     def restore_for_review(self):
         """Resume local manual review without discarding wallet balances or deployments."""
-        node = self.service("anvil", ["anvil", "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--gas-price", str(FORK_START_GAS_PRICE), "--base-fee", str(FORK_START_GAS_PRICE), "--disable-min-priority-fee", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--load-state", self.restore_state, "--silent"])
+        node = self.service("anvil", ["anvil", *ANVIL_HISTORY_ARGS, "--host", self.rpc_parts.hostname, "--port", str(self.rpc_parts.port), "--chain-id", "31337", "--hardfork", "cancun", "--code-size-limit", "98304", "--gas-limit", "100000000", "--block-time", "1", "--gas-price", str(FORK_START_GAS_PRICE), "--base-fee", str(FORK_START_GAS_PRICE), "--disable-min-priority-fee", "--fork-url", self.archive, "--fork-block-number", PIN["blockNumber"], "--load-state", self.restore_state, "--silent"])
         for _ in range(200):
             if node.poll() is not None:
                 raise RuntimeError("Restored Anvil exited before readiness")

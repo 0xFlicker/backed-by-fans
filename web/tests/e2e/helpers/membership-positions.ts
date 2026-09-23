@@ -92,7 +92,11 @@ export function mintedPosition(
 }
 
 /** Create a local portfolio fixture with the canonical renderer/art already deployed. */
-export async function createPortfolioTier(name: string) {
+export async function createPortfolioTier(
+  name: string,
+  creatorRetentionBps = 0,
+  options: { price?: bigint; periodicEnabled?: boolean } = {},
+) {
   const {
     anvilPublicClient,
     requiredAnvilAddress,
@@ -132,7 +136,9 @@ export async function createPortfolioTier(name: string) {
       functionName: "tierCount",
     }),
   ]);
-  const price = minimumPayment > 1_000_000n ? minimumPayment : 1_000_000n;
+  const price =
+    options.price ??
+    (minimumPayment > 1_000_000n ? minimumPayment : 1_000_000n);
   expectSuccessfulReceipt(
     await sendContract({
       account: creator,
@@ -157,6 +163,8 @@ export async function createPortfolioTier(name: string) {
           earlySupportGross: 0n,
           supplyCap: 0n,
           maxPrepaidPeriods: 0n,
+          creatorRetentionBps,
+          periodicEnabled: options.periodicEnabled ?? false,
           metadata: {
             description: "Local multi-position portfolio acceptance",
             externalURI: "",

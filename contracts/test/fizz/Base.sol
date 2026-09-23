@@ -137,11 +137,14 @@ abstract contract Base is StringUtils, Clamp, Deployer, Math {
         config.periodDuration = 1 days;
         config.supplyCap = 8;
         config.maxPrepaidPeriods = 12;
+        config.creatorRetentionBps = 3000;
+        config.periodicEnabled = true;
         config.tierSalt = keccak256("fizz-fixed-tier");
         vm.prank(creator);
         fixedTier = MembershipTier(factory.createTier(config));
 
         config.pricePerPeriod = 0;
+        config.periodicEnabled = false;
         config.tierSalt = keccak256("fizz-contribution-tier");
         vm.prank(creator);
         contributionTier = MembershipTier(factory.createTier(config));

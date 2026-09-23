@@ -124,26 +124,28 @@ export function receiptReferralClaim(
     : undefined;
 }
 
-export function receiptMembershipRefund(
+export function receiptMembershipCancellation(
   receipt: SuccessfulReceiptLogs,
   input: {
     tier: Address;
     tokenId: bigint;
     recipient: Address;
-    maxGrossRefund: bigint;
+    minOwnerRefund: bigint;
+    operator: Address;
   },
 ) {
   return parseEventLogs({
     abi: membershipTierAbi,
-    eventName: "MembershipRefunded",
+    eventName: "MembershipCanceled",
     logs: receipt.logs,
     strict: true,
   }).find(
     (event) =>
       isSameAddress(event.address, input.tier) &&
       event.args.tokenId === input.tokenId &&
-      event.args.grossRefund <= input.maxGrossRefund &&
-      isSameAddress(event.args.recipient, input.recipient),
+      event.args.ownerRefund >= input.minOwnerRefund &&
+      isSameAddress(event.args.operator, input.operator) &&
+      isSameAddress(event.args.owner, input.recipient),
   )?.args;
 }
 

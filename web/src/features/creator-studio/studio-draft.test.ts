@@ -32,7 +32,11 @@ const scope: StudioDraftScope = {
 
 function draft(): UnsignedStudioDraft {
   return {
-    terms: { ...defaultCreatorForm, protocolPercent: "12.34" },
+    terms: {
+      ...defaultCreatorForm,
+      creatorRetentionPercent: "0",
+      protocolPercent: "12.34",
+    },
     scope,
     tierSalt,
     art: createDefaultArtConfig("afterimage", 123n),
@@ -221,7 +225,7 @@ describe("unsigned Creator Studio draft recovery", () => {
 
   it("scopes storage keys to chain, canonical factory, and creator", () => {
     expect(studioDraftStorageKey(scope)).toBe(
-      "backed-by-fans-creative-draft:5:46630:0x1111111111111111111111111111111111111111:0x2222222222222222222222222222222222222222:0x3333333333333333333333333333333333333333",
+      "backed-by-fans-creative-draft:6:46630:0x1111111111111111111111111111111111111111:0x2222222222222222222222222222222222222222:0x3333333333333333333333333333333333333333",
     );
   });
 

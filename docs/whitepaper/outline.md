@@ -5,7 +5,7 @@ Source scope: current transferable-membership contract sources and `specs/005-tr
 
 ## Editorial scope
 
-Membership-first. Explain a prepaid subscription that fans renew manually: creators set the terms, fans fund membership time, and payments accrue to participants as that time is consumed. No automatic billing is implied.
+Membership-first. Explain a prepaid subscription that fans renew manually or explicitly authorize for periodic refill: creators set the terms, fans fund membership time, and payments accrue to participants as that time is consumed. Refill needs a submitted transaction before expiration; wallet funds and allowance do not guarantee execution.
 
 Fans receive an independent transferable membership NFT and, when enabled by the creator, member rewards. A wallet can hold several positions in the same tier; each token ID carries its own time and economics. Creators supply any access, content, or community benefits. The protocol supplies membership records, accounting, and interfaces that other applications can use.
 
@@ -47,7 +47,7 @@ Sources: [S1] `createMembership`, `createContributionMembership`, `renewMembersh
 | Supply cap | Counts independent positions, not wallets; zero is uncapped. Retirement releases capacity once, and capacity-sensitive changes catch up first. A nonzero cap cannot be below occupied supply. |
 | Maximum prepaid periods | Changes the limit on subsequent time additions; does not erase existing paid time. |
 | Grant or revoke grant time | Create or extend a selected position explicitly. Complimentary time has no payment backing. Revocation preserves remaining paid time; no remaining time causes retirement. |
-| Refund | Current creator authority alone initiates cancellation. Pay the current NFT owner, cancel remaining funding, clear paid/grant time and retire permanently; NFT ownership or approval does not confer refund authority. |
+| Refund | The current NFT owner or approved operator cancels. Split unused gross under current decreasing creator retention, pay the owner, clear paid/grant time and retire permanently. |
 | Transfer tier ownership | Two-step transfer changes the creator authority; it does not rewrite immutable terms. |
 | Withdraw earned creator proceeds | Only earned proceeds are available; unearned funding and other protected liabilities are distinct. |
 
@@ -55,7 +55,7 @@ Protocol fee is **at least 1%, not universally exactly 1%**: creation validates 
 
 Permissionless maintenance is not a creator-only control. Any caller can process both funding and expiration checkpoints, including while paused.
 
-Sources: [S1] immutable declarations, constructor, creator setters, `refund`, `processAccounting`, `processExpirations`, `transferOwnership`; [S2] `createTier`; [S3] `TierConfig`.
+Sources: [S1] immutable declarations, constructor, creator setters, `cancelMembership`, `processAccounting`, `processExpirations`, `transferOwnership`; [S2] `createTier`; [S3] `TierConfig`.
 
 ## 3. The membership lifecycle
 
@@ -107,7 +107,7 @@ Illustrative fixed-price tier: 70% creator, 20% members, 5% referral, 5% protoco
 
 The member column is a pool total, not one fan's reward. Individual rewards depend on eligible weight during each accrual interval. Display values are idealized; contract base-unit rounding and fractional reserves belong in the appendix.
 
-With no recorded referrer, the example becomes 75/20/0/5. A creator-authorized refund halfway through would pay the current NFT owner the unused funded amount, subject to integer rounding, cancel future accrual, and retire the position. Already earned allocations are not clawed back.
+With no recorded referrer, the example becomes 75/20/0/5. An owner/operator cancellation halfway through splits unused gross between the current NFT owner and creator under the current retention percentage, subject to integer rounding, cancels future accrual and retires the position. Already earned allocations are not clawed back.
 
 Sources: [S1] `_applyPayment`, `_refund`, claims, `releaseProtocolFees`; [S4] `append`, `_integrate`, `_distribute`, `cancelFunding`.
 
@@ -146,7 +146,7 @@ Sources: [S2] `bindProtocolToken`, `setPaymentTokenEnabled`, `setMinimumPayment`
 
 **Reader takeaway:** know what the contracts enforce and who controls the rest.
 
-- Creators control mutable benefits, metadata/art, grants/revocations, refunds and tier ownership as listed above. Expiration maintenance is permissionless, so cleanup does not depend on creator availability.
+- Creators control mutable benefits, metadata/art, grants/revocations, decreasing cancellation retention and tier ownership as listed above. Expiration maintenance is permissionless, so cleanup does not depend on creator availability.
 - Protocol authority controls token admission/minima for new tiers, one-time protocol-token binding, and buyback configuration/pauses. Do not equate creator-owned memberships with the absence of administrative powers.
 - Integrations check both current ownership and active status for the selected token ID. Timestamp-expired NFTs provide no access even before burn. Identify positions by chain, tier and ID, not a wallet-to-single-token lookup.
 - Live NFT transfers move the position between wallets without financial catch-up; token approvals authorize only that movement. Original payer/referral records do not become ownership fallback or recovery authority.
@@ -189,7 +189,7 @@ Sources: [S1] `tokensOfOwner`, `claimRewards`, `claimRewardsFor`, `previewClaimR
 2. **Transfer:** the whole position follows ownership without settlement, including while paused or with pending maintenance. Approvals authorize transfer only.
 3. **Expiration:** access/transfer/renewal end immediately at expiry. Late maintenance settles to the historical boundary and burns permanently; it cannot award post-expiry earnings or restore weight.
 4. **Conservation:** retirement preserves exact earned fractions for the final owner. New IDs do not inherit old weight, consume retired credit, or rewind lifetime payment volume.
-5. **Funding authority:** current ownership governs member rights and refund destination. Only creator authority initiates refunds; historical payment provenance confers no ownership rights.
+5. **Funding authority:** current ownership governs member rights and refund destination. Current NFT owners or approved operators initiate cancellation; creator authority alone and historical payment provenance confer no position rights.
 6. **Evidence:** keep prose, diagrams and contract references aligned; label incomplete reads and distinguish implementation tests from public deployment or browser proof.
 
 ## Source map
@@ -204,3 +204,7 @@ References name the functions to inspect alongside each section, so line-number 
 - [S6 — ProtocolBuybackVault](../../contracts/src/ProtocolBuybackVault.sol)
 - [S7 — ProtocolBurnRouter](../../contracts/src/ProtocolBurnRouter.sol)
 - [S8 — ExpirationSchedule](../../contracts/src/libraries/ExpirationSchedule.sol)
+
+## Periodic refill and cap detail
+
+Cover owner-only opt-in, targets including grants, separate explicit token approval, permissionless bounded whole-period purchases, fractional coverage/shared funds, paused configuration, stop versus revoke, transfer/grant-revocation cleanup and strict expiration. Document the exclusive `(N+1)*D` paid cap across every paid path, N=1 59-day/60-day example, new-target `N*D` bound, preserved existing targets after cap changes and zero/unlimited. Keep this detail in the whitepaper/integration docs rather than expanding ordinary experience-page disclaimers.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "../helpers/CancellationAssertions.sol";
 
 import {MembershipFactory} from "../../src/MembershipFactory.sol";
 import {MembershipTier} from "../../src/MembershipTier.sol";
@@ -115,9 +116,10 @@ contract PublicVestingTest is Test {
         vm.prank(referrer);
         assertEq(tier.claimReferral(), 15 * UNIT / 10);
         assertEq(tier.releaseProtocolFees(), 15 * UNIT / 10);
-        MembershipTypes.RefundPreview memory preview = tier.previewRefund(id);
+        MembershipTypes.CancellationPreview memory preview =
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
         assertTrue(preview.complete);
-        assertEq(preview.grossRefund, 90 * UNIT);
+        assertEq(preview.ownerRefund, 90 * UNIT);
         assertEq(preview.paidSeconds, 90);
         assertEq(
             preview.fundingScaled[0] + preview.fundingScaled[1] + preview.fundingScaled[2]
@@ -125,8 +127,8 @@ contract PublicVestingTest is Test {
             90 * UNIT * Q
         );
         assertEq(token.allowance(creator, address(tier)), 0);
-        vm.prank(creator);
-        assertEq(tier.refund(id, alice, 90 * UNIT, 25), 90 * UNIT);
+        vm.prank(alice);
+        assertEq(cancelPayout(tier, id, alice, 90 * UNIT, 25), 90 * UNIT);
         assertEq(tier.sharesOf(id), 0);
         assertEq(tier.lifetimeGross(), 120 * UNIT);
         assertFalse(tier.rewardEligible(id));
@@ -223,8 +225,8 @@ contract PublicVestingTest is Test {
         uint256 cumulative = gross + 5000 * gross * (2 * horizon - gross) / (20_000 * horizon);
         assertEq(tier.sharesOf(first) + tier.sharesOf(second), cumulative);
         assertGt(tier.sharesOf(first), tier.sharesOf(second));
-        vm.prank(creator);
-        tier.refund(first, alice, type(uint256).max, 25);
+        vm.prank(alice);
+        cancelPayout(tier, first, alice, 0, 25);
         assertEq(tier.lifetimeGross(), gross);
         assertEq(tier.sharesOf(first), 0);
         assertLt(tier.sharesOf(second), cumulative);
@@ -298,7 +300,7 @@ contract PublicVestingTest is Test {
         MembershipTier tier = _tier(false, 10_000);
         uint256 id = _pay(tier, alice, 1, referrer);
         vm.warp(START + 5);
-        vm.prank(creator);
+        vm.prank(alice);
         tier.cancelSubscription(id);
         assertEq(token.balanceOf(alice), 5 * UNIT);
         assertEq(tier.lifetimeGross(), 10 * UNIT);
@@ -309,44 +311,46 @@ contract PublicVestingTest is Test {
         MembershipTier tier = _tier(false, 10_000);
         uint256 id = _pay(tier, alice, 12, referrer);
         vm.warp(START + 1);
-        MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
-        assertEq(quote.accessAsOf, START + 1);
-        assertEq(quote.accountingAsOf, START);
-        assertFalse(quote.complete);
-        assertEq(quote.grossRefund, 119 * UNIT);
-        assertTrue(quote.projected);
-        assertEq(quote.fundingAsOf, START + 1);
+        MembershipTypes.CancellationPreview memory quote =
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
+        assertEq(quote.asOf, START + 1);
+        assertEq(quote.accountedThrough, START + 1);
+        assertTrue(quote.complete);
+        assertEq(quote.ownerRefund, 119 * UNIT);
+        assertTrue(quote.quoteAvailable);
+        assertEq(quote.accountedThrough, START + 1);
         assertEq(tier.creatorProceeds(), 0);
         assertEq(tier.claimableReward(id), 0);
         assertEq(tier.reserveState().unearnedScaled[0], 96 * UNIT * Q);
-        uint256 gross = quote.grossRefund;
+        uint256 gross = quote.ownerRefund;
         uint256[4] memory funded = quote.fundingScaled;
         tier.processAccounting(25);
-        quote = tier.previewRefund(id);
+        quote = tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
         assertTrue(quote.complete);
-        assertFalse(quote.projected);
-        assertEq(quote.grossRefund, gross);
+        assertTrue(quote.quoteAvailable);
+        assertEq(quote.ownerRefund, gross);
         for (uint256 i; i < 4; ++i) {
             assertEq(quote.fundingScaled[i], funded[i]);
         }
     }
 
-    function test_refundProjectionStopsAtAnyPendingGlobalBoundary() public {
+    function test_cancellationProjectionTraversesPendingGlobalBoundaryWithinBudget() public {
         MembershipTier tier = _tier(false, 10_000);
         uint256 id = _pay(tier, alice, 2, referrer);
         _pay(tier, bob, 1, address(0));
         vm.warp(START + 5);
         tier.processAccounting(25);
         vm.warp(START + 10);
-        MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
-        assertFalse(quote.complete);
-        assertFalse(quote.projected);
-        assertEq(quote.fundingAsOf, START + 5);
-        assertEq(quote.grossRefund, 15 * UNIT);
-        tier.processAccounting(25);
-        quote = tier.previewRefund(id);
+        MembershipTypes.CancellationPreview memory quote =
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
         assertTrue(quote.complete);
-        assertEq(quote.grossRefund, 10 * UNIT);
+        assertTrue(quote.quoteAvailable);
+        assertEq(quote.accountedThrough, START + 10);
+        assertEq(quote.ownerRefund, 10 * UNIT);
+        tier.processAccounting(25);
+        quote = tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
+        assertTrue(quote.complete);
+        assertEq(quote.ownerRefund, 10 * UNIT);
     }
 
     function testFuzz_refundProjectionMatchesProcessedFundingAndResidues(
@@ -354,19 +358,21 @@ contract PublicVestingTest is Test {
         uint8 elapsed
     ) public {
         gross = uint112(bound(gross, 1, type(uint112).max));
-        elapsed = uint8(bound(elapsed, 1, 9));
+        elapsed = uint8(bound(elapsed, 1, 8));
         MembershipTier tier = _tier(true, 30_000);
         uint256 id = _contribute(tier, alice, gross, referrer);
         vm.warp(START + elapsed);
-        MembershipTypes.RefundPreview memory projected = tier.previewRefund(id);
-        assertTrue(projected.projected);
-        assertFalse(projected.complete);
+        MembershipTypes.CancellationPreview memory projected =
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
+        assertTrue(projected.quoteAvailable);
+        assertTrue(projected.complete);
         tier.processAccounting(25);
-        MembershipTypes.RefundPreview memory settled = tier.previewRefund(id);
+        MembershipTypes.CancellationPreview memory settled =
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
         assertTrue(settled.complete);
-        assertFalse(settled.projected);
-        assertEq(projected.grossRefund, settled.grossRefund);
-        assertEq(projected.fundingAsOf, settled.accountingAsOf);
+        assertTrue(settled.quoteAvailable);
+        assertEq(projected.ownerRefund, settled.ownerRefund);
+        assertEq(projected.accountedThrough, settled.accountedThrough);
         for (uint256 i; i < 4; ++i) {
             assertEq(projected.fundingScaled[i], settled.fundingScaled[i]);
             assertEq(projected.cancellationScaled[i], settled.cancellationScaled[i]);
@@ -380,16 +386,17 @@ contract PublicVestingTest is Test {
         vm.prank(alice);
         tier.renewContributionMembership(id, 10 * UNIT, address(0), 25);
         vm.warp(START + 2);
-        MembershipTypes.RefundPreview memory quote = tier.previewRefund(id);
-        assertTrue(quote.projected);
-        assertEq(quote.grossRefund, 10 * UNIT);
+        MembershipTypes.CancellationPreview memory quote =
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
+        assertTrue(quote.quoteAvailable);
+        assertEq(quote.ownerRefund, 10 * UNIT);
         vm.warp(START + 10);
-        assertFalse(tier.previewRefund(id).projected);
+        assertTrue(tier.previewCancellation(id, uint64(block.timestamp + 1), 25).quoteAvailable);
         tier.processAccounting(25);
         vm.warp(START + 11);
-        quote = tier.previewRefund(id);
-        assertTrue(quote.projected);
-        assertEq(quote.grossRefund, 9 * UNIT);
+        quote = tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
+        assertTrue(quote.quoteAvailable);
+        assertEq(quote.ownerRefund, 9 * UNIT);
         assertEq(tier.creatorProceeds(), 0);
     }
 
@@ -399,14 +406,15 @@ contract PublicVestingTest is Test {
         vm.warp(START + 2);
         vm.prank(alice);
         tier.renewContributionMembership(id, 0, address(0), 25);
-        MembershipTypes.RefundPreview memory preview = tier.previewRefund(id);
-        assertEq(preview.accessAsOf, START + 2);
-        assertEq(preview.accountingAsOf, START + 2);
+        MembershipTypes.CancellationPreview memory preview =
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
+        assertEq(preview.asOf, START + 2);
+        assertEq(preview.accountedThrough, START + 2);
         assertTrue(preview.complete);
         assertEq(preview.paidSeconds, 18);
-        assertFalse(preview.projected);
-        assertEq(preview.fundingAsOf, START + 2);
-        assertEq(preview.grossRefund, 8 * UNIT);
+        assertTrue(preview.quoteAvailable);
+        assertEq(preview.accountedThrough, START + 2);
+        assertEq(preview.ownerRefund, 8 * UNIT);
         vm.expectRevert(VestingLedger.InvalidAllocationPageSize.selector);
         tier.allocationLots(id, 0, 0, 0);
         tier.allocationLots(id, 0, 0, 101);

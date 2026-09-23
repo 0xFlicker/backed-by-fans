@@ -1,3 +1,7 @@
+import {
+  openMemberCancellation,
+  reviewMemberCancellation,
+} from "./helpers/cancellation";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { getAddress, zeroAddress } from "viem";
@@ -293,20 +297,16 @@ test("@anvil transfers a selected live position while paused with an incomplete 
       functionName: "balanceOf",
       args: [recipient],
     });
-    await page.goto(`/chains/31337/tiers/${tier}/manage`);
     await connectAnvilWallet(page, member);
-    await switchAnvilAccount(page, creator);
-    await page
-      .getByLabel("Membership token", { exact: true })
-      .fill(first.toString());
-    await page.getByRole("button", { name: "Read refund preview" }).click();
+    await openMemberCancellation(page, tier, first);
+    await reviewMemberCancellation(page);
     await expect(page.locator(".refund-preview[aria-live]")).toContainText(
       recipient,
     );
     await page
-      .getByRole("button", { name: "Refund unused time", exact: true })
+      .getByRole("button", { name: `Cancel membership #${first}`, exact: true })
       .click();
-    await expectReconciled(page, `Refund membership #${first}`);
+    await expectReconciled(page, `Cancel membership #${first}`);
     expect(
       await client.readContract({
         address: token,

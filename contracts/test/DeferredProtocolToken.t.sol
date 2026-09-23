@@ -2,6 +2,7 @@
 pragma solidity =0.8.36;
 import {PonsBuybackModule} from "../src/PonsBuybackModule.sol";
 import {BuybackTestCalls} from "./helpers/BuybackTestCalls.sol";
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
@@ -85,7 +86,7 @@ contract DeferredProtocolTokenTest is Test {
         _collect();
         assertEq(asset.balanceOf(address(vault)), 250);
         assertEq(tier.reserveState().unearnedScaled[3] / tier.ACCOUNTING_SCALE(), 750);
-        uint256 gross = tier.refund(1, tier.ownerOf(1), 3000, 25);
+        uint256 gross = cancelPayout(tier, 1, tier.ownerOf(1), 3000, 25);
         assertEq(gross, 3000);
         assertEq(tier.reserveState().unearnedScaled[3], 0);
         assertEq(tier.protocolFeeEarnedHeld(), 0);

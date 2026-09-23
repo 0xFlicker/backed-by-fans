@@ -216,8 +216,7 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
   const snapshot = await snapshotAnvil();
   try {
     const f = await forkContext(),
-      member = requiredAnvilAddress("member"),
-      creator = requiredAnvilAddress("creator");
+      member = requiredAnvilAddress("member");
     await f.safe("pause", { paused: false });
     const tier = await f.tier(
       "Full protocol allocation",
@@ -300,10 +299,10 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
     const preview = await f.client.readContract({
       address: tier,
       abi: membershipTierAbi,
-      functionName: "previewRefund",
-      args: [1n],
+      functionName: "previewCancellation",
+      args: [1n, (await f.client.getBlock()).timestamp + 1n, 25n],
     });
-    const gross = preview.grossRefund;
+    const gross = preview.ownerRefund;
     expect(gross).toBeGreaterThan(0n);
     expect(preview.fundingScaled[3]).toBe(gross * (1n << 128n));
     expect(preview.fundingScaled.slice(0, 3)).toEqual([0n, 0n, 0n]);
@@ -313,10 +312,11 @@ test("@protocol-fork a wallet burns earned protocol-token fees and preserves the
       functionName: "balanceOf",
       args: [member],
     });
-    await f.write(creator, tier, membershipTierAbi, "refund", [
+    await f.write(member, tier, membershipTierAbi, "cancelMembership", [
       1n,
       member,
-      gross,
+      0n,
+      (await f.client.getBlock()).timestamp + 120n,
       256n,
     ]);
     const afterBalance = await f.client.readContract({

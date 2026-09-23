@@ -35,6 +35,71 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
     );
     event PauseUpdated(bool paused);
     event SupplyCapUpdated(uint64 previousCap, uint64 newCap);
+    event CreatorRetentionUpdated(uint16 previousBps, uint16 newBps);
+    event PeriodicRefillEnabled();
+    event RefillTargetSet(
+        uint256 indexed tokenId, address indexed owner, uint64 targetSeconds, address referralChoice
+    );
+    event RefillStopped(uint256 indexed tokenId, address indexed owner);
+    event MembershipRefilled(
+        uint256 indexed tokenId,
+        address indexed owner,
+        address indexed executor,
+        uint256 periods,
+        uint256 gross,
+        uint64 expiration
+    );
+    function enablePeriodicRefill() external;
+    function setRefillTarget(uint256 tokenId, uint64 targetSeconds, address referralChoice) external;
+    function stopRefill(uint256 tokenId) external;
+    function refillEnrollment(uint256 tokenId)
+        external
+        view
+        returns (MembershipTypes.RefillEnrollment memory);
+    function previewRefill(uint256 tokenId, uint256 maxPeriods)
+        external
+        view
+        returns (MembershipTypes.RefillPreview memory);
+    function refillMembership(uint256 tokenId, uint256 maxPeriods, uint256 maxAccountingSteps)
+        external
+        returns (MembershipTypes.RefillResult memory);
+
+    event MembershipCanceled(
+        uint256 indexed tokenId,
+        address indexed owner,
+        address indexed operator,
+        uint256 generation,
+        uint256 canceledGross,
+        uint256 ownerRefund,
+        uint256 creatorRetained,
+        uint16 creatorRetentionBps,
+        uint64 canceledPaidSeconds,
+        uint64 canceledGrantSeconds
+    );
+    event CancellationFunded(
+        uint256 indexed tokenId,
+        uint256 indexed generation,
+        uint256 canceledGross,
+        uint256 ownerRefund,
+        uint256 creatorRetained,
+        uint256[4] fundingScaled
+    );
+
+    function previewCancellation(uint256 tokenId, uint64 deadline, uint256 maxAccountingSteps)
+        external
+        view
+        returns (MembershipTypes.CancellationPreview memory);
+    function setCreatorRetentionBps(uint16 nextBps) external;
+    function cancelMembership(
+        uint256 tokenId,
+        address expectedOwner,
+        uint256 minOwnerRefund,
+        uint64 deadline,
+        uint256 maxAccountingSteps
+    ) external returns (uint256 ownerRefund, uint256 creatorRetained);
+    function creatorRetentionBps() external view returns (uint16);
+    function periodicEnabled() external view returns (bool);
+
     event MaxPrepaidPeriodsUpdated(uint64 previousMaximum, uint64 newMaximum);
     event TierMetadataUpdated(string description, string externalURI);
     event PresentationUpdated(
@@ -68,13 +133,6 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
     event CreatorProceedsWithdrawn(address indexed owner, uint256 amount);
     event RewardClaimed(uint256 indexed tokenId, address indexed owner, uint256 amount);
     event ReferralClaimed(address indexed referrer, uint256 amount);
-    event MembershipRefunded(
-        uint256 indexed tokenId,
-        address indexed recipient,
-        uint256 grossRefund,
-        uint64 canceledPaidSeconds,
-        uint64 canceledGrantSeconds
-    );
 
     function minimumPayment() external view returns (uint112);
     function factory() external view returns (address);
@@ -115,12 +173,6 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
     function previewShares(uint256 gross) external view returns (MembershipTypes.ShareQuote memory);
 
     event ProtocolFeesReleased(address indexed vault, address indexed asset, uint256 amount);
-    event RefundFunded(
-        uint256 indexed tokenId,
-        uint256 indexed generation,
-        uint256 grossRefund,
-        uint256[4] fundingScaled
-    );
     event FundingGenerationCanceled(
         uint256 indexed tokenId, uint256 indexed generation, uint256[4] cancellationScaled
     );
@@ -297,18 +349,6 @@ interface IMembershipTier is IERC165, IERC721, IERC5643 {
     function claimRewardsFor(address beneficiary, uint256[] calldata tokenIds, uint256 maxSteps)
         external
         returns (MembershipTypes.ClaimResult memory);
-
-    function previewRefund(uint256 tokenId)
-        external
-        view
-        returns (MembershipTypes.RefundPreview memory);
-
-    function refund(
-        uint256 tokenId,
-        address expectedOwner,
-        uint256 maxGrossRefund,
-        uint256 maxAccountingSteps
-    ) external returns (uint256 grossRefund);
 
     function grantMembership(address recipient, uint64 periods, uint256 maxAccountingSteps)
         external

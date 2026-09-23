@@ -1,9 +1,5 @@
 "use client";
 
-import {
-  readRefundFunding,
-  isCurrentRefundQuote,
-} from "@/features/creator/management-read";
 import { RewardCurveSummary } from "@/features/creator/RewardCurveControls";
 import { VestingSummary } from "@/features/membership/VestingSummary";
 import { ReleaseTierFees } from "@/features/protocol/ReleaseTierFees";
@@ -35,11 +31,9 @@ import {
 import { RetiredRewardClaim } from "@/features/membership/RetiredRewardClaim";
 import { RendererManagementControl } from "@/features/creator/RendererManagementControl";
 import {
-  receiptMembershipRefund,
   receiptMembershipMaintenance,
   receiptRetiredReward,
 } from "@/features/protocol/payout-reconciliation";
-import { formatMembershipDate } from "@/features/membership/date";
 import { assertSufficientGas } from "@/features/protocol/gas-readiness";
 import {
   receiptProvesGrantRevocation,
@@ -112,22 +106,18 @@ function ManagementControls({
   const [prepayment, setPrepayment] = useState(
     snapshot.maxPrepaidPeriods.toString(),
   );
+  const [retention, setRetention] = useState(
+    (snapshot.creatorRetentionBps / 100).toString(),
+  );
+  const retentionBps = /^\d+(?:\.\d{1,2})?$/.test(retention)
+    ? Math.round(Number(retention) * 100)
+    : undefined;
   const [grantRecipient, setGrantRecipient] = useState("");
   const queries = useQueryClient();
   const [grantMode, setGrantMode] = useState<"new" | "add">("new");
   const [grantToken, setGrantToken] = useState("");
   const [grantPeriods, setGrantPeriods] = useState("1");
   const [revokeToken, setRevokeToken] = useState("");
-  const [refundToken, setRefundToken] = useState("");
-  const [refundPreview, setRefundPreview] = useState<
-    Awaited<ReturnType<typeof readRefundFunding>> & {
-      capturedBlock: bigint;
-      tokenId: bigint;
-    }
-  >();
-  const refundPreviewVersion = useRef(0);
-  const [refundOutcome, setRefundOutcome] =
-    useState<ReturnType<typeof receiptMembershipRefund>>();
   const [payout, setPayout] =
     useState<ReturnType<typeof receiptCreatorWithdrawal>>();
   const operationInFlight = useRef(false);
@@ -198,7 +188,6 @@ function ManagementControls({
     ) => Promise<unknown | undefined>,
   ) {
     setActiveAction(label);
-    setRefundOutcome(undefined);
     setPayout(undefined);
     let waitingForReceipt = false;
     try {
@@ -342,7 +331,7 @@ function ManagementControls({
 
   async function readTokenTime(tokenId: bigint) {
     const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
-    const [balances, refund] = await Promise.all([
+    const [balances, owner] = await Promise.all([
       client.readContract({
         address: snapshot.address,
         abi: membershipTierAbi,
@@ -353,17 +342,12 @@ function ManagementControls({
       client.readContract({
         address: snapshot.address,
         abi: membershipTierAbi,
-        functionName: "previewRefund",
+        functionName: "ownerOf",
         args: [tokenId],
         blockNumber,
       }),
     ]);
-    return {
-      paidSeconds: balances[0],
-      grantSeconds: balances[1],
-      refundableGross: refund.grossRefund,
-      owner: refund.recipient,
-    };
+    return { paidSeconds: balances[0], grantSeconds: balances[1], owner };
   }
 
   function tierWrite<
@@ -375,7 +359,8 @@ function ManagementControls({
       | "grantMembership"
       | "addGrantTime"
       | "revokeGrantTime"
-      | "refund"
+      | "setCreatorRetentionBps"
+      | "enablePeriodicRefill"
       | "withdrawCreatorProceeds"
       | "processAccounting"
       | "claimRetiredRewards"
@@ -397,116 +382,6 @@ function ManagementControls({
       await assertSufficientGas(client, account.address, request);
       return () => write.writeContractAsync(request);
     };
-  }
-
-  async function previewRefund() {
-    const tokenId = parseTokenId(refundToken);
-    if (tokenId === undefined || !snapshot.paused) return;
-    const version = ++refundPreviewVersion.current;
-    setRefundPreview(undefined);
-    try {
-      const refreshed = await onRefresh();
-      if (refreshed?.status !== "valid" || !refreshed.data.paused) {
-        setRefundPreview(undefined);
-        dispatch({
-          type: "FAILED",
-          error:
-            "Pause the tier and wait for the paused state to be confirmed before reading a refund preview.",
-        });
-        return;
-      }
-      const previewBlock = refreshed.capturedBlock;
-      const refund = await readRefundFunding(client, {
-        tier: snapshot.address,
-        tokenId,
-        blockNumber: previewBlock,
-      });
-      if (version !== refundPreviewVersion.current) return;
-      setRefundPreview({
-        capturedBlock: previewBlock,
-        tokenId,
-        ...refund,
-      });
-    } catch (error) {
-      if (version !== refundPreviewVersion.current) return;
-      dispatch({ type: "FAILED", error: classifyReadError(error).label });
-    }
-  }
-
-  async function refund() {
-    setRefundOutcome(undefined);
-    const tokenId = parseTokenId(refundToken);
-    const preview =
-      refundPreview?.capturedBlock === capturedBlock && snapshot.paused
-        ? refundPreview
-        : undefined;
-    if (!preview || preview.tokenId !== tokenId || !account.address) return;
-    await runExclusive(async () => {
-      try {
-        const paused = await client.readContract({
-          address: snapshot.address,
-          abi: membershipTierAbi,
-          functionName: "paused",
-        });
-        if (!paused) {
-          dispatch({
-            type: "FAILED",
-            error:
-              "The tier is no longer paused. Pause it again and read a new refund preview.",
-          });
-          return;
-        }
-        const freshRefund = await readRefundFunding(client, {
-          tier: snapshot.address,
-          tokenId: preview.tokenId,
-          blockNumber: await client.getBlockNumber({ cacheTime: 0 }),
-        });
-        if (
-          !isCurrentRefundQuote(freshRefund) ||
-          !isSameAddress(freshRefund.recipient, preview.recipient) ||
-          freshRefund.generation !== preview.generation ||
-          freshRefund.grossRefund > preview.grossRefund
-        ) {
-          throw new Error(
-            "Advance membership accounting and read a fresh refund preview before continuing.",
-          );
-        }
-        await performUnlocked(
-          `Refund membership #${preview.tokenId}`,
-          tierWrite("refund", [
-            preview.tokenId,
-            preview.recipient,
-            preview.grossRefund,
-            25n,
-          ]),
-          async (receipt) => {
-            const refunded = receiptMembershipRefund(receipt, {
-              tier: snapshot.address,
-              tokenId: preview.tokenId,
-              recipient: preview.recipient,
-              maxGrossRefund: preview.grossRefund,
-            });
-            if (!refunded) return undefined;
-            const current = await client.readContract({
-              address: snapshot.address,
-              abi: membershipTierAbi,
-              functionName: "allocationState",
-              args: [preview.tokenId],
-              blockNumber: await client.getBlockNumber({ cacheTime: 0 }),
-            });
-            // The supplied receipt and advanced funding generation prove this refund.
-            if (current.generation <= preview.generation) return undefined;
-            setRefundOutcome(refunded);
-            return current;
-          },
-        );
-      } catch (error) {
-        dispatch({ type: "FAILED", error: decodeTransactionError(error) });
-      } finally {
-        refundPreviewVersion.current += 1;
-        setRefundPreview(undefined);
-      }
-    });
   }
 
   async function grant() {
@@ -619,11 +494,6 @@ function ManagementControls({
   });
   const revokeTokenValue = parseTokenId(revokeToken);
   const grantTokenValue = grantMode === "new" ? 0n : parseTokenId(grantToken);
-  const refundTokenValue = parseTokenId(refundToken);
-  const currentRefundPreview =
-    fresh && snapshot.paused && refundPreview?.capturedBlock === capturedBlock
-      ? refundPreview
-      : undefined;
   const metadataError = validateMutableMetadata({
     description,
     externalURI,
@@ -722,8 +592,8 @@ function ManagementControls({
               <p className="eyebrow">Live state</p>
               <h2>{snapshot.paused ? "Time increases paused" : "Tier open"}</h2>
               <p>
-                Pause blocks purchases, gifts, and grants. Refunds, grant
-                revocation, withdrawals, and ownership remain available.
+                Pause blocks purchases, gifts, and grants. Member cancellation,
+                grant revocation, withdrawals, and ownership remain available.
               </p>
             </div>
             <button
@@ -820,6 +690,84 @@ function ManagementControls({
             </div>
           </section>
 
+          {snapshot.pricePerPeriod > 0n && (
+            <section className="control-group">
+              <h2>Periodic refill</h2>
+              <p>
+                {snapshot.periodicEnabled
+                  ? "Available. Each holder chooses whether to enroll."
+                  : "Let holders opt in to whole-period refills from their wallet."}
+              </p>
+              {!snapshot.periodicEnabled && (
+                <>
+                  <p>
+                    Enabling moves no funds, enrolls nobody and cannot be
+                    reversed.
+                  </p>
+                  <button
+                    type="button"
+                    className="button button-outline"
+                    disabled={!canOwnerWrite}
+                    onClick={() =>
+                      void perform(
+                        "Enable periodic refill",
+                        tierWrite("enablePeriodicRefill"),
+                        () => reconcileSnapshot((next) => next.periodicEnabled),
+                      )
+                    }
+                  >
+                    Enable periodic refill
+                  </button>
+                </>
+              )}
+            </section>
+          )}
+
+          <section className="control-group">
+            <h2>Member cancellation terms</h2>
+            <p>
+              Creator keeps {snapshot.creatorRetentionBps / 100}% of unused
+              funding. The membership owner receives the rest.
+            </p>
+            <label className="creator-field">
+              <span>Creator share on cancellation (%)</span>
+              <input
+                type="number"
+                min="0"
+                max={snapshot.creatorRetentionBps / 100}
+                step="0.01"
+                value={retention}
+                onChange={(event) => setRetention(event.target.value)}
+              />
+            </label>
+            <p>
+              You can only lower this percentage. Changes apply to existing
+              memberships.
+            </p>
+            <button
+              type="button"
+              className="button button-outline"
+              disabled={
+                !canOwnerWrite ||
+                retentionBps === undefined ||
+                retentionBps < 0 ||
+                retentionBps >= snapshot.creatorRetentionBps
+              }
+              onClick={() =>
+                void perform(
+                  "Lower cancellation retention",
+                  tierWrite("setCreatorRetentionBps", [retentionBps!]),
+                  () =>
+                    reconcileSnapshot(
+                      (next) => next.creatorRetentionBps === retentionBps,
+                    ),
+                )
+              }
+            >
+              Lower creator share
+            </button>
+          </section>
+
           <section className="control-group">
             <div>
               <p className="eyebrow">Complimentary time</p>
@@ -901,6 +849,10 @@ function ManagementControls({
                   Revoke grant time
                 </button>
               </label>
+              <p>
+                Revoking this gifted time will also stop this membership’s
+                periodic refill. The holder can enroll again.
+              </p>
             </div>
           </section>
 
@@ -921,8 +873,6 @@ function ManagementControls({
                   );
                   if (!outcome) return undefined;
                   setMaintenanceOutcome(outcome);
-                  refundPreviewVersion.current += 1;
-                  setRefundPreview(undefined);
                   return onRefresh();
                 },
               )
@@ -958,125 +908,6 @@ function ManagementControls({
               }
             />
           )}
-
-          <section className="control-group">
-            <div>
-              <p className="eyebrow">Gross refund</p>
-              <h2>Refund unused membership time</h2>
-              <p>
-                Refunds pay the membership owner from that membership’s reserved
-                unused payments. Previously earned amounts remain claimable.
-              </p>
-              <p className="small-copy">
-                Pause the tier and wait for confirmation before previewing. A
-                newer tier snapshot requires a new preview; unpause only after
-                the refund reconciles.
-              </p>
-            </div>
-            <label className="creator-field">
-              <span>Membership token</span>
-              <input
-                inputMode="numeric"
-                onChange={(event) => {
-                  refundPreviewVersion.current += 1;
-                  setRefundOutcome(undefined);
-                  setRefundToken(event.target.value);
-                  setRefundPreview(undefined);
-                }}
-                value={refundToken}
-              />
-            </label>
-            <button
-              className="button button-outline"
-              disabled={
-                !writesVerified ||
-                !permissions.canOperate ||
-                !snapshot.paused ||
-                refundTokenValue === undefined
-              }
-              onClick={() => void previewRefund()}
-              type="button"
-            >
-              Read refund preview
-            </button>
-            {currentRefundPreview && (
-              <dl className="refund-preview" aria-live="polite">
-                <div>
-                  <dt>Gross refund</dt>
-                  <dd>{paymentLabel(currentRefundPreview.grossRefund)}</dd>
-                </div>
-                <div>
-                  <dt>Recipient</dt>
-                  <dd>{currentRefundPreview.recipient}</dd>
-                </div>
-                <div>
-                  <dt>Funding</dt>
-                  <dd>Reserved unused membership payments</dd>
-                </div>
-                <div>
-                  <dt>Accounting</dt>
-                  <dd>
-                    {currentRefundPreview.complete
-                      ? "Settled and ready"
-                      : currentRefundPreview.projected
-                        ? "Current refund projection; accounting settles with the refund"
-                        : "Historical funding estimate: advance accounting before refunding"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Access measured at</dt>
-                  <dd>
-                    {formatMembershipDate(currentRefundPreview.accessAsOf)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Accounting through</dt>
-                  <dd>
-                    {formatMembershipDate(currentRefundPreview.accountingAsOf)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Refund calculated at</dt>
-                  <dd>
-                    {formatMembershipDate(currentRefundPreview.fundingAsOf)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Unused time at this read</dt>
-                  <dd>
-                    {currentRefundPreview.paidSeconds.toLocaleString()} paid
-                    seconds and{" "}
-                    {currentRefundPreview.grantSeconds.toLocaleString()} granted
-                    seconds
-                  </dd>
-                </div>
-              </dl>
-            )}
-            {refundOutcome && transaction.phase === "confirmed" && (
-              <p role="status">
-                Refunded {paymentLabel(refundOutcome.grossRefund)} to{" "}
-                {refundOutcome.recipient}. Canceled{" "}
-                {refundOutcome.canceledPaidSeconds.toLocaleString()} paid
-                seconds and{" "}
-                {refundOutcome.canceledGrantSeconds.toLocaleString()} granted
-                seconds. The membership is permanently retired. Already-earned
-                rewards remain claimable by its final owner.
-              </p>
-            )}
-            <button
-              className="button button-warning"
-              disabled={
-                !canOwnerWrite ||
-                !currentRefundPreview ||
-                !isCurrentRefundQuote(currentRefundPreview) ||
-                currentRefundPreview.tokenId !== refundTokenValue
-              }
-              onClick={() => void refund()}
-              type="button"
-            >
-              Refund unused time
-            </button>
-          </section>
 
           <section className="control-group">
             <div>
@@ -1122,8 +953,6 @@ function ManagementControls({
             tier={snapshot.address}
             blockNumber={capturedBlock}
             onConfirmed={async () => {
-              refundPreviewVersion.current += 1;
-              setRefundPreview(undefined);
               await onRefresh();
             }}
           />

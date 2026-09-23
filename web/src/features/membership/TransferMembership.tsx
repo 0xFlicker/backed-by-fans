@@ -50,6 +50,7 @@ export function TransferMembership({
           the recipient. Weight, funding history and the locked referral choice
           stay with this token.
         </p>
+        <p>Transfer stops periodic refill. The recipient must opt in again.</p>
         <p>
           Live memberships can transfer while the tier is paused or accounting
           is incomplete.

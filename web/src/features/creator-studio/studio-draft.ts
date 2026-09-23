@@ -15,10 +15,10 @@ import {
 } from "@/features/creator-studio/art-config";
 import { isNonZeroAddress, isSameAddress } from "@/lib/address";
 
-export const studioDraftVersion = 5;
+export const studioDraftVersion = 6;
 export const studioDraftKind = "backed-by-fans-creative-draft";
 export const maxUnsignedStudioDraftBytes = 16 * 1024;
-export const studioDraftAbiVersion = "protocol-allocation-2026-09-07";
+export const studioDraftAbiVersion = "member-cancellation-refill-2026-09-23";
 export const studioDraftRendererBoundsVersion =
   "direct-renderer-native-media-92160-2026-08-31";
 
@@ -222,8 +222,10 @@ function validTerms(value: unknown): value is CreatorForm {
   return (
     isRecord(value) &&
     hasExactKeys(value, Object.keys(defaultCreatorForm)) &&
-    Object.values(value).every(
-      (field) => typeof field === "string" && field.length <= 2048,
+    Object.entries(value).every(([key, field]) =>
+      key === "periodicEnabled"
+        ? typeof field === "boolean"
+        : typeof field === "string" && field.length <= 2048,
     )
   );
 }

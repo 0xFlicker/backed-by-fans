@@ -50,6 +50,7 @@ class Funding:
     referrer: str | None = None
     canceled_at: int | None = None
     generation: int = 0
+    retention_bps: int = 0
 
     def __post_init__(self) -> None:
         if not 0 <= self.start < self.end <= 2**64 - 1:
@@ -60,6 +61,8 @@ class Funding:
             raise ValueError("invalid funded gross")
         if self.canceled_at is not None and self.canceled_at < 0:
             raise ValueError("negative cancellation time")
+        if not 0 <= self.retention_bps <= 10000:
+            raise ValueError("invalid cancellation retention")
         if self.referral and self.referrer is None:
             raise ValueError("referral allocation has no beneficiary")
 
@@ -110,6 +113,7 @@ def entitlements(
         raise ValueError("history must be chronological; combine same-time changes")
     creator = protocol = unassigned = reserved = cancellation = Fraction()
     refunded = 0
+    canceled: dict[tuple[str, int], tuple[int, int]] = {}
     members: dict[str, Fraction] = {}
     referrers: dict[str, Fraction] = {}
     for lot in funding:
@@ -125,7 +129,9 @@ def entitlements(
         unused = lot.gross * (1 - elapsed)
         if lot.canceled_at is not None and lot.canceled_at <= through:
             refund = unused.numerator // unused.denominator
-            refunded += refund
+            key = (lot.member, lot.generation)
+            previous, _ = canceled.get(key, (0, lot.retention_bps))
+            canceled[key] = (previous + refund, lot.retention_bps)
             cancellation += unused - refund
         else:
             reserved += unused
@@ -140,6 +146,10 @@ def entitlements(
                 unassigned += value
             for member, weight in weights:
                 members[member] = members.get(member, Fraction()) + value * weight / total
+    for gross, retention_bps in canceled.values():
+        payout = gross * (10000 - retention_bps) // 10000
+        refunded += payout
+        creator += gross - payout
     result = Entitlements(creator, members, referrers, protocol, unassigned, reserved, refunded, cancellation)
     if result.earned + reserved + refunded + cancellation != sum(lot.gross for lot in funding):
         raise AssertionError("rational conservation failed")
@@ -236,7 +246,9 @@ def scaled_entitlements(
             refund += lot.gross * remaining // (lot.end - lot.start)
             for i, amount in enumerate((lot.creator, lot.rewards, lot.referral, lot.protocol)):
                 unused[i] += amount * SCALE - _scaled_at(lot, i, through)
-        refunded += refund
+        payout = refund * (10000 - lots[0].retention_bps) // 10000
+        refunded += payout
+        creator += (refund - payout) * SCALE
         needed = refund * SCALE
         for i in range(4):
             taken = min(needed, unused[i])
@@ -291,6 +303,16 @@ def creator_claims(
 
 
 class ReferenceExamples(unittest.TestCase):
+    def test_retention_rounds_once_after_grouping_canceled_lots(self) -> None:
+        lots = (Funding("alice", 0, 10, 1, 0, 0, 0, canceled_at=0, retention_bps=3000),
+                Funding("alice", 10, 20, 1, 0, 0, 0, canceled_at=0, retention_bps=3000))
+        ideal = entitlements(lots, (), 0)
+        scaled = scaled_entitlements(lots, (), 0)
+        self.assertEqual(ideal.refunded, 1)
+        self.assertEqual(ideal.creator, 1)
+        self.assertEqual(scaled.refunded, 1)
+        self.assertEqual(scaled.creator, SCALE)
+
     def test_scaled_frequency_and_rational_attribution_are_separate(self) -> None:
         lots = (Funding("alice", 0, 31, 80, 30, 5, 5, "original"),
                 Funding("bob", 13, 47, 32, 12, 2, 2, "original"))

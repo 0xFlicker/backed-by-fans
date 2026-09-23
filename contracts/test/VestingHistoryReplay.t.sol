@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
 import {MembershipTier} from "../src/MembershipTier.sol";
@@ -19,7 +20,7 @@ contract VestingHistoryReplayTest is Test {
     uint256 private constant Q = 1 << 128;
     uint256 private constant ROW_LENGTH = 5;
     uint256 private constant GLOBAL_LENGTH = 40;
-    uint256 private constant POSITION_LENGTH = 10;
+    uint256 private constant POSITION_LENGTH = 11;
     MockUSDG private token;
     MembershipFactory private factory;
     OnchainMetadataRenderer private renderer;
@@ -60,7 +61,7 @@ contract VestingHistoryReplayTest is Test {
         string memory path =
             vm.envOr("BBF_VESTING_HISTORY_INPUT", string("test/fixtures/vesting-history.bin"));
         uint256[] memory data = abi.decode(vm.readFileBinary(path), (uint256[]));
-        assertEq(data[0], 2, "token-position history schema");
+        assertEq(data[0], 3, "token-position history schema");
         uint256 schedules = vm.envOr("BBF_VESTING_HISTORY_ALL_BUDGETS", false) ? 27 : 3;
         uint256 cursor = 2;
         for (uint256 history; history < data[1]; ++history) {
@@ -74,7 +75,9 @@ contract VestingHistoryReplayTest is Test {
             config.pricePerPeriod = data[cursor++];
             config.startingBoostBps = data[cursor++].toUint32();
             config.earlySupportGross = data[cursor++].toUint112();
+            config.creatorRetentionBps = seed % 3 == 0 ? 0 : seed % 3 == 1 ? 3000 : 10_000;
             config.periodDuration = 10;
+            config.periodicEnabled = config.pricePerPeriod != 0;
             config.maxPrepaidPeriods = 0;
             config.rewardBps = 1000;
             config.referralBps = 500;
@@ -209,10 +212,10 @@ contract VestingHistoryReplayTest is Test {
             tier.grantMembership(_member(target), arg.toUint64(), 25);
         } else if (op == 5 || op == 6 || op == 7) {
             address beneficiary = tier.ownerOf(target);
-            vm.prank(_owner(ownerIndex));
+            vm.prank(op == 7 ? beneficiary : _owner(ownerIndex));
             if (op == 5) tier.addGrantTime(target, beneficiary, arg.toUint64(), 25);
             else if (op == 6) tier.revokeGrantTime(target, beneficiary, 25);
-            else refunded += tier.refund(target, beneficiary, type(uint256).max, 25);
+            else refunded += cancelPayout(tier, target, beneficiary, 0, 25);
         } else if (op == 9) {
             address beneficiary = tier.ownerOf(target);
             vm.prank(beneficiary);
@@ -250,6 +253,32 @@ contract VestingHistoryReplayTest is Test {
             claimed[0] += tier.withdrawCreatorProceeds();
             vm.prank(_owner(ownerIndex));
             tier.setPaused(false);
+        } else if (op == 19) {
+            address beneficiary = tier.ownerOf(target);
+            (, address locked) = tier.referralOf(target);
+            address choice =
+                locked == address(0) ? _referrer((uint160(beneficiary) - 0x100) % 2) : locked;
+            vm.prank(beneficiary);
+            tier.setRefillTarget(target, arg.toUint64(), choice);
+        } else if (op == 20 || op == 22) {
+            if (tier.refillEnrollment(target).targetSeconds == 0) {
+                vm.expectRevert(MembershipTier.RefillNotEnrolled.selector);
+                tier.refillMembership(target, arg == 0 ? 1 : arg, 25);
+            } else if (op == 22) {
+                address beneficiary = tier.ownerOf(target);
+                vm.prank(beneficiary);
+                token.approve(address(tier), 0);
+                uint256 gross = tier.lifetimeGross();
+                assertEq(tier.refillMembership(target, 1, 25).periods, 0);
+                assertEq(tier.lifetimeGross(), gross);
+                vm.prank(beneficiary);
+                token.approve(address(tier), type(uint256).max);
+            } else {
+                tier.refillMembership(target, arg, 25);
+            }
+        } else if (op == 21) {
+            vm.prank(tier.ownerOf(target));
+            tier.stopRefill(target);
         } else if (op != 18) {
             fail("unknown authored lifecycle action");
         }
@@ -317,6 +346,7 @@ contract VestingHistoryReplayTest is Test {
             MembershipTypes.AllocationState memory allocation = tier.allocationState(id);
             result[offset + 8] = allocation.generation;
             result[offset + 9] = allocation.lotCount;
+            result[offset + 10] = tier.refillEnrollment(id).targetSeconds;
         }
         assertEq(result[15] * Q, liabilities, "exact scaled cash conservation");
         assertEq(result[18], shareSum, "settled live weight sum");

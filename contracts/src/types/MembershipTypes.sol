@@ -154,6 +154,8 @@ library MembershipTypes {
         uint112 earlySupportGross;
         uint64 supplyCap;
         uint64 maxPrepaidPeriods;
+        uint16 creatorRetentionBps;
+        bool periodicEnabled;
         TierMetadata metadata;
         ArtConfig art;
         MediaConfig media;
@@ -222,6 +224,8 @@ library MembershipTypes {
     struct PaymentTotals {
         uint256 grossReceived;
         uint256 refunded;
+        /// @notice Informational subset of creator earnings, never an extra liability.
+        uint256 creatorCancellationProceeds;
         uint256[4] paidRaw;
         uint256[4] earnedScaled;
         uint256[4] unearnedScaled;
@@ -267,19 +271,83 @@ library MembershipTypes {
         AccountingStatus status;
     }
 
-    struct RefundPreview {
-        address recipient;
+    enum CancellationUnavailableReason {
+        None,
+        Expired,
+        Retired,
+        AccountingBehind
+    }
+
+    struct CancellationPreview {
+        uint256 tokenId;
+        MembershipLifecycle lifecycle;
+        bool cancellationEligible;
+        bool quoteAvailable;
+        CancellationUnavailableReason unavailableReason;
+        address owner;
+        uint64 asOf;
+        uint64 accountedThrough;
+        uint256 processedSteps;
+        bool complete;
+        uint16 creatorRetentionBps;
+        uint64 deadline;
+        uint256 minOwnerRefund;
+        uint256 canceledGross;
+        uint256 ownerRefund;
+        uint256 creatorRetained;
         uint64 paidSeconds;
         uint64 grantSeconds;
-        uint64 accessAsOf;
-        uint64 accountingAsOf;
-        uint256 grossRefund;
+        uint256 earnedCreditScaled;
         uint256[4] fundingScaled;
         uint256[4] cancellationScaled;
         uint256 generation;
-        bool complete;
-        uint64 fundingAsOf;
-        bool projected;
+    }
+
+    struct RefillEnrollment {
+        address authorizingOwner;
+        uint64 targetSeconds;
+        address pendingReferralChoice;
+    }
+
+    enum RefillReason {
+        Ready,
+        AtTarget,
+        InsufficientBalance,
+        InsufficientAllowance,
+        PaidTimeLimit,
+        NumericLimit,
+        Paused,
+        Disabled,
+        NotEnrolled,
+        Expired,
+        Retired
+    }
+
+    struct RefillPreview {
+        uint256 tokenId;
+        MembershipLifecycle lifecycle;
+        address owner;
+        RefillEnrollment enrollment;
+        uint64 asOf;
+        uint64 expiration;
+        uint64 paidSeconds;
+        uint64 grantSeconds;
+        address effectiveReferral;
+        uint256 balance;
+        uint256 allowance;
+        uint256 desiredPeriods;
+        uint256 periods;
+        uint256 gross;
+        uint64 resultingExpiration;
+        RefillReason reason;
+        AccountingStatus accounting;
+    }
+
+    struct RefillResult {
+        RefillReason reason;
+        uint256 periods;
+        uint256 gross;
+        uint64 expiration;
     }
 
     /// @notice One-way presentation data passed from a tier to the stateless renderer.

@@ -52,20 +52,21 @@ Without implementation coaching, begin with a fresh wallet and the official
 Robinhood testnet faucet. Record gas and each faucet token received. The creator
 must create and share tiers priced in USDG, AMD, NFLX, PLTR, AMZN, and TSLA;
 inspect immutable token/raw economics; manage metadata/caps/pause; preview and
-replace the renderer; grant/revoke; preview and execute a token-specific
-refund/top-up; withdraw proceeds; and explain ownership transfer. The supporter
+replace the renderer; grant/revoke; lower cancellation retention; withdraw
+proceeds; and explain ownership transfer. The supporter
 must discover and verify each tier, join and renew with every Stock Token, gift,
-distinguish active, unsynced-expired, and creator-synced burned state; batch
-sync expired NFTs as the creator; claim accrued rewards while burned; rejoin
-with the same token ID; claim rewards/referrals
+distinguish active, expired-pending and permanently retired positions; advance
+expiration maintenance permissionlessly; cancel an owned or approved live NFT
+with an owner/minimum/deadline review; claim accrued rewards after burn; rejoin
+with a fresh token ID; claim rewards/referrals
 where applicable, and recover from wrong-network, insufficient-assets, and RPC
 errors.
 
 Record Stock Token display multipliers separately from raw contract amounts.
 The browser should show the current scaled amount while approvals, transfers,
 fees, refunds, claims, and tier terms remain raw. Both participants must explain
-lifetime shares, reward suspension/reactivation, creator-controlled burn,
-dilution, fixed payout destinations, refund limitations, capacity races,
+current-curve reward weight, strict expiration and permanent retirement,
+dilution, fixed payout destinations, cancellation retention and protected minimums, capacity races,
 third-party indexing delay, and that Stock Tokens are testnet-only for this
 release.
 

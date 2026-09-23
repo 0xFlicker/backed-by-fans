@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {MembershipFactory} from "../src/MembershipFactory.sol";
@@ -142,7 +143,11 @@ contract VestingCapacityTest is Test {
         assertGt(tier.sharesOf(1), 0);
         _cold();
         uint256 beforeGas = gasleft();
-        uint256 refunded = tier.refund{gas: 2_000_000}(1, tier.ownerOf(1), payments * PRICE, 25);
+        address owner = tier.ownerOf(1);
+        vm.prank(owner);
+        (uint256 refunded,) = tier.cancelMembership{gas: 2_000_000}(
+            1, owner, payments * PRICE - PRICE / 2, uint64(block.timestamp), 25
+        );
         uint256 used = beforeGas - gasleft();
         assertLe(used, 2_000_000);
         assertEq(refunded, payments * PRICE - PRICE / 2);
@@ -182,7 +187,8 @@ contract VestingCapacityTest is Test {
         uint256 fresh = tier.createMembership(1, _referrer(0), 25);
         assertGt(fresh, 1);
         assertTrue(tier.rewardEligible(fresh));
-        assertEq(tier.refund(fresh, tier.ownerOf(fresh), PRICE, 25), PRICE);
+        vm.prank(_member(0));
+        assertEq(cancelPayout(tier, fresh, _member(0), PRICE, 25), PRICE);
         assertGe(asset.balanceOf(address(tier)), tier.totalProtectedLiability());
     }
 

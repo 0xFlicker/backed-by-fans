@@ -51,6 +51,8 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
     error InvalidContract();
     error InvalidPageSize();
     error InvalidPeriodDuration();
+    error InvalidCreatorRetention();
+    error IncorrectPricingMode();
     error InvalidRateTotal();
     error InvalidRenderer();
     error InvalidRendererSchema(bytes32 expected, bytes32 actual);
@@ -185,6 +187,8 @@ contract MembershipFactory is Ownable2Step, ReentrancyGuardTransient, IMembershi
             revert TierSaltAlreadyUsed(msg.sender, config.tierSalt);
         }
         if (config.periodDuration == 0) revert InvalidPeriodDuration();
+        if (config.creatorRetentionBps > _BPS_DENOMINATOR) revert InvalidCreatorRetention();
+        if (config.periodicEnabled && config.pricePerPeriod == 0) revert IncorrectPricingMode();
         VestingLedger.validateCurve(
             config.startingBoostBps, config.earlySupportGross, config.pricePerPeriod
         );

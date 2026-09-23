@@ -81,7 +81,12 @@ async function transact(
     gasPrice: 100_000_000n,
   });
   const wallet = createWalletClient({ chain: anvil, account, transport });
-  const hash = await wallet.writeContract(simulation.request);
+  const estimatedGas = await client.estimateContractGas(simulation.request);
+  // Interval mining can add accounting work between estimation and inclusion.
+  const hash = await wallet.writeContract({
+    ...simulation.request,
+    gas: (estimatedGas * 12n + 9n) / 10n + 500_000n,
+  });
   const receipt = await client.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success")
     throw new Error(`${functionName} reverted: ${hash}`);
@@ -231,6 +236,8 @@ try {
       earlySupportGross: price * 1000n,
       supplyCap: 0n,
       maxPrepaidPeriods: 12n,
+      creatorRetentionBps: 0,
+      periodicEnabled: false,
       metadata: {
         description:
           "Creator-owned memberships, funded for a month of local protocol testing.",

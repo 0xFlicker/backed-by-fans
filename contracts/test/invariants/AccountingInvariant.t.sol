@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "../helpers/CancellationAssertions.sol";
 import {LinkedVestingFixture} from "../helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "../helpers/SyntheticPonsBinding.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -223,9 +224,19 @@ contract AccountingHandler is Test {
         if (id == 0 || tier.balanceOf(actor) == 0) return;
         _settle();
         uint256 expected = _funding.unusedGross(id, uint64(block.timestamp));
-        assertEq(tier.previewRefund(id).grossRefund, expected);
-        vm.prank(creator);
-        assertEq(tier.refund(id, actor, expected, 25), expected);
+        // The harness controls time to exercise the exact cancellation deadline boundary.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (tier.expiresAt(id) == block.timestamp + 1) {
+            // There is no future review window, but same-timestamp native exit remains valid.
+            vm.expectRevert(MembershipTier.InvalidCancellationDeadline.selector);
+            tier.previewCancellation(id, uint64(block.timestamp + 1), 25);
+        } else {
+            assertEq(
+                tier.previewCancellation(id, uint64(block.timestamp + 1), 25).ownerRefund, expected
+            );
+        }
+        vm.prank(actor);
+        assertEq(cancelPayout(tier, id, actor, expected, 25), expected);
         assertEq(_funding.cancel(id), expected);
         _lifecycle[id].refundTime(uint64(block.timestamp));
         _eligible[id] = false;
@@ -347,7 +358,8 @@ contract AccountingHandler is Test {
             frozen = actor;
             caller = creator;
             data = abi.encodeCall(
-                MembershipTier.refund, (id, tier.ownerOf(id), type(uint256).max, 25)
+                MembershipTier.cancelMembership,
+                (id, tier.ownerOf(id), 0, uint64(block.timestamp), 25)
             );
         }
         bytes32 before = _fingerprint();
@@ -573,6 +585,18 @@ contract AccountingInvariantTest is StdInvariant, Test {
         _handler.assertCustody();
     }
 
+    function test_lastSecondCancellationPreservesModelForPaidAndGiftedPositions() public {
+        for (uint256 i; i < 2; ++i) {
+            if (i == 0) _handler.purchase(0, 0, 0);
+            else _handler.gift(1, 0, 0);
+            vm.warp(_tier.expiresAt(i + 1) - 1);
+            _handler.refund(0);
+            _handler.assertModel();
+            _handler.assertCustody();
+            assertEq(_tier.totalSupply(), 0);
+        }
+    }
+
     function test_syntheticEmptyVectorProtectsOtherwiseUnreachableMemberFunding() public {
         VestingLedgerHarness ledger = new VestingLedgerHarness(_paymentToken);
         _paymentToken.mint(address(this), 3);
@@ -624,7 +648,7 @@ contract AccountingInvariantTest is StdInvariant, Test {
         // Donations never alter any protected purpose or replenish lifetime capacity.
         assertTrue(_paymentToken.transfer(address(bounded), 7));
         assertEq(_paymentToken.balanceOf(address(bounded)) - bounded.totalProtectedLiability(), 7);
-        uint256 returned = bounded.refund(id, bounded.ownerOf(id), c, 25);
+        uint256 returned = cancelPayout(bounded, id, bounded.ownerOf(id), c / 2, 25);
         assertEq(returned, c / 2);
         assertEq(bounded.allocationState(id).generation, 1);
         assertEq(bounded.lifetimeGross(), c);

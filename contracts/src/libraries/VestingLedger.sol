@@ -75,6 +75,7 @@ library VestingLedger {
         uint256[4] activeRates;
         uint256[4] paidRaw;
         uint256 refundedRaw;
+        uint256 creatorCancellationProceedsRaw;
         mapping(uint256 => FundingAccount) funding;
         mapping(uint256 => mapping(uint256 => Lot[])) lots;
         Node[] heap;
@@ -297,6 +298,9 @@ library VestingLedger {
         uint256 dustDelta;
         uint256 retiredScaled;
         bool targetRetired;
+        uint256 targetTokenId;
+        uint256 targetFundingHead;
+        bool targetFundingActive;
         uint64 lastRetiredAt;
         uint256 lastRetiredId;
     }
@@ -313,6 +317,7 @@ library VestingLedger {
         result.processedSteps = _previewAdvance(self, expirations, work, request);
         result.grossReceived = self.totalGross;
         result.refunded = self.refundedRaw;
+        result.creatorCancellationProceeds = self.creatorCancellationProceedsRaw;
         result.paidRaw = self.paidRaw;
         result.cancellationScaled = self.cancellationScaled;
         for (uint256 i; i < PURPOSES; ++i) {
@@ -383,6 +388,9 @@ library VestingLedger {
         work.rewardCarry = self.rewardCarry;
         work.retiredScaled = self.retiredCreditScaled[request.beneficiary];
         work.targetRetired = expirations.position[request.tokenId] == 0;
+        work.targetTokenId = request.tokenId;
+        work.targetFundingHead = self.funding[request.tokenId].head;
+        work.targetFundingActive = self.funding[request.tokenId].active;
         if (self.heap.length != 0) _previewStored(self, work, 0);
         if (expirations.nodes.length != 0) _previewExpiryStored(expirations, work, 0);
     }
@@ -648,6 +656,7 @@ library VestingLedger {
         ][self.funding[entry.node.tokenId].generation];
         Lot storage lot = queue[entry.lotIndex];
         if (entry.node.isStart) {
+            if (entry.node.tokenId == work.targetTokenId) work.targetFundingActive = true;
             _previewStart(work, lot, referrer);
             _previewPush(
                 work, PreviewNode(Node(entry.node.tokenId, lot.end, false), entry.lotIndex, 0)
@@ -665,6 +674,10 @@ library VestingLedger {
             work.referralEarned += lot.amounts[2] * SCALE % duration;
         }
         uint256 next = entry.lotIndex + 1;
+        if (entry.node.tokenId == work.targetTokenId) {
+            work.targetFundingHead = next;
+            work.targetFundingActive = next < queue.length && queue[next].start <= work.cursor;
+        }
         if (next == queue.length) {
             --work.scheduled;
             return;
@@ -751,29 +764,47 @@ library VestingLedger {
         );
     }
 
-    function encodedRefund(
+    /// @notice Project cancellation through now and its deadline using one bounded overlay.
+    function encodedCancellation(
         State storage self,
-        uint256 tokenId,
-        address recipient,
-        uint64 paidSeconds,
-        uint64 grantSeconds,
-        uint64 now_
+        ExpirationSchedule.State storage expirations,
+        MembershipTypes.CancellationPreview memory result,
+        uint256 maxSteps
     ) external view returns (bytes memory) {
-        MembershipTypes.RefundPreview memory result;
-        result.recipient = recipient;
-        result.paidSeconds = paidSeconds;
-        result.grantSeconds = grantSeconds;
-        result.accessAsOf = now_;
-        result.accountingAsOf = self.accountedThrough;
-        result.generation = self.funding[tokenId].generation;
-        result.complete = _status(self, now_).complete;
-        // Before the next global boundary the active set and head/prefixes are
-        // unchanged. Project just this refund, without settling or scanning.
-        result.projected = !result.complete && now_ >= self.accountedThrough
-            && (self.heap.length == 0 || self.heap[0].timestamp > now_);
-        result.fundingAsOf = result.projected ? now_ : self.accountedThrough;
-        (result.grossRefund, result.fundingScaled, result.cancellationScaled) =
-            _cancellation(self, tokenId, result.fundingAsOf);
+        PreviewRequest memory request = PreviewRequest(
+            result.tokenId, result.owner, address(0), result.asOf, maxSteps
+        );
+        PreviewState memory work = _previewState(self, expirations, request);
+        result.processedSteps = _previewAdvance(self, expirations, work, request);
+        result.accountedThrough = work.cursor;
+        result.complete = _previewStatus(work, result.asOf).complete;
+        result.generation = self.funding[result.tokenId].generation;
+        if (!result.complete) {
+            result.unavailableReason =
+            MembershipTypes.CancellationUnavailableReason.AccountingBehind;
+            return abi.encode(result);
+        }
+        (result.canceledGross, result.fundingScaled, result.cancellationScaled) = _cancellationAt(
+            self, result.tokenId, work.cursor, work.targetFundingHead, work.targetFundingActive
+        );
+        result.ownerRefund = result.canceledGross * (10_000 - result.creatorRetentionBps) / 10_000;
+        result.creatorRetained = result.canceledGross - result.ownerRefund;
+        MemberAccount storage member = self.members[result.tokenId];
+        result.earnedCreditScaled = member.creditScaled
+            + (member.eligible ? member.shares * (work.rewardIndex - member.index) : 0);
+        request.through = result.deadline;
+        request.maxSteps -= result.processedSteps;
+        result.processedSteps += _previewAdvance(self, expirations, work, request);
+        result.quoteAvailable = _previewStatus(work, result.deadline).complete;
+        if (result.quoteAvailable) {
+            (uint256 deadlineGross,,) = _cancellationAt(
+                self, result.tokenId, work.cursor, work.targetFundingHead, work.targetFundingActive
+            );
+            result.minOwnerRefund = deadlineGross * (10_000 - result.creatorRetentionBps) / 10_000;
+        } else {
+            result.unavailableReason =
+            MembershipTypes.CancellationUnavailableReason.AccountingBehind;
+        }
         return abi.encode(result);
     }
 
@@ -1103,7 +1134,7 @@ library VestingLedger {
     }
 
     /// @notice Cancel one live generation using two prefixes and at most one active head.
-    function cancelFunding(State storage self, uint256 tokenId)
+    function cancelFunding(State storage self, uint256 tokenId, uint16 retentionBps)
         external
         returns (uint256 gross, uint256[4] memory funded, uint256[4] memory residues)
     {
@@ -1119,7 +1150,11 @@ library VestingLedger {
             self.unearnedScaled[i] -= funded[i] + residues[i];
             self.cancellationScaled[i] += residues[i];
         }
-        self.refundedRaw += gross;
+        uint256 ownerRefund = gross * (10_000 - retentionBps) / 10_000;
+        uint256 retained = gross - ownerRefund;
+        self.refundedRaw += ownerRefund;
+        self.creatorCancellationProceedsRaw += retained;
+        self.earnedScaled[0] += retained * SCALE;
         ++account.generation;
         account.head = 0;
         account.active = false;
@@ -1131,12 +1166,22 @@ library VestingLedger {
         returns (uint256 gross, uint256[4] memory funded, uint256[4] memory residues)
     {
         FundingAccount storage account = self.funding[tokenId];
-        Lot[] storage queue = self.lots[tokenId][account.generation];
-        if (account.head == queue.length) return (0, funded, residues);
+        return _cancellationAt(self, tokenId, through, account.head, account.active);
+    }
+
+    function _cancellationAt(
+        State storage self,
+        uint256 tokenId,
+        uint64 through,
+        uint256 headIndex,
+        bool active
+    ) private view returns (uint256 gross, uint256[4] memory funded, uint256[4] memory residues) {
+        Lot[] storage queue = self.lots[tokenId][self.funding[tokenId].generation];
+        if (headIndex == queue.length) return (0, funded, residues);
         Lot storage last = queue[queue.length - 1];
-        Lot storage head = queue[account.head];
-        gross = last.grossPrefix - (account.head == 0 ? 0 : queue[account.head - 1].grossPrefix);
-        if (account.active) {
+        Lot storage head = queue[headIndex];
+        gross = last.grossPrefix - (headIndex == 0 ? 0 : queue[headIndex - 1].grossPrefix);
+        if (active) {
             // Widen packed raw storage before multiplying by uint64 time. The
             // intermediate can use 176 bits even though the refund fits uint112.
             gross = gross - head.gross + uint256(head.gross) * (head.end - through)
@@ -1144,9 +1189,9 @@ library VestingLedger {
         }
         uint256 needed = gross * SCALE;
         for (uint256 i; i < PURPOSES; ++i) {
-            uint256 completed = account.head == 0 ? 0 : queue[account.head - 1].allocationPrefix[i];
+            uint256 completed = headIndex == 0 ? 0 : queue[headIndex - 1].allocationPrefix[i];
             uint256 unused = (last.allocationPrefix[i] - completed) * SCALE;
-            if (account.active) unused -= _activeEarnedAt(head, i, through);
+            if (active) unused -= _activeEarnedAt(head, i, through);
             funded[i] = Math.min(unused, needed);
             needed -= funded[i];
             residues[i] = unused - funded[i];

@@ -25,6 +25,7 @@ const changed =
       "--",
       "contracts/src",
       "specs/005-transferable-memberships/spec.md",
+      "specs/006-member-cancellation-refill/spec.md",
     ],
     { cwd: repo, encoding: "utf8" },
   ).trim().length > 0;
@@ -38,6 +39,7 @@ const sourceFiles = execFileSync(
     "--",
     "contracts/src",
     "specs/005-transferable-memberships/spec.md",
+    "specs/006-member-cancellation-refill/spec.md",
   ],
   { cwd: repo, encoding: "utf8" },
 )

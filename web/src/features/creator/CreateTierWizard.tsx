@@ -2500,6 +2500,51 @@ export function CreateTierWizard() {
 
         {step === "limits" && (
           <div className="creator-step-panel">
+            <Field
+              id="tier-retention"
+              label="Creator share when a member cancels (%)"
+              error={result.errors.creatorRetentionPercent}
+              hint={
+                form.creatorRetentionPercent !== "" &&
+                !result.errors.creatorRetentionPercent
+                  ? `The membership owner receives ${100 - Number(form.creatorRetentionPercent)}% of unused funding. You can only lower the creator share later.`
+                  : "Choose your share of unused funding. You can only lower it later."
+              }
+            >
+              <input
+                id="tier-retention"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={form.creatorRetentionPercent}
+                onChange={update("creatorRetentionPercent")}
+                aria-describedby="tier-retention-hint tier-retention-error"
+              />
+            </Field>
+            <label className="creator-field">
+              <span>Allow periodic refill</span>
+              <input
+                type="checkbox"
+                checked={form.periodicEnabled}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    periodicEnabled: event.target.checked,
+                  }))
+                }
+                disabled={
+                  result.curve?.pricePerPeriod === 0n && !form.periodicEnabled
+                }
+              />
+            </label>
+            <p>
+              Holders choose whether to enroll. Enabling this moves no funds and
+              cannot be reversed.
+            </p>
+            {result.errors.periodicEnabled && (
+              <p role="alert">{result.errors.periodicEnabled}</p>
+            )}
             <h2 id="step-limits">Set capacity</h2>
             <p>You can change these later. Zero means no limit.</p>
             <div className="creator-field-grid">
@@ -2627,6 +2672,25 @@ export function CreateTierWizard() {
               <section>
                 <h3>Changeable later</h3>
                 <dl>
+                  <div>
+                    <dt>Creator share on cancellation</dt>
+                    <dd>
+                      {form.creatorRetentionPercent || "Not set"}% · can only
+                      decrease. Owner receives{" "}
+                      {form.creatorRetentionPercent === ""
+                        ? "Not set"
+                        : 100 - Number(form.creatorRetentionPercent)}
+                      % of unused funding.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Periodic refill</dt>
+                    <dd>
+                      {form.periodicEnabled
+                        ? "Available — holders opt in"
+                        : "Off — can be enabled later"}
+                    </dd>
+                  </div>
                   <div>
                     <dt>Capacity</dt>
                     <dd>

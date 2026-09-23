@@ -311,6 +311,8 @@ export async function readTierSnapshotState(
     "lifetimeGross",
     "accountingStatus",
     "minimumPayment",
+    "creatorRetentionBps",
+    "periodicEnabled",
   ] as const;
 
   try {
@@ -409,6 +411,8 @@ export async function readTierSnapshotState(
       grossPaid: values[16] as bigint,
       accounting: values[17] as TierSnapshot["accounting"],
       minimumPayment: values[18] as bigint,
+      creatorRetentionBps: Number(values[19]),
+      periodicEnabled: values[20] as boolean,
       paymentToken: authenticity.paymentToken,
       paymentTokenState,
       factory: authenticity.protocolDependencies.factory,

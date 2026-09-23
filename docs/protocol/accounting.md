@@ -1,159 +1,46 @@
 # Protocol accounting
 
-All examples use USDG base units (six decimals). Contract arithmetic is integer
-arithmetic; displays must not imply fractions smaller than one base unit.
+Amounts are payment-token base units. The tier holds prepaid funding and earns its four allocations as paid time is consumed. The protocol allocation is selected at creation (at least 1%); the reward and referral rates are also immutable. Each payment floors its protocol, reward and applicable referral cut independently; the remainder funds the creator allocation. An absent referral gives that allocation to the creator.
 
-## Gross payment allocation
+## Earned credit and retirement
 
-The protocol fee is fixed at 100 bps (1%). Reward and referral rates are
-immutable per tier. Each cut is independently floored from gross:
+Positive accepted gross issues reward weight under the tier's configured cumulative reward curve. Memberships are independent NFT positions. Accounting walks funding and expiration boundaries chronologically, so processing a boundary late does not extend eligibility beyond expiration. Claims settle earned credit and leave unearned funding reserved. Transfers move a live position and its unclaimed credit to its current owner.
 
-```text
-protocol = floor(gross * 100 / 10_000)
-reward   = floor(gross * rewardBps / 10_000)
-referral = floor(gross * referralBps / 10_000) when attribution is LockedAddress
-creator  = gross - protocol - reward - referral
-```
+Natural expiration, member cancellation and removal of the final grant-only time permanently retire a position, burn its NFT, destroy its weight and release capacity. Earned member credit, including fractions, is preserved for the final owner. A later membership has a new ID and buys weight under the current curve. Neither retirement nor a refund reduces lifetime gross. See [the whitepaper](../whitepaper/whitepaper.md) for the reward formula and worked accrual examples.
 
-Unused referral cut and all split rounding remainder go to creator proceeds.
-For a 10.000000 USDG payment with 5% reward and 1% referral:
+## Member cancellation
 
-| Attribution | Protocol | Reward | Referral | Creator |
-| --- | ---: | ---: | ---: | ---: |
-| locked address | 0.100000 | 0.500000 | 0.100000 | 9.300000 |
-| none or unset gift | 0.100000 | 0.500000 | 0 | 9.400000 |
+Only the current NFT owner or its current token-approved or owner-wide approved operator can cancel a live position. Creator authority alone is insufficient. Cancellation remains available while paused. The creator chooses a retention percentage at creation and can only decrease it afterward; current terms apply to every existing position.
 
-The tier verifies the payer and tier balance deltas for the full gross and the
-factory delta for the exact protocol fee. Taxed, short, false-returning, frozen,
-or reentrant transfers revert atomically.
-
-## Reward ordering and rounding
-
-Positive gross creates permanent shares equal to gross for the recipient token.
-The token's prior rewards are settled before new shares are issued. Its new
-shares are then included in distribution of that same payment's reward. This
-excludes earlier rewards while including the current one.
-
-Example: A pays 10 USDG and creates 10 million shares; its 0.5 USDG reward is all
-A's. B next pays 10 USDG. B's shares exist for that payment's 0.5 USDG reward,
-which divides 0.25 to A and 0.25 to B. Cumulative whole-unit claims are therefore
-0.75 for A and 0.25 for B, subject only to base-unit rounding.
-
-The magnified reward index carries per-token fractional credit. The proportional
-whole-unit residual of a payment is credited directly to that payment recipient.
-Sub-base-unit dust stays in `rewardReserve` until later index arithmetic makes it
-claimable; it is protected and never becomes creator proceeds or surplus. Thus:
+Let G be unused raw gross computed from the position's remaining funded lots and B the current creator retention in basis points:
 
 ```text
-cumulative reward allocations = cumulative successful reward claims + rewardReserve
+ownerRefund = floor(G * (10_000 - B) / 10_000)
+creatorRetained = G - ownerRefund
 ```
 
-## Reward eligibility and membership sync
+Apply this split once to the total cancellable gross. Remove its unearned allocations, preserve protected fractional cancellation residues, and add `creatorRetained * ACCOUNTING_SCALE` to ordinary earned creator credit. Already earned credit is unchanged. Retained proceeds receive no second protocol/reward/referral split. A 100% retention setting still permits a zero-payout exit.
 
-`sharesOf(tokenId)` is a lifetime record and never decreases. Only eligible
-shares participate in new allocations:
+`previewCancellation(tokenId, deadline, maxAccountingSteps)` reports the current estimate separately from the conservative minimum projected through the deadline, walking scheduled boundaries within the supplied budget. Known expired or retired IDs return explicit unavailable status; unknown IDs remain errors. An incomplete projection is not a zero-value quote.
+
+The first-party UI chooses a two-minute chain-time deadline clipped to expiration minus one second and confirms the owner and minimum. It submits `cancelMembership(tokenId, expectedOwner, minOwnerRefund, deadline, maxAccountingSteps)`. Execution at the deadline is allowed, but never at expiration. A failed bound, incomplete accounting catch-up or rejected/inexact payout reverts the entire action. Standalone accounting maintenance commits bounded progress independently.
+
+Successful cancellation clears paid and granted time, retires once and pays the current owner, regardless of the original payer. It requires no creator top-up, token approval or pause. `cancelSubscription(tokenId)` uses the same authority and settlement, a zero minimum and the fixed 25-step adapter budget; it rejects native value. `MembershipCanceled` separates canceled gross, owner payout and creator-retained proceeds.
+
+Grant revocation remains creator-controlled and preserves paid time. Removing nonzero gifted time stops periodic refill enrollment; the live holder must explicitly enroll again. It does not itself refund or purchase time.
+
+## Custody and reporting
+
+`previewPaymentTotals(maxSteps)` reports gross received, actual owner refunds, beneficiary payouts, earned and unearned allocations, and protected cancellation/distribution reserves with accounting completeness. `creatorCancellationProceeds` is a cumulative informational subset of creator earnings, not an extra liability or payout. Do not add it again to earned credit or protected balances.
+
+The tier's token balance covers all earned, unearned and protected fractional liabilities. Exact inbound and outbound balance checks reject inexact token delivery. Unsolicited surplus is not an earned allocation. In a closed history:
 
 ```text
-totalRewardShares = sum(sharesOf(tokenId) for each rewardEligible tokenId)
+gross received = owner refunds + beneficiary payouts + remaining funded custody
 ```
 
-A refund suspends the record immediately. Revoking the final remaining
-grant-only time does the same. Natural expiration alone does not change the
-denominator; the cutoff is the creator's successful
-`synchronizeExpiredMemberships` transaction. Sync settles the record through
-that transaction's reward index, removes its lifetime shares from
-`totalRewardShares`, and burns the NFT without reducing `rewardReserve` or any
-stored credit.
+Protocol fee release sends earned fees to the buyback vault; it is distinct from executing a buyback. Unspent vault fees remain custody. The independent rational/scaled reference model, history replay, invariant suites and lifecycle evidence compare these categories and preserve attribution across ownership, claim and maintenance ordering.
 
-The permanently associated wallet can claim that accrued credit while the NFT
-is burned. Rewards allocated during the inactive interval do not accrue to the
-record. A purchase, contribution, gift, or grant remints the same token ID and
-sets its reward checkpoint to the current index before lifetime shares are
-reactivated or new shares are issued. The inactive interval is therefore never
-backfilled.
+## Periodic purchases
 
-## Refunds
-
-Only unused paid time is refundable. Grant time is cleared but has no gross
-value. Protocol, reward, and referral allocations are never clawed back.
-
-For a fixed-price tier:
-
-```text
-grossRefund = floor(remainingPaidSeconds * pricePerPeriod / periodDuration)
-```
-
-For a zero-price tier, each self action appends a cumulative-gross prefix,
-including a zero contribution. The checkpointed cursor records the current lot
-and seconds consumed. Refund preview is the prorated unused gross in that lot
-plus the prefix-range sum of all later lots. Consumption and preview are O(1),
-even after thousands of contributions. Refund advances the cursor to the tail;
-a later rejoin starts after that tail, so refunded prefixes can never reappear.
-
-`previewRefund(tokenId)` returns both gross refund and owner top-up:
-
-```text
-ownerTopUp = max(grossRefund - creatorProceeds, 0)
-```
-
-The owner submits that preview as
-`refund(tokenId, maxGrossRefund, maxOwnerTopUp)`. If another
-withdrawal or refund increases the required top-up before execution, the call
-reverts without changing membership or accounting state. A lower top-up is
-accepted. The current tier owner supplies only the exact shortfall, then the
-entire gross goes to the credential owner. The transaction clears paid and grant time and
-reduces creator proceeds before interaction. Failure of the top-up or outbound
-delivery restores all state. The permanent record, shares, referral lock, and
-occupied slot remain until creator sync. Reward eligibility is suspended by the
-successful refund itself.
-
-The ERC-5643 `cancelSubscription(tokenId)` adapter cannot express a ceiling and
-therefore authorizes the full execution-time top-up. It exists for standards
-compatibility; operational interfaces should prefer the bounded canonical path.
-
-For an operator-initiated refund, first pause the tier and wait for that
-transaction to confirm. Read `previewRefund(tokenId)` from confirmed paused
-state, then submit `refund(tokenId, grossRefund, ownerTopUp)` with those returned
-values as the ceilings. Keep the tier paused until the refund confirms; unpause
-in a separate transaction afterward. Any subscriber payment already pending
-when the pause confirms will revert, so it cannot increase the refundable time
-between preview and execution. Other accounting changes can still make the
-bounded refund revert safely and require a fresh preview. Operator applications
-must not use `cancelSubscription` for this workflow.
-
-## Custody buckets
-
-Factory custody is protocol fees plus any unsolicited factory surplus. Tier
-custody is divided into:
-
-- `creatorProceeds`, which the current tier owner can withdraw or spend on a
-  refund before supplying a top-up;
-- `rewardReserve`, including claimable rewards and protected rounding dust;
-- `totalReferralLiability`; and
-- unsolicited surplus, which has no withdrawal path in v1.
-
-The core solvency condition is:
-
-```text
-tier USDG balance >= creatorProceeds + rewardReserve + totalReferralLiability
-```
-
-Neither creator withdrawals nor refunds may consume reward/referral liabilities
-or unsolicited surplus. Across a closed local sequence, gross inflow equals
-protocol payouts + reward claims + referral claims + creator withdrawals +
-refunds + remaining factory/tier balances. The stateful invariant campaigns and
-`LocalLifecycleEvidence.t.sol` enforce these conservation relationships.
-
-## Worked end-to-end example
-
-Three 10 USDG payments at 1% protocol, 5% reward, and 1% referral comprise two
-referred self-payments and one unattributed gift. Custody immediately after the
-payments is 0.300000 in the factory and, in the tier, 28.000000 creator proceeds,
-1.500000 reward reserve, and 0.200000 referral liability.
-
-Halfway through the self-member's two paid periods, a full refund is 15.000000.
-It reduces creator proceeds to 13.000000 without touching rewards or referrals.
-After whole-unit rewards (1.083333 and 0.416666), referral (0.200000), creator
-(13.000000), and protocol (0.300000) exits, 0.000001 remains in the tier as
-protected reward rounding dust. Together with payer/recipient balances, all
-200.000000 mock USDG (200,000,000 base units) remains accounted for.
+Periodic refill is a separately submitted ordinary purchase funded by the current enrolled owner. It adds whole paid periods, ordinary allocations and current-curve weight only before expiration. Mandatory checkpointing, claims and cancellation never collect it. Failed collection rolls back its attempted catch-up; standalone accounting remains independent. Granted time counts toward the refill target, but only paid time counts against the exclusive `(N + 1) * periodDuration` paid cap (N=0 unlimited). New targets are bounded by N periods; whole-period purchases may overshoot the target by less than one period. See the integration guide for admission, cap-change and allowance semantics.

@@ -1,3 +1,7 @@
+import {
+  openMemberCancellation,
+  reviewMemberCancellation,
+} from "./helpers/cancellation";
 import { expectSingleOwnedPosition } from "./helpers/membership-positions";
 import { formatRawTokenAmount } from "../../src/lib/token-amount";
 import { expect, test, type Page } from "@playwright/test";
@@ -74,6 +78,10 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
       await expectOriginalRenderer(page);
       await page.getByRole("button", { name: /^risks$/i }).click();
       await page.getByRole("checkbox").nth(0).check();
+      await page.getByRole("button", { name: /^capacity$/i }).click();
+      await page
+        .getByLabel("Creator share when a member cancels (%)", { exact: true })
+        .fill("0");
       await page.getByRole("button", { name: /^review$/i }).click();
 
       const deploy = page.getByRole("button", {
@@ -212,19 +220,17 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
           .getByRole("button", { name: "Pause time increases" })
           .click();
         await expectReconciled(page, "Pause tier");
-        await page
-          .getByLabel("Membership token", { exact: true })
-          .fill(tokenId.toString());
-        await page.getByRole("button", { name: "Read refund preview" }).click();
+        await openMemberCancellation(page, deployedTier, tokenId);
+        await reviewMemberCancellation(page);
         const funding = await client.readContract({
           address: deployedTier,
           abi: membershipTierAbi,
-          functionName: "previewRefund",
-          args: [tokenId],
+          functionName: "previewCancellation",
+          args: [tokenId, (await client.getBlock()).timestamp + 1n, 25n],
         });
-        expect(funding.grossRefund).toBeGreaterThan(0n);
+        expect(funding.ownerRefund).toBeGreaterThan(0n);
         expect(funding.fundingScaled[3]).toBe(
-          funding.grossRefund * (1n << 128n),
+          funding.ownerRefund * (1n << 128n),
         );
         expect(funding.fundingScaled.slice(0, 3)).toEqual([0n, 0n, 0n]);
         const creatorBefore = await client.readContract({
@@ -234,10 +240,12 @@ for (const protocolPercent of ["1", "12.34", "100"]) {
           args: [creator],
         });
         await expect(page.locator(".refund-preview[aria-live]")).toContainText(
-          "Reserved unused membership payments",
+          "Minimum refund",
         );
-        await page.getByRole("button", { name: "Refund unused time" }).click();
-        await expectReconciled(page, `Refund membership #${tokenId}`);
+        await page
+          .getByRole("button", { name: /^Cancel membership #/ })
+          .click();
+        await expectReconciled(page, `Cancel membership #${tokenId}`);
         await expect(
           client.readContract({
             address: asset,
@@ -546,6 +554,10 @@ test("walks through defaults, arbitrary splits, risks, and immutable review", as
   const acknowledgements = page.getByRole("checkbox");
   await acknowledgements.nth(0).check();
 
+  await page.getByRole("button", { name: /^capacity$/i }).click();
+  await page
+    .getByLabel("Creator share when a member cancels (%)", { exact: true })
+    .fill("0");
   await page.getByRole("button", { name: /^review$/i }).click();
   await expect(
     page.getByText("33.33% / 65.67%", { exact: true }),
@@ -683,6 +695,10 @@ test("@anvil reward-curves publishes all presets and confirms execution-time wei
       }
       await page.getByRole("button", { name: /^risks$/i }).click();
       await page.getByRole("checkbox").nth(0).check();
+      await page.getByRole("button", { name: /^capacity$/i }).click();
+      await page
+        .getByLabel("Creator share when a member cancels (%)", { exact: true })
+        .fill("0");
       await page.getByRole("button", { name: /^review$/i }).click();
       const publish = page.getByRole("button", {
         name: "Publish this membership",

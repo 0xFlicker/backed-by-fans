@@ -3215,8 +3215,8 @@ dd {
 }
 
 .account-card-copy {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 1.25rem;
   min-height: 16rem;
   padding: 1.35rem;
@@ -3324,7 +3324,7 @@ dd {
 }
 
 .account-tier-actions {
-  align-self: end;
+  align-self: start;
   display: grid;
   gap: 0.75rem;
   justify-content: start;
@@ -3868,14 +3868,19 @@ dd {
   border-radius: var(--radius-small);
 }
 .payment-preview > div {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: baseline;
   padding: 0;
 }
 .payment-preview dd {
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums;
   min-height: 1.6em;
+}
+.payment-preview > .payment-preview-cancellation {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
 }
 .supporter-action > p[aria-live],
 .reward-preview-details p[aria-live] {

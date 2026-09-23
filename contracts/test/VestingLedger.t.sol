@@ -138,4 +138,56 @@ contract VestingLedgerTest is Test {
         assertEq(liabilities + refunded * Q, uint256(gross) * Q);
         assertLt(residue, Q + 4 * uint256(duration));
     }
+
+    function test_oneUnitCancellationRoundsTowardCreator() public {
+        harness.fund([uint256(1), 0, 0, 0], 7);
+        (uint256 paid, uint256 retained) = harness.cancel(1);
+        assertEq(paid, 0);
+        assertEq(retained, 1);
+        assertEq(harness.earned(0), Q);
+        (uint256 refunded, uint256 reportedRetained) = harness.cancellationTotals();
+        assertEq(refunded, 0);
+        assertEq(reportedRetained, 1);
+        assertEq(harness.claim(0), 1);
+        assertEq(token.balanceOf(address(harness)), 0);
+    }
+
+    function testFuzz_retentionPreservesConservationAfterClaims(
+        uint32 gross,
+        uint32 duration,
+        uint32 elapsed,
+        uint16 retention
+    ) public {
+        gross = uint32(bound(gross, 1, 1_000_000_000));
+        duration = uint32(bound(duration, 1, type(uint32).max));
+        elapsed = uint32(bound(elapsed, 0, duration));
+        retention = uint16(bound(retention, 0, 10_000));
+        uint256 quarter = gross / 4;
+        harness.fund([uint256(gross) - 3 * quarter, quarter, quarter, quarter], duration);
+        vm.warp(VestingFixtures.START + elapsed);
+        harness.advance();
+        uint256 claimed;
+        for (uint256 i; i < 4; ++i) {
+            claimed += harness.claim(i);
+        }
+        uint256 earnedCreator = harness.earned(0);
+        (uint256 paid, uint256 retained) = harness.cancel(retention);
+        uint256 unused = uint256(gross) * (duration - elapsed) / duration;
+        assertEq(paid, unused * (10_000 - retention) / 10_000);
+        assertEq(paid + retained, unused);
+        assertEq(harness.earned(0), earnedCreator + retained * Q);
+        (uint256 refunded, uint256 reportedRetained) = harness.cancellationTotals();
+        assertEq(refunded, paid);
+        assertEq(reportedRetained, retained);
+        uint256 liabilities;
+        for (uint256 i; i < 4; ++i) {
+            assertEq(harness.reserved(i), 0);
+            liabilities += harness.earned(i) + harness.cancellationRounding(i);
+        }
+        assertEq(token.balanceOf(address(harness)) * Q, liabilities);
+        assertEq((claimed + paid) * Q + liabilities, uint256(gross) * Q);
+        uint256 creatorClaim = harness.claim(0);
+        assertGe(creatorClaim, retained);
+        assertEq(token.balanceOf(address(harness)) * Q, liabilities - creatorClaim * Q);
+    }
 }

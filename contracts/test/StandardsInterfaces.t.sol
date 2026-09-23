@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {Test} from "forge-std/Test.sol";
@@ -17,7 +18,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract StandardsInterfacesTest is Test {
     function test_membershipInterfaceMatchesWebAuthenticityRequirement() public pure {
-        assertEq(type(IMembershipTier).interfaceId, bytes4(0xaa0af8b7));
+        assertEq(type(IMembershipTier).interfaceId, bytes4(0x71631828));
     }
 
     function test_erc5643CancellationPreservesAccountingAtomicityAndRetiresWeight() public {
@@ -46,6 +47,7 @@ contract StandardsInterfacesTest is Test {
         vm.warp(1010);
         tier.setPaused(true);
         bytes32 stateBefore = _fingerprint(tier);
+        vm.prank(first);
         vm.expectRevert(
             abi.encodeWithSelector(
                 MembershipTier.AccountingBehind.selector, uint64(1010), uint64(1010)
@@ -54,10 +56,14 @@ contract StandardsInterfacesTest is Test {
         tier.cancelSubscription(1);
         assertEq(_fingerprint(tier), stateBefore);
         tier.processAccounting(25);
-        vm.prank(first);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, first));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC721Errors.ERC721InsufficientApproval.selector, address(this), 1
+            )
+        );
         tier.cancelSubscription(1);
         while (!tier.accountingStatus().complete) tier.processAccounting(25);
+        vm.prank(first);
         tier.cancelSubscription(1);
         (uint64 paid, uint64 granted,) = tier.timeBalances(1);
         assertEq(paid, 0);

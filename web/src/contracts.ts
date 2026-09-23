@@ -2655,6 +2655,12 @@ export const membershipFactoryAbi = [
           { name: "supplyCap", internalType: "uint64", type: "uint64" },
           { name: "maxPrepaidPeriods", internalType: "uint64", type: "uint64" },
           {
+            name: "creatorRetentionBps",
+            internalType: "uint16",
+            type: "uint16",
+          },
+          { name: "periodicEnabled", internalType: "bool", type: "bool" },
+          {
             name: "metadata",
             internalType: "struct MembershipTypes.TierMetadata",
             type: "tuple",
@@ -3239,6 +3245,7 @@ export const membershipFactoryAbi = [
   },
   { type: "error", inputs: [], name: "EmptyPaymentTokenList" },
   { type: "error", inputs: [], name: "FailedDeployment" },
+  { type: "error", inputs: [], name: "IncorrectPricingMode" },
   {
     type: "error",
     inputs: [
@@ -3250,6 +3257,7 @@ export const membershipFactoryAbi = [
   { type: "error", inputs: [], name: "InvalidAddress" },
   { type: "error", inputs: [], name: "InvalidClaimBatch" },
   { type: "error", inputs: [], name: "InvalidContract" },
+  { type: "error", inputs: [], name: "InvalidCreatorRetention" },
   { type: "error", inputs: [], name: "InvalidMinimumPayment" },
   { type: "error", inputs: [], name: "InvalidPageSize" },
   {
@@ -3653,6 +3661,22 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
+    inputs: [
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "expectedOwner", internalType: "address", type: "address" },
+      { name: "minOwnerRefund", internalType: "uint256", type: "uint256" },
+      { name: "deadline", internalType: "uint64", type: "uint64" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
+    ],
+    name: "cancelMembership",
+    outputs: [
+      { name: "ownerRefund", internalType: "uint256", type: "uint256" },
+      { name: "creatorRetained", internalType: "uint256", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
     name: "cancelSubscription",
     outputs: [],
@@ -3785,6 +3809,13 @@ export const membershipTierAbi = [
   {
     type: "function",
     inputs: [],
+    name: "creatorRetentionBps",
+    outputs: [{ name: "", internalType: "uint16", type: "uint16" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
     name: "description",
     outputs: [{ name: "", internalType: "string", type: "string" }],
     stateMutability: "view",
@@ -3795,6 +3826,13 @@ export const membershipTierAbi = [
     name: "earlySupportGross",
     outputs: [{ name: "", internalType: "uint112", type: "uint112" }],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "enablePeriodicRefill",
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -3899,6 +3937,12 @@ export const membershipTierAbi = [
           },
           { name: "supplyCap", internalType: "uint64", type: "uint64" },
           { name: "maxPrepaidPeriods", internalType: "uint64", type: "uint64" },
+          {
+            name: "creatorRetentionBps",
+            internalType: "uint16",
+            type: "uint16",
+          },
+          { name: "periodicEnabled", internalType: "bool", type: "bool" },
           {
             name: "metadata",
             internalType: "struct MembershipTypes.TierMetadata",
@@ -4101,6 +4145,13 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
+    inputs: [],
+    name: "periodicEnabled",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [
       { name: "tokenId", internalType: "uint256", type: "uint256" },
       { name: "beneficiary", internalType: "address", type: "address" },
@@ -4249,6 +4300,71 @@ export const membershipTierAbi = [
   {
     type: "function",
     inputs: [
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "deadline", internalType: "uint64", type: "uint64" },
+      { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
+    ],
+    name: "previewCancellation",
+    outputs: [
+      {
+        name: "result",
+        internalType: "struct MembershipTypes.CancellationPreview",
+        type: "tuple",
+        components: [
+          { name: "tokenId", internalType: "uint256", type: "uint256" },
+          {
+            name: "lifecycle",
+            internalType: "enum MembershipTypes.MembershipLifecycle",
+            type: "uint8",
+          },
+          { name: "cancellationEligible", internalType: "bool", type: "bool" },
+          { name: "quoteAvailable", internalType: "bool", type: "bool" },
+          {
+            name: "unavailableReason",
+            internalType: "enum MembershipTypes.CancellationUnavailableReason",
+            type: "uint8",
+          },
+          { name: "owner", internalType: "address", type: "address" },
+          { name: "asOf", internalType: "uint64", type: "uint64" },
+          { name: "accountedThrough", internalType: "uint64", type: "uint64" },
+          { name: "processedSteps", internalType: "uint256", type: "uint256" },
+          { name: "complete", internalType: "bool", type: "bool" },
+          {
+            name: "creatorRetentionBps",
+            internalType: "uint16",
+            type: "uint16",
+          },
+          { name: "deadline", internalType: "uint64", type: "uint64" },
+          { name: "minOwnerRefund", internalType: "uint256", type: "uint256" },
+          { name: "canceledGross", internalType: "uint256", type: "uint256" },
+          { name: "ownerRefund", internalType: "uint256", type: "uint256" },
+          { name: "creatorRetained", internalType: "uint256", type: "uint256" },
+          { name: "paidSeconds", internalType: "uint64", type: "uint64" },
+          { name: "grantSeconds", internalType: "uint64", type: "uint64" },
+          {
+            name: "earnedCreditScaled",
+            internalType: "uint256",
+            type: "uint256",
+          },
+          {
+            name: "fundingScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          {
+            name: "cancellationScaled",
+            internalType: "uint256[4]",
+            type: "uint256[4]",
+          },
+          { name: "generation", internalType: "uint256", type: "uint256" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
       { name: "beneficiary", internalType: "address", type: "address" },
       { name: "tokenIds", internalType: "uint256[]", type: "uint256[]" },
       { name: "maxSteps", internalType: "uint256", type: "uint256" },
@@ -4314,6 +4430,11 @@ export const membershipTierAbi = [
         components: [
           { name: "grossReceived", internalType: "uint256", type: "uint256" },
           { name: "refunded", internalType: "uint256", type: "uint256" },
+          {
+            name: "creatorCancellationProceeds",
+            internalType: "uint256",
+            type: "uint256",
+          },
           { name: "paidRaw", internalType: "uint256[4]", type: "uint256[4]" },
           {
             name: "earnedScaled",
@@ -4389,34 +4510,95 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
-    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
-    name: "previewRefund",
+    inputs: [
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "maxPeriods", internalType: "uint256", type: "uint256" },
+    ],
+    name: "previewRefill",
     outputs: [
       {
         name: "",
-        internalType: "struct MembershipTypes.RefundPreview",
+        internalType: "struct MembershipTypes.RefillPreview",
         type: "tuple",
         components: [
-          { name: "recipient", internalType: "address", type: "address" },
+          { name: "tokenId", internalType: "uint256", type: "uint256" },
+          {
+            name: "lifecycle",
+            internalType: "enum MembershipTypes.MembershipLifecycle",
+            type: "uint8",
+          },
+          { name: "owner", internalType: "address", type: "address" },
+          {
+            name: "enrollment",
+            internalType: "struct MembershipTypes.RefillEnrollment",
+            type: "tuple",
+            components: [
+              {
+                name: "authorizingOwner",
+                internalType: "address",
+                type: "address",
+              },
+              { name: "targetSeconds", internalType: "uint64", type: "uint64" },
+              {
+                name: "pendingReferralChoice",
+                internalType: "address",
+                type: "address",
+              },
+            ],
+          },
+          { name: "asOf", internalType: "uint64", type: "uint64" },
+          { name: "expiration", internalType: "uint64", type: "uint64" },
           { name: "paidSeconds", internalType: "uint64", type: "uint64" },
           { name: "grantSeconds", internalType: "uint64", type: "uint64" },
-          { name: "accessAsOf", internalType: "uint64", type: "uint64" },
-          { name: "accountingAsOf", internalType: "uint64", type: "uint64" },
-          { name: "grossRefund", internalType: "uint256", type: "uint256" },
           {
-            name: "fundingScaled",
-            internalType: "uint256[4]",
-            type: "uint256[4]",
+            name: "effectiveReferral",
+            internalType: "address",
+            type: "address",
+          },
+          { name: "balance", internalType: "uint256", type: "uint256" },
+          { name: "allowance", internalType: "uint256", type: "uint256" },
+          { name: "desiredPeriods", internalType: "uint256", type: "uint256" },
+          { name: "periods", internalType: "uint256", type: "uint256" },
+          { name: "gross", internalType: "uint256", type: "uint256" },
+          {
+            name: "resultingExpiration",
+            internalType: "uint64",
+            type: "uint64",
           },
           {
-            name: "cancellationScaled",
-            internalType: "uint256[4]",
-            type: "uint256[4]",
+            name: "reason",
+            internalType: "enum MembershipTypes.RefillReason",
+            type: "uint8",
           },
-          { name: "generation", internalType: "uint256", type: "uint256" },
-          { name: "complete", internalType: "bool", type: "bool" },
-          { name: "fundingAsOf", internalType: "uint64", type: "uint64" },
-          { name: "projected", internalType: "bool", type: "bool" },
+          {
+            name: "accounting",
+            internalType: "struct MembershipTypes.AccountingStatus",
+            type: "tuple",
+            components: [
+              {
+                name: "accountedThrough",
+                internalType: "uint64",
+                type: "uint64",
+              },
+              { name: "nextBoundary", internalType: "uint64", type: "uint64" },
+              {
+                name: "scheduledMembers",
+                internalType: "uint256",
+                type: "uint256",
+              },
+              {
+                name: "scheduledExpirations",
+                internalType: "uint256",
+                type: "uint256",
+              },
+              {
+                name: "nextKind",
+                internalType: "enum MembershipTypes.BoundaryKind",
+                type: "uint8",
+              },
+              { name: "complete", internalType: "bool", type: "bool" },
+            ],
+          },
         ],
       },
     ],
@@ -4532,15 +4714,54 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "refillEnrollment",
+    outputs: [
+      {
+        name: "",
+        internalType: "struct MembershipTypes.RefillEnrollment",
+        type: "tuple",
+        components: [
+          {
+            name: "authorizingOwner",
+            internalType: "address",
+            type: "address",
+          },
+          { name: "targetSeconds", internalType: "uint64", type: "uint64" },
+          {
+            name: "pendingReferralChoice",
+            internalType: "address",
+            type: "address",
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [
       { name: "tokenId", internalType: "uint256", type: "uint256" },
-      { name: "expectedOwner", internalType: "address", type: "address" },
-      { name: "maxGrossRefund", internalType: "uint256", type: "uint256" },
+      { name: "maxPeriods", internalType: "uint256", type: "uint256" },
       { name: "maxAccountingSteps", internalType: "uint256", type: "uint256" },
     ],
-    name: "refund",
+    name: "refillMembership",
     outputs: [
-      { name: "grossRefund", internalType: "uint256", type: "uint256" },
+      {
+        name: "result",
+        internalType: "struct MembershipTypes.RefillResult",
+        type: "tuple",
+        components: [
+          {
+            name: "reason",
+            internalType: "enum MembershipTypes.RefillReason",
+            type: "uint8",
+          },
+          { name: "periods", internalType: "uint256", type: "uint256" },
+          { name: "gross", internalType: "uint256", type: "uint256" },
+          { name: "expiration", internalType: "uint64", type: "uint64" },
+        ],
+      },
     ],
     stateMutability: "nonpayable",
   },
@@ -4737,6 +4958,13 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "nextBps", internalType: "uint16", type: "uint16" }],
+    name: "setCreatorRetentionBps",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     inputs: [{ name: "newMaximum", internalType: "uint64", type: "uint64" }],
     name: "setMaxPrepaidPeriods",
     outputs: [],
@@ -4804,6 +5032,17 @@ export const membershipTierAbi = [
   },
   {
     type: "function",
+    inputs: [
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "targetSeconds", internalType: "uint64", type: "uint64" },
+      { name: "referralChoice", internalType: "address", type: "address" },
+    ],
+    name: "setRefillTarget",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     inputs: [{ name: "newSupplyCap", internalType: "uint64", type: "uint64" }],
     name: "setSupplyCap",
     outputs: [],
@@ -4839,6 +5078,13 @@ export const membershipTierAbi = [
     name: "startingBoostBps",
     outputs: [{ name: "", internalType: "uint32", type: "uint32" }],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "stopRefill",
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -5080,6 +5326,49 @@ export const membershipTierAbi = [
     anonymous: false,
     inputs: [
       {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "generation",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "canceledGross",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "ownerRefund",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "creatorRetained",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "fundingScaled",
+        internalType: "uint256[4]",
+        type: "uint256[4]",
+        indexed: false,
+      },
+    ],
+    name: "CancellationFunded",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
         name: "owner",
         internalType: "address",
         type: "address",
@@ -5093,6 +5382,25 @@ export const membershipTierAbi = [
       },
     ],
     name: "CreatorProceedsWithdrawn",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "previousBps",
+        internalType: "uint16",
+        type: "uint16",
+        indexed: false,
+      },
+      {
+        name: "newBps",
+        internalType: "uint16",
+        type: "uint16",
+        indexed: false,
+      },
+    ],
+    name: "CreatorRetentionUpdated",
   },
   {
     type: "event",
@@ -5251,15 +5559,45 @@ export const membershipTierAbi = [
         indexed: true,
       },
       {
-        name: "recipient",
+        name: "owner",
         internalType: "address",
         type: "address",
         indexed: true,
       },
       {
-        name: "grossRefund",
+        name: "operator",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "generation",
         internalType: "uint256",
         type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "canceledGross",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "ownerRefund",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "creatorRetained",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "creatorRetentionBps",
+        internalType: "uint16",
+        type: "uint16",
         indexed: false,
       },
       {
@@ -5275,7 +5613,50 @@ export const membershipTierAbi = [
         indexed: false,
       },
     ],
-    name: "MembershipRefunded",
+    name: "MembershipCanceled",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "executor",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "periods",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "gross",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "expiration",
+        internalType: "uint64",
+        type: "uint64",
+        indexed: false,
+      },
+    ],
+    name: "MembershipRefilled",
   },
   {
     type: "event",
@@ -5481,6 +5862,12 @@ export const membershipTierAbi = [
   {
     type: "event",
     anonymous: false,
+    inputs: [],
+    name: "PeriodicRefillEnabled",
+  },
+  {
+    type: "event",
+    anonymous: false,
     inputs: [
       {
         name: "previousRenderer",
@@ -5601,25 +5988,44 @@ export const membershipTierAbi = [
         indexed: true,
       },
       {
-        name: "generation",
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "RefillStopped",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "tokenId",
         internalType: "uint256",
         type: "uint256",
         indexed: true,
       },
       {
-        name: "grossRefund",
-        internalType: "uint256",
-        type: "uint256",
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "targetSeconds",
+        internalType: "uint64",
+        type: "uint64",
         indexed: false,
       },
       {
-        name: "fundingScaled",
-        internalType: "uint256[4]",
-        type: "uint256[4]",
+        name: "referralChoice",
+        internalType: "address",
+        type: "address",
         indexed: false,
       },
     ],
-    name: "RefundFunded",
+    name: "RefillTargetSet",
   },
   {
     type: "event",
@@ -5862,19 +6268,13 @@ export const membershipTierAbi = [
     ],
     name: "ERC721OutOfBoundsIndex",
   },
-  {
-    type: "error",
-    inputs: [
-      { name: "required", internalType: "uint256", type: "uint256" },
-      { name: "maximum", internalType: "uint256", type: "uint256" },
-    ],
-    name: "GrossRefundLimitExceeded",
-  },
   { type: "error", inputs: [], name: "IncorrectPricingMode" },
   { type: "error", inputs: [], name: "InexactTokenTransfer" },
   { type: "error", inputs: [], name: "InvalidAccountingSteps" },
   { type: "error", inputs: [], name: "InvalidAddress" },
+  { type: "error", inputs: [], name: "InvalidCancellationDeadline" },
   { type: "error", inputs: [], name: "InvalidClaim" },
+  { type: "error", inputs: [], name: "InvalidCreatorRetention" },
   { type: "error", inputs: [], name: "InvalidExpiration" },
   { type: "error", inputs: [], name: "InvalidInitialization" },
   { type: "error", inputs: [], name: "InvalidMediaConfig" },
@@ -5885,6 +6285,7 @@ export const membershipTierAbi = [
   { type: "error", inputs: [], name: "InvalidPeriods" },
   { type: "error", inputs: [], name: "InvalidPositionPage" },
   { type: "error", inputs: [], name: "InvalidRateTotal" },
+  { type: "error", inputs: [], name: "InvalidRefillTarget" },
   { type: "error", inputs: [], name: "InvalidRenderer" },
   { type: "error", inputs: [], name: "InvalidText" },
   { type: "error", inputs: [], name: "InvalidTierSalt" },
@@ -5910,6 +6311,14 @@ export const membershipTierAbi = [
     ],
     name: "MembershipOwnerMismatch",
   },
+  {
+    type: "error",
+    inputs: [
+      { name: "actual", internalType: "uint256", type: "uint256" },
+      { name: "minimum", internalType: "uint256", type: "uint256" },
+    ],
+    name: "MinimumRefundNotMet",
+  },
   { type: "error", inputs: [], name: "NativeValueRejected" },
   { type: "error", inputs: [], name: "NoGrantTime" },
   { type: "error", inputs: [], name: "NotInitializing" },
@@ -5932,11 +6341,14 @@ export const membershipTierAbi = [
     ],
     name: "PaymentBelowMinimum",
   },
+  { type: "error", inputs: [], name: "PeriodicRefillDisabled" },
   { type: "error", inputs: [], name: "PrepaymentLimitExceeded" },
   { type: "error", inputs: [], name: "ReentrancyGuardReentrantCall" },
   { type: "error", inputs: [], name: "ReferralChoiceMismatch" },
   { type: "error", inputs: [], name: "ReferralChoiceRequired" },
   { type: "error", inputs: [], name: "ReferralStateMismatch" },
+  { type: "error", inputs: [], name: "RefillNoLongerAvailable" },
+  { type: "error", inputs: [], name: "RefillNotEnrolled" },
   {
     type: "error",
     inputs: [
@@ -12181,6 +12593,18 @@ export const useReadMembershipTierCreatorProceeds =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"creatorRetentionBps"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useReadMembershipTierCreatorRetentionBps =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "creatorRetentionBps",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"description"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -12456,6 +12880,18 @@ export const useReadMembershipTierPeriodDuration =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"periodicEnabled"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useReadMembershipTierPeriodicEnabled =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "periodicEnabled",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"previewAccounting"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -12465,6 +12901,18 @@ export const useReadMembershipTierPreviewAccounting =
     abi: membershipTierAbi,
     address: membershipTierAddress,
     functionName: "previewAccounting",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"previewCancellation"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useReadMembershipTierPreviewCancellation =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "previewCancellation",
   });
 
 /**
@@ -12492,15 +12940,15 @@ export const useReadMembershipTierPreviewPaymentTotals =
   });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"previewRefund"`
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"previewRefill"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
  */
-export const useReadMembershipTierPreviewRefund =
+export const useReadMembershipTierPreviewRefill =
   /*#__PURE__*/ createUseReadContract({
     abi: membershipTierAbi,
     address: membershipTierAddress,
-    functionName: "previewRefund",
+    functionName: "previewRefill",
   });
 
 /**
@@ -12573,6 +13021,18 @@ export const useReadMembershipTierReferralOf =
     abi: membershipTierAbi,
     address: membershipTierAddress,
     functionName: "referralOf",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"refillEnrollment"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useReadMembershipTierRefillEnrollment =
+  /*#__PURE__*/ createUseReadContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "refillEnrollment",
   });
 
 /**
@@ -12873,6 +13333,18 @@ export const useWriteMembershipTierApprove =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"cancelMembership"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWriteMembershipTierCancelMembership =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "cancelMembership",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"cancelSubscription"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -12969,6 +13441,18 @@ export const useWriteMembershipTierCreateMembership =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"enablePeriodicRefill"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWriteMembershipTierEnablePeriodicRefill =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "enablePeriodicRefill",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"giftMembership"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -13041,15 +13525,15 @@ export const useWriteMembershipTierProcessExpirations =
   });
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"refund"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"refillMembership"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
  */
-export const useWriteMembershipTierRefund =
+export const useWriteMembershipTierRefillMembership =
   /*#__PURE__*/ createUseWriteContract({
     abi: membershipTierAbi,
     address: membershipTierAddress,
-    functionName: "refund",
+    functionName: "refillMembership",
   });
 
 /**
@@ -13137,6 +13621,18 @@ export const useWriteMembershipTierSetApprovalForAll =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setCreatorRetentionBps"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWriteMembershipTierSetCreatorRetentionBps =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "setCreatorRetentionBps",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setMaxPrepaidPeriods"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -13173,6 +13669,18 @@ export const useWriteMembershipTierSetPresentation =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setRefillTarget"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWriteMembershipTierSetRefillTarget =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "setRefillTarget",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setSupplyCap"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -13194,6 +13702,18 @@ export const useWriteMembershipTierSetTierMetadata =
     abi: membershipTierAbi,
     address: membershipTierAddress,
     functionName: "setTierMetadata",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"stopRefill"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWriteMembershipTierStopRefill =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "stopRefill",
   });
 
 /**
@@ -13277,6 +13797,18 @@ export const useSimulateMembershipTierApprove =
     abi: membershipTierAbi,
     address: membershipTierAddress,
     functionName: "approve",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"cancelMembership"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useSimulateMembershipTierCancelMembership =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "cancelMembership",
   });
 
 /**
@@ -13376,6 +13908,18 @@ export const useSimulateMembershipTierCreateMembership =
   });
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"enablePeriodicRefill"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useSimulateMembershipTierEnablePeriodicRefill =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "enablePeriodicRefill",
+  });
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"giftMembership"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -13448,15 +13992,15 @@ export const useSimulateMembershipTierProcessExpirations =
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"refund"`
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"refillMembership"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
  */
-export const useSimulateMembershipTierRefund =
+export const useSimulateMembershipTierRefillMembership =
   /*#__PURE__*/ createUseSimulateContract({
     abi: membershipTierAbi,
     address: membershipTierAddress,
-    functionName: "refund",
+    functionName: "refillMembership",
   });
 
 /**
@@ -13544,6 +14088,18 @@ export const useSimulateMembershipTierSetApprovalForAll =
   });
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setCreatorRetentionBps"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useSimulateMembershipTierSetCreatorRetentionBps =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "setCreatorRetentionBps",
+  });
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setMaxPrepaidPeriods"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -13580,6 +14136,18 @@ export const useSimulateMembershipTierSetPresentation =
   });
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setRefillTarget"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useSimulateMembershipTierSetRefillTarget =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "setRefillTarget",
+  });
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"setSupplyCap"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -13601,6 +14169,18 @@ export const useSimulateMembershipTierSetTierMetadata =
     abi: membershipTierAbi,
     address: membershipTierAddress,
     functionName: "setTierMetadata",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link membershipTierAbi}__ and `functionName` set to `"stopRefill"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useSimulateMembershipTierStopRefill =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    functionName: "stopRefill",
   });
 
 /**
@@ -13699,6 +14279,18 @@ export const useWatchMembershipTierBatchMetadataUpdateEvent =
   });
 
 /**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"CancellationFunded"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWatchMembershipTierCancellationFundedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    eventName: "CancellationFunded",
+  });
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"CreatorProceedsWithdrawn"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -13708,6 +14300,18 @@ export const useWatchMembershipTierCreatorProceedsWithdrawnEvent =
     abi: membershipTierAbi,
     address: membershipTierAddress,
     eventName: "CreatorProceedsWithdrawn",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"CreatorRetentionUpdated"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWatchMembershipTierCreatorRetentionUpdatedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    eventName: "CreatorRetentionUpdated",
   });
 
 /**
@@ -13771,15 +14375,27 @@ export const useWatchMembershipTierMaxPrepaidPeriodsUpdatedEvent =
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"MembershipRefunded"`
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"MembershipCanceled"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
  */
-export const useWatchMembershipTierMembershipRefundedEvent =
+export const useWatchMembershipTierMembershipCanceledEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipTierAbi,
     address: membershipTierAddress,
-    eventName: "MembershipRefunded",
+    eventName: "MembershipCanceled",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"MembershipRefilled"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWatchMembershipTierMembershipRefilledEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    eventName: "MembershipRefilled",
   });
 
 /**
@@ -13879,6 +14495,18 @@ export const useWatchMembershipTierPaymentProcessedEvent =
   });
 
 /**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"PeriodicRefillEnabled"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWatchMembershipTierPeriodicRefillEnabledEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    eventName: "PeriodicRefillEnabled",
+  });
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"PresentationUpdated"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
@@ -13927,15 +14555,27 @@ export const useWatchMembershipTierReferralLockedEvent =
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"RefundFunded"`
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"RefillStopped"`
  *
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
  */
-export const useWatchMembershipTierRefundFundedEvent =
+export const useWatchMembershipTierRefillStoppedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: membershipTierAbi,
     address: membershipTierAddress,
-    eventName: "RefundFunded",
+    eventName: "RefillStopped",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link membershipTierAbi}__ and `eventName` set to `"RefillTargetSet"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0x573A8219F28F93b819464d95e46Dd801d19557C2)
+ */
+export const useWatchMembershipTierRefillTargetSetEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: membershipTierAbi,
+    address: membershipTierAddress,
+    eventName: "RefillTargetSet",
   });
 
 /**

@@ -36,7 +36,7 @@ export default defineConfig({
       // Use the consumer build, excluding the separately preserved ledger build
       // and OpenZeppelin's import-only IERC165 alias (which has no ABI). The
       // canonical introspection interface remains included for capability reads.
-      exclude: ["vesting-leaf/**", "interfaces/IERC165.sol/**"],
+      exclude: ["vesting-leaf/**", "agents/**", "interfaces/IERC165.sol/**"],
       include: [
         "MembershipTier.sol/**",
         "OnchainMediaStoreFactory.sol/**",

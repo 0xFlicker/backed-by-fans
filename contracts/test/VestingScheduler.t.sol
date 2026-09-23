@@ -131,7 +131,7 @@ contract VestingSchedulerHarness {
     }
 
     function cancel(uint256 member) external returns (uint256) {
-        (uint256 gross,,) = VestingLedger.cancelFunding(ledger, member);
+        (uint256 gross,,) = VestingLedger.cancelFunding(ledger, member, 0);
         return gross;
     }
 

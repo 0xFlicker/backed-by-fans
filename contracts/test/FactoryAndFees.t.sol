@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
+import {cancelPayout} from "./helpers/CancellationAssertions.sol";
 import {LinkedVestingFixture} from "./helpers/LinkedVestingFixture.sol";
 import {SyntheticPonsBinding} from "./helpers/SyntheticPonsBinding.sol";
 
@@ -954,8 +955,7 @@ contract FactoryAndFeesTest is Test {
         assertGt(tier.claimReward(id, 25), 0);
         vm.prank(creator);
         assertGt(tier.withdrawCreatorProceeds(), 0);
-        vm.prank(creator);
-        assertEq(tier.refund(id, address(this), cap, 25), cap / 2);
+        assertEq(cancelPayout(tier, id, address(this), cap / 2, 25), cap / 2);
         assertEq(tier.lifetimeGross(), cap);
         assertEq(tier.sharesOf(id), 0);
         tier.createContributionMembership(0, address(0), 25);
