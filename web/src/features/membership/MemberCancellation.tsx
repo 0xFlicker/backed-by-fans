@@ -121,8 +121,9 @@ export function MemberCancellation({
     >
       <h2>Cancel membership</h2>
       <p>
-        Permanently end this NFT’s access and reward weight. Return refundable
-        funding to its owner; earned rewards remain claimable.
+        Permanently end this NFT’s access and reward weight. The current owner
+        receives the refundable share of unused funding; earned rewards remain
+        claimable.
       </p>
       <div className="cancellation-membership">
         {tokenId !== undefined ? (
