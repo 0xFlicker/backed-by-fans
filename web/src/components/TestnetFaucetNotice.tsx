@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { robinhoodTestnet } from "viem/chains";
 import { useActiveNetwork } from "@/lib/use-active-network";
+import { testUSDGAddress } from "@/lib/config";
 
 const subscribe = () => () => undefined;
 
@@ -36,15 +37,26 @@ export function TestnetFaucetNotice() {
         <span aria-hidden="true">×</span>
       </button>
       <h2 id="testnet-faucet-title">Trying out testnet?</h2>
-      <p>Get free test coins from the Robinhood faucet to get started.</p>
-      <a
-        href="https://faucet.testnet.chain.robinhood.com/"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Get test coins <span aria-hidden="true">↗</span>
-        <span className="sr-only"> (opens in a new tab)</span>
-      </a>
+      <p>Get test coins to try memberships.</p>
+      <div className="faucet-actions">
+        {testUSDGAddress(robinhoodTestnet.id) && (
+          <a
+            className="button button-outline"
+            href={`/chains/${robinhoodTestnet.id}/faucet`}
+          >
+            Claim 100 bUSD
+          </a>
+        )}
+        <a
+          className="button button-outline"
+          href="https://faucet.testnet.chain.robinhood.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Get test ETH <span aria-hidden="true">↗</span>
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      </div>
     </aside>
   );
 }

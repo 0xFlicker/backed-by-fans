@@ -9215,6 +9215,249 @@ export const rendererRegistryConfig = {
 } as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// TestUSDG
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const testUsdgAbi = [
+  { type: "constructor", inputs: [], stateMutability: "nonpayable" },
+  {
+    type: "function",
+    inputs: [],
+    name: "CLAIM_AMOUNT",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "COOLDOWN",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "spender", internalType: "address", type: "address" },
+    ],
+    name: "allowance",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "spender", internalType: "address", type: "address" },
+      { name: "value", internalType: "uint256", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "account", internalType: "address", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "claim",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "decimals",
+    outputs: [{ name: "", internalType: "uint8", type: "uint8" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "name",
+    outputs: [{ name: "", internalType: "string", type: "string" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "", internalType: "address", type: "address" }],
+    name: "nextClaimAt",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "symbol",
+    outputs: [{ name: "", internalType: "string", type: "string" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "totalSupply",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "to", internalType: "address", type: "address" },
+      { name: "value", internalType: "uint256", type: "uint256" },
+    ],
+    name: "transfer",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "value", internalType: "uint256", type: "uint256" },
+    ],
+    name: "transferFrom",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "spender",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "value",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "Approval",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "account",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "amount",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+      {
+        name: "nextClaimAt",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "Claimed",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "from", internalType: "address", type: "address", indexed: true },
+      { name: "to", internalType: "address", type: "address", indexed: true },
+      {
+        name: "value",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: false,
+      },
+    ],
+    name: "Transfer",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "availableAt", internalType: "uint256", type: "uint256" }],
+    name: "CooldownActive",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "spender", internalType: "address", type: "address" },
+      { name: "allowance", internalType: "uint256", type: "uint256" },
+      { name: "needed", internalType: "uint256", type: "uint256" },
+    ],
+    name: "ERC20InsufficientAllowance",
+  },
+  {
+    type: "error",
+    inputs: [
+      { name: "sender", internalType: "address", type: "address" },
+      { name: "balance", internalType: "uint256", type: "uint256" },
+      { name: "needed", internalType: "uint256", type: "uint256" },
+    ],
+    name: "ERC20InsufficientBalance",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "approver", internalType: "address", type: "address" }],
+    name: "ERC20InvalidApprover",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "receiver", internalType: "address", type: "address" }],
+    name: "ERC20InvalidReceiver",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "sender", internalType: "address", type: "address" }],
+    name: "ERC20InvalidSender",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "spender", internalType: "address", type: "address" }],
+    name: "ERC20InvalidSpender",
+  },
+  {
+    type: "error",
+    inputs: [{ name: "chainId", internalType: "uint256", type: "uint256" }],
+    name: "UnsupportedChain",
+  },
+] as const;
+
+/**
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const testUsdgAddress = {
+  46630: "0xdbbD302Fb4c20c1019814343BbA754869D0F6120",
+} as const;
+
+/**
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const testUsdgConfig = {
+  address: testUsdgAddress,
+  abi: testUsdgAbi,
+} as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // USDG
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -16520,6 +16763,271 @@ export const useWatchRendererRegistryRendererUnregisteredEvent =
     abi: rendererRegistryAbi,
     address: rendererRegistryAddress,
     eventName: "RendererUnregistered",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdg = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"CLAIM_AMOUNT"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgClaimAmount = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "CLAIM_AMOUNT",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"COOLDOWN"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgCooldown = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "COOLDOWN",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"allowance"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgAllowance = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "allowance",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"balanceOf"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgBalanceOf = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "balanceOf",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"decimals"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgDecimals = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "decimals",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"name"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgName = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "name",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"nextClaimAt"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgNextClaimAt = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "nextClaimAt",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"symbol"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgSymbol = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "symbol",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"totalSupply"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgTotalSupply = /*#__PURE__*/ createUseReadContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "totalSupply",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link testUsdgAbi}__
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useWriteTestUsdg = /*#__PURE__*/ createUseWriteContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"approve"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useWriteTestUsdgApprove = /*#__PURE__*/ createUseWriteContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "approve",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"claim"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useWriteTestUsdgClaim = /*#__PURE__*/ createUseWriteContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "claim",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"transfer"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useWriteTestUsdgTransfer = /*#__PURE__*/ createUseWriteContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+  functionName: "transfer",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"transferFrom"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useWriteTestUsdgTransferFrom =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: testUsdgAbi,
+    address: testUsdgAddress,
+    functionName: "transferFrom",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link testUsdgAbi}__
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useSimulateTestUsdg = /*#__PURE__*/ createUseSimulateContract({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+});
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"approve"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useSimulateTestUsdgApprove =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: testUsdgAbi,
+    address: testUsdgAddress,
+    functionName: "approve",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"claim"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useSimulateTestUsdgClaim = /*#__PURE__*/ createUseSimulateContract(
+  { abi: testUsdgAbi, address: testUsdgAddress, functionName: "claim" },
+);
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"transfer"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useSimulateTestUsdgTransfer =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: testUsdgAbi,
+    address: testUsdgAddress,
+    functionName: "transfer",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"transferFrom"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useSimulateTestUsdgTransferFrom =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: testUsdgAbi,
+    address: testUsdgAddress,
+    functionName: "transferFrom",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link testUsdgAbi}__
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useWatchTestUsdgEvent = /*#__PURE__*/ createUseWatchContractEvent({
+  abi: testUsdgAbi,
+  address: testUsdgAddress,
+});
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link testUsdgAbi}__ and `eventName` set to `"Approval"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useWatchTestUsdgApprovalEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: testUsdgAbi,
+    address: testUsdgAddress,
+    eventName: "Approval",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link testUsdgAbi}__ and `eventName` set to `"Claimed"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useWatchTestUsdgClaimedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: testUsdgAbi,
+    address: testUsdgAddress,
+    eventName: "Claimed",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link testUsdgAbi}__ and `eventName` set to `"Transfer"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useWatchTestUsdgTransferEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: testUsdgAbi,
+    address: testUsdgAddress,
+    eventName: "Transfer",
   });
 
 /**

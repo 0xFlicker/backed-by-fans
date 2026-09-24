@@ -143,6 +143,17 @@ export function publicRendererRegistryAddress(chainId: SupportedChainId) {
   return generatedRendererRegistryAddresses()[chainId];
 }
 
+export function testUSDGAddress(chainId: SupportedChainId) {
+  if (chainId === localAnvil.id) {
+    const value = process.env.NEXT_PUBLIC_ANVIL_TEST_USDG_ADDRESS;
+    return value ? parseRequiredAddress(value, "Local TestUSDG") : undefined;
+  }
+  if (chainId !== robinhoodTestnet.id) return undefined;
+  return generatedPublicAddresses("testUsdgAddress", "TestUSDG", "TestUSDG")[
+    chainId
+  ];
+}
+
 export function buildPublicConfig(
   environment: PublicEnvironment,
   factoryAddresses: Partial<

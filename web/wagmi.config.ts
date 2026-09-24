@@ -38,6 +38,7 @@ export default defineConfig({
       // canonical introspection interface remains included for capability reads.
       exclude: ["vesting-leaf/**", "agents/**", "interfaces/IERC165.sol/**"],
       include: [
+        "TestUSDG.sol/**",
         "MembershipTier.sol/**",
         "OnchainMediaStoreFactory.sol/**",
         "OnchainMetadataRenderer.sol/**",

@@ -47,7 +47,12 @@ The exact token addresses, metadata, decimals, runtime hashes, and observed ERC-
 | AMZN   | `0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02` |
 | TSLA   | `0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E` |
 
-There is no Backed By Fans test USDG deployment or mint path. Mainnet's only configured token is
+TestUSDG (`bUSD`) is deployed on chain 46630 at `0xdbbD302Fb4c20c1019814343BbA754869D0F6120`.
+Its caller-funded faucet mints 100 bUSD per wallet every 24 hours. For the next protocol
+release, onboard it through the Safe with `setMinimumPayment(token, 1000000)` followed
+by `setPaymentTokenEnabled(token, true)`; see [the faucet release notes](../release/test-usdg-faucet.md).
+It is separate from external USDG and requires no route while the protocol token is zero.
+Mainnet's only configured token is
 Paxos USDG at `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`; revalidate it before any future
 mainnet decision.
 

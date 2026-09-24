@@ -4362,11 +4362,21 @@ dd {
   line-height: 1.6;
 }
 
-.testnet-faucet-notice a {
+.faucet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.faucet-actions > .button {
+  flex: 1 1 10rem;
+  text-align: center;
+}
+
+.testnet-faucet-notice .faucet-actions > .button {
   font-size: 0.875rem;
   font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 0.25em;
 }
 
 .testnet-faucet-dismiss {

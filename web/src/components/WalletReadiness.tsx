@@ -5,7 +5,7 @@ import { useAccount, useBalance, useReadContract } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
-import { getDeployment, publicConfig } from "@/lib/config";
+import { getDeployment, publicConfig, testUSDGAddress } from "@/lib/config";
 import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
 import {
   classifyReadError,
@@ -89,6 +89,33 @@ function FundingGuidance({
     paymentTokenBalance,
     requiredPayment: estimatedCost,
   });
+  const faucetToken = testUSDGAddress(chainId);
+  if (
+    faucetToken &&
+    paymentToken?.address.toLowerCase() === faucetToken.toLowerCase() &&
+    readiness.paymentTokenShortfall
+  ) {
+    return (
+      <p className="readiness-guidance">
+        Need bUSD? <a href={`/chains/${chainId}/faucet`}>Claim 100 test bUSD</a>
+        .
+        {readiness.gasShortfall && (
+          <>
+            {" "}
+            For network fees,{" "}
+            <a
+              href="https://faucet.testnet.chain.robinhood.com/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              get test ETH ↗
+            </a>
+            .
+          </>
+        )}
+      </p>
+    );
+  }
   if (readiness.faucetUrl) {
     const missing = [
       readiness.gasShortfall ? "test ETH" : undefined,
