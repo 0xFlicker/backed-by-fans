@@ -18,6 +18,8 @@ vi.mock("wagmi", () => ({
 }));
 
 vi.mock("@/lib/config", () => ({
+  testUSDGAddress: (chainId: number) =>
+    chainId === robinhoodTestnet.id ? testnetToken : undefined,
   getDeployment: (_config: unknown, chainId: number) => ({
     status: "ready",
     chainId,
@@ -41,6 +43,35 @@ vi.mock("@/lib/use-active-network", () => ({
 import { WalletReadiness } from "@/components/WalletReadiness";
 
 describe("WalletReadiness", () => {
+  it("links an insufficient bUSD balance to the app faucet", () => {
+    render(
+      <WalletReadiness
+        expectedChainId={robinhoodTestnet.id}
+        estimatedCost={100_000_000n}
+        paymentToken={{
+          chainId: robinhoodTestnet.id,
+          factory: testnetFactory,
+          address: testnetToken,
+          registryIndex: 0,
+          minimumPayment: 1n,
+          listed: true,
+          enabled: true,
+          name: "TestUSDG",
+          symbol: "bUSD",
+          decimals: 6,
+          scaledUI: false,
+          uiMultiplier: 10n ** 18n,
+          newUIMultiplier: 10n ** 18n,
+          effectiveAt: 0n,
+          readBlock: 1n,
+        }}
+        verifiedBalances={{ eth: 1n, paymentToken: 0n }}
+      />,
+    );
+    expect(
+      screen.getByRole("link", { name: "Claim 100 test bUSD" }),
+    ).toHaveAttribute("href", "/chains/46630/faucet");
+  });
   it("labels route-chain balances with the route chain during a wallet mismatch", () => {
     render(
       <WalletReadiness
