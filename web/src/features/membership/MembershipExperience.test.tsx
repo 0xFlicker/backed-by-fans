@@ -359,6 +359,10 @@ describe("supporter membership experience", () => {
     expect(
       screen.getByRole("region", { name: "Membership maintenance" }),
     ).toBeVisible();
+    expect(
+      screen.getByLabelText("Transfer recipient wallet"),
+    ).not.toBeVisible();
+    await user.click(screen.getByText("Transfer membership", { exact: true }));
     const transfer = screen.getByRole("region", {
       name: "Transfer membership #1",
     });

@@ -22,7 +22,7 @@ import { operatorRoute } from "@/lib/buyback-policy/operator-route";
 import { readTokenDisplay } from "@/lib/payment-token-read";
 import {
   displayedToRaw,
-  formatRawTokenAmount,
+  formatLocalizedTokenAmount,
   tokenMultiplierScale,
   rawToDisplayedUnits,
 } from "@/lib/token-amount";
@@ -91,7 +91,7 @@ export function OperatorBuyback({
   };
   const earned = fees.get(asset.toLowerCase())?.earned ?? 0n;
   const amountLabel = (raw: bigint) =>
-    formatRawTokenAmount({ raw, ...display });
+    formatLocalizedTokenAmount({ raw, ...display });
   const authorized = Boolean(
     account.address &&
     account.address.toLowerCase() === snapshot.operator.toLowerCase() &&
@@ -510,7 +510,7 @@ export function OperatorBuyback({
             <div>
               <dt>You spend up to</dt>
               <dd>
-                {formatRawTokenAmount({
+                {formatLocalizedTokenAmount({
                   raw: quote.args[2],
                   ...quote.inputDisplay,
                 })}{" "}
@@ -520,7 +520,7 @@ export function OperatorBuyback({
             <div>
               <dt>Expected burn</dt>
               <dd>
-                {formatRawTokenAmount({
+                {formatLocalizedTokenAmount({
                   raw: quote.quotes.at(-1)!.outputRaw,
                   ...quote.legDisplays.at(-1)!,
                 })}{" "}
@@ -530,7 +530,7 @@ export function OperatorBuyback({
             <div>
               <dt>Minimum burn</dt>
               <dd>
-                {formatRawTokenAmount({
+                {formatLocalizedTokenAmount({
                   raw: quote.minima.at(-1)!,
                   ...quote.legDisplays.at(-1)!,
                 })}{" "}
@@ -553,7 +553,7 @@ export function OperatorBuyback({
             <ol>
               {quote.quotes.map((leg, i) => (
                 <li key={i} className={styles.reportCopy}>
-                  {formatRawTokenAmount({
+                  {formatLocalizedTokenAmount({
                     raw: quote.minima[i],
                     ...quote.legDisplays[i],
                   })}{" "}
@@ -581,7 +581,12 @@ export function OperatorBuyback({
       )}
       {action.data && (
         <p role="status">
-          Buyback confirmed. Burned {formatUnits(action.data.result.burned, 18)}{" "}
+          Buyback confirmed. Burned{" "}
+          {formatLocalizedTokenAmount({
+            raw: action.data.result.burned,
+            decimals: 18,
+            multiplier: tokenMultiplierScale,
+          })}{" "}
           protocol tokens.{" "}
           {explorer ? (
             <a href={`${explorer}/tx/${action.data.hash}`}>View transaction</a>

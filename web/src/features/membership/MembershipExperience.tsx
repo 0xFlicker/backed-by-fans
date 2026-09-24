@@ -2001,55 +2001,58 @@ export function MembershipExperience({
         {snapshot.credential &&
           snapshot.wallet &&
           isSameAddress(snapshot.credential.owner, snapshot.wallet) && (
-            <TransferMembership
-              key={snapshot.credential.tokenId.toString()}
-              tokenId={snapshot.credential.tokenId}
-              expiration={snapshot.credential.expiration}
-              asOf={snapshot.capturedTimestamp}
-              canOperate={
-                fresh &&
-                guard.enabled &&
-                walletReady &&
-                (snapshot.walletEthBalance ?? 0n) > 0n &&
-                !write.isPending &&
-                !isTransactionInFlight(transaction.phase)
-              }
-              pending={isTransactionInFlight(transaction.phase)}
-              onTransfer={(recipient) =>
-                perform(
-                  `Transfer membership #${snapshot.credential!.tokenId}`,
-                  tierWrite("safeTransferFrom", [
-                    snapshot.wallet!,
-                    recipient,
-                    snapshot.credential!.tokenId,
-                    "0x",
-                  ]),
-                  async (receipt) => {
-                    const result = await reconcileMembershipTransfer(
-                      client,
-                      receipt,
-                      {
-                        tier: snapshot.address,
-                        tokenId: snapshot.credential!.tokenId,
-                        from: snapshot.wallet!,
-                        to: recipient,
-                      },
-                    );
-                    if (!result) return undefined;
-                    setTransferOutcome(
-                      `Membership #${snapshot.credential!.tokenId} transferred to ${result.recipient}. ${result.currentOwner ? `Current owner: ${result.currentOwner}.` : "The position has since retired."}`,
-                    );
-                    await onRefresh(
-                      result.currentOwner &&
-                        isSameAddress(result.currentOwner, snapshot.wallet!)
-                        ? undefined
-                        : 0n,
-                    );
-                    return result;
-                  },
-                )
-              }
-            />
+            <details className="technical-details">
+              <summary>Transfer membership</summary>
+              <TransferMembership
+                key={snapshot.credential.tokenId.toString()}
+                tokenId={snapshot.credential.tokenId}
+                expiration={snapshot.credential.expiration}
+                asOf={snapshot.capturedTimestamp}
+                canOperate={
+                  fresh &&
+                  guard.enabled &&
+                  walletReady &&
+                  (snapshot.walletEthBalance ?? 0n) > 0n &&
+                  !write.isPending &&
+                  !isTransactionInFlight(transaction.phase)
+                }
+                pending={isTransactionInFlight(transaction.phase)}
+                onTransfer={(recipient) =>
+                  perform(
+                    `Transfer membership #${snapshot.credential!.tokenId}`,
+                    tierWrite("safeTransferFrom", [
+                      snapshot.wallet!,
+                      recipient,
+                      snapshot.credential!.tokenId,
+                      "0x",
+                    ]),
+                    async (receipt) => {
+                      const result = await reconcileMembershipTransfer(
+                        client,
+                        receipt,
+                        {
+                          tier: snapshot.address,
+                          tokenId: snapshot.credential!.tokenId,
+                          from: snapshot.wallet!,
+                          to: recipient,
+                        },
+                      );
+                      if (!result) return undefined;
+                      setTransferOutcome(
+                        `Membership #${snapshot.credential!.tokenId} transferred to ${result.recipient}. ${result.currentOwner ? `Current owner: ${result.currentOwner}.` : "The position has since retired."}`,
+                      );
+                      await onRefresh(
+                        result.currentOwner &&
+                          isSameAddress(result.currentOwner, snapshot.wallet!)
+                          ? undefined
+                          : 0n,
+                      );
+                      return result;
+                    },
+                  )
+                }
+              />
+            </details>
           )}
         {snapshot.pricePerPeriod > 0n && (
           <details className="gift-action">

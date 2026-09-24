@@ -160,6 +160,8 @@ test("@anvil transfers a selected live position while paused with an incomplete 
     await installAnvilWallet(page, member);
     await page.goto(`/chains/31337/tiers/${tier}?tokenId=${first}`);
     await connectAnvilWallet(page, member);
+    await expect(page.getByLabel("Transfer recipient wallet")).toBeHidden();
+    await page.getByText("Transfer membership", { exact: true }).click();
     const transfer = page.getByRole("region", {
       name: `Transfer membership #${first}`,
       exact: true,
