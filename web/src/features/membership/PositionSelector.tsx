@@ -17,6 +17,7 @@ export function PositionSelector({
   selectedTokenId,
   onSelect,
   busy,
+  selectOnly = false,
 }: {
   chainId: SupportedChainId;
   tier: Address;
@@ -26,6 +27,7 @@ export function PositionSelector({
   selectedTokenId: bigint;
   onSelect: (id: bigint) => void;
   busy: boolean;
+  selectOnly?: boolean;
 }) {
   const client = usePublicClient({ chainId });
   const [offset, setOffset] = useState(0n);
@@ -98,7 +100,7 @@ export function PositionSelector({
             </select>
           </label>
         )}
-        {selectedTokenId !== 0n && (
+        {!selectOnly && selectedTokenId !== 0n && (
           <button type="button" disabled={busy} onClick={() => onSelect(0n)}>
             Join again
           </button>

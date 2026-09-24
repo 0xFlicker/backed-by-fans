@@ -1,8 +1,7 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Address } from "viem";
 import type { CancellationQuote } from "@/contracts/types";
-import { parseTokenId } from "@/features/creator/management";
 import { decodeTransactionError } from "@/lib/transaction-state";
 import { formatMembershipDate } from "./date";
 
@@ -11,6 +10,9 @@ type Outcome = { ownerRefund: bigint; creatorRetained: bigint; owner: Address };
 
 export function MemberCancellation({
   initialTokenId,
+  membershipName,
+  expiration,
+  membershipPicker,
   chainTimestamp,
   canOperate,
   pending,
@@ -19,6 +21,9 @@ export function MemberCancellation({
   onCancel,
 }: {
   initialTokenId?: bigint;
+  membershipName?: string;
+  expiration?: bigint;
+  membershipPicker?: ReactNode;
   chainTimestamp?: bigint;
   canOperate: boolean;
   pending: boolean;
@@ -26,8 +31,7 @@ export function MemberCancellation({
   onReview: (tokenId: bigint) => Promise<Review>;
   onCancel: (quote: CancellationQuote) => Promise<Outcome | undefined>;
 }) {
-  const id = useId();
-  const [selection, setSelection] = useState(initialTokenId?.toString() ?? "");
+  const [changing, setChanging] = useState(false);
   const [review, setReview] = useState<Review>();
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -38,10 +42,11 @@ export function MemberCancellation({
   const [previousTokenId, setPreviousTokenId] = useState(initialTokenId);
   if (previousTokenId !== initialTokenId) {
     setPreviousTokenId(initialTokenId);
-    // A late portfolio refresh may supply a default, but must never replace an
-    // explicitly selected NFT or its review with a different owned position.
-    if (selection === "" && initialTokenId !== undefined)
-      setSelection(initialTokenId.toString());
+    setReview(undefined);
+    setConfirmed(false);
+    setLoading(false);
+    setError(undefined);
+    setChanging(false);
   }
   useEffect(() => {
     if (!review) return;
@@ -56,9 +61,10 @@ export function MemberCancellation({
     () => () => {
       version.current += 1;
     },
-    [],
+    [initialTokenId],
   );
-  const tokenId = parseTokenId(selection);
+  const tokenId =
+    initialTokenId && initialTokenId > 0n ? initialTokenId : undefined;
   const quote = review?.quote;
   const expired =
     quote !== undefined &&
@@ -118,23 +124,37 @@ export function MemberCancellation({
         Permanently end this NFT’s access and reward weight. Return refundable
         funding to its owner; earned rewards remain claimable.
       </p>
-      <div className="creator-field">
-        <label htmlFor={`${id}-token`}>Membership to cancel</label>
-        <input
-          id={`${id}-token`}
-          inputMode="numeric"
-          value={selection}
-          disabled={pending}
-          onChange={(event) => {
-            version.current += 1;
-            setSelection(event.target.value);
-            setError(undefined);
-            setReview(undefined);
-            setConfirmed(false);
-            setLoading(false);
-            setOutcome(undefined);
-          }}
-        />
+      <div className="cancellation-membership">
+        {tokenId !== undefined ? (
+          <>
+            <strong>
+              {membershipName ? `${membershipName} · ` : ""}Membership #
+              {tokenId.toString()}
+            </strong>
+            {expiration !== undefined && (
+              <span>
+                {chainTimestamp !== undefined && expiration <= chainTimestamp
+                  ? "Expired"
+                  : "Active through"}{" "}
+                {formatMembershipDate(expiration)}
+              </span>
+            )}
+          </>
+        ) : (
+          <p>Select one of your memberships to cancel.</p>
+        )}
+        {membershipPicker && (
+          <button
+            type="button"
+            className="button button-outline"
+            disabled={pending}
+            onClick={() => setChanging(!changing)}
+            aria-expanded={changing}
+          >
+            Change membership
+          </button>
+        )}
+        {changing && membershipPicker}
       </div>
       <button
         type="button"

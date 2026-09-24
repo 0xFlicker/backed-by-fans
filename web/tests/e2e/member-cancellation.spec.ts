@@ -99,10 +99,7 @@ test("@anvil approved operator cancels a transferred membership while paused, pa
         functionName: "creatorRetentionBps",
       }),
     ).toBe(3000);
-    await page.goto(`/chains/31337/tiers/${tier}`);
-    await page
-      .getByLabel("Membership to cancel", { exact: true })
-      .fill(tokenId.toString());
+    await page.goto(`/chains/31337/tiers/${tier}?tokenId=${tokenId}`);
     await page
       .getByRole("button", { name: "Review cancellation", exact: true })
       .click();
@@ -119,9 +116,7 @@ test("@anvil approved operator cancels a transferred membership while paused, pa
     );
     await switchAnvilAccount(page, operator);
     await page.setViewportSize({ width: 390, height: 844 });
-    await page
-      .getByLabel("Membership to cancel", { exact: true })
-      .fill(tokenId.toString());
+    await page.goto(`/chains/31337/tiers/${tier}?tokenId=${tokenId}`);
     await reviewMemberCancellation(page);
     const region = page.getByRole("region", {
       name: "Cancel membership",
@@ -272,7 +267,7 @@ for (const refillFirst of [true, false]) {
         }),
       );
       await installAnvilWallet(page, member);
-      await page.goto(`/chains/31337/tiers/${tier}`);
+      await page.goto(`/chains/31337/tiers/${tier}?tokenId=${tokenId}`);
       await connectAnvilWallet(page, member);
       const refill = page.getByRole("region", {
         name: "Periodic refill",
@@ -287,9 +282,6 @@ for (const refillFirst of [true, false]) {
       await expect(
         refill.getByRole("button", { name: "Refill 2 periods", exact: true }),
       ).toBeEnabled();
-      await page
-        .getByLabel("Membership to cancel", { exact: true })
-        .fill(tokenId.toString());
       await reviewMemberCancellation(page);
       if (refillFirst) {
         await refill

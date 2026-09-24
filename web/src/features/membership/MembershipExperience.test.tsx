@@ -807,8 +807,8 @@ describe("supporter membership experience", () => {
     await user.clear(periods);
 
     expect(periods).toHaveAttribute("aria-invalid", "false");
-    expect(within(preview).getByText("0 USDG")).toBeVisible();
-    expect(within(preview).getByText("0 days")).toBeVisible();
+    expect(preview).toBeVisible();
+    expect(screen.getByText("Choose whole periods")).toBeVisible();
     expect(
       screen.queryByText("Enter 1 or more whole periods."),
     ).not.toBeInTheDocument();

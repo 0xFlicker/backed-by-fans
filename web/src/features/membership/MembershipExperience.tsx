@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { applyRefillAllowance } from "./refill-allowance";
 import { PeriodicRefill } from "./PeriodicRefill";
 import { readPeriodicRefill } from "./periodic-refill-read";
+import { PeriodSelector } from "./PeriodSelector";
 import { MemberCancellation } from "./MemberCancellation";
 import { readCancellation } from "./cancellation-read";
 import { TransferMembership } from "./TransferMembership";
@@ -1067,19 +1068,22 @@ export function MembershipExperience({
   const managePath =
     `/chains/${expectedChainId}/tiers/${snapshot.address}/manage` as Route;
 
-  const positionSelector = snapshot.wallet && snapshot.ownerPage && (
-    <PositionSelector
-      key={`${snapshot.wallet}:${capturedBlock}`}
-      chainId={expectedChainId}
-      tier={snapshot.address}
-      owner={snapshot.wallet}
-      blockNumber={capturedBlock}
-      initialPage={snapshot.ownerPage}
-      selectedTokenId={snapshot.credential?.tokenId ?? 0n}
-      onSelect={onSelectPosition}
-      busy={isTransactionInFlight(transaction.phase)}
-    />
-  );
+  const positionSelector = (selectOnly = false) =>
+    snapshot.wallet &&
+    snapshot.ownerPage && (
+      <PositionSelector
+        key={`${snapshot.wallet}:${capturedBlock}`}
+        chainId={expectedChainId}
+        tier={snapshot.address}
+        owner={snapshot.wallet}
+        blockNumber={capturedBlock}
+        initialPage={snapshot.ownerPage}
+        selectedTokenId={snapshot.credential?.tokenId ?? 0n}
+        onSelect={onSelectPosition}
+        selectOnly={selectOnly}
+        busy={isTransactionInFlight(transaction.phase)}
+      />
+    );
 
   return (
     <div className="membership-experience">
@@ -1162,14 +1166,14 @@ export function MembershipExperience({
         </div>
       </section>
 
-      {!snapshot.credential && positionSelector}
+      {!snapshot.credential && positionSelector()}
       {snapshot.credential && (
         <section
           className={`membership-status status-${actionState}`}
           aria-label="Current membership status"
         >
           <div>
-            {positionSelector}
+            {positionSelector()}
             <h2 id="membership-status-title">
               {membershipStatusTitle(snapshot.credential)}
             </h2>
@@ -1246,34 +1250,39 @@ export function MembershipExperience({
                 </small>
               </label>
             ) : (
-              <label className="creator-field">
-                <span>Periods</span>
-                <input
-                  aria-invalid={!primaryInputEmpty && periodValue === undefined}
-                  inputMode="numeric"
-                  min="1"
-                  onChange={(event) => setPeriods(event.target.value)}
-                  value={periods}
-                />
-              </label>
+              <PeriodSelector
+                value={periods}
+                onChange={setPeriods}
+                periodDuration={snapshot.periodDuration}
+                maxPrepaidPeriods={snapshot.maxPrepaidPeriods}
+                paidSeconds={snapshot.credential?.paidSeconds ?? 0n}
+                periodLabel={formatPeriod(snapshot.periodDuration)}
+                priceLabel={paymentLabel(snapshot.pricePerPeriod)}
+                summary={`${formatPeriod(selfPreview.duration)} · ${paymentLabel(selfPreview.gross)}`}
+                disabled={isTransactionInFlight(transaction.phase)}
+              />
             )}
 
             <dl
-              className="payment-preview"
+              className="payment-preview period-payment-preview"
               aria-label="Membership payment preview"
             >
-              <div>
-                <dt>Total</dt>
-                <dd>{paymentLabel(selfPreview.gross)}</dd>
-              </div>
-              <div>
-                <dt>Access added</dt>
-                <dd>
-                  {selfPreview.duration === 0n
-                    ? "0 days"
-                    : formatPeriod(selfPreview.duration)}
-                </dd>
-              </div>
+              {snapshot.pricePerPeriod === 0n && (
+                <>
+                  <div>
+                    <dt>Total</dt>
+                    <dd>{paymentLabel(selfPreview.gross)}</dd>
+                  </div>
+                  <div>
+                    <dt>Access added</dt>
+                    <dd>
+                      {selfPreview.duration === 0n
+                        ? "0 days"
+                        : formatPeriod(selfPreview.duration)}
+                    </dd>
+                  </div>
+                </>
+              )}
               <div>
                 <dt>Membership through</dt>
                 <dd>{formatMembershipDate(selfPreview.resultingExpiration)}</dd>
@@ -1919,6 +1928,13 @@ export function MembershipExperience({
           <MemberCancellation
             key={`${expectedChainId}:${snapshot.address}:${account.address}:${account.chainId}`}
             initialTokenId={snapshot.credential?.tokenId}
+            membershipName={snapshot.name}
+            expiration={snapshot.credential?.expiration}
+            membershipPicker={
+              snapshot.ownerPage && snapshot.ownerPage.balance > 1n
+                ? positionSelector(true)
+                : undefined
+            }
             chainTimestamp={snapshot.capturedTimestamp}
             canOperate={
               Boolean(
@@ -2074,15 +2090,22 @@ export function MembershipExperience({
                   <small role="alert">{giftError}</small>
                 )}
               </label>
-              <label className="creator-field">
-                <span>Whole periods</span>
-                <input
-                  inputMode="numeric"
-                  min="1"
-                  onChange={(event) => setGiftPeriods(event.target.value)}
-                  value={giftPeriods}
-                />
-              </label>
+              <PeriodSelector
+                label="Whole periods"
+                value={giftPeriods}
+                onChange={setGiftPeriods}
+                periodDuration={snapshot.periodDuration}
+                maxPrepaidPeriods={snapshot.maxPrepaidPeriods}
+                paidSeconds={giftState.data?.paidSeconds ?? 0n}
+                periodLabel={formatPeriod(snapshot.periodDuration)}
+                priceLabel={paymentLabel(snapshot.pricePerPeriod)}
+                summary={
+                  giftPreview
+                    ? `${formatPeriod(giftPreview.duration)} · ${paymentLabel(giftPreview.gross)}`
+                    : undefined
+                }
+                disabled={isTransactionInFlight(transaction.phase)}
+              />
               {giftState.isLoading && (
                 <p className="inline-status" role="status">
                   Checking the recipient&apos;s membership.
@@ -2094,15 +2117,7 @@ export function MembershipExperience({
                 </p>
               )}
               {giftPreview && (
-                <dl className="payment-preview">
-                  <div>
-                    <dt>Total</dt>
-                    <dd>{paymentLabel(giftPreview.gross)}</dd>
-                  </div>
-                  <div>
-                    <dt>Access added</dt>
-                    <dd>{formatPeriod(giftPreview.duration)}</dd>
-                  </div>
+                <dl className="payment-preview period-payment-preview">
                   <div>
                     <dt>Membership through</dt>
                     <dd>

@@ -96,12 +96,17 @@ describe("MemberCancellation", () => {
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
   it("invalidates review when the selected NFT changes", async () => {
-    mount();
+    const props = {
+      canOperate: true,
+      pending: false,
+      paymentLabel: label,
+      onReview: vi.fn().mockResolvedValue({ quote, authorized: true }),
+      onCancel: vi.fn(),
+    };
+    const view = render(<MemberCancellation {...props} initialTokenId={7n} />);
     await review();
     await screen.findByText("70 USDG");
-    fireEvent.change(screen.getByLabelText("Membership to cancel"), {
-      target: { value: "8" },
-    });
+    view.rerender(<MemberCancellation {...props} initialTokenId={8n} />);
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
   it("expires the reviewed deadline and allows a fresh review", async () => {
@@ -193,7 +198,7 @@ describe("MemberCancellation", () => {
     );
   });
 
-  it("does not replace an explicit NFT when a late portfolio read selects another", async () => {
+  it("uses the selected membership without exposing a token ID input", async () => {
     const props = {
       canOperate: true,
       pending: false,
@@ -201,14 +206,19 @@ describe("MemberCancellation", () => {
       onReview: vi.fn().mockResolvedValue({ quote, authorized: true }),
       onCancel: vi.fn(),
     };
-    const view = render(
-      <MemberCancellation {...props} initialTokenId={undefined} />,
+    const view = render(<MemberCancellation {...props} />);
+    expect(
+      screen.getByRole("button", { name: "Review cancellation" }),
+    ).toBeDisabled();
+    view.rerender(
+      <MemberCancellation
+        {...props}
+        initialTokenId={7n}
+        membershipName="Fans"
+      />,
     );
-    fireEvent.change(screen.getByLabelText("Membership to cancel"), {
-      target: { value: "7" },
-    });
-    view.rerender(<MemberCancellation {...props} initialTokenId={2n} />);
-    expect(screen.getByLabelText("Membership to cancel")).toHaveValue("7");
+    expect(screen.getByText("Fans · Membership #7")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     await review();
     await screen.findByText("70 USDG");
     expect(props.onReview).toHaveBeenCalledWith(7n);

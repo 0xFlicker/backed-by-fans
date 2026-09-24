@@ -16,9 +16,7 @@ export async function openMemberCancellation(
   });
   await page.goto(`/chains/31337/tiers/${tier}`);
   await switchAnvilAccount(page, owner);
-  await page
-    .getByLabel("Membership to cancel", { exact: true })
-    .fill(tokenId.toString());
+  await page.goto(`/chains/31337/tiers/${tier}?tokenId=${tokenId}`);
 }
 
 export async function reviewMemberCancellation(page: Page) {
