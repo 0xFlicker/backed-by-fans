@@ -44,6 +44,7 @@ try {
   const deployment = await confirmed(
     await wallet.deployContract({
       abi: testUsdgAbi,
+      args: [owner],
       bytecode: artifact.bytecode.object,
       gasPrice: 2_000_000_000n,
     }),
@@ -117,7 +118,7 @@ try {
       args: [address],
     }),
   ]);
-  if (balance !== 100_000_000n || !enabled)
+  if (balance !== 1_000_000_100_000_000n || !enabled)
     throw new Error("Postcondition failed");
   const report = {
     chainId: 31337,

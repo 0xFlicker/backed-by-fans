@@ -8,7 +8,8 @@ contract DeployTestUSDG is Script {
     function run() external returns (TestUSDG token) {
         require(block.chainid == 46_630, "Robinhood testnet only");
         vm.startBroadcast();
-        token = new TestUSDG();
+        token = new TestUSDG(msg.sender);
         vm.stopBroadcast();
+        require(token.balanceOf(msg.sender) == 1_000_000_000e6, "Initial allocation missing");
     }
 }

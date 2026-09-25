@@ -9222,7 +9222,13 @@ export const rendererRegistryConfig = {
  * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
  */
 export const testUsdgAbi = [
-  { type: "constructor", inputs: [], stateMutability: "nonpayable" },
+  {
+    type: "constructor",
+    inputs: [
+      { name: "initialRecipient", internalType: "address", type: "address" },
+    ],
+    stateMutability: "nonpayable",
+  },
   {
     type: "function",
     inputs: [],
@@ -9234,6 +9240,13 @@ export const testUsdgAbi = [
     type: "function",
     inputs: [],
     name: "COOLDOWN",
+    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "INITIAL_SUPPLY",
     outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
     stateMutability: "view",
   },
@@ -16796,6 +16809,19 @@ export const useReadTestUsdgCooldown = /*#__PURE__*/ createUseReadContract({
   address: testUsdgAddress,
   functionName: "COOLDOWN",
 });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"INITIAL_SUPPLY"`
+ *
+ * [__View Contract on Robinhood Chain Testnet Blockscout__](https://explorer.testnet.chain.robinhood.com/address/0xdbbd302fb4c20c1019814343bba754869d0f6120)
+ */
+export const useReadTestUsdgInitialSupply = /*#__PURE__*/ createUseReadContract(
+  {
+    abi: testUsdgAbi,
+    address: testUsdgAddress,
+    functionName: "INITIAL_SUPPLY",
+  },
+);
 
 /**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link testUsdgAbi}__ and `functionName` set to `"allowance"`

@@ -1,9 +1,11 @@
 # CCFF00 holder testnet airdrop
 
+First deploy the replacement described in [the faucet release instructions](../release/test-usdg-faucet.md). It mints 1,000,000,000 bUSD to the approved deployer once, while retaining the public 100-bUSD daily faucet. Set `BUSD_ADDRESS` to the replacement address printed by the verified deployment; do not use the obsolete zero-supply token.
+
 From the repository root, run:
 
 ```sh
-node scripts/airdrop-nft-holders.mjs --busd 0xdbbD302Fb4c20c1019814343BbA754869D0F6120
+node scripts/airdrop-nft-holders.mjs --busd "$BUSD_ADDRESS"
 ```
 
 This is a **dry run**. It refreshes the holders of `0x505a22ffed8d37ebe580ffd98d2cdb0021189146` on Robinhood mainnet (4663), reads their balances on Robinhood testnet (46630), and reports how much funding the deployer needs. No signing occurs.
@@ -25,7 +27,7 @@ Use the existing encrypted Foundry account. Set `ETH_PASSWORD` to the path of a 
 ```sh
 ETH_PASSWORD=/secure/path/to/keystore-password \
   node scripts/airdrop-nft-holders.mjs \
-  --busd 0xdbbD302Fb4c20c1019814343BbA754869D0F6120 \
+  --busd "$BUSD_ADDRESS" \
   --execute
 ```
 
@@ -33,7 +35,7 @@ The default account is `backed-by-fans-testnet`; `ACCOUNT` can select another Fo
 
 The script reads `ROBINHOOD_MAINNET_RPC_URL`, `ROBINHOOD_TESTNET_RPC_URL`, `BUSD_ADDRESS`, `ACCOUNT`, and `ETH_PASSWORD` from `contracts/.env` when they are not already set in the environment. RPCs default to the official public endpoints. It uses the existing `web/node_modules/viem` installation; no new packages are needed. Node.js 22.16+ and Foundry `cast` are required.
 
-The current bUSD address was deployed with zero initial supply, a 100-bUSD-per-address daily faucet, and no privileged mint function. Its faucet cannot provision this bulk airdrop directly. The deployer must first receive enough bUSD, or the token's provisioning design must be changed in a separate deployment. The airdrop script transfers existing tokens; it does not change the faucet or mint through throwaway accounts.
+The airdrop script transfers existing tokens from the billion-bUSD deployment allocation. It does not mint tokens. The allocation covers the historical 4,055,000-bUSD preview below; native test ETH funding must still cover the fresh dry-run requirement.
 
 ## Discovery and rechecks
 
