@@ -10,17 +10,18 @@ export type EarningsStream = {
 export function projectedAmount(
   stream: EarningsStream,
   elapsedMs: number,
+  maxProjectionMs = 30_000,
 ): bigint {
   const boundaryMs =
     stream.nextBoundary === 0n
-      ? 30_000
+      ? Math.min(30_000, maxProjectionMs)
       : Number(
           stream.nextBoundary > stream.asOf
             ? stream.nextBoundary - stream.asOf
             : 0n,
         ) * 1000;
   const elapsed = stream.complete
-    ? Math.max(0, Math.min(30_000, boundaryMs, elapsedMs))
+    ? Math.max(0, Math.min(maxProjectionMs, boundaryMs, elapsedMs))
     : 0;
   const scaled =
     stream.raw * ACCOUNTING_SCALE +

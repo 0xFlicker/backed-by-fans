@@ -12,8 +12,15 @@ export async function readAccountRewardStreams(
   client: PublicClient,
   wallet: Address,
   tiers: readonly TierClaimSelection[],
+  blockNumber?: bigint,
 ) {
-  const claims = await readAccountRewards(client, wallet, tiers);
+  const claims = await readAccountRewards(
+    client,
+    wallet,
+    tiers,
+    25n,
+    blockNumber,
+  );
   const results = await Promise.all(
     tiers.map(async (tier, index) => {
       const claim = claims.results[index];

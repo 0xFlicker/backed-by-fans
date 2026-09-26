@@ -2,6 +2,7 @@
 import { formatMembershipDate } from "./date";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AccountRewards } from "./AccountRewards";
 import { WalletLookup } from "./WalletLookup";
 import { sortClaimSelection } from "./account-rewards-read";
@@ -10,7 +11,13 @@ import type { EarningsStream } from "@/lib/streaming-amount";
 import { readAccountRewardStreams } from "./account-reward-streams";
 import { readRewardUsdPrices, formatRewardUsd } from "@/lib/reward-usd";
 import type { Route } from "next";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import { ArrowClockwiseIcon, CopyIcon, CheckIcon } from "@phosphor-icons/react";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import type { Address } from "viem";
@@ -51,6 +58,7 @@ import { useActiveNetwork } from "@/lib/use-active-network";
 import { formatLocalizedTokenAmount } from "@/lib/token-amount";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
+import type { WalletSnapshot } from "./server-wallet-snapshot";
 
 type AccountResultsProps = {
   cacheKey: string;
@@ -59,6 +67,10 @@ type AccountResultsProps = {
   initialPaymentTokens?: AcceptedPaymentTokenReadState;
   wallet: Address;
   readOnly?: boolean;
+  serverSnapshot?: WalletSnapshot;
+  canRefresh?: boolean;
+  refreshing?: boolean;
+  onServerRefresh?: () => void;
 };
 
 type AccountDiscoveryProps = {
@@ -124,20 +136,26 @@ function AccountResults(props: AccountResultsProps) {
     );
   }
 
-  return <HydratedDiscovery {...props} />;
+  return <DiscoveryResults {...props} />;
 }
 
-function HydratedDiscovery({
+function DiscoveryResults({
   cacheKey,
   deployment,
   initialPage,
   initialPaymentTokens,
   wallet,
   readOnly = false,
+  serverSnapshot,
+  canRefresh = true,
+  refreshing = false,
+  onServerRefresh,
 }: AccountResultsProps) {
   const client = usePublicClient({ chainId: deployment.chainId })!;
   const [savedCache, setSavedCache] = useState<AccountCache>(() =>
-    loadAccountCache(window.localStorage, cacheKey),
+    initialPage || typeof window === "undefined"
+      ? emptyAccountCache()
+      : loadAccountCache(window.localStorage, cacheKey),
   );
   const [offset, setOffset] = useState(0n);
   const [blockNumber, setBlockNumber] = useState<bigint>();
@@ -146,13 +164,20 @@ function HydratedDiscovery({
     { result: AccountTierResult; block: bigint }[]
   >([]);
   const discovery = useQuery({
-    queryKey: ["account-discovery", cacheKey, offset.toString(), request],
+    queryKey: [
+      "account-discovery",
+      cacheKey,
+      offset.toString(),
+      request,
+      serverSnapshot?.page.capturedBlock.toString(),
+    ],
     queryFn: () =>
       discoverAccountPage(client, { deployment, wallet, offset, blockNumber }),
     initialData:
       request === 0 && initialPage?.offset === offset ? initialPage : undefined,
     placeholderData: keepPreviousData,
     retry: false,
+    enabled: !serverSnapshot,
   });
   const paymentTokens = useQuery({
     queryKey: [
@@ -160,6 +185,7 @@ function HydratedDiscovery({
       deployment.chainId,
       deployment.factoryAddress,
       wallet,
+      serverSnapshot?.page.capturedBlock.toString(),
     ],
     queryFn: () =>
       readAcceptedPaymentTokens(client, {
@@ -168,6 +194,7 @@ function HydratedDiscovery({
         wallet,
       }),
     initialData: initialPaymentTokens,
+    enabled: !serverSnapshot,
   });
   const tokenData =
     paymentTokens.data?.status === "valid" ||
@@ -217,9 +244,9 @@ function HydratedDiscovery({
     );
   }, [discovery.data, discovery.isPlaceholderData, savedCache, ownerPages]);
   useEffect(() => {
-    if (discovery.data)
+    if (discovery.data && !serverSnapshot)
       saveAccountCache(window.localStorage, cacheKey, currentCache);
-  }, [cacheKey, currentCache, discovery.data]);
+  }, [cacheKey, currentCache, discovery.data, serverSnapshot]);
   const moreOwners = useMutation({
     retry: false,
     mutationFn: (tier: CachedAccountTier) =>
@@ -237,6 +264,10 @@ function HydratedDiscovery({
       ]),
   });
   function refresh() {
+    if (serverSnapshot) {
+      if (canRefresh) onServerRefresh?.();
+      return;
+    }
     setSavedCache(currentCache);
     setOwnerPages([]);
     setOffset(0n);
@@ -258,10 +289,12 @@ function HydratedDiscovery({
       deployment.factoryAddress,
       wallet,
       rewardTiers.map((tier) => [tier.tier, tier.tokenIds.map(String)]),
+      serverSnapshot?.page.capturedBlock.toString(),
     ],
     queryFn: () => readAccountRewardStreams(client, wallet, rewardTiers),
-    enabled: rewardTiers.length > 0,
-    refetchInterval: 15_000,
+    initialData: serverSnapshot?.rewards,
+    enabled: !serverSnapshot && rewardTiers.length > 0,
+    refetchInterval: serverSnapshot ? false : 15_000,
     retry: false,
   });
   // Both the summary and cards use the same claim preview, never stored balances.
@@ -297,14 +330,17 @@ function HydratedDiscovery({
       deployment.chainId,
       deployment.factoryAddress,
       ...rewardTokens,
+      serverSnapshot?.page.capturedBlock.toString(),
     ],
     queryFn: () =>
       readRewardUsdPrices(client, deployment.factoryAddress, rewardTokens),
     enabled:
+      !serverSnapshot &&
       rewardTokens.length > 0 &&
       (deployment.chainId === 31337 || deployment.chainId === 4663),
     staleTime: 30_000,
-    refetchInterval: 30_000,
+    initialData: serverSnapshot?.usd,
+    refetchInterval: serverSnapshot ? false : 30_000,
     retry: false,
   });
   const page = discovery.data;
@@ -313,8 +349,10 @@ function HydratedDiscovery({
     currentCache.results.every((tier) => tier.ownerComplete);
   const rewardBalances = (
     <div className="account-reward-balances">
-      {(discovery.isError && !discovery.data) ||
-      (earnings.isError && !earnings.data) ? (
+      {serverSnapshot?.rewardError ? (
+        <p role="alert">{serverSnapshot.rewardError}</p>
+      ) : (discovery.isError && !discovery.data) ||
+        (earnings.isError && !earnings.data) ? (
         <p role="alert">Rewards unavailable. Refresh to try again.</p>
       ) : discovery.isPending ||
         (rewardTiers.length > 0 && earnings.isPending) ? (
@@ -337,7 +375,9 @@ function HydratedDiscovery({
                   identity={`${deployment.chainId}:${wallet}:${token}:total`}
                   streams={streamsFor(token)}
                   format={(raw) => claimLabel(raw, token)}
-                  refresh={() => earnings.refetch()}
+                  refresh={serverSnapshot ? refresh : () => earnings.refetch()}
+                  projectToBoundary={Boolean(serverSnapshot)}
+                  locale={serverSnapshot ? "en-US" : undefined}
                   active={Boolean(earnings.data)}
                 />
               </p>
@@ -347,7 +387,11 @@ function HydratedDiscovery({
                     identity={`${deployment.chainId}:${wallet}:${token}:usd`}
                     streams={streamsFor(token)}
                     format={(raw) => `≈ ${formatRewardUsd(raw, quote.price)}`}
-                    refresh={() => earnings.refetch()}
+                    refresh={
+                      serverSnapshot ? refresh : () => earnings.refetch()
+                    }
+                    projectToBoundary={Boolean(serverSnapshot)}
+                    locale={serverSnapshot ? "en-US" : undefined}
                     active={Boolean(earnings.data)}
                   />
                 </p>
@@ -357,11 +401,14 @@ function HydratedDiscovery({
         })
       )}
       {(!complete || (earnings.data && !earnings.data.complete)) &&
+        !serverSnapshot?.rewardError &&
         !earnings.isError && (
           <p className="account-reward-note">
-            {readOnly
-              ? "Some rewards are still being checked. Refresh or find more memberships below."
-              : "Some rewards are still being checked. Claim all includes the rest."}
+            {serverSnapshot
+              ? "Some reward previews are incomplete. Reload the page to check again."
+              : readOnly
+                ? "Some rewards are still being checked. Refresh or find more memberships below."
+                : "Some rewards are still being checked. Claim all includes the rest."}
           </p>
         )}
     </div>
@@ -393,16 +440,22 @@ function HydratedDiscovery({
             {readOnly ? "Memberships" : "Your memberships"}
           </h2>
         </div>
-        <button
-          aria-label="Refresh memberships"
-          className="account-refresh"
-          disabled={discovery.isFetching || moreOwners.isPending}
-          onClick={refresh}
-          type="button"
-        >
-          <ArrowClockwiseIcon aria-hidden="true" size={18} weight="bold" />
-          <span>{discovery.isFetching ? "Refreshing" : "Refresh"}</span>
-        </button>
+        {canRefresh && (
+          <button
+            aria-label="Refresh memberships"
+            className="account-refresh"
+            disabled={
+              refreshing || discovery.isFetching || moreOwners.isPending
+            }
+            onClick={refresh}
+            type="button"
+          >
+            <ArrowClockwiseIcon aria-hidden="true" size={18} weight="bold" />
+            <span>
+              {refreshing || discovery.isFetching ? "Refreshing" : "Refresh"}
+            </span>
+          </button>
+        )}
       </div>
       {discovery.isPending && (
         <p role="status">Looking for memberships connected to this wallet.</p>
@@ -422,11 +475,18 @@ function HydratedDiscovery({
       )}
       {page?.skipped.length ? (
         <p className="warning-copy" role="alert">
-          We couldn’t refresh {page.skipped.length} memberships. Try refreshing
-          again.
+          We couldn’t read {page.skipped.length} memberships.{" "}
+          {serverSnapshot
+            ? "Reload the page to try again."
+            : "Try refreshing again."}
         </p>
       ) : null}
-      {!complete && <p role="status">More memberships are available below.</p>}
+      {!complete && !serverSnapshot && (
+        <p role="status">More memberships are available below.</p>
+      )}
+      {serverSnapshot?.usdError && (
+        <p className="small-copy">USD estimates are unavailable.</p>
+      )}
       {currentCache.results.length === 0 && page && (
         <div className="empty-room">
           <h3>
@@ -452,7 +512,9 @@ function HydratedDiscovery({
                 identity={`${deployment.chainId}:${wallet}:${tier.tier}:${category}`}
                 streams={[stream]}
                 format={(raw) => claimLabel(raw, tier.paymentToken)}
-                refresh={() => earnings.refetch()}
+                refresh={serverSnapshot ? refresh : () => earnings.refetch()}
+                projectToBoundary={Boolean(serverSnapshot)}
+                locale={serverSnapshot ? "en-US" : undefined}
                 active={Boolean(earnings.data)}
               />
             ) : (
@@ -507,6 +569,7 @@ function HydratedDiscovery({
                               {position.active ? "Expires" : "Ended"}{" "}
                               {formatMembershipDate(
                                 BigInt(position.expiration),
+                                serverSnapshot ? "UTC" : undefined,
                               )}
                             </span>
                           </div>
@@ -520,7 +583,7 @@ function HydratedDiscovery({
                       );
                     })}
                   </ul>
-                  {!tier.ownerComplete && (
+                  {!tier.ownerComplete && !serverSnapshot && (
                     <button
                       className="text-button account-more-memberships"
                       type="button"
@@ -590,26 +653,36 @@ function HydratedDiscovery({
           or refresh memberships.
         </p>
       )}
-      {page && (page.skipped.length > 0 || page.nextOffset !== null) && (
-        <div className="account-pagination-actions">
-          <button
-            className="button button-dark"
-            type="button"
-            disabled={discovery.isFetching || moreOwners.isPending}
-            onClick={() => {
-              if (page.skipped.length) {
-                void discovery.refetch();
-                return;
-              }
-              setSavedCache(currentCache);
-              setOwnerPages([]);
-              setBlockNumber(page.capturedBlock);
-              setOffset(page.nextOffset!);
-            }}
-          >
-            {page.skipped.length ? "Try again" : "Find more memberships"}
-          </button>
-        </div>
+      {page &&
+        !serverSnapshot &&
+        (page.skipped.length > 0 || page.nextOffset !== null) && (
+          <div className="account-pagination-actions">
+            <button
+              className="button button-dark"
+              type="button"
+              disabled={discovery.isFetching || moreOwners.isPending}
+              onClick={() => {
+                if (page.skipped.length) {
+                  void discovery.refetch();
+                  return;
+                }
+                setSavedCache(currentCache);
+                setOwnerPages([]);
+                setBlockNumber(page.capturedBlock);
+                setOffset(page.nextOffset!);
+              }}
+            >
+              {page.skipped.length ? "Try again" : "Find more memberships"}
+            </button>
+          </div>
+        )}
+      {serverSnapshot && !complete && (
+        <a
+          className="text-button"
+          href={`/chains/${deployment.chainId}/wallets/${wallet}`}
+        >
+          Reload memberships
+        </a>
       )}
     </section>
   );
@@ -694,11 +767,20 @@ export function AccountDiscovery({ initialDiscovery }: AccountDiscoveryProps) {
 export function PublicWalletDiscovery({
   chainId,
   wallet,
+  snapshot,
+  error,
 }: {
   chainId: SupportedChainId;
   wallet: Address;
+  snapshot?: WalletSnapshot;
+  error?: string;
 }) {
   const account = useHydratedAccount();
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  const canRefresh =
+    account.isConnected && Boolean(snapshot?.page.results.length);
+  const refresh = () => startRefresh(() => router.refresh());
   const [copyResult, setCopyResult] = useState<{
     wallet: Address;
     copied: boolean;
@@ -764,13 +846,36 @@ export function PublicWalletDiscovery({
           heading="Memberships unavailable"
           state={unavailableDeploymentState(deployment)}
         />
+      ) : !snapshot ? (
+        <div>
+          <ReadStateView
+            heading="Wallet data unavailable"
+            state={{
+              status: "unavailable",
+              reason: "rpc-unavailable",
+              label: error ?? "Wallet data could not be read.",
+            }}
+          />
+          <a
+            className="text-button"
+            href={`/chains/${chainId}/wallets/${wallet}`}
+          >
+            Reload wallet
+          </a>
+        </div>
       ) : (
         <AccountResults
-          key={accountCacheKey(chainId, deployment.factoryAddress, wallet)}
+          key={`${accountCacheKey(chainId, deployment.factoryAddress, wallet)}:${snapshot.page.capturedBlock}`}
           cacheKey={accountCacheKey(chainId, deployment.factoryAddress, wallet)}
           deployment={deployment}
           wallet={wallet}
           readOnly={readOnly}
+          initialPage={snapshot.page}
+          initialPaymentTokens={snapshot.paymentTokens}
+          serverSnapshot={snapshot}
+          canRefresh={canRefresh}
+          refreshing={refreshing}
+          onServerRefresh={refresh}
         />
       )}
     </div>
