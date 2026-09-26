@@ -182,10 +182,7 @@ export function PeriodicRefill({
       aria-busy={busy || pending}
     >
       <h2>Periodic refill</h2>
-      <p>
-        Keep a target amount of membership time. Anyone can submit a refill
-        before expiration; a funded wallet alone does not schedule it.
-      </p>
+      <p>Keep a target amount of membership time.</p>
       <div className="periodic-refill-layout">
         <div className="periodic-refill-review">
           <div className="periodic-refill-selection">
@@ -388,6 +385,9 @@ export function PeriodicRefill({
                     </button>
                   )}
                 </>
+              )}
+              {live && periodicEnabled && enrolled && !paused && (
+                <p>Refill manually before your membership expires.</p>
               )}
               {live && periodicEnabled && (
                 <button
