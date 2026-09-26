@@ -176,7 +176,7 @@ export function PeriodicRefill({
   }
   return (
     <section
-      className="control-group"
+      className="control-group periodic-refill"
       aria-label="Periodic refill"
       style={{ overflowWrap: "anywhere" }}
       aria-busy={busy || pending}
@@ -186,313 +186,328 @@ export function PeriodicRefill({
         Keep a target amount of membership time. Anyone can submit a refill
         before expiration; a funded wallet alone does not schedule it.
       </p>
-      <label className="creator-field" htmlFor={`${id}-token`}>
-        Refill membership NFT
-      </label>
-      <input
-        id={`${id}-token`}
-        inputMode="numeric"
-        value={selection}
-        disabled={pending || busy}
-        onChange={(event) => {
-          ++version.current;
-          setSelection(event.target.value);
-          setReview(undefined);
-          setOutcome(undefined);
-          setError(undefined);
-        }}
-      />
-      <button
-        type="button"
-        className="button button-outline"
-        disabled={disabled || tokenId === undefined}
-        onClick={() => void read()}
-      >
-        Review periodic refill
-      </button>
-      {error && (
-        <p role="alert">
-          {error}
-          {quote ? " Displayed refill information is stale. Review again." : ""}
-        </p>
-      )}
-      {outcome && <p role="status">{outcome}</p>}
-      {quote && (
-        <>
-          <h3>
-            {!live && quote.lifecycle === 0
-              ? "Membership expired"
-              : paused && live && enrolled
-                ? "Tier paused"
-                : refillReasonLabel(quote.reason)}
-          </h3>
-          <dl className="terms-list">
-            <div>
-              <dt>Owner</dt>
-              <dd style={{ overflowWrap: "anywhere" }}>{quote.owner}</dd>
+      <div className="periodic-refill-layout">
+        <div className="periodic-refill-review">
+          <div className="periodic-refill-selection">
+            <div className="creator-field">
+              <label htmlFor={`${id}-token`}>Refill membership NFT</label>
+              <input
+                id={`${id}-token`}
+                inputMode="numeric"
+                value={selection}
+                disabled={pending || busy}
+                onChange={(event) => {
+                  ++version.current;
+                  setSelection(event.target.value);
+                  setReview(undefined);
+                  setOutcome(undefined);
+                  setError(undefined);
+                }}
+              />
             </div>
-            <div>
-              <dt>Prepaid time</dt>
-              <dd>
-                {days(quote.paidSeconds)} days paid · {days(quote.grantSeconds)}{" "}
-                days gifted
-              </dd>
-            </div>
-            <div>
-              <dt>Expires</dt>
-              <dd>{formatMembershipDate(quote.expiration)}</dd>
-            </div>
-            <div>
-              <dt>Target</dt>
-              <dd>
-                {enrolled
-                  ? `${days(quote.enrollment.targetSeconds)} days`
-                  : "Periodic refill off"}
-              </dd>
-            </div>
-            <div>
-              <dt>Owner balance</dt>
-              <dd>{paymentLabel(quote.balance)}</dd>
-            </div>
-            <div>
-              <dt>Tier allowance</dt>
-              <dd>
-                {quote.allowance === (1n << 256n) - 1n
-                  ? "Unlimited"
-                  : paymentLabel(quote.allowance)}
-              </dd>
-            </div>
-            <div>
-              <dt>Collectible now</dt>
-              <dd>
-                {quote.periods.toString()} whole periods ·{" "}
-                {paymentLabel(quote.gross)}
-              </dd>
-            </div>
-            <div>
-              <dt>Referral</dt>
-              <dd style={{ overflowWrap: "anywhere" }}>
-                {quote.effectiveReferral === zeroAddress
-                  ? "None"
-                  : quote.effectiveReferral}
-              </dd>
-            </div>
-          </dl>
-          {price > 0n && (
-            <div>
-              <p>
-                {formatUnits((quote.balance * 1_000_000n) / price, 6)}{" "}
-                balance-equivalent periods
-              </p>
-              <p>
-                {quote.allowance === (1n << 256n) - 1n
-                  ? "Unlimited allowance"
-                  : `${formatUnits((quote.allowance * 1_000_000n) / price, 6)} allowance-equivalent periods`}
-              </p>
-            </div>
-          )}
-          <p>
-            Other memberships share this balance and tier allowance. No funds
-            are reserved.
-          </p>
-          {quote.periods > 0n && !quote.accounting.complete && (
-            <p>Refill will update membership accounting first.</p>
-          )}
-          {paused && live && (
-            <p>
-              Payments are paused. Still-live enrolled memberships can refill
-              after unpause.
+            <button
+              type="button"
+              className="button button-outline"
+              disabled={disabled || tokenId === undefined}
+              onClick={() => void read()}
+            >
+              Review periodic refill
+            </button>
+          </div>
+          {error && (
+            <p role="alert">
+              {error}
+              {quote
+                ? " Displayed refill information is stale. Review again."
+                : ""}
             </p>
           )}
-          {review.isOwner && live && periodicEnabled && price > 0n && (
+          {outcome && <p role="status">{outcome}</p>}
+          {quote && (
             <>
-              <label className="creator-field" htmlFor={`${id}-target`}>
-                Refill target (days)
-              </label>
-              <input
-                id={`${id}-target`}
-                inputMode="decimal"
-                value={target}
-                disabled={pending || busy}
-                onChange={(event) => setTarget(event.target.value)}
-              />
-              <label className="creator-field" htmlFor={`${id}-referral`}>
-                Refill referral (optional)
-              </label>
-              <input
-                id={`${id}-referral`}
-                value={referral}
-                disabled={pending || busy || review.referralStatus !== 0}
-                onChange={(event) => setReferral(event.target.value)}
-              />
+              <h3>
+                {!live && quote.lifecycle === 0
+                  ? "Membership expired"
+                  : paused && live && enrolled
+                    ? "Tier paused"
+                    : refillReasonLabel(quote.reason)}
+              </h3>
+              <dl className="terms-list">
+                <div>
+                  <dt>Owner</dt>
+                  <dd style={{ overflowWrap: "anywhere" }}>{quote.owner}</dd>
+                </div>
+                <div>
+                  <dt>Prepaid time</dt>
+                  <dd>
+                    {days(quote.paidSeconds)} days paid ·{" "}
+                    {days(quote.grantSeconds)} days gifted
+                  </dd>
+                </div>
+                <div>
+                  <dt>Expires</dt>
+                  <dd>{formatMembershipDate(quote.expiration)}</dd>
+                </div>
+                <div>
+                  <dt>Target</dt>
+                  <dd>
+                    {enrolled
+                      ? `${days(quote.enrollment.targetSeconds)} days`
+                      : "Periodic refill off"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Owner balance</dt>
+                  <dd>{paymentLabel(quote.balance)}</dd>
+                </div>
+                <div>
+                  <dt>Tier allowance</dt>
+                  <dd>
+                    {quote.allowance === (1n << 256n) - 1n
+                      ? "Unlimited"
+                      : paymentLabel(quote.allowance)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Collectible now</dt>
+                  <dd>
+                    {quote.periods.toString()} whole periods ·{" "}
+                    {paymentLabel(quote.gross)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Referral</dt>
+                  <dd style={{ overflowWrap: "anywhere" }}>
+                    {quote.effectiveReferral === zeroAddress
+                      ? "None"
+                      : quote.effectiveReferral}
+                  </dd>
+                </div>
+              </dl>
+              {price > 0n && (
+                <div>
+                  <p>
+                    {formatUnits((quote.balance * 1_000_000n) / price, 6)}{" "}
+                    balance-equivalent periods
+                  </p>
+                  <p>
+                    {quote.allowance === (1n << 256n) - 1n
+                      ? "Unlimited allowance"
+                      : `${formatUnits((quote.allowance * 1_000_000n) / price, 6)} allowance-equivalent periods`}
+                  </p>
+                </div>
+              )}
               <p>
-                {review.referralStatus === 0
-                  ? "This choice locks on the first successful paid purchase."
-                  : "This membership’s referral choice is already locked."}
+                Other memberships share this balance and tier allowance. No
+                funds are reserved.
               </p>
-              <p>Saving a target moves no funds. Token approval is separate.</p>
-              {!validTarget && (
+              {quote.periods > 0n && !quote.accounting.complete && (
+                <p>Refill will update membership accounting first.</p>
+              )}
+              {paused && live && (
                 <p>
-                  Enter a positive target within this tier’s prepayment limit.
+                  Payments are paused. Still-live enrolled memberships can
+                  refill after unpause.
                 </p>
               )}
-              <button
-                type="button"
-                className="button button-outline"
-                disabled={
-                  mutationDisabled ||
-                  !validTarget ||
-                  !isAddress(referralAddress)
-                }
-                onClick={() =>
-                  void act(async () =>
-                    (await onTarget(
-                      quote.tokenId,
-                      seconds!,
-                      referralAddress as Address,
-                    ))
-                      ? "Refill target saved. Review current readiness before a payment."
-                      : undefined,
-                  )
-                }
-              >
-                {enrolled
-                  ? "Update refill target"
-                  : "Enable periodic refill for this NFT"}
-              </button>
-              {enrolled && (
+              {review.isOwner && live && periodicEnabled && price > 0n && (
+                <>
+                  <div className="creator-field">
+                    <label htmlFor={`${id}-target`}>Refill target (days)</label>
+                    <input
+                      id={`${id}-target`}
+                      inputMode="decimal"
+                      value={target}
+                      disabled={pending || busy}
+                      onChange={(event) => setTarget(event.target.value)}
+                    />
+                  </div>
+                  <div className="creator-field">
+                    <label htmlFor={`${id}-referral`}>
+                      Refill referral (optional)
+                    </label>
+                    <input
+                      id={`${id}-referral`}
+                      value={referral}
+                      disabled={pending || busy || review.referralStatus !== 0}
+                      onChange={(event) => setReferral(event.target.value)}
+                    />
+                  </div>
+                  <p>
+                    {review.referralStatus === 0
+                      ? "This choice locks on the first successful paid purchase."
+                      : "This membership’s referral choice is already locked."}
+                  </p>
+                  <p>
+                    Saving a target moves no funds. Token approval is separate.
+                  </p>
+                  {!validTarget && (
+                    <p>
+                      Enter a positive target within this tier’s prepayment
+                      limit.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="button button-outline"
+                    disabled={
+                      mutationDisabled ||
+                      !validTarget ||
+                      !isAddress(referralAddress)
+                    }
+                    onClick={() =>
+                      void act(async () =>
+                        (await onTarget(
+                          quote.tokenId,
+                          seconds!,
+                          referralAddress as Address,
+                        ))
+                          ? "Refill target saved. Review current readiness before a payment."
+                          : undefined,
+                      )
+                    }
+                  >
+                    {enrolled
+                      ? "Update refill target"
+                      : "Enable periodic refill for this NFT"}
+                  </button>
+                  {enrolled && (
+                    <button
+                      type="button"
+                      className="button button-outline"
+                      disabled={mutationDisabled}
+                      onClick={() =>
+                        void act(async () =>
+                          (await onStop(quote.tokenId))
+                            ? "Periodic refill off. Prepaid time is unchanged."
+                            : undefined,
+                        )
+                      }
+                    >
+                      Stop periodic refill
+                    </button>
+                  )}
+                </>
+              )}
+              {live && periodicEnabled && (
                 <button
                   type="button"
-                  className="button button-outline"
-                  disabled={mutationDisabled}
+                  className="button"
+                  disabled={
+                    mutationDisabled ||
+                    paused ||
+                    quote.periods === 0n ||
+                    Boolean(targetChanged)
+                  }
                   onClick={() =>
-                    void act(async () =>
-                      (await onStop(quote.tokenId))
-                        ? "Periodic refill off. Prepaid time is unchanged."
-                        : undefined,
-                    )
+                    void act(async () => {
+                      const result = await onRefill(quote);
+                      return result
+                        ? result.periods > 0n
+                          ? `Purchased ${result.periods} periods for ${paymentLabel(result.gross)}.`
+                          : "No refill payment was needed or possible. Review current readiness."
+                        : undefined;
+                    })
                   }
                 >
-                  Stop periodic refill
+                  Refill {quote.periods.toString()} periods
                 </button>
               )}
             </>
           )}
-          {live && periodicEnabled && (
-            <button
-              type="button"
-              className="button"
-              disabled={
-                mutationDisabled ||
-                paused ||
-                quote.periods === 0n ||
-                Boolean(targetChanged)
-              }
-              onClick={() =>
-                void act(async () => {
-                  const result = await onRefill(quote);
-                  return result
-                    ? result.periods > 0n
-                      ? `Purchased ${result.periods} periods for ${paymentLabel(result.gross)}.`
-                      : "No refill payment was needed or possible. Review current readiness."
-                    : undefined;
-                })
-              }
-            >
-              Refill {quote.periods.toString()} periods
-            </button>
-          )}
-        </>
-      )}
-      {periodicEnabled && price > 0n && walletAllowance !== undefined && (
-        <div className="control-group" aria-label="Your payment approval">
-          <h3>Your payment approval</h3>
-          <p>
-            Your wallet’s tier allowance:{" "}
-            {walletAllowance === (1n << 256n) - 1n
-              ? "Unlimited"
-              : paymentLabel(walletAllowance)}
-            .
-          </p>
-          <label className="creator-field" htmlFor={`${id}-approval`}>
-            Refill approval
-          </label>
-          <select
-            id={`${id}-approval`}
-            value={approvalMode}
-            disabled={pending || busy}
-            onChange={(event) => setApprovalMode(event.target.value)}
+        </div>
+        {periodicEnabled && price > 0n && walletAllowance !== undefined && (
+          <div
+            className="periodic-refill-approval"
+            aria-label="Your payment approval"
           >
-            <option value="">Choose approval</option>
-            <option value="finite">Finite amount</option>
-            <option value="unlimited">Unlimited</option>
-          </select>
-          {approvalMode === "finite" && (
-            <>
-              <label
-                className="creator-field"
-                htmlFor={`${id}-approval-periods`}
-              >
-                Approval periods
-              </label>
-              <input
-                id={`${id}-approval-periods`}
-                inputMode="numeric"
-                value={approvalPeriods}
-                disabled={pending || busy}
-                onChange={(event) => setApprovalPeriods(event.target.value)}
-              />
-            </>
-          )}
-          {approvalMode && approvalError && <p>{approvalError}</p>}
-          {approvalAmount !== undefined && (
+            <h3>Your payment approval</h3>
             <p>
-              {approvalMode === "unlimited"
-                ? "Unlimited tier allowance"
-                : `Tier allowance: ${paymentLabel(approvalAmount)}`}
-              . Restoring allowance permits still-live enrolled memberships to
-              refill.
+              Your wallet’s tier allowance:{" "}
+              {walletAllowance === (1n << 256n) - 1n
+                ? "Unlimited"
+                : paymentLabel(walletAllowance)}
+              .
             </p>
-          )}
-          {walletAllowance > 0n &&
-            approvalAmount !== undefined &&
-            approvalAmount > 0n &&
-            approvalAmount !== walletAllowance && (
+            <div className="creator-field">
+              <label htmlFor={`${id}-approval`}>Refill approval</label>
+              <select
+                id={`${id}-approval`}
+                value={approvalMode}
+                disabled={pending || busy}
+                onChange={(event) => setApprovalMode(event.target.value)}
+              >
+                <option value="">Choose approval</option>
+                <option value="finite">Finite amount</option>
+                <option value="unlimited">Unlimited</option>
+              </select>
+            </div>
+            {approvalMode === "finite" && (
+              <div className="creator-field">
+                <label htmlFor={`${id}-approval-periods`}>
+                  Approval periods
+                </label>
+                <input
+                  id={`${id}-approval-periods`}
+                  inputMode="numeric"
+                  value={approvalPeriods}
+                  disabled={pending || busy}
+                  onChange={(event) => setApprovalPeriods(event.target.value)}
+                />
+              </div>
+            )}
+            {approvalMode && approvalError && <p>{approvalError}</p>}
+            {approvalAmount !== undefined && (
               <p>
-                Changing this allowance takes two approvals: reset to zero, then
-                set the new amount.
+                {approvalMode === "unlimited"
+                  ? "Unlimited tier allowance"
+                  : `Tier allowance: ${paymentLabel(approvalAmount)}`}
+                . Restoring allowance permits still-live enrolled memberships to
+                refill.
               </p>
             )}
-          <button
-            type="button"
-            className="button button-outline"
-            disabled={disabled || approvalAmount === undefined}
-            onClick={() =>
-              void act(async () =>
-                (await onAllowance(approvalAmount!))
-                  ? "Tier allowance updated. Enrollment is unchanged."
-                  : undefined,
-              )
-            }
-          >
-            Set tier allowance
-          </button>
-          <button
-            type="button"
-            className="button button-outline"
-            disabled={disabled || walletAllowance === 0n}
-            onClick={() =>
-              void act(async () =>
-                (await onAllowance(0n))
-                  ? "Tier allowance revoked. Enrollment is unchanged; restoring allowance can resume still-live enrollments."
-                  : undefined,
-              )
-            }
-          >
-            Revoke tier allowance
-          </button>
-        </div>
-      )}
+            {walletAllowance > 0n &&
+              approvalAmount !== undefined &&
+              approvalAmount > 0n &&
+              approvalAmount !== walletAllowance && (
+                <p>
+                  Changing this allowance takes two approvals: reset to zero,
+                  then set the new amount.
+                </p>
+              )}
+            <div className="creator-actions">
+              <button
+                type="button"
+                className="button button-outline"
+                disabled={disabled || approvalAmount === undefined}
+                onClick={() =>
+                  void act(async () =>
+                    (await onAllowance(approvalAmount!))
+                      ? "Tier allowance updated. Enrollment is unchanged."
+                      : undefined,
+                  )
+                }
+              >
+                Set tier allowance
+              </button>
+              <button
+                type="button"
+                className="button button-outline"
+                disabled={disabled || walletAllowance === 0n}
+                onClick={() =>
+                  void act(async () =>
+                    (await onAllowance(0n))
+                      ? "Tier allowance revoked. Enrollment is unchanged; restoring allowance can resume still-live enrollments."
+                      : undefined,
+                  )
+                }
+              >
+                Revoke tier allowance
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

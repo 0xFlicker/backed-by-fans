@@ -2256,6 +2256,77 @@ dd {
   margin-top: 1rem;
 }
 
+.periodic-refill {
+  container-type: inline-size;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.periodic-refill h2 {
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.periodic-refill-layout {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.periodic-refill-review,
+.periodic-refill-approval {
+  min-width: 0;
+}
+
+.periodic-refill-selection {
+  align-items: end;
+  display: grid;
+  gap: 1rem;
+}
+
+.periodic-refill-selection .creator-field {
+  margin: 0;
+}
+
+.periodic-refill-approval {
+  border-top: 1px solid var(--line);
+  padding-top: 1.5rem;
+}
+
+.periodic-refill-approval h3 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.periodic-refill .button {
+  max-width: 100%;
+  white-space: normal;
+}
+
+.periodic-refill .creator-actions,
+.periodic-refill-review > .button {
+  margin-top: 1rem;
+}
+
+@container (min-width: 32rem) {
+  .periodic-refill-selection {
+    grid-template-columns: minmax(8rem, 1fr) auto;
+  }
+}
+
+@container (min-width: 54rem) {
+  .periodic-refill-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2rem;
+  }
+
+  .periodic-refill-approval {
+    border-top: 0;
+    border-left: 1px solid var(--line);
+    padding-top: 0;
+    padding-left: 2rem;
+  }
+}
+
 .refund-preview {
   --ink: var(--accent-ink);
   --muted-ink: var(--accent-muted);
