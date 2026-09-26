@@ -66,6 +66,8 @@ export function StreamingAmount({
   format,
   refresh,
   active = true,
+  projectToBoundary = false,
+  locale,
 }: {
   identity: string;
   streams: readonly EarningsStream[];
@@ -73,15 +75,23 @@ export function StreamingAmount({
   format: (raw: bigint) => string;
   refresh: () => unknown;
   active?: boolean;
+  /** Continue the server-provided rate until its known accounting boundary. */
+  projectToBoundary?: boolean;
+  locale?: string;
 }) {
   const version = `${identity}:${streams.map((s) => s.asOf).join(":")}`;
   const anchor = useMemo(
-    () => ({ version, at: undefined as number | undefined }),
+    () => ({
+      version,
+      at: undefined as number | undefined,
+      wallAt: undefined as number | undefined,
+    }),
     [version],
   );
   const listen = useCallback(
     (listener: () => void) => {
       anchor.at ??= performance.now();
+      anchor.wallAt ??= Date.now();
       return subscribe(listener);
     },
     [anchor],
@@ -99,13 +109,20 @@ export function StreamingAmount({
               projectedAmount(
                 stream,
                 active && anchor.at !== undefined
-                  ? Math.max(0, now - anchor.at)
+                  ? Math.max(0, now - anchor.at) +
+                      (projectToBoundary
+                        ? Math.max(
+                            0,
+                            (anchor.wallAt ?? 0) - Number(stream.asOf) * 1000,
+                          )
+                        : 0)
                   : 0,
+                projectToBoundary ? Infinity : 30_000,
               ),
             0n,
           ),
       ),
-    [streams, base, format, active, anchor],
+    [streams, base, format, active, anchor, projectToBoundary],
   );
   const value = useSyncExternalStore(listen, read, () => authoritative);
   const requestRefresh = useEffectEvent(() => {
@@ -114,7 +131,13 @@ export function StreamingAmount({
   const boundaryAfterMs = Math.min(
     ...streams
       .filter((s) => s.complete && s.nextBoundary > 0n)
-      .map((s) => Number(s.nextBoundary - s.asOf) * 1000),
+      .map(
+        (s) =>
+          Number(s.nextBoundary - s.asOf) * 1000 -
+          (projectToBoundary
+            ? Math.max(0, (anchor.wallAt ?? 0) - Number(s.asOf) * 1000)
+            : 0),
+      ),
   );
   useEffect(() => {
     let refreshed = false;
@@ -138,7 +161,8 @@ export function StreamingAmount({
   }, [boundaryAfterMs, anchor, active]);
   const decimal =
     new Intl.NumberFormat(
-      typeof navigator === "undefined" ? "en-US" : navigator.language,
+      locale ??
+        (typeof navigator === "undefined" ? "en-US" : navigator.language),
     )
       .formatToParts(1.1)
       .find((part) => part.type === "decimal")?.value ?? ".";
@@ -148,7 +172,7 @@ export function StreamingAmount({
   const precision = point < 0 ? 0 : lastDigit - point;
   const [places, setPlaces] = useState({ identity, count: precision });
   const zero = new Intl.NumberFormat(
-    typeof navigator === "undefined" ? "en-US" : navigator.language,
+    locale ?? (typeof navigator === "undefined" ? "en-US" : navigator.language),
   ).format(0);
   const fractionalDigits =
     point < 0 ? [] : rawChars.slice(point + 1, lastDigit + 1);

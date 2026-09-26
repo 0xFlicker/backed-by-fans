@@ -13,8 +13,9 @@ export async function readRewardUsdPrices(
   client: PublicClient,
   factory: Address,
   tokens: Address[],
+  capturedBlock?: bigint,
 ) {
-  const blockNumber = await client.getBlockNumber();
+  const blockNumber = capturedBlock ?? (await client.getBlockNumber());
   const vault = await client.readContract({
     address: factory,
     abi: membershipFactoryAbi,

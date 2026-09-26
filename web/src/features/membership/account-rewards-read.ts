@@ -12,6 +12,7 @@ export async function readAccountRewards(
   wallet: Address,
   tiers: readonly TierClaimSelection[],
   maxAccountingSteps = 25n,
+  capturedBlock?: bigint,
 ) {
   const tierKeys = new Set(tiers.map((tier) => tier.tier.toLowerCase()));
   if (
@@ -23,7 +24,8 @@ export async function readAccountRewards(
     )
   )
     throw new Error("Select unique memberships in unique tiers.");
-  const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
+  const blockNumber =
+    capturedBlock ?? (await client.getBlockNumber({ cacheTime: 0 }));
   let remaining = maxAccountingSteps;
   let blocked: TierClaimSelection | undefined;
   const results = [];

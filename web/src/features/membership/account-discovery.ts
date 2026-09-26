@@ -4,6 +4,7 @@ import type { AccountTierResult } from "./account-cache";
 import { verifyTierAuthenticity } from "@/lib/authenticity";
 import { isSameAddress } from "@/lib/address";
 import type { ReadyDeployment } from "@/lib/config";
+import { classifyReadError } from "@/lib/read-state";
 import {
   multicall3Address,
   readCatalogPage,
@@ -146,8 +147,8 @@ export async function discoverAccountPage(
   const results: AccountTierResult[] = [];
   const skipped: string[] = [];
   const scannedTiers: Address[] = [];
-  for (const tier of page.addresses) {
-    try {
+  const reads = await Promise.allSettled(
+    page.addresses.map(async (tier) => {
       const result = await readAccountOwnerPage(client, {
         ...input,
         tier,
@@ -167,14 +168,19 @@ export async function discoverAccountPage(
           args: [input.wallet],
           blockNumber: capturedBlock,
         }));
-      if (interested) results.push(result);
+      return interested ? result : undefined;
+    }),
+  );
+  reads.forEach((read, index) => {
+    const tier = page.addresses[index];
+    if (read.status === "fulfilled") {
+      if (read.value) results.push(read.value);
       scannedTiers.push(tier);
-    } catch (error) {
-      skipped.push(
-        `${tier}: ${error instanceof Error ? error.message : "Membership reads unavailable"}`,
-      );
+    } else {
+      const error: unknown = read.reason;
+      skipped.push(`${tier}: ${classifyReadError(error).label}`);
     }
-  }
+  });
   return {
     capturedBlock,
     total: page.total,
