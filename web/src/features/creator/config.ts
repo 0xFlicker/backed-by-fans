@@ -2,7 +2,7 @@ import { isAddress, zeroAddress, zeroHash, type Address } from "viem";
 
 import type { TierPublicationConfig } from "@/features/protocol/registry-reconciliation";
 import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
-import { displayedToRaw, formatRawTokenAmount } from "@/lib/token-amount";
+import { displayedToRaw, formatLocalizedTokenAmount } from "@/lib/token-amount";
 import type { RewardCurveTerms } from "@/lib/reward-curve";
 
 export const bpsDenominator = 10_000;
@@ -195,7 +195,7 @@ export function evaluateCreatorForm(
         multiplier: paymentToken.uiMultiplier,
       });
       if (pricePerPeriod > 0n && pricePerPeriod < paymentToken.minimumPayment) {
-        errors.displayedPrice = `Use at least ${formatRawTokenAmount({ raw: paymentToken.minimumPayment, decimals: paymentToken.decimals, multiplier: paymentToken.uiMultiplier })} ${paymentToken.symbol} per period, or 0 for pay what you want.`;
+        errors.displayedPrice = `Use at least ${formatLocalizedTokenAmount({ raw: paymentToken.minimumPayment, decimals: paymentToken.decimals, multiplier: paymentToken.uiMultiplier })} ${paymentToken.symbol} per period, or 0 for pay what you want.`;
       }
     } catch (error) {
       errors.displayedPrice =

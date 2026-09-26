@@ -120,7 +120,7 @@ import {
   readAcceptedPaymentTokens,
   type AcceptedPaymentToken,
 } from "@/lib/payment-token-read";
-import { formatRawTokenAmount } from "@/lib/token-amount";
+import { formatLocalizedTokenAmount } from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 import {
   decodeTransactionError,
@@ -277,7 +277,7 @@ function Field({
 
 function formattedPayment(value: bigint, token?: AcceptedPaymentToken) {
   return token
-    ? `${formatRawTokenAmount({
+    ? `${formatLocalizedTokenAmount({
         raw: value,
         decimals: token.decimals,
         multiplier: token.uiMultiplier,

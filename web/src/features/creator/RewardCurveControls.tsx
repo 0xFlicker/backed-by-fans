@@ -3,7 +3,10 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { CreatorForm, CreatorFormResult } from "@/features/creator/config";
 import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
-import { displayedToRaw, formatRawTokenAmount } from "@/lib/token-amount";
+import {
+  displayedToRaw,
+  formatLocalizedTokenAmount,
+} from "@/lib/token-amount";
 import {
   previewRewardShares,
   rewardCurveLabel,
@@ -38,7 +41,7 @@ function rewardCurveCopy({
     terms.pricePerPeriod > 0n
       ? `${(terms.earlySupportGross / terms.pricePerPeriod).toLocaleString()} purchased periods`
       : token
-        ? `${formatRawTokenAmount({ raw: terms.earlySupportGross, decimals: token.decimals, multiplier: token.uiMultiplier })} ${token.symbol} in total contributions`
+      ? `${formatLocalizedTokenAmount({ raw: terms.earlySupportGross, decimals: token.decimals, multiplier: token.uiMultiplier })} ${token.symbol} in total contributions`
         : `${terms.earlySupportGross.toString()} raw payment-token units in total contributions`;
   const exampleGross =
     terms.pricePerPeriod > 0n
@@ -51,7 +54,7 @@ function rewardCurveCopy({
     terms.pricePerPeriod > 0n
       ? "one purchased period"
       : token
-        ? `a contribution of ${formatRawTokenAmount({ raw: exampleGross, decimals: token.decimals, multiplier: token.uiMultiplier })} ${token.symbol}`
+        ? `a contribution of ${formatLocalizedTokenAmount({ raw: exampleGross, decimals: token.decimals, multiplier: token.uiMultiplier })} ${token.symbol}`
         : `a contribution of ${exampleGross.toString()} raw payment-token units`;
   return {
     label: label ?? summaryLabel,

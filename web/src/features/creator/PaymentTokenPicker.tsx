@@ -6,11 +6,11 @@ import type {
   AcceptedPaymentToken,
   AcceptedPaymentTokenReadState,
 } from "@/lib/payment-token-read";
-import { formatRawTokenAmount } from "@/lib/token-amount";
+import { formatLocalizedTokenAmount } from "@/lib/token-amount";
 
 function balanceLabel(token: AcceptedPaymentToken) {
   if (token.walletRawBalance === undefined) return undefined;
-  return `${formatRawTokenAmount({
+  return `${formatLocalizedTokenAmount({
     raw: token.walletRawBalance,
     decimals: token.decimals,
     multiplier: token.uiMultiplier,
