@@ -6,7 +6,7 @@ export const imageSourceLimits = {
 
 export const outputDimensions = [64, 128, 256, 384, 512] as const;
 export type OutputDimension = (typeof outputDimensions)[number];
-export const defaultOutputDimension: OutputDimension = 512;
+export const defaultOutputDimension: OutputDimension = 256;
 export const jpegQualityBounds = { min: 0.55, max: 0.95, step: 0.01 } as const;
 export const defaultJpegQuality = 0.84;
 export const maxRenderableMediaBytes = 90 * 1024;

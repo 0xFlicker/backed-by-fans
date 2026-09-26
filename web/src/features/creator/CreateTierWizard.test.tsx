@@ -144,6 +144,9 @@ describe("creator setup component", () => {
     const user = userEvent.setup();
     renderWizard();
     await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.clear(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+    );
     await user.type(
       screen.getByLabelText("Creator share when a member cancels (%)"),
       "0",
@@ -364,6 +367,9 @@ describe("creator setup component", () => {
       "true",
     );
     await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.clear(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+    );
     await user.type(
       screen.getByLabelText("Creator share when a member cancels (%)"),
       "0",
@@ -375,6 +381,9 @@ describe("creator setup component", () => {
     await user.clear(screen.getByLabelText("Starting boost (×)"));
     await user.type(screen.getByLabelText("Starting boost (×)"), "1.5");
     await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.clear(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+    );
     await user.type(
       screen.getByLabelText("Creator share when a member cancels (%)"),
       "0",
@@ -642,6 +651,9 @@ describe("creator setup component", () => {
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
     await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.clear(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+    );
     await user.type(
       screen.getByLabelText("Creator share when a member cancels (%)"),
       "0",
@@ -776,6 +788,9 @@ describe("creator setup component", () => {
     const acknowledgements = screen.getAllByRole("checkbox");
     await user.click(acknowledgements[0]);
     await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.clear(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+    );
     await user.type(
       screen.getByLabelText("Creator share when a member cancels (%)"),
       "0",
@@ -895,6 +910,9 @@ describe("creator setup component", () => {
       screen.getByText("Gifted memberships count toward your capacity."),
     ).toBeVisible();
     await user.click(screen.getByRole("button", { name: /^capacity$/i }));
+    await user.clear(
+      screen.getByLabelText("Creator share when a member cancels (%)"),
+    );
     await user.type(
       screen.getByLabelText("Creator share when a member cancels (%)"),
       "0",

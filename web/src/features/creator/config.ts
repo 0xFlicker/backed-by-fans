@@ -69,7 +69,7 @@ export const defaultCreatorForm: CreatorForm = {
   earlySupportWindow: "",
   supplyCap: "0",
   maxPrepaidPeriods: "12",
-  creatorRetentionPercent: "",
+  creatorRetentionPercent: "100",
   periodicEnabled: false,
 };
 

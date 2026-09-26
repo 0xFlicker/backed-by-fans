@@ -141,7 +141,7 @@ describe("MediaEditor", () => {
     await openMediaControls(user);
 
     const outputSize = screen.getByLabelText("Image size");
-    expect(outputSize).toHaveValue("512");
+    expect(outputSize).toHaveValue("256");
     expect(
       Array.from(
         outputSize.querySelectorAll("option"),

@@ -54,7 +54,7 @@ vi.mock("@/features/renderer-lab/preview", () => ({
 
 vi.mock("@/features/creator-studio/image-processing", () => ({
   defaultJpegQuality: 0.84,
-  defaultOutputDimension: 512,
+  defaultOutputDimension: 256,
   jpegQualityBounds: { min: 0.55, max: 0.95, step: 0.01 },
   outputDimensions: [256, 384, 512],
   processImageSource: processImageMock,

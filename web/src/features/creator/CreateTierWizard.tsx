@@ -2500,16 +2500,45 @@ export function CreateTierWizard() {
 
         {step === "limits" && (
           <div className="creator-step-panel">
+            <h2 id="step-limits">Set capacity</h2>
+            <p>You can change these later. Zero means no limit.</p>
+            <div className="creator-field-grid">
+              <Field
+                error={result.errors.supplyCap}
+                hint="Changeable. Zero means no limit."
+                id="tier-capacity"
+                label="Membership capacity"
+              >
+                <input
+                  aria-describedby="tier-capacity-hint tier-capacity-error"
+                  id="tier-capacity"
+                  inputMode="numeric"
+                  min="0"
+                  onChange={update("supplyCap")}
+                  value={form.supplyCap}
+                />
+              </Field>
+              <Field
+                error={result.errors.maxPrepaidPeriods}
+                hint="Changeable. Twelve periods is about one year."
+                id="tier-prepayment"
+                label="Maximum prepaid periods"
+              >
+                <input
+                  aria-describedby="tier-prepayment-hint tier-prepayment-error"
+                  id="tier-prepayment"
+                  inputMode="numeric"
+                  min="0"
+                  onChange={update("maxPrepaidPeriods")}
+                  value={form.maxPrepaidPeriods}
+                />
+              </Field>
+            </div>
             <Field
               id="tier-retention"
               label="Creator share when a member cancels (%)"
               error={result.errors.creatorRetentionPercent}
-              hint={
-                form.creatorRetentionPercent !== "" &&
-                !result.errors.creatorRetentionPercent
-                  ? `The membership owner receives ${100 - Number(form.creatorRetentionPercent)}% of unused funding. You can only lower the creator share later.`
-                  : "Choose your share of unused funding. You can only lower it later."
-              }
+              hint="When a member cancels, you keep this percentage of their unused funding and the rest is refunded to the membership owner. You can only lower this percentage later."
             >
               <input
                 id="tier-retention"
@@ -2545,40 +2574,6 @@ export function CreateTierWizard() {
             {result.errors.periodicEnabled && (
               <p role="alert">{result.errors.periodicEnabled}</p>
             )}
-            <h2 id="step-limits">Set capacity</h2>
-            <p>You can change these later. Zero means no limit.</p>
-            <div className="creator-field-grid">
-              <Field
-                error={result.errors.supplyCap}
-                hint="Changeable. Zero means no limit."
-                id="tier-capacity"
-                label="Membership capacity"
-              >
-                <input
-                  aria-describedby="tier-capacity-hint tier-capacity-error"
-                  id="tier-capacity"
-                  inputMode="numeric"
-                  min="0"
-                  onChange={update("supplyCap")}
-                  value={form.supplyCap}
-                />
-              </Field>
-              <Field
-                error={result.errors.maxPrepaidPeriods}
-                hint="Changeable. Twelve periods is about one year."
-                id="tier-prepayment"
-                label="Maximum prepaid periods"
-              >
-                <input
-                  aria-describedby="tier-prepayment-hint tier-prepayment-error"
-                  id="tier-prepayment"
-                  inputMode="numeric"
-                  min="0"
-                  onChange={update("maxPrepaidPeriods")}
-                  value={form.maxPrepaidPeriods}
-                />
-              </Field>
-            </div>
           </div>
         )}
 
