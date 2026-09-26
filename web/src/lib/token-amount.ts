@@ -149,6 +149,25 @@ export function tokenAmount(input: {
   };
 }
 
+export function formatLocalizedInteger(
+  value: bigint,
+  locale = "en-US",
+): string {
+  return new Intl.NumberFormat(locale).format(value);
+}
+
+/** Locale-aware formatting for values represented as fixed-decimal units. */
+export function formatLocalizedUnits(
+  raw: bigint,
+  decimals: number,
+  locale = "en-US",
+): string {
+  return formatLocalizedTokenAmount(
+    { raw, decimals, multiplier: multiplierScale },
+    locale,
+  );
+}
+
 export function scheduledDisplayAdjustment(input: {
   raw: bigint;
   decimals: number;
@@ -168,12 +187,12 @@ export function scheduledDisplayAdjustment(input: {
     currentMultiplier: input.currentMultiplier,
     futureMultiplier: input.futureMultiplier,
     effectiveAt: input.effectiveAt,
-    currentFormatted: formatRawTokenAmount({
+    currentFormatted: formatLocalizedTokenAmount({
       raw: input.raw,
       decimals: input.decimals,
       multiplier: input.currentMultiplier,
     }),
-    futureFormatted: formatRawTokenAmount({
+    futureFormatted: formatLocalizedTokenAmount({
       raw: input.raw,
       decimals: input.decimals,
       multiplier: input.futureMultiplier,

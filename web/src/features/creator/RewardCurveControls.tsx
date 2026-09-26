@@ -3,10 +3,7 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { CreatorForm, CreatorFormResult } from "@/features/creator/config";
 import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
-import {
-  displayedToRaw,
-  formatLocalizedTokenAmount,
-} from "@/lib/token-amount";
+import { displayedToRaw, formatLocalizedTokenAmount } from "@/lib/token-amount";
 import {
   previewRewardShares,
   rewardCurveLabel,
@@ -41,7 +38,7 @@ function rewardCurveCopy({
     terms.pricePerPeriod > 0n
       ? `${(terms.earlySupportGross / terms.pricePerPeriod).toLocaleString()} purchased periods`
       : token
-      ? `${formatLocalizedTokenAmount({ raw: terms.earlySupportGross, decimals: token.decimals, multiplier: token.uiMultiplier })} ${token.symbol} in total contributions`
+        ? `${formatLocalizedTokenAmount({ raw: terms.earlySupportGross, decimals: token.decimals, multiplier: token.uiMultiplier })} ${token.symbol} in total contributions`
         : `${terms.earlySupportGross.toString()} raw payment-token units in total contributions`;
   const exampleGross =
     terms.pricePerPeriod > 0n

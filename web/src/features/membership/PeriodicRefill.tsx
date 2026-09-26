@@ -1,15 +1,13 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
-import {
-  formatUnits,
-  isAddress,
-  parseUnits,
-  zeroAddress,
-  type Address,
-} from "viem";
+import { isAddress, parseUnits, zeroAddress, type Address } from "viem";
 import type { RefillQuote } from "@/contracts/types";
 import { parseTokenId } from "@/features/creator/management";
 import { decodeTransactionError } from "@/lib/transaction-state";
+import {
+  formatLocalizedInteger,
+  formatLocalizedUnits,
+} from "@/lib/token-amount";
 import { refillReasonLabel } from "./periodic-refill-read";
 import { refillAllowanceAmount } from "./refill-allowance";
 import { formatMembershipDate } from "./date";
@@ -18,7 +16,7 @@ type Review = { quote: RefillQuote; isOwner: boolean; referralStatus: number };
 export type RefillOutcome = { periods: bigint; gross: bigint };
 const uint64Max = (1n << 64n) - 1n;
 function days(seconds: bigint) {
-  return formatUnits((seconds * 1_000_000n) / 86400n, 6);
+  return formatLocalizedUnits((seconds * 1_000_000n) / 86400n, 6);
 }
 function targetSeconds(value: string) {
   if (!/^\d+(?:\.\d{1,6})?$/.test(value)) return undefined;
@@ -268,7 +266,7 @@ export function PeriodicRefill({
                 <div>
                   <dt>Collectible now</dt>
                   <dd>
-                    {quote.periods.toString()} whole periods ·{" "}
+                    {formatLocalizedInteger(quote.periods)} whole periods ·{" "}
                     {paymentLabel(quote.gross)}
                   </dd>
                 </div>
@@ -284,13 +282,16 @@ export function PeriodicRefill({
               {price > 0n && (
                 <div>
                   <p>
-                    {formatUnits((quote.balance * 1_000_000n) / price, 6)}{" "}
+                    {formatLocalizedUnits(
+                      (quote.balance * 1_000_000n) / price,
+                      6,
+                    )}{" "}
                     balance-equivalent periods
                   </p>
                   <p>
                     {quote.allowance === (1n << 256n) - 1n
                       ? "Unlimited allowance"
-                      : `${formatUnits((quote.allowance * 1_000_000n) / price, 6)} allowance-equivalent periods`}
+                      : `${formatLocalizedUnits((quote.allowance * 1_000_000n) / price, 6)} allowance-equivalent periods`}
                   </p>
                 </div>
               )}
@@ -410,7 +411,7 @@ export function PeriodicRefill({
                     })
                   }
                 >
-                  Refill {quote.periods.toString()} periods
+                  Refill {formatLocalizedInteger(quote.periods)} periods
                 </button>
               )}
             </>

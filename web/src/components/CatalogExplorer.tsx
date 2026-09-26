@@ -19,7 +19,10 @@ import {
   unavailableDeploymentState,
 } from "@/lib/read-state";
 import type { AcceptedPaymentToken } from "@/lib/payment-token-read";
-import { formatRawTokenAmount } from "@/lib/token-amount";
+import {
+  formatLocalizedInteger,
+  formatLocalizedTokenAmount,
+} from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 
 function summariesFromState(
@@ -73,7 +76,7 @@ function tierPrice(
   );
   if (tier.pricePerPeriod === 0n) return "Choose your support";
   return token
-    ? `${formatRawTokenAmount({
+    ? `${formatLocalizedTokenAmount({
         raw: tier.pricePerPeriod,
         decimals: token.decimals,
         multiplier: token.uiMultiplier,
@@ -175,7 +178,8 @@ export function CatalogExplorer({
     <div className="catalog-stack">
       <div className="catalog-meta">
         <p>
-          {page.total.toString()} membership{page.total === 1n ? "" : "s"}
+          {formatLocalizedInteger(page.total)} membership
+          {page.total === 1n ? "" : "s"}
         </p>
         <p className="font-mono">Block {page.capturedBlock.toString()}</p>
       </div>

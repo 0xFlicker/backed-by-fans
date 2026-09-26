@@ -5,7 +5,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
 import {
-  formatEther,
   formatUnits,
   parseUnits,
   zeroAddress,
@@ -22,6 +21,7 @@ import { operatorRoute } from "@/lib/buyback-policy/operator-route";
 import { readTokenDisplay } from "@/lib/payment-token-read";
 import {
   displayedToRaw,
+  formatLocalizedUnits,
   formatLocalizedTokenAmount,
   tokenMultiplierScale,
   rawToDisplayedUnits,
@@ -539,7 +539,7 @@ export function OperatorBuyback({
             </div>
             <div>
               <dt>Estimated network fee</dt>
-              <dd>{formatEther(quote.gasCost)} ETH</dd>
+              <dd>{formatLocalizedUnits(quote.gasCost, 18)} ETH</dd>
             </div>
             <div>
               <dt>Quote deadline (chain time)</dt>

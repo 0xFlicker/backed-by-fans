@@ -7,7 +7,7 @@ import { membershipFactoryAbi, protocolBurnRouterAbi } from "@/contracts";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import { type SupportedChainId } from "@/lib/chains";
 import { decodeTransactionError } from "@/lib/transaction-state";
-import { formatRawTokenAmount } from "@/lib/token-amount";
+import { formatLocalizedTokenAmount } from "@/lib/token-amount";
 import { receiptAdvance } from "@/features/protocol/buyback-reconciliation";
 
 export function ReleaseOperatorFees({
@@ -128,7 +128,7 @@ export function ReleaseOperatorFees({
       {action.data && (
         <p role="status">
           {action.data.amount > 0n
-            ? `Released ${formatRawTokenAmount({ raw: action.data.amount, ...action.data.display })} ${action.data.display.symbol}. Funds are ready for a buyback.`
+            ? `Released ${formatLocalizedTokenAmount({ raw: action.data.amount, ...action.data.display })} ${action.data.display.symbol}. Funds are ready for a buyback.`
             : "Accounting advanced. Refresh funds and release the remaining earned fees."}
         </p>
       )}
