@@ -3,6 +3,7 @@ import { formatMembershipDate } from "./date";
 
 import Link from "next/link";
 import { AccountRewards } from "./AccountRewards";
+import { WalletLookup } from "./WalletLookup";
 import { sortClaimSelection } from "./account-rewards-read";
 import { StreamingAmount } from "@/components/StreamingAmount";
 import type { EarningsStream } from "@/lib/streaming-amount";
@@ -48,13 +49,16 @@ import {
 } from "@/lib/read-state";
 import { useActiveNetwork } from "@/lib/use-active-network";
 import { formatLocalizedTokenAmount } from "@/lib/token-amount";
+import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
+import { useHydratedAccount } from "@/lib/use-hydrated-account";
 
-type ConnectedDiscoveryProps = {
+type AccountResultsProps = {
   cacheKey: string;
   deployment: ReadyDeployment;
   initialPage?: AccountDiscoveryPage;
   initialPaymentTokens?: AcceptedPaymentTokenReadState;
   wallet: Address;
+  readOnly?: boolean;
 };
 
 type AccountDiscoveryProps = {
@@ -102,7 +106,7 @@ function AccountArtwork({
   );
 }
 
-function ConnectedDiscovery(props: ConnectedDiscoveryProps) {
+function AccountResults(props: AccountResultsProps) {
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
     () => true,
@@ -129,7 +133,8 @@ function HydratedDiscovery({
   initialPage,
   initialPaymentTokens,
   wallet,
-}: ConnectedDiscoveryProps) {
+  readOnly = false,
+}: AccountResultsProps) {
   const client = usePublicClient({ chainId: deployment.chainId })!;
   const [savedCache, setSavedCache] = useState<AccountCache>(() =>
     loadAccountCache(window.localStorage, cacheKey),
@@ -306,67 +311,87 @@ function HydratedDiscovery({
   const complete =
     currentCache.complete &&
     currentCache.results.every((tier) => tier.ownerComplete);
+  const rewardBalances = (
+    <div className="account-reward-balances">
+      {(discovery.isError && !discovery.data) ||
+      (earnings.isError && !earnings.data) ? (
+        <p role="alert">Rewards unavailable. Refresh to try again.</p>
+      ) : discovery.isPending ||
+        (rewardTiers.length > 0 && earnings.isPending) ? (
+        <p role="status">Checking rewards…</p>
+      ) : totals.size === 0 ? (
+        <p>
+          {readOnly && !complete
+            ? "No rewards found in the memberships checked so far."
+            : "No rewards to claim yet."}
+        </p>
+      ) : (
+        [...totals].map(([token]) => {
+          const quote = usd.data?.find(
+            (item) => item.token.toLowerCase() === token,
+          );
+          return (
+            <div className="account-reward-balance" key={token}>
+              <p className="account-reward-amount">
+                <StreamingAmount
+                  identity={`${deployment.chainId}:${wallet}:${token}:total`}
+                  streams={streamsFor(token)}
+                  format={(raw) => claimLabel(raw, token)}
+                  refresh={() => earnings.refetch()}
+                  active={Boolean(earnings.data)}
+                />
+              </p>
+              {quote && (
+                <p className="account-reward-usd">
+                  <StreamingAmount
+                    identity={`${deployment.chainId}:${wallet}:${token}:usd`}
+                    streams={streamsFor(token)}
+                    format={(raw) => `≈ ${formatRewardUsd(raw, quote.price)}`}
+                    refresh={() => earnings.refetch()}
+                    active={Boolean(earnings.data)}
+                  />
+                </p>
+              )}
+            </div>
+          );
+        })
+      )}
+      {(!complete || (earnings.data && !earnings.data.complete)) &&
+        !earnings.isError && (
+          <p className="account-reward-note">
+            {readOnly
+              ? "Some rewards are still being checked. Refresh or find more memberships below."
+              : "Some rewards are still being checked. Claim all includes the rest."}
+          </p>
+        )}
+    </div>
+  );
   return (
     <section className="account-results">
-      <AccountRewards
-        deployment={deployment}
-        wallet={wallet}
-        onRefresh={refresh}
-      >
-        <div className="account-reward-balances">
-          {(discovery.isError && !discovery.data) ||
-          (earnings.isError && !earnings.data) ? (
-            <p role="alert">Rewards unavailable. Refresh to try again.</p>
-          ) : discovery.isPending ||
-            (rewardTiers.length > 0 && earnings.isPending) ? (
-            <p role="status">Checking rewards…</p>
-          ) : totals.size === 0 ? (
-            <p>No rewards to claim yet.</p>
-          ) : (
-            [...totals].map(([token]) => {
-              const quote = usd.data?.find(
-                (item) => item.token.toLowerCase() === token,
-              );
-              return (
-                <div className="account-reward-balance" key={token}>
-                  <p className="account-reward-amount">
-                    <StreamingAmount
-                      identity={`${deployment.chainId}:${wallet}:${token}:total`}
-                      streams={streamsFor(token)}
-                      format={(raw) => claimLabel(raw, token)}
-                      refresh={() => earnings.refetch()}
-                      active={Boolean(earnings.data)}
-                    />
-                  </p>
-                  {quote && (
-                    <p className="account-reward-usd">
-                      <StreamingAmount
-                        identity={`${deployment.chainId}:${wallet}:${token}:usd`}
-                        streams={streamsFor(token)}
-                        format={(raw) =>
-                          `≈ ${formatRewardUsd(raw, quote.price)}`
-                        }
-                        refresh={() => earnings.refetch()}
-                        active={Boolean(earnings.data)}
-                      />
-                    </p>
-                  )}
-                </div>
-              );
-            })
-          )}
-          {(!complete || (earnings.data && !earnings.data.complete)) &&
-            !earnings.isError && (
-              <p className="account-reward-note">
-                Some rewards are still being checked. Claim all includes the
-                rest.
-              </p>
-            )}
-        </div>
-      </AccountRewards>
+      {readOnly ? (
+        <section
+          aria-label="Rewards"
+          className="account-rewards protocol-section"
+        >
+          <div className="account-rewards-heading">
+            <h2 className="font-display">Rewards</h2>
+          </div>
+          {rewardBalances}
+        </section>
+      ) : (
+        <AccountRewards
+          deployment={deployment}
+          wallet={wallet}
+          onRefresh={refresh}
+        >
+          {rewardBalances}
+        </AccountRewards>
+      )}
       <div className="account-results-heading">
         <div>
-          <h2 className="font-display">Your memberships</h2>
+          <h2 className="font-display">
+            {readOnly ? "Memberships" : "Your memberships"}
+          </h2>
         </div>
         <button
           aria-label="Refresh memberships"
@@ -383,7 +408,9 @@ function HydratedDiscovery({
         <p role="status">Looking for memberships connected to this wallet.</p>
       )}
       {!discovery.data && currentCache.results.length > 0 && (
-        <p role="status">Refresh to update your memberships.</p>
+        <p role="status">
+          Refresh to update {readOnly ? "this wallet’s" : "your"} memberships.
+        </p>
       )}
       {discovery.error && !discovery.data && (
         <p role="alert">
@@ -453,7 +480,9 @@ function HydratedDiscovery({
                     <strong className="font-display">{tier.name}</strong>
                     {tier.creatorOwned && (
                       <span className="membership-state">
-                        You are the creator
+                        {readOnly
+                          ? "Wallet is the creator"
+                          : "You are the creator"}
                       </span>
                     )}
                   </div>
@@ -536,7 +565,7 @@ function HydratedDiscovery({
                       )}
                     </dl>
                   )}
-                  {tier.creatorOwned && (
+                  {tier.creatorOwned && !readOnly && (
                     <div className="account-tier-actions">
                       <Link
                         className="button button-dark"
@@ -624,6 +653,15 @@ export function AccountDiscovery({ initialDiscovery }: AccountDiscoveryProps) {
         </div>
         <p>Your memberships, creations and earnings.</p>
       </header>
+      <WalletLookup chainId={active.clientChainId} />
+      {wallet && deployment.status === "ready" && (
+        <Link
+          className="text-button"
+          href={`/chains/${deployment.chainId}/wallets/${wallet}` as Route}
+        >
+          Public rewards link
+        </Link>
+      )}
 
       {deployment.status !== "ready" ? (
         <ReadStateView
@@ -640,13 +678,62 @@ export function AccountDiscovery({ initialDiscovery }: AccountDiscoveryProps) {
           }}
         />
       ) : (
-        <ConnectedDiscovery
+        <AccountResults
           cacheKey={key as string}
           deployment={deployment}
           key={key}
           initialPage={matchingInitial?.page}
           initialPaymentTokens={matchingInitial?.paymentTokens}
           wallet={wallet}
+        />
+      )}
+    </div>
+  );
+}
+
+export function PublicWalletDiscovery({
+  chainId,
+  wallet,
+}: {
+  chainId: SupportedChainId;
+  wallet: Address;
+}) {
+  const account = useHydratedAccount();
+  const readOnly =
+    !account.isConnected ||
+    account.address?.toLowerCase() !== wallet.toLowerCase();
+  const deployment = getDeployment(publicConfig, chainId);
+  return (
+    <div className="account-stack">
+      <header className="account-heading">
+        <div>
+          <p className="eyebrow">{getSupportedChain(chainId).name}</p>
+          <h1 className="font-display">Wallet rewards.</h1>
+        </div>
+        <p className="wallet-view-address">
+          <code>{wallet}</code>
+        </p>
+        <p>Public memberships and earnings. No wallet connection needed.</p>
+      </header>
+      <WalletLookup chainId={chainId} />
+      {!readOnly && account.chainId !== chainId && (
+        <p role="status">
+          To claim rewards, switch your wallet to{" "}
+          {getSupportedChain(chainId).name}.
+        </p>
+      )}
+      {deployment.status !== "ready" ? (
+        <ReadStateView
+          heading="Memberships unavailable"
+          state={unavailableDeploymentState(deployment)}
+        />
+      ) : (
+        <AccountResults
+          key={accountCacheKey(chainId, deployment.factoryAddress, wallet)}
+          cacheKey={accountCacheKey(chainId, deployment.factoryAddress, wallet)}
+          deployment={deployment}
+          wallet={wallet}
+          readOnly={readOnly}
         />
       )}
     </div>

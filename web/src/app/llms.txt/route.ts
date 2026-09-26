@@ -20,6 +20,8 @@ export function GET() {
 
 ## Product boundaries
 
+- Public wallet memberships and rewards: \`/chains/{chainId}/wallets/{walletAddress}\`. Viewing requires no wallet connection and includes reward previews, creator/referral earnings, and membership ownership. Claim and management controls appear only for the connected wallet's own address; claims require the matching network. Use chain 46630 for Robinhood testnet or 4663 for Robinhood mainnet.
+
 - Robinhood testnet, chain ID 46630, is the supported public chain for custom renderers.
 - Browser deployments are recorded in the creator's onchain renderer list for later rediscovery. The list is not an approval gate; compatible renderers can still be shared and used directly by contract address.
 - There is no cross-chain lookup. Mechanical checks establish interface behavior for tested inputs, and the creator decides whether to use the design.
