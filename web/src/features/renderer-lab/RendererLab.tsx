@@ -135,11 +135,53 @@ type DeploymentCostEstimate =
   | { status: "ready"; gas: bigint; costWei: bigint }
   | { status: "error"; message: string };
 
+type DeploymentCostEstimates = {
+  renderer: DeploymentCostEstimate;
+  image: DeploymentCostEstimate;
+};
+
+type LocalRendererImage = {
+  name: string;
+  bytes: Hex;
+  byteLength: number;
+  dimension: OutputDimension;
+  mime: 1 | 2;
+  previewUrl: string;
+};
+
+type DeploymentCostRequest = {
+  candidateFingerprint: string;
+  accountAddress: Address | undefined;
+  client: PublicClient;
+  localImage: LocalRendererImage | null;
+  selectedImageStoreAddress: Address | null;
+  storeImageOnchain: boolean;
+};
+
+type StoredDeploymentCostEstimates = DeploymentCostRequest &
+  DeploymentCostEstimates;
+
 type RendererImageSource = {
   blob: Blob;
   mime: SupportedImageMIME;
   name: string;
 };
+
+function sameDeploymentCostRequest(
+  left: StoredDeploymentCostEstimates | null | undefined,
+  right: DeploymentCostRequest | null,
+): left is StoredDeploymentCostEstimates {
+  return Boolean(
+    left &&
+    right &&
+    left.candidateFingerprint === right.candidateFingerprint &&
+    left.accountAddress === right.accountAddress &&
+    left.client === right.client &&
+    left.localImage === right.localImage &&
+    left.selectedImageStoreAddress === right.selectedImageStoreAddress &&
+    left.storeImageOnchain === right.storeImageOnchain,
+  );
+}
 
 type RendererImageSettings = {
   dimension: OutputDimension;
@@ -605,14 +647,7 @@ export function RendererLab({
   );
   const [imagePhase, setImagePhase] = useState<ImagePhase>("idle");
   const [imageError, setImageError] = useState<string | null>(null);
-  const [localImage, setLocalImage] = useState<{
-    name: string;
-    bytes: Hex;
-    byteLength: number;
-    dimension: OutputDimension;
-    mime: 1 | 2;
-    previewUrl: string;
-  } | null>(null);
+  const [localImage, setLocalImage] = useState<LocalRendererImage | null>(null);
   const [selectedImageStoreAddress, setSelectedImageStoreAddress] =
     useState<Address | null>(null);
   const [storeImageOnchain, setStoreImageOnchain] = useState(false);
@@ -623,13 +658,8 @@ export function RendererLab({
   }>({ status: "idle", records: [] });
   const [previewPhase, setPreviewPhase] = useState<PreviewPhase>("idle");
   const [previewMembershipName, setPreviewMembershipName] = useState("");
-  const [deploymentCostEstimates, setDeploymentCostEstimates] = useState<{
-    renderer: DeploymentCostEstimate;
-    image: DeploymentCostEstimate;
-  }>({
-    renderer: { status: "idle" },
-    image: { status: "idle" },
-  });
+  const [storedDeploymentCostEstimates, setStoredDeploymentCostEstimates] =
+    useState<StoredDeploymentCostEstimates | null>(null);
   const [preparedDeployment, setPreparedDeployment] =
     useState<PreparedRendererDeployment | null>(null);
   const [preparedImageDeployment, setPreparedImageDeployment] =
@@ -668,31 +698,56 @@ export function RendererLab({
   const hasImageSlots = requests.some((request) => request.localImageSlot);
   const reusableImageAddress =
     selectedImageStoreAddress ?? deployedImageAddress;
-
-  useEffect(() => {
-    const candidate = candidateState.candidate;
-    if (!candidate) {
-      setDeploymentCostEstimates({
-        renderer: { status: "idle" },
-        image: { status: "idle" },
-      });
-      return;
-    }
-
-    let cancelled = false;
-    setDeploymentCostEstimates({
-      renderer: configuredRendererRegistry
+  const candidate = candidateState.candidate;
+  const deploymentCostRequest: DeploymentCostRequest | null = candidate
+    ? {
+        candidateFingerprint: candidate.candidateFingerprint,
+        accountAddress: account.address,
+        client,
+        localImage,
+        selectedImageStoreAddress,
+        storeImageOnchain,
+      }
+    : null;
+  const defaultDeploymentCostEstimates: DeploymentCostEstimates = {
+    renderer: !candidate
+      ? { status: "idle" }
+      : configuredRendererRegistry
         ? { status: "loading" }
         : {
             status: "error",
             message:
               "The renderer registry is not configured for this network.",
           },
-      image:
-        localImage && !selectedImageStoreAddress && storeImageOnchain
-          ? { status: "loading" }
-          : { status: "idle" },
-    });
+    image:
+      candidate && localImage && !selectedImageStoreAddress && storeImageOnchain
+        ? { status: "loading" }
+        : { status: "idle" },
+  };
+  const deploymentCostEstimates = sameDeploymentCostRequest(
+    storedDeploymentCostEstimates,
+    deploymentCostRequest,
+  )
+    ? {
+        renderer: storedDeploymentCostEstimates.renderer,
+        image: storedDeploymentCostEstimates.image,
+      }
+    : defaultDeploymentCostEstimates;
+
+  useEffect(() => {
+    if (!candidate) {
+      return;
+    }
+
+    let cancelled = false;
+    const request: DeploymentCostRequest = {
+      candidateFingerprint: candidate.candidateFingerprint,
+      accountAddress: account.address,
+      client,
+      localImage,
+      selectedImageStoreAddress,
+      storeImageOnchain,
+    };
 
     const rendererEstimate = configuredRendererRegistry
       ? estimateTransactionCost(client, () =>
@@ -732,7 +787,11 @@ export function RendererLab({
     void Promise.all([rendererEstimate, imageEstimate]).then(
       ([renderer, image]) => {
         if (cancelled) return;
-        setDeploymentCostEstimates({ renderer, image });
+        setStoredDeploymentCostEstimates({
+          ...request,
+          renderer,
+          image,
+        });
       },
     );
 
@@ -741,10 +800,9 @@ export function RendererLab({
     };
   }, [
     account.address,
-    candidateState.candidate?.creationBytecode,
+    candidate,
     client,
-    localImage?.bytes,
-    localImage?.mime,
+    localImage,
     selectedImageStoreAddress,
     storeImageOnchain,
   ]);
