@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { getAddress } from "viem";
 import { isNonZeroAddress } from "@/lib/address";
-import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
+import type { SupportedChainId } from "@/lib/chains";
 
 export function WalletLookup({ chainId }: { chainId: SupportedChainId }) {
   const router = useRouter();
@@ -26,7 +26,7 @@ export function WalletLookup({ chainId }: { chainId: SupportedChainId }) {
   return (
     <form className="wallet-lookup" onSubmit={submit}>
       <label className="creator-field">
-        <span>View a wallet on {getSupportedChain(chainId).name}</span>
+        <span>Wallet address</span>
         <input
           aria-invalid={Boolean(error)}
           aria-describedby={error ? "wallet-lookup-error" : undefined}

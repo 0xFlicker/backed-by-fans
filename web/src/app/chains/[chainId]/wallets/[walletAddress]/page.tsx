@@ -36,7 +36,7 @@ export default async function WalletPage({ params }: WalletPageProps) {
   if (!chainId || !isNonZeroAddress(route.walletAddress)) notFound();
   const wallet = getAddress(route.walletAddress);
   return (
-    <section className="page-shell account-page">
+    <section className="page-shell account-page public-wallet-page">
       <PublicWalletDiscovery chainId={chainId} wallet={wallet} />
     </section>
   );

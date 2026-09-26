@@ -22,6 +22,10 @@ const deployment: ReadyDeployment = {
   ),
 };
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 vi.mock("./account-discovery", () => ({
   discoverAccountPage: vi.fn(),
   readAccountOwnerPage: vi.fn(),

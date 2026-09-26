@@ -11,7 +11,7 @@ import { readAccountRewardStreams } from "./account-reward-streams";
 import { readRewardUsdPrices, formatRewardUsd } from "@/lib/reward-usd";
 import type { Route } from "next";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowClockwiseIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, CopyIcon, CheckIcon } from "@phosphor-icons/react";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import type { Address } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
@@ -699,23 +699,60 @@ export function PublicWalletDiscovery({
   wallet: Address;
 }) {
   const account = useHydratedAccount();
+  const [copyResult, setCopyResult] = useState<{
+    wallet: Address;
+    copied: boolean;
+  }>();
+  const copied = copyResult?.wallet === wallet && copyResult.copied;
+  async function copyAddress() {
+    try {
+      await navigator.clipboard.writeText(wallet);
+      setCopyResult({ wallet, copied: true });
+    } catch {
+      setCopyResult({ wallet, copied: false });
+    }
+  }
   const readOnly =
     !account.isConnected ||
     account.address?.toLowerCase() !== wallet.toLowerCase();
   const deployment = getDeployment(publicConfig, chainId);
   return (
-    <div className="account-stack">
-      <header className="account-heading">
-        <div>
-          <p className="eyebrow">{getSupportedChain(chainId).name}</p>
-          <h1 className="font-display">Wallet rewards.</h1>
+    <div className="account-stack public-wallet-view">
+      <header className="public-wallet-heading">
+        <div className="public-wallet-identity">
+          <p className="eyebrow">Wallet rewards</p>
+          <div className="public-wallet-address">
+            <h1 title={wallet}>
+              {wallet.slice(0, 6)}
+              <span>…</span>
+              {wallet.slice(-4)}
+            </h1>
+            <button
+              aria-label={
+                copied ? "Wallet address copied" : "Copy wallet address"
+              }
+              className="wallet-copy"
+              onClick={() => void copyAddress()}
+              type="button"
+              title={copied ? "Copied" : "Copy address"}
+            >
+              {copied ? <CheckIcon size={20} /> : <CopyIcon size={20} />}
+            </button>
+          </div>
+          <p className="public-wallet-network">
+            {getSupportedChain(chainId).name}
+          </p>
+          {copyResult?.wallet === wallet && !copyResult.copied && (
+            <p role="alert" className="small-copy">
+              Couldn’t copy. Select the address: <code>{wallet}</code>
+            </p>
+          )}
         </div>
-        <p className="wallet-view-address">
-          <code>{wallet}</code>
-        </p>
-        <p>Public memberships and earnings. No wallet connection needed.</p>
+        <details className="wallet-switcher" key={`${chainId}:${wallet}`}>
+          <summary>View another wallet</summary>
+          <WalletLookup chainId={chainId} />
+        </details>
       </header>
-      <WalletLookup chainId={chainId} />
       {!readOnly && account.chainId !== chainId && (
         <p role="status">
           To claim rewards, switch your wallet to{" "}
