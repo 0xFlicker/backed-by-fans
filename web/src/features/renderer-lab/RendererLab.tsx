@@ -12,6 +12,7 @@ import {
 import {
   bytesToHex,
   createPublicClient,
+  formatEther,
   http,
   zeroAddress,
   type Address,
@@ -128,6 +129,11 @@ type HelperBinding = {
 
 type PreviewPhase = "idle" | "running" | "complete";
 type ImagePhase = "idle" | "processing" | "ready" | "error";
+
+type DeploymentCostEstimate =
+  | { status: "idle" | "loading" }
+  | { status: "ready"; gas: bigint; costWei: bigint }
+  | { status: "error"; message: string };
 
 type RendererImageSource = {
   blob: Blob;
@@ -440,6 +446,72 @@ function byteEstimate(byteLength: number) {
   return `${byteLength.toLocaleString()} bytes (${(byteLength / 1_024).toFixed(1)} KB)`;
 }
 
+function nativeCostEstimate(costWei: bigint) {
+  return `${new Intl.NumberFormat(undefined, {
+    maximumSignificantDigits: 4,
+  }).format(Number(formatEther(costWei)))} ETH`;
+}
+
+async function estimateTransactionCost(
+  client: PublicClient,
+  estimateGas: () => Promise<bigint>,
+): Promise<DeploymentCostEstimate> {
+  try {
+    const [gas, gasPrice] = await Promise.all([
+      estimateGas(),
+      client.getGasPrice(),
+    ]);
+    return { status: "ready", gas, costWei: gas * gasPrice };
+  } catch (caught) {
+    return {
+      status: "error",
+      message:
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "The public RPC could not estimate this transaction.",
+    };
+  }
+}
+
+function EmptyGalleryArtwork() {
+  return (
+    <div className={styles.emptyGalleryArtwork} aria-hidden="true">
+      {Array.from({ length: 6 }, (_, index) => (
+        <div className={styles.emptyGalleryTile} key={index}>
+          <span>{String(index + 1).padStart(2, "0")}</span>
+          <span className={styles.emptyGalleryShape} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CostEstimateLine({
+  label,
+  estimate,
+}: {
+  label: string;
+  estimate: DeploymentCostEstimate;
+}) {
+  return (
+    <div className={styles.costEstimateLine}>
+      <span>{label}</span>
+      {estimate.status === "ready" ? (
+        <>
+          <strong>≈ {nativeCostEstimate(estimate.costWei)}</strong>
+          <small>{estimate.gas.toLocaleString()} gas</small>
+        </>
+      ) : estimate.status === "loading" ? (
+        <strong role="status">Estimating…</strong>
+      ) : estimate.status === "error" ? (
+        <small role="status">Unavailable: {estimate.message}</small>
+      ) : (
+        <small>Not estimated</small>
+      )}
+    </div>
+  );
+}
+
 function CopyableAddress({
   address,
   copied,
@@ -543,6 +615,9 @@ export function RendererLab({
     mime: 1 | 2;
     previewUrl: string;
   } | null>(null);
+  const [selectedImageStoreAddress, setSelectedImageStoreAddress] =
+    useState<Address | null>(null);
+  const [storeImageOnchain, setStoreImageOnchain] = useState(false);
   const [savedMedia, setSavedMedia] = useState<{
     status: "idle" | "loading" | "ready" | "error";
     records: readonly CreatorMediaRecord[];
@@ -550,6 +625,13 @@ export function RendererLab({
   }>({ status: "idle", records: [] });
   const [previewPhase, setPreviewPhase] = useState<PreviewPhase>("idle");
   const [previewMembershipName, setPreviewMembershipName] = useState("");
+  const [deploymentCostEstimates, setDeploymentCostEstimates] = useState<{
+    renderer: DeploymentCostEstimate;
+    image: DeploymentCostEstimate;
+  }>({
+    renderer: { status: "idle" },
+    image: { status: "idle" },
+  });
   const [preparedDeployment, setPreparedDeployment] =
     useState<PreparedRendererDeployment | null>(null);
   const [preparedImageDeployment, setPreparedImageDeployment] =
@@ -586,6 +668,88 @@ export function RendererLab({
   const results = candidateState.resultSet?.results ?? [];
   const requests = candidateState.requestSet?.requests ?? [];
   const hasImageSlots = requests.some((request) => request.localImageSlot);
+  const reusableImageAddress =
+    selectedImageStoreAddress ?? deployedImageAddress;
+
+  useEffect(() => {
+    const candidate = candidateState.candidate;
+    if (!candidate) {
+      setDeploymentCostEstimates({
+        renderer: { status: "idle" },
+        image: { status: "idle" },
+      });
+      return;
+    }
+
+    let cancelled = false;
+    setDeploymentCostEstimates({
+      renderer: configuredRendererRegistry
+        ? { status: "loading" }
+        : {
+            status: "error",
+            message:
+              "The renderer registry is not configured for this network.",
+          },
+      image:
+        localImage && !selectedImageStoreAddress && storeImageOnchain
+          ? { status: "loading" }
+          : { status: "idle" },
+    });
+
+    const rendererEstimate = configuredRendererRegistry
+      ? estimateTransactionCost(client, () =>
+          client.estimateContractGas({
+            account: account.address ?? zeroAddress,
+            address: configuredRendererRegistry,
+            abi: rendererRegistryAbi,
+            functionName: "deployAndRegister",
+            args: [candidate.creationBytecode],
+          }),
+        )
+      : Promise.resolve<DeploymentCostEstimate>({
+          status: "error",
+          message: "The renderer registry is not configured for this network.",
+        });
+
+    const imageEstimate =
+      localImage && !selectedImageStoreAddress && storeImageOnchain
+        ? estimateTransactionCost(client, async () => {
+            const dependencies = await readProtocolDependencies(
+              client,
+              configuredDeployment,
+            );
+            if (dependencies.status !== "valid") {
+              throw new Error(dependencies.label);
+            }
+            return client.estimateContractGas({
+              account: account.address ?? zeroAddress,
+              address: dependencies.data.mediaStoreFactory,
+              abi: onchainMediaStoreFactoryAbi,
+              functionName: "store",
+              args: [localImage.bytes, localImage.mime],
+            });
+          })
+        : Promise.resolve<DeploymentCostEstimate>({ status: "idle" });
+
+    void Promise.all([rendererEstimate, imageEstimate]).then(
+      ([renderer, image]) => {
+        if (cancelled) return;
+        setDeploymentCostEstimates({ renderer, image });
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    account.address,
+    candidateState.candidate?.creationBytecode,
+    client,
+    localImage?.bytes,
+    localImage?.mime,
+    selectedImageStoreAddress,
+    storeImageOnchain,
+  ]);
 
   const resetDeploymentState = () => {
     setPreparedDeployment(null);
@@ -603,9 +767,12 @@ export function RendererLab({
     blob: Blob,
     name: string,
     mime: SupportedImageMIME,
+    storedAddress?: Address,
   ) => {
     setImageSource({ blob, name, mime });
     setImageSettings(defaultRendererImageSettings);
+    setSelectedImageStoreAddress(storedAddress ?? null);
+    setStoreImageOnchain(false);
     setLocalImage(null);
     setImagePhase("processing");
     setImageError(null);
@@ -621,8 +788,32 @@ export function RendererLab({
     resetDeploymentState();
   };
 
+  const clearImage = () => {
+    setImageSource(null);
+    setImageSettings(defaultRendererImageSettings);
+    setLocalImage(null);
+    setSelectedImageStoreAddress(null);
+    setStoreImageOnchain(false);
+    setImagePhase("idle");
+    setImageError(null);
+    setCandidateState((current) =>
+      current.candidate && current.requestSet
+        ? stateWithCandidateAndRequests(
+            current.candidate,
+            current.requestSet.requests,
+          )
+        : current,
+    );
+    setPreviewPhase("idle");
+    setPreparedImageDeployment(null);
+    setImageDeploymentError(null);
+    setMessage("Image cleared. Preview the examples without a local image.");
+    setError(null);
+  };
+
   const updateImageSettings = (update: Partial<RendererImageSettings>) => {
     setImageSettings((current) => ({ ...current, ...update }));
+    setStoreImageOnchain(false);
     setLocalImage(null);
     setImagePhase("processing");
     setImageError(null);
@@ -761,6 +952,8 @@ export function RendererLab({
     );
     setImageSource(null);
     setLocalImage(null);
+    setSelectedImageStoreAddress(null);
+    setStoreImageOnchain(false);
     setImagePhase("idle");
     setImageError(null);
     setPreviewPhase("idle");
@@ -1009,6 +1202,7 @@ export function RendererLab({
       creatorMediaBlob(record),
       `Saved image ${index + 1}`,
       creatorMediaMime(record),
+      record.store,
     );
   };
 
@@ -1149,7 +1343,15 @@ export function RendererLab({
 
   const deployImage = async () => {
     setImageDeploymentError(null);
-    if (!account.isConnected || !account.address || !localImage) return;
+    if (
+      !account.isConnected ||
+      !account.address ||
+      !localImage ||
+      selectedImageStoreAddress ||
+      !storeImageOnchain
+    ) {
+      return;
+    }
 
     try {
       if (account.chainId !== canonicalRendererPackageChainId) {
@@ -1265,8 +1467,9 @@ export function RendererLab({
           />
 
           <p className={styles.privacyLine}>
-            Browser memory only <span aria-hidden="true">·</span> No account
-            required <span aria-hidden="true">·</span> No package upload
+            No account required <span aria-hidden="true">·</span> Preview and
+            estimates use the public RPC <span aria-hidden="true">·</span> No
+            app server upload
           </p>
         </section>
 
@@ -1286,8 +1489,23 @@ export function RendererLab({
 
           {!candidateState.candidate || !importDetails ? (
             <div className={styles.emptyState}>
-              <span aria-hidden="true">06</span>
-              <p>Your representative gallery will appear here.</p>
+              <EmptyGalleryArtwork />
+              <div className={styles.emptyStateCopy}>
+                <p className={styles.microLabel}>Renderer preview</p>
+                <h3>Bring your renderer to life.</h3>
+                <p>
+                  Choose a .renderer.json file to generate six representative
+                  membership examples here. Preview calls and fee estimates use
+                  the Robinhood testnet public RPC; neither requires a wallet.
+                </p>
+                <button
+                  className="button button-outline"
+                  onClick={() => packageInputRef.current?.click()}
+                  type="button"
+                >
+                  Choose renderer package
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -1341,12 +1559,30 @@ export function RendererLab({
                     </div>
 
                     <div className={styles.imageSourceTools}>
-                      <label
-                        className="button button-outline"
-                        htmlFor={imageInputId}
-                      >
-                        {imageSource ? "Change image" : "Choose JPEG or PNG"}
-                      </label>
+                      <div className={styles.imageSourceActions}>
+                        <label
+                          className="button button-outline"
+                          htmlFor={imageInputId}
+                        >
+                          {imageSource ? "Change image" : "Choose JPEG or PNG"}
+                        </label>
+                        {(imageSource || localImage) && (
+                          <button
+                            className="button button-outline"
+                            disabled={
+                              imageWrite.isPending ||
+                              imageDeploymentReceipt.isLoading ||
+                              (imageDeploymentReceipt.isSuccess &&
+                                !deployedImageAddress &&
+                                !imageDeploymentError)
+                            }
+                            onClick={clearImage}
+                            type="button"
+                          >
+                            Clear image
+                          </button>
+                        )}
+                      </div>
                       <input
                         accept="image/jpeg,image/png"
                         className={styles.hiddenInput}
@@ -1467,6 +1703,25 @@ export function RendererLab({
                           {imageError}
                         </p>
                       )}
+                      {localImage && !selectedImageStoreAddress && (
+                        <label className={styles.imageStorageOptIn}>
+                          <input
+                            checked={storeImageOnchain}
+                            onChange={(event) =>
+                              setStoreImageOnchain(event.target.checked)
+                            }
+                            type="checkbox"
+                          />
+                          <span>
+                            <strong>Also store this image onchain</strong>
+                            <small>
+                              Optional. Needed only to reuse it outside this
+                              preview; it takes a separate wallet transaction
+                              and network fee.
+                            </small>
+                          </span>
+                        </label>
+                      )}
                     </div>
                   </div>
 
@@ -1521,7 +1776,31 @@ export function RendererLab({
                 <span>No wallet needed</span>
               </div>
 
-              {results.length > 0 && (
+              {results.length === 0 ? (
+                <div
+                  aria-live={previewPhase === "running" ? "polite" : undefined}
+                  className={styles.previewWaiting}
+                >
+                  <EmptyGalleryArtwork />
+                  <div className={styles.emptyStateCopy}>
+                    <p className={styles.microLabel}>
+                      {previewPhase === "running"
+                        ? "Rendering examples"
+                        : "Preview ready"}
+                    </p>
+                    <h3>
+                      {previewPhase === "running"
+                        ? "Your six examples are on the way."
+                        : "Your gallery is ready to fill."}
+                    </h3>
+                    <p>
+                      {previewPhase === "running"
+                        ? "Each example is rendered against the canonical testnet preview harness."
+                        : "Choose Preview examples to see your renderer across six membership states."}
+                    </p>
+                  </div>
+                </div>
+              ) : (
                 <div
                   className={styles.gallery}
                   aria-label="Representative renderer examples"
@@ -1606,8 +1885,8 @@ export function RendererLab({
               <p className={styles.microLabel}>Deploy</p>
               <h2>Ready when you are</h2>
               <p>
-                Connect your wallet, then deploy the renderer and optional image
-                separately.
+                Previewing is free. Connect your wallet only when you want to
+                deploy the renderer or store the image separately.
               </p>
             </div>
           </div>
@@ -1646,14 +1925,16 @@ export function RendererLab({
                 )}
               </dd>
             </div>
-            {localImage && (
+            {(selectedImageStoreAddress ||
+              (localImage && storeImageOnchain) ||
+              deployedImageAddress) && (
               <div className={styles.addressSummary}>
                 <dt>Reusable image address</dt>
                 <dd>
-                  {deployedImageAddress ? (
+                  {reusableImageAddress ? (
                     <CopyableAddress
-                      address={deployedImageAddress}
-                      copied={copiedAddress === deployedImageAddress}
+                      address={reusableImageAddress}
+                      copied={copiedAddress === reusableImageAddress}
                       label="image address"
                       onCopy={(address) => void copyAddress(address)}
                     />
@@ -1663,9 +1944,32 @@ export function RendererLab({
                 </dd>
               </div>
             )}
-            <div>
-              <dt>Wallet cost</dt>
-              <dd>Estimated by your wallet before signing</dd>
+            <div className={styles.networkEstimate}>
+              <dt>Estimated network fee</dt>
+              <dd>
+                <div className={styles.costEstimateGrid}>
+                  <CostEstimateLine
+                    estimate={deploymentCostEstimates.renderer}
+                    label="Renderer deployment"
+                  />
+                  {localImage &&
+                    !selectedImageStoreAddress &&
+                    storeImageOnchain && (
+                      <CostEstimateLine
+                        estimate={deploymentCostEstimates.image}
+                        label="Optional image upload"
+                      />
+                    )}
+                </div>
+                <p className={styles.estimateNote}>
+                  Estimated by the Robinhood testnet public RPC at the current
+                  gas price.{" "}
+                  {account.address
+                    ? "Using your connected address."
+                    : "Using a generic sender until you connect."}{" "}
+                  The wallet still reviews and signs each transaction.
+                </p>
+              </dd>
             </div>
           </dl>
 
@@ -1756,7 +2060,7 @@ export function RendererLab({
               </button>
             </div>
 
-            {localImage && (
+            {localImage && !selectedImageStoreAddress && storeImageOnchain && (
               <div className={styles.deploymentAction}>
                 <div>
                   <p className={styles.microLabel}>Onchain image</p>

@@ -120,7 +120,7 @@ import {
   readAcceptedPaymentTokens,
   type AcceptedPaymentToken,
 } from "@/lib/payment-token-read";
-import { formatLocalizedTokenAmount } from "@/lib/token-amount";
+import { displayedToRaw, formatLocalizedTokenAmount } from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 import {
   decodeTransactionError,
@@ -283,6 +283,35 @@ function formattedPayment(value: bigint, token?: AcceptedPaymentToken) {
         multiplier: token.uiMultiplier,
       })} ${token.symbol}`
     : value.toString();
+}
+
+function formattedDisplayedPayment(
+  displayed: string,
+  token?: AcceptedPaymentToken,
+) {
+  if (!displayed.trim()) return "Not set";
+  if (!token) return displayed;
+
+  try {
+    return formatLocalizedTokenAmount({
+      raw: displayedToRaw({
+        displayed,
+        decimals: token.decimals,
+        multiplier: token.uiMultiplier,
+      }),
+      decimals: token.decimals,
+      multiplier: token.uiMultiplier,
+    });
+  } catch {
+    return displayed;
+  }
+}
+
+function formattedReviewInteger(value: string, fallback: string) {
+  const normalized = value.trim();
+  if (!normalized) return fallback;
+  if (!/^\d+$/.test(normalized)) return value;
+  return new Intl.NumberFormat("en-US").format(BigInt(normalized));
 }
 
 function publicationStepStatus(phase: TransactionPhase, waiting = false) {
@@ -2638,9 +2667,12 @@ export function CreateTierWizard() {
                   <div>
                     <dt>Price / period</dt>
                     <dd>
-                      {form.displayedPrice || "Not set"}{" "}
+                      {formattedDisplayedPayment(
+                        form.displayedPrice,
+                        selectedPaymentToken,
+                      )}{" "}
                       {selectedPaymentToken?.symbol ?? "token"} /{" "}
-                      {form.periodDays || "Not set"} days
+                      {formattedReviewInteger(form.periodDays, "Not set")} days
                     </dd>
                   </div>
                   <div>
@@ -2689,7 +2721,9 @@ export function CreateTierWizard() {
                   <div>
                     <dt>Capacity</dt>
                     <dd>
-                      {form.supplyCap === "0" ? "Unlimited" : form.supplyCap}
+                      {form.supplyCap === "0"
+                        ? "Unlimited"
+                        : formattedReviewInteger(form.supplyCap, "Not set")}
                     </dd>
                   </div>
                   <div>
@@ -2697,7 +2731,7 @@ export function CreateTierWizard() {
                     <dd>
                       {form.maxPrepaidPeriods === "0"
                         ? "Unlimited"
-                        : `${form.maxPrepaidPeriods} periods`}
+                        : `${formattedReviewInteger(form.maxPrepaidPeriods, "Not set")} periods`}
                     </dd>
                   </div>
                   <div>
