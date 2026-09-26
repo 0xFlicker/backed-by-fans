@@ -1,6 +1,6 @@
 "use client";
 
-import { erc20Abi, formatEther, type Address } from "viem";
+import { erc20Abi, type Address } from "viem";
 import { useAccount, useBalance, useReadContract } from "wagmi";
 
 import { ReadStateView } from "@/components/ReadState";
@@ -13,7 +13,10 @@ import {
   type ReadState,
 } from "@/lib/read-state";
 import { testnetFundingReadiness } from "@/lib/testnet-funding";
-import { formatRawTokenAmount } from "@/lib/token-amount";
+import {
+  formatLocalizedTokenAmount,
+  formatLocalizedUnits,
+} from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 
 type VerifiedBalances = {
@@ -22,7 +25,7 @@ type VerifiedBalances = {
 };
 
 function tokenValue(value: bigint, token: AcceptedPaymentToken) {
-  return `${formatRawTokenAmount({
+  return `${formatLocalizedTokenAmount({
     raw: value,
     decimals: token.decimals,
     multiplier: token.uiMultiplier,
@@ -48,7 +51,7 @@ function WalletBalanceGrid({
       </div>
       <div>
         <dt>Network fee balance</dt>
-        <dd>{Number(formatEther(balances.eth)).toFixed(5)} ETH</dd>
+        <dd>{formatLocalizedUnits(balances.eth, 18)} ETH</dd>
       </div>
       <div>
         <dt>Payment token</dt>

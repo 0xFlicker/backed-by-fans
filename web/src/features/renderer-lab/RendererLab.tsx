@@ -12,7 +12,6 @@ import {
 import {
   bytesToHex,
   createPublicClient,
-  formatEther,
   http,
   zeroAddress,
   type Address,
@@ -30,6 +29,7 @@ import {
 import { simulateContract } from "@wagmi/core";
 
 import { WalletControl } from "@/components/WalletControl";
+import { formatLocalizedUnits } from "@/lib/token-amount";
 import {
   defaultJpegQuality,
   defaultOutputDimension,
@@ -447,9 +447,7 @@ function byteEstimate(byteLength: number) {
 }
 
 function nativeCostEstimate(costWei: bigint) {
-  return `${new Intl.NumberFormat(undefined, {
-    maximumSignificantDigits: 4,
-  }).format(Number(formatEther(costWei)))} ETH`;
+  return `${formatLocalizedUnits(costWei, 18)} ETH`;
 }
 
 async function estimateTransactionCost(

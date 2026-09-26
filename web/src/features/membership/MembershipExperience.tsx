@@ -19,7 +19,6 @@ import { simulateContract } from "@wagmi/core";
 import {
   erc20Abi,
   encodeFunctionData,
-  formatEther,
   parseEventLogs,
   getAddress,
   isAddress,
@@ -87,7 +86,9 @@ import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import type { ReadState } from "@/lib/read-state";
 import { robinhoodTestnetFaucetUrl } from "@/lib/testnet-funding";
 import {
-  formatRawTokenAmount,
+  formatLocalizedInteger,
+  formatLocalizedTokenAmount,
+  formatLocalizedUnits,
   scheduledDisplayAdjustment,
 } from "@/lib/token-amount";
 import {
@@ -101,7 +102,9 @@ type SendWrite = () => Promise<Hash>;
 
 function formatPeriod(seconds: bigint) {
   const days = seconds / 86_400n;
-  return days > 0n ? `${days} days` : `${seconds} seconds`;
+  return days > 0n
+    ? `${formatLocalizedInteger(days)} days`
+    : `${formatLocalizedInteger(seconds)} seconds`;
 }
 
 function transactionStatusCopy(phase: string, symbol: string) {
@@ -267,7 +270,7 @@ export function MembershipExperience({
           : `${Number((eligibleWeight * 10000n) / totalWeight) / 100}%`;
   const paymentLabel = (raw: bigint) =>
     paymentTokenState
-      ? `${formatRawTokenAmount({
+      ? `${formatLocalizedTokenAmount({
           raw,
           decimals: paymentTokenState.decimals,
           multiplier: paymentTokenState.uiMultiplier,
@@ -277,7 +280,7 @@ export function MembershipExperience({
   // display multiplier: a stock split must not change permanent reward weight.
   const weightLabel = (raw: bigint) =>
     paymentTokenState
-      ? formatRawTokenAmount({
+      ? formatLocalizedTokenAmount({
           raw,
           decimals: paymentTokenState.decimals,
           multiplier: 10n ** 18n,
@@ -1043,9 +1046,9 @@ export function MembershipExperience({
     return (
       <div className="funding-notice">
         <p>
-          Convert {formatEther(amount)} ETH to WETH for this payment. Wrapping
-          is 1:1 and needs a network fee. After confirmation, continue with your
-          payment.
+          Convert {formatLocalizedUnits(amount, 18)} ETH to WETH for this
+          payment. Wrapping is 1:1 and needs a network fee. After confirmation,
+          continue with your payment.
         </p>
         {!hasNative && (
           <p>Add enough ETH to cover the wrap and network fees.</p>
@@ -1056,7 +1059,7 @@ export function MembershipExperience({
           disabled={!writesVerified || !hasNative}
           onClick={() => void wrapForPayment(amount)}
         >
-          Wrap {formatEther(amount)} ETH
+          Wrap {formatLocalizedUnits(amount, 18)} ETH
         </button>
       </div>
     );
@@ -1156,10 +1159,10 @@ export function MembershipExperience({
             <div>
               <dt>Members</dt>
               <dd>
-                {snapshot.occupiedSupply.toString()}
+                {formatLocalizedInteger(snapshot.occupiedSupply)}
                 {snapshot.supplyCap === 0n
                   ? " active"
-                  : ` of ${snapshot.supplyCap.toString()}`}
+                  : ` of ${formatLocalizedInteger(snapshot.supplyCap)}`}
               </dd>
             </div>
           </dl>

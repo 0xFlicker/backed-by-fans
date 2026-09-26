@@ -3,8 +3,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import { useConfig, usePublicClient, useWriteContract } from "wagmi";
-import { formatUnits, type Address } from "viem";
-import { formatRawTokenAmount, tokenMultiplierScale } from "@/lib/token-amount";
+import { type Address } from "viem";
+import { formatLocalizedUnits } from "@/lib/token-amount";
 import { readPonsModule, ponsExecutionData } from "@/lib/buyback-module";
 import { ponsBuybackModuleAbi, protocolBuybackVaultAbi } from "@/contracts";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
@@ -144,13 +144,7 @@ export function ProcessBuyback({
     amount === 0n;
   const burned = action.data?.result.burned;
   const burnedAmount =
-    burned === undefined
-      ? undefined
-      : formatRawTokenAmount({
-          raw: burned,
-          decimals: 18,
-          multiplier: tokenMultiplierScale,
-        }).replace(/^(\d+)/, (whole) => BigInt(whole).toLocaleString("en-US"));
+    burned === undefined ? undefined : formatLocalizedUnits(burned, 18);
   const tokenLabel = protocolTokenSymbol || "protocol tokens";
   const hash = action.data?.receipt.transactionHash ?? write.data;
   const explorer = getSupportedChain(chainId).blockExplorers?.default.url;
@@ -202,7 +196,7 @@ export function ProcessBuyback({
         <p role="status">
           Burn complete.{" "}
           <span
-            title={`${formatUnits(action.data.result.burned, 18)} ${tokenLabel}`}
+            title={`${formatLocalizedUnits(action.data.result.burned, 18)} ${tokenLabel}`}
           >
             {burnedAmount} {tokenLabel}
           </span>{" "}

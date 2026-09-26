@@ -16,7 +16,6 @@ import { useQuery } from "@tanstack/react-query";
 import { simulateContract } from "@wagmi/core";
 import {
   bytesToHex,
-  formatEther,
   zeroAddress,
   type Address,
   type Hex,
@@ -120,7 +119,11 @@ import {
   readAcceptedPaymentTokens,
   type AcceptedPaymentToken,
 } from "@/lib/payment-token-read";
-import { displayedToRaw, formatLocalizedTokenAmount } from "@/lib/token-amount";
+import {
+  displayedToRaw,
+  formatLocalizedTokenAmount,
+  formatLocalizedUnits,
+} from "@/lib/token-amount";
 import { useActiveNetwork } from "@/lib/use-active-network";
 import {
   decodeTransactionError,
@@ -1148,7 +1151,8 @@ export function CreateTierWizard() {
           <p>
             {candidate?.byteLength.toLocaleString()} bytes ·{" "}
             {mediaGasQuote.data.toLocaleString()} gas · approximately{" "}
-            {formatEther(mediaGasQuote.data * imageGasPrice.data)} ETH
+            {formatLocalizedUnits(mediaGasQuote.data * imageGasPrice.data, 18)}{" "}
+            ETH
           </p>
         ) : (
           <p>Estimating storage...</p>

@@ -1,4 +1,5 @@
 import type { TierSnapshot } from "@/contracts/types";
+import { formatLocalizedInteger } from "@/lib/token-amount";
 import { formatMembershipDate } from "./date";
 
 export type MaintenanceOutcome = {
@@ -52,8 +53,8 @@ export function MembershipMaintenance({
                 : "Pending work remains. Each confirmed batch preserves its progress."}
             </p>
             <p>
-              {status.scheduledExpirations.toString()} memberships scheduled for
-              expiration.
+              {formatLocalizedInteger(status.scheduledExpirations)} memberships
+              scheduled for expiration.
             </p>
           </>
         )
@@ -65,8 +66,9 @@ export function MembershipMaintenance({
       ) : (
         outcome && (
           <p role="status">
-            {outcome.processedSteps.toString()} boundaries processed;{" "}
-            {outcome.retiredCount.toString()} memberships retired.{" "}
+            {formatLocalizedInteger(outcome.processedSteps)} boundaries
+            processed; {formatLocalizedInteger(outcome.retiredCount)}{" "}
+            memberships retired.{" "}
             {outcome.complete
               ? "This batch completed the pending work."
               : "More remains. Advance again to continue."}

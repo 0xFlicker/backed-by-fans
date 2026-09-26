@@ -1,4 +1,5 @@
-import { formatEther, type Address, type PublicClient } from "viem";
+import { type Address, type PublicClient } from "viem";
+import { formatLocalizedUnits } from "@/lib/token-amount";
 
 export async function assertSufficientGas(
   client: PublicClient,
@@ -28,7 +29,7 @@ export async function assertSufficientGas(
       : 0n;
   if (balance < estimatedCost + value) {
     throw new Error(
-      `This wallet needs about ${formatEther(estimatedCost + value)} ETH for the prepared transaction${value > 0n ? " including its ETH amount and network fee" : ""}, but has ${formatEther(balance)} ETH. Fund gas before retrying.`,
+      `This wallet needs about ${formatLocalizedUnits(estimatedCost + value, 18)} ETH for the prepared transaction${value > 0n ? " including its ETH amount and network fee" : ""}, but has ${formatLocalizedUnits(balance, 18)} ETH. Fund gas before retrying.`,
     );
   }
   return estimatedCost;

@@ -58,7 +58,8 @@ import {
 } from "@/lib/read-state";
 import { useWalletPublicClient } from "@/lib/use-wallet-public-client";
 import {
-  formatRawTokenAmount,
+  formatLocalizedInteger,
+  formatLocalizedTokenAmount,
   scheduledDisplayAdjustment,
 } from "@/lib/token-amount";
 import {
@@ -127,7 +128,7 @@ function ManagementControls({
   const paymentTokenState = snapshot.paymentTokenState;
   const paymentLabel = (raw: bigint) =>
     paymentTokenState
-      ? `${formatRawTokenAmount({
+      ? `${formatLocalizedTokenAmount({
           raw,
           decimals: paymentTokenState.decimals,
           multiplier: paymentTokenState.uiMultiplier,
@@ -555,7 +556,9 @@ function ManagementControls({
             </div>
             <div>
               <dt>Period</dt>
-              <dd>{(snapshot.periodDuration / 86_400n).toString()} days</dd>
+              <dd>
+                {formatLocalizedInteger(snapshot.periodDuration / 86_400n)} days
+              </dd>
             </div>
             <div>
               <dt>Rewards</dt>
@@ -622,8 +625,9 @@ function ManagementControls({
               <p className="eyebrow">Capacity & prepayment</p>
               <h2>Mutable limits</h2>
               <p>
-                {snapshot.occupiedSupply.toString()} places are currently held.
-                Lowering prepayment never shortens existing purchased time.
+                {formatLocalizedInteger(snapshot.occupiedSupply)} places are
+                currently held. Lowering prepayment never shortens existing
+                purchased time.
               </p>
             </div>
             <div className="creator-field-grid">

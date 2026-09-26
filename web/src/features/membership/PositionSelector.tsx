@@ -7,6 +7,7 @@ import { membershipTierAbi } from "@/contracts";
 import type { TierSupporterSnapshot } from "@/contracts/types";
 import type { SupportedChainId } from "@/lib/chains";
 import { decodeTransactionError } from "@/lib/transaction-state";
+import { formatLocalizedInteger } from "@/lib/token-amount";
 
 export function PositionSelector({
   chainId,
@@ -129,7 +130,9 @@ export function PositionSelector({
               Previous memberships
             </button>
           )}
-          {page.data && <span>{page.data.balance.toString()} memberships</span>}
+          {page.data && (
+            <span>{formatLocalizedInteger(page.data.balance)} memberships</span>
+          )}
           {page.data && !page.data.complete && (
             <button
               type="button"

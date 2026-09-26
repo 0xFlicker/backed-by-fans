@@ -30,7 +30,11 @@ import {
 import { WalletControl } from "@/components/WalletControl";
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { getDeployment, publicConfig } from "@/lib/config";
-import { formatRawTokenAmount } from "@/lib/token-amount";
+import {
+  formatLocalizedInteger,
+  formatLocalizedTokenAmount,
+  formatLocalizedUnits,
+} from "@/lib/token-amount";
 import { readCalculator, estimateAsset } from "@/lib/buyback-settings/read";
 import {
   draftLimits,
@@ -702,7 +706,7 @@ function SettingsEditor({
             recommendationError = decodeTransactionError(error);
           }
           const amount = (raw: bigint) =>
-            `${formatRawTokenAmount({ raw, decimals: metadata.decimals, multiplier: metadata.uiMultiplier })} ${metadata.symbol}`;
+            `${formatLocalizedTokenAmount({ raw, decimals: metadata.decimals, multiplier: metadata.uiMultiplier })} ${metadata.symbol}`;
           const status = item.data.eligibility[0];
           return (
             <article className={styles.currency} key={item.asset}>
@@ -809,11 +813,11 @@ function SettingsEditor({
               {quote && (
                 <p>
                   Quoting all currently earned funds: approximately{" "}
-                  {formatUnits(quote.burned, 18)} protocol tokens.{" "}
+                  {formatLocalizedUnits(quote.burned, 18)} protocol tokens.{" "}
                   {quote.gasWei !== undefined && (
                     <>
                       Estimated gas per current eligible buy:{" "}
-                      {formatUnits(quote.gasWei, 18)} ETH.{" "}
+                      {formatLocalizedUnits(quote.gasWei, 18)} ETH.{" "}
                     </>
                   )}
                   {quote.gasNote}
@@ -940,7 +944,7 @@ function SettingsEditor({
                 const suggestion = recommendationFor(item);
                 const metadata = item.data.metadata;
                 const amount = (raw: bigint) =>
-                  `${formatRawTokenAmount({ raw, decimals: metadata.decimals, multiplier: metadata.uiMultiplier })} ${metadata.symbol}`;
+                  `${formatLocalizedTokenAmount({ raw, decimals: metadata.decimals, multiplier: metadata.uiMultiplier })} ${metadata.symbol}`;
                 return (
                   <div key={item.asset} role="status" className={styles.notice}>
                     {suggestion.status === "ready" ? (
@@ -987,17 +991,19 @@ function SettingsEditor({
             <details>
               <summary>Simulation details</summary>
               <p>
-                {rehearsal.data.report.totals.batches} purchases ·{" "}
-                {formatUnits(
+                {formatLocalizedInteger(
+                  BigInt(rehearsal.data.report.totals.batches),
+                )}{" "}
+                purchases ·{" "}
+                {formatLocalizedUnits(
                   BigInt(rehearsal.data.report.totals.burnedRaw),
                   18,
                 )}{" "}
                 protocol tokens burned ·{" "}
-                {formatRawTokenAmount({
-                  raw: BigInt(rehearsal.data.report.totals.gasWei),
-                  decimals: 18,
-                  multiplier: 10n ** 18n,
-                })}{" "}
+                {formatLocalizedUnits(
+                  BigInt(rehearsal.data.report.totals.gasWei),
+                  18,
+                )}{" "}
                 ETH in simulated network fees, including settings and fee
                 collection.
               </p>
@@ -1037,21 +1043,17 @@ function SettingsEditor({
                           <td>{m?.symbol ?? r.asset}</td>
                           <td>
                             {m
-                              ? formatRawTokenAmount({
+                              ? formatLocalizedTokenAmount({
                                   raw: BigInt(r.inputRaw),
                                   decimals: m.decimals,
                                   multiplier: m.uiMultiplier,
                                 })
-                              : r.inputRaw}
+                              : formatLocalizedInteger(BigInt(r.inputRaw))}
                           </td>
-                          <td>{formatUnits(BigInt(r.burnedRaw), 18)}</td>
                           <td>
-                            {formatRawTokenAmount({
-                              raw: BigInt(r.gasWei),
-                              decimals: 18,
-                              multiplier: 10n ** 18n,
-                            })}
+                            {formatLocalizedUnits(BigInt(r.burnedRaw), 18)}
                           </td>
+                          <td>{formatLocalizedUnits(BigInt(r.gasWei), 18)}</td>
                           <td>
                             {r.status === "gas-deferred"
                               ? "Purchase skipped. "
@@ -1061,15 +1063,16 @@ function SettingsEditor({
                               <>
                                 {" "}
                                 Estimated network fee:{" "}
-                                {formatRawTokenAmount({
-                                  raw: BigInt(r.estimate.gasWei),
-                                  decimals: 18,
-                                  multiplier: 10n ** 18n,
-                                })}{" "}
+                                {formatLocalizedUnits(
+                                  BigInt(r.estimate.gasWei),
+                                  18,
+                                )}{" "}
                                 ETH for a{" "}
                                 {m
-                                  ? `${formatRawTokenAmount({ raw: BigInt(r.estimate.inputRaw), decimals: m.decimals, multiplier: m.uiMultiplier })} ${m.symbol}`
-                                  : r.estimate.inputRaw}{" "}
+                                  ? `${formatLocalizedTokenAmount({ raw: BigInt(r.estimate.inputRaw), decimals: m.decimals, multiplier: m.uiMultiplier })} ${m.symbol}`
+                                  : formatLocalizedInteger(
+                                      BigInt(r.estimate.inputRaw),
+                                    )}{" "}
                                 purchase.
                               </>
                             )}
