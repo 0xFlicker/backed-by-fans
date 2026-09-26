@@ -1637,6 +1637,7 @@ verify_sources() {
       --chain "$expected_chain_id"
       --rpc-url "$rpc_url"
       --verifier blockscout
+      --skip-is-verified-check
       --verifier-url "$verifier_url"
     )
     if [[ "$index" != "0" ]]; then verify_command+=("${link_args[@]}"); fi

@@ -22,6 +22,11 @@ require_explorer_source() {""" + GATE + "\nrequire_explorer_source 0x1234\n"],
         )
         self.assertEqual(result.returncode == 0, accepted, result.stderr)
 
+    def test_verification_submits_despite_proxy_classification(self):
+        verify = SCRIPT.split("verify_sources() {", 1)[1].split("\nensure_no_conflicting_active_broadcast()", 1)[0]
+        self.assertIn("--skip-is-verified-check", verify)
+        self.check_gate({"proxy_type": "basic_implementation", "implementations": [{"name": "MembershipTier"}]}, False)
+
     def test_full_source_is_required(self):
         self.check_gate({"is_verified": True, "is_fully_verified": True, "source_code": "contract C {}", "abi": []}, True)
 
