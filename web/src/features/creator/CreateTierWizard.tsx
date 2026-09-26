@@ -2551,7 +2551,7 @@ export function CreateTierWizard() {
                 aria-describedby="tier-retention-hint tier-retention-error"
               />
             </Field>
-            <label className="creator-field">
+            <label className="creator-field creator-field-toggle">
               <span>Allow periodic refill</span>
               <input
                 type="checkbox"

@@ -165,6 +165,7 @@ export function CatalogExplorer({
   if (!catalog.data) return null;
   const { page, summaries: summaryState, paymentTokens } = catalog.data;
   const summaries = summariesFromState(summaryState);
+  const discoverableSummaries = summaries.filter((tier) => !tier.paused);
   const tokenData =
     paymentTokens.status === "valid" || paymentTokens.status === "partial"
       ? paymentTokens.data
@@ -179,13 +180,13 @@ export function CatalogExplorer({
         <p className="font-mono">Block {page.capturedBlock.toString()}</p>
       </div>
 
-      {summaries.length === 0 ? (
+      {discoverableSummaries.length === 0 ? (
         <div className="empty-room">
-          <h2>No memberships.</h2>
+          <h2>No active memberships on this page.</h2>
         </div>
       ) : (
         <ul className="catalog-grid">
-          {summaries.map((tier, index) => (
+          {discoverableSummaries.map((tier, index) => (
             <li key={tier.address}>
               <Link
                 className="catalog-card"
