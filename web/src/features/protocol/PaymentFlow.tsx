@@ -4,6 +4,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import type { Address } from "viem";
 import type { SupportedChainId } from "@/lib/chains";
+import { testUSDGAddress } from "@/lib/config";
 import { formatLocalizedTokenAmount } from "@/lib/token-amount";
 import {
   aggregatePaymentFlow,
@@ -40,8 +41,10 @@ export function PaymentFlow({
     retry: false,
   });
   const currencies = aggregatePaymentFlow(query.data?.pages ?? []);
+  const defaultCurrency = testUSDGAddress(chainId)?.toLowerCase();
   const selected =
     currencies.find((c) => c.token.address.toLowerCase() === currency) ??
+    currencies.find((c) => c.token.address.toLowerCase() === defaultCurrency) ??
     currencies[0];
   const format = (raw: bigint) =>
     selected
