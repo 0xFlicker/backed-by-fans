@@ -257,8 +257,9 @@ contract HolderAirdropTest is Test {
 
     function test_fullBatchIsWithinRobinhoodBlockGasBudget() public {
         address[] memory recipients = new address[](25);
-        for (uint256 i; i < 25; ++i) {
-            recipients[i] = address(uint160(10_000 + i));
+        uint160 recipientId = 10_000;
+        for (uint256 i; i < recipients.length; ++i) {
+            recipients[i] = address(recipientId++);
         }
         uint256 beforeGas = gasleft();
         helper.distribute(recipients);

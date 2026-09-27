@@ -70,7 +70,7 @@ contract HolderAirdrop is ReentrancyGuard {
     function fund(uint256 tokenAmount) external payable onlyOperator nonReentrant {
         if (tokenAmount != 0) {
             uint256 beforeBalance = paymentToken.balanceOf(address(this));
-            paymentToken.safeTransferFrom(operator, address(this), tokenAmount);
+            paymentToken.safeTransferFrom(msg.sender, address(this), tokenAmount);
             if (paymentToken.balanceOf(address(this)) != beforeBalance + tokenAmount) {
                 revert UnexpectedTokenTransfer();
             }
@@ -97,6 +97,10 @@ contract HolderAirdrop is ReentrancyGuard {
     }
 
     /// @notice Repeating any subset is safe; any failure reverts the whole batch.
+    // Every mutation entry point shares nonReentrant and onlyOperator. Recipient,
+    // token and tier callbacks cannot change completion flags or withdraw funds;
+    // each delivery is marked complete before its call, and failures revert the batch.
+    // slither-disable-next-line reentrancy-eth
     function distribute(address[] calldata recipients) external onlyOperator nonReentrant {
         _validateBatch(recipients.length);
         if (
