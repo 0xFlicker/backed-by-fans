@@ -1,0 +1,14 @@
+{
+  "chainId": 46630,
+  "address": "0x99fA88fDDb6E8b501a5C01A3D0051051ccCc0a70",
+  "transactionHash": "0xce79f0cd592c9b96bb1fba1ac91b01590e1876071410539883c546e0213184c6",
+  "operator": "0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027",
+  "tier": "0x4dD68609B611b7f19cF0E10b5914603a6Cd5Dc0B",
+  "paymentToken": "0x68cdeB4985317B7dad73F9C47A7226879721Cb86",
+  "pricePerPeriod": "1000000000",
+  "periodDuration": "2592000",
+  "ethAmount": "10000000000000000",
+  "maxBatch": 25,
+  "runtimeVerifiedAgainst": "contracts/out/HolderAirdrop.sol/HolderAirdrop.json",
+  "plan": "holder-airdrop-plan.json"
+}
