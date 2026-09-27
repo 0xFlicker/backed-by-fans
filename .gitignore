@@ -16,6 +16,11 @@ __pycache__/
 /web/test-results-accessibility/
 /cache/
 
+# Local review screenshots and raw campaign broadcasts remain available for backup.
+# Selected timestamped public receipts are tracked explicitly as campaign evidence.
+/output/wallet-rewards/
+/contracts/broadcast/HolderAirdrop.s.sol/
+
 # Fuzz campaign corpora, compiler exports, and runtime logs are reproducible.
 /contracts/crytic-export/
 /contracts/fizz_data/corpus_*/
