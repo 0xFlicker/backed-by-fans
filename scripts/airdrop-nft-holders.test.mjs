@@ -4,12 +4,14 @@ import {
   collectHolders,
   validatePayout,
   DEPLOYER,
+  TIER,
+  tierAbi,
   summarize,
   fundingShortfalls,
   distribute,
   assertChains,
   ETH_AMOUNT,
-  BUSD_AMOUNT,
+  GIFT_AMOUNT,
 } from "./airdrop-nft-holders.mjs";
 const A = "0x0000000000000000000000000000000000000001";
 const B = "0x0000000000000000000000000000000000000002";
@@ -53,33 +55,44 @@ test("supply changes, incomplete owner results and RPC failures abort discovery"
   );
 });
 
-test("ETH and bUSD eligibility are independent, exact zero only, and use 18/6 decimals", () => {
+test("ETH and membership eligibility are independent, zero memberships only, and use 18/6 decimals", () => {
   const summary = summarize([
-    { address: A, eth: 0n, busd: 1n },
-    { address: B, eth: 1n, busd: 0n },
-    { address: C, eth: 0n, busd: 0n },
+    { address: A, eth: 0n, memberships: 1n },
+    { address: B, eth: 1n, memberships: 0n },
+    { address: C, eth: 0n, memberships: 0n },
   ]);
   assert.equal(summary.ethRecipients, 2);
-  assert.equal(summary.busdRecipients, 2);
+  assert.equal(summary.membershipRecipients, 2);
   assert.equal(summary.ethRequired, 20_000_000_000_000_000n);
-  assert.equal(summary.busdRequired, 2_000_000_000n);
+  assert.equal(summary.fundingRequired, 2_000_000_000n);
   assert.throws(() => summarize([{ eth: 0n }]), /invalid balance/);
-  assert.throws(() => summarize([{ eth: -1n, busd: 0n }]), /invalid balance/);
+  assert.throws(
+    () => summarize([{ eth: -1n, memberships: 0n }]),
+    /invalid balance/,
+  );
 });
 
 test("preflight reports token, native payout, and gas shortfalls without truncating units", () => {
-  const summary = summarize([{ address: A, eth: 0n, busd: 0n }]);
+  const summary = summarize([{ address: A, eth: 0n, memberships: 0n }]);
   assert.deepEqual(
-    fundingShortfalls(summary, { eth: ETH_AMOUNT, busd: BUSD_AMOUNT - 1n }, 3n),
-    { eth: 3n, busd: 1n },
+    fundingShortfalls(
+      summary,
+      { eth: ETH_AMOUNT, funding: GIFT_AMOUNT - 1n },
+      3n,
+    ),
+    { eth: 3n, funding: 1n },
   );
   assert.deepEqual(
-    fundingShortfalls(summary, { eth: ETH_AMOUNT + 3n, busd: BUSD_AMOUNT }, 3n),
-    { eth: 0n, busd: 0n },
+    fundingShortfalls(
+      summary,
+      { eth: ETH_AMOUNT + 3n, funding: GIFT_AMOUNT },
+      3n,
+    ),
+    { eth: 0n, funding: 0n },
   );
   assert.deepEqual(
-    fundingShortfalls(summarize([]), { eth: 0n, busd: 0n }, 3n),
-    { eth: 0n, busd: 0n },
+    fundingShortfalls(summarize([]), { eth: 0n, funding: 0n }, 3n),
+    { eth: 0n, funding: 0n },
   );
 });
 
@@ -90,39 +103,43 @@ test("mainnet or Ethereum Sepolia can never be a payout target", () => {
   assert.throws(() => assertChains(46630, 46630), /Wrong chains/);
 });
 
-test("an interrupted run resumes independently and later zeroing replenishes that asset", async () => {
+test("an interrupted run resumes and a transferred membership does not earn a second gift", async () => {
   const rows = [{ address: A }];
-  const state = { eth: 0n, busd: 0n };
+  const state = { eth: 0n, memberships: 0n };
   const sends = [];
-  let failBusd = true;
+  let failGift = true;
   const io = {
     stopped: () => false,
     owns: async () => true,
     balances: async () => ({ ...state }),
     send: async (address, asset) => {
-      if (asset === "busd" && failBusd) throw new Error("token send failed");
+      if (asset === "membership" && failGift)
+        throw new Error("token send failed");
       sends.push([address, asset]);
-      state[asset] += asset === "eth" ? ETH_AMOUNT : BUSD_AMOUNT;
+      if (asset === "eth") state.eth += ETH_AMOUNT;
+      else {
+        state.memberships++;
+        state.gifted = true;
+      }
     },
   };
   await assert.rejects(distribute(rows, io), /token send failed/);
-  failBusd = false;
-  assert.deepEqual(await distribute(rows, io), { eth: 0, busd: 1 });
-  assert.deepEqual(await distribute(rows, io), { eth: 0, busd: 0 });
-  state.busd = 0n;
-  assert.deepEqual(await distribute(rows, io), { eth: 0, busd: 1 });
+  failGift = false;
+  assert.deepEqual(await distribute(rows, io), { eth: 0, membership: 1 });
+  assert.deepEqual(await distribute(rows, io), { eth: 0, membership: 0 });
+  state.memberships = 0n;
+  assert.deepEqual(await distribute(rows, io), { eth: 0, membership: 0 });
   assert.deepEqual(sends, [
     [A, "eth"],
-    [A, "busd"],
-    [A, "busd"],
+    [A, "membership"],
   ]);
 });
 
 test("fresh reads skip independently funded assets and former holders", async () => {
   const sent = [];
   const state = new Map([
-    [A, { eth: 1n, busd: 0n }],
-    [B, { eth: 0n, busd: 1n }],
+    [A, { eth: 1n, memberships: 0n }],
+    [B, { eth: 0n, memberships: 1n }],
   ]);
   await distribute([{ address: A }, { address: B }, { address: C }], {
     stopped: () => false,
@@ -133,7 +150,7 @@ test("fresh reads skip independently funded assets and former holders", async ()
     },
   });
   assert.deepEqual(sent, [
-    [A, "busd"],
+    [A, "membership"],
     [B, "eth"],
   ]);
 });
@@ -187,49 +204,63 @@ test("native receipt validation rejects reverted or replaced payments to the wro
   );
 });
 
-test("ERC20 no-op success does not count as a confirmed airdrop", () => {
+test("a successful call without membership mint and payment events is not a gift", () => {
   const receipt = { status: "success", transactionHash: "0xhash", logs: [] };
   assert.throws(
     () =>
       validatePayout(
         receipt,
-        { from: DEPLOYER, to: B, value: 0n },
+        { from: DEPLOYER, to: TIER, value: 0n },
         A,
-        "busd",
+        "membership",
         B,
       ),
-    /full bUSD transfer/,
+    /funded one-period/,
   );
 });
 
-test("ERC20 receipt requires the exact token, recipient and 1,000 bUSD amount", async () => {
+test("membership receipt requires the exact recipient, mint, amount and period", async () => {
   const { createRequire } = await import("node:module");
   const require = createRequire(
     new URL("../web/package.json", import.meta.url),
   );
-  const { erc20Abi, encodeEventTopics, encodeAbiParameters } = require("viem");
-  const log = {
-    address: B,
+  const { erc721Abi, encodeEventTopics, encodeAbiParameters } = require("viem");
+  const payment = {
+    address: TIER,
     topics: encodeEventTopics({
-      abi: erc20Abi,
-      eventName: "Transfer",
-      args: { from: DEPLOYER, to: A },
+      abi: tierAbi,
+      eventName: "PaymentProcessed",
+      args: { payer: DEPLOYER, recipient: A, tokenId: 7n },
     }),
-    data: encodeAbiParameters([{ type: "uint256" }], [BUSD_AMOUNT]),
+    data: encodeAbiParameters(
+      [{ type: "uint256" }, { type: "uint64" }],
+      [GIFT_AMOUNT, 1n],
+    ),
   };
-  const receipt = { status: "success", transactionHash: "0xhash", logs: [log] };
-  const transaction = { from: DEPLOYER, to: B, value: 0n };
-  assert.doesNotThrow(() => validatePayout(receipt, transaction, A, "busd", B));
+  const mint = {
+    address: TIER,
+    topics: encodeEventTopics({
+      abi: erc721Abi,
+      eventName: "Transfer",
+      args: {
+        from: "0x0000000000000000000000000000000000000000",
+        to: A,
+        tokenId: 7n,
+      },
+    }),
+    data: "0x",
+  };
+  const receipt = {
+    status: "success",
+    transactionHash: "0xhash",
+    logs: [payment, mint],
+  };
+  const tx = { from: DEPLOYER, to: TIER, value: 0n };
+  assert.doesNotThrow(() => validatePayout(receipt, tx, A, "membership", B));
   assert.throws(
     () =>
-      validatePayout(
-        { ...receipt, logs: [{ ...log, address: C }] },
-        transaction,
-        A,
-        "busd",
-        B,
-      ),
-    /full bUSD transfer/,
+      validatePayout({ ...receipt, logs: [payment] }, tx, A, "membership", B),
+    /funded one-period/,
   );
   assert.throws(
     () =>
@@ -237,14 +268,80 @@ test("ERC20 receipt requires the exact token, recipient and 1,000 bUSD amount", 
         {
           ...receipt,
           logs: [
-            { ...log, data: encodeAbiParameters([{ type: "uint256" }], [1n]) },
+            {
+              ...payment,
+              data: encodeAbiParameters(
+                [{ type: "uint256" }, { type: "uint64" }],
+                [GIFT_AMOUNT, 2n],
+              ),
+            },
+            mint,
           ],
         },
-        transaction,
+        tx,
         A,
-        "busd",
+        "membership",
         B,
       ),
-    /full bUSD transfer/,
+    /funded one-period/,
   );
+});
+
+test("first airdrop includes dust and sub-threshold ETH, but excludes the exact boundary", async () => {
+  const rows = [
+    0n,
+    1n,
+    ETH_AMOUNT / 2n,
+    ETH_AMOUNT - 1n,
+    ETH_AMOUNT,
+    ETH_AMOUNT + 1n,
+  ].map((eth, index) => ({
+    address: `0x${(index + 1).toString(16).padStart(40, "0")}`,
+    eth,
+    memberships: index === 4 ? 0n : 1n,
+  }));
+  const preview = summarize(rows, true);
+  assert.equal(preview.ethRecipients, 4);
+  assert.equal(preview.ethRequired, 4n * ETH_AMOUNT);
+  assert.equal(preview.membershipRecipients, 1);
+  assert.equal(summarize(rows).ethRecipients, 1);
+  const balances = new Map(
+    rows.map((row) => [
+      row.address,
+      { eth: row.eth, memberships: row.memberships },
+    ]),
+  );
+  const payments = [];
+  const io = {
+    stopped: () => false,
+    owns: async () => true,
+    balances: async (address) => balances.get(address),
+    send: async (address, asset) => {
+      payments.push([address, asset]);
+      if (asset === "eth") balances.get(address).eth += ETH_AMOUNT;
+      else balances.get(address).memberships++;
+    },
+  };
+  assert.deepEqual(await distribute(rows, io, true), { eth: 4, membership: 1 });
+  assert.equal(balances.get(rows[2].address).eth, (ETH_AMOUNT * 3n) / 2n);
+  assert.deepEqual(await distribute(rows, io, true), { eth: 0, membership: 0 });
+  assert.equal(payments.length, 5);
+});
+
+test("first airdrop rechecks a sub-threshold wallet funded after the preview", async () => {
+  const rows = [{ address: A, eth: 1n, memberships: 1n }];
+  assert.equal(summarize(rows, true).ethRecipients, 1);
+  const result = await distribute(
+    rows,
+    {
+      stopped: () => false,
+      owns: async () => true,
+      balances: async () => ({ eth: ETH_AMOUNT, memberships: 1n }),
+      send: async () => {
+        assert.fail("Already funded wallet must be skipped");
+      },
+    },
+    true,
+  );
+  assert.deepEqual(result, { eth: 0, membership: 0 });
 });
