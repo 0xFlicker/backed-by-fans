@@ -83,6 +83,9 @@ export default async function RootLayout({
               <BackingStackMark className="footer-mark" />
               <p>Creator-owned. Backed By Fans.</p>
             </div>
+            <a href="https://x.com/BackedByFans" rel="me">
+              Follow on X
+            </a>
           </footer>
         </AppProviders>
       </body>
