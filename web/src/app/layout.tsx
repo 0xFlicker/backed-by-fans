@@ -72,6 +72,7 @@ export default async function RootLayout({
               <Link href="/account">My account</Link>
               <Link href="/create">For creators</Link>
               <Link href="/skill">Make art</Link>
+              <Link href="/airdrop">Airdrop</Link>
             </nav>
             <WalletControl />
           </header>

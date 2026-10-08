@@ -9,6 +9,7 @@ __pycache__/
 /artifacts/protocol-fork/
 /artifacts/feature006-verification/
 /artifacts/test-usdg/
+/artifacts/erc721-airdrop/
 /contracts/deployments/split-rehearsal/
 /contracts/deployments/clone-rehearsal/
 /contracts/deployments/vesting-histories/

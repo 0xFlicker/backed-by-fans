@@ -143,6 +143,21 @@ export function publicRendererRegistryAddress(chainId: SupportedChainId) {
   return generatedRendererRegistryAddresses()[chainId];
 }
 
+export function erc721AirdropAddress(chainId: SupportedChainId) {
+  // Disposable review deployments never enter public Foundry broadcast records.
+  if (chainId === localAnvil.id) {
+    const value = process.env.NEXT_PUBLIC_ANVIL_ERC721_AIRDROP_ADDRESS;
+    return value
+      ? parseRequiredAddress(value, "Local ERC721 airdrop")
+      : undefined;
+  }
+  return generatedPublicAddresses(
+    "erc721AirdropAddress",
+    "ERC721Airdrop",
+    "ERC721 airdrop",
+  )[chainId];
+}
+
 export function testUSDGAddress(chainId: SupportedChainId) {
   if (chainId === localAnvil.id) {
     const value = process.env.NEXT_PUBLIC_ANVIL_TEST_USDG_ADDRESS;
@@ -208,9 +223,11 @@ export function buildPublicConfig(
     environment.anvilRpcUrl?.trim(),
     environment.anvilFactoryAddress?.trim(),
   ];
-  const hasAnyLocalDeploymentValue = localDeploymentValues.some(Boolean);
   const hasEveryLocalDeploymentValue = localDeploymentValues.every(Boolean);
-  if (hasAnyLocalDeploymentValue && !hasEveryLocalDeploymentValue) {
+  if (
+    environment.anvilFactoryAddress?.trim() &&
+    !environment.anvilRpcUrl?.trim()
+  ) {
     throw new Error(
       "Anvil configuration requires its RPC URL and factory address together.",
     );
@@ -239,7 +256,7 @@ export function buildPublicConfig(
   }
 
   let anvilRpcUrl: string | undefined;
-  if (hasEveryLocalDeploymentValue) {
+  if (environment.anvilRpcUrl?.trim()) {
     anvilRpcUrl = parsePublicUrl(environment.anvilRpcUrl, "");
     if (!anvilRpcUrl) throw new Error("The Anvil RPC URL is invalid.");
     const local = new URL(anvilRpcUrl);
