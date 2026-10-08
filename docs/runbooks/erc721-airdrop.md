@@ -210,3 +210,57 @@ stopped after setup without findings; a direct-code pass produced no response
 before it was stopped after several minutes. This replacement therefore has
 manual review and the verification above, without a completed external review.
 It is not an audited deployment.
+
+## Deployed helper and UI testing
+
+The creator reported deployment on 2026-10-08. Read-only mainnet verification
+confirmed transaction
+`0x886a44b28740dad45fe49f21a722689766fb8495886f85e5f18b42ac39550f48`
+succeeded at block 83,710,212 on chain 4663 and created GasliteDrop at
+`0xfd2a05704Ffc1dB63c49BBA4E05dcb0d96Df26Bc`. Its full runtime bytecode,
+including metadata, matches `out/GasliteDrop.sol/GasliteDrop.json`; code hash is
+`0x65ce28ecd4104bdd4d61fe21b7819c6e9159457cf470d1baafc542fbc67839f8`.
+The retained public broadcast record supplies the address to Wagmi generation.
+
+The collection owner remains `0x7198d81BeD40ac1fdE0c021f772E81f656a7009E`.
+Its validator remains `0xA000027A9B2802E1ddf7000061001e5c005A0000`, and the
+helper is **not yet whitelisted** at this check. The UI therefore blocks
+collection approval and transfer until creator setup succeeds. The deployment
+wallet `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027` currently holds zero NFTs
+in this collection; testing a real distribution requires the wallet holding
+the assigned token IDs. No registry write or NFT transfer was broadcast by the
+agent. Explorer source verification remains outstanding.
+
+Open `http://127.0.0.1:3111/airdrop` to prepare the real recipient list and
+connect its NFT holder on Robinhood mainnet. The collection owner can first
+simulate the separate authorization using:
+
+```sh
+node scripts/deploy-erc721-airdrop.mjs --authorize \
+  --sender 0x7198d81BeD40ac1fdE0c021f772E81f656a7009E \
+  --helper 0xfd2a05704Ffc1dB63c49BBA4E05dcb0d96Df26Bc
+```
+
+The restored disposable fixture uses the same Gaslite build on chain 31337 at
+`http://127.0.0.1:18558`. Open
+`http://127.0.0.1:3111/chains/31337/tools/airdrop`, enter test collection
+`0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`, and connect the local sender
+`0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`. Local Gaslite is
+`0x5FbDB2315678afecb367f032d93F642f64180aa3`. This replaces the earlier
+disposable fixture addresses above. Use this local-only list:
+
+```csv
+address,tokenId
+0x70997970C51812dc3A010C7d01b50e0d17dc79C8,1
+0x70997970C51812dc3A010C7d01b50e0d17dc79C8,2
+```
+
+The local wallet flow requests approval, sends two test NFTs, confirms matching
+Transfer events, and permits approval removal. Automated tests restore their
+snapshot, leaving both test NFTs with the sender for manual review.
+Live read evidence is retained in
+`artifacts/erc721-airdrop/mainnet-deployment-verification.json`.
+The generated bindings, type check, 36 focused tests, desktop/phone local wallet
+flows, formatting, and production build passed after public-address generation.
+The mainnet page was opened and its deployed helper link verified in the app
+browser; no connected-wallet mainnet transfer was attempted.

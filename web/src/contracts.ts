@@ -9,6 +9,9 @@ import {
 // GasliteDrop
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
 export const gasliteDropAbi = [
   {
     type: "function",
@@ -44,6 +47,21 @@ export const gasliteDropAbi = [
     stateMutability: "payable",
   },
 ] as const;
+
+/**
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const gasliteDropAddress = {
+  4663: "0xfd2a05704Ffc1dB63c49BBA4E05dcb0d96Df26Bc",
+} as const;
+
+/**
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const gasliteDropConfig = {
+  address: gasliteDropAddress,
+  abi: gasliteDropAbi,
+} as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // IAirdropCreatorCollection
@@ -10072,69 +10090,93 @@ export const usdgAbi = [
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
  */
 export const useWriteGasliteDrop = /*#__PURE__*/ createUseWriteContract({
   abi: gasliteDropAbi,
+  address: gasliteDropAddress,
 });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC20"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
  */
 export const useWriteGasliteDropAirdropErc20 =
   /*#__PURE__*/ createUseWriteContract({
     abi: gasliteDropAbi,
+    address: gasliteDropAddress,
     functionName: "airdropERC20",
   });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC721"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
  */
 export const useWriteGasliteDropAirdropErc721 =
   /*#__PURE__*/ createUseWriteContract({
     abi: gasliteDropAbi,
+    address: gasliteDropAddress,
     functionName: "airdropERC721",
   });
 
 /**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropETH"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
  */
 export const useWriteGasliteDropAirdropEth =
   /*#__PURE__*/ createUseWriteContract({
     abi: gasliteDropAbi,
+    address: gasliteDropAddress,
     functionName: "airdropETH",
   });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
  */
 export const useSimulateGasliteDrop = /*#__PURE__*/ createUseSimulateContract({
   abi: gasliteDropAbi,
+  address: gasliteDropAddress,
 });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC20"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
  */
 export const useSimulateGasliteDropAirdropErc20 =
   /*#__PURE__*/ createUseSimulateContract({
     abi: gasliteDropAbi,
+    address: gasliteDropAddress,
     functionName: "airdropERC20",
   });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC721"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
  */
 export const useSimulateGasliteDropAirdropErc721 =
   /*#__PURE__*/ createUseSimulateContract({
     abi: gasliteDropAbi,
+    address: gasliteDropAddress,
     functionName: "airdropERC721",
   });
 
 /**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropETH"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
  */
 export const useSimulateGasliteDropAirdropEth =
   /*#__PURE__*/ createUseSimulateContract({
     abi: gasliteDropAbi,
+    address: gasliteDropAddress,
     functionName: "airdropETH",
   });
 
