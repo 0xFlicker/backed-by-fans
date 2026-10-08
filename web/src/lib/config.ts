@@ -143,17 +143,17 @@ export function publicRendererRegistryAddress(chainId: SupportedChainId) {
   return generatedRendererRegistryAddresses()[chainId];
 }
 
-export function erc721AirdropAddress(chainId: SupportedChainId) {
+export function gasliteDropAddress(chainId: SupportedChainId) {
   // Disposable review deployments never enter public Foundry broadcast records.
   if (chainId === localAnvil.id) {
-    const value = process.env.NEXT_PUBLIC_ANVIL_ERC721_AIRDROP_ADDRESS;
+    const value = process.env.NEXT_PUBLIC_ANVIL_GASLITE_DROP_ADDRESS;
     return value
       ? parseRequiredAddress(value, "Local ERC721 airdrop")
       : undefined;
   }
   return generatedPublicAddresses(
-    "erc721AirdropAddress",
-    "ERC721Airdrop",
+    "gasliteDropAddress",
+    "GasliteDrop",
     "ERC721 airdrop",
   )[chainId];
 }

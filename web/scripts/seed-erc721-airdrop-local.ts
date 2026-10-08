@@ -7,7 +7,7 @@ import {
   type Hex,
 } from "viem";
 import { foundry } from "viem/chains";
-import { erc721AirdropAbi, ierc721Abi } from "../src/contracts";
+import { gasliteDropAbi, ierc721Abi } from "../src/contracts";
 
 const endpoint = process.env.BBF_ANVIL_RPC_URL;
 if (!endpoint)
@@ -39,7 +39,7 @@ if (!sender || !accounts[1])
 const helperArtifact = JSON.parse(
   readFileSync(
     new URL(
-      "../../contracts/out/ERC721Airdrop.sol/ERC721Airdrop.json",
+      "../../contracts/out/GasliteDrop.sol/GasliteDrop.json",
       import.meta.url,
     ),
     "utf8",
@@ -48,7 +48,7 @@ const helperArtifact = JSON.parse(
 const nftArtifact = JSON.parse(
   readFileSync(
     new URL(
-      "../../contracts/out/ERC721Airdrop.t.sol/AirdropTestNFT.json",
+      "../../contracts/out/GasliteDrop.t.sol/AirdropTestNFT.json",
       import.meta.url,
     ),
     "utf8",
@@ -63,7 +63,7 @@ async function deployed(hash: Hex) {
 const helper = await deployed(
   await wallet.deployContract({
     account: sender,
-    abi: erc721AirdropAbi,
+    abi: gasliteDropAbi,
     bytecode: helperArtifact.bytecode.object,
     gasPrice: 100_000_000n,
   }),

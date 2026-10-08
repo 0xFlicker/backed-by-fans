@@ -1,70 +1,47 @@
 import {
-  createUseReadContract,
   createUseWriteContract,
   createUseSimulateContract,
+  createUseReadContract,
   createUseWatchContractEvent,
 } from "wagmi/codegen";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ERC721Airdrop
+// GasliteDrop
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export const erc721AirdropAbi = [
+export const gasliteDropAbi = [
   {
     type: "function",
-    inputs: [],
-    name: "MAX_BATCH_SIZE",
-    outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-    stateMutability: "view",
+    inputs: [
+      { name: "_token", internalType: "address", type: "address" },
+      { name: "_addresses", internalType: "address[]", type: "address[]" },
+      { name: "_amounts", internalType: "uint256[]", type: "uint256[]" },
+      { name: "_totalAmount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "airdropERC20",
+    outputs: [],
+    stateMutability: "payable",
   },
   {
     type: "function",
     inputs: [
-      { name: "collection", internalType: "contract IERC721", type: "address" },
-      { name: "recipients", internalType: "address[]", type: "address[]" },
-      { name: "tokenIds", internalType: "uint256[]", type: "uint256[]" },
+      { name: "_nft", internalType: "address", type: "address" },
+      { name: "_addresses", internalType: "address[]", type: "address[]" },
+      { name: "_tokenIds", internalType: "uint256[]", type: "uint256[]" },
     ],
     name: "airdropERC721",
     outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: "payable",
   },
   {
-    type: "event",
-    anonymous: false,
+    type: "function",
     inputs: [
-      {
-        name: "sender",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "collection",
-        internalType: "address",
-        type: "address",
-        indexed: true,
-      },
-      {
-        name: "distributionHash",
-        internalType: "bytes32",
-        type: "bytes32",
-        indexed: true,
-      },
-      {
-        name: "count",
-        internalType: "uint256",
-        type: "uint256",
-        indexed: false,
-      },
+      { name: "_addresses", internalType: "address[]", type: "address[]" },
+      { name: "_amounts", internalType: "uint256[]", type: "uint256[]" },
     ],
-    name: "Airdropped",
-  },
-  { type: "error", inputs: [], name: "InvalidBatch" },
-  { type: "error", inputs: [], name: "InvalidCollection" },
-  {
-    type: "error",
-    inputs: [{ name: "index", internalType: "uint256", type: "uint256" }],
-    name: "InvalidRecipient",
+    name: "airdropETH",
+    outputs: [],
+    stateMutability: "payable",
   },
 ] as const;
 
@@ -10094,66 +10071,71 @@ export const usdgAbi = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link erc721AirdropAbi}__
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__
  */
-export const useReadErc721Airdrop = /*#__PURE__*/ createUseReadContract({
-  abi: erc721AirdropAbi,
+export const useWriteGasliteDrop = /*#__PURE__*/ createUseWriteContract({
+  abi: gasliteDropAbi,
 });
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link erc721AirdropAbi}__ and `functionName` set to `"MAX_BATCH_SIZE"`
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC20"`
  */
-export const useReadErc721AirdropMaxBatchSize =
-  /*#__PURE__*/ createUseReadContract({
-    abi: erc721AirdropAbi,
-    functionName: "MAX_BATCH_SIZE",
-  });
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link erc721AirdropAbi}__
- */
-export const useWriteErc721Airdrop = /*#__PURE__*/ createUseWriteContract({
-  abi: erc721AirdropAbi,
-});
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link erc721AirdropAbi}__ and `functionName` set to `"airdropERC721"`
- */
-export const useWriteErc721AirdropAirdropErc721 =
+export const useWriteGasliteDropAirdropErc20 =
   /*#__PURE__*/ createUseWriteContract({
-    abi: erc721AirdropAbi,
+    abi: gasliteDropAbi,
+    functionName: "airdropERC20",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC721"`
+ */
+export const useWriteGasliteDropAirdropErc721 =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: gasliteDropAbi,
     functionName: "airdropERC721",
   });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link erc721AirdropAbi}__
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropETH"`
  */
-export const useSimulateErc721Airdrop = /*#__PURE__*/ createUseSimulateContract(
-  { abi: erc721AirdropAbi },
-);
+export const useWriteGasliteDropAirdropEth =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: gasliteDropAbi,
+    functionName: "airdropETH",
+  });
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link erc721AirdropAbi}__ and `functionName` set to `"airdropERC721"`
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__
  */
-export const useSimulateErc721AirdropAirdropErc721 =
+export const useSimulateGasliteDrop = /*#__PURE__*/ createUseSimulateContract({
+  abi: gasliteDropAbi,
+});
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC20"`
+ */
+export const useSimulateGasliteDropAirdropErc20 =
   /*#__PURE__*/ createUseSimulateContract({
-    abi: erc721AirdropAbi,
+    abi: gasliteDropAbi,
+    functionName: "airdropERC20",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC721"`
+ */
+export const useSimulateGasliteDropAirdropErc721 =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: gasliteDropAbi,
     functionName: "airdropERC721",
   });
 
 /**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link erc721AirdropAbi}__
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropETH"`
  */
-export const useWatchErc721AirdropEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({ abi: erc721AirdropAbi });
-
-/**
- * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link erc721AirdropAbi}__ and `eventName` set to `"Airdropped"`
- */
-export const useWatchErc721AirdropAirdroppedEvent =
-  /*#__PURE__*/ createUseWatchContractEvent({
-    abi: erc721AirdropAbi,
-    eventName: "Airdropped",
+export const useSimulateGasliteDropAirdropEth =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: gasliteDropAbi,
+    functionName: "airdropETH",
   });
 
 /**

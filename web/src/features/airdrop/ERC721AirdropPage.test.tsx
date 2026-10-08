@@ -1,14 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  encodeAbiParameters,
-  encodeEventTopics,
-  type Address,
-  type Hash,
-} from "viem";
-import { erc721AirdropAbi } from "@/contracts";
-import { distributionHash } from "@/lib/airdrop";
+import { encodeEventTopics, type Address, type Hash } from "viem";
+import { ierc721Abi } from "@/contracts";
 import { ERC721AirdropPage } from "./ERC721AirdropPage";
 
 const m = vi.hoisted(() => ({
@@ -76,39 +70,28 @@ function receipt(hash: Hash, proof = true) {
     return { status: "success", transactionHash: hash, logs: [] };
   }
   const [collection, recipients, ids] = request.args;
-  const rows = ids.map((tokenId: bigint, i: number) => ({
-    recipient: recipients[i],
-    tokenId,
-  }));
   if (proof) ids.forEach((id: bigint) => m.owned.delete(id));
   return {
     status: "success",
+    from: m.sender,
+    to: m.helper,
     transactionHash: hash,
     logs: proof
-      ? [
-          {
-            address: m.helper,
-            topics: encodeEventTopics({
-              abi: erc721AirdropAbi,
-              eventName: "Airdropped",
-              args: {
-                sender: m.sender,
-                collection,
-                distributionHash: distributionHash(rows),
-              },
-            }),
-            data: encodeAbiParameters(
-              [{ type: "uint256" }],
-              [BigInt(ids.length)],
-            ),
-            blockNumber: 1n,
-            blockHash: hash,
-            transactionHash: hash,
-            transactionIndex: 0,
-            logIndex: 0,
-            removed: false,
-          },
-        ]
+      ? ids.map((tokenId, i) => ({
+          address: collection,
+          topics: encodeEventTopics({
+            abi: ierc721Abi,
+            eventName: "Transfer",
+            args: { from: m.sender, to: recipients[i], tokenId },
+          }),
+          data: "0x",
+          blockNumber: 1n,
+          blockHash: hash,
+          transactionHash: hash,
+          transactionIndex: 0,
+          logIndex: i,
+          removed: false,
+        }))
       : [],
   };
 }
@@ -241,6 +224,59 @@ describe("airdrop wallet integration", () => {
     expect(
       screen.queryByRole("link", { name: /NFTs · confirmed/ }),
     ).not.toBeInTheDocument();
+  });
+  it.each([
+    "wrong collection",
+    "wrong sender",
+    "wrong recipient",
+    "wrong token",
+    "missing transfer",
+    "extra transfer",
+  ])("rejects a receipt with %s", async (kind) => {
+    m.approved = true;
+    await prepare();
+    m.receipt.mockImplementationOnce(async ({ hash }) => {
+      const result = receipt(hash);
+      if (kind === "missing transfer")
+        return { ...result, logs: result.logs.slice(1) };
+      if (kind === "extra transfer")
+        return { ...result, logs: [...result.logs, result.logs[0]] };
+      const logs = [...result.logs];
+      if (kind === "wrong collection")
+        logs[0] = { ...logs[0], address: m.helper };
+      else
+        logs[0] = {
+          ...logs[0],
+          topics: encodeEventTopics({
+            abi: ierc721Abi,
+            eventName: "Transfer",
+            args: {
+              from: kind === "wrong sender" ? m.recipient : m.sender,
+              to: kind === "wrong recipient" ? m.sender : m.recipient,
+              tokenId: kind === "wrong token" ? 999n : 1n,
+            },
+          }),
+        };
+      return { ...result, logs };
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start airdrop" }));
+    await screen.findByText(/receipt does not confirm this batch/);
+    expect(
+      screen.queryByRole("link", { name: /NFTs · confirmed/ }),
+    ).not.toBeInTheDocument();
+  });
+  it("confirms exact NFT transfers from a routed wallet receipt", async () => {
+    m.approved = true;
+    await prepare();
+    m.receipt.mockImplementationOnce(async ({ hash }) => ({
+      ...receipt(hash),
+      from: m.recipient,
+      to: m.sender,
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Start airdrop" }));
+    await screen.findByText(
+      "Airdrop complete. Every batch has a confirmed receipt.",
+    );
   });
   it("keeps the first confirmed batch when a later batch fails, then resumes only the remaining rows", async () => {
     m.approved = true;

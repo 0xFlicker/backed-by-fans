@@ -20,7 +20,7 @@ import {
   type Hash,
 } from "viem";
 import {
-  erc721AirdropAbi,
+  gasliteDropAbi,
   ierc721Abi,
   ierc721MetadataAbi,
   iAirdropCreatorCollectionAbi,
@@ -29,7 +29,6 @@ import {
 import {
   airdropBatchSize,
   airdropCollection,
-  distributionHash,
   parseAirdropList,
   type AirdropRow,
 } from "@/lib/airdrop";
@@ -226,7 +225,7 @@ function AirdropForm({
       if (approved && next.length) {
         const gas = await client.estimateContractGas({
           address: helper,
-          abi: erc721AirdropAbi,
+          abi: gasliteDropAbi,
           functionName: "airdropERC721",
           args: [
             collection,
@@ -311,7 +310,7 @@ function AirdropForm({
           chainId,
           account: sender,
           address: helper,
-          abi: erc721AirdropAbi,
+          abi: gasliteDropAbi,
           functionName: "airdropERC721" as const,
           args: [
             collection,
@@ -333,18 +332,22 @@ function AirdropForm({
         const receipt = await client.waitForTransactionReceipt({ hash });
         if (receipt.status !== "success")
           throw new Error("This batch reverted; its NFTs were not sent.");
-        const proof = parseEventLogs({
-          abi: erc721AirdropAbi,
-          eventName: "Airdropped",
+        const transfers = parseEventLogs({
+          abi: ierc721Abi,
+          eventName: "Transfer",
           logs: receipt.logs,
-        }).find(
-          (event) =>
-            event.address.toLowerCase() === helper.toLowerCase() &&
-            event.args.sender.toLowerCase() === sender.toLowerCase() &&
-            event.args.collection.toLowerCase() === collection.toLowerCase() &&
-            event.args.distributionHash === distributionHash(rows) &&
-            event.args.count === BigInt(rows.length),
+        }).filter(
+          (event) => event.address.toLowerCase() === collection.toLowerCase(),
         );
+        const proof =
+          transfers.length === rows.length &&
+          transfers.every(
+            (event, index) =>
+              event.args.from.toLowerCase() === sender.toLowerCase() &&
+              event.args.to.toLowerCase() ===
+                rows[index].recipient.toLowerCase() &&
+              event.args.tokenId === rows[index].tokenId,
+          );
         if (!proof)
           throw new Error(
             "The receipt does not confirm this batch. Check the transaction in your wallet before retrying.",
@@ -546,7 +549,7 @@ function AirdropForm({
           </p>
           {helper ? (
             <p className={styles.hint}>
-              Transfer helper:{" "}
+              GasliteDrop:{" "}
               <a
                 className={styles.address}
                 href={`${chain.blockExplorers?.default.url}/address/${helper}`}
@@ -603,9 +606,10 @@ function AirdropForm({
           <p className={styles.hint}>
             The first run may request collection approval, then one wallet
             confirmation per batch. Approval covers this collection and remains
-            until you remove it. Contract recipients must accept ERC721 safe
-            transfers. A failed batch sends none of its NFTs; earlier confirmed
-            batches remain sent.
+            until you remove it. Gaslite uses standard transfers without a
+            receiver check. Confirm contract wallets can retrieve these NFTs. A
+            failed batch sends none of its NFTs; earlier confirmed batches
+            remain sent.
           </p>
           {!account.isConnected && (
             <p>Connect the wallet holding these NFTs using the button above.</p>

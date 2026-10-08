@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.36;
 
-import {ERC721Airdrop} from "../src/ERC721Airdrop.sol";
+import {GasliteDrop} from "../src/GasliteDrop.sol";
 import {
     IAirdropCreatorCollection,
     IAirdropTransferRegistry
@@ -10,7 +10,7 @@ import {Script, console2} from "forge-std/Script.sol";
 
 /// @notice Creator-signed setup: copy all current registry lists and add only this helper.
 /// @dev Does not disable the validator or change the collection's security level.
-contract AuthorizeERC721Airdrop is Script {
+contract AuthorizeGasliteDrop is Script {
     address internal constant COLLECTION = 0x11F4eF611DC2689e0fdB1a9A090822Ad5dEd0747;
     address internal constant REGISTRY = 0xA000027A9B2802E1ddf7000061001e5c005A0000;
 
@@ -18,7 +18,7 @@ contract AuthorizeERC721Airdrop is Script {
         require(block.chainid == 4663, "Robinhood mainnet only");
         address helper = vm.envAddress("AIRDROP_HELPER");
         require(
-            keccak256(helper.code) == keccak256(type(ERC721Airdrop).runtimeCode),
+            keccak256(helper.code) == keccak256(type(GasliteDrop).runtimeCode),
             "Unexpected helper runtime"
         );
         IAirdropCreatorCollection collection = IAirdropCreatorCollection(COLLECTION);

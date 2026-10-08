@@ -16,7 +16,7 @@ test.skip(
   !senderText ||
     !nftText ||
     !recipientText ||
-    !process.env.NEXT_PUBLIC_ANVIL_ERC721_AIRDROP_ADDRESS ||
+    !process.env.NEXT_PUBLIC_ANVIL_GASLITE_DROP_ADDRESS ||
     !process.env.BBF_ANVIL_RPC_URL,
   "Requires the disposable local ERC721 airdrop fixture.",
 );
@@ -73,7 +73,7 @@ test("reviews assignments and sends a real local ERC721 batch through the connec
         functionName: "isApprovedForAll",
         args: [
           sender,
-          getAddress(process.env.NEXT_PUBLIC_ANVIL_ERC721_AIRDROP_ADDRESS!),
+          getAddress(process.env.NEXT_PUBLIC_ANVIL_GASLITE_DROP_ADDRESS!),
         ],
       }),
     ).toBe(false);

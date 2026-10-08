@@ -1,8 +1,6 @@
 import {
-  encodeAbiParameters,
   getAddress,
   isAddress,
-  keccak256,
   maxUint256,
   zeroAddress,
   type Address,
@@ -69,13 +67,4 @@ export function parseAirdropList(
     seen.add(id.toString());
     return { recipient, tokenId: id };
   });
-}
-
-export function distributionHash(rows: readonly AirdropRow[]) {
-  return keccak256(
-    encodeAbiParameters(
-      [{ type: "address[]" }, { type: "uint256[]" }],
-      [rows.map((row) => row.recipient), rows.map((row) => row.tokenId)],
-    ),
-  );
 }

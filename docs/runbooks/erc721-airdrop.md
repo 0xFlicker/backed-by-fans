@@ -15,11 +15,12 @@ Gentlemen Prefer Blondes, supply 1,000, owner
 Recheck the owner and validator before deployment and setup.
 
 **A standard GasliteDrop-style helper cannot transfer this collection under its
-current policy.** The mainnet-fork test accepted `setApprovalForAll` but rejected
+current policy.** The initial custom-helper fork test accepted `setApprovalForAll` but rejected
 the transfer with `StrictAuthorizedTransferSecurityRegistry__UnauthorizedTransfer()`
-(`0x1de5204e`). Approval alone is insufficient.
+(`0x1de5204e`). Approval alone is insufficient. Gaslite also rejects unlisted transfers, but
+its assembly discards the validator revert data.
 
-`AuthorizeERC721Airdrop.s.sol` prepares a creator-owned registry list. It copies
+`AuthorizeGasliteDrop.s.sol` prepares a creator-owned registry list. It copies
 the current whitelist, blacklist and authorizers, adds the new helper to the
 whitelist, then applies that list to this collection. It keeps the existing
 transfer validator and security level. This method succeeded in a local mainnet
@@ -38,25 +39,29 @@ Primary references: [GasliteDrop source](https://github.com/PopPunkLLC/GasliteDr
 
 ## Helper design
 
-`ERC721Airdrop.sol` is a standalone, non-upgradeable, noncustodial helper with no
-admin, platform fee, deposit, or payable function. Each call safe-transfers at
-most 200 NFTs from `msg.sender`. A failure rolls back that whole batch. Safe
-transfers reject contract recipients that do not implement ERC721 receiving.
-Zero, sender and helper recipients are rejected. The helper cannot spend another
-wallet's approval by accepting an arbitrary `from` argument.
+`GasliteDrop.sol` vendors the original full GasliteDrop implementation from
+[revision 6da9ef9003264e7b48308cdd7081ba442b447563](https://github.com/PopPunkLLC/GasliteDrop/blob/6da9ef9003264e7b48308cdd7081ba442b447563/contracts/src/GasliteDrop.sol).
+The compiler pragma is adapted to this project's Solidity 0.8.36; attribution
+and transfer logic are preserved. Gaslite includes ERC721, ERC20 and ETH bulk
+transfer functions. This page exposes only ERC721 distribution.
 
-`Airdropped` commits to the sender, collection, recipient order, token IDs and
-count. The page reports a batch as delivered only after wagmi/viem supplies a
-successful receipt containing that exact helper event. Contract balances and
-historical log scans do not reconstruct pending transactions.
+ERC721 transfers use `transferFrom`, so contract recipients are not asked to
+accept the NFT through `onERC721Received`. Confirm contract wallets can retrieve
+the NFTs before distributing. Approval cannot be used to transfer another
+caller's NFTs: the sender is always `msg.sender`. A failed transfer rolls back
+the whole batch. There is no admin, platform fee or upgrade mechanism.
 
-This implementation uses the existing OpenZeppelin dependency and conventional
-Solidity; it does not copy GasliteDrop's assembly or add ERC20/ETH distribution.
+The page limits each batch to 200 NFTs, rejects empty or malformed assignments,
+checks collection code/ERC721 support and owned token IDs, and rejects zero,
+sender and helper recipients. These are page validations, not added Gaslite
+contract checks. Gaslite has no custom batch event. After wagmi/viem supplies a
+successful receipt, the page verifies every collection `Transfer` event against the exact ordered assignments.
+Missing, extra or mismatched events do not advance confirmed progress.
 
-The [gas benchmark](erc721-airdrop-gas-benchmark.md) compares both helpers on a
-local fork of this collection. For 200 NFTs sent to distinct wallets, GasliteDrop
-used 9.17% less gas; the safe-transfer path accounts for 75.14% of that gap.
-The benchmark does not change the prepared helper or public deployment plan.
+The [gas benchmark](erc721-airdrop-gas-benchmark.md) records the historical
+comparison with the removed custom helper. For 200 NFTs sent to distinct
+wallets, original Gaslite used 9.17% less gas. The compiler-only control saved
+another 819 gas with Solidity 0.8.36. Neither measurement is a live fee quote.
 
 ## Deploy and authorize
 
@@ -85,7 +90,7 @@ The setup must be signed by the current collection owner; the deployer and NFT
 holder can be different wallets. An agent must never sign or submit a Safe
 proposal; use the established human-approved Safe flow if either wallet is a Safe.
 
-After deployment, retain the public `DeployERC721Airdrop.s.sol/4663/run-latest.json`
+After deployment, retain the public `DeployGasliteDrop.s.sol/4663/run-latest.json`
 broadcast record, then run from `web/`:
 
 ```sh
@@ -98,7 +103,7 @@ bun run build
 Wagmi CLI's Foundry plugin discovers the public helper address. Do not insert an
 address or ABI into the page by hand. Publish the website only after the helper
 runtime, creator authorization and production reads have been checked. The
-local review override is `NEXT_PUBLIC_ANVIL_ERC721_AIRDROP_ADDRESS`, for execution
+local review override is `NEXT_PUBLIC_ANVIL_GASLITE_DROP_ADDRESS`, for execution
 chain 31337 only; never promote disposable fork receipts into public broadcasts.
 
 For a standalone local review, start a separate Anvil with chain 31337, then run
@@ -106,7 +111,7 @@ For a standalone local review, start a separate Anvil with chain 31337, then run
 from `web/`. It refuses public endpoints and creates a mock ERC721 with IDs 1 and
 2 owned by the first unlocked Anvil account. Start the website with that same
 `NEXT_PUBLIC_ANVIL_RPC_URL` and the printed helper address as
-`NEXT_PUBLIC_ANVIL_ERC721_AIRDROP_ADDRESS`. Open `/chains/31337/tools/airdrop`, enter
+`NEXT_PUBLIC_ANVIL_GASLITE_DROP_ADDRESS`. Open `/chains/31337/tools/airdrop`, enter
 the printed mock NFT address, and connect the printed test sender. This fixture
 is independent of membership-factory deployment and is not the live collection.
 
@@ -146,13 +151,13 @@ Unit and fuzz contract tests:
 
 ```sh
 cd contracts
-forge test --match-contract '^ERC721AirdropTest$' -vv
+forge test --match-contract '^GasliteDropTest$' -vv
 ```
 
-Run `ERC721AirdropMainnetForkTest` explicitly with a private Robinhood mainnet
+Run `GasliteDropMainnetForkTest` explicitly with a private Robinhood mainnet
 `--fork-url`. Both tests skip on non-mainnet execution chains. The first proves
 the current unlisted-helper rejection; the second impersonates the creator only
-inside the local EVM, copies lists, and proves the safe transfer succeeds.
+inside the local EVM, copies lists, and proves the standard transfer succeeds.
 These are local fork transactions, not live mainnet deployment or airdrop evidence.
 
 Web verification:
@@ -169,7 +174,7 @@ simulation, receipt proof, and continuation after a later batch fails. A real
 connected-wallet production transaction remains a release check after the
 creator supplies the recipients and token assignments.
 
-Preparation verification on 2026-10-08 passed 10 local contract tests (including
+Initial custom-helper preparation verification on 2026-10-08 passed 10 local contract tests (including
 256 fuzz cases and a 200-NFT batch), two mainnet-fork tests at block 83,567,955,
 34 focused web/config tests, and desktop/phone browser transfers plus approval
 removal on disposable Anvil. The fork test invokes the actual creator setup
@@ -183,3 +188,25 @@ they are not introduced by this airdrop change. Local receipts, screenshots,
 baseline comparison and review output are retained in the ignored
 `artifacts/erc721-airdrop/` directory. No mainnet deployment, registry update,
 NFT distribution or website publishing occurred during preparation.
+
+Gaslite replacement verification on 2026-10-08 passed 12 local contract tests
+(including 256 fuzz cases, a 200-NFT batch, and upstream ERC20/ETH paths), both
+actual-collection fork tests, 36 focused web/config tests, desktop and phone
+wallet transfers plus approval removal, type checking, lint, generated-binding
+drift checking and the production build. Receipt tests reject missing, extra or mismatched NFT events and accept routed
+wallet receipts when they contain the exact NFT transfers. The deployment wrapper
+simulated Gaslite on mainnet without a signer or broadcast. The executable
+runtime matches the benchmark's compiler-only Gaslite control. Evidence is
+retained in `artifacts/erc721-airdrop/gaslite-*`.
+
+The updated local fixture is at `http://127.0.0.1:3111/chains/31337/tools/airdrop`
+with Gaslite `0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9` and test NFT
+`0x5FC8d32690cc91D4c39d9d3abcBD16989F875707`. These are disposable Anvil
+addresses, not public deployments. Token IDs 1 and 2 remain with the seeded
+sender after browser tests restore the snapshot.
+
+The Grok replacement review was attempted in read-only mode. Two CLI runs
+stopped after setup without findings; a direct-code pass produced no response
+before it was stopped after several minutes. This replacement therefore has
+manual review and the verification above, without a completed external review.
+It is not an audited deployment.

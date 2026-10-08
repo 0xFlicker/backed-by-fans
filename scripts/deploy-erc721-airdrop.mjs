@@ -47,8 +47,8 @@ const rpc = values.ROBINHOOD_MAINNET_RPC_URL;
 if (!rpc)
   throw new Error("Missing ROBINHOOD_MAINNET_RPC_URL in contracts/.env");
 const script = authorize
-  ? "script/AuthorizeERC721Airdrop.s.sol:AuthorizeERC721Airdrop"
-  : "script/DeployERC721Airdrop.s.sol:DeployERC721Airdrop";
+  ? "script/AuthorizeGasliteDrop.s.sol:AuthorizeGasliteDrop"
+  : "script/DeployGasliteDrop.s.sol:DeployGasliteDrop";
 const command = [
   "script",
   script,
@@ -61,7 +61,7 @@ const command = [
 if (account) command.push("--account", account);
 if (broadcast) command.push("--broadcast");
 process.stdout.write(
-  `${broadcast ? "Broadcasting" : "Simulating only"}: ${authorize ? "creator registry setup" : "ERC721 helper deployment"} on Robinhood mainnet.\n`,
+  `${broadcast ? "Broadcasting" : "Simulating only"}: ${authorize ? "creator registry setup" : "GasliteDrop deployment"} on Robinhood mainnet.\n`,
 );
 const result = spawnSync("forge", command, {
   cwd: contracts,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { maxUint256 } from "viem";
-import { parseAirdropList, distributionHash } from "./airdrop";
+import { parseAirdropList } from "./airdrop";
 
 const alice = "0x0000000000000000000000000000000000000001";
 const bob = "0x0000000000000000000000000000000000000002";
@@ -58,14 +58,5 @@ describe("recipient assignments", () => {
         "",
       ),
     ).toThrow("10,000");
-  });
-  it("binds a receipt commitment to both recipient order and token IDs", () => {
-    const rows = parseAirdropList(`${alice},1\n${bob},2`, "pairs", "");
-    expect(distributionHash(rows)).not.toEqual(
-      distributionHash([...rows].reverse()),
-    );
-    expect(distributionHash(rows)).not.toEqual(
-      distributionHash([{ ...rows[0], tokenId: 3n }, rows[1]]),
-    );
   });
 });
