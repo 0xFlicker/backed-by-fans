@@ -53,6 +53,11 @@ historical log scans do not reconstruct pending transactions.
 This implementation uses the existing OpenZeppelin dependency and conventional
 Solidity; it does not copy GasliteDrop's assembly or add ERC20/ETH distribution.
 
+The [gas benchmark](erc721-airdrop-gas-benchmark.md) compares both helpers on a
+local fork of this collection. For 200 NFTs sent to distinct wallets, GasliteDrop
+used 9.17% less gas; the safe-transfer path accounts for 75.14% of that gap.
+The benchmark does not change the prepared helper or public deployment plan.
+
 ## Deploy and authorize
 
 Public-chain deployment and creator registry setup are separate human-authorized
