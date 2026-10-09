@@ -6,6 +6,366 @@ import {
 } from "wagmi/codegen";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// GasliteDrop
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const gasliteDropAbi = [
+  {
+    type: "function",
+    inputs: [
+      { name: "_token", internalType: "address", type: "address" },
+      { name: "_addresses", internalType: "address[]", type: "address[]" },
+      { name: "_amounts", internalType: "uint256[]", type: "uint256[]" },
+      { name: "_totalAmount", internalType: "uint256", type: "uint256" },
+    ],
+    name: "airdropERC20",
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "_nft", internalType: "address", type: "address" },
+      { name: "_addresses", internalType: "address[]", type: "address[]" },
+      { name: "_tokenIds", internalType: "uint256[]", type: "uint256[]" },
+    ],
+    name: "airdropERC721",
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "_addresses", internalType: "address[]", type: "address[]" },
+      { name: "_amounts", internalType: "uint256[]", type: "uint256[]" },
+    ],
+    name: "airdropETH",
+    outputs: [],
+    stateMutability: "payable",
+  },
+] as const;
+
+/**
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const gasliteDropAddress = {
+  4663: "0xfd2a05704Ffc1dB63c49BBA4E05dcb0d96Df26Bc",
+} as const;
+
+/**
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const gasliteDropConfig = {
+  address: gasliteDropAddress,
+  abi: gasliteDropAbi,
+} as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IAirdropCreatorCollection
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const iAirdropCreatorCollectionAbi = [
+  {
+    type: "function",
+    inputs: [],
+    name: "getTransferValidationFunction",
+    outputs: [
+      { name: "functionSignature", internalType: "bytes4", type: "bytes4" },
+      { name: "isViewFunction", internalType: "bool", type: "bool" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "getTransferValidator",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "owner",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IAirdropTransferRegistry
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const iAirdropTransferRegistryAbi = [
+  {
+    type: "function",
+    inputs: [
+      { name: "id", internalType: "uint120", type: "uint120" },
+      { name: "account", internalType: "address", type: "address" },
+    ],
+    name: "addAccountToWhitelist",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "id", internalType: "uint120", type: "uint120" },
+      { name: "accounts", internalType: "address[]", type: "address[]" },
+    ],
+    name: "addAccountsToAuthorizers",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "id", internalType: "uint120", type: "uint120" },
+      { name: "accounts", internalType: "address[]", type: "address[]" },
+    ],
+    name: "addAccountsToBlacklist",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "id", internalType: "uint120", type: "uint120" },
+      { name: "accounts", internalType: "address[]", type: "address[]" },
+    ],
+    name: "addAccountsToWhitelist",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "caller", internalType: "address", type: "address" },
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+    ],
+    name: "applyCollectionTransferPolicy",
+    outputs: [],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "collection", internalType: "address", type: "address" },
+      { name: "id", internalType: "uint120", type: "uint120" },
+    ],
+    name: "applyListToCollection",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "name", internalType: "string", type: "string" }],
+    name: "createList",
+    outputs: [{ name: "", internalType: "uint120", type: "uint120" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "name", internalType: "string", type: "string" },
+      { name: "sourceListId", internalType: "uint120", type: "uint120" },
+    ],
+    name: "createListCopy",
+    outputs: [{ name: "", internalType: "uint120", type: "uint120" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "id", internalType: "uint120", type: "uint120" }],
+    name: "getAuthorizerAccounts",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "collection", internalType: "address", type: "address" }],
+    name: "getAuthorizerAccountsByCollection",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "id", internalType: "uint120", type: "uint120" }],
+    name: "getBlacklistedAccounts",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "collection", internalType: "address", type: "address" }],
+    name: "getBlacklistedAccountsByCollection",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "collection", internalType: "address", type: "address" }],
+    name: "getCollectionSecurityPolicy",
+    outputs: [
+      {
+        name: "",
+        internalType:
+          "struct IAirdropTransferRegistry.CollectionSecurityPolicy",
+        type: "tuple",
+        components: [
+          {
+            name: "transferSecurityLevel",
+            internalType: "uint8",
+            type: "uint8",
+          },
+          {
+            name: "operatorWhitelistId",
+            internalType: "uint120",
+            type: "uint120",
+          },
+          {
+            name: "permittedContractReceiversId",
+            internalType: "uint120",
+            type: "uint120",
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "id", internalType: "uint120", type: "uint120" }],
+    name: "getWhitelistedAccounts",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "collection", internalType: "address", type: "address" }],
+    name: "getWhitelistedAccountsByCollection",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "collection", internalType: "address", type: "address" },
+      { name: "account", internalType: "address", type: "address" },
+    ],
+    name: "isAccountWhitelistedByCollection",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "id", internalType: "uint120", type: "uint120" }],
+    name: "listOwners",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "id", internalType: "uint120", type: "uint120" },
+      { name: "account", internalType: "address", type: "address" },
+    ],
+    name: "removeAccountFromWhitelist",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "caller", internalType: "address", type: "address" },
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+    ],
+    name: "validateTransfer",
+    outputs: [],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "caller", internalType: "address", type: "address" },
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+    ],
+    name: "validateTransfer",
+    outputs: [],
+    stateMutability: "view",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "kind", internalType: "uint8", type: "uint8", indexed: true },
+      { name: "id", internalType: "uint256", type: "uint256", indexed: true },
+      {
+        name: "account",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "AddedAccountToList",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "collection",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      { name: "id", internalType: "uint120", type: "uint120", indexed: true },
+    ],
+    name: "AppliedListToCollection",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "id", internalType: "uint256", type: "uint256", indexed: true },
+      { name: "name", internalType: "string", type: "string", indexed: false },
+    ],
+    name: "CreatedList",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "kind", internalType: "uint8", type: "uint8", indexed: true },
+      { name: "id", internalType: "uint256", type: "uint256", indexed: true },
+      {
+        name: "account",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "RemovedAccountFromList",
+  },
+  {
+    type: "error",
+    inputs: [],
+    name: "StrictAuthorizedTransferSecurityRegistry__CallerMustBeWhitelistedOperator",
+  },
+  {
+    type: "error",
+    inputs: [],
+    name: "StrictAuthorizedTransferSecurityRegistry__UnauthorizedTransfer",
+  },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // IBurnableProtocolToken
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -121,6 +481,345 @@ export const ierc165Abi = [
     name: "supportsInterface",
     outputs: [{ name: "", internalType: "bool", type: "bool" }],
     stateMutability: "view",
+  },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IERC721
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const ierc721Abi = [
+  {
+    type: "function",
+    inputs: [
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "owner", internalType: "address", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "balance", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "getApproved",
+    outputs: [{ name: "operator", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "operator", internalType: "address", type: "address" },
+    ],
+    name: "isApprovedForAll",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "ownerOf",
+    outputs: [{ name: "owner", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+    ],
+    name: "safeTransferFrom",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "data", internalType: "bytes", type: "bytes" },
+    ],
+    name: "safeTransferFrom",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "operator", internalType: "address", type: "address" },
+      { name: "approved", internalType: "bool", type: "bool" },
+    ],
+    name: "setApprovalForAll",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "interfaceId", internalType: "bytes4", type: "bytes4" }],
+    name: "supportsInterface",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+    ],
+    name: "transferFrom",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "approved",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+    ],
+    name: "Approval",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "operator",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      { name: "approved", internalType: "bool", type: "bool", indexed: false },
+    ],
+    name: "ApprovalForAll",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "from", internalType: "address", type: "address", indexed: true },
+      { name: "to", internalType: "address", type: "address", indexed: true },
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+    ],
+    name: "Transfer",
+  },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// IERC721Metadata
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const ierc721MetadataAbi = [
+  {
+    type: "function",
+    inputs: [
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "owner", internalType: "address", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "balance", internalType: "uint256", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "getApproved",
+    outputs: [{ name: "operator", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "owner", internalType: "address", type: "address" },
+      { name: "operator", internalType: "address", type: "address" },
+    ],
+    name: "isApprovedForAll",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "name",
+    outputs: [{ name: "", internalType: "string", type: "string" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "ownerOf",
+    outputs: [{ name: "owner", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+    ],
+    name: "safeTransferFrom",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+      { name: "data", internalType: "bytes", type: "bytes" },
+    ],
+    name: "safeTransferFrom",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "operator", internalType: "address", type: "address" },
+      { name: "approved", internalType: "bool", type: "bool" },
+    ],
+    name: "setApprovalForAll",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "interfaceId", internalType: "bytes4", type: "bytes4" }],
+    name: "supportsInterface",
+    outputs: [{ name: "", internalType: "bool", type: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
+    name: "symbol",
+    outputs: [{ name: "", internalType: "string", type: "string" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "tokenId", internalType: "uint256", type: "uint256" }],
+    name: "tokenURI",
+    outputs: [{ name: "", internalType: "string", type: "string" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+    ],
+    name: "transferFrom",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "approved",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+    ],
+    name: "Approval",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "owner",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      {
+        name: "operator",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      { name: "approved", internalType: "bool", type: "bool", indexed: false },
+    ],
+    name: "ApprovalForAll",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "from", internalType: "address", type: "address", indexed: true },
+      { name: "to", internalType: "address", type: "address", indexed: true },
+      {
+        name: "tokenId",
+        internalType: "uint256",
+        type: "uint256",
+        indexed: true,
+      },
+    ],
+    name: "Transfer",
   },
 ] as const;
 
@@ -9576,6 +10275,436 @@ export const usdgAbi = [
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const useWriteGasliteDrop = /*#__PURE__*/ createUseWriteContract({
+  abi: gasliteDropAbi,
+  address: gasliteDropAddress,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC20"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const useWriteGasliteDropAirdropErc20 =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: gasliteDropAbi,
+    address: gasliteDropAddress,
+    functionName: "airdropERC20",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC721"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const useWriteGasliteDropAirdropErc721 =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: gasliteDropAbi,
+    address: gasliteDropAddress,
+    functionName: "airdropERC721",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropETH"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const useWriteGasliteDropAirdropEth =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: gasliteDropAbi,
+    address: gasliteDropAddress,
+    functionName: "airdropETH",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const useSimulateGasliteDrop = /*#__PURE__*/ createUseSimulateContract({
+  abi: gasliteDropAbi,
+  address: gasliteDropAddress,
+});
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC20"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const useSimulateGasliteDropAirdropErc20 =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: gasliteDropAbi,
+    address: gasliteDropAddress,
+    functionName: "airdropERC20",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropERC721"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const useSimulateGasliteDropAirdropErc721 =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: gasliteDropAbi,
+    address: gasliteDropAddress,
+    functionName: "airdropERC721",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link gasliteDropAbi}__ and `functionName` set to `"airdropETH"`
+ *
+ * [__View Contract on Robinhood Chain Blockscout__](https://robinhoodchain.blockscout.com/address/0xfd2a05704ffc1db63c49bba4e05dcb0d96df26bc)
+ */
+export const useSimulateGasliteDropAirdropEth =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: gasliteDropAbi,
+    address: gasliteDropAddress,
+    functionName: "airdropETH",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropCreatorCollectionAbi}__
+ */
+export const useReadIAirdropCreatorCollection =
+  /*#__PURE__*/ createUseReadContract({ abi: iAirdropCreatorCollectionAbi });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropCreatorCollectionAbi}__ and `functionName` set to `"getTransferValidationFunction"`
+ */
+export const useReadIAirdropCreatorCollectionGetTransferValidationFunction =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropCreatorCollectionAbi,
+    functionName: "getTransferValidationFunction",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropCreatorCollectionAbi}__ and `functionName` set to `"getTransferValidator"`
+ */
+export const useReadIAirdropCreatorCollectionGetTransferValidator =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropCreatorCollectionAbi,
+    functionName: "getTransferValidator",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropCreatorCollectionAbi}__ and `functionName` set to `"owner"`
+ */
+export const useReadIAirdropCreatorCollectionOwner =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropCreatorCollectionAbi,
+    functionName: "owner",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__
+ */
+export const useReadIAirdropTransferRegistry =
+  /*#__PURE__*/ createUseReadContract({ abi: iAirdropTransferRegistryAbi });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"applyCollectionTransferPolicy"`
+ */
+export const useReadIAirdropTransferRegistryApplyCollectionTransferPolicy =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "applyCollectionTransferPolicy",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getAuthorizerAccounts"`
+ */
+export const useReadIAirdropTransferRegistryGetAuthorizerAccounts =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getAuthorizerAccounts",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getAuthorizerAccountsByCollection"`
+ */
+export const useReadIAirdropTransferRegistryGetAuthorizerAccountsByCollection =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getAuthorizerAccountsByCollection",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getBlacklistedAccounts"`
+ */
+export const useReadIAirdropTransferRegistryGetBlacklistedAccounts =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getBlacklistedAccounts",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getBlacklistedAccountsByCollection"`
+ */
+export const useReadIAirdropTransferRegistryGetBlacklistedAccountsByCollection =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getBlacklistedAccountsByCollection",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getCollectionSecurityPolicy"`
+ */
+export const useReadIAirdropTransferRegistryGetCollectionSecurityPolicy =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getCollectionSecurityPolicy",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getWhitelistedAccounts"`
+ */
+export const useReadIAirdropTransferRegistryGetWhitelistedAccounts =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getWhitelistedAccounts",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getWhitelistedAccountsByCollection"`
+ */
+export const useReadIAirdropTransferRegistryGetWhitelistedAccountsByCollection =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getWhitelistedAccountsByCollection",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"isAccountWhitelistedByCollection"`
+ */
+export const useReadIAirdropTransferRegistryIsAccountWhitelistedByCollection =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "isAccountWhitelistedByCollection",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"listOwners"`
+ */
+export const useReadIAirdropTransferRegistryListOwners =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "listOwners",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"validateTransfer"`
+ */
+export const useReadIAirdropTransferRegistryValidateTransfer =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "validateTransfer",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__
+ */
+export const useWriteIAirdropTransferRegistry =
+  /*#__PURE__*/ createUseWriteContract({ abi: iAirdropTransferRegistryAbi });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"addAccountToWhitelist"`
+ */
+export const useWriteIAirdropTransferRegistryAddAccountToWhitelist =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "addAccountToWhitelist",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"addAccountsToAuthorizers"`
+ */
+export const useWriteIAirdropTransferRegistryAddAccountsToAuthorizers =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "addAccountsToAuthorizers",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"addAccountsToBlacklist"`
+ */
+export const useWriteIAirdropTransferRegistryAddAccountsToBlacklist =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "addAccountsToBlacklist",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"addAccountsToWhitelist"`
+ */
+export const useWriteIAirdropTransferRegistryAddAccountsToWhitelist =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "addAccountsToWhitelist",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"applyListToCollection"`
+ */
+export const useWriteIAirdropTransferRegistryApplyListToCollection =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "applyListToCollection",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"createList"`
+ */
+export const useWriteIAirdropTransferRegistryCreateList =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "createList",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"createListCopy"`
+ */
+export const useWriteIAirdropTransferRegistryCreateListCopy =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "createListCopy",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"removeAccountFromWhitelist"`
+ */
+export const useWriteIAirdropTransferRegistryRemoveAccountFromWhitelist =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "removeAccountFromWhitelist",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__
+ */
+export const useSimulateIAirdropTransferRegistry =
+  /*#__PURE__*/ createUseSimulateContract({ abi: iAirdropTransferRegistryAbi });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"addAccountToWhitelist"`
+ */
+export const useSimulateIAirdropTransferRegistryAddAccountToWhitelist =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "addAccountToWhitelist",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"addAccountsToAuthorizers"`
+ */
+export const useSimulateIAirdropTransferRegistryAddAccountsToAuthorizers =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "addAccountsToAuthorizers",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"addAccountsToBlacklist"`
+ */
+export const useSimulateIAirdropTransferRegistryAddAccountsToBlacklist =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "addAccountsToBlacklist",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"addAccountsToWhitelist"`
+ */
+export const useSimulateIAirdropTransferRegistryAddAccountsToWhitelist =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "addAccountsToWhitelist",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"applyListToCollection"`
+ */
+export const useSimulateIAirdropTransferRegistryApplyListToCollection =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "applyListToCollection",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"createList"`
+ */
+export const useSimulateIAirdropTransferRegistryCreateList =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "createList",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"createListCopy"`
+ */
+export const useSimulateIAirdropTransferRegistryCreateListCopy =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "createListCopy",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"removeAccountFromWhitelist"`
+ */
+export const useSimulateIAirdropTransferRegistryRemoveAccountFromWhitelist =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "removeAccountFromWhitelist",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__
+ */
+export const useWatchIAirdropTransferRegistryEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `eventName` set to `"AddedAccountToList"`
+ */
+export const useWatchIAirdropTransferRegistryAddedAccountToListEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+    eventName: "AddedAccountToList",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `eventName` set to `"AppliedListToCollection"`
+ */
+export const useWatchIAirdropTransferRegistryAppliedListToCollectionEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+    eventName: "AppliedListToCollection",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `eventName` set to `"CreatedList"`
+ */
+export const useWatchIAirdropTransferRegistryCreatedListEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+    eventName: "CreatedList",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `eventName` set to `"RemovedAccountFromList"`
+ */
+export const useWatchIAirdropTransferRegistryRemovedAccountFromListEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+    eventName: "RemovedAccountFromList",
+  });
+
+/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iBurnableProtocolTokenAbi}__
  */
 export const useWriteIBurnableProtocolToken =
@@ -9710,6 +10839,366 @@ export const useReadIerc165SupportsInterface =
   /*#__PURE__*/ createUseReadContract({
     abi: ierc165Abi,
     functionName: "supportsInterface",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721Abi}__
+ */
+export const useReadIerc721 = /*#__PURE__*/ createUseReadContract({
+  abi: ierc721Abi,
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"balanceOf"`
+ */
+export const useReadIerc721BalanceOf = /*#__PURE__*/ createUseReadContract({
+  abi: ierc721Abi,
+  functionName: "balanceOf",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"getApproved"`
+ */
+export const useReadIerc721GetApproved = /*#__PURE__*/ createUseReadContract({
+  abi: ierc721Abi,
+  functionName: "getApproved",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"isApprovedForAll"`
+ */
+export const useReadIerc721IsApprovedForAll =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ierc721Abi,
+    functionName: "isApprovedForAll",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"ownerOf"`
+ */
+export const useReadIerc721OwnerOf = /*#__PURE__*/ createUseReadContract({
+  abi: ierc721Abi,
+  functionName: "ownerOf",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"supportsInterface"`
+ */
+export const useReadIerc721SupportsInterface =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ierc721Abi,
+    functionName: "supportsInterface",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721Abi}__
+ */
+export const useWriteIerc721 = /*#__PURE__*/ createUseWriteContract({
+  abi: ierc721Abi,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"approve"`
+ */
+export const useWriteIerc721Approve = /*#__PURE__*/ createUseWriteContract({
+  abi: ierc721Abi,
+  functionName: "approve",
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"safeTransferFrom"`
+ */
+export const useWriteIerc721SafeTransferFrom =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ierc721Abi,
+    functionName: "safeTransferFrom",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"setApprovalForAll"`
+ */
+export const useWriteIerc721SetApprovalForAll =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ierc721Abi,
+    functionName: "setApprovalForAll",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"transferFrom"`
+ */
+export const useWriteIerc721TransferFrom = /*#__PURE__*/ createUseWriteContract(
+  { abi: ierc721Abi, functionName: "transferFrom" },
+);
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721Abi}__
+ */
+export const useSimulateIerc721 = /*#__PURE__*/ createUseSimulateContract({
+  abi: ierc721Abi,
+});
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"approve"`
+ */
+export const useSimulateIerc721Approve =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ierc721Abi,
+    functionName: "approve",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"safeTransferFrom"`
+ */
+export const useSimulateIerc721SafeTransferFrom =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ierc721Abi,
+    functionName: "safeTransferFrom",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"setApprovalForAll"`
+ */
+export const useSimulateIerc721SetApprovalForAll =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ierc721Abi,
+    functionName: "setApprovalForAll",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721Abi}__ and `functionName` set to `"transferFrom"`
+ */
+export const useSimulateIerc721TransferFrom =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ierc721Abi,
+    functionName: "transferFrom",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ierc721Abi}__
+ */
+export const useWatchIerc721Event = /*#__PURE__*/ createUseWatchContractEvent({
+  abi: ierc721Abi,
+});
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ierc721Abi}__ and `eventName` set to `"Approval"`
+ */
+export const useWatchIerc721ApprovalEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ierc721Abi,
+    eventName: "Approval",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ierc721Abi}__ and `eventName` set to `"ApprovalForAll"`
+ */
+export const useWatchIerc721ApprovalForAllEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ierc721Abi,
+    eventName: "ApprovalForAll",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ierc721Abi}__ and `eventName` set to `"Transfer"`
+ */
+export const useWatchIerc721TransferEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ierc721Abi,
+    eventName: "Transfer",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721MetadataAbi}__
+ */
+export const useReadIerc721Metadata = /*#__PURE__*/ createUseReadContract({
+  abi: ierc721MetadataAbi,
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"balanceOf"`
+ */
+export const useReadIerc721MetadataBalanceOf =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ierc721MetadataAbi,
+    functionName: "balanceOf",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"getApproved"`
+ */
+export const useReadIerc721MetadataGetApproved =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ierc721MetadataAbi,
+    functionName: "getApproved",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"isApprovedForAll"`
+ */
+export const useReadIerc721MetadataIsApprovedForAll =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ierc721MetadataAbi,
+    functionName: "isApprovedForAll",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"name"`
+ */
+export const useReadIerc721MetadataName = /*#__PURE__*/ createUseReadContract({
+  abi: ierc721MetadataAbi,
+  functionName: "name",
+});
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"ownerOf"`
+ */
+export const useReadIerc721MetadataOwnerOf =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ierc721MetadataAbi,
+    functionName: "ownerOf",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"supportsInterface"`
+ */
+export const useReadIerc721MetadataSupportsInterface =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ierc721MetadataAbi,
+    functionName: "supportsInterface",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"symbol"`
+ */
+export const useReadIerc721MetadataSymbol = /*#__PURE__*/ createUseReadContract(
+  { abi: ierc721MetadataAbi, functionName: "symbol" },
+);
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"tokenURI"`
+ */
+export const useReadIerc721MetadataTokenUri =
+  /*#__PURE__*/ createUseReadContract({
+    abi: ierc721MetadataAbi,
+    functionName: "tokenURI",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721MetadataAbi}__
+ */
+export const useWriteIerc721Metadata = /*#__PURE__*/ createUseWriteContract({
+  abi: ierc721MetadataAbi,
+});
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"approve"`
+ */
+export const useWriteIerc721MetadataApprove =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ierc721MetadataAbi,
+    functionName: "approve",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"safeTransferFrom"`
+ */
+export const useWriteIerc721MetadataSafeTransferFrom =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ierc721MetadataAbi,
+    functionName: "safeTransferFrom",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"setApprovalForAll"`
+ */
+export const useWriteIerc721MetadataSetApprovalForAll =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ierc721MetadataAbi,
+    functionName: "setApprovalForAll",
+  });
+
+/**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"transferFrom"`
+ */
+export const useWriteIerc721MetadataTransferFrom =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: ierc721MetadataAbi,
+    functionName: "transferFrom",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721MetadataAbi}__
+ */
+export const useSimulateIerc721Metadata =
+  /*#__PURE__*/ createUseSimulateContract({ abi: ierc721MetadataAbi });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"approve"`
+ */
+export const useSimulateIerc721MetadataApprove =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ierc721MetadataAbi,
+    functionName: "approve",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"safeTransferFrom"`
+ */
+export const useSimulateIerc721MetadataSafeTransferFrom =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ierc721MetadataAbi,
+    functionName: "safeTransferFrom",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"setApprovalForAll"`
+ */
+export const useSimulateIerc721MetadataSetApprovalForAll =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ierc721MetadataAbi,
+    functionName: "setApprovalForAll",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `functionName` set to `"transferFrom"`
+ */
+export const useSimulateIerc721MetadataTransferFrom =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: ierc721MetadataAbi,
+    functionName: "transferFrom",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ierc721MetadataAbi}__
+ */
+export const useWatchIerc721MetadataEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({ abi: ierc721MetadataAbi });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `eventName` set to `"Approval"`
+ */
+export const useWatchIerc721MetadataApprovalEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ierc721MetadataAbi,
+    eventName: "Approval",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `eventName` set to `"ApprovalForAll"`
+ */
+export const useWatchIerc721MetadataApprovalForAllEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ierc721MetadataAbi,
+    eventName: "ApprovalForAll",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link ierc721MetadataAbi}__ and `eventName` set to `"Transfer"`
+ */
+export const useWatchIerc721MetadataTransferEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: ierc721MetadataAbi,
+    eventName: "Transfer",
   });
 
 /**
