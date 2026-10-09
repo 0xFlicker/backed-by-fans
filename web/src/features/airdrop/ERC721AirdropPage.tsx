@@ -31,6 +31,7 @@ import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import styles from "./ERC721AirdropPage.module.css";
 import { useAirdropCollection } from "./useAirdropCollection";
 import { ShareRegistration } from "./ShareRegistration";
+import { registrationPath } from "./collection";
 
 function errorText(error: unknown) {
   const message =
@@ -547,6 +548,23 @@ function AirdropForm({
                 collection={collection}
                 owner={collectionInfo.data.owner}
               />
+            )}
+          {collection &&
+            collectionInfo.data?.registry &&
+            "whitelisted" in collectionInfo.data.registry &&
+            collectionInfo.data.registry.whitelisted && (
+              <div className={styles.notice}>
+                <p>
+                  GasliteDrop is registered for this collection. The collection
+                  owner can revoke its registry permission after the airdrop.
+                </p>
+                <a
+                  className="button button-small"
+                  href={registrationPath(chainId, collection)}
+                >
+                  Owner revocation
+                </a>
+              </div>
             )}
           {collectionInfo.data?.registry?.status === "unsupported" && (
             <p className={styles.hint}>

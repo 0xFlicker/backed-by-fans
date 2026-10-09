@@ -8,6 +8,8 @@ interface IAirdropTransferRegistry {
     // https://robinhoodchain.blockscout.com/address/0xA000027A9B2802E1ddf7000061001e5c005A0000
     event CreatedList(uint256 indexed id, string name);
     event AppliedListToCollection(address indexed collection, uint120 indexed id);
+    event AddedAccountToList(uint8 indexed kind, uint256 indexed id, address indexed account);
+    event RemovedAccountFromList(uint8 indexed kind, uint256 indexed id, address indexed account);
     error StrictAuthorizedTransferSecurityRegistry__UnauthorizedTransfer();
     error StrictAuthorizedTransferSecurityRegistry__CallerMustBeWhitelistedOperator();
 
@@ -51,6 +53,7 @@ interface IAirdropTransferRegistry {
     function addAccountsToBlacklist(uint120 id, address[] calldata accounts) external;
     function addAccountsToAuthorizers(uint120 id, address[] calldata accounts) external;
     function addAccountToWhitelist(uint120 id, address account) external;
+    function removeAccountFromWhitelist(uint120 id, address account) external;
     function applyListToCollection(address collection, uint120 id) external;
 }
 

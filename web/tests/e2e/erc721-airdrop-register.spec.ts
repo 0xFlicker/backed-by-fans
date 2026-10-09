@@ -20,7 +20,7 @@ test.skip(
     !process.env.NEXT_PUBLIC_ANVIL_GASLITE_DROP_ADDRESS,
   "Requires the separate mainnet-state registration fork with execution chain 31337.",
 );
-test("detects restriction and registers Gaslite from the collection owner's wallet on the local fork", async ({
+test("registers and revokes Gaslite with receipt checks and updated owner controls on the local fork", async ({
   page,
 }) => {
   const collection = getAddress(collectionText!);
@@ -140,15 +140,83 @@ test("detects restriction and registers Gaslite from the collection owner's wall
         args: [collection],
       }),
     ).toEqual(authorizers);
+    await expect(
+      page.getByRole("button", { name: "Revoke GasliteDrop" }),
+    ).toBeDisabled();
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    await expect(page.getByRole("link", { name: /confirmed/ })).toHaveCount(3);
     await page.screenshot({
       path: `/tmp/bbf-airdrop-register-${test.info().project.name}.png`,
       fullPage: true,
     });
     await page.getByRole("link", { name: "Return to airdrop" }).click();
     await page.getByLabel("NFT collection").fill(collection);
+    await page.getByRole("link", { name: "Owner revocation" }).click();
+    await expect(
+      page.getByRole("button", { name: "Revoke GasliteDrop" }),
+    ).toBeDisabled();
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Revoke GasliteDrop" }).click();
+    await expect(
+      page.getByText("GasliteDrop registration revoked for this collection."),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("link", { name: /confirmed/ })).toHaveCount(3);
+    await expect(
+      page.getByRole("button", { name: "Register GasliteDrop" }),
+    ).toBeDisabled();
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    const revoked = await client.readContract({
+      address: registry,
+      abi: iAirdropTransferRegistryAbi,
+      functionName: "getCollectionSecurityPolicy",
+      args: [collection],
+    });
+    expect(revoked.operatorWhitelistId).not.toBe(after.operatorWhitelistId);
+    expect(revoked.transferSecurityLevel).toBe(before.transferSecurityLevel);
+    expect(revoked.permittedContractReceiversId).toBe(
+      before.permittedContractReceiversId,
+    );
+    expect(
+      await client.readContract({
+        address: registry,
+        abi: iAirdropTransferRegistryAbi,
+        functionName: "getWhitelistedAccounts",
+        args: [after.operatorWhitelistId],
+      }),
+    ).toEqual([...whitelist, helper]);
+    expect(
+      await client.readContract({
+        address: registry,
+        abi: iAirdropTransferRegistryAbi,
+        functionName: "getWhitelistedAccountsByCollection",
+        args: [collection],
+      }),
+    ).toEqual(whitelist);
+    expect(
+      await client.readContract({
+        address: registry,
+        abi: iAirdropTransferRegistryAbi,
+        functionName: "getBlacklistedAccountsByCollection",
+        args: [collection],
+      }),
+    ).toEqual(blacklist);
+    expect(
+      await client.readContract({
+        address: registry,
+        abi: iAirdropTransferRegistryAbi,
+        functionName: "getAuthorizerAccountsByCollection",
+        args: [collection],
+      }),
+    ).toEqual(authorizers);
+    await page.screenshot({
+      path: `/tmp/bbf-airdrop-revoke-${test.info().project.name}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("link", { name: "Return to airdrop" }).click();
+    await page.getByLabel("NFT collection").fill(collection);
     await expect(
       page.getByText(/transfer registry blocks GasliteDrop/),
-    ).not.toBeVisible();
+    ).toBeVisible();
   } finally {
     await revertAnvil(snapshot);
   }

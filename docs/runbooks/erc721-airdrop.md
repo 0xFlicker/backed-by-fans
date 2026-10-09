@@ -301,13 +301,25 @@ then apply the copy to the collection. Each exact wagmi simulation request is
 passed to wagmi's write action; viem supplies receipts. The actual new list ID
 comes from the confirmed `CreatedList` event, not the simulation's predicted
 return. The page verifies list ownership and all copied lists, checks the source
-configuration before each step, and requires the final
+configuration before each step, requires the exact `AddedAccountToList`
+receipt for Gaslite in the new operator list, and requires the final
 `AppliedListToCollection` receipt plus the current collection policy and
 allowlist before reporting success. There is no persisted transaction state.
 A cancelled or failed attempt before application leaves the collection on its
 original list; restarting can leave an unused owner-controlled copied list.
 Future updates to the old shared list no longer propagate after application.
 The page states this before signing.
+
+Once registered, the same owner box becomes a revocation tool and resets the
+review checkbox. The airdrop form also links to owner revocation. Revocation
+uses three separately simulated owner transactions: copy the active list,
+remove only GasliteDrop from the copy, then apply the copy to this collection.
+This leaves the old list unchanged for other collections sharing it. The
+receipt checks require `CreatedList`, the exact `RemovedAccountFromList`
+operator-list event, and `AppliedListToCollection`. Canonical reads must then
+confirm the new list, unchanged owner/security policy and removal of Gaslite
+before success. The current action remains visible until all three receipts
+are reconciled; success resets review and switches back to registration.
 
 OpenSea registry method/event signatures were checked against its verified
 Robinhood source at
@@ -356,3 +368,16 @@ reproduced at the starting revision: `CatalogExplorer`, two
 holder-airdrop fix branch from PR #14 so those earlier contract fixes are not
 included in its review diff. This verification did not submit a public registry
 transaction, distribute mainnet NFTs, or publish the website.
+
+Owner revocation verification on 2026-10-08 passed 65 focused web tests,
+type checking, targeted lint/format checks, generated-binding drift checking,
+interface formatting and an isolated production build. Desktop and phone each
+completed a six-transaction register/revoke round trip against the actual
+collection and registry on the disposable mainnet-state fork. Tests checked
+all three confirmed receipts per action, the reset review checkbox, the owner
+revocation link, unchanged policy and other entries, and preservation of the
+old registered list after applying its copy without Gaslite. The collection
+returned to blocked registration state after revocation. Snapshots were
+restored, and the normal review site at port 3111 was left running.
+Evidence is retained under `artifacts/erc721-airdrop/revoke-*`. No public
+registry transaction was submitted.

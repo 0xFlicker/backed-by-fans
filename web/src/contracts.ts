@@ -270,6 +270,16 @@ export const iAirdropTransferRegistryAbi = [
   {
     type: "function",
     inputs: [
+      { name: "id", internalType: "uint120", type: "uint120" },
+      { name: "account", internalType: "address", type: "address" },
+    ],
+    name: "removeAccountFromWhitelist",
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [
       { name: "caller", internalType: "address", type: "address" },
       { name: "from", internalType: "address", type: "address" },
       { name: "to", internalType: "address", type: "address" },
@@ -294,6 +304,21 @@ export const iAirdropTransferRegistryAbi = [
     type: "event",
     anonymous: false,
     inputs: [
+      { name: "kind", internalType: "uint8", type: "uint8", indexed: true },
+      { name: "id", internalType: "uint256", type: "uint256", indexed: true },
+      {
+        name: "account",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "AddedAccountToList",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
       {
         name: "collection",
         internalType: "address",
@@ -312,6 +337,21 @@ export const iAirdropTransferRegistryAbi = [
       { name: "name", internalType: "string", type: "string", indexed: false },
     ],
     name: "CreatedList",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "kind", internalType: "uint8", type: "uint8", indexed: true },
+      { name: "id", internalType: "uint256", type: "uint256", indexed: true },
+      {
+        name: "account",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+    ],
+    name: "RemovedAccountFromList",
   },
   {
     type: "error",
@@ -10534,6 +10574,15 @@ export const useWriteIAirdropTransferRegistryCreateListCopy =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"removeAccountFromWhitelist"`
+ */
+export const useWriteIAirdropTransferRegistryRemoveAccountFromWhitelist =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "removeAccountFromWhitelist",
+  });
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__
  */
 export const useSimulateIAirdropTransferRegistry =
@@ -10603,11 +10652,29 @@ export const useSimulateIAirdropTransferRegistryCreateListCopy =
   });
 
 /**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"removeAccountFromWhitelist"`
+ */
+export const useSimulateIAirdropTransferRegistryRemoveAccountFromWhitelist =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "removeAccountFromWhitelist",
+  });
+
+/**
  * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__
  */
 export const useWatchIAirdropTransferRegistryEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: iAirdropTransferRegistryAbi,
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `eventName` set to `"AddedAccountToList"`
+ */
+export const useWatchIAirdropTransferRegistryAddedAccountToListEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+    eventName: "AddedAccountToList",
   });
 
 /**
@@ -10626,6 +10693,15 @@ export const useWatchIAirdropTransferRegistryCreatedListEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: iAirdropTransferRegistryAbi,
     eventName: "CreatedList",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `eventName` set to `"RemovedAccountFromList"`
+ */
+export const useWatchIAirdropTransferRegistryRemovedAccountFromListEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+    eventName: "RemovedAccountFromList",
   });
 
 /**

@@ -41,11 +41,14 @@ export function RegisterGaslitePage({
   const isOwner = Boolean(
     owner && owner.toLowerCase() === account.address?.toLowerCase(),
   );
-  const registered =
-    registry && "whitelisted" in registry && registry.whitelisted;
+  const onchainRegistered = Boolean(
+    registry && "whitelisted" in registry && registry.whitelisted,
+  );
   const registration = useMutation({
     retry: false,
-    mutationFn: async () => {
+    onSuccess: () => setReviewed(false),
+    mutationFn: async (kind: "register" | "revoke") => {
+      const revoke = kind === "revoke";
       if (!client || !account.address || !reviewed)
         throw new Error(
           "Connect the collection owner and review the registration.",
@@ -66,16 +69,16 @@ export function RegisterGaslitePage({
       const initial = await inspectCollection(client, collection, helper);
       if (initial.owner?.toLowerCase() !== sender.toLowerCase())
         throw new Error(
-          "Only the current collection owner can register GasliteDrop.",
+          `Only the current collection owner can ${revoke ? "revoke" : "register"} GasliteDrop.`,
         );
       if (!initial.registry?.policy)
         throw new Error(
           "This collection does not expose a supported OpenSea transfer registry.",
         );
-      if (initial.registry.whitelisted) {
-        setMessage("GasliteDrop is already registered.");
-        return;
-      }
+      if (initial.registry.whitelisted !== revoke)
+        throw new Error(
+          "GasliteDrop registration changed. Reload and review again.",
+        );
       const address = initial.registry.address;
       const policy = initial.registry.policy;
       const sourceId = policy.operatorWhitelistId;
@@ -181,7 +184,7 @@ export function RegisterGaslitePage({
       setReceipts([
         { label: "Copied registry list", hash: copyReceipt.transactionHash },
       ]);
-      async function assertCopy(added: boolean) {
+      async function assertCopy(changed: boolean) {
         const [listOwner, whitelist, blacklist, authorizers] =
           await Promise.all([
             client!.readContract({
@@ -209,7 +212,13 @@ export function RegisterGaslitePage({
               args: [id],
             }),
           ]);
-        const expected = added ? [...source[0], helper] : source[0];
+        const expected = !changed
+          ? source[0]
+          : revoke
+            ? source[0].filter(
+                (entry) => entry.toLowerCase() !== helper.toLowerCase(),
+              )
+            : [...source[0], helper];
         if (
           listOwner.toLowerCase() !== sender.toLowerCase() ||
           !sameAccounts(whitelist, expected) ||
@@ -223,14 +232,18 @@ export function RegisterGaslitePage({
       await assertCopy(false);
       await assertSource();
       setMessage(
-        "2 of 3 · Confirm adding GasliteDrop to the copied allowlist.",
+        revoke
+          ? "2 of 3 · Confirm removing GasliteDrop from the copied allowlist."
+          : "2 of 3 · Confirm adding GasliteDrop to the copied allowlist.",
       );
       const add = await simulateContract(config, {
         chainId,
         account: sender,
         address,
         abi: iAirdropTransferRegistryAbi,
-        functionName: "addAccountToWhitelist",
+        functionName: revoke
+          ? "removeAccountFromWhitelist"
+          : "addAccountToWhitelist",
         args: [id, helper],
       });
       assertWallet();
@@ -239,11 +252,31 @@ export function RegisterGaslitePage({
         hash: addHash,
       });
       if (addReceipt.status !== "success")
-        throw new Error("Adding GasliteDrop reverted.");
+        throw new Error(
+          `${revoke ? "Removing" : "Adding"} GasliteDrop reverted.`,
+        );
+      const updated = parseEventLogs({
+        abi: iAirdropTransferRegistryAbi,
+        eventName: revoke ? "RemovedAccountFromList" : "AddedAccountToList",
+        logs: addReceipt.logs,
+      }).filter(
+        (event) =>
+          event.address.toLowerCase() === address.toLowerCase() &&
+          event.args.kind === 1 && // OpenSea's OperatorList enum value.
+          event.args.id === id &&
+          event.args.account.toLowerCase() === helper.toLowerCase(),
+      );
+      if (updated.length !== 1)
+        throw new Error(
+          "The receipt does not confirm the GasliteDrop allowlist change. The copy has not been applied.",
+        );
       await assertCopy(true);
       setReceipts((previous) => [
         ...previous,
-        { label: "Added GasliteDrop", hash: addReceipt.transactionHash },
+        {
+          label: revoke ? "Removed GasliteDrop" : "Added GasliteDrop",
+          hash: addReceipt.transactionHash,
+        },
       ]);
       await assertSource();
       setMessage(
@@ -276,7 +309,7 @@ export function RegisterGaslitePage({
       );
       if (applied.length !== 1)
         throw new Error(
-          "The receipt does not confirm registration for this collection. Check your wallet transaction.",
+          `The receipt does not confirm ${revoke ? "revocation" : "registration"} for this collection. Check your wallet transaction.`,
         );
       await assertCopy(true);
       const after = await info.refetch();
@@ -289,21 +322,28 @@ export function RegisterGaslitePage({
         final.policy.transferSecurityLevel !== policy.transferSecurityLevel ||
         final.policy.permittedContractReceiversId !==
           policy.permittedContractReceiversId ||
+        after.data?.owner?.toLowerCase() !== sender.toLowerCase() ||
         !("whitelisted" in final) ||
-        !final.whitelisted
+        final.whitelisted !== !revoke
       )
         throw new Error(
-          "Registration was not confirmed in the collection's current registry.",
+          `${revoke ? "Revocation" : "Registration"} was not confirmed in the collection's current registry.`,
         );
       setReceipts((previous) => [
         ...previous,
         { label: "Applied to collection", hash: applyReceipt.transactionHash },
       ]);
       setMessage(
-        "GasliteDrop registered. The NFT holder can now prepare the airdrop.",
+        revoke
+          ? "GasliteDrop registration revoked for this collection."
+          : "GasliteDrop registered. The NFT holder can now prepare the airdrop.",
       );
     },
   });
+  // Keep the current action visible until all three library receipts are reconciled.
+  const registered = registration.isPending
+    ? registration.variables === "revoke"
+    : onchainRegistered;
   const error = registration.error ?? info.error ?? switchChain.error;
   return (
     <section className="page-shell">
@@ -315,11 +355,15 @@ export function RegisterGaslitePage({
           for your airdrop.
         </h1>
         <p>
-          Register GasliteDrop with your collection&apos;s OpenSea transfer
-          registry.
+          {registered ? "Revoke" : "Register"} GasliteDrop
+          {registered ? " from" : " with"} your collection&apos;s OpenSea
+          transfer registry.
         </p>
       </header>
-      <section className={styles.panel} aria-label="Register GasliteDrop">
+      <section
+        className={styles.panel}
+        aria-label={registered ? "Revoke GasliteDrop" : "Register GasliteDrop"}
+      >
         <h2>{info.data?.name ?? "NFT collection"}</h2>
         <p className={styles.address}>Collection: {collection}</p>
         <p className={styles.address}>GasliteDrop: {helper}</p>
@@ -343,12 +387,13 @@ export function RegisterGaslitePage({
             GasliteDrop is already registered for this collection.
           </p>
         )}
-        {!registered && registry?.policy && (
+        {registry?.policy && (
           <>
             <p>
-              Three wallet confirmations: copy the current list, add
-              GasliteDrop, then apply the copy. Existing allowlisted operators,
-              blocked accounts, authorizers and security policy are preserved.
+              Three wallet confirmations: copy the current list,{" "}
+              {registered ? "remove GasliteDrop" : "add GasliteDrop"}, then
+              apply the copy. Other allowlisted operators, blocked accounts,
+              authorizers and security policy are preserved.
             </p>
             <p>
               The new list belongs to you. Future changes to the old shared list
@@ -362,8 +407,9 @@ export function RegisterGaslitePage({
               </p>
             ) : !isOwner ? (
               <p role="alert">
-                Only the collection owner shown above can register GasliteDrop.
-                Switch to that wallet.
+                Only the collection owner shown above can{" "}
+                {registered ? "revoke" : "register"} GasliteDrop. Switch to that
+                wallet.
               </p>
             ) : null}
             {account.isConnected && account.chainId !== chainId && (
@@ -383,8 +429,9 @@ export function RegisterGaslitePage({
                 onChange={(event) => setReviewed(event.target.checked)}
               />
               <span>
-                I reviewed the collection and GasliteDrop addresses and agree to
-                use a new owner-controlled registry list.
+                I reviewed the collection and GasliteDrop addresses and agree to{" "}
+                {registered ? "revoke" : "register"} GasliteDrop using a new
+                owner-controlled registry list.
               </span>
             </label>
             <button
@@ -396,11 +443,15 @@ export function RegisterGaslitePage({
                 registration.isPending ||
                 info.isFetching
               }
-              onClick={() => registration.mutate()}
+              onClick={() =>
+                registration.mutate(registered ? "revoke" : "register")
+              }
             >
               {registration.isPending
                 ? "Confirm in your wallet…"
-                : "Register GasliteDrop"}
+                : registered
+                  ? "Revoke GasliteDrop"
+                  : "Register GasliteDrop"}
             </button>
           </>
         )}
