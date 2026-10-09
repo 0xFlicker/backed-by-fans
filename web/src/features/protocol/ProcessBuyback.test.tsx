@@ -103,7 +103,7 @@ it("uses the exact simulated wagmi write, viem receipt and canonical burn postco
   expect(await screen.findByText(/Burn complete/)).toHaveTextContent(
     "Burn complete. 2,342.738 BBFFORK permanently removed from supply.",
   );
-  expect(screen.getByTitle("2342.73792699031355177 BBFFORK")).toBeVisible();
+  expect(screen.getByTitle("2,342.738 BBFFORK")).toBeVisible();
   expect(mocked.write).toHaveBeenCalledWith(
     (await mocked.simulate.mock.results[0].value).request,
   );

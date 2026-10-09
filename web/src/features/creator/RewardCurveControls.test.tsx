@@ -52,8 +52,8 @@ describe("published reward curve summaries", () => {
   );
 
   it.each([
-    [5_000_000_000n, "Some", "10000"],
-    [10_000_000_000n, "Custom", "20000"],
+    [5_000_000_000n, "Some", "10,000"],
+    [10_000_000_000n, "Custom", "20,000"],
   ])(
     "uses displayed PWYW units for the %s raw window",
     (gross, label, displayed) => {

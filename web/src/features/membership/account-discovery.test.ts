@@ -470,7 +470,7 @@ describe("bounded account discovery", () => {
     expect(page.skipped).toEqual([]);
   });
 
-  it("inspects the no-Multicall fallback one tier at a time", async () => {
+  it("reads the captured page concurrently without Multicall and reports each unverified tier", async () => {
     let active = 0;
     let maximumActive = 0;
     vi.mocked(verifyTierAuthenticity).mockImplementation(
@@ -488,9 +488,27 @@ describe("bounded account discovery", () => {
       },
     );
     const { client } = createClient();
-    await discoverAccountPage(client, { deployment, wallet, offset: 0n });
-    expect(maximumActive).toBe(1);
+    const page = await discoverAccountPage(client, {
+      deployment,
+      wallet,
+      offset: 0n,
+    });
+    expect(maximumActive).toBe(2);
     expect(verifyTierAuthenticity).toHaveBeenCalledTimes(2);
+    for (const tier of [tierA, tierB])
+      expect(verifyTierAuthenticity).toHaveBeenCalledWith(client, {
+        deployment,
+        tier,
+        blockNumber: 80n,
+      });
+    expect(page.results).toEqual([]);
+    expect(page.scannedTiers).toEqual([]);
+    expect(page.skipped).toEqual([
+      expect.stringContaining(tierA),
+      expect.stringContaining(tierB),
+    ]);
+    expect(page.capturedBlock).toBe(80n);
+    expect(page.nextOffset).toBe(2n);
   });
 
   it("batches authenticated reads without adding a renderer registry requirement", async () => {
