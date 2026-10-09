@@ -39,6 +39,10 @@ export default defineConfig({
       exclude: ["vesting-leaf/**", "agents/**", "interfaces/IERC165.sol/**"],
       include: [
         "TestUSDG.sol/**",
+        "GasliteDrop.sol/**",
+        "IERC721.sol/**",
+        "IERC721Metadata.sol/**",
+        "IAirdropTransferRegistry.sol/**",
         "MembershipTier.sol/**",
         "OnchainMediaStoreFactory.sol/**",
         "OnchainMetadataRenderer.sol/**",

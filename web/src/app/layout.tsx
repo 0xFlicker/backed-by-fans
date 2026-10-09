@@ -72,6 +72,7 @@ export default async function RootLayout({
               <Link href="/account">My account</Link>
               <Link href="/create">For creators</Link>
               <Link href="/skill">Make art</Link>
+              <Link href="/chains/4663/airdrop">Airdrop</Link>
             </nav>
             <WalletControl />
           </header>
@@ -83,6 +84,9 @@ export default async function RootLayout({
               <BackingStackMark className="footer-mark" />
               <p>Creator-owned. Backed By Fans.</p>
             </div>
+            <a href="https://x.com/BackedByFans" rel="me">
+              Follow on X
+            </a>
           </footer>
         </AppProviders>
       </body>

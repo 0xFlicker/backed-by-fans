@@ -92,11 +92,19 @@ describe("buildPublicConfig", () => {
     ).toThrow("Canonical renderer address for chain 46630");
   });
 
-  it("enables Anvil only when its complete ephemeral configuration exists", () => {
+  it("allows standalone tools on Anvil without claiming a membership deployment", () => {
+    const toolConfig = buildPublicConfig(
+      { anvilRpcUrl: "http://127.0.0.1:8545" },
+      {},
+    );
+    expect(toolConfig.anvilRpcUrl).toBe("http://127.0.0.1:8545");
+    expect(getDeployment(toolConfig, localAnvil.id).status).toBe("unavailable");
     expect(() =>
-      buildPublicConfig({ anvilRpcUrl: "http://127.0.0.1:8545" }, {}),
+      buildPublicConfig({ anvilFactoryAddress: anvilFactory }, {}),
     ).toThrow("Anvil configuration requires");
+  });
 
+  it("enables Anvil membership deployment with complete ephemeral configuration", () => {
     const config = buildPublicConfig(
       {
         anvilRpcUrl: "http://127.0.0.1:8545",
