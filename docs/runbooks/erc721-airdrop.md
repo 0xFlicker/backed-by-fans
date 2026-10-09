@@ -229,7 +229,17 @@ collection approval and transfer until creator setup succeeds. The deployment
 wallet `0xbE0032Fc13718aB554236c3Bd9446F6b5c9b9027` currently holds zero NFTs
 in this collection; testing a real distribution requires the wallet holding
 the assigned token IDs. No registry write or NFT transfer was broadcast by the
-agent. Explorer source verification remains outstanding.
+agent.
+
+Source verification completed on 2026-10-08 (2026-10-09 UTC). Sourcify confirms
+an exact match for both creation and runtime bytecode, including metadata:
+[verified source](https://repo.sourcify.dev/4663/0xfd2a05704Ffc1dB63c49BBA4E05dcb0d96Df26Bc).
+RobinScan also reports **Source Code Verified — Exact Match**:
+[RobinScan contract](https://robin.etherscan.io/address/0xfd2a05704Ffc1dB63c49BBA4E05dcb0d96Df26Bc#code).
+Both show Solidity `0.8.36+commit.8a079791`, Cancun and 200 optimizer runs.
+The Blockscout direct API was blocked by Cloudflare, and its own source
+verification status was still absent at the final check. Source verification
+does not establish a security audit or authorize registry changes.
 
 Open `http://127.0.0.1:3111/chains/4663/airdrop` to prepare the real recipient list and
 connect its NFT holder on Robinhood mainnet. The collection owner can first
@@ -328,3 +338,21 @@ The scoped read-only Grok review produced no response after several minutes
 and was stopped. It did not provide findings or an independent review result.
 Evidence is retained under `artifacts/erc721-airdrop/registration-*` and
 `artifacts/erc721-airdrop/register-*`.
+
+## Pull request validation
+
+The final PR check on 2026-10-08 passed all 54 focused web tests, 12 Gaslite
+contract tests (including 256 fuzz cases), desktop and phone local wallet
+approval/transfer/revocation tests, generated-binding drift checking, full web
+formatting and lint, type checking, and Foundry formatting. Scoped Slither
+analysis of Gaslite passed its high-severity gate; it reported only assembly
+usage and upstream parameter naming. The production build and actual-registry
+desktop/phone fork registration checks passed during feature preparation.
+
+The full web suite passed 911 tests and failed the same six tests previously
+reproduced at the starting revision: `CatalogExplorer`, two
+`RewardCurveControls` cases, `account-discovery`, `RendererLab`, and
+`ProcessBuyback`. These remain outside this feature. The PR is stacked on the
+holder-airdrop fix branch from PR #14 so those earlier contract fixes are not
+included in its review diff. This verification did not submit a public registry
+transaction, distribute mainnet NFTs, or publish the website.
