@@ -29,6 +29,12 @@
   font-size: 1.3rem;
   margin: 0 0 1.25rem;
 }
+.notice {
+  border: 1px solid var(--line);
+  padding: 1rem;
+  margin-block: 1rem;
+  border-radius: 0.4rem;
+}
 .field {
   display: grid;
   gap: 0.5rem;

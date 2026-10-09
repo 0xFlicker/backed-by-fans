@@ -19,13 +19,7 @@ import {
   type Address,
   type Hash,
 } from "viem";
-import {
-  gasliteDropAbi,
-  ierc721Abi,
-  ierc721MetadataAbi,
-  iAirdropCreatorCollectionAbi,
-  iAirdropTransferRegistryAbi,
-} from "@/contracts";
+import { gasliteDropAbi, ierc721Abi } from "@/contracts";
 import {
   airdropBatchSize,
   airdropCollection,
@@ -35,6 +29,8 @@ import {
 import { getSupportedChain, type SupportedChainId } from "@/lib/chains";
 import { useHydratedAccount } from "@/lib/use-hydrated-account";
 import styles from "./ERC721AirdropPage.module.css";
+import { useAirdropCollection } from "./useAirdropCollection";
+import { ShareRegistration } from "./ShareRegistration";
 
 function errorText(error: unknown) {
   const message =
@@ -73,8 +69,8 @@ function AirdropForm({
   const write = useWriteContract();
   const switchChain = useSwitchChain();
   const chain = getSupportedChain(chainId);
-  const [collectionText, setCollectionText] =
-    useState<string>(airdropCollection);
+  const [collectionText, setCollectionText] = useState("");
+  const [collectionFocused, setCollectionFocused] = useState(false);
   const [mode, setMode] = useState<"pairs" | "addresses">("pairs");
   const [firstId, setFirstId] = useState("");
   const [list, setList] = useState("");
@@ -86,6 +82,7 @@ function AirdropForm({
   const collection = isAddress(collectionText)
     ? getAddress(collectionText)
     : undefined;
+  const collectionInfo = useAirdropCollection(chainId, collection, helper);
   const approval = useReadContract({
     chainId,
     address: collection,
@@ -169,57 +166,33 @@ function AirdropForm({
       delivered,
     ],
     enabled: Boolean(
-      client && helper && collection && account.address && parsed.rows.length,
+      client &&
+      helper &&
+      collection &&
+      account.address &&
+      parsed.rows.length &&
+      collectionInfo.isSuccess,
     ),
     retry: false,
     queryFn: async () => {
       if (!client || !helper || !collection || !account.address)
         throw new Error("Connect your wallet.");
-      const [helperCode, supports, approved, name, gasBalance] =
-        await Promise.all([
-          client.getCode({ address: helper }),
-          client.readContract({
-            address: collection,
-            abi: ierc721Abi,
-            functionName: "supportsInterface",
-            args: ["0x80ac58cd"],
-          }),
-          client.readContract({
-            address: collection,
-            abi: ierc721Abi,
-            functionName: "isApprovedForAll",
-            args: [account.address, helper],
-          }),
-          client.readContract({
-            address: collection,
-            abi: ierc721MetadataAbi,
-            functionName: "name",
-          }),
-          client.getBalance({ address: account.address }),
-        ]);
+      if (collectionInfo.data?.registry?.status === "blocked")
+        throw new Error(
+          "The creator must authorize this helper in the collection's transfer registry before you approve or send NFTs.",
+        );
+      const [helperCode, approved, gasBalance] = await Promise.all([
+        client.getCode({ address: helper }),
+        client.readContract({
+          address: collection,
+          abi: ierc721Abi,
+          functionName: "isApprovedForAll",
+          args: [account.address, helper],
+        }),
+        client.getBalance({ address: account.address }),
+      ]);
       if (!helperCode || helperCode === "0x")
         throw new Error("The helper has no deployed code on this network.");
-      if (!supports)
-        throw new Error("This collection does not support ERC721.");
-      if (collection === airdropCollection) {
-        const validator = await client.readContract({
-          address: collection,
-          abi: iAirdropCreatorCollectionAbi,
-          functionName: "getTransferValidator",
-        });
-        if (validator !== "0x0000000000000000000000000000000000000000") {
-          const allowed = await client.readContract({
-            address: validator,
-            abi: iAirdropTransferRegistryAbi,
-            functionName: "isAccountWhitelistedByCollection",
-            args: [collection, helper],
-          });
-          if (!allowed)
-            throw new Error(
-              "The creator must authorize this helper in the collection's transfer registry before you approve or send NFTs.",
-            );
-        }
-      }
       await checkOwnership(remaining, account.address, collection);
       let estimatedFee: bigint | undefined;
       if (approved && next.length) {
@@ -236,7 +209,7 @@ function AirdropForm({
         });
         estimatedFee = gas * (await client.getGasPrice());
       }
-      return { approved, name, gasBalance, estimatedFee };
+      return { approved, gasBalance, estimatedFee };
     },
   });
 
@@ -250,6 +223,13 @@ function AirdropForm({
       if (kind === "send") {
         if (!reviewed || !remaining.length || parsed.error)
           throw new Error("Review the recipient list first.");
+        const info = await collectionInfo.refetch();
+        if (info.error || !info.data)
+          throw info.error ?? new Error("Could not read the collection.");
+        if (info.data.registry?.status === "blocked")
+          throw new Error(
+            "The creator must authorize this helper before sending NFTs.",
+          );
         const fresh = await readiness.refetch();
         if (fresh.error || !fresh.data)
           throw fresh.error ?? new Error("Could not validate this list.");
@@ -404,12 +384,19 @@ function AirdropForm({
               NFT collection
               <input
                 value={collectionText}
+                placeholder={
+                  collectionFocused
+                    ? ""
+                    : `Gentlemen Prefer Blondes · ${airdropCollection}`
+                }
+                onFocus={() => setCollectionFocused(true)}
+                onBlur={() => setCollectionFocused(false)}
                 spellCheck={false}
                 onChange={(event) =>
                   edit(() => setCollectionText(event.target.value.trim()))
                 }
               />
-              {!collection && (
+              {collectionText && !collection && (
                 <span className={styles.error}>
                   Enter a valid contract address.
                 </span>
@@ -532,21 +519,42 @@ function AirdropForm({
         </section>
         <section className={styles.panel} aria-label="Review and send">
           <h2>02 / Review &amp; send</h2>
-          <p>
-            {readiness.data?.name ??
-              (collection === airdropCollection
-                ? "Gentlemen Prefer Blondes"
-                : "Your NFT collection")}
-          </p>
-          <p className={styles.address}>
-            <a
-              href={`${chain.blockExplorers?.default.url}/address/${collection ?? airdropCollection}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {collection ?? collectionText} ↗
-            </a>
-          </p>
+          <p>{collectionInfo.data?.name ?? "Your NFT collection"}</p>
+          {collection && (
+            <p className={styles.address}>
+              <a
+                href={`${chain.blockExplorers?.default.url}/address/${collection}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {collection} ↗
+              </a>
+            </p>
+          )}
+          {collectionInfo.isFetching && (
+            <p role="status">Checking collection and transfer registry…</p>
+          )}
+          {collectionInfo.error && (
+            <p role="alert" className={styles.error}>
+              {errorText(collectionInfo.error)}
+            </p>
+          )}
+          {collection &&
+            collectionInfo.data?.registry?.status === "blocked" && (
+              <ShareRegistration
+                key={collection}
+                chainId={chainId}
+                collection={collection}
+                owner={collectionInfo.data.owner}
+              />
+            )}
+          {collectionInfo.data?.registry?.status === "unsupported" && (
+            <p className={styles.hint}>
+              This collection uses a transfer validator that this registration
+              tool does not support. Contact the collection owner if transfer
+              simulation fails.
+            </p>
+          )}
           {helper ? (
             <p className={styles.hint}>
               GasliteDrop:{" "}
@@ -661,6 +669,9 @@ function AirdropForm({
                 account.chainId !== chainId ||
                 !reviewed ||
                 !remaining.length ||
+                !collectionInfo.isSuccess ||
+                collectionInfo.isFetching ||
+                collectionInfo.data?.registry?.status === "blocked" ||
                 !readiness.data ||
                 Boolean(readiness.error) ||
                 readiness.isFetching

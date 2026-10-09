@@ -1,7 +1,7 @@
 # ERC721 airdrop on Robinhood mainnet
 
-The `/airdrop` page starts with Gentlemen Prefer Blondes,
-`0x11F4eF611DC2689e0fdB1a9A090822Ad5dEd0747`, on Robinhood mainnet (4663).
+The `/chains/4663/airdrop` page accepts any ERC721 contract. Gentlemen Prefer Blondes,
+`0x11F4eF611DC2689e0fdB1a9A090822Ad5dEd0747`, is an empty placeholder that disappears on focus. The public tool is available on Robinhood mainnet (4663); networks without a generated Gaslite deployment return 404.
 It transfers existing NFTs from the connected holder. The collection owner is
 not necessarily the holder of the NFTs to distribute.
 
@@ -111,7 +111,7 @@ For a standalone local review, start a separate Anvil with chain 31337, then run
 from `web/`. It refuses public endpoints and creates a mock ERC721 with IDs 1 and
 2 owned by the first unlocked Anvil account. Start the website with that same
 `NEXT_PUBLIC_ANVIL_RPC_URL` and the printed helper address as
-`NEXT_PUBLIC_ANVIL_GASLITE_DROP_ADDRESS`. Open `/chains/31337/tools/airdrop`, enter
+`NEXT_PUBLIC_ANVIL_GASLITE_DROP_ADDRESS`. Open `/chains/31337/airdrop`, enter
 the printed mock NFT address, and connect the printed test sender. This fixture
 is independent of membership-factory deployment and is not the live collection.
 
@@ -199,7 +199,7 @@ simulated Gaslite on mainnet without a signer or broadcast. The executable
 runtime matches the benchmark's compiler-only Gaslite control. Evidence is
 retained in `artifacts/erc721-airdrop/gaslite-*`.
 
-The updated local fixture is at `http://127.0.0.1:3111/chains/31337/tools/airdrop`
+The updated local fixture is at `http://127.0.0.1:3111/chains/31337/airdrop`
 with Gaslite `0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9` and test NFT
 `0x5FC8d32690cc91D4c39d9d3abcBD16989F875707`. These are disposable Anvil
 addresses, not public deployments. Token IDs 1 and 2 remain with the seeded
@@ -231,7 +231,7 @@ in this collection; testing a real distribution requires the wallet holding
 the assigned token IDs. No registry write or NFT transfer was broadcast by the
 agent. Explorer source verification remains outstanding.
 
-Open `http://127.0.0.1:3111/airdrop` to prepare the real recipient list and
+Open `http://127.0.0.1:3111/chains/4663/airdrop` to prepare the real recipient list and
 connect its NFT holder on Robinhood mainnet. The collection owner can first
 simulate the separate authorization using:
 
@@ -243,7 +243,7 @@ node scripts/deploy-erc721-airdrop.mjs --authorize \
 
 The restored disposable fixture uses the same Gaslite build on chain 31337 at
 `http://127.0.0.1:18558`. Open
-`http://127.0.0.1:3111/chains/31337/tools/airdrop`, enter test collection
+`http://127.0.0.1:3111/chains/31337/airdrop`, enter test collection
 `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`, and connect the local sender
 `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`. Local Gaslite is
 `0x5FbDB2315678afecb367f032d93F642f64180aa3`. This replaces the earlier
@@ -264,3 +264,67 @@ The generated bindings, type check, 36 focused tests, desktop/phone local wallet
 flows, formatting, and production build passed after public-address generation.
 The mainnet page was opened and its deployed helper link verified in the app
 browser; no connected-wallet mainnet transfer was attempted.
+
+## Collection owner registration page
+
+Share `/chains/4663/airdrop/register/COLLECTION_ADDRESS` with the current
+collection owner. Any valid ERC721 address can be entered in the airdrop form.
+The collection inspection runs without a connected wallet or recipient list.
+It reads `getTransferValidator`, the supported registry policy, collection
+owner and declared transfer-validation selector. An `eth_call` from the
+collection to the validator probes Gaslite as the operator. Only a decoded
+operator restriction produces the owner registration prompt. Missing optional
+methods do not imply an RPC failure; transport failures remain visible. Unknown
+validators are not represented as unrestricted, and actual batch simulation
+still checks the selected NFTs and recipients.
+
+The Share registration link button uses native sharing when available and
+copies the full URL to the clipboard otherwise. Cancelling native sharing
+leaves the clipboard alone. The link remains visible if sharing and copying
+both fail.
+
+The registration page requires the current collection owner on the selected
+chain and an explicit review checkbox. It uses the registry's native
+`createListCopy` rather than rebuilding lists in JavaScript. Three separately
+simulated wallet confirmations copy the current list, add Gaslite to the copy,
+then apply the copy to the collection. Each exact wagmi simulation request is
+passed to wagmi's write action; viem supplies receipts. The actual new list ID
+comes from the confirmed `CreatedList` event, not the simulation's predicted
+return. The page verifies list ownership and all copied lists, checks the source
+configuration before each step, and requires the final
+`AppliedListToCollection` receipt plus the current collection policy and
+allowlist before reporting success. There is no persisted transaction state.
+A cancelled or failed attempt before application leaves the collection on its
+original list; restarting can leave an unused owner-controlled copied list.
+Future updates to the old shared list no longer propagate after application.
+The page states this before signing.
+
+OpenSea registry method/event signatures were checked against its verified
+Robinhood source at
+[StrictAuthorizedTransferSecurityRegistry](https://robinhoodchain.blockscout.com/address/0xA000027A9B2802E1ddf7000061001e5c005A0000?tab=contract).
+Creator validation conventions are documented by
+[OpenSea](https://docs.opensea.io/docs/creator-fee-enforcement).
+
+The deprecated `/airdrop` and `/chains/CHAIN_ID/tools/airdrop` routes are removed.
+The navigation now points directly to `/chains/4663/airdrop`. Disposable local
+fixtures use `/chains/31337/airdrop` only when a local helper is configured.
+
+Registration verification on 2026-10-08 passed 54 focused tests, the existing
+12 local Gaslite contract tests, generated-binding drift checks, type checking,
+targeted lint/formatting and the production build. Desktop and phone each
+completed owner registration against actual collection/registry state on a
+separate fork at block 83,710,212, executing as chain 31337 at port 18560.
+The tests checked copied allowlists, blacklists and authorizers, unchanged
+security policy, ownership of the new list and the applied collection list.
+Snapshots were restored. Both desktop and phone also completed the existing
+approval/transfer/revoke flow on the separate bare Anvil fixture at port 18558.
+The normal UI remains at port 3111 using that bare Anvil fixture for local tools;
+the public-chain pages read mainnet. The established protocol review ports were
+not changed. The mainnet owner prompt and registration page were inspected in
+the app browser without connecting a signing wallet. No public registry write,
+NFT transfer or website publication occurred.
+
+The scoped read-only Grok review produced no response after several minutes
+and was stopped. It did not provide findings or an independent review result.
+Evidence is retained under `artifacts/erc721-airdrop/registration-*` and
+`artifacts/erc721-airdrop/register-*`.

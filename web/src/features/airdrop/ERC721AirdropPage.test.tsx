@@ -1,8 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { encodeEventTopics, type Address, type Hash } from "viem";
-import { ierc721Abi } from "@/contracts";
+import {
+  ContractFunctionRevertedError,
+  encodeErrorResult,
+  encodeEventTopics,
+  type Address,
+  type Hash,
+} from "viem";
+import { ierc721Abi, iAirdropTransferRegistryAbi } from "@/contracts";
+import { airdropCollection } from "@/lib/airdrop";
 import { ERC721AirdropPage } from "./ERC721AirdropPage";
 
 const m = vi.hoisted(() => ({
@@ -108,6 +115,9 @@ function mount(helper: Address | undefined = m.helper) {
       <ERC721AirdropPage chainId={4663} helper={helper} />
     </QueryClientProvider>,
   );
+  fireEvent.change(screen.getByLabelText("NFT collection"), {
+    target: { value: airdropCollection },
+  });
 }
 
 async function prepare(count = 2) {
@@ -137,6 +147,28 @@ beforeEach(() => {
     if (functionName === "isApprovedForAll") return m.approved;
     if (functionName === "name") return "Gentlemen Prefer Blondes";
     if (functionName === "getTransferValidator") return m.helper;
+    if (functionName === "owner") return m.sender;
+    if (functionName === "getTransferValidationFunction")
+      return ["0xcaee23ea", true];
+    if (functionName === "getCollectionSecurityPolicy")
+      return {
+        transferSecurityLevel: 3,
+        operatorWhitelistId: 1n,
+        permittedContractReceiversId: 0n,
+      };
+    if (functionName === "validateTransfer") {
+      if (!m.allowed)
+        throw new ContractFunctionRevertedError({
+          abi: iAirdropTransferRegistryAbi,
+          functionName: "validateTransfer",
+          data: encodeErrorResult({
+            abi: iAirdropTransferRegistryAbi,
+            errorName:
+              "StrictAuthorizedTransferSecurityRegistry__UnauthorizedTransfer",
+          }),
+        });
+      return undefined;
+    }
     if (functionName === "isAccountWhitelistedByCollection") return m.allowed;
     throw new Error(`Unexpected read ${functionName}`);
   });

@@ -30,7 +30,7 @@ test("reviews assignments and sends a real local ERC721 batch through the connec
   const snapshot = await snapshotAnvil();
   try {
     await installAnvilWallet(page, sender);
-    await page.goto("/chains/31337/tools/airdrop");
+    await page.goto("/chains/31337/airdrop");
     await expect(
       page.getByRole("heading", { name: /Send a little/ }),
     ).toBeVisible();

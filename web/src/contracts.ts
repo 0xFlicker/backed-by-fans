@@ -71,6 +71,16 @@ export const iAirdropCreatorCollectionAbi = [
   {
     type: "function",
     inputs: [],
+    name: "getTransferValidationFunction",
+    outputs: [
+      { name: "functionSignature", internalType: "bytes4", type: "bytes4" },
+      { name: "isViewFunction", internalType: "bool", type: "bool" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [],
     name: "getTransferValidator",
     outputs: [{ name: "", internalType: "address", type: "address" }],
     stateMutability: "view",
@@ -132,6 +142,17 @@ export const iAirdropTransferRegistryAbi = [
   {
     type: "function",
     inputs: [
+      { name: "caller", internalType: "address", type: "address" },
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+    ],
+    name: "applyCollectionTransferPolicy",
+    outputs: [],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
       { name: "collection", internalType: "address", type: "address" },
       { name: "id", internalType: "uint120", type: "uint120" },
     ],
@@ -148,6 +169,23 @@ export const iAirdropTransferRegistryAbi = [
   },
   {
     type: "function",
+    inputs: [
+      { name: "name", internalType: "string", type: "string" },
+      { name: "sourceListId", internalType: "uint120", type: "uint120" },
+    ],
+    name: "createListCopy",
+    outputs: [{ name: "", internalType: "uint120", type: "uint120" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "id", internalType: "uint120", type: "uint120" }],
+    name: "getAuthorizerAccounts",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [{ name: "collection", internalType: "address", type: "address" }],
     name: "getAuthorizerAccountsByCollection",
     outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
@@ -155,8 +193,53 @@ export const iAirdropTransferRegistryAbi = [
   },
   {
     type: "function",
+    inputs: [{ name: "id", internalType: "uint120", type: "uint120" }],
+    name: "getBlacklistedAccounts",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     inputs: [{ name: "collection", internalType: "address", type: "address" }],
     name: "getBlacklistedAccountsByCollection",
+    outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "collection", internalType: "address", type: "address" }],
+    name: "getCollectionSecurityPolicy",
+    outputs: [
+      {
+        name: "",
+        internalType:
+          "struct IAirdropTransferRegistry.CollectionSecurityPolicy",
+        type: "tuple",
+        components: [
+          {
+            name: "transferSecurityLevel",
+            internalType: "uint8",
+            type: "uint8",
+          },
+          {
+            name: "operatorWhitelistId",
+            internalType: "uint120",
+            type: "uint120",
+          },
+          {
+            name: "permittedContractReceiversId",
+            internalType: "uint120",
+            type: "uint120",
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "id", internalType: "uint120", type: "uint120" }],
+    name: "getWhitelistedAccounts",
     outputs: [{ name: "", internalType: "address[]", type: "address[]" }],
     stateMutability: "view",
   },
@@ -176,6 +259,69 @@ export const iAirdropTransferRegistryAbi = [
     name: "isAccountWhitelistedByCollection",
     outputs: [{ name: "", internalType: "bool", type: "bool" }],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [{ name: "id", internalType: "uint120", type: "uint120" }],
+    name: "listOwners",
+    outputs: [{ name: "", internalType: "address", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "caller", internalType: "address", type: "address" },
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+    ],
+    name: "validateTransfer",
+    outputs: [],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    inputs: [
+      { name: "caller", internalType: "address", type: "address" },
+      { name: "from", internalType: "address", type: "address" },
+      { name: "to", internalType: "address", type: "address" },
+      { name: "tokenId", internalType: "uint256", type: "uint256" },
+    ],
+    name: "validateTransfer",
+    outputs: [],
+    stateMutability: "view",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      {
+        name: "collection",
+        internalType: "address",
+        type: "address",
+        indexed: true,
+      },
+      { name: "id", internalType: "uint120", type: "uint120", indexed: true },
+    ],
+    name: "AppliedListToCollection",
+  },
+  {
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "id", internalType: "uint256", type: "uint256", indexed: true },
+      { name: "name", internalType: "string", type: "string", indexed: false },
+    ],
+    name: "CreatedList",
+  },
+  {
+    type: "error",
+    inputs: [],
+    name: "StrictAuthorizedTransferSecurityRegistry__CallerMustBeWhitelistedOperator",
+  },
+  {
+    type: "error",
+    inputs: [],
+    name: "StrictAuthorizedTransferSecurityRegistry__UnauthorizedTransfer",
   },
 ] as const;
 
@@ -10187,6 +10333,15 @@ export const useReadIAirdropCreatorCollection =
   /*#__PURE__*/ createUseReadContract({ abi: iAirdropCreatorCollectionAbi });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropCreatorCollectionAbi}__ and `functionName` set to `"getTransferValidationFunction"`
+ */
+export const useReadIAirdropCreatorCollectionGetTransferValidationFunction =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropCreatorCollectionAbi,
+    functionName: "getTransferValidationFunction",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropCreatorCollectionAbi}__ and `functionName` set to `"getTransferValidator"`
  */
 export const useReadIAirdropCreatorCollectionGetTransferValidator =
@@ -10211,6 +10366,24 @@ export const useReadIAirdropTransferRegistry =
   /*#__PURE__*/ createUseReadContract({ abi: iAirdropTransferRegistryAbi });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"applyCollectionTransferPolicy"`
+ */
+export const useReadIAirdropTransferRegistryApplyCollectionTransferPolicy =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "applyCollectionTransferPolicy",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getAuthorizerAccounts"`
+ */
+export const useReadIAirdropTransferRegistryGetAuthorizerAccounts =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getAuthorizerAccounts",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getAuthorizerAccountsByCollection"`
  */
 export const useReadIAirdropTransferRegistryGetAuthorizerAccountsByCollection =
@@ -10220,12 +10393,39 @@ export const useReadIAirdropTransferRegistryGetAuthorizerAccountsByCollection =
   });
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getBlacklistedAccounts"`
+ */
+export const useReadIAirdropTransferRegistryGetBlacklistedAccounts =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getBlacklistedAccounts",
+  });
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getBlacklistedAccountsByCollection"`
  */
 export const useReadIAirdropTransferRegistryGetBlacklistedAccountsByCollection =
   /*#__PURE__*/ createUseReadContract({
     abi: iAirdropTransferRegistryAbi,
     functionName: "getBlacklistedAccountsByCollection",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getCollectionSecurityPolicy"`
+ */
+export const useReadIAirdropTransferRegistryGetCollectionSecurityPolicy =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getCollectionSecurityPolicy",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"getWhitelistedAccounts"`
+ */
+export const useReadIAirdropTransferRegistryGetWhitelistedAccounts =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "getWhitelistedAccounts",
   });
 
 /**
@@ -10244,6 +10444,24 @@ export const useReadIAirdropTransferRegistryIsAccountWhitelistedByCollection =
   /*#__PURE__*/ createUseReadContract({
     abi: iAirdropTransferRegistryAbi,
     functionName: "isAccountWhitelistedByCollection",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"listOwners"`
+ */
+export const useReadIAirdropTransferRegistryListOwners =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "listOwners",
+  });
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"validateTransfer"`
+ */
+export const useReadIAirdropTransferRegistryValidateTransfer =
+  /*#__PURE__*/ createUseReadContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "validateTransfer",
   });
 
 /**
@@ -10307,6 +10525,15 @@ export const useWriteIAirdropTransferRegistryCreateList =
   });
 
 /**
+ * Wraps __{@link useWriteContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"createListCopy"`
+ */
+export const useWriteIAirdropTransferRegistryCreateListCopy =
+  /*#__PURE__*/ createUseWriteContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "createListCopy",
+  });
+
+/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__
  */
 export const useSimulateIAirdropTransferRegistry =
@@ -10364,6 +10591,41 @@ export const useSimulateIAirdropTransferRegistryCreateList =
   /*#__PURE__*/ createUseSimulateContract({
     abi: iAirdropTransferRegistryAbi,
     functionName: "createList",
+  });
+
+/**
+ * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `functionName` set to `"createListCopy"`
+ */
+export const useSimulateIAirdropTransferRegistryCreateListCopy =
+  /*#__PURE__*/ createUseSimulateContract({
+    abi: iAirdropTransferRegistryAbi,
+    functionName: "createListCopy",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__
+ */
+export const useWatchIAirdropTransferRegistryEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `eventName` set to `"AppliedListToCollection"`
+ */
+export const useWatchIAirdropTransferRegistryAppliedListToCollectionEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+    eventName: "AppliedListToCollection",
+  });
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link iAirdropTransferRegistryAbi}__ and `eventName` set to `"CreatedList"`
+ */
+export const useWatchIAirdropTransferRegistryCreatedListEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: iAirdropTransferRegistryAbi,
+    eventName: "CreatedList",
   });
 
 /**
