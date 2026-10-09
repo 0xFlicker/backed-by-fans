@@ -203,7 +203,7 @@ describe("CatalogExplorer", () => {
     expect(artwork[1]).toHaveAttribute("fetchpriority", "auto");
   });
 
-  it("shows paused state and pagination availability from the snapshot", () => {
+  it("hides paused memberships while preserving pagination from the snapshot", () => {
     if (
       initialState.status !== "ready" ||
       initialState.data.summaries.status !== "valid"
@@ -238,7 +238,14 @@ describe("CatalogExplorer", () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByText("Membership paused")).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: /Genesis Fans/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Membership paused")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No active memberships on this page."),
+    ).toBeVisible();
+    expect(screen.getByText("25 memberships")).toBeVisible();
     expect(screen.getByRole("button", { name: "Previous page" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
   });
