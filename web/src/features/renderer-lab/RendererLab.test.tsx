@@ -186,7 +186,12 @@ function renderLab(
 ) {
   return render(
     <RendererLab
-      client={{} as PublicClient}
+      client={
+        {
+          estimateContractGas: vi.fn().mockResolvedValue(21_000n),
+          getGasPrice: vi.fn().mockResolvedValue(100_000_000n),
+        } as unknown as PublicClient
+      }
       previewHarness={previewHarness}
       {...props}
     />,
@@ -415,6 +420,16 @@ describe("public renderer lab", () => {
     );
     const summary = screen.getByRole("region", { name: "Deployment summary" });
     expect(within(summary).getByText("Image size estimate")).toBeVisible();
+    expect(within(summary).getByText("4 bytes")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Deploy image" }),
+    ).not.toBeInTheDocument();
+    const storeImage = screen.getByRole("checkbox", {
+      name: /Also store this image onchain/,
+    });
+    expect(storeImage).not.toBeChecked();
+    expect(sendTransactionMock).not.toHaveBeenCalled();
+    await user.click(storeImage);
     expect(within(summary).getAllByText("4 bytes")).toHaveLength(2);
 
     await user.click(screen.getByRole("button", { name: "Deploy image" }));
